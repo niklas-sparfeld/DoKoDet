@@ -3177,6 +3177,12 @@ progress {
   font-weight: 700;
 }
 
+.pipelineRunProcessorChoice {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+}
+
 .pipelineRunSelector {
   display: grid;
   gap: 0.4rem;

@@ -62,6 +62,8 @@ def build_pipeline_composition(
     visible_card_frame_resolver: Any | None,
     visible_card_identity_classifier: Any | None,
     event_provider: EventProcessorProvider | None,
+    visible_card_providers: Any | None = None,
+    visible_card_identity_classifiers: Any | None = None,
 ) -> PipelineComposition:
     """Create shared pipeline stores and services with explicit dependencies."""
 
@@ -100,6 +102,7 @@ def build_pipeline_composition(
         recording_store,
         repository_storage,
         detector_provider=visible_card_provider,
+        detector_providers=visible_card_providers,
         frame_resolver=visible_card_frame_resolver,
         revision_store=revision_store,
         run_store=run_store,
@@ -110,6 +113,7 @@ def build_pipeline_composition(
         recording_store,
         repository_storage,
         identity_classifier=visible_card_identity_classifier,
+        identity_classifiers=visible_card_identity_classifiers,
         frame_resolver=visible_card_frame_resolver,
         revision_store=revision_store,
         run_store=run_store,

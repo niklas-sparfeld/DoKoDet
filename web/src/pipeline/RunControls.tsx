@@ -20,6 +20,7 @@ type RunStageKey = Extract<
   "events" | "visible_cards" | "visual_identities"
 >;
 type InputOrigin = "generated" | "reviewed";
+type ProcessorOrigin = "cloud" | "local";
 
 const RUN_STAGE_KEYS: readonly RunStageKey[] = [
   "events",
@@ -77,6 +78,8 @@ export function RunControls({
   const [inputOrigin, setInputOrigin] = useState<InputOrigin>(() =>
     reviewedRevisionId === null ? "generated" : "reviewed",
   );
+  const [processorOrigin, setProcessorOrigin] =
+    useState<ProcessorOrigin>("cloud");
   const [historicalRevisionId, setHistoricalRevisionId] = useState<string>("");
   const [trackedRunId, setTrackedRunId] = useState<string | null>(
     () =>
@@ -180,6 +183,7 @@ export function RunControls({
           selectedRevisionId,
           latestRun,
           inputOrigin,
+          processorOrigin,
         ),
       );
       setLiveRun(response);
@@ -295,6 +299,46 @@ export function RunControls({
                     ? "No compatible revision selected"
                     : `${inputOrigin === "reviewed" && !historicalRevisionId ? "Reviewed" : "Exact historical"} · ${selectedRevisionId}`}
                 </p>
+              ) : null}
+              {runStage === "visible_cards" ||
+              runStage === "visual_identities" ? (
+                <div className={styles.pipelineRunProcessorChoice}>
+                  <span className={styles.statusLabel}>
+                    Processor used by the next run
+                  </span>
+                  <div
+                    className={styles.pipelineToggleGroup}
+                    role="group"
+                    aria-label="Processor provider"
+                  >
+                    <button
+                      className={
+                        processorOrigin === "cloud"
+                          ? styles.pipelineToggleActive
+                          : styles.pipelineToggle
+                      }
+                      type="button"
+                      aria-pressed={processorOrigin === "cloud"}
+                      disabled={busy}
+                      onClick={() => setProcessorOrigin("cloud")}
+                    >
+                      Cloud
+                    </button>
+                    <button
+                      className={
+                        processorOrigin === "local"
+                          ? styles.pipelineToggleActive
+                          : styles.pipelineToggle
+                      }
+                      type="button"
+                      aria-pressed={processorOrigin === "local"}
+                      disabled={busy}
+                      onClick={() => setProcessorOrigin("local")}
+                    >
+                      Local
+                    </button>
+                  </div>
+                </div>
               ) : null}
             </div>
             <button
@@ -543,6 +587,7 @@ function buildRunRequest(
   inputRevisionId: string | null,
   latestRun: PipelineRun | null,
   inputOrigin: InputOrigin,
+  processorOrigin: ProcessorOrigin = "cloud",
 ): PipelineRunStartRequest {
   const request = latestRun?.request ?? {};
   const implementation =
@@ -552,8 +597,12 @@ function buildRunRequest(
       : stage === "visible_cards"
         ? { name: "visible-card-detector-adapter", version: "v1" }
         : { name: "visual-identity-classifier-adapter", version: "v1" });
-  const configuration =
-    latestRun?.configuration ?? readRecord(request.configuration) ?? {};
+  const configuration = {
+    ...(latestRun?.configuration ?? readRecord(request.configuration) ?? {}),
+    ...(stage === "visible_cards" || stage === "visual_identities"
+      ? { provider: processorOrigin === "cloud" ? "gemini" : "local" }
+      : {}),
+  };
   const extractionPolicy =
     latestRun?.extraction_policy ??
     (stage === "events"

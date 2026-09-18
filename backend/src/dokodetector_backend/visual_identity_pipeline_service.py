@@ -134,6 +134,7 @@ class VisualIdentityPipelineService:
         repository_storage: RepositoryBundleStorage,
         *,
         identity_classifier: Any | None,
+        identity_classifiers: Mapping[str, Any] | None = None,
         frame_resolver: FrameResolver | None = None,
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
@@ -148,6 +149,7 @@ class VisualIdentityPipelineService:
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
+        self.identity_classifiers = identity_classifiers
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
         if isinstance(self.max_concurrent_requests, bool) or self.max_concurrent_requests < 1:
@@ -324,7 +326,7 @@ class VisualIdentityPipelineService:
     def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
         if not isinstance(payload, Mapping):
             raise VisualIdentityPipelineInputError("The processor request must be an object.")
-        if self.classifier is None:
+        if self.classifier is None and not self.identity_classifiers:
             raise VisualIdentityPipelineInputError(
                 "The visual card identity classifier is unavailable."
             )
@@ -355,24 +357,21 @@ class VisualIdentityPipelineService:
             "implementation",
             {"name": "visual-identity-classifier-adapter", "version": "v1"},
         )
-        values.setdefault(
-            "model",
-            {"name": self.classifier.model, "version": self.classifier.version},
-        )
         configuration = values.get("configuration", {})
         if not isinstance(configuration, Mapping):
             raise VisualIdentityPipelineInputError("configuration must be an object.")
         configuration = dict(configuration)
-        configured_provider = configuration.get("provider", self.classifier.name)
-        if configured_provider != self.classifier.name:
+        requested_provider = configuration_provider(configuration)
+        classifier = self._classifier_for_selection(requested_provider)
+        if classifier is None:
             raise VisualIdentityPipelineInputError(
-                "The requested identity provider is not the configured provider."
+                "The requested visual identity processor is unavailable."
             )
-        configuration.setdefault("provider", self.classifier.name)
-        configuration.setdefault(
-            "classifier", {"name": self.classifier.name, "version": self.classifier.version}
-        )
+        configuration["provider"] = classifier.name
+        configuration["classifier"] = {"name": classifier.name, "version": classifier.version}
         values["configuration"] = configuration
+        if values.get("model") is None or requested_provider is not None:
+            values["model"] = {"name": classifier.model, "version": classifier.version}
         values.setdefault("extraction_policy", {"policy_id": "exact-event/v1"})
         if values.get("crop_policy") is None:
             values["crop_policy"] = _default_crop_policy(visible_revision.content)
@@ -390,13 +389,13 @@ class VisualIdentityPipelineService:
             raise VisualIdentityPipelineInputError(
                 "The visual identity endpoint only accepts visual-card-identity runs."
             )
-        if request.model is None or request.model.name != self.classifier.model:
+        if request.model is None or request.model.name != classifier.model:
             raise VisualIdentityPipelineInputError(
                 "The request model does not match the configured classifier."
             )
         if request.configuration.get("classifier") != {
-            "name": self.classifier.name,
-            "version": self.classifier.version,
+            "name": classifier.name,
+            "version": classifier.version,
         }:
             raise VisualIdentityPipelineInputError(
                 "The request classifier identity does not match the configured classifier."
@@ -641,17 +640,16 @@ class VisualIdentityPipelineService:
             )
         try:
             assert crop.image_bytes is not None
+            classifier = self._classifier_for_request(run.request)
+            if classifier is None:
+                raise VisualIdentityPipelineError("The visual identity classifier is unavailable.")
             request = VisualIdentityRequest(
                 card_id=card.card_id,
-                provider=self.classifier.name if self.classifier is not None else "unknown",
+                provider=classifier.name,
                 model=run.request.model.name if run.request.model is not None else "unknown",
                 crop_bytes=crop.image_bytes,
             )
-            result = self.classifier.classify(request) if self.classifier is not None else None
-            if result is None:
-                raise VisualIdentityPipelineError(
-                    "The visual identity classifier returned no result."
-                )
+            result = classifier.classify(request)
             if result.status == "unavailable":
                 return VisualIdentityOutcome(
                     card_id=card.card_id,
@@ -743,15 +741,46 @@ class VisualIdentityPipelineService:
         self, request: ProcessorRunRequest
     ) -> VisualIdentityClassifierIdentity:
         model = request.model
-        if model is None or self.classifier is None:
+        classifier = self._classifier_for_request(request)
+        if model is None or classifier is None:
             raise VisualIdentityPipelineError("The visual identity classifier identity is missing.")
         return VisualIdentityClassifierIdentity(
-            provider=self.classifier.name,
+            provider=classifier.name,
             implementation_name=request.implementation.name,
             implementation_version=request.implementation.version,
             model_name=model.name,
             model_version=model.version,
         )
+
+    def _classifier_for_selection(self, requested_provider: str | None) -> Any | None:
+        if requested_provider is None:
+            return self.classifier
+        candidates = (
+            ("gemini", "cloud")
+            if requested_provider == "cloud"
+            else ("local",)
+            if requested_provider == "local"
+            else (requested_provider,)
+        )
+        if self.identity_classifiers is not None:
+            for candidate in candidates:
+                try:
+                    classifier = self.identity_classifiers.get(candidate)
+                except (KeyError, ValueError, RuntimeError) as error:
+                    raise VisualIdentityPipelineInputError(str(error)) from error
+                if classifier is not None:
+                    return self._adapt_classifier(classifier)
+        current = self.classifier
+        if current is not None and requested_provider in {
+            current.name,
+            "cloud" if current.name == "gemini" else None,
+            "local" if current.name.startswith("local") else None,
+        }:
+            return current
+        return None
+
+    def _classifier_for_request(self, request: ProcessorRunRequest) -> Any | None:
+        return self._classifier_for_selection(configuration_provider(request.configuration))
 
     def _publish_revision(
         self, run: StoredProcessorRun, content: VisualIdentityData
@@ -914,6 +943,21 @@ class VisualIdentityPipelineService:
 
 def _implementation_id(identity: Any) -> str:
     return _safe(identity.name) + "." + _safe(identity.version)
+
+
+def configuration_provider(value: Any) -> str | None:
+    """Read the optional provider selection from a processor configuration."""
+
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise VisualIdentityPipelineInputError("configuration must be an object.")
+    provider = value.get("provider")
+    if provider is None:
+        return None
+    if not isinstance(provider, str) or not provider:
+        raise VisualIdentityPipelineInputError("configuration.provider must be a non-empty string.")
+    return provider
 
 
 def _model_id(model: ModelIdentity | None) -> str | None:

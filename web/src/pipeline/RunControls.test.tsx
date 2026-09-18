@@ -363,10 +363,61 @@ describe("RunControls", () => {
     expect(JSON.parse(String(postCalls[1]?.[1]?.body))).toMatchObject({
       request: {
         visible_card_revision_id: "visible-generated",
+        configuration: { provider: "gemini" },
         crop_policy: {
           policy_id: "predicted_visible_region",
           output_encoding: "ppm",
         },
+      },
+    });
+  });
+
+  it("allows a local processor for visible-card and identity runs", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(runResponse("visible-local-run")), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const events = stage("events", {
+      selected_generated_revision_id: "events-generated",
+    });
+    const visible = stage("visible_cards", {
+      selected_generated_revision_id: "visible-generated",
+    });
+
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={visible}
+        stages={[events, visible]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Cloud" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Local" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.find(([, init]) => init?.method === "POST"),
+      ).toBeDefined(),
+    );
+    const postCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      request: {
+        configuration: { provider: "local" },
       },
     });
   });

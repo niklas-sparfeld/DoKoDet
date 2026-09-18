@@ -96,6 +96,7 @@ class VisibleCardPipelineService:
         repository_storage: RepositoryBundleStorage,
         *,
         detector_provider: VisibleCardPipelineProvider | None,
+        detector_providers: Mapping[str, VisibleCardPipelineProvider] | None = None,
         frame_resolver: FrameResolver | None = None,
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
@@ -105,6 +106,7 @@ class VisibleCardPipelineService:
         self.recording_store = recording_store
         self.repository_storage = repository_storage
         self.detector_provider = detector_provider
+        self.detector_providers = detector_providers
         self.frame_resolver = (
             frame_resolver if frame_resolver is not None else FFmpegFrameResolver()
         )
@@ -241,7 +243,7 @@ class VisibleCardPipelineService:
     def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
         if not isinstance(payload, Mapping):
             raise VisibleCardPipelineInputError("The processor request must be an object.")
-        if self.detector_provider is None:
+        if self.detector_provider is None and not self.detector_providers:
             raise VisibleCardPipelineInputError("The visible-card detector is unavailable.")
         raw = payload.get("request", payload)
         if not isinstance(raw, Mapping):
@@ -257,7 +259,13 @@ class VisibleCardPipelineService:
             raise VisibleCardPipelineInputError(
                 "The selected event revision does not match the accepted recording video."
             )
-        provider = _base_provider(self.detector_provider)
+        requested_provider = configuration_provider(raw.get("configuration"))
+        provider = self._provider_for_selection(requested_provider)
+        if provider is None:
+            raise VisibleCardPipelineInputError(
+                "The requested visible-card processor is unavailable."
+            )
+        provider = _base_provider(provider)
         provider_name = _provider_text(provider, "name")
         provider_version = _provider_text(provider, "version")
         values = dict(raw)
@@ -274,7 +282,11 @@ class VisibleCardPipelineService:
             {"name": "visible-card-detector-adapter", "version": "v1"},
         )
         model_placeholder = {"name": provider_name, "version": provider_version}
-        if values.get("model") is None or values.get("model") == model_placeholder:
+        if (
+            values.get("model") is None
+            or values.get("model") == model_placeholder
+            or requested_provider is not None
+        ):
             values["model"] = {
                 "name": self.settings.gemini_model if provider_name == "gemini" else provider_name,
                 "version": provider_version,
@@ -283,16 +295,8 @@ class VisibleCardPipelineService:
         if not isinstance(configuration, Mapping):
             raise VisibleCardPipelineInputError("configuration must be an object.")
         configuration = dict(configuration)
-        configured_provider = configuration.get("provider", provider_name)
-        if configured_provider != provider_name:
-            raise VisibleCardPipelineInputError(
-                "The requested detector provider is not the configured provider."
-            )
-        configuration.setdefault("provider", provider_name)
-        configuration.setdefault(
-            "detector",
-            {"name": provider_name, "version": provider_version},
-        )
+        configuration["provider"] = provider_name
+        configuration["detector"] = {"name": provider_name, "version": provider_version}
         values["configuration"] = configuration
         values.setdefault(
             "extraction_policy", {"policy_id": "exact-event/v1", "output_encoding": "jpeg"}
@@ -523,7 +527,7 @@ class VisibleCardPipelineService:
     def _propose(
         self, run: StoredProcessorRun, event_id: str, frame: ResolvedFrame
     ) -> ProviderResult:
-        provider = self.detector_provider
+        provider = self._provider_for_selection(configuration_provider(run.request.configuration))
         if provider is None:
             raise VisibleCardPipelineError("The visible-card detector is unavailable.")
         model = run.request.model
@@ -538,6 +542,37 @@ class VisibleCardPipelineService:
             model=model.name if model is not None else "visible-card-detector",
         )
         return provider.propose(request)
+
+    def _provider_for_selection(
+        self, requested_provider: str | None
+    ) -> VisibleCardPipelineProvider | None:
+        if requested_provider is None:
+            return self.detector_provider
+        candidates = (
+            ("gemini", "cloud")
+            if requested_provider == "cloud"
+            else ("local", "local-rfdetr-segmentation")
+            if requested_provider == "local"
+            else (requested_provider,)
+        )
+        if self.detector_providers is not None:
+            for candidate in candidates:
+                try:
+                    provider = self.detector_providers.get(candidate)
+                except (KeyError, ValueError, RuntimeError) as error:
+                    raise VisibleCardPipelineInputError(str(error)) from error
+                if provider is not None:
+                    return provider
+        current = self.detector_provider
+        if current is not None:
+            current_name = _provider_text(_base_provider(current), "name")
+            if requested_provider in {
+                current_name,
+                "cloud" if current_name == "gemini" else None,
+                "local" if current_name.startswith("local") else None,
+            }:
+                return current
+        return None
 
     def _candidate(
         self,
@@ -711,6 +746,21 @@ def _base_provider(provider: VisibleCardPipelineProvider) -> VisibleCardPipeline
     while getattr(current, "name", None) == "cached" and hasattr(current, "provider"):
         current = current.provider
     return current
+
+
+def configuration_provider(value: Any) -> str | None:
+    """Read the optional provider selection from a processor configuration."""
+
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise VisibleCardPipelineInputError("configuration must be an object.")
+    provider = value.get("provider")
+    if provider is None:
+        return None
+    if not isinstance(provider, str) or not provider:
+        raise VisibleCardPipelineInputError("configuration.provider must be a non-empty string.")
+    return provider
 
 
 def _provider_text(provider: Any, field: str) -> str:
