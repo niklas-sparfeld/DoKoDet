@@ -415,6 +415,7 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
             "name": "fake-event-provider",
             "version": "v1",
         }
+        assert events["runs"][0]["state"]["items"] == []
         assert events["runs"][0]["output_revision_ids"] == [revision_id]
         assert events["input_options"][0]["revision_id"] == revision_id
         assert events["input_options"][0]["origin"] == "processor"
@@ -431,6 +432,32 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
 
         reloaded = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert reloaded.json() == body
+
+
+def test_recording_pipeline_workspace_reads_each_selection_once(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+    selection_store = app.state.pipeline_selection_store
+    original_get = selection_store.get
+    calls: list[tuple[str, str]] = []
+
+    def traced_get(recording_id: str, content_type: str, **kwargs):
+        calls.append((recording_id, content_type))
+        return original_get(recording_id, content_type, **kwargs)
+
+    monkeypatch.setattr(selection_store, "get", traced_get)
+
+    workspace = app.state.pipeline_workspace_service.get_workspace(RECORDING_ID)
+
+    assert workspace["schema_version"] == "pipeline-workspace/v1"
+    assert calls == [
+        (RECORDING_ID, "events"),
+        (RECORDING_ID, "visible_cards"),
+        (RECORDING_ID, "visual_identities"),
+        (RECORDING_ID, "table_observations"),
+    ]
 
 
 def test_recording_pipeline_workspace_reports_invalid_selection_pointer(

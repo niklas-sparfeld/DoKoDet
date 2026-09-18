@@ -66,6 +66,9 @@ export function RecordingPipelineWorkspace({
 }) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const [workspace, setWorkspace] = useState<PipelineWorkspace | null>(null);
+  const [loadedStageKey, setLoadedStageKey] = useState<PipelineStageKey | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -77,12 +80,17 @@ export function RecordingPipelineWorkspace({
   const loadWorkspace = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const response = await client.getRecordingPipeline(recordingId, {
-          signal,
-        });
+        const response = await client.getRecordingPipeline(
+          recordingId,
+          {
+            signal,
+          },
+          stageKey ?? "events",
+        );
         if (!signal?.aborted) {
           if (isPipelineWorkspace(response)) {
             setWorkspace(response);
+            setLoadedStageKey(stageKey ?? "events");
             setError(null);
           } else {
             setWorkspace(null);
@@ -107,6 +115,9 @@ export function RecordingPipelineWorkspace({
   );
 
   useEffect(() => {
+    if (workspace !== null && loadedStageKey === (stageKey ?? "events")) {
+      return;
+    }
     const controller = new AbortController();
     const timer = window.setTimeout(
       () => void loadWorkspace(controller.signal),
@@ -116,7 +127,7 @@ export function RecordingPipelineWorkspace({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [loadWorkspace]);
+  }, [loadWorkspace, loadedStageKey, stageKey, workspace]);
 
   useEffect(() => {
     const updateUrlState = () => {
@@ -142,18 +153,21 @@ export function RecordingPipelineWorkspace({
     }
   }, [compare, recordingId, stageKey, workspace]);
 
-  const stage = workspace?.stages.find(
+  const workspaceReadyForStage =
+    workspace !== null && loadedStageKey === (stageKey ?? "events");
+  const activeWorkspace = workspaceReadyForStage ? workspace : null;
+  const stage = activeWorkspace?.stages.find(
     (candidate) => candidate.key === stageKey,
   );
 
   useEffect(() => {
-    if (workspace === null || stage === undefined || stageKey === null) {
+    if (activeWorkspace === null || stage === undefined || stageKey === null) {
       return;
     }
     const sanitized = sanitizeUrlState(
       urlState,
       stage,
-      workspace.video.duration_us,
+      activeWorkspace.video.duration_us,
       compare,
     );
     const nextPath = compare
@@ -171,7 +185,7 @@ export function RecordingPipelineWorkspace({
       0,
     );
     window.dispatchEvent(new PopStateEvent("popstate"));
-  }, [compare, recordingId, stage, stageKey, urlState, workspace]);
+  }, [activeWorkspace, compare, recordingId, stage, stageKey, urlState]);
 
   async function selectGeneratedRevision(
     nextRevisionId: string | null,
@@ -253,12 +267,12 @@ export function RecordingPipelineWorkspace({
   );
 
   const presentation = buildRecordingWorkspacePresentation({
-    workspace,
+    workspace: activeWorkspace,
     stageKey,
     compare,
     urlState,
     error,
-    loading: loading && workspace === null,
+    loading: loading || !workspaceReadyForStage,
   });
   const activeView = presentation.topBar.view ?? "generated";
   const action =
@@ -277,12 +291,12 @@ export function RecordingPipelineWorkspace({
     compare,
     urlState,
     displayedRevision,
-    durationUs: workspace?.video.duration_us ?? 0,
+    durationUs: activeWorkspace?.video.duration_us ?? 0,
     rail: presentation.rail,
     onReplaceUrlState: replaceUrlState,
   });
 
-  if (loading && workspace === null) {
+  if (!workspaceReadyForStage && error === null) {
     return (
       <main className={`${styles.shell} ${styles.recordingsPage}`}>
         <p className={styles.loading} role="status">
@@ -291,7 +305,7 @@ export function RecordingPipelineWorkspace({
       </main>
     );
   }
-  if (workspace === null) {
+  if (activeWorkspace === null) {
     return (
       <main className={`${styles.shell} ${styles.recordingsPage}`}>
         <p className={styles.errorMessage} role="alert">
@@ -333,7 +347,7 @@ export function RecordingPipelineWorkspace({
     >
       <RecordingWorkspaceShell
         recordingId={recordingId}
-        workspace={workspace}
+        workspace={activeWorkspace}
         stage={stage}
         compare={compare}
         urlState={urlState}
@@ -362,7 +376,7 @@ export function RecordingPipelineWorkspace({
         ) : null}
         <RecordingWorkspaceTaskSurface
           recordingId={recordingId}
-          workspace={workspace}
+          workspace={activeWorkspace}
           stage={stage}
           compare={compare}
           urlState={urlState}
@@ -391,7 +405,7 @@ export function RecordingPipelineWorkspace({
         />
         <RecordingWorkspaceInspector
           recordingId={recordingId}
-          workspace={workspace}
+          workspace={activeWorkspace}
           stage={stage}
           compare={compare}
           urlState={urlState}

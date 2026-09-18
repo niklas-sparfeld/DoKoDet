@@ -188,14 +188,26 @@ class PipelineWorkspaceResponse(ContractModel):
 
 @router.get(WORKSPACE_BASE, response_model=PipelineWorkspaceResponse)
 def get_recording_pipeline_workspace(
-    recording_id: str, request: Request
+    recording_id: str,
+    request: Request,
+    stage: Literal[
+        "events",
+        "visible_cards",
+        "visual_identities",
+        "table_observations",
+        "round_analyses",
+    ]
+    | None = None,
 ) -> PipelineWorkspaceResponse:
     """Return the persisted recording-pipeline workspace summary."""
 
     validate_recording_id(recording_id)
     try:
         return PipelineWorkspaceResponse.model_validate(
-            request.app.state.pipeline_workspace_service.get_workspace(recording_id)
+            request.app.state.pipeline_workspace_service.get_workspace(
+                recording_id,
+                stage_key=stage,
+            )
         )
     except PipelineNotFound as error:
         raise ContractError("recording_not_found", str(error), status_code=404) from error

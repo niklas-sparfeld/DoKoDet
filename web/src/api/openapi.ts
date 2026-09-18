@@ -3019,7 +3019,9 @@ export type $defs = Record<string, never>;
 export interface operations {
     get_recording_pipeline_workspace_api_recordings__recording_id__pipeline_get: {
         parameters: {
-            query?: never;
+            query?: {
+                stage?: ("events" | "visible_cards" | "visual_identities" | "table_observations" | "round_analyses") | null;
+            };
             header?: never;
             path: {
                 recording_id: string;

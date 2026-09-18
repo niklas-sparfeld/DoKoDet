@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -302,6 +302,36 @@ def _parse_processor_run_state_bytes_compat(raw: bytes) -> ProcessorRunState:
     return state
 
 
+def _parse_processor_run_metadata_bytes(raw: bytes) -> ProcessorRunState:
+    """Read legacy run metadata without constructing every stored item outcome."""
+
+    data = _parse_json_object(raw, "processor run state")
+    raw_schema_version = data.get("schema_version")
+    missing_metrics = "metrics" not in data
+    legacy_schema = (
+        raw_schema_version == _LEGACY_PROCESSOR_RUN_STATE_SCHEMA_VERSION and missing_metrics
+    )
+    if missing_metrics:
+        data["metrics"] = {}
+    raw_items = data.get("items")
+    if not isinstance(raw_items, list):
+        raise PipelineDataContractError("processor run state items must be a list")
+    state_data = dict(data)
+    state_data["items"] = []
+    if legacy_schema:
+        state_data["schema_version"] = PROCESSOR_RUN_STATE_SCHEMA_VERSION
+    state = ProcessorRunState.from_mapping(state_data)
+    canonical_data = dict(data)
+    if missing_metrics:
+        canonical_data.pop("metrics")
+    _strict_json_file(
+        raw,
+        canonical_json_bytes(canonical_data),
+        "processor run state",
+    )
+    return state
+
+
 def _parse_split_state_bytes(raw: bytes) -> tuple[ProcessorRunState, tuple[str, ...]]:
     data = _parse_json_object(raw, "processor run metadata")
     expected = {
@@ -363,20 +393,37 @@ class PipelineRevisionStore:
     def revision_path(self, revision_id: str) -> Path:
         return contained_path(self.root, _safe_id(revision_id, "revision_id"))
 
-    def get(self, revision_id: str) -> StoredPipelineRevision | None:
+    def get(
+        self,
+        revision_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+    ) -> StoredPipelineRevision | None:
+        if revision_cache is not None:
+            cached = revision_cache.get(revision_id)
+            if cached is not None:
+                return cached
         try:
             path = self.revision_path(revision_id)
         except (TypeError, ValueError):
             return None
         try:
-            return self._read_path(path)
+            revision = self._read_path(path, revision_cache=revision_cache)
+            if revision_cache is not None:
+                revision_cache[revision_id] = revision
+            return revision
         except (OSError, TypeError, UnicodeError, ValueError) as error:
             if path.exists() or path.is_symlink():
                 self._log_invalid(path, error)
             return None
 
-    def require(self, revision_id: str) -> StoredPipelineRevision:
-        revision = self.get(revision_id)
+    def require(
+        self,
+        revision_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+    ) -> StoredPipelineRevision:
+        revision = self.get(revision_id, revision_cache=revision_cache)
         if revision is None:
             raise PipelineNotFound(f"The pipeline revision was not found: {revision_id}")
         return revision
@@ -396,7 +443,12 @@ class PipelineRevisionStore:
                 self._log_invalid(path, error)
         return tuple(sorted(revisions, key=lambda item: item.manifest.revision_id))
 
-    def list_for_recording(self, recording_id: str) -> tuple[StoredPipelineRevision, ...]:
+    def list_for_recording(
+        self,
+        recording_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+    ) -> tuple[StoredPipelineRevision, ...]:
         """Return validated revisions for one recording without parsing other recordings."""
 
         _safe_id(recording_id, "recording_id")
@@ -410,7 +462,16 @@ class PipelineRevisionStore:
                 manifest = parse_data_revision_bytes((path / "manifest.json").read_bytes())
                 if manifest.recording_id != recording_id:
                     continue
-                revisions.append(self._read_path(path))
+                revision = (
+                    None
+                    if revision_cache is None
+                    else revision_cache.get(manifest.revision_id)
+                )
+                if revision is None:
+                    revision = self._read_path(path, revision_cache=revision_cache)
+                if revision_cache is not None:
+                    revision_cache[manifest.revision_id] = revision
+                revisions.append(revision)
             except (OSError, TypeError, UnicodeError, ValueError) as error:
                 self._log_invalid(path, error)
         return tuple(sorted(revisions, key=lambda item: item.manifest.revision_id))
@@ -678,9 +739,14 @@ class PipelineRevisionStore:
         _strict_json_file(raw, expected, "revision content")
         parse_data_revision_bytes(manifest_bytes, raw)
 
-    def _validate_lineage(self, manifest: DataRevision) -> None:
+    def _validate_lineage(
+        self,
+        manifest: DataRevision,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+    ) -> None:
         for input_revision_id in manifest.input_revision_ids:
-            if self.get(input_revision_id) is None:
+            if self.get(input_revision_id, revision_cache=revision_cache) is None:
                 raise PipelineNotFound(
                     f"The input pipeline revision was not found: {input_revision_id}"
                 )
@@ -707,7 +773,11 @@ class PipelineRevisionStore:
         )
 
     def _read_path(
-        self, path: Path, *, require_canonical_name: bool = True
+        self,
+        path: Path,
+        *,
+        require_canonical_name: bool = True,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> StoredPipelineRevision:
         if path.is_symlink() or not path.is_dir():
             raise OSError("pipeline revision directory is unavailable")
@@ -739,7 +809,7 @@ class PipelineRevisionStore:
             self._canonical_content_bytes(content, allow_legacy=True),
             "revision content",
         )
-        self._validate_lineage(manifest)
+        self._validate_lineage(manifest, revision_cache=revision_cache)
         if require_canonical_name and manifest.revision_id != path.name:
             raise ValueError("revision ID differs from its directory name")
         self._validate_content(manifest, content, allow_legacy=True)
@@ -767,20 +837,44 @@ class ProcessorRunStore:
     def run_path(self, run_id: str) -> Path:
         return contained_path(self.root, _safe_id(run_id, "run_id"))
 
-    def get(self, run_id: str) -> StoredProcessorRun | None:
+    def get(
+        self,
+        run_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        include_items: bool = True,
+        validate_output_revisions: bool = True,
+    ) -> StoredProcessorRun | None:
         try:
             path = self.run_path(run_id)
         except (TypeError, ValueError):
             return None
         try:
-            return self._read_path(path)
+            return self._read_path(
+                path,
+                revision_cache=revision_cache,
+                include_items=include_items,
+                validate_output_revisions=validate_output_revisions,
+            )
         except (OSError, TypeError, UnicodeError, ValueError) as error:
             if path.exists() or path.is_symlink():
                 self._log_invalid(path, error)
             return None
 
-    def require(self, run_id: str) -> StoredProcessorRun:
-        run = self.get(run_id)
+    def require(
+        self,
+        run_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        include_items: bool = True,
+        validate_output_revisions: bool = True,
+    ) -> StoredProcessorRun:
+        run = self.get(
+            run_id,
+            revision_cache=revision_cache,
+            include_items=include_items,
+            validate_output_revisions=validate_output_revisions,
+        )
         if run is None:
             raise PipelineNotFound(f"The processor run was not found: {run_id}")
         return run
@@ -797,7 +891,15 @@ class ProcessorRunStore:
                 self._log_invalid(path, error)
         return tuple(sorted(runs, key=lambda item: item.run_id))
 
-    def list_for_recording(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
+    def list_for_recording(
+        self,
+        recording_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        include_items: bool = True,
+        validate_output_revisions: bool = True,
+        include_items_for_processor_types: Collection[str] | None = None,
+    ) -> tuple[StoredProcessorRun, ...]:
         """Return validated runs for one recording without parsing other recordings."""
 
         _safe_id(recording_id, "recording_id")
@@ -811,7 +913,18 @@ class ProcessorRunStore:
                 request = parse_processor_run_request_bytes((path / "request.json").read_bytes())
                 if request.source.recording_id != recording_id:
                     continue
-                runs.append(self._read_path(path))
+                runs.append(
+                    self._read_path(
+                        path,
+                        revision_cache=revision_cache,
+                        include_items=include_items
+                        and (
+                            include_items_for_processor_types is None
+                            or request.processor_type in include_items_for_processor_types
+                        ),
+                        validate_output_revisions=validate_output_revisions,
+                    )
+                )
             except (OSError, TypeError, UnicodeError, ValueError) as error:
                 self._log_invalid(path, error)
         return tuple(sorted(runs, key=lambda item: item.run_id))
@@ -1212,6 +1325,8 @@ class ProcessorRunStore:
         *,
         require_canonical_name: bool = True,
         validate_output_revisions: bool = True,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        include_items: bool = True,
     ) -> StoredProcessorRun:
         if path.is_symlink() or not path.is_dir():
             raise OSError("processor run directory is unavailable")
@@ -1244,7 +1359,11 @@ class ProcessorRunStore:
             "processor run request",
         )
         if legacy_layout:
-            state = _parse_processor_run_state_bytes_compat(state_bytes)
+            state = (
+                _parse_processor_run_state_bytes_compat(state_bytes)
+                if include_items
+                else _parse_processor_run_metadata_bytes(state_bytes)
+            )
         else:
             metadata_state, item_ids = _parse_split_state_bytes(state_bytes)
             item_files = {
@@ -1256,17 +1375,20 @@ class ProcessorRunStore:
                 f"{item_id}.json" for item_id in item_ids
             }.issubset(item_files):
                 raise ValueError("processor run is missing a referenced item file")
-            items = tuple(
-                self._read_item_file(path / "items" / f"{item_id}.json", item_id)
-                for item_id in item_ids
-            )
-            state = replace(metadata_state, items=items)
+            if include_items:
+                items = tuple(
+                    self._read_item_file(path / "items" / f"{item_id}.json", item_id)
+                    for item_id in item_ids
+                )
+                state = replace(metadata_state, items=items)
+            else:
+                state = metadata_state
         if request.run_id != state.run_id:
             raise ValueError("processor run request and state IDs differ")
         if require_canonical_name and request.run_id != path.name:
             raise ValueError("run ID differs from its directory name")
         if validate_output_revisions:
-            self._validate_output_revisions(request, state)
+            self._validate_output_revisions(request, state, revision_cache=revision_cache)
         return StoredProcessorRun(request=request, state=state)
 
     def _read_split_metadata(
@@ -1358,12 +1480,16 @@ class ProcessorRunStore:
                 raise PipelineStateError("successful item outcomes cannot be replaced")
 
     def _validate_output_revisions(
-        self, request: ProcessorRunRequest, state: ProcessorRunState
+        self,
+        request: ProcessorRunRequest,
+        state: ProcessorRunState,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> None:
         if not state.output_revision_ids:
             return
         for revision_id in state.output_revision_ids:
-            revision = self.revision_store.get(revision_id)
+            revision = self.revision_store.get(revision_id, revision_cache=revision_cache)
             if revision is None:
                 raise PipelineStateError(f"run output revision is not published: {revision_id}")
             manifest = revision.manifest
@@ -1417,13 +1543,26 @@ class PipelineSelectionStore:
             f"{content_type}.json",
         )
 
-    def get(self, recording_id: str, content_type: str) -> PipelineSelection | None:
+    def get(
+        self,
+        recording_id: str,
+        content_type: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        revision_manifests: Mapping[str, DataRevision] | None = None,
+    ) -> PipelineSelection | None:
         try:
             path = self.selection_path(recording_id, content_type)
         except (TypeError, ValueError):
             return None
         try:
-            return self._read_path(path, recording_id, content_type)
+            return self._read_path(
+                path,
+                recording_id,
+                content_type,
+                revision_cache=revision_cache,
+                revision_manifests=revision_manifests,
+            )
         except (OSError, TypeError, UnicodeError, ValueError) as error:
             if path.exists() or path.is_symlink():
                 self._log_invalid(path, error)
@@ -1536,11 +1675,18 @@ class PipelineSelectionStore:
         content_type: str,
         *,
         role: str,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        revision_manifests: Mapping[str, DataRevision] | None = None,
     ) -> None:
         if revision_id is None:
             return
-        revision = self.revision_store.require(revision_id)
-        manifest = revision.manifest
+        if revision_manifests is None:
+            revision = self.revision_store.require(revision_id, revision_cache=revision_cache)
+            manifest = revision.manifest
+        else:
+            manifest = revision_manifests.get(revision_id)
+            if manifest is None:
+                raise PipelineNotFound(f"The pipeline revision was not found: {revision_id}")
         if (
             manifest.recording_id != recording_id
             or manifest.content_type != content_type
@@ -1554,7 +1700,12 @@ class PipelineSelectionStore:
                 manifest.producer, (ProcessorProducer, ImportProducer)
             ):
                 raise PipelineStateError("generated selection must point to processor output")
-            run = self.run_store.get(manifest.producer.run_id)
+            run = self.run_store.get(
+                manifest.producer.run_id,
+                revision_cache=revision_cache,
+                include_items=False,
+                validate_output_revisions=False,
+            )
             if run is None or run.state.status != "complete":
                 raise PipelineStateError(
                     "generated selection cannot point to a partial or failed run"
@@ -1571,6 +1722,9 @@ class PipelineSelectionStore:
         path: Path,
         recording_id: str,
         content_type: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        revision_manifests: Mapping[str, DataRevision] | None = None,
     ) -> PipelineSelection:
         if path.is_symlink() or not path.is_file():
             raise OSError("pipeline selection is unavailable")
@@ -1586,12 +1740,16 @@ class PipelineSelectionStore:
             recording_id,
             content_type,
             role="generated",
+            revision_cache=revision_cache,
+            revision_manifests=revision_manifests,
         )
         self._validate_pointer(
             selection.selected_completed_reference_revision_id,
             recording_id,
             content_type,
             role="completed reference",
+            revision_cache=revision_cache,
+            revision_manifests=revision_manifests,
         )
         return selection
 

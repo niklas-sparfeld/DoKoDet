@@ -93,15 +93,38 @@ class RecordingPipelineWorkspaceService:
         self.reference_store = reference_store
         self.round_analysis_store = round_analysis_store
 
-    def get_workspace(self, recording_id: str) -> dict[str, Any]:
+    def get_workspace(
+        self,
+        recording_id: str,
+        *,
+        stage_key: str | None = None,
+    ) -> dict[str, Any]:
         """Read one complete workspace snapshot without changing pipeline state."""
 
         source = self.recording_source_provider(recording_id)
-        revisions = self.revision_store.list_for_recording(recording_id)
-        runs = self.run_store.list_for_recording(recording_id)
+        revision_cache: dict[str, Any] = {}
+        revisions = tuple(
+            manifest
+            for manifest in self.revision_store.list_manifests()
+            if manifest.recording_id == recording_id
+        )
+        runs = self.run_store.list_for_recording(
+            recording_id,
+            revision_cache=revision_cache,
+            include_items=stage_key == "table_observations",
+            validate_output_revisions=False,
+            include_items_for_processor_types={"observation-assembly"},
+        )
         diagnostics: list[dict[str, Any]] = []
+        revision_by_id = {revision.revision_id: revision for revision in revisions}
         selections = {
-            content_type: self._selection(recording_id, content_type, diagnostics)
+            content_type: self._selection(
+                recording_id,
+                content_type,
+                diagnostics,
+                revision_cache=revision_cache,
+                revision_manifests=revision_by_id,
+            )
             for content_type in (
                 "events",
                 "visible_cards",
@@ -113,6 +136,14 @@ class RecordingPipelineWorkspaceService:
             content_type: self._reference(recording_id, content_type, diagnostics)
             for content_type in ("events", "visible_cards", "visual_identities")
         }
+        full_revisions = (
+            self.revision_store.list_for_recording(
+                recording_id,
+                revision_cache=revision_cache,
+            )
+            if stage_key in {None, "table_observations"}
+            else ()
+        )
         stages = [
             self._stage(
                 recording_id,
@@ -122,6 +153,9 @@ class RecordingPipelineWorkspaceService:
                 runs=runs,
                 selection=selections.get(definition.content_type),
                 reference=references.get(definition.content_type),
+                selections=selections,
+                revision_by_id=revision_by_id,
+                full_revisions=full_revisions,
                 diagnostics=diagnostics,
             )
             for definition in _WORKSPACE_STAGES
@@ -246,12 +280,15 @@ class RecordingPipelineWorkspaceService:
         runs: tuple[StoredProcessorRun, ...],
         selection: Any,
         reference: Any,
+        selections: Mapping[str, Any],
+        revision_by_id: Mapping[str, Any],
+        full_revisions: tuple[Any, ...],
         diagnostics: list[dict[str, Any]],
     ) -> dict[str, Any]:
         stage_revisions = tuple(
             revision
             for revision in revisions
-            if revision.manifest.content_type == definition.content_type
+            if self._manifest(revision).content_type == definition.content_type
         )
         stage_runs = tuple(
             run for run in runs if run.request.processor_type == definition.processor_type
@@ -259,7 +296,12 @@ class RecordingPipelineWorkspaceService:
         options = [self._revision_option(revision, definition.key) for revision in stage_revisions]
         options.sort(key=lambda option: (option["created_at"], option["revision_id"]), reverse=True)
         reference_summary = (
-            self._reference_summary(reference, definition.content_type, diagnostics)
+            self._reference_summary(
+                reference,
+                definition.content_type,
+                revision_by_id,
+                diagnostics,
+            )
             if definition.reviewable
             else None
         )
@@ -269,7 +311,7 @@ class RecordingPipelineWorkspaceService:
             else []
         )
         compatible_input_sets = (
-            self._compatible_input_sets(recording_id, source, revisions)
+            self._compatible_input_sets(recording_id, source, full_revisions)
             if definition.key == "table_observations"
             else []
         )
@@ -283,9 +325,8 @@ class RecordingPipelineWorkspaceService:
             for run in stage_runs
             if run.state.status in {"complete", "partial"}
             and any(
-                self.revision_store.get(revision_id) is not None
-                and self.revision_store.require(revision_id).manifest.content_type
-                == definition.content_type
+                (revision := revision_by_id.get(revision_id)) is not None
+                and self._manifest(revision).content_type == definition.content_type
                 for revision_id in run.state.output_revision_ids
             )
         ]
@@ -294,11 +335,7 @@ class RecordingPipelineWorkspaceService:
             definition,
             source,
             stage_revisions,
-            selections={
-                "events": self._selection_value(recording_id, "events"),
-                "visible_cards": self._selection_value(recording_id, "visible_cards"),
-                "visual_identities": self._selection_value(recording_id, "visual_identities"),
-            },
+            selections=selections,
             compatible_input_sets=compatible_input_sets,
         )
         review_blockers = self._review_blockers(definition, options, reference_summary)
@@ -336,9 +373,17 @@ class RecordingPipelineWorkspaceService:
         recording_id: str,
         content_type: str,
         diagnostics: list[dict[str, Any]],
+        *,
+        revision_cache: dict[str, Any] | None = None,
+        revision_manifests: Mapping[str, Any] | None = None,
     ) -> Any:
         try:
-            selection = self.selection_store.get(recording_id, content_type)
+            selection = self.selection_store.get(
+                recording_id,
+                content_type,
+                revision_cache=revision_cache,
+                revision_manifests=revision_manifests,
+            )
         except PipelineStoreError:
             selection = None
         path = self.selection_store.selection_path(recording_id, content_type)
@@ -352,12 +397,6 @@ class RecordingPipelineWorkspaceService:
                 }
             )
         return selection
-
-    def _selection_value(self, recording_id: str, content_type: str) -> Any:
-        try:
-            return self.selection_store.get(recording_id, content_type)
-        except PipelineStoreError:
-            return None
 
     def _reference(
         self,
@@ -381,7 +420,11 @@ class RecordingPipelineWorkspaceService:
         return reference
 
     def _reference_summary(
-        self, reference: Any, content_type: str, diagnostics: list[dict[str, Any]]
+        self,
+        reference: Any,
+        content_type: str,
+        revision_by_id: Mapping[str, Any],
+        diagnostics: list[dict[str, Any]],
     ) -> dict[str, Any]:
         if reference is None:
             return {
@@ -396,14 +439,19 @@ class RecordingPipelineWorkspaceService:
             }
         selected_completion = reference.state.selected_completed_revision_id
         selected_revision = (
-            None if selected_completion is None else self.revision_store.get(selected_completion)
+            None
+            if selected_completion is None
+            else revision_by_id.get(selected_completion)
         )
-        if selected_revision is not None and (
-            selected_revision.manifest.recording_id != reference.state.recording_id
-            or selected_revision.manifest.content_type != content_type
+        selected_manifest = (
+            None if selected_revision is None else self._manifest(selected_revision)
+        )
+        if selected_manifest is not None and (
+            selected_manifest.recording_id != reference.state.recording_id
+            or selected_manifest.content_type != content_type
         ):
-            selected_revision = None
-        if selected_completion is not None and selected_revision is None:
+            selected_manifest = None
+        if selected_completion is not None and selected_manifest is None:
             diagnostics.append(
                 {
                     "code": "missing_reference_revision",
@@ -432,7 +480,7 @@ class RecordingPipelineWorkspaceService:
 
     @staticmethod
     def _revision_option(revision: Any, stage_key: str) -> dict[str, Any]:
-        manifest = revision.manifest
+        manifest = RecordingPipelineWorkspaceService._manifest(revision)
         generated = manifest.origin == "processor"
         label = "Generated" if generated else "Reviewed"
         return {
@@ -448,6 +496,10 @@ class RecordingPipelineWorkspaceService:
             "coverage": manifest.coverage,
             "created_at": manifest.created_at,
         }
+
+    @staticmethod
+    def _manifest(revision: Any) -> Any:
+        return revision.manifest if hasattr(revision, "manifest") else revision
 
     @staticmethod
     def _ordered_runs(runs: tuple[StoredProcessorRun, ...]) -> tuple[StoredProcessorRun, ...]:

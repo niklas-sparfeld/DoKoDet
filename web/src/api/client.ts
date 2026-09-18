@@ -225,6 +225,7 @@ export interface DokoDetectorClient {
   getRecordingPipeline(
     recordingId: string,
     init?: RequestInit,
+    stageKey?: PipelineStageKey | null,
   ): Promise<PipelineWorkspace>;
   updatePipelineSelection(
     recordingId: string,
@@ -385,10 +386,10 @@ export function createDokoDetectorClient(
         recordingDetailPath(recordingId),
         init,
       ),
-    getRecordingPipeline: (recordingId, init) =>
+    getRecordingPipeline: (recordingId, init, stageKey) =>
       requestJson<PipelineWorkspace>(
         fetchImplementation,
-        recordingPipelineWorkspacePath(recordingId),
+        recordingPipelineWorkspacePath(recordingId, stageKey),
         init,
       ),
     updatePipelineSelection: (recordingId, contentType, payload, init) =>
@@ -645,8 +646,14 @@ export function recordingDetailPath(recordingId: string): string {
   return `/v1/recordings/${encodeURIComponent(recordingId)}`;
 }
 
-export function recordingPipelineWorkspacePath(recordingId: string): string {
-  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline`;
+export function recordingPipelineWorkspacePath(
+  recordingId: string,
+  stageKey?: PipelineStageKey | null,
+): string {
+  const path = `/api/recordings/${encodeURIComponent(recordingId)}/pipeline`;
+  return stageKey === undefined || stageKey === null
+    ? path
+    : `${path}?stage=${encodeURIComponent(stageKey)}`;
 }
 
 export function pipelineComparisonPath(recordingId: string): string {

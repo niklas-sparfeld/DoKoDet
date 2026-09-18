@@ -298,6 +298,29 @@ def test_processor_run_store_splits_item_outcomes_on_disk(tmp_path: Path) -> Non
     assert run_store.require("run-01").state.items == (item,)
 
 
+def test_processor_run_store_can_read_split_metadata_without_items(
+    tmp_path: Path,
+) -> None:
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    run_store.create(request())
+    run_store.start("run-01")
+    run_store.record_item_progress(
+        "run-01",
+        progress=RunProgress(completed=1, total=1),
+        item=RunItemOutcome(
+            item_id="event-01",
+            status="succeeded",
+            result={"event_type": "card_state_changed"},
+            failure=None,
+        ),
+    )
+
+    loaded = run_store.require("run-01", include_items=False)
+
+    assert loaded.state.items == ()
+    assert loaded.state.progress == RunProgress(completed=1, total=1)
+
+
 def test_run_store_ignores_removed_atomic_state_temp_files_during_reads(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

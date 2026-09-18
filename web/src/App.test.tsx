@@ -277,8 +277,9 @@ describe("App", () => {
 
   it("enters the recording pipeline without loading retired review routes", async () => {
     window.history.pushState({}, "", `/recordings/${recordingId}`);
+    const pipelinePaths: string[] = [];
     const fetchMock = vi.fn<typeof fetch>((input) => {
-      expect(String(input)).toBe(`/api/recordings/${recordingId}/pipeline`);
+      pipelinePaths.push(String(input));
       return Promise.resolve(response(workspace()));
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -294,11 +295,9 @@ describe("App", () => {
       ),
     );
     expect(fetchMock).toHaveBeenCalled();
-    expect(
-      fetchMock.mock.calls.every(([input]) =>
-        String(input).startsWith(`/api/recordings/${recordingId}/pipeline`),
-      ),
-    ).toBe(true);
+    expect(pipelinePaths).toEqual([
+      `/api/recordings/${recordingId}/pipeline?stage=events`,
+    ]);
   });
 
   it("restores stage and view changes through browser history", async () => {

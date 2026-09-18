@@ -178,6 +178,9 @@ describe("DokoDetector API client", () => {
     expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
       recordingPipelineWorkspacePath("recording/1"),
     );
+    expect(
+      recordingPipelineWorkspacePath("recording/1", "visual_identities"),
+    ).toBe("/api/recordings/recording%2F1/pipeline?stage=visual_identities");
     expect(fetchImplementation.mock.calls[1]?.[0]).toBe(
       recordingPipelineSelectionPath("recording/1", "events"),
     );

@@ -12,7 +12,7 @@ export function App() {
     <RecordingListView />
   ) : (
     <RecordingDetailView
-      key={`${recordingId}:${pipelineRoute?.stage ?? ""}:${pipelineRoute?.compare ? "compare" : ""}`}
+      key={`${recordingId}:${pipelineRoute?.compare ? "compare" : ""}`}
       recordingId={recordingId}
       pipelineStage={pipelineRoute?.stage ?? null}
       pipelineCompare={pipelineRoute?.compare ?? false}
