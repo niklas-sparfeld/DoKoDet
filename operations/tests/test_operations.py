@@ -87,6 +87,17 @@ def test_obsolete_data_review_command_is_not_registered() -> None:
     assert "review" not in data_command_parsers.choices
 
 
+def test_split_rounds_suggests_ids_and_defaults_to_everything() -> None:
+    args = build_parser().parse_args(
+        ["data", "split-rounds", "--operator", "Operator Name", "capture.mov"]
+    )
+
+    assert args.session_id is None
+    assert args.game_id is None
+    assert not hasattr(args, "source_permission")
+    assert not hasattr(args, "allowed_uses")
+
+
 def test_status_reports_ready_and_invalid_pending_videos(tmp_path: Path) -> None:
     pending_root = tmp_path / "incoming" / "videos"
     shutil.copytree(PENDING_FIXTURE_ROOT, pending_root / "upload-pending-001")

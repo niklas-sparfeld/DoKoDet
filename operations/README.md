@@ -25,7 +25,7 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 The retained `doko` commands are grouped by owner:
 
 - `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `cardevent interval-readiness`, `cardevent interval-freeze`, `resilience-baseline`,
-  `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `rfdetr-visible-card-detector`, `rfdetr-visible-card-detector-materialize`, `resilience-comparison`, `complete-video`, `adopt-evidence`, `holdout seal`,
+  `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `rfdetr-visible-card-detector`, `rfdetr-visible-card-detector-materialize`, `resilience-comparison`, `complete-video`, `split-rounds`, `adopt-evidence`, `holdout seal`,
   `impact`, and `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `review-card-event-net`,
   `review-card-event-net-timing`, `promote`, and `evaluate-system`.
@@ -35,6 +35,30 @@ Run `mise exec -- uv run doko <command> --help` for a top-level command or
 `mise exec -- uv run doko data <command> --help` for a nested command. Operations owns data
 lifecycle, model operations, resilience checks, and reconstruction orchestration. Use the
 [recording workspace](../web/README.md#local-development) for recording-pipeline review.
+
+## Split long game videos
+
+Use `split-rounds` when one game is stored in one or more long videos. Pass the videos in timeline
+order:
+
+```bash
+doko data split-rounds \
+  --operator "Operator Name" \
+  /path/to/video-1.mov /path/to/video-2.mov
+```
+
+The command suggests `session-YYYY-MM-DD` and `game-YYYY-MM-DD-01` from the first video's creation
+metadata. It uses the file date when the video has no creation tag. Pass `--session-id` or
+`--game-id` to override a suggestion. Source permission defaults to `everything`: the intake record
+uses unrestricted permission and allows train, validation, test, and evaluation use.
+
+The OpenCV window uses `H` and `L` for one-second seek, `J` and `K` for ten-second seek,
+`S` for round start, and `E` for round end. `Space` pauses or resumes playback. Press `Q` after
+the last round. Press `Esc` to cancel.
+
+The command writes one normal recording bundle per selected round below
+`data/intake/recordings/`. It scales video to 1080 pixels in height and removes sound. Both data
+tasks start in `intake`. Use `--format json` for machine-readable output.
 
 M0 provides strict local contracts and read-only inspection for model-improvement campaigns.
 

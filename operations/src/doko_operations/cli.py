@@ -163,6 +163,14 @@ from .rfdetr_segmentation_materialization import (
 )
 from .round_reconstruction_contract import RoundReconstructionContractError
 from .round_reconstruction_execution import run_round_reconstruction
+from .round_split import (
+    RoundSplitError,
+    RoundSplitMetadata,
+    materialize_rounds,
+    probe_videos,
+    select_rounds,
+    suggest_identifiers,
+)
 from .status import render_human, render_json
 from .system_holdout import (
     FAILURE_BOUNDARIES,
@@ -704,6 +712,38 @@ def build_parser() -> argparse.ArgumentParser:
     )
     complete.add_argument("--format", choices=("human", "json"), default="human")
     complete.add_argument("--json", action="store_true", help="Alias for --format json.")
+    split_rounds = data_commands.add_parser(
+        "split-rounds",
+        help="Review long videos and publish one recording bundle per round.",
+        description="Review long videos and publish one recording bundle per round.",
+    )
+    _add_path_options(split_rounds, suppress_defaults=True)
+    split_rounds.add_argument("--operator", required=True)
+    split_rounds.add_argument(
+        "--session-id",
+        default=None,
+        help="Override the date-based session ID suggested from the first video.",
+    )
+    split_rounds.add_argument(
+        "--game-id",
+        default=None,
+        help="Override the date-based game ID suggested from the first video.",
+    )
+    split_rounds.add_argument("--recording-prefix", default=None)
+    split_rounds.add_argument("--round-id-prefix", default="round")
+    split_rounds.add_argument("--table-setup", default=None)
+    split_rounds.add_argument("--notes", default=None)
+    split_rounds.add_argument(
+        "--ffmpeg", default="ffmpeg", help="ffmpeg executable (default: ffmpeg)."
+    )
+    split_rounds.add_argument(
+        "--window-name", default="DokoDetector round splitter", help="OpenCV window title."
+    )
+    split_rounds.add_argument(
+        "videos", nargs="+", type=Path, help="Input videos in timeline order."
+    )
+    split_rounds.add_argument("--format", choices=("human", "json"), default="human")
+    split_rounds.add_argument("--json", action="store_true", help="Alias for --format json.")
     adopt = data_commands.add_parser(
         "adopt-evidence",
         aliases=("adopt-evidence-package",),
@@ -1020,6 +1060,10 @@ def _add_path_options(parser: argparse.ArgumentParser, *, suppress_defaults: boo
         default=default,
         help="Override the read-only derived-artifact root.",
     )
+
+
+def _format_seconds(value: float) -> str:
+    return f"{value:.3f}s"
 
 
 def _add_model_options(parser: argparse.ArgumentParser) -> None:
@@ -1909,6 +1953,62 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"bundle: {result.to_mapping(config.repository_root)['bundle_path']}\n"
                 f"source SHA-256: {result.source_sha256}\n"
             )
+        return 0
+    if args.command == "data" and args.data_command == "split-rounds":
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            videos = probe_videos(args.videos)
+            suggested_session_id, suggested_game_id = suggest_identifiers(args.videos)
+            metadata = RoundSplitMetadata(
+                operator=args.operator,
+                session_id=args.session_id or suggested_session_id,
+                game_id=args.game_id or suggested_game_id,
+                recording_prefix=args.recording_prefix,
+                round_id_prefix=args.round_id_prefix,
+                table_setup=args.table_setup,
+                notes=args.notes,
+            )
+            boundaries = select_rounds(videos, window_name=args.window_name)
+            result = materialize_rounds(
+                config.repository_root,
+                videos,
+                boundaries,
+                metadata,
+                intake_root=config.intake_root,
+                ffmpeg_binary=args.ffmpeg,
+            )
+        except (ConfigurationError, OSError, RoundSplitError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        output = {
+            "state": "complete",
+            "session_id": metadata.session_id,
+            "game_id": metadata.game_id,
+            "rounds": [item.to_mapping(config.repository_root) for item in result],
+        }
+        if args.json or args.format == "json":
+            sys.stdout.write(
+                json.dumps(output, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+            )
+        else:
+            sys.stdout.write(
+                f"Published {len(result)} recording bundle(s)\n"
+                f"session: {metadata.session_id}\n"
+                f"game: {metadata.game_id}\n"
+            )
+            for item in result:
+                mapping = item.to_mapping(config.repository_root)
+                sys.stdout.write(
+                    f"{item.round_id}: {mapping['bundle_path']} "
+                    f"({_format_seconds(item.start_seconds)} - "
+                    f"{_format_seconds(item.end_seconds)})\n"
+                )
         return 0
     if args.command == "data" and args.data_command in {
         "adopt-evidence",
