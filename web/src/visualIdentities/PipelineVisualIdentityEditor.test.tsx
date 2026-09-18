@@ -246,6 +246,84 @@ describe("PipelineVisualIdentityEditor", () => {
     ).toHaveLength(1);
   });
 
+  it("auto-approves only matching retained identity results and shows their lineage", async () => {
+    const user = userEvent.setup();
+    const fetchImplementation = vi.fn<typeof fetch>((input) => {
+      const path = String(input);
+      if (path.endsWith("/auto-approval-plan"))
+        return Promise.resolve(
+          jsonResponse({
+            recording_id: RECORDING_ID,
+            draft_revision: 3,
+            source_revision_id: REVISION_ID,
+            local_run: null,
+            items: [
+              {
+                item_id: CARD_ID,
+                reason: "eligible",
+                eligible: true,
+                gemini_result: { result_id: "gemini-result", classifier: {} },
+                local_result: { result_id: "local-result", classifier: {} },
+              },
+            ],
+          }),
+        );
+      if (path.endsWith("/auto-approval"))
+        return Promise.resolve(
+          jsonResponse({
+            schema_version: "visual-identity-auto-approval-receipt/v1",
+            recording_id: RECORDING_ID,
+            command_id: "command-1",
+            draft_revision: 3,
+            source_revision_id: REVISION_ID,
+            accepted_item_ids: [CARD_ID],
+            comparisons: [
+              {
+                item_id: CARD_ID,
+                reason: "eligible",
+                eligible: true,
+                gemini_result: { result_id: "gemini-result", classifier: {} },
+                local_result: { result_id: "local-result", classifier: {} },
+              },
+            ],
+          }),
+        );
+      if (path.endsWith("/pipeline/references/visual_identities"))
+        return Promise.resolve(jsonResponse(reference("accepted")));
+      return Promise.resolve(jsonResponse(generatedResult()));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const button = await screen.findByRole("button", {
+      name: "Auto-approve matching identities",
+    });
+    await user.type(screen.getByLabelText("Operator ID"), "operator-1");
+    await user.click(button);
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(([input]) =>
+          String(input).endsWith("/auto-approval"),
+        ),
+      ).toBe(true),
+    );
+    expect(await screen.findByText("gemini-result")).toBeInTheDocument();
+    expect(screen.getByText("local-result")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Auto-approved 1 identity item/),
+    ).toBeInTheDocument();
+  });
+
   it("prewarms only the next eligible identity items", async () => {
     const fetchImplementation = vi.fn<typeof fetch>((input) =>
       String(input).includes("/pipeline/visual-identities/") &&

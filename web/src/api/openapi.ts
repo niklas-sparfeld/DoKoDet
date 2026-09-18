@@ -516,6 +516,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/pipeline/visual-identities/auto-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Visual Identity Auto Approval
+         * @description Accept only current matching Gemini/local draft items with one guarded command.
+         */
+        post: operations["apply_visual_identity_auto_approval_api_recordings__recording_id__pipeline_visual_identities_auto_approval_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/pipeline/visual-identities/auto-approval-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Visual Identity Auto Approval
+         * @description Compare a visual identity draft with retained local results and queue local work once.
+         */
+        post: operations["plan_visual_identity_auto_approval_api_recordings__recording_id__pipeline_visual_identities_auto_approval_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/pipeline/visual-identities/selection": {
         parameters: {
             query?: never;
@@ -1081,6 +1121,100 @@ export interface components {
             observed_card_id: string;
             /** Score */
             score: number;
+        };
+        /**
+         * AutoApprovalApplyRequest
+         * @description The optimistic command that applies the currently eligible decisions.
+         */
+        AutoApprovalApplyRequest: {
+            /** Command Id */
+            command_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Operator Id */
+            operator_id: string;
+        };
+        /**
+         * AutoApprovalItemResponse
+         * @description One draft item and its retained Gemini/local comparison result.
+         */
+        AutoApprovalItemResponse: {
+            /** Eligible */
+            eligible: boolean;
+            gemini_result: components["schemas"]["AutoApprovalResultResponse"] | null;
+            /** Item Id */
+            item_id: string;
+            local_result: components["schemas"]["AutoApprovalResultResponse"] | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "eligible" | "already_reviewed" | "gemini_unavailable" | "gemini_face_down" | "gemini_unusable" | "gemini_failed" | "local_unavailable" | "local_face_down" | "local_unusable" | "local_failed" | "identity_mismatch";
+        };
+        /**
+         * AutoApprovalLocalRunResponse
+         * @description The one configured local run started or reused for this comparison.
+         */
+        AutoApprovalLocalRunResponse: {
+            /** Attempt */
+            attempt: number;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "complete" | "partial" | "failed";
+        };
+        /**
+         * AutoApprovalPlanResponse
+         * @description The immutable inputs and current decisions for an auto-approval attempt.
+         */
+        AutoApprovalPlanResponse: {
+            /** Draft Revision */
+            draft_revision: number;
+            /** Items */
+            items: components["schemas"]["AutoApprovalItemResponse"][];
+            local_run: components["schemas"]["AutoApprovalLocalRunResponse"] | null;
+            /** Recording Id */
+            recording_id: string;
+            /** Source Revision Id */
+            source_revision_id: string;
+        };
+        /**
+         * AutoApprovalReceiptResponse
+         * @description The durable receipt for one revision-guarded auto-approval command.
+         */
+        AutoApprovalReceiptResponse: {
+            /** Accepted Item Ids */
+            accepted_item_ids: string[];
+            /** Command Id */
+            command_id: string;
+            /** Comparisons */
+            comparisons: components["schemas"]["AutoApprovalItemResponse"][];
+            /** Draft Revision */
+            draft_revision: number;
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "visual-identity-auto-approval-receipt/v1";
+            /** Source Revision Id */
+            source_revision_id: string;
+        };
+        /**
+         * AutoApprovalResultResponse
+         * @description One retained classifier outcome used by an auto-approval decision.
+         */
+        AutoApprovalResultResponse: {
+            /** Classifier */
+            classifier: {
+                [key: string]: unknown;
+            };
+            /** Result Id */
+            result_id: string;
         };
         /**
          * CounterfactualArtifact
@@ -4138,6 +4272,72 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_visual_identity_auto_approval_api_recordings__recording_id__pipeline_visual_identities_auto_approval_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoApprovalApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoApprovalReceiptResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_visual_identity_auto_approval_api_recordings__recording_id__pipeline_visual_identities_auto_approval_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoApprovalPlanResponse"];
                 };
             };
             /** @description Validation Error */

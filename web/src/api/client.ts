@@ -193,6 +193,14 @@ export type PipelineVisibleCardResult = JsonResponse<
 export type PipelineVisualIdentityResult = JsonResponse<
   paths["/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}/result"]["get"]["responses"][200]
 >;
+export type VisualIdentityAutoApprovalPlan = JsonResponse<
+  paths["/api/recordings/{recording_id}/pipeline/visual-identities/auto-approval-plan"]["post"]["responses"][202]
+>;
+export type VisualIdentityAutoApprovalReceipt = JsonResponse<
+  paths["/api/recordings/{recording_id}/pipeline/visual-identities/auto-approval"]["post"]["responses"][200]
+>;
+export type VisualIdentityAutoApprovalApplyRequest =
+  components["schemas"]["AutoApprovalApplyRequest"];
 export type RecordingSummary = RecordingListResponse["recordings"][number];
 export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
 export type RoundAnalysisTimeline = JsonResponse<
@@ -313,6 +321,15 @@ export interface DokoDetectorClient {
     runId: string,
     init?: RequestInit,
   ): Promise<PipelineVisualIdentityResult>;
+  planVisualIdentityAutoApproval(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<VisualIdentityAutoApprovalPlan>;
+  applyVisualIdentityAutoApproval(
+    recordingId: string,
+    payload: VisualIdentityAutoApprovalApplyRequest,
+    init?: RequestInit,
+  ): Promise<VisualIdentityAutoApprovalReceipt>;
   getPipelineReference(
     recordingId: string,
     contentType: PipelineSelectableContentType,
@@ -523,6 +540,23 @@ export function createDokoDetectorClient(
         fetchImplementation,
         pipelineVisualIdentityResultPath(recordingId, runId),
         init,
+      ),
+    planVisualIdentityAutoApproval: (recordingId, init) =>
+      requestJson<VisualIdentityAutoApprovalPlan>(
+        fetchImplementation,
+        pipelineVisualIdentityAutoApprovalPlanPath(recordingId),
+        { ...init, method: "POST" },
+      ),
+    applyVisualIdentityAutoApproval: (recordingId, payload, init) =>
+      requestJson<VisualIdentityAutoApprovalReceipt>(
+        fetchImplementation,
+        pipelineVisualIdentityAutoApprovalPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
       ),
     getPipelineReference: (recordingId, contentType, init) =>
       requestJson<PipelineReferenceResource>(
@@ -766,6 +800,18 @@ export function pipelineVisualIdentityResultPath(
   runId: string,
 ): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visual-identities/${encodeURIComponent(runId)}/result`;
+}
+
+export function pipelineVisualIdentityAutoApprovalPlanPath(
+  recordingId: string,
+): string {
+  return `${pipelineVisualIdentityRunsPath(recordingId)}/auto-approval-plan`;
+}
+
+export function pipelineVisualIdentityAutoApprovalPath(
+  recordingId: string,
+): string {
+  return `${pipelineVisualIdentityRunsPath(recordingId)}/auto-approval`;
 }
 
 export function pipelineIdentityCropPath(

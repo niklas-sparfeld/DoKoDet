@@ -21,7 +21,8 @@
 - **M0:** Complete — retained Gemini/local comparison selects matching frozen visible-card and
   crop lineage, reuses one deterministic local run, accepts only eligible pending items through a
   revision-guarded command, and persists an immutable comparison receipt across restart.
-- **M1:** Not started — add the reviewed visual identity auto-approve control and its feedback.
+- **M1:** Complete — reviewed identity work can plan, monitor, and apply guarded matching
+  Gemini/local decisions, with result lineage and reason counts visible to the operator.
 - **M2:** Not started — add consistent unfinished-item keyboard navigation to all review editors.
 
 ## 1. Purpose

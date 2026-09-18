@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { PipelineReferenceResource } from "../api/client";
+import type {
+  PipelineReferenceResource,
+  VisualIdentityAutoApprovalPlan,
+} from "../api/client";
 import styles from "../App.module.css";
 import identityStyles from "./PipelineVisualIdentityEditor.module.css";
 import {
@@ -75,6 +78,10 @@ export type IdentityInspectorProps = {
   creatingReference: boolean;
   selectedGeneratedRevisionId: string | null;
   rebasingReference: boolean;
+  autoApprovalPlan: VisualIdentityAutoApprovalPlan | null;
+  autoApprovalBusy: boolean;
+  autoApprovalAvailable: boolean;
+  autoApprove: () => Promise<void>;
   createReference: () => Promise<void>;
   rebaseReference: () => Promise<void>;
   completeReference: () => Promise<void>;
@@ -182,6 +189,49 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
           </button>
         </>
       ) : null}
+      <button
+        className={styles.secondaryButton}
+        type="button"
+        onClick={() => void props.autoApprove()}
+        disabled={!props.autoApprovalAvailable || props.autoApprovalBusy}
+      >
+        {props.autoApprovalBusy
+          ? "Checking identity results…"
+          : props.autoApprovalPlan?.local_run?.status === "queued" ||
+              props.autoApprovalPlan?.local_run?.status === "running"
+            ? "Local identity check running…"
+            : "Auto-approve matching identities"}
+      </button>
+      <AutoApprovalStatus plan={props.autoApprovalPlan} />
+    </>
+  );
+}
+
+function AutoApprovalStatus({
+  plan,
+}: {
+  plan: VisualIdentityAutoApprovalPlan | null;
+}) {
+  if (plan === null) return null;
+  const counts = new Map<string, number>();
+  for (const item of plan.items)
+    counts.set(item.reason, (counts.get(item.reason) ?? 0) + 1);
+  const summary = [...counts.entries()]
+    .map(([reason, count]) => `${count} ${reason.replaceAll("_", " ")}`)
+    .join(", ");
+  return (
+    <>
+      {plan.local_run !== null &&
+      (plan.local_run.status === "queued" ||
+        plan.local_run.status === "running") ? (
+        <p className={styles.pipelineInspectorEmpty} role="status">
+          Local identity check {plan.local_run.status}. This page will refresh
+          the comparison when it completes.
+        </p>
+      ) : null}
+      <p className={styles.pipelineInspectorEmpty} role="status">
+        Auto-approval: {summary || "no identity items"}.
+      </p>
     </>
   );
 }
@@ -274,6 +324,10 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
           </dd>
         </div>
       </dl>
+      <AutoApprovalDiagnostics
+        itemId={item?.itemId ?? null}
+        plan={props.autoApprovalPlan}
+      />
       {props.view === "reviewed" && props.reference !== null ? (
         <>
           <label className={identityStyles.reviewer}>
@@ -300,5 +354,34 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
         </>
       ) : null}
     </div>
+  );
+}
+
+function AutoApprovalDiagnostics({
+  itemId,
+  plan,
+}: {
+  itemId: string | null;
+  plan: VisualIdentityAutoApprovalPlan | null;
+}) {
+  const comparison = plan?.items.find(
+    (candidate) => candidate.item_id === itemId,
+  );
+  if (comparison === undefined) return null;
+  return (
+    <dl className={styles.pipelineInspectorFacts}>
+      <div>
+        <dt>Auto-approval</dt>
+        <dd>{comparison.reason.replaceAll("_", " ")}</dd>
+      </div>
+      <div>
+        <dt>Gemini result</dt>
+        <dd>{comparison.gemini_result?.result_id ?? "Unavailable"}</dd>
+      </div>
+      <div>
+        <dt>Local result</dt>
+        <dd>{comparison.local_result?.result_id ?? "Unavailable"}</dd>
+      </div>
+    </dl>
   );
 }

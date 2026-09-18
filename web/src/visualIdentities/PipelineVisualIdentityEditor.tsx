@@ -8,6 +8,7 @@ import {
   type PipelineReferenceOperation,
   type PipelineReferenceResource,
   type PipelineVisualIdentityResult,
+  type VisualIdentityAutoApprovalPlan,
 } from "../api/client";
 import styles from "../App.module.css";
 import {
@@ -110,6 +111,9 @@ export function PipelineVisualIdentityEditor({
   );
   const [creatingReference, setCreatingReference] = useState(false);
   const [rebasingReference, setRebasingReference] = useState(false);
+  const [autoApprovalPlan, setAutoApprovalPlan] =
+    useState<VisualIdentityAutoApprovalPlan | null>(null);
+  const [autoApprovalBusy, setAutoApprovalBusy] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
   const inspectorSlots = useIdentityInspectorSlots(inspectorEnabled, view);
   const generatedSourceRevisionId = displayedRevisionId ?? generatedRevisionId;
@@ -615,6 +619,7 @@ export function PipelineVisualIdentityEditor({
     );
     if (
       current === null ||
+      current.state.draft_state !== "draft" ||
       reviewerId.trim() === "" ||
       pending.length > 0 ||
       currentItems.some(
@@ -788,6 +793,85 @@ export function PipelineVisualIdentityEditor({
     setError(null);
     void processQueueRef.current?.();
   }, []);
+
+  const autoApprove = useCallback(async () => {
+    const current = referenceRef.current;
+    if (
+      current === null ||
+      operatorId.trim() === "" ||
+      queueRef.current.length > 0 ||
+      processingRef.current ||
+      saveState !== "saved"
+    ) {
+      return;
+    }
+    setAutoApprovalBusy(true);
+    setError(null);
+    try {
+      const plan = await client.planVisualIdentityAutoApproval(recordingId);
+      setAutoApprovalPlan(plan);
+      if (
+        plan.local_run?.status === "queued" ||
+        plan.local_run?.status === "running"
+      ) {
+        setNotice(
+          "Local identity check started. The comparison will refresh when it completes.",
+        );
+        return;
+      }
+      const eligibleCount = plan.items.filter((item) => item.eligible).length;
+      if (eligibleCount === 0) {
+        setNotice(autoApprovalNotice(plan));
+        return;
+      }
+      setSaveState("saving");
+      const receipt = await client.applyVisualIdentityAutoApproval(
+        recordingId,
+        {
+          expected_revision: plan.draft_revision,
+          operator_id: operatorId.trim(),
+          command_id: nextCommandId(),
+        },
+      );
+      await loadReference();
+      setNotice(
+        autoApprovalReceiptNotice(
+          receipt.accepted_item_ids.length,
+          receipt.comparisons,
+        ),
+      );
+    } catch (reason: unknown) {
+      if (reason instanceof ApiError && reason.status === 409) {
+        await loadReference();
+        setSaveState("conflict");
+        setError(
+          "The maintained draft changed. The current draft was reloaded; run auto-approve again.",
+        );
+      } else {
+        setSaveState("error");
+        setError(`Auto-approve could not finish. ${describeError(reason)}`);
+      }
+    } finally {
+      setAutoApprovalBusy(false);
+    }
+  }, [
+    client,
+    loadReference,
+    nextCommandId,
+    operatorId,
+    recordingId,
+    saveState,
+  ]);
+
+  useEffect(() => {
+    if (
+      autoApprovalPlan?.local_run?.status !== "queued" &&
+      autoApprovalPlan?.local_run?.status !== "running"
+    )
+      return;
+    const timer = window.setTimeout(() => void autoApprove(), 1_000);
+    return () => window.clearTimeout(timer);
+  }, [autoApprovalPlan, autoApprove]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -998,6 +1082,17 @@ export function PipelineVisualIdentityEditor({
       creatingReference={creatingReference}
       selectedGeneratedRevisionId={selectedGeneratedSourceRevisionId}
       rebasingReference={rebasingReference}
+      autoApprovalPlan={autoApprovalPlan}
+      autoApprovalBusy={autoApprovalBusy}
+      autoApprovalAvailable={
+        reviewed &&
+        reference !== null &&
+        reference.state.draft_state === "draft" &&
+        operatorId.trim() !== "" &&
+        queueLength === 0 &&
+        saveState === "saved"
+      }
+      autoApprove={autoApprove}
       createReference={createReference}
       rebaseReference={rebaseReference}
       completeReference={completeReference}
@@ -1510,4 +1605,24 @@ function describeError(error: unknown): string {
   return error instanceof Error
     ? error.message
     : "The identity request failed.";
+}
+
+function autoApprovalNotice(plan: VisualIdentityAutoApprovalPlan): string {
+  return autoApprovalReceiptNotice(0, plan.items);
+}
+
+function autoApprovalReceiptNotice(
+  acceptedCount: number,
+  comparisons: VisualIdentityAutoApprovalPlan["items"],
+): string {
+  const counts = new Map<string, number>();
+  for (const comparison of comparisons)
+    counts.set(comparison.reason, (counts.get(comparison.reason) ?? 0) + 1);
+  const remaining = [...counts.entries()]
+    .filter(([reason]) => reason !== "eligible")
+    .map(([reason, count]) => `${count} ${reason.replaceAll("_", " ")}`)
+    .join(", ");
+  return acceptedCount > 0
+    ? `Auto-approved ${acceptedCount} identity item${acceptedCount === 1 ? "" : "s"}.${remaining === "" ? "" : ` Remaining: ${remaining}.`}`
+    : `No identity items were auto-approved.${remaining === "" ? "" : ` Remaining: ${remaining}.`}`;
 }

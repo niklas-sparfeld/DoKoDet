@@ -14,6 +14,8 @@ import {
   pipelineReferencePath,
   pipelineVisibleCardResultPath,
   pipelineVisualIdentityResultPath,
+  pipelineVisualIdentityAutoApprovalPath,
+  pipelineVisualIdentityAutoApprovalPlanPath,
   recordingAnalysisPath,
   recordingDetailPath,
   recordingPipelineSelectionPath,
@@ -76,6 +78,29 @@ describe("DokoDetector API client", () => {
       pipelineIdentityCropPath("recording/1", "revision/1", "card 1"),
     ).toBe(
       "/api/recordings/recording%2F1/pipeline/derived-views/identity-crops/revision%2F1/card%201?preview=browser",
+    );
+  });
+
+  it("plans and applies guarded visual identity auto-approval", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(jsonResponse({})),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.planVisualIdentityAutoApproval("recording/1");
+    await client.applyVisualIdentityAutoApproval("recording/1", {
+      expected_revision: 4,
+      operator_id: "operator-1",
+      command_id: "command-1",
+    });
+
+    expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
+      pipelineVisualIdentityAutoApprovalPlanPath("recording/1"),
+      pipelineVisualIdentityAutoApprovalPath("recording/1"),
+    ]);
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[1]?.[1]?.body).toContain(
+      "expected_revision",
     );
   });
 

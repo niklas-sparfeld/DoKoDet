@@ -52,7 +52,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0069 — Auto-accept identities](3-in-progress/0069-Auto_Accept_Identities.md) | 0043 and 0049 complete | M0 complete; M1–M2 not started. Retained Gemini/local comparisons use frozen visible-card and crop lineage, reuse one local run, and persist revision-guarded acceptance receipts. The review control and Cmd+Arrow navigation remain. |
+| [0069 — Auto-accept identities](3-in-progress/0069-Auto_Accept_Identities.md) | 0043 and 0049 complete | M0–M1 complete; M2 not started. Retained Gemini/local comparisons use frozen visible-card and crop lineage, reuse one local run, and persist revision-guarded acceptance receipts. Reviewed identity work shows guarded auto-approval state, reason counts, and result lineage. Cmd+Arrow navigation remains. |
 | [0051 — Visible-region identity resilience baseline](3-in-progress/0051-Visible_Region_Identity_Resilience_Baseline.md) | 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items | M0–M3 are complete. M0 is reconciled with durable operations storage, shared bundle validation, current Gemini 3.8 and crop defaults, explicit partitions, frozen frame/geometry inputs, and a 4,920-request preflight. The completed `IMG_0661` review opens the gate with 100 validation samples. M3 provides dry-run planning, resumable crop materialization, pinned-classifier execution, caching, paired metrics, and item-level retention. |
 
 ### Blocked
