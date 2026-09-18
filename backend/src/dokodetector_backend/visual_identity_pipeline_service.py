@@ -585,6 +585,9 @@ class VisualIdentityPipelineService:
                     cache=self.storage.derived_views_root,
                     resolver=self.frame_resolver,
                     output_encoding=frame_identity.output_encoding,
+                    # The accepted source was hashed when the run request was built. Avoid
+                    # hashing the complete video again for every card.
+                    validate_source=False,
                 )
             if frame.identity_mapping() != frame_identity.to_mapping():
                 raise DerivedViewError("the resolved frame identity changed")

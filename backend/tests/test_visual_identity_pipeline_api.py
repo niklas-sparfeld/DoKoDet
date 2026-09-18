@@ -37,6 +37,10 @@ from test_visible_card_pipeline_api import (
     _wait_event,
 )
 
+from dokodetector_backend import (
+    visual_identity_pipeline_service as visual_identity_pipeline_service_module,
+)
+
 
 class _IdentityProvider:
     name = "fixture-identity"
@@ -160,6 +164,74 @@ def test_visual_identity_resolves_concrete_local_classifier_name_from_local_regi
 
     assert resolved is not None
     assert resolved.name == "local-dinov3"
+
+
+def test_visual_identity_reuses_run_source_validation_for_each_card(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    _install_recording(tmp_path)
+    resolve_calls: list[bool | None] = []
+    original_resolve_exact_event = visual_identity_pipeline_service_module.resolve_exact_event
+
+    def record_resolve_call(*args: object, **kwargs: object) -> object:
+        resolve_calls.append(kwargs.get("validate_source"))
+        return original_resolve_exact_event(*args, **kwargs)
+
+    monkeypatch.setattr(
+        visual_identity_pipeline_service_module,
+        "resolve_exact_event",
+        record_resolve_call,
+    )
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=_IdentityProvider(),
+    )
+
+    with TestClient(app) as client:
+        event_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json={"run_id": "events-for-identity-source-validation"},
+        )
+        assert event_response.status_code == 202
+        _wait_event(client, "events-for-identity-source-validation")
+        event_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/"
+            "events-for-identity-source-validation/result"
+        ).json()["state"]["output_revision_ids"][0]
+
+        visible_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "visible-for-identity-source-validation",
+                "event_revision_id": event_revision_id,
+            },
+        )
+        assert visible_response.status_code == 202
+        assert _wait(client, "visible-for-identity-source-validation")["state"]["status"] == (
+            "complete"
+        )
+        visible_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/"
+            "visible-for-identity-source-validation/result"
+        ).json()["state"]["output_revision_ids"][0]
+
+        identity_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-source-validation",
+                "input_revision_ids": [visible_revision_id],
+            },
+        )
+        assert identity_response.status_code == 202
+        assert _wait_identity(client, "identity-source-validation")["state"]["status"] == (
+            "complete"
+        )
+
+    assert resolve_calls
+    assert set(resolve_calls) == {False}
 
 
 def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_restarts(
