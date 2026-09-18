@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterator, Mapping
+from pathlib import Path
 from typing import Any
 
 from table_evidence_analyzer import (
@@ -19,6 +21,8 @@ from table_evidence_analyzer import (
 )
 
 from dokodetector_backend.config import ConfigurationError, Settings
+
+_RFDETR_SEGMENTATION_BUNDLE_SCHEMA = "rfdetr-segmentation-bundle/v1"
 
 
 class LazyProcessorRegistry(Mapping[str, Any]):
@@ -161,6 +165,27 @@ def _create_identity_classifier(
     raise ConfigurationError(f"Unsupported identity provider: {provider_name}.")
 
 
+def _configured_local_visible_provider(settings: Settings) -> str:
+    """Select the local adapter that matches the configured bundle."""
+
+    if settings.visible_card_provider in {"local", "local-rfdetr-segmentation"}:
+        return settings.visible_card_provider
+    bundle_path = settings.visible_card_bundle_path
+    if bundle_path is not None:
+        try:
+            manifest = json.loads(
+                (Path(bundle_path).expanduser() / "manifest.json").read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            manifest = None
+        if (
+            isinstance(manifest, dict)
+            and manifest.get("schema_version") == _RFDETR_SEGMENTATION_BUNDLE_SCHEMA
+        ):
+            return "local-rfdetr-segmentation"
+    return "local"
+
+
 def create_configured_processor_registries(
     settings: Settings,
 ) -> tuple[LazyProcessorRegistry, LazyProcessorRegistry]:
@@ -168,11 +193,7 @@ def create_configured_processor_registries(
 
     cache_root = settings.evidence_root / "gemini-cache"
     request_limiter = get_shared_gemini_request_limiter(settings.gemini_max_concurrent_requests)
-    local_visible_provider = (
-        settings.visible_card_provider
-        if settings.visible_card_provider in {"local", "local-rfdetr-segmentation"}
-        else "local"
-    )
+    local_visible_provider = _configured_local_visible_provider(settings)
     visible = LazyProcessorRegistry(
         {
             "cloud": lambda: _create_visible_card_provider(

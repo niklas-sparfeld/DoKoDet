@@ -194,6 +194,37 @@ def test_reviewed_segmentation_backend_selection_is_explicit_and_non_default(
     assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
 
 
+def test_local_pipeline_selection_detects_segmentation_bundle_with_cloud_default(
+    tmp_path: Path, monkeypatch
+) -> None:
+    bundle_path = tmp_path / "bundle"
+    bundle_path.mkdir()
+    (bundle_path / "manifest.json").write_text(
+        '{"schema_version":"rfdetr-segmentation-bundle/v1"}', encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        gemini_analyzer,
+        "LocalVisibleCardSegmentationProvider",
+        FakeLocalSegmentationProvider,
+    )
+    monkeypatch.setattr(
+        gemini_analyzer,
+        "LocalVisibleCardProvider",
+        lambda *args, **kwargs: pytest.fail("segmentation bundle selected the detector adapter"),
+    )
+
+    visible, _ = gemini_analyzer.create_configured_processor_registries(
+        _settings(
+            tmp_path,
+            visible_card_bundle_path=bundle_path,
+            visible_card_device="cpu",
+        )
+    )
+
+    selected = visible["local"].provider
+    assert selected.name == "local-rfdetr-segmentation"
+
+
 def test_local_identity_selection_does_not_require_gemini_or_construct_gemini(
     tmp_path: Path, monkeypatch
 ) -> None:
