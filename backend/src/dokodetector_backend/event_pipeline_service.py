@@ -595,9 +595,14 @@ class EventPipelineService:
                 self._video_path(run.request.source.recording_id),
                 request=run.request,
             )
+            metrics = _card_event_metrics_from_provider(result, run.request)
             content = _event_data_from_provider(result, run.request)
             revision = self._publish_processor_revision(run, content)
-            self.run_store.complete(run_id, [revision.manifest.revision_id])
+            self.run_store.complete(
+                run_id,
+                [revision.manifest.revision_id],
+                metrics=metrics,
+            )
             self._advance_generated_selection(
                 run.request.source.recording_id, revision.manifest.revision_id
             )
@@ -858,6 +863,84 @@ def _event_data_from_provider(
         )
     except (TypeError, ValueError) as error:
         raise PipelineProviderError("The event provider returned invalid event content.") from error
+
+
+def _card_event_metrics_from_provider(
+    value: EventData | Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    request: ProcessorRunRequest,
+) -> dict[str, Any]:
+    """Retain the raw CardEventNet probability stream for debugging views."""
+
+    if not isinstance(value, Mapping) or "probabilities" not in value:
+        return {}
+    raw_probabilities = value.get("probabilities")
+    if not isinstance(raw_probabilities, list):
+        raise PipelineProviderError("The event provider returned invalid probability metrics.")
+
+    probabilities: list[dict[str, float]] = []
+    for index, raw in enumerate(raw_probabilities):
+        if not isinstance(raw, Mapping):
+            raise PipelineProviderError(
+                f"The event provider returned invalid probability metrics at index {index}."
+            )
+        sample = {
+            "time_s": _metric_number(raw.get("time_s"), f"probabilities[{index}].time_s"),
+            "probability": _metric_number(
+                raw.get("probability"), f"probabilities[{index}].probability"
+            ),
+        }
+        if "logit" in raw and raw["logit"] is not None:
+            sample["logit"] = _metric_number(raw["logit"], f"probabilities[{index}].logit")
+        probabilities.append(sample)
+
+    metrics: dict[str, Any] = {
+        "schema_version": "cardeventnet-metrics/v1",
+        "probabilities": probabilities,
+    }
+    for field in ("threshold", "merge_window_s", "min_event_gap_s"):
+        raw = value.get(field, request.configuration.get(field))
+        if raw is not None:
+            metrics[field] = _metric_number(raw, field)
+    for field in ("source_video", "checkpoint", "device", "preprocessing", "event_type"):
+        raw = value.get(field)
+        if raw is not None:
+            if not isinstance(raw, str) or not raw:
+                raise PipelineProviderError(
+                    f"The event provider returned invalid {field} metadata."
+                )
+            metrics[field] = raw
+
+    raw_events = value.get("events")
+    if raw_events is not None:
+        if not isinstance(raw_events, list):
+            raise PipelineProviderError("The event provider returned invalid decoded events.")
+        events: list[dict[str, float]] = []
+        for index, raw in enumerate(raw_events):
+            if not isinstance(raw, Mapping):
+                raise PipelineProviderError(
+                    f"The event provider returned invalid decoded event at index {index}."
+                )
+            event = {
+                "time_s": _metric_number(raw.get("time_s"), f"events[{index}].time_s"),
+            }
+            if "probability" in raw and raw["probability"] is not None:
+                event["probability"] = _metric_number(
+                    raw["probability"], f"events[{index}].probability"
+                )
+            if "emitted_at_s" in raw and raw["emitted_at_s"] is not None:
+                event["emitted_at_s"] = _metric_number(
+                    raw["emitted_at_s"], f"events[{index}].emitted_at_s"
+                )
+            events.append(event)
+        metrics["events"] = events
+
+    return metrics
+
+
+def _metric_number(value: Any, field: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(float(value)):
+        raise PipelineProviderError(f"The event provider returned invalid metric {field}.")
+    return float(value)
 
 
 def _now() -> str:

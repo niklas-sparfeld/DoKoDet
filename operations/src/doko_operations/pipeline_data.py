@@ -23,7 +23,7 @@ VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
 VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v1"
 TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 PROCESSOR_RUN_REQUEST_SCHEMA_VERSION = "processor-run-request/v1"
-PROCESSOR_RUN_STATE_SCHEMA_VERSION = "processor-run-state/v1"
+PROCESSOR_RUN_STATE_SCHEMA_VERSION = "processor-run-state/v2"
 PIPELINE_SELECTION_SCHEMA_VERSION = "pipeline-selection/v1"
 PIPELINE_SELECTION_UPDATE_SCHEMA_VERSION = "pipeline-selection-update/v1"
 CARD_STATE_CHANGED_EVENT_TYPE = "card_state_changed"
@@ -1109,6 +1109,7 @@ class ProcessorRunState:
     items: tuple[RunItemOutcome, ...]
     terminal_failure: RunFailure | None
     output_revision_ids: tuple[str, ...]
+    metrics: dict[str, Any]
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> ProcessorRunState:
@@ -1128,6 +1129,7 @@ class ProcessorRunState:
                 "items",
                 "terminal_failure",
                 "output_revision_ids",
+                "metrics",
             },
             "processor run state",
         )
@@ -1172,6 +1174,7 @@ class ProcessorRunState:
             )
         )
         output_revision_ids = _identifier_list(data["output_revision_ids"], "output_revision_ids")
+        metrics = _json_object(data["metrics"], "metrics")
         progress = RunProgress.from_mapping(_mapping(data["progress"], "progress"))
         if status == "queued" and (
             started_at is not None
@@ -1227,6 +1230,7 @@ class ProcessorRunState:
             items=items,
             terminal_failure=terminal_failure,
             output_revision_ids=output_revision_ids,
+            metrics=metrics,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -1245,6 +1249,7 @@ class ProcessorRunState:
             if self.terminal_failure is None
             else self.terminal_failure.to_mapping(),
             "output_revision_ids": list(self.output_revision_ids),
+            "metrics": self.metrics,
         }
 
 

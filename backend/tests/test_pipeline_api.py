@@ -74,14 +74,22 @@ def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Pat
 
 
 class FakeEventProvider:
-    def __init__(self, events: list[dict[str, object]] | None = None) -> None:
+    def __init__(
+        self,
+        events: list[dict[str, object]] | None = None,
+        probabilities: list[dict[str, object]] | None = None,
+    ) -> None:
         self.events = events or [{"time_s": 0.5, "probability": 0.95}]
+        self.probabilities = probabilities
         self.calls: list[Path] = []
 
     def infer(self, video_path: Path, *, request: object) -> dict[str, object]:
         del request
         self.calls.append(video_path)
-        return {"events": self.events}
+        result: dict[str, object] = {"events": self.events}
+        if self.probabilities is not None:
+            result["probabilities"] = self.probabilities
+        return result
 
 
 def _settings(tmp_path: Path) -> Settings:
@@ -205,6 +213,40 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
             == (body["state"]["output_revision_ids"][0])
         )
     assert len(provider.calls) == 1
+
+
+def test_cardeventnet_probability_metrics_are_stored_with_the_run(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    provider = FakeEventProvider(
+        probabilities=[
+            {"time_s": 0.0, "probability": 0.1, "logit": -2.2},
+            {"time_s": 0.5, "probability": 0.95, "logit": 2.9},
+        ]
+    )
+    app = create_test_app(_settings(tmp_path), event_provider=provider)
+
+    with TestClient(app) as client:
+        created = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events", json=_request("run-metrics")
+        )
+        assert created.status_code == 202
+        status = _wait_for_status(client, "run-metrics", "complete")
+
+        metrics = status["state"]["metrics"]
+        assert metrics == {
+            "schema_version": "cardeventnet-metrics/v1",
+            "probabilities": [
+                {"time_s": 0.0, "probability": 0.1, "logit": -2.2},
+                {"time_s": 0.5, "probability": 0.95, "logit": 2.9},
+            ],
+            "threshold": 0.5,
+            "events": [{"time_s": 0.5, "probability": 0.95}],
+        }
+        result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/run-metrics/result"
+        )
+        assert result.status_code == 200
+        assert result.json()["state"]["metrics"] == metrics
 
 
 def test_default_card_event_provider_freezes_discovered_checkpoint(

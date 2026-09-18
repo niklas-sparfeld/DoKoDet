@@ -323,9 +323,14 @@ def test_run_state_keeps_execution_state_separate_from_review_state() -> None:
         ],
         "terminal_failure": None,
         "output_revision_ids": ["revision-01"],
+        "metrics": {
+            "schema_version": "cardeventnet-metrics/v1",
+            "probabilities": [],
+        },
     }
     parsed = parse_processor_run_state_bytes(canonical_processor_run_state_bytes(state))
     assert parsed.progress == RunProgress(completed=1, total=1)
+    assert parsed.metrics["schema_version"] == "cardeventnet-metrics/v1"
 
     partial = dict(state, status="partial", progress={"completed": 0, "total": 1})
     parsed_partial = parse_processor_run_state_bytes(canonical_processor_run_state_bytes(partial))

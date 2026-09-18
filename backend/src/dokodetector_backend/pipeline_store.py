@@ -17,6 +17,7 @@ from threading import RLock
 from typing import Any, Iterator
 
 from doko_operations.pipeline_data import (
+    PROCESSOR_RUN_STATE_SCHEMA_VERSION,
     DataRevision,
     EventData,
     EventDataRevision,
@@ -770,7 +771,7 @@ class ProcessorRunStore:
         timestamp = _canonical_timestamp(created_at)
         state = ProcessorRunState.from_mapping(
             {
-                "schema_version": "processor-run-state/v1",
+                "schema_version": PROCESSOR_RUN_STATE_SCHEMA_VERSION,
                 "run_id": parsed_request.run_id,
                 "status": "queued",
                 "attempt": 1,
@@ -782,6 +783,7 @@ class ProcessorRunStore:
                 "items": [],
                 "terminal_failure": None,
                 "output_revision_ids": [],
+                "metrics": {},
             }
         )
         state_bytes = canonical_processor_run_state_bytes(state)
@@ -886,6 +888,7 @@ class ProcessorRunStore:
         *,
         progress: RunProgress | None = None,
         items: tuple[RunItemOutcome, ...] | None = None,
+        metrics: Mapping[str, Any] | None = None,
         completed_at: datetime | str | None = None,
     ) -> StoredProcessorRun:
         current = self.require(run_id)
@@ -906,6 +909,7 @@ class ProcessorRunStore:
                 progress=complete_progress,
                 items=current.state.items if items is None else items,
                 output_revision_ids=tuple(output_revision_ids),
+                metrics=current.state.metrics if metrics is None else dict(metrics),
             ),
         )
 
@@ -976,6 +980,7 @@ class ProcessorRunStore:
                 updated_at=timestamp,
                 terminal_failure=None,
                 output_revision_ids=(),
+                metrics={},
             ),
         )
 

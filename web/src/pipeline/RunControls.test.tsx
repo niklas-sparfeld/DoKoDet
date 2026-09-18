@@ -52,6 +52,7 @@ function runResponse(
   runId: string,
   status = "running",
   request: Record<string, unknown> = {},
+  state: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
     run_id: runId,
@@ -73,6 +74,7 @@ function runResponse(
       status,
       progress: { completed: 0, total: 1 },
       terminal_failure: null,
+      ...state,
     },
   };
 }
@@ -173,6 +175,70 @@ describe("RunControls", () => {
     );
 
     expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  it("opens the stored CardEventNet probability chart", async () => {
+    const response = runResponse(
+      "events-run-1",
+      "complete",
+      {},
+      {
+        metrics: {
+          schema_version: "cardeventnet-metrics/v1",
+          threshold: 0.5,
+          probabilities: [
+            { time_s: 0, probability: 0.1 },
+            { time_s: 0.5, probability: 0.95 },
+            { time_s: 1, probability: 0.2 },
+          ],
+          events: [{ time_s: 0.5, probability: 0.95 }],
+        },
+      },
+    );
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(response), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={stage("events")}
+        stages={[stage("events")]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Show probabilities" }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "CardEventNet probabilities" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: "CardEventNet probability over time chart",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("img").querySelector("polyline")).toHaveAttribute(
+      "points",
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Close probabilities" }),
+    );
+    expect(
+      screen.queryByRole("dialog", { name: "CardEventNet probabilities" }),
+    ).not.toBeInTheDocument();
   });
 
   it("defaults to reviewed upstream input and permits an exact historical revision", async () => {

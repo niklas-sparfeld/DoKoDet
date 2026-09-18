@@ -10,6 +10,10 @@ import {
   type PipelineWorkspaceStage,
 } from "../api/client";
 import styles from "../App.module.css";
+import {
+  ProbabilityOverlay,
+  readProbabilityMetrics,
+} from "./ProbabilityOverlay";
 
 type RunStageKey = Extract<
   PipelineStageKey,
@@ -340,7 +344,12 @@ export function RunControls({
       ) : null}
 
       {selectedRun !== null ? (
-        <RunStatus run={selectedRun} onRetry={retryRun} busy={busy} />
+        <RunStatus
+          run={selectedRun}
+          onRetry={retryRun}
+          busy={busy}
+          showProbabilities={runStage === "events"}
+        />
       ) : null}
 
       {stage.runs.length > 0 ? (
@@ -397,17 +406,24 @@ function RunStatus({
   run,
   onRetry,
   busy,
+  showProbabilities,
 }: {
   run: RunFacts;
   onRetry: (runId: string) => Promise<void>;
   busy: boolean;
+  showProbabilities: boolean;
 }) {
+  const [probabilitiesOpen, setProbabilitiesOpen] = useState(false);
   const state = run.state;
   const progress = readObject(state.progress);
   const completed = readNumber(progress?.completed);
   const total = readNumber(progress?.total);
   const failure = readObject(state.terminal_failure);
   const failureMessage = readString(failure?.message);
+  const probabilityMetrics = showProbabilities
+    ? readProbabilityMetrics(state)
+    : null;
+  const closeProbabilities = useCallback(() => setProbabilitiesOpen(false), []);
   const message =
     run.status === "complete"
       ? "The processor completed and retained its output revision."
@@ -470,6 +486,22 @@ function RunStatus({
         >
           Retry same run
         </button>
+      ) : null}
+      {probabilityMetrics !== null ? (
+        <button
+          className={styles.detailButton}
+          type="button"
+          onClick={() => setProbabilitiesOpen(true)}
+        >
+          Show probabilities
+        </button>
+      ) : null}
+      {probabilitiesOpen && probabilityMetrics !== null ? (
+        <ProbabilityOverlay
+          metrics={probabilityMetrics}
+          runId={run.run_id}
+          onClose={closeProbabilities}
+        />
       ) : null}
     </div>
   );
