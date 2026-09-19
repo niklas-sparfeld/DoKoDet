@@ -223,6 +223,24 @@ from .synthetic_visible_region_materialization import (
     render_synthetic_visible_region_inputs_human,
     write_synthetic_visible_region_inputs,
 )
+from .synthetic_visible_region_planar_geometry import (
+    M1_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_M1_DEFAULT,
+)
+from .synthetic_visible_region_planar_geometry import (
+    MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_MANIFEST_DEFAULT,
+)
+from .synthetic_visible_region_planar_geometry import (
+    OUTPUT_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_OUTPUT_DEFAULT,
+)
+from .synthetic_visible_region_planar_geometry import (
+    SAMPLE_COUNT_DEFAULT as SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_SAMPLE_COUNT_DEFAULT,
+)
+from .synthetic_visible_region_planar_geometry import (
+    SyntheticVisibleRegionPlanarGeometryError,
+    build_synthetic_visible_region_planar_geometry_samples,
+    render_synthetic_visible_region_planar_geometry_human,
+    write_synthetic_visible_region_planar_geometry_manifest,
+)
 from .synthetic_visible_region_recording_synthesis import (
     GEOMETRY_REFERENCE_FRAME_COUNT_DEFAULT,
     MAX_CARD_COUNT_DEFAULT,
@@ -1120,6 +1138,59 @@ def build_parser() -> argparse.ArgumentParser:
         "--format", choices=("human", "json"), default="human"
     )
     synthetic_visible_region_empty_table.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    synthetic_visible_region_planar_geometry = data_commands.add_parser(
+        "synthetic-visible-region-planar-geometry",
+        aliases=("synthetic-rfdetr-planar-geometry",),
+        help="Calibrate a reviewed table plane and render geometry-only samples.",
+        description=(
+            "Fit a stable table-plane homography from several reviewed card rectangles in each "
+            "selected recording, then project one-, two-, and three-card layouts into an "
+            "explicit reviewed empty table frame."
+        ),
+    )
+    _add_path_options(synthetic_visible_region_planar_geometry, suppress_defaults=True)
+    synthetic_visible_region_planar_geometry.add_argument(
+        "--source-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_SOURCE_DEFAULT),
+        help="Frozen 0068 reviewed-detector M0 manifest.",
+    )
+    synthetic_visible_region_planar_geometry.add_argument(
+        "--m1-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_M1_DEFAULT),
+        help="Training-only M1 cutout and reviewed-empty-table manifest.",
+    )
+    synthetic_visible_region_planar_geometry.add_argument(
+        "--output-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_OUTPUT_DEFAULT),
+        help="Disposable geometry-review sample directory.",
+    )
+    synthetic_visible_region_planar_geometry.add_argument(
+        "--output",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_MANIFEST_DEFAULT),
+        help="Immutable geometry-review manifest path.",
+    )
+    synthetic_visible_region_planar_geometry.add_argument(
+        "--recording-id",
+        action="append",
+        default=None,
+        help="Use one explicitly reviewed empty-table recording. Repeat to select several.",
+    )
+    synthetic_visible_region_planar_geometry.add_argument(
+        "--sample-count",
+        type=int,
+        default=SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_SAMPLE_COUNT_DEFAULT,
+        help="Render one to three geometry-only review scenes.",
+    )
+    synthetic_visible_region_planar_geometry.add_argument(
+        "--format", choices=("human", "json"), default="human"
+    )
+    synthetic_visible_region_planar_geometry.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     synthetic_visible_region_m4 = data_commands.add_parser(
@@ -2463,6 +2534,42 @@ def main(argv: Sequence[str] | None = None) -> int:
             sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         else:
             sys.stdout.write(render_synthetic_visible_region_empty_table_human(manifest))
+        return 0
+    if args.command == "data" and args.data_command in {
+        "synthetic-visible-region-planar-geometry",
+        "synthetic-rfdetr-planar-geometry",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            manifest = build_synthetic_visible_region_planar_geometry_samples(
+                config.repository_root,
+                source_manifest_path=args.source_manifest,
+                m1_manifest_path=args.m1_manifest,
+                output_directory=args.output_directory,
+                sample_count=args.sample_count,
+                recording_ids=args.recording_id,
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            write_synthetic_visible_region_planar_geometry_manifest(output_path, manifest)
+        except (
+            ConfigurationError,
+            OSError,
+            SyntheticVisibleRegionPlanarGeometryError,
+        ) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_synthetic_visible_region_planar_geometry_human(manifest))
         return 0
     if args.command == "data" and args.data_command in {
         "synthetic-visible-region-training-comparison",

@@ -28,11 +28,12 @@
   and mixed-side buckets remain unavailable.
 - **M4:** Preflight ready — the paired real-only versus real-plus-synthetic run is prepared; full
   training remains operator-started and was not started here.
-- **M5:** Revised sample path in progress — the earlier card-bearing-frame/inpainting pools are
-  superseded. A bounded six-scene sample now renders only on the one accepted full-frame-reviewed
-  empty training table, white-balances all 165 training cutouts first, transfers one shared lighting
-  profile from reviewed known cards, and varies lighting at complete-scene scope. Do not generate
-  the larger pool until operator inspection approves the samples.
+- **M5:** Geometry review in progress — the earlier card-bearing-frame/inpainting pools and the
+  lighting-first samples are superseded. A bounded three-scene review set uses only the accepted
+  full-frame-reviewed empty training table. It estimates one metric table-plane transform from
+  several reviewed cards in the same recording, then renders direct one-, two-, and three-card
+  placements with exact overlap masks. Do not generate a larger pool or add photometric changes
+  until operator inspection approves the geometry.
 - **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -122,12 +123,13 @@ Treat reviewed complete card quadrilaterals as measured perspective examples for
 Normalize each example by source dimensions and retain its centroid, corner order, area, edge
 lengths, skew, and rotation.
 
-The first generator uses this empirical geometry directly:
-
-1. Select one table setup and one real perspective example from its training groups.
-2. Map a canonical card rectangle to that observed quadrilateral.
-3. Apply only the bounded position, scale, rotation, and corner jitter frozen in M0.
-4. Reject geometry outside the measured envelope for that table setup.
+The geometry-review generator uses the complete reviewed rectangles from one recording and table
+setup to estimate one metric table-plane homography. It identifies each card's adjacent short and
+long sides, constrains their ratio to the known card ratio, averages the accepted measurements,
+and rejects geometric outliers. It then lays canonical rectangles out in that plane and projects
+them into the explicit reviewed empty frame. This is sufficient for perspective-correct planar
+placement and exact card-card occlusion. It does not identify unique camera height, distance, or
+intrinsics.
 
 Single-card frames are valuable because they provide clean cutouts and unambiguous complete
 quadrilaterals. They do not, by themselves, identify one unique global table homography. This epic
@@ -475,6 +477,21 @@ Acceptance:
   must not be used for the next training comparison.
 - Focused tests pass: the new empty-table synthesis tests and Ruff checks. Operator approval is
   still required before scene-limit 0 or a larger pool is allowed.
+
+#### M5 planar-geometry review evidence — 2026-09-19
+
+- Added `synthetic-visible-region-planar-geometry`. It uses only explicit reviewed empty training
+  frames as rendered backgrounds. It never inpaints or renders a card-bearing source frame.
+- For `IMG_0669`, the calibration reads 22 complete reviewed card rectangles from the matching
+  recording and table setup. It accepts 19 and rejects 3 robust outliers. The accepted rectangles
+  give a normalized long-side size of 1.531, median right-angle error of 2.107 degrees, median
+  aspect error of 0.0346, and median parallel-edge error of 0.0339.
+- The command writes three direct-composite, geometry-only review scenes: one observed-pose card,
+  two overlapping cards, and three overlapping cards. It applies no white balance, lighting,
+  shadow, blur, or colour changes. Each scene has exact visible masks and COCO annotations.
+- The output is at `.runtime/synthetic-visible-region-0070-planar-geometry-samples`. No larger
+  pool or training run was started. Operator approval of the perspective and overlap geometry is
+  required before photometric work or expansion.
 
 ### M6 — Measure correction effort and publish the decision
 
