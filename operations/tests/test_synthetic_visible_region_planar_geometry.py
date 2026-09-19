@@ -9,7 +9,9 @@ from doko_operations.rfdetr_segmentation_materialization import (
     validate_rfdetr_coco_annotations,
 )
 from doko_operations.synthetic_visible_region_planar_geometry import (
+    SCANNED_DECK_SOURCE_DEFAULT,
     _apply_homography,
+    _scanned_deck_assets,
     build_synthetic_visible_region_planar_geometry_samples,
     fit_table_plane,
 )
@@ -55,6 +57,23 @@ def test_table_plane_fit_rectifies_rotated_cards_with_one_average_size() -> None
     assert abs(calibration["card_long_size"] - 1.5) < 0.01
 
 
+def test_scanned_deck_assets_are_upright_canonical_cards() -> None:
+    repository = Path(__file__).parents[2]
+
+    assets = _scanned_deck_assets(repository, SCANNED_DECK_SOURCE_DEFAULT)
+
+    assert [asset["record"]["deck_card_name"] for asset in assets] == [
+        "SPADES_ten",
+        "DIAMONDS_queen",
+        "HEARTS_jack",
+        "CLUBS_king",
+        "DIAMONDS_ace",
+        "HEARTS_ten",
+    ]
+    assert all(asset["rgba"].shape == (960, 640, 4) for asset in assets)
+    assert all(np.all(asset["alpha"] == 255) for asset in assets)
+
+
 def test_planar_geometry_samples_use_empty_background_and_no_photometric_effects(
     tmp_path: Path,
 ) -> None:
@@ -73,6 +92,7 @@ def test_planar_geometry_samples_use_empty_background_and_no_photometric_effects
     assert calibration["background_strategy"] == "explicit-reviewed-empty-table-only-v1"
     assert all(scene["photometric_effects"] == {} for scene in manifest["scenes"])
     assert all(scene["card_count"] in {1, 2, 3} for scene in manifest["scenes"])
+    assert manifest["policy"]["card_source"] == "upright-ass-altenburger-romme-french-scans-v1"
 
     coco = json.loads(
         (tmp_path / "planar-geometry-samples" / "_annotations.coco.json").read_text(
@@ -82,3 +102,7 @@ def test_planar_geometry_samples_use_empty_background_and_no_photometric_effects
     validate_rfdetr_coco_annotations(coco)
     assert len(coco["images"]) == 3
     assert len(coco["annotations"]) == 6
+    assert all(
+        annotation["source_asset_id"].startswith("ass-altenburger-romme-french-")
+        for annotation in coco["annotations"]
+    )

@@ -31,9 +31,9 @@
 - **M5:** Geometry review in progress — the earlier card-bearing-frame/inpainting pools and the
   lighting-first samples are superseded. A bounded three-scene review set uses only the accepted
   full-frame-reviewed empty training table. It estimates one metric table-plane transform from
-  several reviewed cards in the same recording, then renders direct one-, two-, and three-card
-  placements with exact overlap masks. Do not generate a larger pool or add photometric changes
-  until operator inspection approves the geometry.
+  several reviewed cards in the same recording, then renders upright supplied deck scans as direct
+  one-, two-, and three-card placements with exact overlap masks. Do not generate a larger pool or
+  add photometric changes until operator inspection approves the geometry.
 - **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -489,8 +489,13 @@ Acceptance:
 - The command writes three direct-composite, geometry-only review scenes: one observed-pose card,
   two overlapping cards, and three overlapping cards. It applies no white balance, lighting,
   shadow, blur, or colour changes. Each scene has exact visible masks and COCO annotations.
-- The output is at `.runtime/synthetic-visible-region-0070-planar-geometry-samples`. No larger
-  pool or training run was started. Operator approval of the perspective and overlap geometry is
+- Geometry review now uses only the supplied upright face scans in
+  `data/decks/ass-altenburger-romme-french/source`. It does not use video-derived card cutouts.
+  The selected scans include `SPADES_ten` and `HEARTS_jack`; the renderer resizes them to the
+  canonical card rectangle without changing their orientation before it applies table placement.
+- The current output is at
+  `.runtime/synthetic-visible-region-0070-planar-geometry-scanned-deck-samples`. No larger pool
+  or training run was started. Operator approval of the perspective and overlap geometry is
   required before photometric work or expansion.
 
 ### M6 — Measure correction effort and publish the decision

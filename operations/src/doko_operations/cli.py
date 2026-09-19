@@ -236,6 +236,9 @@ from .synthetic_visible_region_planar_geometry import (
     SAMPLE_COUNT_DEFAULT as SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_SAMPLE_COUNT_DEFAULT,
 )
 from .synthetic_visible_region_planar_geometry import (
+    SCANNED_DECK_SOURCE_DEFAULT as SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_CARD_SOURCE_DEFAULT,
+)
+from .synthetic_visible_region_planar_geometry import (
     SyntheticVisibleRegionPlanarGeometryError,
     build_synthetic_visible_region_planar_geometry_samples,
     render_synthetic_visible_region_planar_geometry_human,
@@ -1162,6 +1165,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path(SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_M1_DEFAULT),
         help="Training-only M1 cutout and reviewed-empty-table manifest.",
+    )
+    synthetic_visible_region_planar_geometry.add_argument(
+        "--card-source-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_CARD_SOURCE_DEFAULT),
+        help="Upright scanned card faces used in every rendered geometry sample.",
     )
     synthetic_visible_region_planar_geometry.add_argument(
         "--output-directory",
@@ -2551,6 +2560,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config.repository_root,
                 source_manifest_path=args.source_manifest,
                 m1_manifest_path=args.m1_manifest,
+                card_source_directory=args.card_source_directory,
                 output_directory=args.output_directory,
                 sample_count=args.sample_count,
                 recording_ids=args.recording_id,

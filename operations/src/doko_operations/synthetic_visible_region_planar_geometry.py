@@ -33,11 +33,11 @@ from .synthetic_visible_region_recording_synthesis import (
     MAX_CARD_COUNT_DEFAULT,
     SOURCE_MANIFEST_DEFAULT,
     _quad_array,
-    _selected_assets,
-    _usable_cutouts,
     build_synthetic_visible_region_recording_discovery,
 )
 from .synthetic_visible_region_rendering import (
+    CANONICAL_HEIGHT,
+    CANONICAL_WIDTH,
     MIN_VISIBLE_PIXELS,
     _alpha_composite,
     _mask_bbox,
@@ -59,10 +59,19 @@ SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_CAMPAIGN_ID = (
 M1_MANIFEST_DEFAULT = "data/operations/synthetic-visible-region-0070-m1-inputs.json"
 OUTPUT_DIRECTORY_DEFAULT = ".runtime/synthetic-visible-region-0070-planar-geometry-samples"
 MANIFEST_DEFAULT = "data/operations/synthetic-visible-region-0070-planar-geometry-samples.json"
+SCANNED_DECK_SOURCE_DEFAULT = "data/decks/ass-altenburger-romme-french/source"
 SAMPLE_COUNT_DEFAULT = 3
 CARD_ASPECT_RATIO = 1.5
 BACKGROUND_STRATEGY = "explicit-reviewed-empty-table-only-v1"
 _SHA256_LENGTH = 64
+_REVIEW_CARD_STEMS = (
+    "SPADES_ten",
+    "DIAMONDS_queen",
+    "HEARTS_jack",
+    "CLUBS_king",
+    "DIAMONDS_ace",
+    "HEARTS_ten",
+)
 
 
 class SyntheticVisibleRegionPlanarGeometryError(ValueError):
@@ -113,6 +122,92 @@ def _write_bytes(path: Path, value: bytes) -> str:
 
 def _write_json(path: Path, value: Mapping[str, Any]) -> str:
     return _write_bytes(path, canonical_json_bytes(value) + b"\n")
+
+
+def _scanned_deck_assets(repository: Path, source_directory: str | Path) -> list[dict[str, Any]]:
+    """Load upright canonical cards directly from the supplied deck scans."""
+
+    directory = _resolve(repository, source_directory)
+    if not directory.is_dir():
+        raise SyntheticVisibleRegionPlanarGeometryError(
+            f"scanned card source directory is missing: {directory}"
+        )
+    source_paths = {
+        path.stem: path
+        for path in sorted(directory.glob("*.webp"))
+        if not path.stem.startswith(("BACK_", "JOKER_"))
+    }
+    missing = [stem for stem in _REVIEW_CARD_STEMS if stem not in source_paths]
+    if missing:
+        raise SyntheticVisibleRegionPlanarGeometryError(
+            f"scanned card source is missing review cards: {', '.join(missing)}"
+        )
+    source_digest = _sha256_bytes(
+        canonical_json_bytes(
+            {
+                stem: _sha256_file(path)
+                for stem, path in sorted(source_paths.items())
+            }
+        )
+    )
+    source_group = {
+        "id": "0070-ass-altenburger-romme-french-scans",
+        "key": source_digest,
+        "permission": "training_only",
+        "split": "train",
+        "table_setup": "canonical-scanned-deck",
+    }
+    assets: list[dict[str, Any]] = []
+    for stem in _REVIEW_CARD_STEMS:
+        path = source_paths[stem]
+        image = cv2.imread(str(path), cv2.IMREAD_COLOR)
+        if image is None or image.ndim != 3 or image.shape[2] != 3:
+            raise SyntheticVisibleRegionPlanarGeometryError(
+                f"could not decode scanned card {path}"
+            )
+        source_height, source_width = image.shape[:2]
+        canonical = cv2.resize(
+            image,
+            (CANONICAL_WIDTH, CANONICAL_HEIGHT),
+            interpolation=cv2.INTER_CUBIC,
+        )
+        alpha = np.full((CANONICAL_HEIGHT, CANONICAL_WIDTH), 255, dtype=np.uint8)
+        rgba = np.dstack((canonical, alpha))
+        source_sha256 = _sha256_file(path)
+        record = {
+            "cutout_id": f"scanned-ass-altenburger-romme-french-{stem.lower()}",
+            "source_asset_id": f"ass-altenburger-romme-french-{stem.lower()}",
+            "deck_card_name": stem,
+            "reviewed_decision": {"card_side": "face_up"},
+            "source_group": source_group,
+            "source_frame": {
+                "path": _relative(path, repository),
+                "width": source_width,
+                "height": source_height,
+                "source_file_sha256": source_sha256,
+            },
+            "source_quadrilateral": [
+                {"x": 0.0, "y": 0.0},
+                {"x": float(source_width - 1), "y": 0.0},
+                {"x": float(source_width - 1), "y": float(source_height - 1)},
+                {"x": 0.0, "y": float(source_height - 1)},
+            ],
+        }
+        assets.append({"record": record, "rgba": rgba, "alpha": alpha})
+    return assets
+
+
+def _read_card_asset(asset: Mapping[str, Any]) -> tuple[np.ndarray, np.ndarray]:
+    if "rgba" in asset and "alpha" in asset:
+        return np.asarray(asset["rgba"]), np.asarray(asset["alpha"])
+    return _read_cutout(asset)
+
+
+def _selected_scan_assets(
+    assets: Sequence[Mapping[str, Any]], card_count: int, scene_index: int
+) -> list[Mapping[str, Any]]:
+    start = sum(range(scene_index + 1))
+    return [assets[(start + offset) % len(assets)] for offset in range(card_count)]
 
 
 def _round(value: float) -> float:
@@ -535,7 +630,7 @@ def _render_scene(
     placements: list[dict[str, Any]] = []
     for index, (table_quad, asset) in enumerate(zip(table_quads, assets, strict=True), start=1):
         record = asset["record"]
-        rgba, alpha = _read_cutout(asset)
+        rgba, alpha = _read_card_asset(asset)
         image_quad = _apply_homography(table_to_image, table_quad)
         warped, warped_alpha = _warp_cutout(rgba, alpha, image_quad, width, height)
         warped_alpha = _remove_small_components(warped_alpha, MIN_VISIBLE_PIXELS)
@@ -551,6 +646,8 @@ def _render_scene(
                 "source_group": dict(record["source_group"]),
                 "full_mask": warped_alpha,
                 "warped_rgba": warped,
+                "deck_card_name": record.get("deck_card_name"),
+                "source_frame": record.get("source_frame"),
                 "source_quadrilateral": record["source_quadrilateral"],
             }
         )
@@ -600,9 +697,11 @@ def _render_scene(
             "instance_index": placement["instance_index"],
             "cutout_id": placement["cutout_id"],
             "source_asset_id": placement["source_asset_id"],
+            "deck_card_name": placement["deck_card_name"],
             "side": placement["side"],
             "z_order": placement["z_order"],
             "source_group": placement["source_group"],
+            "source_frame": placement["source_frame"],
             "source_quadrilateral": placement["source_quadrilateral"],
             "table_quadrilateral": _quad_to_records(placement["table_quad"]),
             "target_quadrilateral": _quad_to_records(placement["image_quad"]),
@@ -756,6 +855,7 @@ def build_synthetic_visible_region_planar_geometry_samples(
     *,
     source_manifest_path: str | Path = SOURCE_MANIFEST_DEFAULT,
     m1_manifest_path: str | Path = M1_MANIFEST_DEFAULT,
+    card_source_directory: str | Path = SCANNED_DECK_SOURCE_DEFAULT,
     output_directory: str | Path = OUTPUT_DIRECTORY_DEFAULT,
     sample_count: int = SAMPLE_COUNT_DEFAULT,
     recording_ids: Sequence[str] | None = None,
@@ -786,7 +886,7 @@ def build_synthetic_visible_region_planar_geometry_samples(
         )
     output_root = _resolve(repository, output_directory)
     output_root.mkdir(parents=True, exist_ok=True)
-    usable_assets = _usable_cutouts(repository, m1)
+    scanned_assets = _scanned_deck_assets(repository, card_source_directory)
 
     calibrations: list[dict[str, Any]] = []
     plans: list[tuple[Mapping[str, Any], dict[str, Any], str, list[np.ndarray]]] = []
@@ -838,7 +938,7 @@ def build_synthetic_visible_region_planar_geometry_samples(
     for index, (background_item, calibration, layout_name, table_quads) in enumerate(plans):
         background = background_item["record"]
         recording_id = str(background["source_group"]["id"])
-        assets = _selected_assets(usable_assets, recording_id, len(table_quads), index)
+        assets = _selected_scan_assets(scanned_assets, len(table_quads), index)
         scene_id = f"scene-{index:02d}-{recording_id}-{layout_name}"
         summary, image, annotations = _render_scene(
             repository,
@@ -892,6 +992,10 @@ def build_synthetic_visible_region_planar_geometry_samples(
             "background_strategy": BACKGROUND_STRATEGY,
             "table_geometry_method": "multi-card-planar-metric-rectification-v1",
             "card_aspect_ratio": CARD_ASPECT_RATIO,
+            "card_source_directory": _relative(
+                _resolve(repository, card_source_directory), repository
+            ),
+            "card_source": "upright-ass-altenburger-romme-french-scans-v1",
             "geometry_sources": "complete-reviewed-four-point-cards-from-the-same-recording",
             "photometric_effects": "none",
             "sample_count": sample_count,
