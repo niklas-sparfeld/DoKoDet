@@ -748,7 +748,11 @@ class TablePlaneCalibration:
         if not np.allclose(
             image_to_table_array @ table_to_image_array,
             np.eye(3),
-            atol=10 ** (-NUMERIC_PRECISION_DECIMALS),
+            # Homographies can contain both sub-pixel perspective terms and large translation
+            # terms.  The frozen six-decimal serialization can therefore introduce a small
+            # reciprocal error after both matrices are rounded.  Keep the validation strict while
+            # allowing that representation error.
+            atol=10 ** (-NUMERIC_PRECISION_DECIMALS + 3),
         ):
             raise CardPlaneGeometryError(
                 "image_to_table and table_to_image must be reciprocal transforms"

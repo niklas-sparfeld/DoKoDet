@@ -21,8 +21,8 @@
 - **M0:** Complete — the shared card-plane geometry boundary and versioned calibration, candidate,
   pose, stacking-order, scene, fit-diagnostic, and derived-region contracts are frozen. 0070 now
   uses the shared homography, calibration, mask, polygon, component, and occlusion primitives.
-- **M1:** Not started — automatically fit recording-global table calibration from isolated-card
-  detections.
+- **M1:** Complete — automatically mine and validate a recording-global table calibration from
+  isolated-card detections, with immutable local revision storage and read-only diagnostics.
 - **M2:** Not started — initialize card poses and stacking order from model predictions.
 - **M3:** Not started — implement the virtual-table card-scene editor.
 - **M4:** Not started — derive and publish reviewed visible regions from the reviewed card scene.
@@ -307,6 +307,20 @@ Acceptance:
 - an insufficient or moving-camera recording cannot publish a global calibration; and
 - a new calibration revision marks dependent draft and downstream work as affected without changing
   immutable history.
+
+#### M1 implementation evidence — 2026-09-20
+
+- Added the deterministic `card_plane_calibration` processor. It accepts one complete local result,
+  filters confidence, boundary, connected-component, quadrilateral, overlap, and bin-duplicate
+  candidates, and fits one shared table plane through the M0 geometry library.
+- Added deterministic temporal/spatial holdout validation with candidate yield, coverage, fit,
+  residual, gate, and failure diagnostics. Changed frame dimensions and source transforms fail with
+  actionable automatic diagnostics. One long-lived card cannot pass the diversity gates by itself.
+- Added `CalibrationRevisionStore`, which writes canonical immutable manifests below the recording
+  workspace and rejects content changes at an existing revision path. No detector, provider, runtime
+  default, or generated training artifact changed.
+- Added repeatability, rejection, failure, held-out validation, and immutable-store tests. The M1
+  tests and shared geometry regressions pass.
 
 ### M2 — Initialize poses and card stacking order
 
