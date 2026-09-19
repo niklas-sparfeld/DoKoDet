@@ -277,7 +277,10 @@ export function VisibleCardFramePanel({
         <>
           <div
             className={visibleStyles.canvasViewport}
-            style={{ aspectRatio: `${width} / ${height}` }}
+            style={{
+              aspectRatio: `${width} / ${height}`,
+              maxWidth: `min(100%, 2000px, calc(80vh * ${width / height}))`,
+            }}
           >
             <img
               className={visibleStyles.canvasImage}

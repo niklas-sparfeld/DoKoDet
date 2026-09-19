@@ -106,6 +106,7 @@
   position: relative;
   width: 100%;
   max-width: 2000px;
+  max-height: 80vh;
   margin: 0 auto;
   overflow: hidden;
   background: transparent;

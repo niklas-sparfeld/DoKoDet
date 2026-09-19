@@ -537,6 +537,37 @@ describe("PipelineVisibleCardEditor", () => {
     ).toHaveLength(1);
   });
 
+  it("limits a portrait frame to the viewport height budget", async () => {
+    const result = generatedResult();
+    result.revisions[0].content.outcomes[0].frame_identity = {
+      ...FRAME_IDENTITY,
+      width: 1080,
+      height: 1920,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(result))),
+    );
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="generated"
+      />,
+    );
+
+    const image = await screen.findByAltText(
+      "Selected visible-card source frame",
+    );
+    expect(image.parentElement).toHaveStyle({
+      aspectRatio: "1080 / 1920",
+      maxWidth: "min(100%, 2000px, calc(80vh * 0.5625))",
+    });
+  });
+
   it("places review controls in the Timeline Rail slot", async () => {
     const controlsSlot = document.createElement("div");
     controlsSlot.dataset.timelineReviewControlsSlot = "true";

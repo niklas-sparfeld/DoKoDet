@@ -89,7 +89,7 @@
 .frameImage {
   display: block;
   width: 100%;
-  max-height: min(60vh, 42rem);
+  max-height: 80vh;
   object-fit: contain;
 }
 
