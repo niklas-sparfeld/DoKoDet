@@ -202,6 +202,18 @@ from .synthetic_visible_region_materialization import (
     render_synthetic_visible_region_inputs_human,
     write_synthetic_visible_region_inputs,
 )
+from .synthetic_visible_region_rendering import (
+    OUTPUT_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_SCENES_OUTPUT_DEFAULT,
+)
+from .synthetic_visible_region_rendering import (
+    SCENE_COUNT_DEFAULT as SYNTHETIC_VISIBLE_REGION_SCENE_COUNT_DEFAULT,
+)
+from .synthetic_visible_region_rendering import (
+    SyntheticVisibleRegionRenderingError,
+    build_synthetic_visible_region_scenes,
+    render_synthetic_visible_region_scenes_human,
+    write_synthetic_visible_region_scenes,
+)
 from .system_holdout import (
     FAILURE_BOUNDARIES,
     SystemHoldoutEvaluationError,
@@ -771,6 +783,49 @@ def build_parser() -> argparse.ArgumentParser:
         "--format", choices=("human", "json"), default="human"
     )
     synthetic_visible_region_materialize.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    synthetic_visible_region_render = data_commands.add_parser(
+        "synthetic-visible-region-render",
+        aliases=("synthetic-rfdetr-render",),
+        help="Render deterministic training-only scenes for epic 0070 M2.",
+        description="Render deterministic training-only scenes for epic 0070 M2.",
+    )
+    _add_path_options(synthetic_visible_region_render, suppress_defaults=True)
+    synthetic_visible_region_render.add_argument(
+        "--m1-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_INPUTS_MANIFEST_DEFAULT),
+        help="M1 input manifest containing training-only cutouts and backgrounds.",
+    )
+    synthetic_visible_region_render.add_argument(
+        "--m0-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_INPUTS_M0_MANIFEST_DEFAULT),
+        help="Frozen epic 0070 M0 recipe manifest.",
+    )
+    synthetic_visible_region_render.add_argument(
+        "--output-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_SCENES_OUTPUT_DEFAULT),
+        help="Disposable directory for rendered scenes, masks, COCO, and receipts.",
+    )
+    synthetic_visible_region_render.add_argument(
+        "--scene-count",
+        type=int,
+        default=SYNTHETIC_VISIBLE_REGION_SCENE_COUNT_DEFAULT,
+        help="Number of available scene buckets to render.",
+    )
+    synthetic_visible_region_render.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/operations/synthetic-visible-region-0070-m2-scenes.json"),
+        help="Immutable M2 scene manifest path.",
+    )
+    synthetic_visible_region_render.add_argument(
+        "--format", choices=("human", "json"), default="human"
+    )
+    synthetic_visible_region_render.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     comparison = data_commands.add_parser(
@@ -1909,6 +1964,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             sys.stdout.write(render_synthetic_visible_region_inputs_human(manifest))
         return 0 if manifest["freeze_state"] == "ready" else 1
+    if args.command == "data" and args.data_command in {
+        "synthetic-visible-region-render",
+        "synthetic-rfdetr-render",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            manifest = build_synthetic_visible_region_scenes(
+                config.repository_root,
+                m1_manifest_path=args.m1_manifest,
+                m0_manifest_path=args.m0_manifest,
+                output_directory=args.output_directory,
+                scene_count=args.scene_count,
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            write_synthetic_visible_region_scenes(output_path, manifest)
+        except (ConfigurationError, OSError, SyntheticVisibleRegionRenderingError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_synthetic_visible_region_scenes_human(manifest))
+        return 0
     if args.command == "data" and args.data_command == "resilience-materialize":
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))

@@ -6,7 +6,7 @@
   real table backgrounds with table-setup-specific perspective, exact visible-region masks, and
   controlled occlusion. Measure whether the added training data reduces visible-card correction
   work on real frames.
-- **Status:** Blocked
+- **Status:** In Progress
 - **Depends on:** 0048, 0049, 0065, and 0068 complete
 - **Outcome:** A reproducible synthetic-data generator, one bounded RF-DETR training comparison,
   and a measured decision about using its candidate as an annotation prefill. Synthetic data does
@@ -19,10 +19,11 @@
 - **M0:** Complete — the deterministic contract and dry-run audit are frozen, but the input gate
   found no reviewed empty background and no eligible face-down card cutout.
 - **M1:** Complete with a declared gap — 165 card cutouts and one reviewed 0669 background are
-  materialized; no face-down cutout is available, so M2 remains blocked.
-- **M2:** Not started — blocked until a reviewed face-down card cutout is available; implement
-  deterministic scene rendering and exact visible-region targets after that input gate passes.
-- **M3:** Not started — materialize and inspect one bounded synthetic training set.
+  materialized; no face-down cutout is available.
+- **M2:** Complete with a declared gap — deterministic rendering and exact visible-region targets
+  work for face-up and unknown cards; face-down and mixed-side buckets are omitted.
+- **M3:** Not started — materialize and inspect one bounded synthetic training set from the
+  supported scene buckets.
 - **M4:** Not started — run one paired real-only versus real-plus-synthetic training comparison.
 - **M5:** Not started — measure annotation correction effort and publish the decision.
 
@@ -56,6 +57,9 @@ Synthetic scenes are training samples only. They are not reviewed source frames,
 references, independent source groups, validation samples, or sealed-test samples. Every generated
 sample records all real source groups that contributed pixels or geometry. It inherits the most
 restrictive source permission of those inputs.
+
+The renderer may proceed with available face-up and unknown cards. A reviewed face-down cutout is
+required before the face-down or mixed-card-side buckets can render.
 
 Keep these items out of scope:
 
@@ -264,7 +268,8 @@ Acceptance:
 - Emit one image, complete per-instance masks, COCO-compatible polygons or run-length masks, and a
   complete scene receipt.
 - Add fixture scenes for overlap, a split visible region, frame clipping, full occlusion, mixed
-  sides, and an empty background.
+  sides, and an empty background. Record unavailable face-down and mixed-side fixtures as explicit
+  omissions when the input gate is incomplete.
 
 Acceptance:
 
@@ -274,6 +279,23 @@ Acceptance:
 - a fully hidden or below-threshold card is omitted with an explicit receipt;
 - changing one source digest invalidates the affected scene; and
 - focused tests, formatting, linting, and type or static checks pass.
+
+#### M2 implementation evidence — 2026-09-19
+
+- Added `synthetic-visible-region-render` with fixed-seed OpenCV projective placement, z-order
+  compositing, frame clipping, card-card occlusion, shadows, bounded photometric effects, exact
+  binary visible masks, derived boxes, COCO annotations, and per-scene receipts.
+- The renderer uses the reviewed 0669 background and training-only M1 cutouts. It records every
+  card and background source group, source digest, placement quadrilateral, z-order, clipping,
+  occlusion ratio, output digest, and omitted-instance receipt.
+- The real smoke set contains 8 scenes, 8 images, and 11 annotations. COCO validation passes.
+  It includes fully visible, separated, shallow/medium/heavy overlap, frame clipping, blurred or
+  glare-affected, and reviewed-empty-background scenes.
+- Face-down and mixed-side buckets are explicitly omitted because M1 has no face-down cutout.
+  No face-down pixels or labels are fabricated.
+- The real M2 manifest digest is
+  `475caf3bed386d6edd6e3ea38a0a3d10e0e74020d0870274794baa7b6a3470ee`.
+- Added two focused M2 tests. Ruff and the M2 test module pass.
 
 ### M3 — Materialize and inspect the synthetic training set
 
