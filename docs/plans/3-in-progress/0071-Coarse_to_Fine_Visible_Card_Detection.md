@@ -18,7 +18,7 @@
 - **M0:** Complete — frozen cascade identities, deterministic cluster/crop transforms, and duplicate reconciliation contracts are implemented and covered by focused tests.
 - **M1:** Complete — the development provider reuses one 0068 bundle for full-frame clustering and
   fine crop inference, with source-linked mapping, reconciliation, and partial diagnostics.
-- **M2:** Not started — derive and materialize the full-frame card-cluster detection dataset.
+- **M2:** Complete — derive and materialize the full-frame card-cluster detection dataset.
 - **M3:** Not started — train and bundle one RF-DETR Small full-frame card-cluster model.
 - **M4:** Not started — derive and materialize the cluster-crop segmentation dataset.
 - **M5:** Not started — fine-tune and bundle one RF-DETR SegMedium cluster model.
@@ -272,6 +272,25 @@ Acceptance:
   an explicit exclusion receipt;
 - cold and warm materialization have equal manifests and generated-file digests; and
 - COCO boxes round-trip to the reviewed source geometry and cluster record.
+
+#### M2 implementation evidence — 2026-09-20
+
+- Added the deterministic `doko data rfdetr-card-cluster-materialize` operation. It accepts only
+  the frozen 0068 reviewed RF-DETR M0 manifest and derives one `card_cluster` detection target
+  from each transitive component of reviewed visible-card tight boxes. It uses no processor
+  prediction as a target and materializes only the train and validation partitions.
+- Added source-linked lineage for every reviewed card, polygon geometry, tight box, proposal,
+  cluster, crop transform, source frame, generated file digest, partition, and source group. The
+  COCO boxes round-trip to the retained cluster source boxes. Coverage and scale receipts report
+  reviewed-card coverage, cluster counts, cards per cluster, source pixels per 512-pixel coarse
+  input, and crop-area scale.
+- Added explicit exclusion receipts for ignore-region frames, ineligible outcomes, incomplete
+  coverage policy, and the 0068 sealed-test samples. Cold and warm fixture materializations have
+  equal generated-file digests and materialization identity. The operation verifies source-frame
+  digests, nested receipt digests, and the frozen campaign identity before it writes training data.
+- Added focused fixture tests for transitive clustering, COCO source-box round trips, sealed-test
+  exclusion, changed source-frame bytes, cold/warm digest equality, and the public CLI help.
+  Ruff passes and the relevant RF-DETR campaign/materialization tests pass with 22 tests.
 
 ### M3 — Train the full-frame card-cluster model
 
