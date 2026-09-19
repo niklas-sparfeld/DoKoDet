@@ -90,6 +90,7 @@ def test_soft_warp_keeps_scan_bed_transparent() -> None:
     assert warped_alpha[0, 0] == 0
     assert warped[0, 0, 3] == 0
     assert warped_alpha[110, 85] > 240
+    assert np.any((warped_alpha > 0) & (warped_alpha < 255))
 
 
 def test_scan_saturation_adjustment_preserves_alpha_and_reduces_chroma() -> None:

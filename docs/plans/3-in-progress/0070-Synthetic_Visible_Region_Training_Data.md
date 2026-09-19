@@ -495,14 +495,16 @@ Acceptance:
   low-saturation card-paper pixels give one median table response of BGR `229/238/238`. The same
   response white-balances every scan in the scene. The scan saturation factor is `0.68`. Card-scale
   Gaussian blur uses 42 percent of the earlier strength and is limited to `0.22–0.58` pixels. A
-  `0.045` opacity shadow has a two-pixel offset. The renderer does not add glare, random per-card
-  lighting, or a scene-level lighting change.
+  `0.09` opacity contact shadow has a one-pixel offset and `0.55` pixel blur. Each card is warped
+  at two times its local output resolution, then area-downsampled to reduce aliasing on diagonal
+  ink and card edges. The renderer does not add glare, random per-card lighting, or a scene-level
+  lighting change.
 - Geometry review now uses only the supplied upright face scans in
   `data/decks/ass-altenburger-romme-french/source`. It does not use video-derived card cutouts.
   The selected scans include `SPADES_ten` and `HEARTS_jack`; the renderer resizes them to the
   canonical card rectangle without changing their orientation before it applies table placement.
 - The current output is at
-  `.runtime/synthetic-visible-region-0070-planar-geometry-look-tuned-samples`. No larger pool or
+  `.runtime/synthetic-visible-region-0070-planar-geometry-antialiased-samples`. No larger pool or
   training run was started. Operator approval of the appearance and geometry is required before
   expansion.
 

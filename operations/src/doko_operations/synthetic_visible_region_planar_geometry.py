@@ -73,9 +73,10 @@ SCAN_ALPHA_FEATHER_PIXELS = 1.2
 MIN_MASK_ALPHA = 128
 CARD_SATURATION_FACTOR = 0.68
 CARD_BLUR_REDUCTION_FACTOR = 0.42
-CARD_SHADOW_OPACITY = 0.045
-CARD_SHADOW_BLUR_SIGMA = 1.4
-CARD_SHADOW_OFFSET_PIXELS = (2.0, 2.0)
+CARD_RENDER_SUPERSAMPLE = 2
+CARD_SHADOW_OPACITY = 0.09
+CARD_SHADOW_BLUR_SIGMA = 0.55
+CARD_SHADOW_OFFSET_PIXELS = (1.0, 1.0)
 _SHA256_LENGTH = 64
 _REVIEW_CARD_STEMS = (
     "SPADES_ten",
@@ -790,7 +791,7 @@ def _warp_soft_card(
     output_height: int,
     blur_sigma: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Warp premultiplied pixels so transparent scan-bed pixels cannot form a hard border."""
+    """Supersample a premultiplied card so transparent pixels and diagonal ink stay smooth."""
 
     source_quad = np.asarray(
         [
@@ -801,26 +802,51 @@ def _warp_soft_card(
         ],
         dtype=np.float32,
     )
-    transform = cv2.getPerspectiveTransform(source_quad, destination_quad.astype(np.float32))
+    padding = max(2, int(np.ceil(blur_sigma * 4.0)) + 2)
+    left = max(0, int(np.floor(np.min(destination_quad[:, 0]))) - padding)
+    top = max(0, int(np.floor(np.min(destination_quad[:, 1]))) - padding)
+    right = min(output_width, int(np.ceil(np.max(destination_quad[:, 0]))) + padding + 1)
+    bottom = min(output_height, int(np.ceil(np.max(destination_quad[:, 1]))) + padding + 1)
+    if right <= left or bottom <= top:
+        empty = np.zeros((output_height, output_width, 4), dtype=np.uint8)
+        return empty, empty[:, :, 3]
+    patch_width, patch_height = right - left, bottom - top
+    local_quad = (
+        destination_quad - np.asarray([left, top], dtype=np.float64)
+    ) * CARD_RENDER_SUPERSAMPLE
+    transform = cv2.getPerspectiveTransform(source_quad, local_quad.astype(np.float32))
     alpha_float = alpha.astype(np.float32) / 255.0
     premultiplied = rgba[:, :, :3].astype(np.float32) * alpha_float[:, :, None]
+    supersampled_size = (
+        patch_width * CARD_RENDER_SUPERSAMPLE,
+        patch_height * CARD_RENDER_SUPERSAMPLE,
+    )
     warped_alpha = cv2.warpPerspective(
-        alpha_float, transform, (output_width, output_height), flags=cv2.INTER_LINEAR
+        alpha_float, transform, supersampled_size, flags=cv2.INTER_CUBIC
     )
     warped_premultiplied = cv2.warpPerspective(
-        premultiplied, transform, (output_width, output_height), flags=cv2.INTER_LINEAR
+        premultiplied, transform, supersampled_size, flags=cv2.INTER_CUBIC
     )
     if blur_sigma > 0:
-        warped_alpha = cv2.GaussianBlur(warped_alpha, (0, 0), blur_sigma)
-        warped_premultiplied = cv2.GaussianBlur(
-            warped_premultiplied, (0, 0), blur_sigma
+        warped_alpha = cv2.GaussianBlur(
+            warped_alpha, (0, 0), blur_sigma * CARD_RENDER_SUPERSAMPLE
         )
+        warped_premultiplied = cv2.GaussianBlur(
+            warped_premultiplied, (0, 0), blur_sigma * CARD_RENDER_SUPERSAMPLE
+        )
+    warped_alpha = cv2.resize(
+        warped_alpha, (patch_width, patch_height), interpolation=cv2.INTER_AREA
+    )
+    warped_premultiplied = cv2.resize(
+        warped_premultiplied, (patch_width, patch_height), interpolation=cv2.INTER_AREA
+    )
     result = np.zeros((output_height, output_width, 4), dtype=np.uint8)
     supported = warped_alpha > 1e-5
-    result[:, :, :3][supported] = np.clip(
+    patch = result[top:bottom, left:right]
+    patch[:, :, :3][supported] = np.clip(
         warped_premultiplied[supported] / warped_alpha[supported][:, None], 0, 255
     ).astype(np.uint8)
-    result[:, :, 3] = np.clip(warped_alpha * 255.0, 0, 255).astype(np.uint8)
+    patch[:, :, 3] = np.clip(warped_alpha * 255.0, 0, 255).astype(np.uint8)
     return result, result[:, :, 3]
 
 
@@ -1148,7 +1174,8 @@ def _render_scene(
             "python_version": platform.python_version(),
             "mask_policy": "rounded-alpha-card-z-order-and-frame-clipping-v1",
             "photometric_policy": (
-                "table-paper-white-balance-desaturation-card-scale-blur-and-subtle-shadow-v1"
+                "table-paper-white-balance-desaturation-reduced-blur-contact-shadow-"
+                "and-supersampled-card-warp-v1"
             ),
         },
     }
@@ -1173,6 +1200,8 @@ def _render_scene(
             "reference_card_count": appearance["reference_card_count"],
             "card_saturation_factor": CARD_SATURATION_FACTOR,
             "card_shadow_opacity": CARD_SHADOW_OPACITY,
+            "card_shadow_blur_sigma": CARD_SHADOW_BLUR_SIGMA,
+            "card_render_supersample": CARD_RENDER_SUPERSAMPLE,
         },
         "image_path": _relative(image_path, repository),
         "image_sha256": image_digest,
