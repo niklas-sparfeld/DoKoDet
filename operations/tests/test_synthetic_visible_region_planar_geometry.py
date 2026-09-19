@@ -14,6 +14,7 @@ from doko_operations.synthetic_visible_region_planar_geometry import (
     _apply_homography,
     _reduce_scan_saturation,
     _scanned_deck_assets,
+    _scene_variation,
     _shadow_length_scale,
     _warp_soft_card,
     build_synthetic_visible_region_planar_geometry_samples,
@@ -110,6 +111,14 @@ def test_scan_saturation_adjustment_preserves_alpha_and_reduces_chroma() -> None
 def test_top_card_shadow_is_slightly_longer() -> None:
     assert _shadow_length_scale(1) == 1.0
     assert _shadow_length_scale(3) > _shadow_length_scale(1)
+
+
+def test_scene_variation_is_deterministic_and_scene_shared() -> None:
+    first = _scene_variation("scene-a")
+
+    assert first == _scene_variation("scene-a")
+    assert first != _scene_variation("scene-b")
+    assert 92 <= first["jpeg_quality"] < 96
 
 
 def test_planar_geometry_samples_use_empty_background_and_table_card_appearance(

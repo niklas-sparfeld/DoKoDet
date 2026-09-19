@@ -1,0 +1,30 @@
+{
+  "schema_version": "synthetic-visible-region-table-inputs/v1",
+  "campaign_id": "0070-m5-empty-table-approvals",
+  "reviewer": "user-supplied-source-review",
+  "inputs": [
+    {"input_id":"user-0636-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0636/pipeline/events?t_us=20042000","role":"empty_background","recording_id":"cardeventnet-IMG_0636","requested_time_us":20042000},
+    {"input_id":"user-0637-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0637/pipeline/events?t_us=22911000","role":"empty_background","recording_id":"cardeventnet-IMG_0637","requested_time_us":22911000},
+    {"input_id":"user-0638-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0638/pipeline/events?t_us=17429000","role":"empty_background","recording_id":"cardeventnet-IMG_0638","requested_time_us":17429000},
+    {"input_id":"user-0640-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0640/pipeline/events?t_us=13734000","role":"empty_background","recording_id":"cardeventnet-IMG_0640","requested_time_us":13734000},
+    {"input_id":"user-0641-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0641/pipeline/events?t_us=21926000","role":"empty_background","recording_id":"cardeventnet-IMG_0641","requested_time_us":21926000},
+    {"input_id":"user-0642-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0642/pipeline/events?t_us=12268000","role":"empty_background","recording_id":"cardeventnet-IMG_0642","requested_time_us":12268000},
+    {"input_id":"user-0643-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0643/pipeline/events?t_us=24949000","role":"empty_background","recording_id":"cardeventnet-IMG_0643","requested_time_us":24949000},
+    {"input_id":"user-0644-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0644/pipeline/events?t_us=18981000","role":"empty_background","recording_id":"cardeventnet-IMG_0644","requested_time_us":18981000},
+    {"input_id":"user-0645-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0645/pipeline/events?view=reviewed&item=cardeventnet-event-img_0645-020&t_us=59000","role":"empty_background","recording_id":"cardeventnet-IMG_0645","requested_time_us":59000},
+    {"input_id":"user-0646-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0646/pipeline/events?view=reviewed&t_us=9276000","role":"empty_background","recording_id":"cardeventnet-IMG_0646","requested_time_us":9276000},
+    {"input_id":"user-0648-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0648/pipeline/events?t_us=11382000","role":"empty_background","recording_id":"cardeventnet-IMG_0648","requested_time_us":11382000},
+    {"input_id":"user-0649-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0649/pipeline/events?t_us=0","role":"empty_background","recording_id":"cardeventnet-IMG_0649","requested_time_us":0},
+    {"input_id":"user-0651-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0651/pipeline/events?t_us=1871000","role":"empty_background","recording_id":"cardeventnet-IMG_0651","requested_time_us":1871000},
+    {"input_id":"user-0652-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0652/pipeline/events?t_us=1244000","role":"empty_background","recording_id":"cardeventnet-IMG_0652","requested_time_us":1244000},
+    {"input_id":"user-0653-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0653/pipeline/events?t_us=1283000","role":"empty_background","recording_id":"cardeventnet-IMG_0653","requested_time_us":1283000},
+    {"input_id":"user-0654-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0654/pipeline/events?t_us=582000","role":"empty_background","recording_id":"cardeventnet-IMG_0654","requested_time_us":582000},
+    {"input_id":"user-0655-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0655/pipeline/events?t_us=10233000","role":"empty_background","recording_id":"cardeventnet-IMG_0655","requested_time_us":10233000},
+    {"input_id":"user-0658-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0658/pipeline/events?t_us=2176000","role":"empty_background","recording_id":"cardeventnet-IMG_0658","requested_time_us":2176000},
+    {"input_id":"user-0662-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0662/pipeline/events?t_us=11188000","role":"empty_background","recording_id":"cardeventnet-IMG_0662","requested_time_us":11188000},
+    {"input_id":"user-0670-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0670/pipeline/events?t_us=0","role":"empty_background","recording_id":"cardeventnet-IMG_0670","requested_time_us":0},
+    {"input_id":"user-0096-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0096/pipeline/events?t_us=15679000","role":"empty_background","recording_id":"cardeventnet-IMG_0096","requested_time_us":15679000},
+    {"input_id":"user-0097-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0097/pipeline/events?t_us=1254000","role":"empty_background","recording_id":"cardeventnet-IMG_0097","requested_time_us":1254000},
+    {"input_id":"user-0661-empty","url":"http://localhost:5173/recordings/cardeventnet-IMG_0661/pipeline/events?t_us=783000","role":"empty_background","recording_id":"cardeventnet-IMG_0661","requested_time_us":783000}
+  ]
+}

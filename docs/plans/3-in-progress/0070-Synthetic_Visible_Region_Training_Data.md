@@ -29,12 +29,12 @@
 - **M4:** Preflight ready — the paired real-only versus real-plus-synthetic run is prepared; full
   training remains operator-started and was not started here.
 - **M5:** Appearance review in progress — the earlier card-bearing-frame/inpainting pools and the
-  lighting-first samples are superseded. A bounded three-scene review set uses only the accepted
-  full-frame-reviewed empty training table. It estimates one metric table-plane transform from
-  several reviewed cards in the same recording, then renders upright supplied deck scans with a
-  transparent rounded edge, one table-level card-paper response, reduced saturation, reduced
-  card-scale blur, a subtle drop shadow, and exact overlap masks. Do not generate a larger pool or
-  add random scene effects until operator inspection approves the samples.
+  lighting-first samples are superseded. An 18-scene cross-table review set uses only explicitly
+  reviewed empty training tables. It estimates one metric table-plane transform from several
+  reviewed cards in the same recording, then renders upright supplied deck scans with a transparent
+  rounded edge, one table-level card-paper response, reduced saturation, reduced card-scale blur,
+  a subtle drop shadow, deterministic scene-level variation, and exact overlap masks. Do not
+  generate a larger pool until operator inspection approves the samples.
 - **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -498,16 +498,25 @@ Acceptance:
   `0.12` opacity contact shadow has a 1.5-pixel offset and `0.75` pixel blur. Each higher z-order
   card increases the shadow length by 15 percent. Shadow and card compositing follow z-order, so a
   higher card shadow can fall on a lower card. Each card is warped at two times its local output
-  resolution, then area-downsampled to reduce aliasing on diagonal ink and card edges. The renderer
-  does not add glare, random per-card lighting, or a scene-level lighting change.
+  resolution, then area-downsampled to reduce aliasing on diagonal ink and card edges.
+- Each scene derives one immutable appearance recipe from its scene ID. It varies card saturation,
+  blur, and shadow opacity by small bounded factors. It then changes exposure, contrast, and
+  saturation on the completed image and uses JPEG quality 92–95. The recipe applies to the whole
+  scene and is in the receipt. It never applies independent per-card lighting.
 - Geometry review now uses only the supplied upright face scans in
   `data/decks/ass-altenburger-romme-french/source`. It does not use video-derived card cutouts.
   The selected scans include `SPADES_ten` and `HEARTS_jack`; the renderer resizes them to the
   canonical card rectangle without changing their orientation before it applies table placement.
+- The versioned empty-table approval list is
+  `data/operations/synthetic-visible-region-0070-empty-table-approvals.json`. It has 23 user
+  approvals. The M1 materializer accepts nine train recordings. It excludes seven held-out
+  recordings and seven recordings that are absent from frozen 0068 inputs.
 - The current output is at
-  `.runtime/synthetic-visible-region-0070-planar-geometry-z-shadow-samples`. No larger pool or
-  training run was started. Operator approval of the appearance and geometry is required before
-  expansion.
+  `.runtime/synthetic-visible-region-0070-cross-table-variation-samples`. It has 18 scenes: one
+  one-card and one two-card scene for each accepted table. `IMG_0096` and `IMG_0097` use a logged
+  same-recording `unknown` visible-card fallback for paper-colour measurement because their frozen
+  references do not label a card as face-up. No larger pool or training run was started. Operator
+  approval of the appearance and geometry is required before expansion.
 
 ### M6 — Measure correction effort and publish the decision
 

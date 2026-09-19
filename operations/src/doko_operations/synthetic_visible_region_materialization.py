@@ -732,9 +732,14 @@ def _record_reviewed_background(
     }
     recording = recordings.get(recording_id)
     if recording is None:
-        raise SyntheticVisibleRegionMaterializationError(
-            f"table input recording is not in the frozen 0068 manifest: {recording_id}"
-        )
+        return None, {
+            "input_id": spec["input_id"],
+            "url": spec["url"],
+            "role": spec["role"],
+            "recording_id": recording_id,
+            "source_split": None,
+            "excluded_reason": "recording_not_in_frozen_0068_manifest",
+        }
     split = str(recording.get("split"))
     if split != "train":
         return None, {
@@ -745,6 +750,18 @@ def _record_reviewed_background(
             "source_split": split,
             "excluded_reason": "validation_or_sealed_test_source_group_not_allowed",
         }
+    source_group = next(
+        (
+            item
+            for item in source_manifest.get("source_groups", [])
+            if isinstance(item, Mapping) and item.get("recording_id") == recording_id
+        ),
+        None,
+    )
+    if not isinstance(source_group, Mapping):
+        raise SyntheticVisibleRegionMaterializationError(
+            f"table input recording has no frozen 0068 source group: {recording_id}"
+        )
     requested_time_us = int(spec["requested_time_us"])
     video_path = repository / str(recording["source_video_path"])
     source = RecordingVideoSource(
@@ -770,7 +787,7 @@ def _record_reviewed_background(
         "url": spec["url"],
         "source_group": {
             "id": recording_id,
-            "key": str(spec["source_group_key"]),
+            "key": str(source_group["group_key"]),
             "permission": str(recording["source_permission"]),
             "split": split,
             "table_setup": str(recording["table_setup"]),

@@ -1146,10 +1146,10 @@ def build_parser() -> argparse.ArgumentParser:
     synthetic_visible_region_planar_geometry = data_commands.add_parser(
         "synthetic-visible-region-planar-geometry",
         aliases=("synthetic-rfdetr-planar-geometry",),
-        help="Calibrate a reviewed table plane and render geometry-only samples.",
+        help="Calibrate reviewed table planes and render deterministic appearance-review samples.",
         description=(
             "Fit a stable table-plane homography from several reviewed card rectangles in each "
-            "selected recording, then project one-, two-, and three-card layouts into an "
+            "selected recording, then render deterministic appearance-review layouts into an "
             "explicit reviewed empty table frame."
         ),
     )
@@ -1194,7 +1194,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--sample-count",
         type=int,
         default=SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_SAMPLE_COUNT_DEFAULT,
-        help="Render one to three geometry-only review scenes.",
+        help="Render one to 36 deterministic appearance-review scenes.",
     )
     synthetic_visible_region_planar_geometry.add_argument(
         "--format", choices=("human", "json"), default="human"

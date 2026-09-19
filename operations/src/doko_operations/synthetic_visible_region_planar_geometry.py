@@ -63,6 +63,7 @@ OUTPUT_DIRECTORY_DEFAULT = ".runtime/synthetic-visible-region-0070-planar-geomet
 MANIFEST_DEFAULT = "data/operations/synthetic-visible-region-0070-planar-geometry-samples.json"
 SCANNED_DECK_SOURCE_DEFAULT = "data/decks/ass-altenburger-romme-french/source"
 SAMPLE_COUNT_DEFAULT = 3
+MAX_REVIEW_SCENE_COUNT = 36
 CARD_ASPECT_RATIO = 1.5
 BACKGROUND_STRATEGY = "explicit-reviewed-empty-table-only-v1"
 REFERENCE_CARD_LIMIT = 8
@@ -78,6 +79,13 @@ CARD_SHADOW_OPACITY = 0.12
 CARD_SHADOW_BLUR_SIGMA = 0.75
 CARD_SHADOW_OFFSET_PIXELS = (1.5, 1.5)
 CARD_SHADOW_Z_ORDER_LENGTH_STEP = 0.15
+SCENE_CARD_SATURATION_MULTIPLIER_RANGE = (0.94, 1.06)
+SCENE_CARD_BLUR_MULTIPLIER_RANGE = (0.88, 1.12)
+SCENE_CARD_SHADOW_OPACITY_MULTIPLIER_RANGE = (0.90, 1.10)
+SCENE_BRIGHTNESS_DELTA_RANGE = (-0.025, 0.025)
+SCENE_CONTRAST_RANGE = (0.97, 1.03)
+SCENE_SATURATION_MULTIPLIER_RANGE = (0.96, 1.04)
+SCENE_JPEG_QUALITY_RANGE = (92, 96)
 _SHA256_LENGTH = 64
 _REVIEW_CARD_STEMS = (
     "SPADES_ten",
@@ -248,6 +256,40 @@ def _selected_scan_assets(
 
 def _round(value: float) -> float:
     return round(float(value), 6)
+
+
+def _scene_variation(scene_id: str) -> dict[str, float | int | str]:
+    """Return one reproducible appearance recipe shared by a complete synthetic scene."""
+
+    seed = int.from_bytes(hashlib.sha256(scene_id.encode("utf-8")).digest()[:8], "big")
+    rng = np.random.default_rng(seed)
+    return {
+        "method": "scene-shared-deterministic-appearance-v1",
+        "seed": str(seed),
+        "card_saturation_multiplier": _round(
+            rng.uniform(*SCENE_CARD_SATURATION_MULTIPLIER_RANGE)
+        ),
+        "card_blur_multiplier": _round(rng.uniform(*SCENE_CARD_BLUR_MULTIPLIER_RANGE)),
+        "card_shadow_opacity_multiplier": _round(
+            rng.uniform(*SCENE_CARD_SHADOW_OPACITY_MULTIPLIER_RANGE)
+        ),
+        "brightness_delta": _round(rng.uniform(*SCENE_BRIGHTNESS_DELTA_RANGE)),
+        "contrast": _round(rng.uniform(*SCENE_CONTRAST_RANGE)),
+        "saturation_multiplier": _round(rng.uniform(*SCENE_SATURATION_MULTIPLIER_RANGE)),
+        "jpeg_quality": int(rng.integers(*SCENE_JPEG_QUALITY_RANGE)),
+    }
+
+
+def _apply_scene_variation(scene: np.ndarray, variation: Mapping[str, float | int | str]) -> None:
+    """Apply the scene-shared appearance recipe after all card compositing is complete."""
+
+    adjusted = scene.astype(np.float32) * float(variation["contrast"])
+    adjusted += float(variation["brightness_delta"]) * 255.0
+    hsv = cv2.cvtColor(np.clip(adjusted, 0, 255).astype(np.uint8), cv2.COLOR_BGR2HSV).astype(
+        np.float32
+    )
+    hsv[:, :, 1] *= float(variation["saturation_multiplier"])
+    scene[:] = cv2.cvtColor(np.clip(hsv, 0, 255).astype(np.uint8), cv2.COLOR_HSV2BGR)
 
 
 def _apply_homography(homography: np.ndarray, points: np.ndarray) -> np.ndarray:
@@ -592,37 +634,45 @@ def _reference_card_sources(
         ):
             continue
         candidates.append(candidate)
-    cards: list[dict[str, Any]] = []
-    used_events: set[str] = set()
-    for candidate in sorted(
-        candidates, key=lambda item: float(item["selection_score"]), reverse=True
-    ):
-        event_id = str(candidate["event_id"])
-        if len(used_events) >= REFERENCE_FRAME_LIMIT and event_id not in used_events:
-            continue
-        sides = candidate["card_sides"]
-        for card_index, (side, normalized_quad) in enumerate(
-            zip(sides, candidate["normalized_quadrilaterals"], strict=True)
+    def select(side: str, side_policy: str) -> list[dict[str, Any]]:
+        cards: list[dict[str, Any]] = []
+        used_events: set[str] = set()
+        for candidate in sorted(
+            candidates, key=lambda item: float(item["selection_score"]), reverse=True
         ):
-            if side != "face_up":
+            event_id = str(candidate["event_id"])
+            if len(used_events) >= REFERENCE_FRAME_LIMIT and event_id not in used_events:
                 continue
-            cards.append(
-                {
-                    "candidate_id": str(candidate["candidate_id"]),
-                    "event_id": event_id,
-                    "frame_identity": dict(candidate["frame_identity"]),
-                    "card_index": card_index,
-                    "image_quad": _quad_array(normalized_quad) * dimensions,
-                }
-            )
-            used_events.add(event_id)
-            if len(cards) >= REFERENCE_CARD_LIMIT:
-                return cards
-    if not cards:
-        raise SyntheticVisibleRegionPlanarGeometryError(
-            f"recording {recording_id} has no usable face-up cards for appearance calibration"
-        )
-    return cards
+            for card_index, (candidate_side, normalized_quad) in enumerate(
+                zip(candidate["card_sides"], candidate["normalized_quadrilaterals"], strict=True)
+            ):
+                if candidate_side != side:
+                    continue
+                cards.append(
+                    {
+                        "candidate_id": str(candidate["candidate_id"]),
+                        "event_id": event_id,
+                        "frame_identity": dict(candidate["frame_identity"]),
+                        "card_index": card_index,
+                        "card_side_policy": side_policy,
+                        "image_quad": _quad_array(normalized_quad) * dimensions,
+                    }
+                )
+                used_events.add(event_id)
+                if len(cards) >= REFERENCE_CARD_LIMIT:
+                    return cards
+        return cards
+
+    face_up_cards = select("face_up", "face_up_preferred")
+    if face_up_cards:
+        return face_up_cards
+    unknown_cards = select("unknown", "unknown_visible_card_fallback")
+    if unknown_cards:
+        return unknown_cards
+    raise SyntheticVisibleRegionPlanarGeometryError(
+        f"recording {recording_id} has no usable face-up or unknown cards for "
+        "appearance calibration"
+    )
 
 
 def _recording_video_source(
@@ -735,12 +785,14 @@ def _table_card_appearance(
         "paper_bgr": [_round(value) for value in paper_bgr],
         "reference_card_count": len(references),
         "reference_frame_count": len(frames),
+        "reference_card_side_policy": references[0]["card_side_policy"],
         "median_short_side_pixels": _round(float(np.median(short_sides))),
         "references": [
             {
                 "candidate_id": item["candidate_id"],
                 "event_id": item["event_id"],
                 "card_index": item["card_index"],
+                "card_side_policy": item["card_side_policy"],
                 "frame_identity": frame_identities[str(item["event_id"])],
                 "paper_bgr": [_round(value) for value in sample],
             }
@@ -762,11 +814,13 @@ def _white_balanced_scan(
     return np.dstack((adjusted, alpha)), [_round(value) for value in gain]
 
 
-def _reduce_scan_saturation(rgba: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+def _reduce_scan_saturation(
+    rgba: np.ndarray, alpha: np.ndarray, saturation_factor: float = CARD_SATURATION_FACTOR
+) -> np.ndarray:
     """Reduce scan pigment saturation to the softer response of the recorded cards."""
 
     hsv = cv2.cvtColor(rgba[:, :, :3], cv2.COLOR_BGR2HSV).astype(np.float32)
-    hsv[:, :, 1] *= CARD_SATURATION_FACTOR
+    hsv[:, :, 1] *= saturation_factor
     adjusted = cv2.cvtColor(np.clip(hsv, 0, 255).astype(np.uint8), cv2.COLOR_HSV2BGR)
     return np.dstack((adjusted, alpha))
 
@@ -855,7 +909,9 @@ def _shadow_length_scale(z_order: int) -> float:
     return 1.0 + max(0, z_order - 1) * CARD_SHADOW_Z_ORDER_LENGTH_STEP
 
 
-def _apply_subtle_card_shadow(scene: np.ndarray, alpha: np.ndarray, z_order: int) -> float:
+def _apply_subtle_card_shadow(
+    scene: np.ndarray, alpha: np.ndarray, z_order: int, opacity: float
+) -> float:
     """Put a short table shadow below a card without changing its target mask."""
 
     length_scale = _shadow_length_scale(z_order)
@@ -867,7 +923,7 @@ def _apply_subtle_card_shadow(scene: np.ndarray, alpha: np.ndarray, z_order: int
         ]
     )
     shadow = cv2.warpAffine(shadow, translation, (scene.shape[1], scene.shape[0]))
-    weight = shadow.astype(np.float32) / 255.0 * CARD_SHADOW_OPACITY
+    weight = shadow.astype(np.float32) / 255.0 * opacity
     scene[:] = np.clip(scene.astype(np.float32) * (1.0 - weight[:, :, None]), 0, 255).astype(
         np.uint8
     )
@@ -991,6 +1047,13 @@ def _render_scene(
             f"could not decode empty background {background_path}"
         )
     height, width = scene.shape[:2]
+    variation = _scene_variation(scene_id)
+    card_saturation_factor = CARD_SATURATION_FACTOR * float(
+        variation["card_saturation_multiplier"]
+    )
+    card_shadow_opacity = CARD_SHADOW_OPACITY * float(
+        variation["card_shadow_opacity_multiplier"]
+    )
     placements: list[dict[str, Any]] = []
     for index, (table_quad, asset) in enumerate(zip(table_quads, assets, strict=True), start=1):
         record = asset["record"]
@@ -999,8 +1062,12 @@ def _render_scene(
         balanced_rgba, white_balance_gain = _white_balanced_scan(
             rgba, alpha, appearance["paper_bgr"]
         )
-        adjusted_rgba = _reduce_scan_saturation(balanced_rgba, alpha)
-        blur_sigma = _card_blur_sigma(image_quad, appearance)
+        adjusted_rgba = _reduce_scan_saturation(
+            balanced_rgba, alpha, card_saturation_factor
+        )
+        blur_sigma = _card_blur_sigma(image_quad, appearance) * float(
+            variation["card_blur_multiplier"]
+        )
         warped, warped_alpha = _warp_soft_card(
             adjusted_rgba, alpha, image_quad, width, height, blur_sigma
         )
@@ -1020,7 +1087,7 @@ def _render_scene(
                 "warped_rgba": warped,
                 "alpha": warped_alpha,
                 "white_balance_gain_bgr": white_balance_gain,
-                "saturation_factor": CARD_SATURATION_FACTOR,
+                "saturation_factor": _round(card_saturation_factor),
                 "blur_sigma": _round(blur_sigma),
                 "deck_card_name": record.get("deck_card_name"),
                 "source_frame": record.get("source_frame"),
@@ -1038,10 +1105,13 @@ def _render_scene(
         higher = np.maximum(higher, full_masks[index])
     for placement in placements:
         placement["shadow_length_scale"] = _apply_subtle_card_shadow(
-            scene, placement["alpha"], int(placement["z_order"])
+            scene, placement["alpha"], int(placement["z_order"]), card_shadow_opacity
         )
         _alpha_composite(scene, placement["warped_rgba"], placement["alpha"])
-    ok, encoded = cv2.imencode(".jpg", scene, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    _apply_scene_variation(scene, variation)
+    ok, encoded = cv2.imencode(
+        ".jpg", scene, [cv2.IMWRITE_JPEG_QUALITY, int(variation["jpeg_quality"])]
+    )
     if not ok:
         raise SyntheticVisibleRegionPlanarGeometryError(f"could not encode scene {scene_id}")
     image_path = output_root / "images" / f"{scene_id}.jpg"
@@ -1164,6 +1234,7 @@ def _render_scene(
         },
         "placements": instances,
         "card_appearance": dict(appearance),
+        "scene_variation": variation,
         "output": {
             "image": {
                 "path": _relative(image_path, repository),
@@ -1186,8 +1257,8 @@ def _render_scene(
             "python_version": platform.python_version(),
             "mask_policy": "rounded-alpha-card-z-order-and-frame-clipping-v1",
             "photometric_policy": (
-                "table-paper-white-balance-desaturation-reduced-blur-contact-shadow-"
-                "and-supersampled-card-warp-v1"
+                "scene-shared-white-balance-desaturation-reduced-blur-contact-shadow-"
+                "global-finish-and-supersampled-card-warp-v1"
             ),
         },
     }
@@ -1210,11 +1281,12 @@ def _render_scene(
         "photometric_effects": {
             "table_paper_bgr": appearance["paper_bgr"],
             "reference_card_count": appearance["reference_card_count"],
-            "card_saturation_factor": CARD_SATURATION_FACTOR,
-            "card_shadow_opacity": CARD_SHADOW_OPACITY,
+            "card_saturation_factor": _round(card_saturation_factor),
+            "card_shadow_opacity": _round(card_shadow_opacity),
             "card_shadow_blur_sigma": CARD_SHADOW_BLUR_SIGMA,
             "card_shadow_z_order_length_step": CARD_SHADOW_Z_ORDER_LENGTH_STEP,
             "card_render_supersample": CARD_RENDER_SUPERSAMPLE,
+            "scene_variation": variation,
         },
         "image_path": _relative(image_path, repository),
         "image_sha256": image_digest,
@@ -1257,11 +1329,11 @@ def build_synthetic_visible_region_planar_geometry_samples(
     sample_count: int = SAMPLE_COUNT_DEFAULT,
     recording_ids: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Create a bounded, geometry-only review set from selected stable recordings."""
+    """Create a bounded, deterministic appearance-review set from selected stable recordings."""
 
-    if not 1 <= sample_count <= 3:
+    if not 1 <= sample_count <= MAX_REVIEW_SCENE_COUNT:
         raise SyntheticVisibleRegionPlanarGeometryError(
-            "sample_count must be between one and three"
+            f"sample_count must be between one and {MAX_REVIEW_SCENE_COUNT}"
         )
     repository = Path(repository_root).expanduser().resolve()
     requested_recordings = set(recording_ids) if recording_ids is not None else None
@@ -1287,7 +1359,7 @@ def build_synthetic_visible_region_planar_geometry_samples(
 
     calibrations: list[dict[str, Any]] = []
     appearances: dict[str, dict[str, Any]] = {}
-    plans: list[tuple[Mapping[str, Any], dict[str, Any], str, list[np.ndarray]]] = []
+    layout_plans: list[list[tuple[Mapping[str, Any], dict[str, Any], str, list[np.ndarray]]]] = []
     for background_item in backgrounds:
         background = background_item["record"]
         background_image = cv2.imread(str(background_item["path"]), cv2.IMREAD_COLOR)
@@ -1329,8 +1401,18 @@ def build_synthetic_visible_region_planar_geometry_samples(
             source_manifest_path,
         )
         anchor = _anchor_pose(calibration, background_image.shape[1], background_image.shape[0])
-        for layout_name, layout_quads in _sample_layouts(anchor):
-            plans.append((background_item, calibration, layout_name, layout_quads))
+        layout_plans.append(
+            [
+                (background_item, calibration, layout_name, layout_quads)
+                for layout_name, layout_quads in _sample_layouts(anchor)
+            ]
+        )
+    plans = [
+        plan
+        for layout_index in range(3)
+        for layouts in layout_plans
+        for plan in [layouts[layout_index]]
+    ]
     plans = plans[:sample_count]
     if len(plans) < sample_count:
         raise SyntheticVisibleRegionPlanarGeometryError(

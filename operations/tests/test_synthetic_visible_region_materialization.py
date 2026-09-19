@@ -92,7 +92,14 @@ def test_m1_excludes_a_sealed_test_table_link_without_decoding_it(tmp_path: Path
                         "role": "card",
                         "recording_id": "sealed-recording",
                         "event_id": "sealed-event",
-                    }
+                    },
+                    {
+                        "input_id": "missing-empty",
+                        "url": "http://localhost/missing",
+                        "role": "empty_background",
+                        "recording_id": "missing-recording",
+                        "requested_time_us": 0,
+                    },
                 ],
             }
         ),
@@ -112,5 +119,8 @@ def test_m1_excludes_a_sealed_test_table_link_without_decoding_it(tmp_path: Path
     assert (
         manifest["excluded_review_inputs"][0]["excluded_reason"]
         == "validation_or_sealed_test_source_group_not_allowed"
+    )
+    assert manifest["excluded_review_inputs"][1]["excluded_reason"] == (
+        "recording_not_in_frozen_0068_manifest"
     )
     validate_synthetic_visible_region_inputs(manifest)
