@@ -28,11 +28,11 @@
   and mixed-side buckets remain unavailable.
 - **M4:** Preflight ready — the paired real-only versus real-plus-synthetic run is prepared; full
   training remains operator-started and was not started here.
-- **M5:** Complete with a declared gap — all 24 recordings are audited for exact human-reference
-  one-, two-, and three-card geometry; 38 train-only scenes are synthesized across 15 training
-  recordings. An expanded 546-scene ratio-comparison pool uses three train-only geometry frames
-  per table setup and supports up to four cards. Validation and sealed-test recordings are
-  discovery-only.
+- **M5:** Revised sample path in progress — the earlier card-bearing-frame/inpainting pools are
+  superseded. A bounded six-scene sample now renders only on the one accepted full-frame-reviewed
+  empty training table, white-balances all 165 training cutouts first, transfers one shared lighting
+  profile from reviewed known cards, and varies lighting at complete-scene scope. Do not generate
+  the larger pool until operator inspection approves the samples.
 - **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -103,8 +103,10 @@ occluded. Do not inpaint a missing card corner.
 
 ### 3.2 Backgrounds and occluders
 
-Use table backgrounds from explicitly marked frames with no visible physical card. The mark must
-cover the complete frame. Missing visible-card annotations do not prove an empty background.
+Use only table backgrounds from explicitly marked frames with no visible physical card. The mark
+must cover the complete frame. Missing visible-card annotations do not prove an empty background.
+Card-bearing frames can provide measured geometry or lighting references. They must never be used
+as rendered backgrounds, and the renderer must not inpaint their card regions.
 
 Start with card-card occlusion because the renderer can label it exactly. Human-hand and arm
 occlusion can enter only through reviewed alpha masks from training source material. Do not use a
@@ -154,9 +156,14 @@ by subtracting the union of all higher z-order opaque masks and any reviewed occ
 at the frame boundary is part of the same calculation. Preserve disconnected mask components when
 an occluder splits one visible region. Derive the tight box from the final mask.
 
-Apply geometric changes to images and masks together. Apply photometric changes only after target
-geometry is fixed. Keep effects within distributions measured from real training frames. Use a
-small edge treatment and shadow model so the detector cannot solve the task from paste seams.
+Apply geometric changes to images and masks together. First white-balance every card cutout to a
+neutral card-paper reference. Then estimate one lighting profile from known card pixels in the
+selected reference scene and apply that same profile to every card in the synthetic scene. Apply
+scene variation after compositing to the complete image, so exposure, whitepoint, contrast, and
+shadow conditions remain consistent across all cards and the table. Apply photometric changes only
+after target geometry is fixed. Keep effects within distributions measured from real training
+frames. Use a small edge treatment and shadow model so the detector cannot solve the task from
+paste seams.
 
 Generate the following declared scene buckets:
 
@@ -406,9 +413,13 @@ Acceptance:
   frames.
 - Rank candidates by human-corrected geometry, interior margin, card shape, and overlap. Keep the
   selected candidate and the complete audit in an immutable manifest.
-- Use one selected candidate per available card count for every training recording. Remove the
-  source card regions with deterministic OpenCV inpainting, then render reviewed M1 cutouts back
-  onto the measured quadrilaterals.
+- Use only explicit full-frame-reviewed empty training tables as rendered backgrounds. Use one
+  selected candidate per available card count for each empty table's matched recording and table
+  setup. Use card-bearing frames only for measured quadrilaterals and known-card lighting profiles;
+  never inpaint them or copy their background pixels.
+- White-balance all eligible M1 cutouts before projective placement. Apply one shared card-lighting
+  profile per scene, then one scene-level lighting condition to the complete composite. Do not
+  randomize photometric effects independently per card.
 - Emit exact masks, COCO annotations, per-scene receipts, source lineage, and photometric effects.
 - Keep validation and sealed-test recordings in the discovery report only. Do not start RF-DETR
   training in this milestone.
@@ -445,6 +456,25 @@ Acceptance:
 - The merged view contains 1,083 train images, with 50.42% synthetic images, and keeps the
   validation and sealed-test partitions unchanged. Its materialization digest is
   `1b31edf634996c00c29250abddfd7ab690dd2a77b29680c9579ab22a0ae02e72`.
+
+#### M5 revised empty-table sample evidence — 2026-09-19
+
+- Added `synthetic-visible-region-empty-table`. It rejects every background unless M1 records an
+  accepted full-frame review with `contains_visible_card=false` and a training source group.
+  Card-bearing source frames are never rendered or inpainted.
+- The bounded sample command materialized 165 white-balanced training cutouts and six scenes on
+  the single accepted empty `IMG_0669` table. It contains two one-card, two two-card, and two
+  three-card scenes. The COCO output validates with exact disjoint masks.
+- Each scene uses a known-card lighting reference from the matching reviewed `IMG_0669` frame.
+  The reference produces one shared card-lighting profile for all cards in that scene. Exposure,
+  color gains, contrast, vignette, shadow opacity, and JPEG quality are sampled once per scene and
+  applied consistently to the complete composite.
+- The sample output is at
+  `.runtime/synthetic-visible-region-0070-empty-table-samples`; no larger synthetic pool or new
+  training run was started. The earlier card-bearing-frame/inpainting pools are superseded and
+  must not be used for the next training comparison.
+- Focused tests pass: the new empty-table synthesis tests and Ruff checks. Operator approval is
+  still required before scene-limit 0 or a larger pool is allowed.
 
 ### M6 — Measure correction effort and publish the decision
 

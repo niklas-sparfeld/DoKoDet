@@ -178,6 +178,27 @@ from .synthetic_visible_region_campaign import (
     render_synthetic_visible_region_human,
     write_synthetic_visible_region_manifest,
 )
+from .synthetic_visible_region_empty_table_synthesis import (
+    M1_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_M1_DEFAULT,
+)
+from .synthetic_visible_region_empty_table_synthesis import (
+    MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_MANIFEST_DEFAULT,
+)
+from .synthetic_visible_region_empty_table_synthesis import (
+    MATERIALIZATION_DEFAULT as SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_MATERIALIZATION_DEFAULT,
+)
+from .synthetic_visible_region_empty_table_synthesis import (
+    OUTPUT_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_OUTPUT_DEFAULT,
+)
+from .synthetic_visible_region_empty_table_synthesis import (
+    SCENE_LIMIT_DEFAULT as SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_SCENE_LIMIT_DEFAULT,
+)
+from .synthetic_visible_region_empty_table_synthesis import (
+    SyntheticVisibleRegionEmptyTableError,
+    build_synthetic_visible_region_empty_table_samples,
+    render_synthetic_visible_region_empty_table_human,
+    write_synthetic_visible_region_empty_table_manifest,
+)
 from .synthetic_visible_region_materialization import (
     M0_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_INPUTS_M0_MANIFEST_DEFAULT,
 )
@@ -1029,6 +1050,76 @@ def build_parser() -> argparse.ArgumentParser:
         "--format", choices=("human", "json"), default="human"
     )
     synthetic_visible_region_all_recordings.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    synthetic_visible_region_empty_table = data_commands.add_parser(
+        "synthetic-visible-region-empty-table",
+        aliases=("synthetic-rfdetr-empty-table",),
+        help="Render bounded samples on explicitly reviewed empty training tables.",
+        description=(
+            "White-balance training card cutouts, transfer shared lighting from known cards, "
+            "and render a bounded sample set on reviewed empty tables only."
+        ),
+    )
+    _add_path_options(synthetic_visible_region_empty_table, suppress_defaults=True)
+    synthetic_visible_region_empty_table.add_argument(
+        "--source-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_SOURCE_DEFAULT),
+        help="Frozen 0068 reviewed-detector M0 manifest.",
+    )
+    synthetic_visible_region_empty_table.add_argument(
+        "--m1-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_M1_DEFAULT),
+        help="Training-only 0070 M1 cutout and reviewed-empty-table manifest.",
+    )
+    synthetic_visible_region_empty_table.add_argument(
+        "--materialization-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_MATERIALIZATION_DEFAULT),
+        help="0068 materialized source frames used for lighting references.",
+    )
+    synthetic_visible_region_empty_table.add_argument(
+        "--output-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_OUTPUT_DEFAULT),
+        help="Disposable sample output directory.",
+    )
+    synthetic_visible_region_empty_table.add_argument(
+        "--output",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_MANIFEST_DEFAULT),
+        help="Immutable sample manifest path.",
+    )
+    synthetic_visible_region_empty_table.add_argument(
+        "--scene-limit",
+        type=int,
+        default=SYNTHETIC_VISIBLE_REGION_EMPTY_TABLE_SCENE_LIMIT_DEFAULT,
+        help="Maximum sample scenes; use 0 only after operator approval for the full pool.",
+    )
+    synthetic_visible_region_empty_table.add_argument(
+        "--variants-per-candidate",
+        type=int,
+        default=1,
+        help="Number of deterministic scene-level lighting variants per geometry candidate.",
+    )
+    synthetic_visible_region_empty_table.add_argument(
+        "--max-card-count",
+        type=int,
+        default=MAX_CARD_COUNT_DEFAULT,
+        help="Include corrected geometry frames with up to this many cards (maximum: 4).",
+    )
+    synthetic_visible_region_empty_table.add_argument(
+        "--seed-start",
+        type=int,
+        default=7001,
+        help="Seed for the first scene-level lighting condition.",
+    )
+    synthetic_visible_region_empty_table.add_argument(
+        "--format", choices=("human", "json"), default="human"
+    )
+    synthetic_visible_region_empty_table.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     synthetic_visible_region_m4 = data_commands.add_parser(
@@ -2333,6 +2424,45 @@ def main(argv: Sequence[str] | None = None) -> int:
             sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         else:
             sys.stdout.write(render_synthetic_visible_region_all_recordings_human(manifest))
+        return 0
+    if args.command == "data" and args.data_command in {
+        "synthetic-visible-region-empty-table",
+        "synthetic-rfdetr-empty-table",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            manifest = build_synthetic_visible_region_empty_table_samples(
+                config.repository_root,
+                source_manifest_path=args.source_manifest,
+                m1_manifest_path=args.m1_manifest,
+                materialization_directory=args.materialization_directory,
+                output_directory=args.output_directory,
+                scene_limit=args.scene_limit,
+                variants_per_candidate=args.variants_per_candidate,
+                max_card_count=args.max_card_count,
+                seed_start=args.seed_start,
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            write_synthetic_visible_region_empty_table_manifest(output_path, manifest)
+        except (
+            ConfigurationError,
+            OSError,
+            SyntheticVisibleRegionEmptyTableError,
+        ) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_synthetic_visible_region_empty_table_human(manifest))
         return 0
     if args.command == "data" and args.data_command in {
         "synthetic-visible-region-training-comparison",
