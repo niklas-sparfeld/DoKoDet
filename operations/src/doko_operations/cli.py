@@ -202,6 +202,27 @@ from .synthetic_visible_region_materialization import (
     render_synthetic_visible_region_inputs_human,
     write_synthetic_visible_region_inputs,
 )
+from .synthetic_visible_region_recording_synthesis import (
+    M1_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_M1_DEFAULT,
+)
+from .synthetic_visible_region_recording_synthesis import (
+    MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_MANIFEST_DEFAULT,
+)
+from .synthetic_visible_region_recording_synthesis import (
+    MATERIALIZATION_DEFAULT as SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_MATERIALIZATION_DEFAULT,
+)
+from .synthetic_visible_region_recording_synthesis import (
+    OUTPUT_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_OUTPUT_DEFAULT,
+)
+from .synthetic_visible_region_recording_synthesis import (
+    SOURCE_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_SOURCE_DEFAULT,
+)
+from .synthetic_visible_region_recording_synthesis import (
+    SyntheticVisibleRegionAllRecordingsError,
+    build_synthetic_visible_region_all_recordings,
+    render_synthetic_visible_region_all_recordings_human,
+    write_synthetic_visible_region_all_recordings_manifest,
+)
 from .synthetic_visible_region_rendering import (
     OUTPUT_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_SCENES_OUTPUT_DEFAULT,
 )
@@ -928,6 +949,57 @@ def build_parser() -> argparse.ArgumentParser:
         "--format", choices=("human", "json"), default="human"
     )
     synthetic_visible_region_training_view.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    synthetic_visible_region_all_recordings = data_commands.add_parser(
+        "synthetic-visible-region-all-recordings",
+        aliases=("synthetic-rfdetr-all-recordings",),
+        help="Find 1/2/3-card table geometry in all recordings and synthesize train scenes.",
+        description=(
+            "Audit human-reference 1/2/3-card table geometry across all recordings, "
+            "then synthesize train-only scenes."
+        ),
+    )
+    _add_path_options(synthetic_visible_region_all_recordings, suppress_defaults=True)
+    synthetic_visible_region_all_recordings.add_argument(
+        "--source-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_SOURCE_DEFAULT),
+        help="Frozen 0068 reviewed-detector M0 manifest.",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--m1-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_M1_DEFAULT),
+        help="Training-only 0070 M1 cutout manifest.",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--materialization-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_MATERIALIZATION_DEFAULT),
+        help="0068 materialized source frames.",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--output-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_OUTPUT_DEFAULT),
+        help="Disposable train-only synthetic scene directory.",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--output",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_MANIFEST_DEFAULT),
+        help="Immutable discovery and synthesis manifest.",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--discover-only",
+        action="store_true",
+        help="Audit all recordings without writing synthetic images.",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--format", choices=("human", "json"), default="human"
+    )
+    synthetic_visible_region_all_recordings.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     synthetic_visible_region_m4 = data_commands.add_parser(
@@ -2193,6 +2265,42 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             sys.stdout.write(render_synthetic_visible_region_training_view_human(manifest))
         return 0 if manifest["operator_approval"]["status"] == "approved" else 1
+    if args.command == "data" and args.data_command in {
+        "synthetic-visible-region-all-recordings",
+        "synthetic-rfdetr-all-recordings",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            manifest = build_synthetic_visible_region_all_recordings(
+                config.repository_root,
+                source_manifest_path=args.source_manifest,
+                m1_manifest_path=args.m1_manifest,
+                materialization_directory=args.materialization_directory,
+                output_directory=args.output_directory,
+                discover_only=args.discover_only,
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            write_synthetic_visible_region_all_recordings_manifest(output_path, manifest)
+        except (
+            ConfigurationError,
+            OSError,
+            SyntheticVisibleRegionAllRecordingsError,
+        ) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_synthetic_visible_region_all_recordings_human(manifest))
+        return 0
     if args.command == "data" and args.data_command in {
         "synthetic-visible-region-training-comparison",
         "synthetic-rfdetr-training-comparison",

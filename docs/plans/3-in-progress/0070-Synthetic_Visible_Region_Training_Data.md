@@ -28,7 +28,10 @@
   and mixed-side buckets remain unavailable.
 - **M4:** Preflight ready — the paired real-only versus real-plus-synthetic run is prepared; full
   training remains operator-started and was not started here.
-- **M5:** Not started — measure annotation correction effort and publish the decision.
+- **M5:** Complete with a declared gap — all 24 recordings are audited for exact human-reference
+  one-, two-, and three-card geometry; 38 train-only scenes are synthesized across 15 training
+  recordings. Validation and sealed-test recordings are discovery-only.
+- **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
 
@@ -395,7 +398,44 @@ Acceptance:
 - the result states whether synthetic data improved, harmed, or did not clearly change real-frame
   visible-region quality.
 
-### M5 — Measure correction effort and publish the decision
+### M5 — Find table geometry and synthesize every training recording
+
+- Audit all frozen 0068 recordings for corrected exact four-corner one-, two-, and three-card
+  frames.
+- Rank candidates by human-corrected geometry, interior margin, card shape, and overlap. Keep the
+  selected candidate and the complete audit in an immutable manifest.
+- Use one selected candidate per available card count for every training recording. Remove the
+  source card regions with deterministic OpenCV inpainting, then render reviewed M1 cutouts back
+  onto the measured quadrilaterals.
+- Emit exact masks, COCO annotations, per-scene receipts, source lineage, and photometric effects.
+- Keep validation and sealed-test recordings in the discovery report only. Do not start RF-DETR
+  training in this milestone.
+
+Acceptance:
+
+- all recordings are audited with stable candidate counts and selected one-, two-, and three-card
+  geometry where available;
+- synthetic scenes use training recordings and training-only M1 card cutouts;
+- validation and sealed-test recordings produce no synthetic training image or annotation;
+- repeated synthesis produces valid COCO with unique image IDs and exact visible masks; and
+- the manifest records the inpainting policy and the declared held-out-data gap.
+
+#### M5 implementation evidence — 2026-09-19
+
+- Added `synthetic-visible-region-all-recordings`. The discovery pass audits all 24 recordings and
+  retains 235 eligible corrected-reference candidates: 169 train, 43 validation, and 23 sealed
+  test. The selection is deterministic per recording and card count.
+- The synthesis pass materializes 38 scenes from all 15 training recordings: 14 one-card, 12
+  two-card, and 12 three-card scenes, with 74 annotations. It uses the selected reviewed frame as
+  the geometry source, inpaints only its card quadrilaterals with OpenCV, and composites the
+  training-only M1 cutouts with exact z-order masks.
+- Validation and sealed-test recordings remain `discovery_only`; no held-out image or annotation
+  enters the generated COCO view. Face-down cards remain unavailable because M1 has no reviewed
+  face-down cutout.
+- The generated COCO view passes the repository validator. The focused M5 tests pass, and the
+  command does not invoke RF-DETR training.
+
+### M6 — Measure correction effort and publish the decision
 
 - Freeze a small batch of new development frames from source groups that did not contribute to
   training assets, validation, or the sealed test.
