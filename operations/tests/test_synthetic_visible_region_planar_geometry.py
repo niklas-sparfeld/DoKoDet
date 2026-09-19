@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import cv2
 import numpy as np
 
 from doko_operations.rfdetr_segmentation_materialization import (
@@ -11,6 +12,7 @@ from doko_operations.rfdetr_segmentation_materialization import (
 from doko_operations.synthetic_visible_region_planar_geometry import (
     SCANNED_DECK_SOURCE_DEFAULT,
     _apply_homography,
+    _reduce_scan_saturation,
     _scanned_deck_assets,
     _warp_soft_card,
     build_synthetic_visible_region_planar_geometry_samples,
@@ -88,6 +90,19 @@ def test_soft_warp_keeps_scan_bed_transparent() -> None:
     assert warped_alpha[0, 0] == 0
     assert warped[0, 0, 3] == 0
     assert warped_alpha[110, 85] > 240
+
+
+def test_scan_saturation_adjustment_preserves_alpha_and_reduces_chroma() -> None:
+    rgba = np.zeros((3, 3, 4), dtype=np.uint8)
+    rgba[:, :, :3] = (0, 0, 255)
+    alpha = np.full((3, 3), 173, dtype=np.uint8)
+
+    adjusted = _reduce_scan_saturation(rgba, alpha)
+
+    before = cv2.cvtColor(rgba[:, :, :3], cv2.COLOR_BGR2HSV)[0, 0, 1]
+    after = cv2.cvtColor(adjusted[:, :, :3], cv2.COLOR_BGR2HSV)[0, 0, 1]
+    assert after < before
+    assert np.array_equal(adjusted[:, :, 3], alpha)
 
 
 def test_planar_geometry_samples_use_empty_background_and_table_card_appearance(

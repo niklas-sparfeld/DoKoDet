@@ -71,6 +71,11 @@ SCAN_ALPHA_INSET_FRACTION = 0.01
 SCAN_CORNER_RADIUS_FRACTION = 0.075
 SCAN_ALPHA_FEATHER_PIXELS = 1.2
 MIN_MASK_ALPHA = 128
+CARD_SATURATION_FACTOR = 0.68
+CARD_BLUR_REDUCTION_FACTOR = 0.42
+CARD_SHADOW_OPACITY = 0.045
+CARD_SHADOW_BLUR_SIGMA = 1.4
+CARD_SHADOW_OFFSET_PIXELS = (2.0, 2.0)
 _SHA256_LENGTH = 64
 _REVIEW_CARD_STEMS = (
     "SPADES_ten",
@@ -755,11 +760,26 @@ def _white_balanced_scan(
     return np.dstack((adjusted, alpha)), [_round(value) for value in gain]
 
 
+def _reduce_scan_saturation(rgba: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """Reduce scan pigment saturation to the softer response of the recorded cards."""
+
+    hsv = cv2.cvtColor(rgba[:, :, :3], cv2.COLOR_BGR2HSV).astype(np.float32)
+    hsv[:, :, 1] *= CARD_SATURATION_FACTOR
+    adjusted = cv2.cvtColor(np.clip(hsv, 0, 255).astype(np.uint8), cv2.COLOR_HSV2BGR)
+    return np.dstack((adjusted, alpha))
+
+
 def _card_blur_sigma(image_quad: np.ndarray, appearance: Mapping[str, Any]) -> float:
     short_side = max(_reference_card_short_side(image_quad), 1.0)
     reference_short_side = max(float(appearance["median_short_side_pixels"]), 1.0)
     baseline = np.clip(160.0 / reference_short_side, 0.65, 1.15)
-    return float(np.clip(baseline * np.sqrt(reference_short_side / short_side), 0.55, 1.35))
+    return float(
+        np.clip(
+            baseline * np.sqrt(reference_short_side / short_side) * CARD_BLUR_REDUCTION_FACTOR,
+            0.22,
+            0.58,
+        )
+    )
 
 
 def _warp_soft_card(
@@ -802,6 +822,20 @@ def _warp_soft_card(
     ).astype(np.uint8)
     result[:, :, 3] = np.clip(warped_alpha * 255.0, 0, 255).astype(np.uint8)
     return result, result[:, :, 3]
+
+
+def _apply_subtle_card_shadow(scene: np.ndarray, alpha: np.ndarray) -> None:
+    """Put one small, soft table shadow below a card without changing its target mask."""
+
+    shadow = cv2.GaussianBlur(alpha, (0, 0), CARD_SHADOW_BLUR_SIGMA)
+    translation = np.float32(
+        [[1, 0, CARD_SHADOW_OFFSET_PIXELS[0]], [0, 1, CARD_SHADOW_OFFSET_PIXELS[1]]]
+    )
+    shadow = cv2.warpAffine(shadow, translation, (scene.shape[1], scene.shape[0]))
+    weight = shadow.astype(np.float32) / 255.0 * CARD_SHADOW_OPACITY
+    scene[:] = np.clip(scene.astype(np.float32) * (1.0 - weight[:, :, None]), 0, 255).astype(
+        np.uint8
+    )
 
 
 def _pose_from_quad(quad: np.ndarray) -> dict[str, np.ndarray | float]:
@@ -929,9 +963,10 @@ def _render_scene(
         balanced_rgba, white_balance_gain = _white_balanced_scan(
             rgba, alpha, appearance["paper_bgr"]
         )
+        adjusted_rgba = _reduce_scan_saturation(balanced_rgba, alpha)
         blur_sigma = _card_blur_sigma(image_quad, appearance)
         warped, warped_alpha = _warp_soft_card(
-            balanced_rgba, alpha, image_quad, width, height, blur_sigma
+            adjusted_rgba, alpha, image_quad, width, height, blur_sigma
         )
         full_mask = np.where(warped_alpha >= MIN_MASK_ALPHA, 255, 0).astype(np.uint8)
         full_mask = _remove_small_components(full_mask, MIN_VISIBLE_PIXELS)
@@ -949,6 +984,7 @@ def _render_scene(
                 "warped_rgba": warped,
                 "alpha": warped_alpha,
                 "white_balance_gain_bgr": white_balance_gain,
+                "saturation_factor": CARD_SATURATION_FACTOR,
                 "blur_sigma": _round(blur_sigma),
                 "deck_card_name": record.get("deck_card_name"),
                 "source_frame": record.get("source_frame"),
@@ -964,6 +1000,8 @@ def _render_scene(
         ).astype(np.uint8)
         visible_masks[index] = _remove_small_components(visible_masks[index], MIN_VISIBLE_PIXELS)
         higher = np.maximum(higher, full_masks[index])
+    for placement in placements:
+        _apply_subtle_card_shadow(scene, placement["alpha"])
     for placement in placements:
         _alpha_composite(scene, placement["warped_rgba"], placement["alpha"])
     ok, encoded = cv2.imencode(".jpg", scene, [cv2.IMWRITE_JPEG_QUALITY, 95])
@@ -1014,6 +1052,7 @@ def _render_scene(
             "occlusion_ratio": _occlusion_ratio(placement["full_mask"], visible_mask),
             "appearance": {
                 "white_balance_gain_bgr": placement["white_balance_gain_bgr"],
+                "saturation_factor": placement["saturation_factor"],
                 "blur_sigma": placement["blur_sigma"],
                 "mask_alpha_threshold": MIN_MASK_ALPHA,
             },
@@ -1108,7 +1147,9 @@ def _render_scene(
             "numpy_version": np.__version__,
             "python_version": platform.python_version(),
             "mask_policy": "rounded-alpha-card-z-order-and-frame-clipping-v1",
-            "photometric_policy": "table-paper-white-balance-and-card-scale-blur-v1",
+            "photometric_policy": (
+                "table-paper-white-balance-desaturation-card-scale-blur-and-subtle-shadow-v1"
+            ),
         },
     }
     receipt = {
@@ -1130,6 +1171,8 @@ def _render_scene(
         "photometric_effects": {
             "table_paper_bgr": appearance["paper_bgr"],
             "reference_card_count": appearance["reference_card_count"],
+            "card_saturation_factor": CARD_SATURATION_FACTOR,
+            "card_shadow_opacity": CARD_SHADOW_OPACITY,
         },
         "image_path": _relative(image_path, repository),
         "image_sha256": image_digest,
@@ -1319,7 +1362,8 @@ def build_synthetic_visible_region_planar_geometry_samples(
             "card_source": "upright-ass-altenburger-romme-french-scans-v1",
             "geometry_sources": "complete-reviewed-four-point-cards-from-the-same-recording",
             "photometric_effects": (
-                "same-table reviewed-card paper white balance, rounded alpha, and card-scale blur"
+                "same-table reviewed-card paper white balance, scan desaturation, rounded alpha, "
+                "reduced card-scale blur, and a subtle shadow"
             ),
             "sample_count": sample_count,
             "recording_ids": sorted(requested_recordings) if requested_recordings else None,

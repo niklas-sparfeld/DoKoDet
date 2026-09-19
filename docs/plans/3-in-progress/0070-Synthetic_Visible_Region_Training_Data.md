@@ -32,9 +32,9 @@
   lighting-first samples are superseded. A bounded three-scene review set uses only the accepted
   full-frame-reviewed empty training table. It estimates one metric table-plane transform from
   several reviewed cards in the same recording, then renders upright supplied deck scans with a
-  transparent rounded edge, one table-level card-paper response, card-scale blur, and exact overlap
-  masks. Do not generate a larger pool or add random scene effects until operator inspection approves
-  the samples.
+  transparent rounded edge, one table-level card-paper response, reduced saturation, reduced
+  card-scale blur, a subtle drop shadow, and exact overlap masks. Do not generate a larger pool or
+  add random scene effects until operator inspection approves the samples.
 - **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -493,15 +493,16 @@ Acceptance:
   boundary, so rounded card corners remain in the training targets.
 - It resolves eight face-up reviewed card regions from four exact `IMG_0669` frames. Bright,
   low-saturation card-paper pixels give one median table response of BGR `229/238/238`. The same
-  response white-balances every scan in the scene. Card-scale Gaussian blur uses the measured
-  median card short side. It does not add a shadow, glare, random per-card lighting, or scene-level
-  lighting change.
+  response white-balances every scan in the scene. The scan saturation factor is `0.68`. Card-scale
+  Gaussian blur uses 42 percent of the earlier strength and is limited to `0.22–0.58` pixels. A
+  `0.045` opacity shadow has a two-pixel offset. The renderer does not add glare, random per-card
+  lighting, or a scene-level lighting change.
 - Geometry review now uses only the supplied upright face scans in
   `data/decks/ass-altenburger-romme-french/source`. It does not use video-derived card cutouts.
   The selected scans include `SPADES_ten` and `HEARTS_jack`; the renderer resizes them to the
   canonical card rectangle without changing their orientation before it applies table placement.
 - The current output is at
-  `.runtime/synthetic-visible-region-0070-planar-geometry-appearance-samples`. No larger pool or
+  `.runtime/synthetic-visible-region-0070-planar-geometry-look-tuned-samples`. No larger pool or
   training run was started. Operator approval of the appearance and geometry is required before
   expansion.
 
