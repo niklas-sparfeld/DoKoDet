@@ -23,8 +23,9 @@
 - **M2:** Complete with a declared gap — deterministic rendering uses the measured 0669 card
   templates and exact visible-region targets for face-up and unknown cards; face-down and
   mixed-side buckets are omitted.
-- **M3:** Not started — materialize and inspect one bounded synthetic training set from the
-  supported scene buckets.
+- **M3:** Complete with a declared gap — one deterministic scene per supported bucket is merged
+  into a disposable train-only COCO view and approved after contact-sheet inspection; face-down
+  and mixed-side buckets remain unavailable.
 - **M4:** Not started — run one paired real-only versus real-plus-synthetic training comparison.
 - **M5:** Not started — measure annotation correction effort and publish the decision.
 
@@ -332,6 +333,29 @@ Acceptance:
 - a random sample from every scene bucket is visually inspectable; and
 - a rejected inspection closes the epic with evidence or requires a new epic, not an in-place
   recipe sweep.
+
+#### M3 implementation evidence — 2026-09-19
+
+- Added `synthetic-visible-region-training-view`. It regenerates the frozen M2 scene set with one
+  scene per currently renderable bucket, then merges it into a copy of the 0068 train view. The
+  0068 validation and sealed-test directories are copied and verified byte-for-byte; no synthetic
+  image or contributor enters either partition.
+- The disposable view contains 537 real train images and 1,535 real annotations plus 8 synthetic
+  images and 11 synthetic annotations. The merged train view has 545 images and 1,546
+  annotations. Synthetic image and annotation IDs are rebased, and each retained row records
+  scene bucket, card source, source-group lineage, and the M2 scene manifest digest.
+- The report publishes distributions for table setup, source contributor, scene bucket, card
+  count, side, scale, position, clipping, and occlusion. It flags 13 average-hash near-duplicate
+  pairs, reports no exact duplicate groups, and reports one expected out-of-frame geometry from
+  the declared frame-clipping bucket with zero unexpected out-of-envelope geometry.
+- The contact sheet contains RGB scenes, colorized instance masks, mask boundaries, and source
+  lineage for all eight supported buckets. The local visual inspection is recorded as approved in
+  `.runtime/synthetic-visible-region-0070-m3/inspection/approval.json`.
+- The M3 manifest digest is
+  `c86d210c5910e62017a940f202df755b17639db0f53754e162d2cc70f9fc25d7`. The merged train COCO
+  digest is `cffd20504b481981634f34abf79b4f7fff03882b1c16d5f0a4ed66d0225ec1e1`.
+- Focused campaign, materialization, rendering, and M3 tests pass: 9 tests. Ruff and
+  `git diff --check` pass. No RF-DETR training started.
 
 ### M4 — Run the paired RF-DETR comparison
 

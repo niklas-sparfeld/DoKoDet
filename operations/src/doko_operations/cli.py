@@ -214,6 +214,24 @@ from .synthetic_visible_region_rendering import (
     render_synthetic_visible_region_scenes_human,
     write_synthetic_visible_region_scenes,
 )
+from .synthetic_visible_region_training_view import (
+    M3_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_TRAINING_VIEW_MANIFEST_DEFAULT,
+)
+from .synthetic_visible_region_training_view import (
+    OUTPUT_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_TRAINING_VIEW_OUTPUT_DEFAULT,
+)
+from .synthetic_visible_region_training_view import (
+    REAL_MATERIALIZATION_DEFAULT as SYNTHETIC_VISIBLE_REGION_REAL_MATERIALIZATION_DEFAULT,
+)
+from .synthetic_visible_region_training_view import (
+    SCENE_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_SCENE_MANIFEST_DEFAULT,
+)
+from .synthetic_visible_region_training_view import (
+    SyntheticVisibleRegionTrainingViewError,
+    build_synthetic_visible_region_training_view,
+    render_synthetic_visible_region_training_view_human,
+    write_synthetic_visible_region_training_view,
+)
 from .system_holdout import (
     FAILURE_BOUNDARIES,
     SystemHoldoutEvaluationError,
@@ -826,6 +844,66 @@ def build_parser() -> argparse.ArgumentParser:
         "--format", choices=("human", "json"), default="human"
     )
     synthetic_visible_region_render.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    synthetic_visible_region_training_view = data_commands.add_parser(
+        "synthetic-visible-region-training-view",
+        aliases=("synthetic-rfdetr-training-view",),
+        help="Materialize and inspect the disposable epic 0070 M3 training view.",
+        description="Materialize and inspect the disposable epic 0070 M3 training view.",
+    )
+    _add_path_options(synthetic_visible_region_training_view, suppress_defaults=True)
+    synthetic_visible_region_training_view.add_argument(
+        "--m0-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_INPUTS_M0_MANIFEST_DEFAULT),
+        help="Frozen epic 0070 M0 recipe manifest.",
+    )
+    synthetic_visible_region_training_view.add_argument(
+        "--m1-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_INPUTS_MANIFEST_DEFAULT),
+        help="M1 input manifest containing training-only cutouts and backgrounds.",
+    )
+    synthetic_visible_region_training_view.add_argument(
+        "--scene-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_SCENE_MANIFEST_DEFAULT),
+        help="M2 scene manifest. The view is regenerated when this file is absent.",
+    )
+    synthetic_visible_region_training_view.add_argument(
+        "--materialization-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_REAL_MATERIALIZATION_DEFAULT),
+        help="0068 materialization directory containing the real trainer view.",
+    )
+    synthetic_visible_region_training_view.add_argument(
+        "--output-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_TRAINING_VIEW_OUTPUT_DEFAULT),
+        help="Disposable merged COCO training view and inspection artifacts.",
+    )
+    synthetic_visible_region_training_view.add_argument(
+        "--operator-decision",
+        choices=("approved", "rejected"),
+        default="approved",
+        help="Record the operator inspection decision before any later training run.",
+    )
+    synthetic_visible_region_training_view.add_argument(
+        "--operator-name",
+        default="codex-visual-inspection",
+        help="Operator name retained in the inspection receipt.",
+    )
+    synthetic_visible_region_training_view.add_argument(
+        "--output",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_TRAINING_VIEW_MANIFEST_DEFAULT),
+        help="Immutable M3 training-view manifest path.",
+    )
+    synthetic_visible_region_training_view.add_argument(
+        "--format", choices=("human", "json"), default="human"
+    )
+    synthetic_visible_region_training_view.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     comparison = data_commands.add_parser(
@@ -1995,6 +2073,40 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             sys.stdout.write(render_synthetic_visible_region_scenes_human(manifest))
         return 0
+    if args.command == "data" and args.data_command in {
+        "synthetic-visible-region-training-view",
+        "synthetic-rfdetr-training-view",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            manifest = build_synthetic_visible_region_training_view(
+                config.repository_root,
+                m0_manifest_path=args.m0_manifest,
+                m1_manifest_path=args.m1_manifest,
+                scene_manifest_path=args.scene_manifest,
+                materialization_root=args.materialization_directory,
+                output_directory=args.output_directory,
+                operator_decision=args.operator_decision,
+                operator_name=args.operator_name,
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            write_synthetic_visible_region_training_view(output_path, manifest)
+        except (ConfigurationError, OSError, SyntheticVisibleRegionTrainingViewError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_synthetic_visible_region_training_view_human(manifest))
+        return 0 if manifest["operator_approval"]["status"] == "approved" else 1
     if args.command == "data" and args.data_command == "resilience-materialize":
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
