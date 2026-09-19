@@ -1101,6 +1101,9 @@ export function PipelineVisualIdentityEditor({
       autoApprovalAvailable={
         reviewed &&
         reference !== null &&
+        selectedGeneratedSourceRevisionId !== null &&
+        reference.draft.source_revision_id ===
+          selectedGeneratedSourceRevisionId &&
         reference.state.draft_state === "draft" &&
         operatorId.trim() !== "" &&
         queueLength === 0 &&

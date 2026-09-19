@@ -99,6 +99,27 @@ def test_auto_approval_reason_requires_matching_classified_outcomes() -> None:
     )
 
 
+def test_visual_identity_run_listing_uses_recording_scoped_storage(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    app = create_test_app(_settings(tmp_path))
+    service = app.state.visual_identity_pipeline_service
+    calls: list[str] = []
+
+    def fail_broad_listing() -> object:
+        raise AssertionError("visual identity listing must be recording-scoped")
+
+    monkeypatch.setattr(service.run_store, "list", fail_broad_listing)
+    monkeypatch.setattr(
+        service.run_store,
+        "list_for_recording",
+        lambda recording_id: calls.append(recording_id) or (),
+    )
+
+    assert service.list_runs(RECORDING_ID) == ()
+    assert calls == [RECORDING_ID]
+
+
 def test_auto_approval_plan_reuses_one_local_run_and_reports_matching_results(
     tmp_path: Any,
 ) -> None:
@@ -153,15 +174,26 @@ def test_auto_approval_plan_reuses_one_local_run_and_reports_matching_results(
             ).status_code
             == 201
         )
+        selection_path = (
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/selection"
+        )
+        assert (
+            client.get(selection_path).json()["selection"]["selected_generated_revision_id"]
+            == gemini_revision_id
+        )
 
         path = f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/auto-approval-plan"
         first = client.post(path)
         assert first.status_code == 202, first.text
         local_run_id = first.json()["local_run"]["run_id"]
+        assert _wait_identity(client, local_run_id)["state"]["status"] == "complete"
         repeated = client.post(path)
         assert repeated.status_code == 202, repeated.text
         assert repeated.json()["local_run"] is None
-        assert _wait_identity(client, local_run_id)["state"]["status"] == "complete"
+        assert (
+            client.get(selection_path).json()["selection"]["selected_generated_revision_id"]
+            == gemini_revision_id
+        )
         planned = client.post(path)
         assert planned.status_code == 202, planned.text
         items = planned.json()["items"]

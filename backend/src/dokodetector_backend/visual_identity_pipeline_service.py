@@ -75,6 +75,7 @@ from dokodetector_backend.repository_bundle_storage import RepositoryBundleStora
 
 LOGGER = logging.getLogger(__name__)
 _SAFE_COMPONENT = re.compile(r"[^A-Za-z0-9._:-]+")
+_AUTO_APPROVAL_LOCAL_PURPOSE = "auto_approval_comparison"
 
 
 def _result_latency_ms(result: Any) -> float | None:
@@ -208,7 +209,7 @@ class VisualIdentityPipelineService:
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
         return tuple(
             run
-            for run in self.run_store.list()
+            for run in self.run_store.list_for_recording(recording_id)
             if run.request.source.recording_id == recording_id
             and run.request.processor_type == "visual-card-identity"
         )
@@ -232,7 +233,7 @@ class VisualIdentityPipelineService:
             or not isinstance(source.content, VisualIdentityData)
         ):
             raise VisualIdentityPipelineInputError("The identity draft source is unavailable.")
-        cloud_run = self._run_for_output(source_revision_id)
+        cloud_run = self._run_for_output(recording_id, source_revision_id)
         if cloud_run is None or cloud_run.request.input_revision_ids == ():
             raise VisualIdentityPipelineInputError(
                 "The identity draft has no retained processor lineage."
@@ -285,9 +286,13 @@ class VisualIdentityPipelineService:
             "items": items,
         }
 
-    def _run_for_output(self, revision_id: str) -> StoredProcessorRun | None:
+    def _run_for_output(
+        self, recording_id: str, revision_id: str
+    ) -> StoredProcessorRun | None:
         matches = [
-            run for run in self.run_store.list() if revision_id in run.state.output_revision_ids
+            run
+            for run in self.list_runs(recording_id)
+            if revision_id in run.state.output_revision_ids
         ]
         return max(
             matches, key=lambda run: (run.state.completed_at or "", run.run_id), default=None
@@ -386,7 +391,10 @@ class VisualIdentityPipelineService:
             {
                 "run_id": f"auto-approve-local-{token}",
                 "visible_card_revision_id": visible_revision_id,
-                "configuration": {"provider": "local"},
+                "configuration": {
+                    "provider": "local",
+                    "purpose": _AUTO_APPROVAL_LOCAL_PURPOSE,
+                },
                 "crop_policy": cloud_request.crop_policy,
                 "extraction_policy": cloud_request.extraction_policy,
             },
@@ -732,9 +740,10 @@ class VisualIdentityPipelineService:
                 progress=RunProgress(completed=len(items), total=len(candidates)),
                 items=items,
             )
-            self._advance_generated_selection(
-                run.request.source.recording_id, revision.manifest.revision_id
-            )
+            if run.request.configuration.get("purpose") != _AUTO_APPROVAL_LOCAL_PURPOSE:
+                self._advance_generated_selection(
+                    run.request.source.recording_id, revision.manifest.revision_id
+                )
         except VisualIdentityPipelineError as error:
             self._fail_safely(run_id, "classifier_failed", str(error))
         except Exception:

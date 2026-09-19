@@ -715,6 +715,9 @@ describe("PipelineVisualIdentityEditor", () => {
     await screen.findByRole("heading", { name: /Visual identity review/ });
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    expect(
+      screen.getByRole("button", { name: "Auto-approve matching identities" }),
+    ).toBeDisabled();
     await user.click(
       screen.getByRole("button", { name: "Switch review to selected result" }),
     );
