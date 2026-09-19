@@ -243,9 +243,11 @@ Acceptance:
 
 #### M1 implementation evidence — 2026-09-19
 
-- Added `synthetic-visible-region-materialize`. It uses fixed OpenCV geometry extraction for the
-  three 4x5 JPEG grids and the 19 individual HEIC photos. HEIC decoding records the local `sips`
-  version. No card identity is inferred.
+- Added `synthetic-visible-region-materialize`. It uses fixed OpenCV dark-surface extraction for
+  the three 4x5 JPEG grids and the 19 individual HEIC photos. Canny edges select the card-owned
+  outer contour, the high-luminance surface mask fills the contour, and a canonical rounded
+  corner mask removes table pixels at the four rectified corners. HEIC decoding records the local
+  `sips` version. No card identity is inferred.
 - The materialization reuses 86 complete reviewed 0068 training cutouts and adds 79 supplied
   deck-photo cutouts. It records 108 source assets, 165 RGBA cutouts, 165 alpha masks, source
   quadrilaterals, source-frame digests, review decisions, and the 13-table-setup 0068 geometry
@@ -254,10 +256,12 @@ Acceptance:
   links are retained as explicit exclusions because their source group is `sealed_test`.
 - Inventory: 155 `face_up`, 10 `unknown`, 0 `face_down`, 1 background, and 0 human occluders.
   The remaining face-down input gate is explicit; no synthetic rendering or training started.
-- The M1 manifest digest is
-  `83c9ed1e9f5290740d74e67085dffd5f22c3e0fcb287395cdb3025ab487aede0`.
-  All rectification round trips are 0.0 pixels, and the cold/warm check produced identical
-  manifest and representative file digests.
+- The corrected M1 manifest digest is
+  `f05bbd0951fbb525dd3f6a3ce6b62b3bcfb64107a3b3b081132388b009b45db4`.
+  The materializer records mask recipe `opencv-dark-surface-canny-rounded-v2` with a canonical
+  28-pixel corner radius. All rectification round trips are 0.0 pixels, all generated alpha
+  masks keep the dark card artwork opaque, and the cold/warm check produced identical manifest
+  and representative file digests.
 - Added 6 focused M1 tests. They pass with the M0 campaign tests: 6 passed. Ruff passes.
 
 ### M2 — Implement deterministic synthetic rendering
@@ -285,7 +289,7 @@ Acceptance:
 - Added `synthetic-visible-region-render` with fixed-seed OpenCV projective placement, z-order
   compositing, frame clipping, card-card occlusion, shadows, bounded photometric effects, exact
   binary visible masks, derived boxes, COCO annotations, and per-scene receipts.
-- The renderer uses the reviewed 0669 background and training-only M1 cutouts. It records every
+- The renderer uses the reviewed 0669 background and the corrected training-only M1 cutouts. It records every
   card and background source group, source digest, placement quadrilateral, z-order, clipping,
   occlusion ratio, output digest, and omitted-instance receipt.
 - The real smoke set contains 8 scenes, 8 images, and 11 annotations. COCO validation passes.
@@ -293,8 +297,8 @@ Acceptance:
   glare-affected, and reviewed-empty-background scenes.
 - Face-down and mixed-side buckets are explicitly omitted because M1 has no face-down cutout.
   No face-down pixels or labels are fabricated.
-- The real M2 manifest digest is
-  `475caf3bed386d6edd6e3ea38a0a3d10e0e74020d0870274794baa7b6a3470ee`.
+- The current real M2 manifest digest is
+  `1051123ed7f90ecdddefdf8a297d9150c69faef29586817ac6fd467df720b20e`.
 - Added two focused M2 tests. Ruff and the M2 test module pass.
 
 ### M3 — Materialize and inspect the synthetic training set

@@ -34,12 +34,16 @@ MATERIALIZATION_DIRECTORY_DEFAULT = ".runtime/rfdetr-segmentation-0068"
 TABLE_INPUT_SPEC_DEFAULT = ".runtime/synthetic-visible-region-0070-m1-table-inputs.json"
 CANONICAL_WIDTH = 640
 CANONICAL_HEIGHT = 960
+CANONICAL_CORNER_RADIUS = 28
 GRID_ROWS = 4
 GRID_COLUMNS = 5
 GRID_COLUMN_CENTERS = (0.18, 0.34, 0.50, 0.67, 0.84)
 GRID_ROW_CENTERS = (0.12, 0.35, 0.60, 0.85)
 GRID_CELL_HALF_WIDTH = 0.11
-GRID_CELL_HALF_HEIGHT = 0.13
+# The first and last grid rows sit close to the photo edges.  A taller cell keeps the full
+# rounded card in the working crop; component selection still prefers the central card when
+# neighboring rows enter the expanded crop.
+GRID_CELL_HALF_HEIGHT = 0.17
 SUPPORTED_SUFFIXES = frozenset({".jpg", ".jpeg", ".heic", ".heif", ".png"})
 FACE_UP = "face_up"
 SOURCE_PERMISSION = "training_only"
@@ -167,8 +171,132 @@ def _quad_from_contour(contour: np.ndarray) -> np.ndarray:
     return _canonical_quad(rectangle)
 
 
+def _select_card_component(binary: np.ndarray) -> np.ndarray:
+    """Return the largest plausible card component, preferring a central component."""
+
+    components, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, 8)
+    if components <= 1:
+        raise SyntheticVisibleRegionMaterializationError("OpenCV did not find a card component")
+    height, width = binary.shape[:2]
+    candidates: list[tuple[float, int]] = []
+    image_area = float(width * height)
+    for component_index in range(1, components):
+        x, y, component_width, component_height, area = stats[component_index]
+        area_ratio = float(area) / image_area
+        if not 0.08 <= area_ratio <= 0.90:
+            continue
+        if (
+            x <= 0
+            or y <= 0
+            or x + component_width >= width - 1
+            or y + component_height >= height - 1
+        ):
+            continue
+        center_x, center_y = centroids[component_index]
+        distance = float(
+            np.hypot((center_x - width / 2) / width, (center_y - height / 2) / height)
+        )
+        # A card is the large, central bright object on the dark surface.  The small centrality
+        # bonus avoids selecting a bright table reflection without overriding a clearly larger
+        # card component.
+        candidates.append((float(area) * (1.0 - min(0.25, distance)), component_index))
+    if not candidates:
+        raise SyntheticVisibleRegionMaterializationError(
+            "OpenCV did not find a bounded card component on the dark surface"
+        )
+    component_index = max(candidates)[1]
+    return np.where(labels == component_index, 255, 0).astype(np.uint8)
+
+
+def _edge_card_component(image: np.ndarray) -> np.ndarray:
+    """Extract a rounded card silhouette from a dark surface with Canny-supported edges.
+
+    The luminance mask supplies the card interior.  Canny edges supply the outer boundary, which
+    keeps rounded corners and excludes the dark surface.  The two signals are deliberately
+    combined: card artwork creates many internal edges, while the bright connected component
+    identifies which closed outer contour belongs to the card.
+    """
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    threshold, bright = cv2.threshold(
+        blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+    # The table wood in the individual HEIC photos has bright reflections.  A threshold close
+    # to Otsu therefore joins the table to the card.  Keep a high white-card threshold while
+    # allowing a small amount of variation between photos.
+    threshold = max(185.0, min(float(threshold) + 70.0, 205.0))
+    bright = np.where(blurred >= threshold, 255, 0).astype(np.uint8)
+    bright = cv2.morphologyEx(
+        bright, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+    )
+    bright = cv2.morphologyEx(
+        bright, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    )
+    bright_component = _select_card_component(bright)
+    bright_contours, _ = cv2.findContours(
+        bright_component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+    )
+    if not bright_contours:
+        raise SyntheticVisibleRegionMaterializationError(
+            "OpenCV card component has no external contour"
+        )
+    bright_outer = np.zeros_like(bright_component)
+    cv2.drawContours(
+        bright_outer, [max(bright_contours, key=cv2.contourArea)], -1, 255, cv2.FILLED
+    )
+
+    # The thresholded card can lose the dark rounded border.  Close the Canny edge ring, fill
+    # external contours, and use the bright component to choose the card-owned ring.
+    lower = max(12, int(threshold * 0.16))
+    upper = max(lower + 20, int(threshold * 0.48))
+    edges = cv2.Canny(blurred, lower, upper, L2gradient=True)
+    edges = cv2.morphologyEx(
+        edges, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)),
+        iterations=2,
+    )
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    bright_area = float(np.count_nonzero(bright_component))
+    best: tuple[float, np.ndarray] | None = None
+    height, width = gray.shape[:2]
+    for contour in contours:
+        area = float(cv2.contourArea(contour))
+        area_ratio = area / float(width * height)
+        if not 0.08 <= area_ratio <= 0.90:
+            continue
+        x, y, component_width, component_height = cv2.boundingRect(contour)
+        if (
+            x <= 0
+            or y <= 0
+            or x + component_width >= width - 1
+            or y + component_height >= height - 1
+        ):
+            continue
+        candidate = np.zeros_like(bright_component)
+        cv2.drawContours(candidate, [contour], -1, 255, cv2.FILLED)
+        intersection = float(np.count_nonzero(cv2.bitwise_and(candidate, bright_component)))
+        union = float(np.count_nonzero(cv2.bitwise_or(candidate, bright_component)))
+        if union <= 0.0:
+            continue
+        iou = intersection / union
+        center_x, center_y = np.mean(contour.reshape(-1, 2), axis=0)
+        centrality = 1.0 - min(
+            0.25, float(np.hypot((center_x - width / 2) / width, (center_y - height / 2) / height))
+        )
+        score = iou * centrality * min(1.0, area / max(1.0, bright_area))
+        if best is None or score > best[0]:
+            best = (score, candidate)
+
+    # Use the Canny-filled outer contour when it is available.  It fills every dark artwork pixel
+    # while following the edge ring.  The thresholded outer contour is the safe fallback for
+    # photos where glare breaks the card's outer edge.
+    if best is None or best[0] < 0.25:
+        return bright_outer
+    return best[1]
+
+
 def _extract_mask(image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Extract one card mask and its source quadrilateral with a fixed GrabCut recipe."""
+    """Extract one card mask and its source quadrilateral from the dark surface."""
 
     original_height, original_width = image.shape[:2]
     scale = min(1.0, 900.0 / max(original_height, original_width))
@@ -176,44 +304,8 @@ def _extract_mask(image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         working = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
     else:
         working = image
-    height, width = working.shape[:2]
-    mask = np.full((height, width), cv2.GC_PR_BGD, dtype=np.uint8)
-    border = max(4, int(0.04 * min(height, width)))
-    mask[:border, :] = cv2.GC_BGD
-    mask[-border:, :] = cv2.GC_BGD
-    mask[:, :border] = cv2.GC_BGD
-    mask[:, -border:] = cv2.GC_BGD
-    seed_x0, seed_x1 = int(0.28 * width), int(0.72 * width)
-    seed_y0, seed_y1 = int(0.28 * height), int(0.72 * height)
-    mask[seed_y0:seed_y1, seed_x0:seed_x1] = cv2.GC_FGD
-    background_model = np.zeros((1, 65), dtype=np.float64)
-    foreground_model = np.zeros((1, 65), dtype=np.float64)
-    cv2.grabCut(
-        working,
-        mask,
-        None,
-        background_model,
-        foreground_model,
-        3,
-        cv2.GC_INIT_WITH_MASK,
-    )
-    binary = np.isin(mask, (cv2.GC_FGD, cv2.GC_PR_FGD)).astype(np.uint8) * 255
-    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, np.ones((11, 11), dtype=np.uint8))
-    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, np.ones((3, 3), dtype=np.uint8))
-    components, labels, stats, _ = cv2.connectedComponentsWithStats(binary, 8)
-    if components <= 1:
-        raise SyntheticVisibleRegionMaterializationError("OpenCV did not find a card component")
-    component_index = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
-    x, y, component_width, component_height, area = stats[component_index]
-    area_ratio = float(area) / float(width * height)
-    if not 0.08 <= area_ratio <= 0.80:
-        raise SyntheticVisibleRegionMaterializationError(
-            f"card component area is outside the safe range: {area_ratio:.3f}"
-        )
-    if x <= 0 or y <= 0 or x + component_width >= width - 1 or y + component_height >= height - 1:
-        raise SyntheticVisibleRegionMaterializationError("card component touches the source frame")
-    component = np.where(labels == component_index, 255, 0).astype(np.uint8)
-    contours, _ = cv2.findContours(component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    component = _edge_card_component(working)
+    contours, _ = cv2.findContours(component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if not contours:
         raise SyntheticVisibleRegionMaterializationError("OpenCV card component has no contour")
     contour = max(contours, key=cv2.contourArea)
@@ -244,19 +336,15 @@ def _extract_source_card(
         if row is None or column is None:
             raise SyntheticVisibleRegionMaterializationError("grid card is missing its cell")
         cell, offset_x, offset_y = _grid_cell(image, row, column)
-        _, quad = _extract_mask(cell)
+        cell_mask, quad = _extract_mask(cell)
         quad = quad + np.array([offset_x, offset_y], dtype=np.float32)
         full_mask = np.zeros(image.shape[:2], dtype=np.uint8)
         height, width = cell.shape[:2]
-        local_quad = quad - np.array([offset_x, offset_y], dtype=np.float32)
-        full_mask[offset_y : offset_y + height, offset_x : offset_x + width] = _filled_quad_mask(
-            (height, width), local_quad
-        )
+        full_mask[offset_y : offset_y + height, offset_x : offset_x + width] = cell_mask
         source_mask = full_mask
         grid = {"row": row, "column": column}
     else:
-        _, quad = _extract_mask(image)
-        source_mask = _filled_quad_mask(image.shape[:2], quad)
+        source_mask, quad = _extract_mask(image)
         grid = {}
     return source_mask, quad, grid
 
@@ -284,6 +372,25 @@ def _rectify(
         source_mask, transform, (CANONICAL_WIDTH, CANONICAL_HEIGHT), flags=cv2.INTER_NEAREST
     )
     alpha = np.where(alpha >= 128, 255, 0).astype(np.uint8)
+    # The projective quad describes the card's straight edges.  Its four virtual intersections
+    # sit outside the rounded physical corners, so retain the observed contour and apply the
+    # measured canonical corner radius after the warp.
+    rounded = np.zeros_like(alpha)
+    radius = CANONICAL_CORNER_RADIUS
+    cv2.rectangle(
+        rounded, (radius, 0), (CANONICAL_WIDTH - radius - 1, CANONICAL_HEIGHT - 1), 255, -1
+    )
+    cv2.rectangle(
+        rounded, (0, radius), (CANONICAL_WIDTH - 1, CANONICAL_HEIGHT - radius - 1), 255, -1
+    )
+    for center in (
+        (radius, radius),
+        (CANONICAL_WIDTH - radius - 1, radius),
+        (radius, CANONICAL_HEIGHT - radius - 1),
+        (CANONICAL_WIDTH - radius - 1, CANONICAL_HEIGHT - radius - 1),
+    ):
+        cv2.circle(rounded, center, radius, 255, -1)
+    alpha = cv2.bitwise_and(alpha, rounded)
     rgba = cv2.cvtColor(color, cv2.COLOR_BGR2BGRA)
     rgba[:, :, 3] = alpha
     return rgba, alpha, roundtrip_error
@@ -589,8 +696,9 @@ def _materializer_facts() -> dict[str, Any]:
         "python_version": platform.python_version(),
         "platform": platform.platform(),
         "sips_version": _sips_version(),
-        "mask_recipe": "grabcut-central-seed-v1",
+        "mask_recipe": "opencv-dark-surface-canny-rounded-v2",
         "canonical_size": {"width": CANONICAL_WIDTH, "height": CANONICAL_HEIGHT},
+        "canonical_corner_radius": CANONICAL_CORNER_RADIUS,
     }
 
 

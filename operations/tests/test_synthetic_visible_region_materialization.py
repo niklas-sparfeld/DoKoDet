@@ -50,6 +50,13 @@ def test_m1_materialization_is_reproducible_and_writes_an_alpha_cutout(tmp_path:
     assert cutout["roundtrip_max_pixel_error"] <= 0.01
     assert cutout["alpha_fraction"] > 0.7
     assert (tmp_path / cutout["files"]["rgba"]["path"]).is_file()
+    alpha = cv2.imread(str(tmp_path / cutout["files"]["alpha"]["path"]), cv2.IMREAD_GRAYSCALE)
+    assert alpha is not None
+    assert alpha[0, 0] == 0
+    assert alpha[0, -1] == 0
+    assert alpha[-1, 0] == 0
+    assert alpha[-1, -1] == 0
+    assert alpha[alpha.shape[0] // 2, alpha.shape[1] // 2] == 255
     validate_synthetic_visible_region_inputs(first)
 
 
