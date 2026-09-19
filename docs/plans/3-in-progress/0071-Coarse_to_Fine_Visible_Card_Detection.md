@@ -16,7 +16,8 @@
 ## Milestone status
 
 - **M0:** Complete — frozen cascade identities, deterministic cluster/crop transforms, and duplicate reconciliation contracts are implemented and covered by focused tests.
-- **M1:** Not started — implement the two-pass provider with the current 0068 model in both stages.
+- **M1:** Complete — the development provider reuses one 0068 bundle for full-frame clustering and
+  fine crop inference, with source-linked mapping, reconciliation, and partial diagnostics.
 - **M2:** Not started — derive and materialize the full-frame card-cluster detection dataset.
 - **M3:** Not started — train and bundle one RF-DETR Small full-frame card-cluster model.
 - **M4:** Not started — derive and materialize the cluster-crop segmentation dataset.
@@ -239,6 +240,22 @@ Acceptance:
 - stage failure and partial diagnostics remain inspectable; and
 - existing `gemini`, `local`, and `local-rfdetr-segmentation` providers remain unchanged.
 
+#### M1 implementation evidence — 2026-09-20
+
+- Added `LocalVisibleCardCascadeProvider` as the selectable `local-rfdetr-cascade` development
+  provider. It validates and loads one 0068 `RFDETRSegMedium` bundle, uses its detector boxes for
+  the coarse pass, and reuses that loaded detector for each 432 × 432 fine crop. The coarse pass
+  records that masks were ignored for clustering; the fine pass preserves all polygon components
+  in the mapped cascade diagnostics.
+- Added deterministic neutral-padded crop materialization, source-frame mapping, crop image
+  digests, duplicate reconciliation, full-source normalized pipeline candidates, exact frame
+  identity, stage latency, and inspectable coarse/fine failure records. The current RF-DETR API
+  does not expose a safe batch path, so fine crops run sequentially under the local resource bound.
+- Added three source-linked local fixture smoke tests for one-load reuse, mapped candidates,
+  disconnected mask components, request identity, coarse failure, partial fine failure, and
+  provider-boundary validation. The focused cascade/provider checks pass; the full analyzer suite
+  passes with 198 tests and 3 skips, and Ruff passes.
+
 ### M2 — Materialize full-frame card-cluster training data
 
 - Derive card-cluster boxes from eligible 0068 reviewed references with the M0 rule.
@@ -331,4 +348,3 @@ checks, CLI help, deterministic cold/warm materialization checks, and local Mark
 Model milestones also reload their emitted bundles and run at least one real source frame through
 the exact runtime path. M6 verifies the combined provider through the backend API and recording
 workspace without changing a maintained reference.
-

@@ -203,6 +203,11 @@ from table_evidence_analyzer.visible_card_batch import (
     VisibleCardBatchConfig,
     run_visible_card_batch,
 )
+from table_evidence_analyzer.visible_card_cascade_provider import (
+    CASCADE_PROVIDER_NAME,
+    CASCADE_PROVIDER_VERSION,
+    LocalVisibleCardCascadeProvider,
+)
 from table_evidence_analyzer.visible_card_comparison import (
     FROZEN_RECIPE_FIELDS,
     VISIBLE_CARD_COMPARISON_CANDIDATE_SCHEMA,
@@ -653,11 +658,14 @@ __all__ = [
     "load_visible_card_references",
     "polygon_iou",
     "CachedVisibleCardProvider",
+    "CASCADE_PROVIDER_NAME",
+    "CASCADE_PROVIDER_VERSION",
     "FakeVisibleCardProvider",
     "GeminiVisibleCardProvider",
     "IMPROVED_PROMPT",
     "IMPROVED_REQUEST_SCHEMA_VERSION",
     "LocalVisibleCardProvider",
+    "LocalVisibleCardCascadeProvider",
     "LocalVisibleCardSegmentationProvider",
     "LOCAL_SEGMENTATION_PROVIDER_NAME",
     "LOCAL_SEGMENTATION_PROVIDER_VERSION",
