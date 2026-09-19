@@ -178,6 +178,30 @@ from .synthetic_visible_region_campaign import (
     render_synthetic_visible_region_human,
     write_synthetic_visible_region_manifest,
 )
+from .synthetic_visible_region_materialization import (
+    M0_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_INPUTS_M0_MANIFEST_DEFAULT,
+)
+from .synthetic_visible_region_materialization import (
+    MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_INPUTS_MANIFEST_DEFAULT,
+)
+from .synthetic_visible_region_materialization import (
+    MATERIALIZATION_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_MATERIALIZATION_DEFAULT,
+)
+from .synthetic_visible_region_materialization import (
+    OUTPUT_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_INPUTS_OUTPUT_DEFAULT,
+)
+from .synthetic_visible_region_materialization import (
+    SOURCE_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_INPUTS_SOURCE_DEFAULT,
+)
+from .synthetic_visible_region_materialization import (
+    TABLE_INPUT_SPEC_DEFAULT as SYNTHETIC_VISIBLE_REGION_TABLE_INPUT_SPEC_DEFAULT,
+)
+from .synthetic_visible_region_materialization import (
+    SyntheticVisibleRegionMaterializationError,
+    build_synthetic_visible_region_inputs,
+    render_synthetic_visible_region_inputs_human,
+    write_synthetic_visible_region_inputs,
+)
 from .system_holdout import (
     FAILURE_BOUNDARIES,
     SystemHoldoutEvaluationError,
@@ -698,6 +722,55 @@ def build_parser() -> argparse.ArgumentParser:
     )
     synthetic_visible_region.add_argument("--format", choices=("human", "json"), default="human")
     synthetic_visible_region.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    synthetic_visible_region_materialize = data_commands.add_parser(
+        "synthetic-visible-region-materialize",
+        aliases=("synthetic-rfdetr-materialize",),
+        help="Materialize training-only card cutouts for epic 0070 M1.",
+        description="Materialize training-only card cutouts for epic 0070 M1.",
+    )
+    _add_path_options(synthetic_visible_region_materialize, suppress_defaults=True)
+    synthetic_visible_region_materialize.add_argument(
+        "--source-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_INPUTS_SOURCE_DEFAULT),
+        help="Directory containing operator-supplied JPEG grids and individual HEIC cards.",
+    )
+    synthetic_visible_region_materialize.add_argument(
+        "--output-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_INPUTS_OUTPUT_DEFAULT),
+        help="Disposable directory for canonical cutouts and alpha masks.",
+    )
+    synthetic_visible_region_materialize.add_argument(
+        "--m0-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_INPUTS_M0_MANIFEST_DEFAULT),
+        help="Existing epic 0070 M0 manifest to link as the base experiment receipt.",
+    )
+    synthetic_visible_region_materialize.add_argument(
+        "--materialization-directory",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_MATERIALIZATION_DEFAULT),
+        help="0068 materialization directory containing reviewed training frames.",
+    )
+    synthetic_visible_region_materialize.add_argument(
+        "--table-input-spec",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_TABLE_INPUT_SPEC_DEFAULT),
+        help="Operator-reviewed card and empty-background link manifest.",
+    )
+    synthetic_visible_region_materialize.add_argument(
+        "--output",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_INPUTS_MANIFEST_DEFAULT),
+        help="Immutable M1 input manifest path.",
+    )
+    synthetic_visible_region_materialize.add_argument(
+        "--format", choices=("human", "json"), default="human"
+    )
+    synthetic_visible_region_materialize.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     comparison = data_commands.add_parser(
@@ -1804,6 +1877,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             sys.stdout.write(render_synthetic_visible_region_human(manifest))
         return 0 if manifest["freeze_state"] == "frozen" else 1
+    if args.command == "data" and args.data_command in {
+        "synthetic-visible-region-materialize",
+        "synthetic-rfdetr-materialize",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            manifest = build_synthetic_visible_region_inputs(
+                config.repository_root,
+                source_directory=args.source_directory,
+                output_directory=args.output_directory,
+                m0_manifest_path=args.m0_manifest,
+                materialization_directory=args.materialization_directory,
+                table_input_spec=args.table_input_spec,
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            write_synthetic_visible_region_inputs(output_path, manifest)
+        except (ConfigurationError, OSError, SyntheticVisibleRegionMaterializationError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_synthetic_visible_region_inputs_human(manifest))
+        return 0 if manifest["freeze_state"] == "ready" else 1
     if args.command == "data" and args.data_command == "resilience-materialize":
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))

@@ -57,7 +57,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0070 — Synthetic visible-region training data](4-blocked/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 training-only reviewed inputs; operator-reviewed background and face-down cutout required | M0 complete and blocked before M1: the dry run found 86 eligible card cutouts but no reviewed empty background and no eligible face-down cutout. Add those inputs before materialization or training. |
+| [0070 — Synthetic visible-region training data](4-blocked/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 frozen training inputs plus explicitly reviewed training-only card sources; face-down cutout required before rendering | M0 and M1 complete with a declared gap: 165 card cutouts and one reviewed 0669 background are materialized. The 0646 sealed-test links are excluded. M2 remains blocked until a reviewed face-down cutout is available. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and a future fixed identity baseline; 0052 is not required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against a fixed identity baseline, then select at most one justified capability response. The completed 0067 `poc_candidate` is optional later input; M0–M3 not started. |
 
 ### Closed

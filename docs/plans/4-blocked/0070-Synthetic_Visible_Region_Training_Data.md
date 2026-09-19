@@ -18,9 +18,10 @@
 
 - **M0:** Complete — the deterministic contract and dry-run audit are frozen, but the input gate
   found no reviewed empty background and no eligible face-down card cutout.
-- **M1:** Not started — blocked until operator-reviewed training-only background and face-down
-  cutout inputs are available.
-- **M2:** Not started — implement deterministic scene rendering and exact visible-region targets.
+- **M1:** Complete with a declared gap — 165 card cutouts and one reviewed 0669 background are
+  materialized; no face-down cutout is available, so M2 remains blocked.
+- **M2:** Not started — blocked until a reviewed face-down card cutout is available; implement
+  deterministic scene rendering and exact visible-region targets after that input gate passes.
 - **M3:** Not started — materialize and inspect one bounded synthetic training set.
 - **M4:** Not started — run one paired real-only versus real-plus-synthetic training comparison.
 - **M5:** Not started — measure annotation correction effort and publish the decision.
@@ -46,9 +47,10 @@ person remains the authority for the maintained reference.
 
 ## 2. Fixed boundaries
 
-Use only source material from the frozen 0068 training partition. A card cutout, background,
-occluder, geometry sample, or measured image distribution from validation or the sealed test is a
-data leak and must stop the run.
+Use the frozen 0068 training partition for the real comparison. M1 may add a separately digested,
+operator-reviewed, training-only source group to the synthetic card pool. A card cutout,
+background, occluder, geometry sample, or measured image distribution from validation or the sealed
+test is a data leak and must stop the run.
 
 Synthetic scenes are training samples only. They are not reviewed source frames, maintained
 references, independent source groups, validation samples, or sealed-test samples. Every generated
@@ -234,6 +236,25 @@ Acceptance:
 - card rectification round-trips to the source quadrilateral within the frozen tolerance;
 - empty backgrounds have explicit full-frame review coverage; and
 - cold and warm materialization produce identical files and manifest digests.
+
+#### M1 implementation evidence — 2026-09-19
+
+- Added `synthetic-visible-region-materialize`. It uses fixed OpenCV geometry extraction for the
+  three 4x5 JPEG grids and the 19 individual HEIC photos. HEIC decoding records the local `sips`
+  version. No card identity is inferred.
+- The materialization reuses 86 complete reviewed 0068 training cutouts and adds 79 supplied
+  deck-photo cutouts. It records 108 source assets, 165 RGBA cutouts, 165 alpha masks, source
+  quadrilaterals, source-frame digests, review decisions, and the 13-table-setup 0068 geometry
+  examples.
+- The supplied 0669 empty frame is accepted as one full-frame reviewed background. Both 0646
+  links are retained as explicit exclusions because their source group is `sealed_test`.
+- Inventory: 155 `face_up`, 10 `unknown`, 0 `face_down`, 1 background, and 0 human occluders.
+  The remaining face-down input gate is explicit; no synthetic rendering or training started.
+- The M1 manifest digest is
+  `83c9ed1e9f5290740d74e67085dffd5f22c3e0fcb287395cdb3025ab487aede0`.
+  All rectification round trips are 0.0 pixels, and the cold/warm check produced identical
+  manifest and representative file digests.
+- Added 6 focused M1 tests. They pass with the M0 campaign tests: 6 passed. Ruff passes.
 
 ### M2 — Implement deterministic synthetic rendering
 
