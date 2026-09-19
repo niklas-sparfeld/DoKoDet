@@ -30,7 +30,8 @@
   training remains operator-started and was not started here.
 - **M5:** Complete with a declared gap — all 24 recordings are audited for exact human-reference
   one-, two-, and three-card geometry; 38 train-only scenes are synthesized across 15 training
-  recordings. Validation and sealed-test recordings are discovery-only.
+  recordings. An expanded 507-scene ratio-comparison pool is also materialized from all 169
+  train candidates. Validation and sealed-test recordings are discovery-only.
 - **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -434,6 +435,12 @@ Acceptance:
   face-down cutout.
 - The generated COCO view passes the repository validator. The focused M5 tests pass, and the
   command does not invoke RF-DETR training.
+- Added explicit `--candidate-policy` and `--variants-per-candidate` controls. The original 38
+  scenes remain the conservative baseline. A separate ratio-comparison pool uses all 169 train
+  geometry candidates with three deterministic variants each: 507 images and 843 annotations.
+  The merged view contains 1,044 train images, with 48.56% synthetic images, and keeps the
+  validation and sealed-test partitions unchanged. Its materialization digest is
+  `1bc6fc10c052469cb1768bd7061b05811b78481c045d86ac7a5f6b47d959b5c8`.
 
 ### M6 — Measure correction effort and publish the decision
 

@@ -218,6 +218,9 @@ from .synthetic_visible_region_recording_synthesis import (
     SOURCE_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_SOURCE_DEFAULT,
 )
 from .synthetic_visible_region_recording_synthesis import (
+    SYNTHESIS_CANDIDATE_POLICIES,
+    SYNTHESIS_CANDIDATE_POLICY_DEFAULT,
+    SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT,
     SyntheticVisibleRegionAllRecordingsError,
     build_synthetic_visible_region_all_recordings,
     render_synthetic_visible_region_all_recordings_human,
@@ -995,6 +998,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--discover-only",
         action="store_true",
         help="Audit all recordings without writing synthetic images.",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--candidate-policy",
+        choices=SYNTHESIS_CANDIDATE_POLICIES,
+        default=SYNTHESIS_CANDIDATE_POLICY_DEFAULT,
+        help="Choose one selected geometry per recording or every train geometry candidate.",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--variants-per-candidate",
+        type=int,
+        default=SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT,
+        help="Render this many deterministic card-asset and photometric variants per candidate.",
     )
     synthetic_visible_region_all_recordings.add_argument(
         "--format", choices=("human", "json"), default="human"
@@ -2284,6 +2299,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 materialization_directory=args.materialization_directory,
                 output_directory=args.output_directory,
                 discover_only=args.discover_only,
+                candidate_policy=args.candidate_policy,
+                variants_per_candidate=args.variants_per_candidate,
             )
             output_path = args.output
             if not output_path.is_absolute():

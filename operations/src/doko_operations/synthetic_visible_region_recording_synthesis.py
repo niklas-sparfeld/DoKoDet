@@ -15,7 +15,7 @@ import platform
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import cv2
 import numpy as np
@@ -56,6 +56,9 @@ MANIFEST_DEFAULT = "data/operations/synthetic-visible-region-0070-all-recordings
 CARD_COUNTS = (1, 2, 3)
 TRAIN_PARTITION = "train"
 HELD_OUT_PARTITIONS = frozenset({"validation", "sealed_test"})
+SYNTHESIS_CANDIDATE_POLICIES = ("selected_per_recording", "all_train_candidates")
+SYNTHESIS_CANDIDATE_POLICY_DEFAULT = "selected_per_recording"
+SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT = 1
 _SHA256_LENGTH = 64
 
 
@@ -449,11 +452,48 @@ def _usable_cutouts(repository: Path, m1: Mapping[str, Any]) -> list[dict[str, A
 
 
 def _selected_assets(
-    usable: Sequence[Mapping[str, Any]], recording_id: str, card_count: int
+    usable: Sequence[Mapping[str, Any]],
+    recording_id: str,
+    card_count: int,
+    variant_index: int = 0,
 ) -> list[Mapping[str, Any]]:
-    digest = hashlib.sha256(f"{recording_id}:{card_count}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(
+        f"{recording_id}:{card_count}:{variant_index}".encode("utf-8")
+    ).hexdigest()
     offset = int(digest[:8], 16) % len(usable)
     return [usable[(offset + index) % len(usable)] for index in range(card_count)]
+
+
+def _synthesis_candidates(
+    discovery: Mapping[str, Any],
+    candidate_policy: str,
+) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
+    if candidate_policy not in SYNTHESIS_CANDIDATE_POLICIES:
+        raise SyntheticVisibleRegionAllRecordingsError(
+            f"unsupported synthesis candidate policy: {candidate_policy}"
+        )
+    recordings = {
+        str(recording["recording_id"]): recording
+        for recording in discovery["recordings"]
+        if isinstance(recording, Mapping)
+    }
+    if candidate_policy == "all_train_candidates":
+        return [
+            (recordings[str(candidate["recording_id"])], candidate)
+            for candidate in discovery["candidates"]
+            if isinstance(candidate, Mapping)
+            and candidate.get("source_split") == TRAIN_PARTITION
+        ]
+
+    result: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
+    for recording in discovery["recordings"]:
+        if not isinstance(recording, Mapping) or recording["source_split"] != TRAIN_PARTITION:
+            continue
+        for card_count in CARD_COUNTS:
+            candidate = recording["selected_candidates"].get(str(card_count))
+            if candidate is not None:
+                result.append((recording, candidate))
+    return result
 
 
 def _render_recording_scene(
@@ -717,8 +757,21 @@ def build_synthetic_visible_region_all_recordings(
     materialization_directory: str | Path = MATERIALIZATION_DEFAULT,
     output_directory: str | Path = OUTPUT_DIRECTORY_DEFAULT,
     discover_only: bool = False,
+    candidate_policy: Literal[
+        "selected_per_recording", "all_train_candidates"
+    ] = SYNTHESIS_CANDIDATE_POLICY_DEFAULT,
+    variants_per_candidate: int = SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT,
 ) -> dict[str, Any]:
     """Discover all recording geometries and optionally render train-only scenes."""
+
+    if candidate_policy not in SYNTHESIS_CANDIDATE_POLICIES:
+        raise SyntheticVisibleRegionAllRecordingsError(
+            f"unsupported synthesis candidate policy: {candidate_policy}"
+        )
+    if variants_per_candidate < 1:
+        raise SyntheticVisibleRegionAllRecordingsError(
+            "variants_per_candidate must be at least 1"
+        )
 
     repository = Path(repository_root).expanduser().resolve()
     discovery = build_synthetic_visible_region_recording_discovery(
@@ -739,30 +792,28 @@ def build_synthetic_visible_region_all_recordings(
     output_root = _resolve(repository, output_directory)
     output_root.mkdir(parents=True, exist_ok=True)
     usable = _usable_cutouts(repository, m1)
+    synthesis_candidates = _synthesis_candidates(discovery, candidate_policy)
     scene_summaries: list[dict[str, Any]] = []
     coco_images: list[dict[str, Any]] = []
     coco_annotations: list[dict[str, Any]] = []
     errors: list[str] = []
     scene_index = 0
-    for recording in discovery["recordings"]:
-        if recording["source_split"] != TRAIN_PARTITION:
-            continue
-        for card_count in CARD_COUNTS:
-            candidate = recording["selected_candidates"].get(str(card_count))
-            if candidate is None:
-                continue
+    for candidate_index, (recording, candidate) in enumerate(synthesis_candidates):
+        for variant_index in range(variants_per_candidate):
             event_id = str(candidate["event_id"])
             frame_data = frame_paths.get(event_id)
             if frame_data is None:
                 errors.append(
-                    f"{recording['recording_id']}/{card_count}: materialized frame is missing"
+                    f"{recording['recording_id']}/{candidate['card_count']}: "
+                    "materialized frame is missing"
                 )
                 continue
             frame_path, frame_digest = frame_data
             source = cv2.imread(str(frame_path), cv2.IMREAD_COLOR)
             if source is None:
                 errors.append(
-                    f"{recording['recording_id']}/{card_count}: source frame is unreadable"
+                    f"{recording['recording_id']}/{candidate['card_count']}: "
+                    "source frame is unreadable"
                 )
                 continue
             background = _inpaint_background(source, candidate["normalized_quadrilaterals"])
@@ -779,7 +830,20 @@ def build_synthetic_visible_region_all_recordings(
                     f"could not encode background {recording['recording_id']}"
                 )
             background_digest = _write_bytes(background_path, encoded_background.tobytes())
-            scene_id = f"scene-{scene_index:04d}-{recording['recording_id']}-{card_count}cards"
+            if (
+                candidate_policy == SYNTHESIS_CANDIDATE_POLICY_DEFAULT
+                and variants_per_candidate == 1
+            ):
+                scene_id = (
+                    f"scene-{scene_index:04d}-{recording['recording_id']}"
+                    f"-{candidate['card_count']}cards"
+                )
+            else:
+                scene_id = (
+                    f"scene-{scene_index:05d}-{recording['recording_id']}"
+                    f"-{candidate['card_count']}cards-c{candidate_index:03d}"
+                    f"-v{variant_index:02d}"
+                )
             summary, image, annotations = _render_recording_scene(
                 repository,
                 output_root,
@@ -788,7 +852,12 @@ def build_synthetic_visible_region_all_recordings(
                 candidate=candidate,
                 background_path=background_path,
                 background_digest=frame_digest,
-                assets=_selected_assets(usable, str(recording["recording_id"]), card_count),
+                assets=_selected_assets(
+                    usable,
+                    str(recording["recording_id"]),
+                    int(candidate["card_count"]),
+                    variant_index,
+                ),
                 seed=7001 + scene_index,
                 image_id=scene_index + 1,
             )
@@ -835,8 +904,16 @@ def build_synthetic_visible_region_all_recordings(
                 materialization_root / "materialization.json"
             ),
         },
+        "synthesis_recipe": {
+            "candidate_policy": candidate_policy,
+            "candidate_count": len(synthesis_candidates),
+            "variants_per_candidate": variants_per_candidate,
+            "seed_start": 7001,
+        },
         "inventory": {
             **discovery["inventory"],
+            "synthesis_candidate_count": len(synthesis_candidates),
+            "synthesis_variants_per_candidate": variants_per_candidate,
             "synthesized_recording_count": len({item["recording_id"] for item in scene_summaries}),
             "synthesized_scene_count": len(scene_summaries),
             "synthesized_annotation_count": len(coco_annotations),
@@ -900,6 +977,9 @@ __all__ = [
     "MATERIALIZATION_DEFAULT",
     "OUTPUT_DIRECTORY_DEFAULT",
     "SOURCE_MANIFEST_DEFAULT",
+    "SYNTHESIS_CANDIDATE_POLICIES",
+    "SYNTHESIS_CANDIDATE_POLICY_DEFAULT",
+    "SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT",
     "SyntheticVisibleRegionAllRecordingsError",
     "build_synthetic_visible_region_all_recordings",
     "build_synthetic_visible_region_recording_discovery",
