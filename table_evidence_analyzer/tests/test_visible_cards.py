@@ -7,8 +7,10 @@ from table_evidence_analyzer.visible_cards import (
     CACHE_SCHEMA_VERSION,
     DEFAULT_MODEL,
     GEMINI_THINKING_LEVEL,
+    GEMINI_VISIBLE_CARD_THINKING_LEVEL,
     IMPROVED_PROMPT,
     IMPROVED_REQUEST_SCHEMA_VERSION,
+    PROMPT,
     RESPONSE_SCHEMA_V2,
     CachedVisibleCardProvider,
     FakeVisibleCardProvider,
@@ -71,7 +73,9 @@ def _improved_request() -> VisibleCardRequest:
 def test_request_key_covers_image_and_provider_inputs() -> None:
     first = _request()
 
-    assert first.model == DEFAULT_MODEL
+    assert first.model == DEFAULT_MODEL == "gemini-3.8-flash"
+    assert GEMINI_THINKING_LEVEL == "low"
+    assert GEMINI_VISIBLE_CARD_THINKING_LEVEL == "medium"
     assert first.request_key != _request(image=b"other").request_key
     assert first.request_key != _request(target_offset_ms=150).request_key
     assert (
@@ -120,6 +124,22 @@ def test_improved_request_is_versioned_and_changes_cache_identity() -> None:
     assert "inferred full-card extent" in improved.prompt
     assert "tight axis-aligned bounding box" in improved.prompt
     assert improved.request_key != legacy.request_key
+
+
+def test_polygon_prompt_prefers_simple_card_geometry() -> None:
+    for prompt in (PROMPT, IMPROVED_PROMPT):
+        normalized_prompt = " ".join(prompt.split())
+        assert "Prefer the fewest points" in normalized_prompt
+        assert "exactly four points" in normalized_prompt
+        assert "usually by another card" in normalized_prompt
+        assert "keep the visible card" in normalized_prompt
+        assert "edges straight" in normalized_prompt
+        assert "lie flat on the same table" in normalized_prompt
+        assert "similar physical rectangle" in normalized_prompt
+        assert "Perspective can make farther cards smaller" in normalized_prompt
+        assert "non-right or non-parallel" in normalized_prompt
+        assert "Do not require equal image sizes" in normalized_prompt
+        assert "Do not invent a card" in normalized_prompt
 
 
 def test_improved_request_can_repair_box_that_is_not_tight_to_visible_polygon() -> None:
@@ -306,8 +326,15 @@ def test_gemini_provider_builds_structured_request_and_records_usage() -> None:
     request, timeout = calls[0]
     assert timeout == 120.0
     assert request.headers["X-goog-api-key"] == "runtime-secret"
+    assert (
+        request.full_url
+        == "https://generativelanguage.googleapis.com/v1beta/models/"
+        "gemini-3.8-flash:generateContent"
+    )
     payload = json.loads(request.data)
-    assert payload["generationConfig"]["thinkingConfig"] == {"thinkingLevel": GEMINI_THINKING_LEVEL}
+    assert payload["generationConfig"]["thinkingConfig"] == {
+        "thinkingLevel": GEMINI_VISIBLE_CARD_THINKING_LEVEL
+    }
     assert payload["generationConfig"]["responseMimeType"] == "application/json"
 
 

@@ -50,6 +50,7 @@ REVIEW_QUEUE_SCHEMA_VERSION = "visible-card-review-queue/v1"
 GEMINI_API_VERSION = "v1beta"
 GEMINI_PROVIDER_NAME = "gemini"
 GEMINI_THINKING_LEVEL = "low"
+GEMINI_VISIBLE_CARD_THINKING_LEVEL = "medium"
 LOCAL_PROVIDER_NAME = "local"
 LOCAL_PROVIDER_VERSION = "local-visible-cards-v1"
 LOCAL_DEVICE_NAMES = frozenset({"cpu", "mps"})
@@ -82,8 +83,19 @@ and other non-card objects.
 For each instance, trace only its visible boundary. Do not infer a hidden boundary behind another
 card or object. Coordinates use the full source image. x is horizontal, y is vertical, and both are
 integers normalized from 0 through 1000. Use the named x and y fields exactly as specified. List
-polygon points around the visible boundary in order. Classify side as face_up, face_down, or
-unknown. Use a short label that describes the card without inventing an unreadable identity.
+polygon points around the visible boundary in order. Prefer the fewest points that accurately
+describe the visible region. Use straight edges and do not add points along an otherwise straight
+edge. Use the card geometry as evidence: cards lie flat on the same table and are similar physical
+rectangles. A fully visible card projects to a convex quadrilateral with four straight sides and
+must be represented by exactly four points, one for each corner, in order. Perspective can make
+farther cards smaller and can make right angles or parallel sides appear non-right or non-parallel
+in the image. Do not require equal image sizes, parallel sides, or matching rotations. If a card is
+occluded, usually by another card, use a simple polygon with very few points: keep the visible card
+edges straight and add only the corner or occlusion-intersection points needed to describe the
+visible region. Do not trace pixel-level detail or the contour of the occluding card. Do not invent
+a card or complete a hidden part only because the table geometry makes it plausible.
+Classify side as face_up, face_down, or unknown. Use a short label that describes the card without
+inventing an unreadable identity.
 """
 
 IMPROVED_PROMPT = """Find every separately visible physical playing card in this image.
@@ -95,12 +107,22 @@ Exclude the pixels of an occluding card, a human hand, the table, packaging, pri
 other non-card objects. Do not infer or complete any hidden part of a card.
 
 For each card, return one polygon around its visible region. The polygon may be non-rectangular and
-must follow the visible boundary. Coordinates use the full source image. x is horizontal, y is
-vertical, and all coordinates are integers normalized from 0 through 1000. Return box_2d as the
-tight axis-aligned bounding box of the polygon's visible pixels. The box must not describe the
-inferred full-card extent and its four limits must equal the polygon's minimum and maximum x and y.
-Classify side as face_up, face_down, or unknown. Use a short label that describes the card without
-inventing an unreadable identity.
+must follow the visible boundary. Prefer the fewest points that accurately describe the visible
+region. Use straight edges and do not add points along an otherwise straight edge. Cards lie flat
+on the same table and are similar physical rectangles. A fully visible card projects
+to a convex quadrilateral with four straight sides and must be represented by exactly four points,
+one for each corner, in order. Perspective can make farther cards smaller and can make right angles
+or parallel sides appear non-right or non-parallel in the image. Do not require equal image sizes,
+parallel sides, or matching rotations. If a card is occluded, usually by another card, use a simple
+polygon with very few points: keep the visible card edges straight and add only the corner or
+occlusion-intersection points needed to describe the visible region. Do not trace pixel-level detail
+or the contour of the occluding card. Do not invent a card or complete a hidden part only because
+the table geometry makes it plausible. Coordinates refer to the full source image. x is horizontal,
+y is vertical, and all coordinates are integers normalized from 0 through 1000. Return box_2d as the
+tight axis-aligned bounding box of the visible pixels. The box must not describe the inferred
+full-card extent and its four limits must equal the polygon's minimum and maximum x and y. Classify
+side as face_up, face_down, or unknown. Use a short label that describes the card without inventing
+an unreadable identity.
 """
 
 RESPONSE_SCHEMA: dict[str, Any] = {
@@ -413,7 +435,7 @@ class VisibleCardRequest:
     image_mime_type: str = "image/jpeg"
     provider: str = GEMINI_PROVIDER_NAME
     api_version: str = GEMINI_API_VERSION
-    thinking_level: str = GEMINI_THINKING_LEVEL
+    thinking_level: str = GEMINI_VISIBLE_CARD_THINKING_LEVEL
     request_version: str = REQUEST_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
