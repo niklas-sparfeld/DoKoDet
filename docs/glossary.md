@@ -227,6 +227,43 @@ The pixels of one visible card that can be reviewed in a source frame. A visible
 include hidden card pixels, an occluding card, a human hand, or the background. One visible region
 can use more than one polygon when an occluder splits the visible pixels.
 
+### Card cluster
+
+A spatial group of one or more visible cards that must be processed together by a fine visible-card
+detector. A card cluster is an image-processing unit. It does not assert a pile, trick, card play,
+or another gameplay relationship.
+
+### Cluster crop
+
+A derived view that contains one card cluster with declared surrounding context. A cluster crop
+keeps its source-frame transform so that visible-card results can map back to the source frame. It
+is not a source asset, maintained reference, or independent source group.
+
+### Table-plane calibration
+
+A recording-scoped mapping between one stable source image plane and a rectified table coordinate
+system. It also records the common card dimensions robustly measured from complete-card evidence
+across the recording. A table-plane calibration is not a camera model and is invalid after camera
+or table movement.
+
+### Card pose
+
+The full rectangular placement of one card on a calibrated table plane. It contains a table-plane
+center and rotation and uses the card dimensions from the table-plane calibration. A card pose is
+geometric evidence. It does not assert a visual card identity, card play, pile, or trick.
+
+### Card stacking order
+
+The frame-local front-to-back order used to calculate card-card occlusion between card poses. It
+does not assert a gameplay pile or the temporal order of card plays. The implementation can call
+this value `z_order`.
+
+### Reviewed card scene
+
+The human-reviewed card poses and card stacking order for one exact source frame under one selected
+table-plane calibration. It is the geometry authority for visible regions derived from card-card
+occlusion. It is not a table observation or gameplay state.
+
 ### Card cutout
 
 A training-only image and exact alpha mask made from one reviewed, complete visible region. A card
