@@ -17,6 +17,24 @@ from typing import Any
 import cv2
 import numpy as np
 
+from .card_plane_geometry import (
+    CardPlaneGeometryError,
+)
+from .card_plane_geometry import (
+    derive_visible_masks as _shared_derive_visible_masks,
+)
+from .card_plane_geometry import (
+    mask_bbox as _shared_mask_bbox,
+)
+from .card_plane_geometry import (
+    mask_to_polygons as _shared_mask_to_polygons,
+)
+from .card_plane_geometry import (
+    polygon_area as _shared_polygon_area,
+)
+from .card_plane_geometry import (
+    remove_small_components as _shared_remove_small_components,
+)
 from .reviewed_rfdetr_detector_campaign import canonical_json_bytes
 from .rfdetr_segmentation_materialization import validate_rfdetr_coco_annotations
 from .synthetic_visible_region_campaign import validate_synthetic_visible_region_manifest
@@ -171,43 +189,21 @@ def _transform_quad(
 
 
 def _polygon_area(points: Sequence[tuple[float, float]]) -> float:
-    return abs(
-        sum(
-            points[index][0] * points[(index + 1) % len(points)][1]
-            - points[(index + 1) % len(points)][0] * points[index][1]
-            for index in range(len(points))
-        )
-        / 2.0
-    )
+    return _shared_polygon_area(points)
 
 
 def _mask_polygons(mask: np.ndarray) -> list[list[float]]:
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    polygons: list[list[float]] = []
-    for contour in contours:
-        approximation = cv2.approxPolyDP(contour, 0.0, True).reshape(-1, 2)
-        if len(approximation) < 3:
-            approximation = contour.reshape(-1, 2)
-        if len(approximation) < 3:
-            continue
-        # Contour coordinates refer to pixel centers.  Shift to pixel boundaries so the
-        # COCO box is exactly the integer mask extent, including the last pixel.
-        polygon: list[float] = []
-        for x, y in approximation:
-            polygon.extend([_round(float(x) + 0.5), _round(float(y) + 0.5)])
-        if _polygon_area(list(zip(polygon[::2], polygon[1::2], strict=True))) > 0:
-            polygons.append(polygon)
-    polygons.sort(key=lambda item: (-len(item), item))
-    return polygons
+    try:
+        return _shared_mask_to_polygons(mask)
+    except CardPlaneGeometryError as error:
+        raise SyntheticVisibleRegionRenderingError(str(error)) from error
 
 
 def _mask_bbox(mask: np.ndarray) -> list[int]:
-    ys, xs = np.where(mask > 0)
-    if len(xs) == 0:
-        raise SyntheticVisibleRegionRenderingError("visible mask is empty")
-    x_min, x_max = int(xs.min()), int(xs.max())
-    y_min, y_max = int(ys.min()), int(ys.max())
-    return [x_min, y_min, x_max - x_min + 1, y_max - y_min + 1]
+    try:
+        return _shared_mask_bbox(mask)
+    except CardPlaneGeometryError as error:
+        raise SyntheticVisibleRegionRenderingError(str(error)) from error
 
 
 def _source_paths(
@@ -375,12 +371,19 @@ def _warp_cutout(
 
 
 def _remove_small_components(mask: np.ndarray, minimum_pixels: int) -> np.ndarray:
-    components, labels, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
-    cleaned = np.zeros_like(mask)
-    for component in range(1, components):
-        if int(stats[component, cv2.CC_STAT_AREA]) >= minimum_pixels:
-            cleaned[labels == component] = 255
-    return cleaned
+    try:
+        return _shared_remove_small_components(mask, minimum_pixels)
+    except CardPlaneGeometryError as error:
+        raise SyntheticVisibleRegionRenderingError(str(error)) from error
+
+
+def _derive_visible_masks(
+    full_masks: Sequence[np.ndarray], stacking_order: Sequence[int]
+) -> list[np.ndarray]:
+    try:
+        return _shared_derive_visible_masks(full_masks, stacking_order)
+    except CardPlaneGeometryError as error:
+        raise SyntheticVisibleRegionRenderingError(str(error)) from error
 
 
 def _alpha_composite(background: np.ndarray, foreground: np.ndarray, alpha: np.ndarray) -> None:
@@ -779,14 +782,10 @@ def _render_scene(
             }
         )
     full_masks = [placement["full_mask"] for placement in placements]
-    visible_masks: list[np.ndarray] = [np.zeros_like(scene[:, :, 0]) for _ in placements]
-    higher = np.zeros_like(scene[:, :, 0])
-    for index in range(len(placements) - 1, -1, -1):
-        visible_masks[index] = np.where((full_masks[index] > 0) & (higher == 0), 255, 0).astype(
-            np.uint8
-        )
-        visible_masks[index] = _remove_small_components(visible_masks[index], MIN_VISIBLE_PIXELS)
-        higher = np.maximum(higher, full_masks[index])
+    visible_masks = [
+        _remove_small_components(mask, MIN_VISIBLE_PIXELS)
+        for mask in _derive_visible_masks(full_masks, list(reversed(range(len(full_masks)))))
+    ]
     _validate_visible_masks(visible_masks)
     shadow_opacity = float(rng.uniform(0.08, 0.22)) if placements else 0.0
     for full_mask in full_masks:

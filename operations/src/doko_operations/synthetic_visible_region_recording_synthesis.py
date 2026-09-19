@@ -31,6 +31,7 @@ from .synthetic_visible_region_rendering import (
     MIN_VISIBLE_PIXELS,
     _alpha_composite,
     _apply_shadow,
+    _derive_visible_masks,
     _mask_bbox,
     _mask_polygons,
     _occlusion_ratio,
@@ -732,14 +733,10 @@ def _render_recording_scene(
             }
         )
     full_masks = [item["full_mask"] for item in placements]
-    visible_masks = [np.zeros((height, width), dtype=np.uint8) for _ in placements]
-    higher = np.zeros((height, width), dtype=np.uint8)
-    for index in range(len(placements) - 1, -1, -1):
-        visible_masks[index] = np.where(
-            (full_masks[index] > 0) & (higher == 0), 255, 0
-        ).astype(np.uint8)
-        visible_masks[index] = _remove_small_components(visible_masks[index], MIN_VISIBLE_PIXELS)
-        higher = np.maximum(higher, full_masks[index])
+    visible_masks = [
+        _remove_small_components(mask, MIN_VISIBLE_PIXELS)
+        for mask in _derive_visible_masks(full_masks, list(reversed(range(len(full_masks)))))
+    ]
     shadow_opacity = float(rng.uniform(0.08, 0.22))
     for full_mask in full_masks:
         _apply_shadow(scene, full_mask, shadow_opacity)

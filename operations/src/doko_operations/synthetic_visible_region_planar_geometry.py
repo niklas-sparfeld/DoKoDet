@@ -25,6 +25,34 @@ from typing import Any
 import cv2
 import numpy as np
 
+from .card_plane_geometry import (
+    CARD_ASPECT_RATIO,
+    CardPlaneGeometryError,
+)
+from .card_plane_geometry import (
+    apply_homography as _apply_homography,
+)
+from .card_plane_geometry import (
+    card_vectors as _card_vectors,
+)
+from .card_plane_geometry import (
+    cyclic_quad as _cyclic_quad,
+)
+from .card_plane_geometry import (
+    fit_table_plane as _shared_fit_table_plane,
+)
+from .card_plane_geometry import (
+    mask_bbox as _mask_bbox,
+)
+from .card_plane_geometry import (
+    mask_to_polygons as _mask_polygons,
+)
+from .card_plane_geometry import (
+    polygon_area as _polygon_area,
+)
+from .card_plane_geometry import (
+    remove_small_components as _remove_small_components,
+)
 from .derived_view import DerivedViewCache, FFmpegFrameResolver, resolve_exact_event
 from .pipeline_data import RecordingVideoSource
 from .reviewed_rfdetr_detector_campaign import canonical_json_bytes
@@ -43,13 +71,10 @@ from .synthetic_visible_region_rendering import (
     CANONICAL_WIDTH,
     MIN_VISIBLE_PIXELS,
     _alpha_composite,
-    _mask_bbox,
-    _mask_polygons,
+    _derive_visible_masks,
     _occlusion_ratio,
-    _polygon_area,
     _quad_to_records,
     _read_cutout,
-    _remove_small_components,
 )
 
 SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_SCHEMA_VERSION = (
@@ -64,7 +89,6 @@ MANIFEST_DEFAULT = "data/operations/synthetic-visible-region-0070-planar-geometr
 SCANNED_DECK_SOURCE_DEFAULT = "data/decks/ass-altenburger-romme-french/source"
 SAMPLE_COUNT_DEFAULT = 3
 MAX_REVIEW_SCENE_COUNT = 36
-CARD_ASPECT_RATIO = 1.5
 BACKGROUND_STRATEGY = "explicit-reviewed-empty-table-only-v1"
 REFERENCE_CARD_LIMIT = 8
 REFERENCE_FRAME_LIMIT = 4
@@ -292,230 +316,13 @@ def _apply_scene_variation(scene: np.ndarray, variation: Mapping[str, float | in
     scene[:] = cv2.cvtColor(np.clip(hsv, 0, 255).astype(np.uint8), cv2.COLOR_HSV2BGR)
 
 
-def _apply_homography(homography: np.ndarray, points: np.ndarray) -> np.ndarray:
-    points = np.asarray(points, dtype=np.float64).reshape(-1, 2)
-    homogeneous = np.column_stack((points, np.ones(len(points), dtype=np.float64)))
-    transformed = homogeneous @ np.asarray(homography, dtype=np.float64).T
-    denominator = transformed[:, 2:3]
-    if np.any(np.abs(denominator) < 1e-9):
-        raise SyntheticVisibleRegionPlanarGeometryError("homography projects a point to infinity")
-    return transformed[:, :2] / denominator
-
-
-def _cyclic_quad(points: np.ndarray) -> np.ndarray:
-    """Return a cyclic quadrilateral order with the first edge considered short for now."""
-
-    points = np.asarray(points, dtype=np.float64).reshape(4, 2)
-    center = np.mean(points, axis=0)
-    angles = np.arctan2(points[:, 1] - center[1], points[:, 0] - center[0])
-    ordered = points[np.argsort(angles)]
-    if abs(float(cv2.contourArea(ordered.astype(np.float32)))) < 1e-6:
-        raise SyntheticVisibleRegionPlanarGeometryError("card quadrilateral has zero area")
-    return ordered
-
-
-def _orientations(points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Return the two physical assignments of adjacent edges to short and long card sides."""
-
-    cyclic = _cyclic_quad(points)
-    return cyclic, np.roll(cyclic, -1, axis=0)
-
-
-def _card_vectors(points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Return average short and long edge vectors for a short-first cyclic quadrilateral."""
-
-    short = ((points[1] - points[0]) + (points[2] - points[3])) / 2.0
-    long = ((points[3] - points[0]) + (points[2] - points[1])) / 2.0
-    return short, long
-
-
-def _cross2(left: np.ndarray, right: np.ndarray) -> float:
-    return float(left[0] * right[1] - left[1] * right[0])
-
-
-def _card_residual(points: np.ndarray) -> tuple[float, float, float]:
-    short, long = _card_vectors(points)
-    short_length = float(np.linalg.norm(short))
-    long_length = float(np.linalg.norm(long))
-    if short_length < 1e-9 or long_length < 1e-9:
-        return float("inf"), float("inf"), float("inf")
-    cosine = float(abs(np.dot(short, long) / (short_length * long_length)))
-    angle_error = float(np.degrees(np.arcsin(min(1.0, cosine))))
-    aspect_error = abs(float(np.log((long_length / short_length) / CARD_ASPECT_RATIO)))
-    opposite_short = points[2] - points[3]
-    opposite_long = points[2] - points[1]
-    opposite_short_length = max(float(np.linalg.norm(opposite_short)), 1e-9)
-    opposite_long_length = max(float(np.linalg.norm(opposite_long)), 1e-9)
-    parallel_error = (
-        abs(_cross2(short, opposite_short)) / (short_length * opposite_short_length)
-        + abs(_cross2(long, opposite_long)) / (long_length * opposite_long_length)
-    )
-    return angle_error, aspect_error, parallel_error
-
-
-def _best_orientation(points: np.ndarray, image_to_table: np.ndarray) -> np.ndarray:
-    candidates = []
-    for orientation in _orientations(points):
-        transformed = _apply_homography(image_to_table, orientation)
-        angle_error, aspect_error, parallel_error = _card_residual(transformed)
-        score = angle_error / 10.0 + aspect_error + parallel_error
-        candidates.append((score, orientation))
-    return min(candidates, key=lambda item: item[0])[1]
-
-
-def _initial_image_to_table(card_quads: Sequence[np.ndarray]) -> np.ndarray:
-    """Choose the card assignment that best rectifies the full reviewed-card set."""
-
-    destination = np.asarray(
-        [[0.0, 0.0], [1.0, 0.0], [1.0, CARD_ASPECT_RATIO], [0.0, CARD_ASPECT_RATIO]],
-        dtype=np.float32,
-    )
-    choices: list[tuple[float, np.ndarray]] = []
-    for raw_quad in card_quads:
-        for orientation in _orientations(raw_quad):
-            homography = cv2.getPerspectiveTransform(orientation.astype(np.float32), destination)
-            residuals: list[float] = []
-            for candidate in card_quads:
-                best = _best_orientation(candidate, homography)
-                transformed = _apply_homography(homography, best)
-                angle_error, aspect_error, parallel_error = _card_residual(transformed)
-                residuals.append(angle_error / 10.0 + aspect_error + parallel_error)
-            choices.append((float(np.median(residuals)), homography.astype(np.float64)))
-    if not choices:
-        raise SyntheticVisibleRegionPlanarGeometryError(
-            "table calibration has no card quadrilateral"
-        )
-    return min(choices, key=lambda item: item[0])[1]
-
-
-def _metric_upgrade(points: Sequence[np.ndarray]) -> np.ndarray:
-    equations: list[list[float]] = []
-    for quad in points:
-        short, long = _card_vectors(quad)
-        sx, sy = short
-        lx, ly = long
-        equations.append([sx * lx, sx * ly + sy * lx, sy * ly])
-        equations.append(
-            [
-                lx * lx - CARD_ASPECT_RATIO**2 * sx * sx,
-                2.0 * (lx * ly - CARD_ASPECT_RATIO**2 * sx * sy),
-                ly * ly - CARD_ASPECT_RATIO**2 * sy * sy,
-            ]
-        )
-    if len(equations) < 6:
-        raise SyntheticVisibleRegionPlanarGeometryError(
-            "at least three complete reviewed cards are required for table calibration"
-        )
-    _, _, right = np.linalg.svd(np.asarray(equations, dtype=np.float64))
-    values = right[-1]
-    metric = np.asarray(
-        [[values[0], values[1]], [values[1], values[2]]], dtype=np.float64
-    )
-    eigenvalues, eigenvectors = np.linalg.eigh(metric)
-    if np.all(eigenvalues < 0.0):
-        metric *= -1.0
-        eigenvalues *= -1.0
-    if np.any(eigenvalues <= 1e-8):
-        # The fitting equations are homogeneous.  Project the weak numerical solution to the
-        # nearest positive-definite metric instead of silently accepting a mirrored table plane.
-        eigenvalues = np.maximum(np.abs(eigenvalues), 1e-6)
-        metric = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
-    metric /= np.sqrt(np.linalg.det(metric))
-    return np.linalg.cholesky(metric).T
-
-
-def _robust_inliers(points: Sequence[np.ndarray]) -> list[int]:
-    residuals = []
-    for quad in points:
-        angle_error, aspect_error, parallel_error = _card_residual(quad)
-        residuals.append(angle_error / 10.0 + aspect_error + parallel_error)
-    median = float(np.median(residuals))
-    mad = float(np.median(np.abs(np.asarray(residuals) - median)))
-    threshold = median + max(0.025, 3.0 * mad)
-    return [index for index, residual in enumerate(residuals) if residual <= threshold]
-
-
 def fit_table_plane(card_quads: Sequence[np.ndarray]) -> dict[str, Any]:
-    """Fit a metric table coordinate system from multiple complete card rectangles."""
+    """Use the shared table-plane fit while retaining the 0070 error boundary."""
 
-    raw_quads = [np.asarray(quad, dtype=np.float64).reshape(4, 2) for quad in card_quads]
-    if len(raw_quads) < 3:
-        raise SyntheticVisibleRegionPlanarGeometryError(
-            "at least three complete reviewed cards are required for table calibration"
-        )
-    initial = _initial_image_to_table(raw_quads)
-    oriented = [_best_orientation(quad, initial) for quad in raw_quads]
-    affine_quads = [_apply_homography(initial, quad) for quad in oriented]
-    upgrade = _metric_upgrade(affine_quads)
-    affine_transform = np.eye(3, dtype=np.float64)
-    affine_transform[:2, :2] = upgrade
-    image_to_table = affine_transform @ initial
-    table_quads = [_apply_homography(image_to_table, quad) for quad in oriented]
-    inlier_indices = _robust_inliers(table_quads)
-    if len(inlier_indices) < 3:
-        raise SyntheticVisibleRegionPlanarGeometryError(
-            "table calibration rejected too many reviewed card quadrilaterals"
-        )
-    if len(inlier_indices) != len(raw_quads):
-        affine_quads = [affine_quads[index] for index in inlier_indices]
-        upgrade = _metric_upgrade(affine_quads)
-        affine_transform[:2, :2] = upgrade
-        image_to_table = affine_transform @ initial
-        table_quads = [_apply_homography(image_to_table, quad) for quad in oriented]
-        inlier_indices = _robust_inliers(table_quads)
-    short_lengths = []
-    long_lengths = []
-    angle_errors = []
-    aspect_errors = []
-    parallel_errors = []
-    for index in inlier_indices:
-        short, long = _card_vectors(table_quads[index])
-        short_lengths.append(float(np.linalg.norm(short)))
-        long_lengths.append(float(np.linalg.norm(long)))
-        angle_error, aspect_error, parallel_error = _card_residual(table_quads[index])
-        angle_errors.append(angle_error)
-        aspect_errors.append(aspect_error)
-        parallel_errors.append(parallel_error)
-    short_size = float(np.median(short_lengths))
-    if short_size < 1e-9:
-        raise SyntheticVisibleRegionPlanarGeometryError("calibrated card short side is zero")
-    scale = 1.0 / short_size
-    scaling = np.diag([scale, scale, 1.0])
-    image_to_table = scaling @ image_to_table
-    table_quads = [_apply_homography(image_to_table, quad) for quad in oriented]
-    long_lengths = [
-        np.linalg.norm(_card_vectors(table_quads[index])[1]) for index in inlier_indices
-    ]
-    long_size = float(np.median(long_lengths))
-    calibration_core = {
-        "method": "multi-card-planar-metric-rectification-v1",
-        "card_aspect_ratio": CARD_ASPECT_RATIO,
-        "input_card_count": len(raw_quads),
-        "accepted_card_count": len(inlier_indices),
-        "rejected_card_indices": [
-            index for index in range(len(raw_quads)) if index not in inlier_indices
-        ],
-        "image_to_table_homography": [
-            [_round(value) for value in row] for row in image_to_table
-        ],
-        "table_to_image_homography": [
-            [_round(value) for value in row] for row in np.linalg.inv(image_to_table)
-        ],
-        "card_short_size": _round(1.0),
-        "card_long_size": _round(long_size),
-        "median_angle_error_degrees": _round(float(np.median(angle_errors))),
-        "median_aspect_error": _round(float(np.median(aspect_errors))),
-        "median_parallel_error": _round(float(np.median(parallel_errors))),
-    }
-    return {
-        **calibration_core,
-        "image_to_table": image_to_table,
-        "table_to_image": np.linalg.inv(image_to_table),
-        "oriented_image_quads": oriented,
-        "table_quads": table_quads,
-        "inlier_indices": inlier_indices,
-        "calibration_digest": _sha256_bytes(canonical_json_bytes(calibration_core)),
-    }
+    try:
+        return _shared_fit_table_plane(card_quads)
+    except CardPlaneGeometryError as error:
+        raise SyntheticVisibleRegionPlanarGeometryError(str(error)) from error
 
 
 def _empty_backgrounds(
@@ -1095,14 +902,10 @@ def _render_scene(
             }
         )
     full_masks = [item["full_mask"] for item in placements]
-    visible_masks = [np.zeros((height, width), dtype=np.uint8) for _ in placements]
-    higher = np.zeros((height, width), dtype=np.uint8)
-    for index in range(len(placements) - 1, -1, -1):
-        visible_masks[index] = np.where(
-            (full_masks[index] > 0) & (higher == 0), 255, 0
-        ).astype(np.uint8)
-        visible_masks[index] = _remove_small_components(visible_masks[index], MIN_VISIBLE_PIXELS)
-        higher = np.maximum(higher, full_masks[index])
+    visible_masks = [
+        _remove_small_components(mask, MIN_VISIBLE_PIXELS)
+        for mask in _derive_visible_masks(full_masks, list(reversed(range(len(full_masks)))))
+    ]
     for placement in placements:
         placement["shadow_length_scale"] = _apply_subtle_card_shadow(
             scene, placement["alpha"], int(placement["z_order"]), card_shadow_opacity
