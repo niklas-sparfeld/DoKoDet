@@ -52,7 +52,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0070 — Synthetic visible-region training data](3-in-progress/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 frozen training inputs plus explicitly reviewed training-only card sources; face-down cutout required before face-down or mixed-side rendering | M0–M3 complete with a declared gap; M4 preflight is ready; M5 has three geometry-only review samples. A metric table-plane transform is fitted from same-recording reviewed cards and upright supplied deck scans are projected only onto an explicitly reviewed empty table. No larger pool or new training run has started. |
+| [0070 — Synthetic visible-region training data](3-in-progress/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 frozen training inputs plus explicitly reviewed training-only card sources; face-down cutout required before face-down or mixed-side rendering | M0–M3 complete with a declared gap; M4 preflight is ready; M5 has three bounded appearance-review samples. A metric table-plane transform is fitted from same-recording reviewed cards. Upright supplied deck scans use transparent rounded edges, same-table card-paper white balance, and card-scale blur on an explicitly reviewed empty table. No larger pool or new training run has started. |
 
 ### Blocked
 

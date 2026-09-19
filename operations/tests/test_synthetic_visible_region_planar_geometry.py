@@ -12,6 +12,7 @@ from doko_operations.synthetic_visible_region_planar_geometry import (
     SCANNED_DECK_SOURCE_DEFAULT,
     _apply_homography,
     _scanned_deck_assets,
+    _warp_soft_card,
     build_synthetic_visible_region_planar_geometry_samples,
     fit_table_plane,
 )
@@ -71,10 +72,25 @@ def test_scanned_deck_assets_are_upright_canonical_cards() -> None:
         "HEARTS_ten",
     ]
     assert all(asset["rgba"].shape == (960, 640, 4) for asset in assets)
-    assert all(np.all(asset["alpha"] == 255) for asset in assets)
+    assert all(asset["alpha"][480, 320] == 255 for asset in assets)
+    assert all(asset["alpha"][0, 0] < 128 for asset in assets)
 
 
-def test_planar_geometry_samples_use_empty_background_and_no_photometric_effects(
+def test_soft_warp_keeps_scan_bed_transparent() -> None:
+    rgba = np.zeros((960, 640, 4), dtype=np.uint8)
+    rgba[:, :, :3] = (10, 20, 250)
+    alpha = np.zeros((960, 640), dtype=np.uint8)
+    alpha[24:-24, 24:-24] = 255
+    quad = np.asarray([[30, 20], [150, 30], [140, 210], [20, 200]], dtype=np.float64)
+
+    warped, warped_alpha = _warp_soft_card(rgba, alpha, quad, 200, 240, blur_sigma=0.9)
+
+    assert warped_alpha[0, 0] == 0
+    assert warped[0, 0, 3] == 0
+    assert warped_alpha[110, 85] > 240
+
+
+def test_planar_geometry_samples_use_empty_background_and_table_card_appearance(
     tmp_path: Path,
 ) -> None:
     repository = Path(__file__).parents[2]
@@ -90,7 +106,10 @@ def test_planar_geometry_samples_use_empty_background_and_no_photometric_effects
     calibration = manifest["calibrations"][0]
     assert calibration["accepted_card_count"] >= 10
     assert calibration["background_strategy"] == "explicit-reviewed-empty-table-only-v1"
-    assert all(scene["photometric_effects"] == {} for scene in manifest["scenes"])
+    assert all(
+        scene["photometric_effects"]["reference_card_count"] >= 1
+        for scene in manifest["scenes"]
+    )
     assert all(scene["card_count"] in {1, 2, 3} for scene in manifest["scenes"])
     assert manifest["policy"]["card_source"] == "upright-ass-altenburger-romme-french-scans-v1"
 

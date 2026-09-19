@@ -1,8 +1,9 @@
-"""Calibrate one stable table plane from reviewed card quadrilaterals.
+"""Calibrate one stable table plane and render review-scale synthetic cards.
 
-This module deliberately contains no white balance, color transfer, blur, shadow, glare, or JPEG
-variation.  It uses only the geometry needed to place cards plausibly on an explicit reviewed empty
-table frame.
+The renderer uses only an explicit reviewed empty table frame as its background.  It extracts a
+per-table paper colour from several reviewed cards in the same recording.  It then applies that
+one colour response, a soft rounded alpha edge, and card-scale blur to upright scanned deck cards.
+It does not add shadows, glare, or random per-card lighting changes.
 
 The calibration treats each complete reviewed card as a 1 by 1.5 rectangle on one flat table
 plane.  One rectangle gives an initial projective rectification.  All available rectangles then
@@ -24,6 +25,8 @@ from typing import Any
 import cv2
 import numpy as np
 
+from .derived_view import DerivedViewCache, FFmpegFrameResolver, resolve_exact_event
+from .pipeline_data import RecordingVideoSource
 from .reviewed_rfdetr_detector_campaign import canonical_json_bytes
 from .rfdetr_segmentation_materialization import validate_rfdetr_coco_annotations
 from .synthetic_visible_region_materialization import (
@@ -47,7 +50,6 @@ from .synthetic_visible_region_rendering import (
     _quad_to_records,
     _read_cutout,
     _remove_small_components,
-    _warp_cutout,
 )
 
 SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_SCHEMA_VERSION = (
@@ -63,6 +65,12 @@ SCANNED_DECK_SOURCE_DEFAULT = "data/decks/ass-altenburger-romme-french/source"
 SAMPLE_COUNT_DEFAULT = 3
 CARD_ASPECT_RATIO = 1.5
 BACKGROUND_STRATEGY = "explicit-reviewed-empty-table-only-v1"
+REFERENCE_CARD_LIMIT = 8
+REFERENCE_FRAME_LIMIT = 4
+SCAN_ALPHA_INSET_FRACTION = 0.01
+SCAN_CORNER_RADIUS_FRACTION = 0.075
+SCAN_ALPHA_FEATHER_PIXELS = 1.2
+MIN_MASK_ALPHA = 128
 _SHA256_LENGTH = 64
 _REVIEW_CARD_STEMS = (
     "SPADES_ten",
@@ -124,6 +132,27 @@ def _write_json(path: Path, value: Mapping[str, Any]) -> str:
     return _write_bytes(path, canonical_json_bytes(value) + b"\n")
 
 
+def _rounded_scan_alpha(width: int, height: int) -> np.ndarray:
+    """Return a feathered matte that removes the scan bed and its dark perimeter."""
+
+    inset_x = max(1, int(round(width * SCAN_ALPHA_INSET_FRACTION)))
+    inset_y = max(1, int(round(height * SCAN_ALPHA_INSET_FRACTION)))
+    radius = max(2, int(round(min(width, height) * SCAN_CORNER_RADIUS_FRACTION)))
+    radius = min(radius, (width - 2 * inset_x) // 2, (height - 2 * inset_y) // 2)
+    mask = np.zeros((height, width), dtype=np.uint8)
+    right, bottom = width - inset_x - 1, height - inset_y - 1
+    cv2.rectangle(mask, (inset_x + radius, inset_y), (right - radius, bottom), 255, -1)
+    cv2.rectangle(mask, (inset_x, inset_y + radius), (right, bottom - radius), 255, -1)
+    for center in (
+        (inset_x + radius, inset_y + radius),
+        (right - radius, inset_y + radius),
+        (inset_x + radius, bottom - radius),
+        (right - radius, bottom - radius),
+    ):
+        cv2.circle(mask, center, radius, 255, thickness=cv2.FILLED, lineType=cv2.LINE_AA)
+    return cv2.GaussianBlur(mask, (0, 0), SCAN_ALPHA_FEATHER_PIXELS)
+
+
 def _scanned_deck_assets(repository: Path, source_directory: str | Path) -> list[dict[str, Any]]:
     """Load upright canonical cards directly from the supplied deck scans."""
 
@@ -171,7 +200,7 @@ def _scanned_deck_assets(repository: Path, source_directory: str | Path) -> list
             (CANONICAL_WIDTH, CANONICAL_HEIGHT),
             interpolation=cv2.INTER_CUBIC,
         )
-        alpha = np.full((CANONICAL_HEIGHT, CANONICAL_WIDTH), 255, dtype=np.uint8)
+        alpha = _rounded_scan_alpha(CANONICAL_WIDTH, CANONICAL_HEIGHT)
         rgba = np.dstack((canonical, alpha))
         source_sha256 = _sha256_file(path)
         record = {
@@ -511,6 +540,270 @@ def _recording_geometry(
     return quads, provenance
 
 
+def _paper_bgr(image: np.ndarray, support: np.ndarray | None = None) -> np.ndarray:
+    """Estimate paper colour from bright, low-saturation pixels inside one card."""
+
+    if image.ndim != 3 or image.shape[2] != 3:
+        raise SyntheticVisibleRegionPlanarGeometryError("paper sample is not a BGR image")
+    if support is None:
+        support = np.full(image.shape[:2], 255, dtype=np.uint8)
+    if support.shape != image.shape[:2]:
+        raise SyntheticVisibleRegionPlanarGeometryError("paper sample support has wrong dimensions")
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    values = hsv[:, :, 2][support >= MIN_MASK_ALPHA]
+    if values.size < 64:
+        raise SyntheticVisibleRegionPlanarGeometryError("paper sample has too few supported pixels")
+    value_floor = float(np.percentile(values, 60))
+    selected = (support >= MIN_MASK_ALPHA) & (hsv[:, :, 2] >= value_floor) & (hsv[:, :, 1] <= 96)
+    pixels = image[selected]
+    if len(pixels) < 64:
+        selected = (support >= MIN_MASK_ALPHA) & (hsv[:, :, 2] >= value_floor)
+        pixels = image[selected]
+    if len(pixels) < 64:
+        raise SyntheticVisibleRegionPlanarGeometryError("paper sample has too few white pixels")
+    return np.median(pixels.astype(np.float32), axis=0)
+
+
+def _reference_card_sources(
+    discovery: Mapping[str, Any], background: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """Select unoccluded face-up reviewed cards from this exact table recording."""
+
+    source_group = background["source_group"]
+    recording_id = str(source_group["id"])
+    width = int(background["frame_identity"]["width"])
+    height = int(background["frame_identity"]["height"])
+    dimensions = np.asarray([width, height], dtype=np.float64)
+    candidates = []
+    for candidate in discovery["candidates"]:
+        if (
+            not isinstance(candidate, Mapping)
+            or candidate.get("source_split") != "train"
+            or candidate.get("recording_id") != recording_id
+            or candidate.get("table_setup") != source_group.get("table_setup")
+            or float(candidate.get("metrics", {}).get("maximum_pairwise_overlap_ratio", 1.0)) > 0.02
+        ):
+            continue
+        candidates.append(candidate)
+    cards: list[dict[str, Any]] = []
+    used_events: set[str] = set()
+    for candidate in sorted(
+        candidates, key=lambda item: float(item["selection_score"]), reverse=True
+    ):
+        event_id = str(candidate["event_id"])
+        if len(used_events) >= REFERENCE_FRAME_LIMIT and event_id not in used_events:
+            continue
+        sides = candidate["card_sides"]
+        for card_index, (side, normalized_quad) in enumerate(
+            zip(sides, candidate["normalized_quadrilaterals"], strict=True)
+        ):
+            if side != "face_up":
+                continue
+            cards.append(
+                {
+                    "candidate_id": str(candidate["candidate_id"]),
+                    "event_id": event_id,
+                    "frame_identity": dict(candidate["frame_identity"]),
+                    "card_index": card_index,
+                    "image_quad": _quad_array(normalized_quad) * dimensions,
+                }
+            )
+            used_events.add(event_id)
+            if len(cards) >= REFERENCE_CARD_LIMIT:
+                return cards
+    if not cards:
+        raise SyntheticVisibleRegionPlanarGeometryError(
+            f"recording {recording_id} has no usable face-up cards for appearance calibration"
+        )
+    return cards
+
+
+def _recording_video_source(
+    repository: Path,
+    source_manifest_path: str | Path,
+    recording_id: str,
+    requested_time_us: int,
+) -> tuple[Path, RecordingVideoSource]:
+    source_manifest = _read_json(
+        _resolve(repository, source_manifest_path), "recording source manifest"
+    )
+    record = next(
+        (
+            item
+            for item in source_manifest.get("recordings", [])
+            if isinstance(item, Mapping) and item.get("recording_id") == recording_id
+        ),
+        None,
+    )
+    if not isinstance(record, Mapping):
+        raise SyntheticVisibleRegionPlanarGeometryError(
+            f"recording {recording_id} is absent from the source manifest"
+        )
+    video_path = _resolve(repository, str(record["source_video_path"]))
+    source = RecordingVideoSource(
+        recording_id=recording_id,
+        relative_path=str(record["source_video_path"]),
+        video_sha256=str(record["source_sha256"]),
+        byte_length=int(record["source_byte_length"]),
+        duration_us=requested_time_us + 1,
+    )
+    return video_path, source
+
+
+def _rectified_card_paper(frame: np.ndarray, image_quad: np.ndarray) -> np.ndarray:
+    """Rectify a reviewed card so its paper can be sampled without table pixels."""
+
+    source = _cyclic_quad(image_quad).astype(np.float32)
+    destination = np.asarray(
+        [[0, 0], [159, 0], [159, 239], [0, 239]], dtype=np.float32
+    )
+    rectified = cv2.warpPerspective(
+        frame, cv2.getPerspectiveTransform(source, destination), (160, 240)
+    )
+    support = np.zeros((240, 160), dtype=np.uint8)
+    cv2.rectangle(support, (12, 16), (147, 223), 255, thickness=cv2.FILLED)
+    return _paper_bgr(rectified, support)
+
+
+def _reference_card_short_side(image_quad: np.ndarray) -> float:
+    cyclic = _cyclic_quad(image_quad)
+    lengths = [
+        float(np.linalg.norm(cyclic[(index + 1) % 4] - cyclic[index]))
+        for index in range(4)
+    ]
+    return min(lengths)
+
+
+def _table_card_appearance(
+    repository: Path,
+    output_root: Path,
+    discovery: Mapping[str, Any],
+    background: Mapping[str, Any],
+    source_manifest_path: str | Path,
+) -> dict[str, Any]:
+    """Measure the table's real card paper response from exact reviewed event frames."""
+
+    references = _reference_card_sources(discovery, background)
+    recording_id = str(background["source_group"]["id"])
+    last_time = max(int(item["frame_identity"]["requested_time_us"]) for item in references)
+    video_path, source = _recording_video_source(
+        repository, source_manifest_path, recording_id, last_time
+    )
+    cache = DerivedViewCache(output_root / "appearance-reference-frame-cache")
+    resolver = FFmpegFrameResolver()
+    frames: dict[str, np.ndarray] = {}
+    frame_identities: dict[str, Mapping[str, Any]] = {}
+    for index, reference in enumerate(references):
+        event_id = str(reference["event_id"])
+        if event_id in frames:
+            continue
+        resolved = resolve_exact_event(
+            video_path,
+            source=source,
+            requested_time_us=int(reference["frame_identity"]["requested_time_us"]),
+            cache=cache,
+            resolver=resolver,
+            validate_source=index == 0,
+        )
+        expected = reference["frame_identity"]
+        if resolved.identity_mapping() != expected:
+            raise SyntheticVisibleRegionPlanarGeometryError(
+                f"appearance reference frame changed for {event_id}"
+            )
+        frame = cv2.imdecode(np.frombuffer(resolved.image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if frame is None:
+            raise SyntheticVisibleRegionPlanarGeometryError(
+                f"could not decode appearance reference frame {event_id}"
+            )
+        frames[event_id] = frame
+        frame_identities[event_id] = resolved.identity_mapping()
+    samples = [
+        _rectified_card_paper(frames[str(item["event_id"])], item["image_quad"])
+        for item in references
+    ]
+    paper_bgr = np.median(np.asarray(samples, dtype=np.float32), axis=0)
+    short_sides = [_reference_card_short_side(item["image_quad"]) for item in references]
+    return {
+        "method": "reviewed-face-up-card-paper-median-v1",
+        "paper_bgr": [_round(value) for value in paper_bgr],
+        "reference_card_count": len(references),
+        "reference_frame_count": len(frames),
+        "median_short_side_pixels": _round(float(np.median(short_sides))),
+        "references": [
+            {
+                "candidate_id": item["candidate_id"],
+                "event_id": item["event_id"],
+                "card_index": item["card_index"],
+                "frame_identity": frame_identities[str(item["event_id"])],
+                "paper_bgr": [_round(value) for value in sample],
+            }
+            for item, sample in zip(references, samples, strict=True)
+        ],
+    }
+
+
+def _white_balanced_scan(
+    rgba: np.ndarray, alpha: np.ndarray, target_paper_bgr: Sequence[float]
+) -> tuple[np.ndarray, list[float]]:
+    source_paper_bgr = _paper_bgr(rgba[:, :, :3], alpha)
+    gain = np.clip(
+        np.asarray(target_paper_bgr, dtype=np.float32) / np.maximum(source_paper_bgr, 1.0),
+        0.55,
+        1.20,
+    )
+    adjusted = np.clip(rgba[:, :, :3].astype(np.float32) * gain, 0, 255).astype(np.uint8)
+    return np.dstack((adjusted, alpha)), [_round(value) for value in gain]
+
+
+def _card_blur_sigma(image_quad: np.ndarray, appearance: Mapping[str, Any]) -> float:
+    short_side = max(_reference_card_short_side(image_quad), 1.0)
+    reference_short_side = max(float(appearance["median_short_side_pixels"]), 1.0)
+    baseline = np.clip(160.0 / reference_short_side, 0.65, 1.15)
+    return float(np.clip(baseline * np.sqrt(reference_short_side / short_side), 0.55, 1.35))
+
+
+def _warp_soft_card(
+    rgba: np.ndarray,
+    alpha: np.ndarray,
+    destination_quad: np.ndarray,
+    output_width: int,
+    output_height: int,
+    blur_sigma: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Warp premultiplied pixels so transparent scan-bed pixels cannot form a hard border."""
+
+    source_quad = np.asarray(
+        [
+            [0, 0],
+            [CANONICAL_WIDTH - 1, 0],
+            [CANONICAL_WIDTH - 1, CANONICAL_HEIGHT - 1],
+            [0, CANONICAL_HEIGHT - 1],
+        ],
+        dtype=np.float32,
+    )
+    transform = cv2.getPerspectiveTransform(source_quad, destination_quad.astype(np.float32))
+    alpha_float = alpha.astype(np.float32) / 255.0
+    premultiplied = rgba[:, :, :3].astype(np.float32) * alpha_float[:, :, None]
+    warped_alpha = cv2.warpPerspective(
+        alpha_float, transform, (output_width, output_height), flags=cv2.INTER_LINEAR
+    )
+    warped_premultiplied = cv2.warpPerspective(
+        premultiplied, transform, (output_width, output_height), flags=cv2.INTER_LINEAR
+    )
+    if blur_sigma > 0:
+        warped_alpha = cv2.GaussianBlur(warped_alpha, (0, 0), blur_sigma)
+        warped_premultiplied = cv2.GaussianBlur(
+            warped_premultiplied, (0, 0), blur_sigma
+        )
+    result = np.zeros((output_height, output_width, 4), dtype=np.uint8)
+    supported = warped_alpha > 1e-5
+    result[:, :, :3][supported] = np.clip(
+        warped_premultiplied[supported] / warped_alpha[supported][:, None], 0, 255
+    ).astype(np.uint8)
+    result[:, :, 3] = np.clip(warped_alpha * 255.0, 0, 255).astype(np.uint8)
+    return result, result[:, :, 3]
+
+
 def _pose_from_quad(quad: np.ndarray) -> dict[str, np.ndarray | float]:
     short, long = _card_vectors(quad)
     short_length = float(np.linalg.norm(short))
@@ -620,6 +913,7 @@ def _render_scene(
     table_to_image: np.ndarray,
     assets: Sequence[Mapping[str, Any]],
     calibration: Mapping[str, Any],
+    appearance: Mapping[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     scene = cv2.imread(str(background_path), cv2.IMREAD_COLOR)
     if scene is None:
@@ -632,8 +926,15 @@ def _render_scene(
         record = asset["record"]
         rgba, alpha = _read_card_asset(asset)
         image_quad = _apply_homography(table_to_image, table_quad)
-        warped, warped_alpha = _warp_cutout(rgba, alpha, image_quad, width, height)
-        warped_alpha = _remove_small_components(warped_alpha, MIN_VISIBLE_PIXELS)
+        balanced_rgba, white_balance_gain = _white_balanced_scan(
+            rgba, alpha, appearance["paper_bgr"]
+        )
+        blur_sigma = _card_blur_sigma(image_quad, appearance)
+        warped, warped_alpha = _warp_soft_card(
+            balanced_rgba, alpha, image_quad, width, height, blur_sigma
+        )
+        full_mask = np.where(warped_alpha >= MIN_MASK_ALPHA, 255, 0).astype(np.uint8)
+        full_mask = _remove_small_components(full_mask, MIN_VISIBLE_PIXELS)
         placements.append(
             {
                 "instance_index": index,
@@ -644,8 +945,11 @@ def _render_scene(
                 "source_asset_id": str(record["source_asset_id"]),
                 "side": str(record["reviewed_decision"]["card_side"]),
                 "source_group": dict(record["source_group"]),
-                "full_mask": warped_alpha,
+                "full_mask": full_mask,
                 "warped_rgba": warped,
+                "alpha": warped_alpha,
+                "white_balance_gain_bgr": white_balance_gain,
+                "blur_sigma": _round(blur_sigma),
                 "deck_card_name": record.get("deck_card_name"),
                 "source_frame": record.get("source_frame"),
                 "source_quadrilateral": record["source_quadrilateral"],
@@ -661,7 +965,7 @@ def _render_scene(
         visible_masks[index] = _remove_small_components(visible_masks[index], MIN_VISIBLE_PIXELS)
         higher = np.maximum(higher, full_masks[index])
     for placement in placements:
-        _alpha_composite(scene, placement["warped_rgba"], placement["full_mask"])
+        _alpha_composite(scene, placement["warped_rgba"], placement["alpha"])
     ok, encoded = cv2.imencode(".jpg", scene, [cv2.IMWRITE_JPEG_QUALITY, 95])
     if not ok:
         raise SyntheticVisibleRegionPlanarGeometryError(f"could not encode scene {scene_id}")
@@ -708,6 +1012,11 @@ def _render_scene(
             "full_mask_pixels": int(np.count_nonzero(placement["full_mask"])),
             "visible_mask_pixels": visible_pixels,
             "occlusion_ratio": _occlusion_ratio(placement["full_mask"], visible_mask),
+            "appearance": {
+                "white_balance_gain_bgr": placement["white_balance_gain_bgr"],
+                "blur_sigma": placement["blur_sigma"],
+                "mask_alpha_threshold": MIN_MASK_ALPHA,
+            },
             "mask": {
                 "path": _relative(mask_path, repository),
                 "sha256": mask_digest,
@@ -777,7 +1086,7 @@ def _render_scene(
             }
         },
         "placements": instances,
-        "photometric_effects": {},
+        "card_appearance": dict(appearance),
         "output": {
             "image": {
                 "path": _relative(image_path, repository),
@@ -798,8 +1107,8 @@ def _render_scene(
             "opencv_version": cv2.__version__,
             "numpy_version": np.__version__,
             "python_version": platform.python_version(),
-            "mask_policy": "opaque-card-z-order-and-frame-clipping-v1",
-            "photometric_policy": "none-geometry-review-only-v1",
+            "mask_policy": "rounded-alpha-card-z-order-and-frame-clipping-v1",
+            "photometric_policy": "table-paper-white-balance-and-card-scale-blur-v1",
         },
     }
     receipt = {
@@ -818,7 +1127,10 @@ def _render_scene(
             "reviewed_decision": background["reviewed_decision"],
         },
         "table_calibration_digest": calibration["calibration_digest"],
-        "photometric_effects": {},
+        "photometric_effects": {
+            "table_paper_bgr": appearance["paper_bgr"],
+            "reference_card_count": appearance["reference_card_count"],
+        },
         "image_path": _relative(image_path, repository),
         "image_sha256": image_digest,
         "receipt_path": _relative(receipt_path, repository),
@@ -889,6 +1201,7 @@ def build_synthetic_visible_region_planar_geometry_samples(
     scanned_assets = _scanned_deck_assets(repository, card_source_directory)
 
     calibrations: list[dict[str, Any]] = []
+    appearances: dict[str, dict[str, Any]] = {}
     plans: list[tuple[Mapping[str, Any], dict[str, Any], str, list[np.ndarray]]] = []
     for background_item in backgrounds:
         background = background_item["record"]
@@ -923,6 +1236,13 @@ def build_synthetic_visible_region_planar_geometry_samples(
             }
         )
         calibrations.append(calibration_summary)
+        appearances[str(background["background_id"])] = _table_card_appearance(
+            repository,
+            output_root,
+            discovery,
+            background,
+            source_manifest_path,
+        )
         anchor = _anchor_pose(calibration, background_image.shape[1], background_image.shape[0])
         for layout_name, layout_quads in _sample_layouts(anchor):
             plans.append((background_item, calibration, layout_name, layout_quads))
@@ -953,6 +1273,7 @@ def build_synthetic_visible_region_planar_geometry_samples(
             table_to_image=np.asarray(calibration["table_to_image"], dtype=np.float64),
             assets=assets,
             calibration=calibration,
+            appearance=appearances[str(background["background_id"])],
         )
         summaries.append(summary)
         coco_images.append(image)
@@ -997,7 +1318,9 @@ def build_synthetic_visible_region_planar_geometry_samples(
             ),
             "card_source": "upright-ass-altenburger-romme-french-scans-v1",
             "geometry_sources": "complete-reviewed-four-point-cards-from-the-same-recording",
-            "photometric_effects": "none",
+            "photometric_effects": (
+                "same-table reviewed-card paper white balance, rounded alpha, and card-scale blur"
+            ),
             "sample_count": sample_count,
             "recording_ids": sorted(requested_recordings) if requested_recordings else None,
         },
@@ -1023,8 +1346,8 @@ def build_synthetic_visible_region_planar_geometry_samples(
             "only recordings with an accepted full-frame-reviewed empty training table can render",
             "camera height, distance, and intrinsics are not identified; the calibrated "
             "table-plane homography is sufficient for planar card placement",
-            "lighting, color, blur, shadow, and compression changes are intentionally absent "
-            "from this geometry review",
+            "shadow, glare, random scene lighting, and compression changes are intentionally "
+            "absent from this appearance review",
         ],
     }
     return {**core, "manifest_digest": _sha256_bytes(canonical_json_bytes(core))}

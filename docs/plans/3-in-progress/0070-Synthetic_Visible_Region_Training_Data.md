@@ -28,12 +28,13 @@
   and mixed-side buckets remain unavailable.
 - **M4:** Preflight ready — the paired real-only versus real-plus-synthetic run is prepared; full
   training remains operator-started and was not started here.
-- **M5:** Geometry review in progress — the earlier card-bearing-frame/inpainting pools and the
+- **M5:** Appearance review in progress — the earlier card-bearing-frame/inpainting pools and the
   lighting-first samples are superseded. A bounded three-scene review set uses only the accepted
   full-frame-reviewed empty training table. It estimates one metric table-plane transform from
-  several reviewed cards in the same recording, then renders upright supplied deck scans as direct
-  one-, two-, and three-card placements with exact overlap masks. Do not generate a larger pool or
-  add photometric changes until operator inspection approves the geometry.
+  several reviewed cards in the same recording, then renders upright supplied deck scans with a
+  transparent rounded edge, one table-level card-paper response, card-scale blur, and exact overlap
+  masks. Do not generate a larger pool or add random scene effects until operator inspection approves
+  the samples.
 - **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -486,17 +487,23 @@ Acceptance:
   recording and table setup. It accepts 19 and rejects 3 robust outliers. The accepted rectangles
   give a normalized long-side size of 1.531, median right-angle error of 2.107 degrees, median
   aspect error of 0.0346, and median parallel-edge error of 0.0339.
-- The command writes three direct-composite, geometry-only review scenes: one observed-pose card,
-  two overlapping cards, and three overlapping cards. It applies no white balance, lighting,
-  shadow, blur, or colour changes. Each scene has exact visible masks and COCO annotations.
+- The command writes three bounded review scenes: one observed-pose card, two overlapping cards,
+  and three overlapping cards. Its source scans use a feathered rounded alpha matte. This removes
+  the scan bed and dark perimeter before projection. The mask threshold follows the same alpha
+  boundary, so rounded card corners remain in the training targets.
+- It resolves eight face-up reviewed card regions from four exact `IMG_0669` frames. Bright,
+  low-saturation card-paper pixels give one median table response of BGR `229/238/238`. The same
+  response white-balances every scan in the scene. Card-scale Gaussian blur uses the measured
+  median card short side. It does not add a shadow, glare, random per-card lighting, or scene-level
+  lighting change.
 - Geometry review now uses only the supplied upright face scans in
   `data/decks/ass-altenburger-romme-french/source`. It does not use video-derived card cutouts.
   The selected scans include `SPADES_ten` and `HEARTS_jack`; the renderer resizes them to the
   canonical card rectangle without changing their orientation before it applies table placement.
 - The current output is at
-  `.runtime/synthetic-visible-region-0070-planar-geometry-scanned-deck-samples`. No larger pool
-  or training run was started. Operator approval of the perspective and overlap geometry is
-  required before photometric work or expansion.
+  `.runtime/synthetic-visible-region-0070-planar-geometry-appearance-samples`. No larger pool or
+  training run was started. Operator approval of the appearance and geometry is required before
+  expansion.
 
 ### M6 — Measure correction effort and publish the decision
 
