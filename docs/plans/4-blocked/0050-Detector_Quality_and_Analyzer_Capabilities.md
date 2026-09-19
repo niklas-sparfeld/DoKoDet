@@ -5,11 +5,12 @@
 - **Summary:** Measure current detector and composed observation quality, then select only the
   optional analyzer capability work justified by observed failures.
 - **Status:** Blocked
-- **Depends on:** 0048, 0049, and 0051 complete; 0052 resolved when 0051 selects a follow-up
-  response; plus reviewed real video-derived evidence for the selected measurement with
-  source-group-safe development partitions
-- **Blocker:** The new run/reference workflow, resilient visual identity baseline, and sufficient
-  reviewed real coverage are not ready.
+- **Depends on:** 0048, 0049, and a future fixed identity baseline; 0052 is not required; plus
+  reviewed real video-derived evidence for the selected measurement with source-group-safe
+  development partitions
+- **Blocker:** The new run/reference workflow, a fixed identity baseline, and sufficient reviewed
+  real coverage are not ready. 0051 closed without the live comparison and therefore does not
+  provide that baseline.
 - **Supersedes:** The remaining detector and optional capability experiments from 0022
 - **Outcome:** A reproducible baseline report and a bounded next capability decision, followed by
   at most one measured capability implementation. No automatic model promotion.

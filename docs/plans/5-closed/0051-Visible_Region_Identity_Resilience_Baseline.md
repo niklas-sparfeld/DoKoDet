@@ -5,7 +5,13 @@
 - **Summary:** Make visual identity processing safe under inaccurate predicted visible regions and
   measure whether visible-region exclusion can recover contaminated crops before any detector or
   identity-model change.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Won't Do
+- **Closure note:** The live 4,920-request Gemini comparison and M4 decision are not
+  decision-critical for the current local detector and identity work. Retain the completed M1
+  identity-outcome preservation and the M2–M3 deterministic crop, lineage, dry-run, and receipt
+  infrastructure for a future measured failure. This closure does not change a provider default,
+  identity model, or production policy.
 - **Depends on:** 0048 and 0049 complete; 0065 before freezing affected `IMG_0661` items
 - **Readiness:** M0–M3 are complete. The M0 manifest is reconciled with durable operations storage,
   shared bundle validation, the current classifier and crop defaults, and the current reference
@@ -17,7 +23,8 @@
 - **Outcome:** Publish a reproducible risk-versus-coverage baseline for the current identifier under
   actual and controlled visible-region errors. Select a simple crop policy, one bounded follow-up
   identity response in 0052, a later visible-region provider experiment, or more review work.
-- **Next:** [0052 — Selected response to visible-region identity failures](../4-blocked/0052-Selected_Visible_Region_Identity_Response.md)
+- **Next:** None. 0052 is closed as not required, and 0050 remains blocked on a future fixed
+  identity baseline.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -40,7 +47,8 @@
   pinned-classifier executor, paired metrics, and immutable item-level output are implemented.
   Crop and classifier reuse require matching request and crop digests. The live Gemini execution is
   an explicit operator action because it consumes the frozen provider budget.
-- **M4:** Not started — publish the decision and resolve the scope of 0052 and later detector work.
+- **M4:** Not started — intentionally not run; the live comparison and bounded decision are closed
+  as Won't Do.
 
 ## Current evidence and partition intent — 2026-09-15
 
