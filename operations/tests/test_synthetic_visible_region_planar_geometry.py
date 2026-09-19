@@ -12,6 +12,7 @@ from doko_operations.rfdetr_segmentation_materialization import (
 from doko_operations.synthetic_visible_region_planar_geometry import (
     SCANNED_DECK_SOURCE_DEFAULT,
     _apply_homography,
+    _production_layouts,
     _reduce_scan_saturation,
     _scanned_deck_assets,
     _scene_variation,
@@ -111,6 +112,26 @@ def test_scan_saturation_adjustment_preserves_alpha_and_reduces_chroma() -> None
 def test_top_card_shadow_is_slightly_longer() -> None:
     assert _shadow_length_scale(1) == 1.0
     assert _shadow_length_scale(3) > _shadow_length_scale(1)
+
+
+def test_production_layouts_cycle_one_to_four_cards_deterministically() -> None:
+    anchor = {
+        "center": np.asarray([100.0, 100.0]),
+        "short_axis": np.asarray([1.0, 0.0]),
+        "long_axis": np.asarray([0.0, 1.0]),
+        "short_size": 40.0,
+        "long_size": 60.0,
+    }
+
+    first = _production_layouts(anchor, count=11, seed=7001)
+    second = _production_layouts(anchor, count=11, seed=7001)
+
+    assert [len(quads) for _, quads in first] == [2, 3, 3, 4, 4, 4, 3, 4, 3, 4, 2]
+    assert [name for name, _ in first] == [name for name, _ in second]
+    assert all(
+        np.array_equal(left, right)
+        for (_, left), (_, right) in zip(first, second, strict=True)
+    )
 
 
 def test_scene_variation_is_deterministic_and_scene_shared() -> None:

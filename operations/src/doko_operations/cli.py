@@ -1194,7 +1194,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--sample-count",
         type=int,
         default=SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_SAMPLE_COUNT_DEFAULT,
-        help="Render one to 36 deterministic appearance-review scenes.",
+        help="Render one to 2000 deterministic geometry scenes.",
     )
     synthetic_visible_region_planar_geometry.add_argument(
         "--format", choices=("human", "json"), default="human"

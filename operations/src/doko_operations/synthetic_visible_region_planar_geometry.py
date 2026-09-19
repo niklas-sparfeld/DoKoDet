@@ -88,7 +88,8 @@ OUTPUT_DIRECTORY_DEFAULT = ".runtime/synthetic-visible-region-0070-planar-geomet
 MANIFEST_DEFAULT = "data/operations/synthetic-visible-region-0070-planar-geometry-samples.json"
 SCANNED_DECK_SOURCE_DEFAULT = "data/decks/ass-altenburger-romme-french/source"
 SAMPLE_COUNT_DEFAULT = 3
-MAX_REVIEW_SCENE_COUNT = 36
+MAX_REVIEW_SCENE_COUNT = 2_000
+PRODUCTION_CARD_COUNT_PATTERN = (2, 3, 3, 4, 4, 4, 3, 4, 3, 4)
 BACKGROUND_STRATEGY = "explicit-reviewed-empty-table-only-v1"
 REFERENCE_CARD_LIMIT = 8
 REFERENCE_FRAME_LIMIT = 4
@@ -832,6 +833,51 @@ def _sample_layouts(anchor: Mapping[str, np.ndarray | float]) -> list[tuple[str,
     ]
 
 
+def _production_layouts(
+    anchor: Mapping[str, np.ndarray | float],
+    *,
+    count: int,
+    seed: int,
+) -> list[tuple[str, list[np.ndarray]]]:
+    """Create bounded, deterministic 1--4-card layouts around the measured anchor."""
+
+    if count < 1:
+        return []
+    center = np.asarray(anchor["center"], dtype=np.float64)
+    short_axis = np.asarray(anchor["short_axis"], dtype=np.float64)
+    long_axis = np.asarray(anchor["long_axis"], dtype=np.float64)
+    short_size = float(anchor["short_size"])
+    long_size = float(anchor["long_size"])
+    rng = np.random.default_rng(seed)
+    layouts: list[tuple[str, list[np.ndarray]]] = []
+    for index in range(count):
+        card_count = PRODUCTION_CARD_COUNT_PATTERN[index % len(PRODUCTION_CARD_COUNT_PATTERN)]
+        base = (
+            center
+            + short_axis * rng.uniform(-0.24, 0.24) * short_size
+            + long_axis * rng.uniform(-0.34, 0.34) * long_size
+        )
+        table_quads = []
+        for _card_index in range(card_count):
+            local_center = (
+                base
+                + short_axis * rng.uniform(-0.46, 0.46) * short_size
+                + long_axis * rng.uniform(-0.58, 0.58) * long_size
+            )
+            local_rotation = float(rng.uniform(-32.0, 32.0))
+            table_quads.append(
+                _quad_from_pose(
+                    local_center,
+                    _rotate(short_axis, local_rotation),
+                    _rotate(long_axis, local_rotation),
+                    short_size,
+                    long_size,
+                )
+            )
+        layouts.append((f"production_{index:04d}_{card_count}card_messy", table_quads))
+    return layouts
+
+
 def _render_scene(
     repository: Path,
     output_root: Path,
@@ -957,6 +1003,20 @@ def _render_scene(
             "source_quadrilateral": placement["source_quadrilateral"],
             "table_quadrilateral": _quad_to_records(placement["table_quad"]),
             "target_quadrilateral": _quad_to_records(placement["image_quad"]),
+            "scale": _round(
+                float(np.sqrt(abs(cv2.contourArea(placement["image_quad"].astype(np.float32)))))
+                / max(width, height)
+            ),
+            "center_normalized": [
+                _round(float(np.mean(placement["image_quad"][:, 0])) / width),
+                _round(float(np.mean(placement["image_quad"][:, 1])) / height),
+            ],
+            "clipped": bool(
+                np.any(placement["image_quad"][:, 0] < 0)
+                or np.any(placement["image_quad"][:, 0] >= width)
+                or np.any(placement["image_quad"][:, 1] < 0)
+                or np.any(placement["image_quad"][:, 1] >= height)
+            ),
             "full_mask_pixels": int(np.count_nonzero(placement["full_mask"])),
             "visible_mask_pixels": visible_pixels,
             "occlusion_ratio": _occlusion_ratio(placement["full_mask"], visible_mask),
@@ -1075,6 +1135,12 @@ def _render_scene(
         "scene_id": scene_id,
         "layout": layout_name,
         "card_count": len(instances),
+        "bucket": {
+            1: "fully_visible_card",
+            2: "overlapping_cards_shallow",
+            3: "overlapping_cards_medium",
+            4: "overlapping_cards_heavy",
+        }[len(instances)],
         "background": {
             "background_id": background["background_id"],
             "strategy": BACKGROUND_STRATEGY,
@@ -1163,6 +1229,8 @@ def build_synthetic_visible_region_planar_geometry_samples(
     calibrations: list[dict[str, Any]] = []
     appearances: dict[str, dict[str, Any]] = {}
     layout_plans: list[list[tuple[Mapping[str, Any], dict[str, Any], str, list[np.ndarray]]]] = []
+    review_layouts = sample_count <= 36
+    layout_count = max(3, int(np.ceil(sample_count / len(backgrounds))))
     for background_item in backgrounds:
         background = background_item["record"]
         background_image = cv2.imread(str(background_item["path"]), cv2.IMREAD_COLOR)
@@ -1207,7 +1275,18 @@ def build_synthetic_visible_region_planar_geometry_samples(
         layout_plans.append(
             [
                 (background_item, calibration, layout_name, layout_quads)
-                for layout_name, layout_quads in _sample_layouts(anchor)
+                for layout_name, layout_quads in (
+                    _sample_layouts(anchor)
+                    if review_layouts
+                    else _production_layouts(
+                        anchor,
+                        count=layout_count,
+                        seed=int.from_bytes(
+                            hashlib.sha256(str(background["background_id"]).encode()).digest()[:8],
+                            "big",
+                        ),
+                    )
+                )
             ]
         )
     plans = [
@@ -1216,6 +1295,12 @@ def build_synthetic_visible_region_planar_geometry_samples(
         for layouts in layout_plans
         for plan in [layouts[layout_index]]
     ]
+    plans.extend(
+        plan
+        for layout_index in range(3, layout_count)
+        for layouts in layout_plans
+        for plan in [layouts[layout_index]]
+    )
     plans = plans[:sample_count]
     if len(plans) < sample_count:
         raise SyntheticVisibleRegionPlanarGeometryError(
@@ -1333,6 +1418,46 @@ def write_synthetic_visible_region_planar_geometry_manifest(
     return destination
 
 
+def validate_synthetic_visible_region_planar_geometry_manifest(raw: Mapping[str, Any]) -> None:
+    """Validate a completed planar-geometry scene manifest before training-view merge."""
+
+    required = {
+        "schema_version",
+        "campaign_id",
+        "milestone",
+        "freeze_state",
+        "source_manifest",
+        "m1_manifest",
+        "policy",
+        "inventory",
+        "calibrations",
+        "outputs",
+        "scenes",
+        "coverage_gaps",
+        "manifest_digest",
+    }
+    if set(raw) != required:
+        raise SyntheticVisibleRegionPlanarGeometryError(
+            "planar-geometry manifest has invalid fields"
+        )
+    if raw["schema_version"] != SYNTHETIC_VISIBLE_REGION_PLANAR_GEOMETRY_SCHEMA_VERSION:
+        raise SyntheticVisibleRegionPlanarGeometryError("planar-geometry schema is unsupported")
+    if raw["milestone"] != "M5-geometry-revision":
+        raise SyntheticVisibleRegionPlanarGeometryError("planar-geometry milestone is invalid")
+    if raw["freeze_state"] != "geometry_samples_ready_for_operator_review":
+        raise SyntheticVisibleRegionPlanarGeometryError("planar-geometry state is invalid")
+    if not isinstance(raw["scenes"], list) or not raw["scenes"]:
+        raise SyntheticVisibleRegionPlanarGeometryError("planar-geometry manifest has no scenes")
+    if not isinstance(raw["coverage_gaps"], list):
+        raise SyntheticVisibleRegionPlanarGeometryError("planar-geometry coverage gaps are invalid")
+    outputs = raw["outputs"]
+    if not isinstance(outputs, Mapping) or not isinstance(outputs.get("coco"), Mapping):
+        raise SyntheticVisibleRegionPlanarGeometryError("planar-geometry COCO output is missing")
+    core = {key: raw[key] for key in required if key != "manifest_digest"}
+    if raw["manifest_digest"] != _sha256_bytes(canonical_json_bytes(core)):
+        raise SyntheticVisibleRegionPlanarGeometryError("planar-geometry manifest digest is stale")
+
+
 def render_synthetic_visible_region_planar_geometry_human(manifest: Mapping[str, Any]) -> str:
     inventory = manifest["inventory"]
     return "\n".join(
@@ -1357,5 +1482,6 @@ __all__ = [
     "build_synthetic_visible_region_planar_geometry_samples",
     "fit_table_plane",
     "render_synthetic_visible_region_planar_geometry_human",
+    "validate_synthetic_visible_region_planar_geometry_manifest",
     "write_synthetic_visible_region_planar_geometry_manifest",
 ]

@@ -26,15 +26,13 @@
 - **M3:** Complete with a declared gap — one deterministic scene per supported bucket is merged
   into a disposable train-only COCO view and approved after contact-sheet inspection; face-down
   and mixed-side buckets remain unavailable.
-- **M4:** Preflight ready — the paired real-only versus real-plus-synthetic run is prepared; full
-  training remains operator-started and was not started here.
-- **M5:** Appearance review in progress — the earlier card-bearing-frame/inpainting pools and the
-  lighting-first samples are superseded. An 18-scene cross-table review set uses only explicitly
-  reviewed empty training tables. It estimates one metric table-plane transform from several
-  reviewed cards in the same recording, then renders upright supplied deck scans with a transparent
-  rounded edge, one table-level card-paper response, reduced saturation, reduced card-scale blur,
-  a subtle drop shadow, deterministic scene-level variation, and exact overlap masks. Do not
-  generate a larger pool until operator inspection approves the samples.
+- **M4:** Running — the approved paired real-only versus real-plus-synthetic RF-DETR comparison is
+  launched in the background against the new 50/50 view; do not start another candidate.
+- **M5:** Complete with a declared gap — the approved planar renderer now materializes 537 scenes
+  from nine explicit empty training tables. It uses same-recording multi-card calibration, upright
+  supplied scans, transparent rounded edges, table-level card-paper white balance, scene-shared
+  appearance, and deterministic messy 2–4-card layouts. Earlier card-bearing-frame/inpainting pools are
+  superseded. No validation or sealed-test recording contributes pixels or geometry.
 - **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -517,6 +515,22 @@ Acceptance:
   same-recording `unknown` visible-card fallback for paper-colour measurement because their frozen
   references do not label a card as face-up. No larger pool or training run was started. Operator
   approval of the appearance and geometry is required before expansion.
+
+#### M5 production and M4 training evidence — 2026-09-20
+
+- Operator approval was applied to the reviewed empty-table renderer. The deterministic production
+  command generated 537 scenes from the nine eligible training recordings in
+  `data/operations/synthetic-visible-region-0070-m1-empty-table-approvals-inputs.json`.
+- The production distribution contains 54 two-card, 216 three-card, and 267 four-card scenes. Card
+  centers and rotations vary independently within a bounded overlap cluster. It contains 537 images
+  and 1,824 exact visible-region annotations. The COCO validator passes, with zero unexpected
+  out-of-envelope geometry and zero exact duplicate scenes.
+- The merged training view contains 537 real and 537 synthetic images. The validation and sealed
+  test partitions remain byte-for-byte unchanged. The candidate materialization digest is
+  recorded by the M4 preflight at `.runtime/synthetic-visible-region-0070-m4-50-50`.
+- The new M4 paired comparison is running in the background. It uses the frozen 0068 real-only
+  control, the same pretrained RF-DETR checkpoint and recipe, and the new 50/50 candidate. No
+  progress monitoring is performed during the run.
 
 ### M6 — Measure correction effort and publish the decision
 

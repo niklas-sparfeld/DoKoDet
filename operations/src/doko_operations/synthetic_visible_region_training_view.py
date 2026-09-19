@@ -30,6 +30,9 @@ from .synthetic_visible_region_materialization import (
     MANIFEST_DEFAULT as M1_MANIFEST_DEFAULT,
 )
 from .synthetic_visible_region_materialization import validate_synthetic_visible_region_inputs
+from .synthetic_visible_region_planar_geometry import (
+    validate_synthetic_visible_region_planar_geometry_manifest,
+)
 from .synthetic_visible_region_rendering import (
     AVAILABLE_BUCKETS,
     M0_MANIFEST_DEFAULT,
@@ -183,12 +186,17 @@ def _load_base_view(repository: Path, materialization_root: Path) -> dict[str, A
 
 def _load_scene_set(repository: Path, scene_manifest_path: Path) -> dict[str, Any]:
     scene_manifest = _read_json(scene_manifest_path, "M2 scene manifest")
+    planar_geometry = False
     try:
         validate_synthetic_visible_region_scenes(scene_manifest)
     except ValueError as error:
-        raise SyntheticVisibleRegionTrainingViewError(
-            f"M2 scene manifest is invalid: {error}"
-        ) from error
+        try:
+            validate_synthetic_visible_region_planar_geometry_manifest(scene_manifest)
+        except ValueError as planar_error:
+            raise SyntheticVisibleRegionTrainingViewError(
+                f"scene manifest is invalid as M2 or M5 planar geometry: {error}; {planar_error}"
+            ) from planar_error
+        planar_geometry = True
     scene_coco_path = _resolve(repository, str(scene_manifest["outputs"]["coco"]["path"]))
     scene_coco = _read_json(scene_coco_path, "M2 scene COCO annotations")
     try:
@@ -219,6 +227,7 @@ def _load_scene_set(repository: Path, scene_manifest_path: Path) -> dict[str, An
         "coco": scene_coco,
         "coco_path": scene_coco_path,
         "receipts": receipts,
+        "planar_geometry": planar_geometry,
     }
 
 
@@ -381,6 +390,13 @@ def _distribution_report(
         for placement in receipt.get("placements", [])
         if isinstance(placement, Mapping)
     ]
+
+    def placement_value(placement: Mapping[str, Any], key: str, default: Any) -> Any:
+        nested = placement.get("placement")
+        if isinstance(nested, Mapping) and key in nested:
+            return nested[key]
+        return placement.get(key, default)
+
     real_image_card_counts = Counter(int(item["image_id"]) for item in real_annotations)
     synthetic_image_card_counts = Counter(
         str(item["synthetic_scene_id"]) for item in synthetic_annotations
@@ -424,24 +440,25 @@ def _distribution_report(
                 item.get("card_side", "unknown") for item in synthetic_annotations
             ),
             "scale": _numeric_distribution(
-                [float(item["placement"]["scale"]) for item in synthetic_placements]
+                [float(placement_value(item, "scale", 0.0)) for item in synthetic_placements]
             ),
             "position": {
                 "center_x_normalized": _numeric_distribution(
                     [
-                        float(item["placement"]["center_normalized"][0])
+                        float(placement_value(item, "center_normalized", [0.0, 0.0])[0])
                         for item in synthetic_placements
                     ]
                 ),
                 "center_y_normalized": _numeric_distribution(
                     [
-                        float(item["placement"]["center_normalized"][1])
+                        float(placement_value(item, "center_normalized", [0.0, 0.0])[1])
                         for item in synthetic_placements
                     ]
                 ),
             },
             "clipping": _value_distribution(
-                str(bool(item.get("clipped", False))) for item in synthetic_placements
+                str(bool(placement_value(item, "clipped", False)))
+                for item in synthetic_placements
             ),
             "occlusion": _numeric_distribution(
                 [float(item.get("occlusion_ratio", 0.0)) for item in synthetic_placements]
@@ -518,7 +535,12 @@ def _geometry_quality_report(
         output = receipt.get("output", {}).get("image", {})
         width = float(output.get("width", 0))
         height = float(output.get("height", 0))
-        reference = calibration_by_id.get(str(receipt["geometry_reference"].get("example_id")))
+        geometry_reference = receipt.get("geometry_reference")
+        reference = (
+            calibration_by_id.get(str(geometry_reference.get("example_id")))
+            if isinstance(geometry_reference, Mapping)
+            else None
+        )
         reference_quads = reference.get("normalized_quadrilaterals", []) if reference else []
         for placement_index, placement in enumerate(receipt.get("placements", [])):
             if not isinstance(placement, Mapping):
@@ -645,11 +667,20 @@ def _contact_sheet(
             cv2.LINE_AA,
         )
         source_groups = ",".join(_scene_lineage(receipt))[:104]
+        geometry_reference = receipt.get("geometry_reference")
+        table_calibration = receipt.get("table_calibration")
+        table_setup = (
+            geometry_reference.get("table_setup")
+            if isinstance(geometry_reference, Mapping)
+            else table_calibration.get("table_setup")
+            if isinstance(table_calibration, Mapping)
+            else "unknown"
+        )
         cv2.putText(
             tile,
             (
                 f"cards={summary['instance_count']}  "
-                f"setup={receipt['geometry_reference']['table_setup']}"
+                f"setup={table_setup}"
             ),
             (8, 248),
             cv2.FONT_HERSHEY_SIMPLEX,
@@ -749,14 +780,26 @@ def build_synthetic_visible_region_training_view(
     if scene_count <= 0:
         raise SyntheticVisibleRegionTrainingViewError("M0 has no renderable scene bucket")
     scene_output = output_root / "scenes"
-    scene_manifest = build_synthetic_visible_region_scenes(
-        repository,
-        m1_manifest_path=m1_path,
-        m0_manifest_path=m0_path,
-        output_directory=scene_output,
-        scene_count=scene_count,
+    existing_scene_manifest = (
+        _read_json(scene_manifest_output, "prebuilt scene manifest")
+        if scene_manifest_output.is_file()
+        else None
     )
-    write_synthetic_visible_region_scenes(scene_manifest_output, scene_manifest)
+    if (
+        existing_scene_manifest is not None
+        and existing_scene_manifest.get("schema_version")
+        == "synthetic-visible-region-planar-geometry-samples/v1"
+    ):
+        scene_manifest = existing_scene_manifest
+    else:
+        scene_manifest = build_synthetic_visible_region_scenes(
+            repository,
+            m1_manifest_path=m1_path,
+            m0_manifest_path=m0_path,
+            output_directory=scene_output,
+            scene_count=scene_count,
+        )
+        write_synthetic_visible_region_scenes(scene_manifest_output, scene_manifest)
     scene_set = _load_scene_set(repository, scene_manifest_output)
     shutil.copy2(scene_manifest_output, output_root / "scene-set.json")
     _copy_partition_views(base, output_root)
