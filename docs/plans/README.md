@@ -53,6 +53,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0070 — Synthetic visible-region training data](3-in-progress/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 frozen training inputs plus explicitly reviewed training-only card sources; face-down cutout required before face-down or mixed-side rendering | M0–M3 complete with a declared gap; M4 preflight is ready; M5 has 18 bounded cross-table appearance-review samples from nine accepted empty training tables. Upright supplied deck scans use transparent rounded edges, same-table card-paper white balance, bounded deterministic scene variation, lower saturation, reduced card-scale blur, z-order contact shadows, and supersampled anti-aliased projection. Held-out and unfrozen recordings are excluded. No larger pool or new training run has started. |
+| [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, and the 0068 reviewed RF-DETR training corpus, checkpoint, provider, and evaluation boundaries | M0 complete: the two-stage model and crop contracts are frozen, deterministic transitive clustering and reversible source transforms are implemented, and duplicate reconciliation requires both tight-box and visible-mask IoU. M1–M6 not started. |
 
 ### Blocked
 
