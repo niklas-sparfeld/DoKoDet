@@ -92,6 +92,7 @@ class RfdetrSegmentationCampaignTrainingConfig:
     output_dir: Path
     runner: Literal["fixture", "rfdetr"] = "rfdetr"
     device: Literal["cpu", "mps", "cuda"] = "mps"
+    seed: int = 6701
     resume: Path | None = None
 
     def __post_init__(self) -> None:
@@ -99,6 +100,8 @@ class RfdetrSegmentationCampaignTrainingConfig:
             raise RfdetrSegmentationTrainingError("runner must be fixture or rfdetr")
         if self.device not in _DEVICES:
             raise RfdetrSegmentationTrainingError("device must be cpu, mps, or cuda")
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int) or self.seed < 0:
+            raise RfdetrSegmentationTrainingError("seed must be a non-negative integer")
 
 
 @dataclass(frozen=True, slots=True)
@@ -254,10 +257,18 @@ def _load_materialization_view(root_value: str | Path) -> dict[str, Any]:
                     f"{partition} COCO annotation references an unknown image"
                 )
             annotation_image_ids.add(image_id)
-        if annotation_image_ids != image_ids:
-            raise RfdetrSegmentationTrainingError(
-                f"{partition} COCO data has an image without a reviewed target"
-            )
+        missing_target_ids = image_ids - annotation_image_ids
+        if missing_target_ids:
+            allowed_empty_ids = {
+                int(image["id"])
+                for image in images
+                if image.get("dataset_origin") == "synthetic"
+                and image.get("scene_bucket") == "reviewed_empty_background"
+            }
+            if not missing_target_ids <= allowed_empty_ids or partition != "train":
+                raise RfdetrSegmentationTrainingError(
+                    f"{partition} COCO data has an image without a reviewed target"
+                )
         partitions[partition] = [dict(image) for image in images]
     return {"root": root, "manifest": materialization, "partitions": partitions}
 
@@ -827,6 +838,7 @@ def _campaign_training_arguments(
     output: Path,
     device: str,
     *,
+    seed: int = 6701,
     resume: Path | None = None,
 ) -> dict[str, Any]:
     """Return the exact RF-DETR arguments for the one-candidate M3 run."""
@@ -839,7 +851,7 @@ def _campaign_training_arguments(
         "batch_size": 1,
         "grad_accum_steps": 4,
         "num_workers": 0,
-        "seed": 6701,
+        "seed": seed,
         "resolution": RFDETR_SEGMENTATION_INPUT_SIZE,
         "device": device,
         "class_names": ["visible_card"],
@@ -1246,6 +1258,7 @@ def _campaign_config(
         "campaign_manifest": str(config.campaign_manifest.expanduser().resolve()),
         "pretrained_checkpoint": str(config.pretrained_checkpoint.expanduser().resolve()),
         "output_dir": str(output),
+        "seed": config.seed,
     }
     if config.resume is not None:
         values["resume"] = str(config.resume.expanduser().resolve())
@@ -1613,7 +1626,7 @@ def run_rfdetr_segmentation_campaign_training(
         training_output = output / "rfdetr"
         model_arguments = _campaign_model_arguments(pretrained)
         training_arguments = _campaign_training_arguments(
-            staged_dataset, training_output, config.device, resume=resume
+            staged_dataset, training_output, config.device, seed=config.seed, resume=resume
         )
         inputs = {
             "runner": config.runner,

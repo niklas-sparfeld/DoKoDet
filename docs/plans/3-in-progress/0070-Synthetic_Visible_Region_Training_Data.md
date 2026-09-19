@@ -26,7 +26,8 @@
 - **M3:** Complete with a declared gap — one deterministic scene per supported bucket is merged
   into a disposable train-only COCO view and approved after contact-sheet inspection; face-down
   and mixed-side buckets remain unavailable.
-- **M4:** Not started — run one paired real-only versus real-plus-synthetic training comparison.
+- **M4:** Preflight ready — the paired real-only versus real-plus-synthetic run is prepared; full
+  training remains operator-started and was not started here.
 - **M5:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -356,6 +357,24 @@ Acceptance:
   digest is `cffd20504b481981634f34abf79b4f7fff03882b1c16d5f0a4ed66d0225ec1e1`.
 - Focused campaign, materialization, rendering, and M3 tests pass: 9 tests. Ruff and
   `git diff --check` pass. No RF-DETR training started.
+
+#### M4 preflight evidence — 2026-09-19
+
+- Added the bounded M4 comparison command and a `--preflight-only` mode. The preflight validates
+  the frozen 0070 recipe, the 0068 manifest and checkpoint digest, M3 approval, the merged train
+  COCO digest, and the unchanged validation and sealed-test inventories.
+- The candidate view is ready at `.runtime/synthetic-visible-region-0070-m4` with materialization
+  digest `2c17d026d8acc028957d6363927a5cdba278b89ceb38d57c1127c2c844b6c062`. It contains 545
+  train images, 1,546 train annotations, 143 validation images, and 104 sealed-test images. The
+  one approved empty-background scene is retained as a train-only negative image.
+- Both candidates are pinned to RF-DETR SegMedium 1.9.4, the checkpoint digest
+  `3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58`, seed 7001, 40 epochs,
+  effective batch size 4, MPS, no mixed precision, and the frozen 0070 two-candidate budget.
+- The training loader now accepts only the declared synthetic `reviewed_empty_background` train
+  image without a target. It still rejects empty validation or sealed-test images and all other
+  unlabelled images.
+- Focused tests pass: 12 tests and Ruff checks. Full RF-DETR training and evaluation were not
+  started by operator instruction. M4 acceptance remains pending the two local runs.
 
 ### M4 — Run the paired RF-DETR comparison
 
