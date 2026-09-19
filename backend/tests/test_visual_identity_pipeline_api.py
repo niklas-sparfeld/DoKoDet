@@ -174,9 +174,7 @@ def test_auto_approval_plan_reuses_one_local_run_and_reports_matching_results(
             ).status_code
             == 201
         )
-        selection_path = (
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/selection"
-        )
+        selection_path = f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/selection"
         assert (
             client.get(selection_path).json()["selection"]["selected_generated_revision_id"]
             == gemini_revision_id

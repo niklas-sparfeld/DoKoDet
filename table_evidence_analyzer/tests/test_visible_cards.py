@@ -264,9 +264,7 @@ def test_fresh_cached_provider_run_bypasses_and_refreshes_response_cache(
 
         def propose(self, request: VisibleCardRequest) -> ProviderResult:
             self.calls += 1
-            return FakeVisibleCardProvider(
-                {request.image_sha256: _prediction()}
-            ).propose(request)
+            return FakeVisibleCardProvider({request.image_sha256: _prediction()}).propose(request)
 
     underlying = _CountingProvider()
     cached = CachedVisibleCardProvider(underlying, tmp_path / "cache")
@@ -327,8 +325,7 @@ def test_gemini_provider_builds_structured_request_and_records_usage() -> None:
     assert timeout == 120.0
     assert request.headers["X-goog-api-key"] == "runtime-secret"
     assert (
-        request.full_url
-        == "https://generativelanguage.googleapis.com/v1beta/models/"
+        request.full_url == "https://generativelanguage.googleapis.com/v1beta/models/"
         "gemini-3.8-flash:generateContent"
     )
     payload = json.loads(request.data)

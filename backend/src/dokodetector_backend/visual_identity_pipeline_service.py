@@ -286,9 +286,7 @@ class VisualIdentityPipelineService:
             "items": items,
         }
 
-    def _run_for_output(
-        self, recording_id: str, revision_id: str
-    ) -> StoredProcessorRun | None:
+    def _run_for_output(self, recording_id: str, revision_id: str) -> StoredProcessorRun | None:
         matches = [
             run
             for run in self.list_runs(recording_id)
@@ -710,7 +708,7 @@ class VisualIdentityPipelineService:
                             status="failed",
                             candidates=(),
                             error="The visual identity classifier failed for this card.",
-                    )
+                        )
                     outcomes_by_index[index] = result
                     item = RunItemOutcome(
                         item_id=candidate.card_id,
