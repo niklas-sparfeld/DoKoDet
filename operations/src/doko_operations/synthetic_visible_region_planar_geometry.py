@@ -71,12 +71,13 @@ SCAN_ALPHA_INSET_FRACTION = 0.01
 SCAN_CORNER_RADIUS_FRACTION = 0.075
 SCAN_ALPHA_FEATHER_PIXELS = 1.2
 MIN_MASK_ALPHA = 128
-CARD_SATURATION_FACTOR = 0.68
+CARD_SATURATION_FACTOR = 0.78
 CARD_BLUR_REDUCTION_FACTOR = 0.42
 CARD_RENDER_SUPERSAMPLE = 2
-CARD_SHADOW_OPACITY = 0.09
-CARD_SHADOW_BLUR_SIGMA = 0.55
-CARD_SHADOW_OFFSET_PIXELS = (1.0, 1.0)
+CARD_SHADOW_OPACITY = 0.12
+CARD_SHADOW_BLUR_SIGMA = 0.75
+CARD_SHADOW_OFFSET_PIXELS = (1.5, 1.5)
+CARD_SHADOW_Z_ORDER_LENGTH_STEP = 0.15
 _SHA256_LENGTH = 64
 _REVIEW_CARD_STEMS = (
     "SPADES_ten",
@@ -850,18 +851,27 @@ def _warp_soft_card(
     return result, result[:, :, 3]
 
 
-def _apply_subtle_card_shadow(scene: np.ndarray, alpha: np.ndarray) -> None:
-    """Put one small, soft table shadow below a card without changing its target mask."""
+def _shadow_length_scale(z_order: int) -> float:
+    return 1.0 + max(0, z_order - 1) * CARD_SHADOW_Z_ORDER_LENGTH_STEP
 
-    shadow = cv2.GaussianBlur(alpha, (0, 0), CARD_SHADOW_BLUR_SIGMA)
+
+def _apply_subtle_card_shadow(scene: np.ndarray, alpha: np.ndarray, z_order: int) -> float:
+    """Put a short table shadow below a card without changing its target mask."""
+
+    length_scale = _shadow_length_scale(z_order)
+    shadow = cv2.GaussianBlur(alpha, (0, 0), CARD_SHADOW_BLUR_SIGMA * length_scale)
     translation = np.float32(
-        [[1, 0, CARD_SHADOW_OFFSET_PIXELS[0]], [0, 1, CARD_SHADOW_OFFSET_PIXELS[1]]]
+        [
+            [1, 0, CARD_SHADOW_OFFSET_PIXELS[0] * length_scale],
+            [0, 1, CARD_SHADOW_OFFSET_PIXELS[1] * length_scale],
+        ]
     )
     shadow = cv2.warpAffine(shadow, translation, (scene.shape[1], scene.shape[0]))
     weight = shadow.astype(np.float32) / 255.0 * CARD_SHADOW_OPACITY
     scene[:] = np.clip(scene.astype(np.float32) * (1.0 - weight[:, :, None]), 0, 255).astype(
         np.uint8
     )
+    return length_scale
 
 
 def _pose_from_quad(quad: np.ndarray) -> dict[str, np.ndarray | float]:
@@ -1027,8 +1037,9 @@ def _render_scene(
         visible_masks[index] = _remove_small_components(visible_masks[index], MIN_VISIBLE_PIXELS)
         higher = np.maximum(higher, full_masks[index])
     for placement in placements:
-        _apply_subtle_card_shadow(scene, placement["alpha"])
-    for placement in placements:
+        placement["shadow_length_scale"] = _apply_subtle_card_shadow(
+            scene, placement["alpha"], int(placement["z_order"])
+        )
         _alpha_composite(scene, placement["warped_rgba"], placement["alpha"])
     ok, encoded = cv2.imencode(".jpg", scene, [cv2.IMWRITE_JPEG_QUALITY, 95])
     if not ok:
@@ -1080,6 +1091,7 @@ def _render_scene(
                 "white_balance_gain_bgr": placement["white_balance_gain_bgr"],
                 "saturation_factor": placement["saturation_factor"],
                 "blur_sigma": placement["blur_sigma"],
+                "shadow_length_scale": _round(placement["shadow_length_scale"]),
                 "mask_alpha_threshold": MIN_MASK_ALPHA,
             },
             "mask": {
@@ -1201,6 +1213,7 @@ def _render_scene(
             "card_saturation_factor": CARD_SATURATION_FACTOR,
             "card_shadow_opacity": CARD_SHADOW_OPACITY,
             "card_shadow_blur_sigma": CARD_SHADOW_BLUR_SIGMA,
+            "card_shadow_z_order_length_step": CARD_SHADOW_Z_ORDER_LENGTH_STEP,
             "card_render_supersample": CARD_RENDER_SUPERSAMPLE,
         },
         "image_path": _relative(image_path, repository),

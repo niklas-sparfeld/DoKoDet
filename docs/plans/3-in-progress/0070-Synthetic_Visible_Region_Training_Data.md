@@ -493,18 +493,19 @@ Acceptance:
   boundary, so rounded card corners remain in the training targets.
 - It resolves eight face-up reviewed card regions from four exact `IMG_0669` frames. Bright,
   low-saturation card-paper pixels give one median table response of BGR `229/238/238`. The same
-  response white-balances every scan in the scene. The scan saturation factor is `0.68`. Card-scale
+  response white-balances every scan in the scene. The scan saturation factor is `0.78`. Card-scale
   Gaussian blur uses 42 percent of the earlier strength and is limited to `0.22–0.58` pixels. A
-  `0.09` opacity contact shadow has a one-pixel offset and `0.55` pixel blur. Each card is warped
-  at two times its local output resolution, then area-downsampled to reduce aliasing on diagonal
-  ink and card edges. The renderer does not add glare, random per-card lighting, or a scene-level
-  lighting change.
+  `0.12` opacity contact shadow has a 1.5-pixel offset and `0.75` pixel blur. Each higher z-order
+  card increases the shadow length by 15 percent. Shadow and card compositing follow z-order, so a
+  higher card shadow can fall on a lower card. Each card is warped at two times its local output
+  resolution, then area-downsampled to reduce aliasing on diagonal ink and card edges. The renderer
+  does not add glare, random per-card lighting, or a scene-level lighting change.
 - Geometry review now uses only the supplied upright face scans in
   `data/decks/ass-altenburger-romme-french/source`. It does not use video-derived card cutouts.
   The selected scans include `SPADES_ten` and `HEARTS_jack`; the renderer resizes them to the
   canonical card rectangle without changing their orientation before it applies table placement.
 - The current output is at
-  `.runtime/synthetic-visible-region-0070-planar-geometry-antialiased-samples`. No larger pool or
+  `.runtime/synthetic-visible-region-0070-planar-geometry-z-shadow-samples`. No larger pool or
   training run was started. Operator approval of the appearance and geometry is required before
   expansion.
 
