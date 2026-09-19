@@ -115,6 +115,26 @@ def _write_fixture_inputs(root: Path) -> tuple[Path, Path]:
                     ],
                 }
             ],
+            "calibration_source": "fixture",
+            "calibration_example_count": 1,
+            "calibration_examples": [
+                {
+                    "example_id": "fixture-table-example",
+                    "recording_id": "fixture-source",
+                    "event_id": "fixture-event",
+                    "table_setup": "fixture-table",
+                    "card_count": 1,
+                    "normalized_quadrilaterals": [
+                        [
+                            {"x": 0.20, "y": 0.20},
+                            {"x": 0.40, "y": 0.20},
+                            {"x": 0.40, "y": 0.50},
+                            {"x": 0.20, "y": 0.50},
+                        ]
+                    ],
+                    "selection": "fixture-calibration",
+                }
+            ],
         },
         "inventory": {
             "source_count": 1,
@@ -195,6 +215,16 @@ def test_m2_rendering_is_deterministic_and_records_the_face_down_gap(tmp_path: P
     assert first["freeze_state"] == "complete_with_gap"
     assert first["outputs"]["scene_count"] == 8
     assert first["outputs"]["annotation_count"] > 0
+    reference = json.loads(
+        (tmp_path / "m2" / "receipts" / "scene-0000.json").read_text()
+    )["geometry_reference"]
+    assert reference["example_id"] == "fixture-table-example"
+    assert reference["selection"] == "fixture-calibration"
+    quad = json.loads((tmp_path / "m2" / "receipts" / "scene-0000.json").read_text())[
+        "placements"
+    ][0]["target_quadrilateral"]
+    assert 0.18 < sum(point["x"] for point in quad) / 4 / 480 < 0.42
+    assert 0.18 < sum(point["y"] for point in quad) / 4 / 360 < 0.52
     assert "face_down_cards" in first["recipe"]["omitted_buckets"]
     assert "mixed_card_sides" in first["recipe"]["omitted_buckets"]
     assert any(scene["bucket"] == "reviewed_empty_background" for scene in first["scenes"])
@@ -206,6 +236,15 @@ def test_m2_rendering_is_deterministic_and_records_the_face_down_gap(tmp_path: P
         json.loads((tmp_path / "m2" / "receipts" / f"scene-{index:04d}.json").read_text())
         for index in range(8)
     ]
+    overlap_receipts = {
+        receipt["bucket"]: receipt
+        for receipt in receipts
+        if receipt["bucket"].startswith("overlapping_cards_")
+    }
+    assert all(
+        receipt["placements"][0]["occlusion_ratio"] > 0
+        for receipt in overlap_receipts.values()
+    )
     assert any(
         item["occlusion_ratio"] > 0
         for receipt in receipts

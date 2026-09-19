@@ -609,6 +609,104 @@ def _m0_cutouts(
     return result
 
 
+def _calibration_quad(target: Mapping[str, Any]) -> list[dict[str, float]] | None:
+    geometry = target.get("geometry")
+    if not isinstance(geometry, Mapping):
+        return None
+    region = geometry.get("visible_region")
+    if not isinstance(region, Mapping):
+        return None
+    polygons = region.get("polygons")
+    if not isinstance(polygons, list) or len(polygons) != 1:
+        return None
+    points = polygons[0]
+    if not isinstance(points, list) or len(points) != 4:
+        return None
+    result: list[dict[str, float]] = []
+    for point in points:
+        if not isinstance(point, Mapping):
+            return None
+        x = point.get("x")
+        y = point.get("y")
+        if isinstance(x, bool) or not isinstance(x, int) or not 0 < x < 1000:
+            return None
+        if isinstance(y, bool) or not isinstance(y, int) or not 0 < y < 1000:
+            return None
+        result.append({"x": _round(x / 1000), "y": _round(y / 1000)})
+    crosses = [
+        (result[(index + 1) % 4]["x"] - result[index]["x"])
+        * (result[(index + 2) % 4]["y"] - result[(index + 1) % 4]["y"])
+        - (result[(index + 1) % 4]["y"] - result[index]["y"])
+        * (
+            result[(index + 2) % 4]["x"]
+            - result[(index + 1) % 4]["x"]
+        )
+        for index in range(4)
+    ]
+    if not (all(value > 0 for value in crosses) or all(value < 0 for value in crosses)):
+        return None
+    return result
+
+
+def _geometry_calibration_examples(
+    source_manifest: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Select exact four-corner one- and two-card training frames for placement calibration."""
+
+    examples: list[dict[str, Any]] = []
+    for sample in source_manifest.get("samples", []):
+        if not isinstance(sample, Mapping) or sample.get("split") != "train":
+            continue
+        targets = sample.get("targets")
+        if not isinstance(targets, list) or len(targets) not in {1, 2}:
+            continue
+        if sample.get("ignored_regions"):
+            continue
+        quads: list[list[dict[str, float]]] = []
+        kinds: list[str] = []
+        sides: list[str] = []
+        for target in targets:
+            if not isinstance(target, Mapping):
+                quads = []
+                break
+            quad = _calibration_quad(target)
+            if quad is None:
+                quads = []
+                break
+            geometry = target.get("geometry", {})
+            kinds.append(str(geometry.get("kind", "unknown")))
+            sides.append(str(target.get("side", "unknown")))
+            quads.append(quad)
+        if not quads:
+            continue
+        frame_identity = sample.get("frame_identity", {})
+        if not isinstance(frame_identity, Mapping):
+            continue
+        examples.append(
+            {
+                "example_id": f"{sample['event_id']}-table-geometry",
+                "recording_id": str(sample["recording_id"]),
+                "event_id": str(sample["event_id"]),
+                "item_id": str(sample.get("item_id", sample["event_id"])),
+                "source_group_key": str(sample.get("source_group_key", "")),
+                "source_sha256": str(sample.get("source_sha256", "")),
+                "source_split": "train",
+                "table_setup": str(sample.get("table_setup", "unknown")),
+                "source_dimensions": {
+                    "width": int(frame_identity.get("width", 0)),
+                    "height": int(frame_identity.get("height", 0)),
+                },
+                "card_count": len(quads),
+                "card_sides": sides,
+                "annotation_kinds": kinds,
+                "normalized_quadrilaterals": quads,
+                "selection": "exact-four-corner-one-two-card-training-frame-v1",
+            }
+        )
+    examples.sort(key=lambda item: (item["recording_id"], item["event_id"]))
+    return examples
+
+
 def _load_table_spec(path: Path | None) -> dict[str, Any]:
     if path is None or not path.is_file():
         return {"schema_version": "synthetic-visible-region-table-inputs/v1", "inputs": []}
@@ -901,6 +999,7 @@ def build_synthetic_visible_region_inputs(
         }
         for item in cutouts
     ]
+    calibration_examples = _geometry_calibration_examples(source_manifest)
     core: dict[str, Any] = {
         "schema_version": SYNTHETIC_VISIBLE_REGION_INPUTS_SCHEMA_VERSION,
         "campaign_id": SYNTHETIC_VISIBLE_REGION_INPUTS_CAMPAIGN_ID,
@@ -928,6 +1027,9 @@ def build_synthetic_visible_region_inputs(
             "source": "complete-reviewed-training-quadrilaterals",
             "example_count": len(perspective_examples),
             "examples": perspective_examples,
+            "calibration_source": "exact-four-corner-one-two-card-training-frames-v1",
+            "calibration_example_count": len(calibration_examples),
+            "calibration_examples": calibration_examples,
         },
         "inventory": {
             "source_count": len(sources),

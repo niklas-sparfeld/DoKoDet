@@ -57,7 +57,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0070 — Synthetic visible-region training data](3-in-progress/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 frozen training inputs plus explicitly reviewed training-only card sources; face-down cutout required before face-down or mixed-side rendering | M0–M2 complete with a declared gap: deterministic rendering covers the supported face-up and unknown buckets. The 0646 sealed-test links are excluded. Face-down and mixed-side buckets remain omitted until a reviewed face-down cutout is available. |
+| [0070 — Synthetic visible-region training data](3-in-progress/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 frozen training inputs plus explicitly reviewed training-only card sources; face-down cutout required before face-down or mixed-side rendering | M0–M2 complete with a declared gap: deterministic rendering covers the supported face-up and unknown buckets with setup-matched one/two-card geometry templates. The 0646 sealed-test links are excluded. Face-down and mixed-side buckets remain omitted until a reviewed face-down cutout is available. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and a future fixed identity baseline; 0052 is not required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against a fixed identity baseline, then select at most one justified capability response. The completed 0067 `poc_candidate` is optional later input; M0–M3 not started. |
 
 ### Closed

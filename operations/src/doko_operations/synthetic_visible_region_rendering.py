@@ -292,6 +292,54 @@ def _geometry_examples(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
+def _calibration_geometry_examples(
+    manifest: Mapping[str, Any], background: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    library = manifest.get("perspective_library", {})
+    raw_examples = library.get("calibration_examples", [])
+    if not isinstance(raw_examples, list):
+        return []
+    background_group = background.get("source_group", {})
+    background_recording = str(background_group.get("id", ""))
+    background_setup = str(background_group.get("table_setup", ""))
+    matching = [
+        item
+        for item in raw_examples
+        if isinstance(item, Mapping)
+        and item.get("recording_id") == background_recording
+        and item.get("table_setup") == background_setup
+    ]
+    if not matching:
+        matching = [
+            item
+            for item in raw_examples
+            if isinstance(item, Mapping) and item.get("table_setup") == background_setup
+        ]
+    result: list[dict[str, Any]] = []
+    for item in matching:
+        quads = item.get("normalized_quadrilaterals")
+        if not isinstance(quads, list) or not quads or len(quads) > 2:
+            continue
+        try:
+            parsed = [_quad_points(quad) for quad in quads]
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+        result.append(
+            {
+                "example_id": str(item.get("example_id", "unknown")),
+                "recording_id": str(item.get("recording_id", "")),
+                "event_id": str(item.get("event_id", "")),
+                "table_setup": str(item.get("table_setup", "")),
+                "normalized_quads": parsed,
+                "card_count": len(parsed),
+                "selection": str(item.get("selection", "unknown")),
+            }
+        )
+    if result:
+        return result
+    return []
+
+
 def _read_cutout(asset: Mapping[str, Any]) -> tuple[np.ndarray, np.ndarray]:
     rgba = _load_image(asset["rgba_path"], flags=cv2.IMREAD_UNCHANGED)
     alpha = _load_image(asset["alpha_path"], flags=cv2.IMREAD_GRAYSCALE)
@@ -406,7 +454,8 @@ def _photometric(
 def _scene_placements(
     bucket: str,
     *,
-    base_quad: np.ndarray,
+    base_quad: np.ndarray | None,
+    template_quads: Sequence[np.ndarray] = (),
     output_width: int,
     output_height: int,
     rng: np.random.Generator,
@@ -414,6 +463,93 @@ def _scene_placements(
 ) -> list[dict[str, Any]]:
     if bucket == "reviewed_empty_background":
         return []
+    calibrated = [quad.copy() for quad in template_quads]
+    if calibrated:
+        if bucket in {
+            "fully_visible_card",
+            "blur_glare_dark_compressed",
+            "frame_boundary_clipping",
+        }:
+            targets = calibrated[:1]
+        elif bucket == "separated_cards" or bucket.startswith("overlapping_cards_"):
+            targets = calibrated[:2]
+            if len(targets) == 1:
+                targets.append(
+                    _transform_quad(
+                        targets[0],
+                        output_width=output_width,
+                        output_height=output_height,
+                        center_normalized=(
+                            min(0.86, float(np.mean(targets[0][:, 0])) / output_width + 0.20),
+                            float(np.mean(targets[0][:, 1])) / output_height,
+                        ),
+                    )
+                )
+        else:
+            raise SyntheticVisibleRegionRenderingError(f"unsupported scene bucket: {bucket}")
+        if bucket.startswith("overlapping_cards_") and len(targets) >= 2:
+            depth = {
+                "overlapping_cards_shallow": 0.20,
+                "overlapping_cards_medium": 0.42,
+                "overlapping_cards_heavy": 0.68,
+            }[bucket]
+            first_center = _center(targets[0])
+            first_edge = targets[0][1] - targets[0][0]
+            edge_length = float(np.linalg.norm(first_edge))
+            if edge_length <= 0.0:
+                raise SyntheticVisibleRegionRenderingError("calibration card edge is empty")
+            target_center = first_center + first_edge / edge_length * edge_length * (1.0 - depth)
+            targets[1] = _transform_quad(
+                targets[1],
+                output_width=output_width,
+                output_height=output_height,
+                center_normalized=(
+                    float(target_center[0]) / output_width,
+                    float(target_center[1]) / output_height,
+                ),
+            )
+        common_offset = (
+            float(rng.uniform(-0.008, 0.008)),
+            float(rng.uniform(-0.008, 0.008)),
+        )
+        placements: list[dict[str, Any]] = []
+        for index, target in enumerate(targets[:card_count], start=1):
+            rotation = float(rng.uniform(-2.0, 2.0))
+            scale = float(rng.uniform(0.995, 1.005))
+            if bucket == "frame_boundary_clipping":
+                quad = _transform_quad(
+                    target,
+                    output_width=output_width,
+                    output_height=output_height,
+                    scale=scale,
+                    rotation_degrees=rotation,
+                    center_normalized=(0.03, 0.04),
+                )
+            else:
+                quad = _transform_quad(
+                    target,
+                    output_width=output_width,
+                    output_height=output_height,
+                    scale=scale,
+                    rotation_degrees=rotation,
+                    offset_normalized=common_offset,
+                )
+            center = _center(quad) / np.asarray([output_width, output_height], dtype=np.float32)
+            placements.append(
+                {
+                    "z_order": index,
+                    "target_quad": quad,
+                    "placement": {
+                        "center_normalized": [_round(center[0]), _round(center[1])],
+                        "scale": _round(scale),
+                        "rotation_degrees": _round(rotation),
+                    },
+                }
+            )
+        return placements
+
+    if base_quad is None:
+        raise SyntheticVisibleRegionRenderingError("scene has no measured geometry")
     if bucket == "fully_visible_card":
         centers = [(0.50, 0.52)]
         scales = [1.0]
@@ -596,9 +732,14 @@ def _render_scene(
     rng = np.random.default_rng(seed)
     scene = _load_image(background_path, flags=cv2.IMREAD_COLOR)
     output_height, output_width = scene.shape[:2]
-    base_quad = np.asarray(geometry["normalized_quad"], dtype=np.float32) * np.asarray(
-        [output_width, output_height], dtype=np.float32
-    )
+    dimensions = np.asarray([output_width, output_height], dtype=np.float32)
+    base_quad = None
+    if "normalized_quad" in geometry:
+        base_quad = np.asarray(geometry["normalized_quad"], dtype=np.float32) * dimensions
+    template_quads = [
+        np.asarray(item, dtype=np.float32) * dimensions
+        for item in geometry.get("normalized_quads", [])
+    ]
     count = (
         0
         if bucket == "reviewed_empty_background"
@@ -611,6 +752,7 @@ def _render_scene(
     placements = _scene_placements(
         bucket,
         base_quad=base_quad,
+        template_quads=template_quads,
         output_width=output_width,
         output_height=output_height,
         rng=rng,
@@ -749,6 +891,13 @@ def _render_scene(
         "bucket": bucket,
         "seed": seed,
         "recipe_digest": recipe_digest,
+        "geometry_reference": {
+            "example_id": geometry.get("example_id"),
+            "recording_id": geometry.get("recording_id"),
+            "event_id": geometry.get("event_id"),
+            "table_setup": geometry.get("table_setup"),
+            "selection": geometry.get("selection", "legacy-perspective-example-v1"),
+        },
         "background": {
             "background_id": background["background_id"],
             "source_group": background["source_group"],
@@ -830,9 +979,18 @@ def build_synthetic_visible_region_scenes(
     recipe, recipe_digest = _load_recipe(repository, m0_path)
     available_buckets, omitted_buckets = _scene_bucket_list(recipe)
     usable, _, backgrounds = _source_paths(repository, m1)
-    geometry = _geometry_examples(m1)
     background = backgrounds[0]["record"]
     background_path = backgrounds[0]["path"]
+    geometry = _calibration_geometry_examples(m1, background)
+    uses_calibrated_geometry = bool(geometry)
+    if not geometry:
+        geometry = [
+            {
+                **item,
+                "selection": "legacy-perspective-example-v1",
+            }
+            for item in _geometry_examples(m1)
+        ]
     base_seed = int(recipe.get("seed", 7001))
     selected_assets = [
         usable[index % len(usable)] for index in range(max(1, min(scene_count, len(usable))))
@@ -901,6 +1059,11 @@ def build_synthetic_visible_region_scenes(
             "card_sides": ["face_up", "unknown"],
             "card_card_occlusion": True,
             "human_occluders": False,
+            "geometry_source": (
+                "setup-matched-human-single-two-card-templates-v1"
+                if uses_calibrated_geometry
+                else "legacy-perspective-library-v1"
+            ),
             "source_permission": "training_only",
         },
         "scenes": summaries,

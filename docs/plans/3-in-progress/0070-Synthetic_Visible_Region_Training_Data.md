@@ -18,10 +18,11 @@
 
 - **M0:** Complete — the deterministic contract and dry-run audit are frozen, but the input gate
   found no reviewed empty background and no eligible face-down card cutout.
-- **M1:** Complete with a declared gap — 165 card cutouts and one reviewed 0669 background are
-  materialized; no face-down cutout is available.
-- **M2:** Complete with a declared gap — deterministic rendering and exact visible-region targets
-  work for face-up and unknown cards; face-down and mixed-side buckets are omitted.
+- **M1:** Complete with a declared gap — 165 card cutouts, one reviewed 0669 background, and a
+  setup-matched one/two-card geometry library are materialized; no face-down cutout is available.
+- **M2:** Complete with a declared gap — deterministic rendering uses the measured 0669 card
+  templates and exact visible-region targets for face-up and unknown cards; face-down and
+  mixed-side buckets are omitted.
 - **M3:** Not started — materialize and inspect one bounded synthetic training set from the
   supported scene buckets.
 - **M4:** Not started — run one paired real-only versus real-plus-synthetic training comparison.
@@ -256,12 +257,19 @@ Acceptance:
   links are retained as explicit exclusions because their source group is `sealed_test`.
 - Inventory: 155 `face_up`, 10 `unknown`, 0 `face_down`, 1 background, and 0 human occluders.
   The remaining face-down input gate is explicit; no synthetic rendering or training started.
-- The corrected M1 manifest digest is
+- The edge-corrected M1 manifest digest was
   `f05bbd0951fbb525dd3f6a3ce6b62b3bcfb64107a3b3b081132388b009b45db4`.
   The materializer records mask recipe `opencv-dark-surface-canny-rounded-v2` with a canonical
   28-pixel corner radius. All rectification round trips are 0.0 pixels, all generated alpha
   masks keep the dark card artwork opaque, and the cold/warm check produced identical manifest
   and representative file digests.
+- Added 140 exact-four-corner one- and two-card geometry references from the frozen training
+  source manifest. The renderer matches them to the background recording and table setup before
+  it uses any legacy geometry example. The 0669 white-table background has 11 matching references
+  across single-card and two-card frames; their source event, card count, side, annotation kind,
+  and normalized quadrilaterals are retained in the M1 manifest.
+- The regenerated default M1 manifest digest is
+  `0a55438cf162fb76d1357f3304fe53cb1f43760f2276992fb12be7217e41f0e1`.
 - Added 6 focused M1 tests. They pass with the M0 campaign tests: 6 passed. Ruff passes.
 
 ### M2 — Implement deterministic synthetic rendering
@@ -292,14 +300,18 @@ Acceptance:
 - The renderer uses the reviewed 0669 background and the corrected training-only M1 cutouts. It records every
   card and background source group, source digest, placement quadrilateral, z-order, clipping,
   occlusion ratio, output digest, and omitted-instance receipt.
+- It now selects geometry references by background recording and table setup. Single-card scenes
+  use the measured card quadrilateral. Two-card scenes use the measured pair before applying only
+  small bounded jitter. Each receipt records the source event and selection policy. This removes
+  the earlier cross-table translation of unrelated card shapes.
 - The real smoke set contains 8 scenes, 8 images, and 11 annotations. COCO validation passes.
   It includes fully visible, separated, shallow/medium/heavy overlap, frame clipping, blurred or
   glare-affected, and reviewed-empty-background scenes.
 - Face-down and mixed-side buckets are explicitly omitted because M1 has no face-down cutout.
   No face-down pixels or labels are fabricated.
 - The current real M2 manifest digest is
-  `1051123ed7f90ecdddefdf8a297d9150c69faef29586817ac6fd467df720b20e`.
-- Added two focused M2 tests. Ruff and the M2 test module pass.
+  `d1f34c1cfb02b2754c36a16e0246a3db69144c20fdeaadfcb944001fcb20f283`.
+- Added a focused geometry-template regression assertion. Ruff and the M2 test module pass.
 
 ### M3 — Materialize and inspect the synthetic training set
 
