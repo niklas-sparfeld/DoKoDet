@@ -19,7 +19,9 @@
 - **M1:** Complete — the development provider reuses one 0068 bundle for full-frame clustering and
   fine crop inference, with source-linked mapping, reconciliation, and partial diagnostics.
 - **M2:** Complete — derive and materialize the full-frame card-cluster detection dataset.
-- **M3:** Not started — train and bundle one RF-DETR Small full-frame card-cluster model.
+- **M3:** Blocked — the deterministic RF-DETR Small trainer, evaluator, resource guard, and
+  reloadable bundle are implemented; the bounded real run needs the frozen 0068/M2 materialization
+  and official RF-DETR Small checkpoint, which are not present in this checkout.
 - **M4:** Not started — derive and materialize the cluster-crop segmentation dataset.
 - **M5:** Not started — fine-tune and bundle one RF-DETR SegMedium cluster model.
 - **M6:** Not started — assemble, integrate, and verify the completed cascade provider.
@@ -307,6 +309,28 @@ Acceptance:
 - validation reports every metric in section 4.1 and satisfies the frozen containment floor;
 - training and inference run on the explicit local device without silent fallback; and
 - no other coarse architecture or target representation is trained.
+
+#### M3 implementation evidence — 2026-09-20
+
+- Added `table_evidence_analyzer.rfdetr_card_cluster_training` with one frozen detection-only
+  `RFDETRSmall` candidate, one `card_cluster` class, 512 × 512 input, RF-DETR 1.9.4, seed 7101,
+  40 epochs, effective batch size 4, MPS memory-independent resource facts, and a 7,200 second
+  wall-clock bound. The real runner checks the requested device and package and does not fall back
+  to another device or architecture.
+- Added strict M2 materialization and generated-file digest checks, staged train/validation COCO
+  data, fixture and real training paths, checkpoint-difference checks, native `RFDETRSmall`
+  reload checks, and a self-contained bundle that pins the class map, input size, recipe, data
+  digest, package, pretrained digest, selected threshold, and validation report.
+- Added validation threshold calibration over the frozen confidence candidates. It selects the
+  highest threshold that meets the reviewed-card crop-containment recall floor of 0.98 and retains
+  cluster recall, missed cards, extra clusters, clusters per frame, crop-area ratio, and coarse
+  latency evidence with source frame and card lineage.
+- Added `table-analyzer train-rfdetr-card-cluster-campaign` and
+  `table-analyzer evaluate-rfdetr-card-cluster`, plus four focused campaign and bundle tests.
+  The full `table_evidence_analyzer` suite passes with 202 tests and 3 skips.
+- The real campaign is not run in this checkout because the frozen 0068/M2 materialization and
+  official RF-DETR Small checkpoint are absent. Fixture execution proves the contract but does
+  not satisfy the real-run acceptance gate. No M3 checkpoint is claimed as a model result.
 
 ### M4 — Materialize cluster-crop segmentation data
 

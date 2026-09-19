@@ -215,12 +215,8 @@ def build_parser() -> argparse.ArgumentParser:
     dinov3_evaluate_parser.add_argument("--run", type=Path, required=True)
     dinov3_evaluate_parser.add_argument("--bundle", type=Path, required=True)
     dinov3_evaluate_parser.add_argument("--output", type=Path, required=True)
-    dinov3_evaluate_parser.add_argument(
-        "--device", choices=("cpu", "mps", "cuda"), default="cpu"
-    )
-    dinov3_evaluate_parser.add_argument(
-        "--probability-tolerance", type=float, default=1e-5
-    )
+    dinov3_evaluate_parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default="cpu")
+    dinov3_evaluate_parser.add_argument("--probability-tolerance", type=float, default=1e-5)
 
     visible_card_train_parser = commands.add_parser(
         "train-visible-card-detector",
@@ -298,6 +294,46 @@ def build_parser() -> argparse.ArgumentParser:
             "Resume an interrupted campaign from a full RF-DETR checkpoint inside "
             "<output-dir>/rfdetr."
         ),
+    )
+
+    card_cluster_campaign_parser = commands.add_parser(
+        "train-rfdetr-card-cluster-campaign",
+        aliases=("train-rfdetr-card-cluster",),
+        help="Train and bundle the bounded RF-DETR Small card-cluster campaign.",
+        description=(
+            "Validate the frozen 0071 M2 COCO view, train one RF-DETR Small candidate, "
+            "calibrate its validation threshold, and write a reloadable bundle."
+        ),
+    )
+    card_cluster_campaign_parser.add_argument("--dataset-dir", type=Path, required=True)
+    card_cluster_campaign_parser.add_argument("--pretrained-checkpoint", type=Path, required=True)
+    card_cluster_campaign_parser.add_argument("--output-dir", type=Path, required=True)
+    card_cluster_campaign_parser.add_argument(
+        "--runner",
+        choices=("rfdetr", "fixture"),
+        default="rfdetr",
+        help="Use rfdetr for the real campaign or fixture for contract tests.",
+    )
+    card_cluster_campaign_parser.add_argument(
+        "--device", choices=("cpu", "mps", "cuda"), default="mps"
+    )
+
+    card_cluster_validation_parser = commands.add_parser(
+        "evaluate-rfdetr-card-cluster",
+        help="Calibrate the RF-DETR Small card-cluster threshold on validation data.",
+        description=(
+            "Evaluate the full-frame card-cluster checkpoint and select the highest "
+            "confidence threshold that meets the frozen crop-containment floor."
+        ),
+    )
+    card_cluster_validation_parser.add_argument("--dataset-dir", type=Path, required=True)
+    card_cluster_validation_parser.add_argument("--checkpoint", type=Path, required=True)
+    card_cluster_validation_parser.add_argument("--output-dir", type=Path, required=True)
+    card_cluster_validation_parser.add_argument(
+        "--runner", choices=("rfdetr", "fixture"), default="rfdetr"
+    )
+    card_cluster_validation_parser.add_argument(
+        "--device", choices=("cpu", "mps", "cuda"), default="mps"
     )
 
     segmentation_validation_parser = commands.add_parser(
@@ -739,6 +775,49 @@ def main(argv: Sequence[str] | None = None) -> int:
                     device=args.device,
                     train_image_count=args.train_image_count,
                     validation_image_count=args.validation_image_count,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command in {
+        "train-rfdetr-card-cluster-campaign",
+        "train-rfdetr-card-cluster",
+    }:
+        from .rfdetr_card_cluster_training import (
+            RfdetrCardClusterTrainingConfig,
+            run_rfdetr_card_cluster_training,
+        )
+
+        try:
+            report = run_rfdetr_card_cluster_training(
+                RfdetrCardClusterTrainingConfig(
+                    dataset_dir=args.dataset_dir,
+                    pretrained_checkpoint=args.pretrained_checkpoint,
+                    output_dir=args.output_dir,
+                    runner=args.runner,
+                    device=args.device,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "evaluate-rfdetr-card-cluster":
+        from .rfdetr_card_cluster_training import (
+            RfdetrCardClusterEvaluationConfig,
+            evaluate_rfdetr_card_cluster_validation,
+        )
+
+        try:
+            report = evaluate_rfdetr_card_cluster_validation(
+                RfdetrCardClusterEvaluationConfig(
+                    dataset_dir=args.dataset_dir,
+                    checkpoint=args.checkpoint,
+                    output_dir=args.output_dir,
+                    runner=args.runner,
+                    device=args.device,
                 )
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
