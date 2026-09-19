@@ -30,8 +30,9 @@
   training remains operator-started and was not started here.
 - **M5:** Complete with a declared gap — all 24 recordings are audited for exact human-reference
   one-, two-, and three-card geometry; 38 train-only scenes are synthesized across 15 training
-  recordings. An expanded 507-scene ratio-comparison pool is also materialized from all 169
-  train candidates. Validation and sealed-test recordings are discovery-only.
+  recordings. An expanded 546-scene ratio-comparison pool uses three train-only geometry frames
+  per table setup and supports up to four cards. Validation and sealed-test recordings are
+  discovery-only.
 - **M6:** Not started — measure annotation correction effort and publish the decision.
 
 ## 1. Purpose
@@ -435,12 +436,15 @@ Acceptance:
   face-down cutout.
 - The generated COCO view passes the repository validator. The focused M5 tests pass, and the
   command does not invoke RF-DETR training.
-- Added explicit `--candidate-policy` and `--variants-per-candidate` controls. The original 38
-  scenes remain the conservative baseline. A separate ratio-comparison pool uses all 169 train
-  geometry candidates with three deterministic variants each: 507 images and 843 annotations.
-  The merged view contains 1,044 train images, with 48.56% synthetic images, and keeps the
+- Added explicit `--candidate-policy`, `--variants-per-candidate`, `--max-card-count`, and
+  `--geometry-reference-frame-count` controls. The original 38 scenes remain the conservative
+  baseline. The new ratio-comparison pool uses all 182 strict train geometry candidates with
+  three deterministic variants each: 546 images and 999 annotations. It selects three valid
+  train-only reference frames for each of 14 table setups and uses their robust card-shape
+  estimate to regularize the projective placement. The pool contains 39 four-card scenes.
+- The merged view contains 1,083 train images, with 50.42% synthetic images, and keeps the
   validation and sealed-test partitions unchanged. Its materialization digest is
-  `1bc6fc10c052469cb1768bd7061b05811b78481c045d86ac7a5f6b47d959b5c8`.
+  `1b31edf634996c00c29250abddfd7ab690dd2a77b29680c9579ab22a0ae02e72`.
 
 ### M6 — Measure correction effort and publish the decision
 

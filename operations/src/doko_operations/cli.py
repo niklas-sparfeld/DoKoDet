@@ -203,6 +203,17 @@ from .synthetic_visible_region_materialization import (
     write_synthetic_visible_region_inputs,
 )
 from .synthetic_visible_region_recording_synthesis import (
+    GEOMETRY_REFERENCE_FRAME_COUNT_DEFAULT,
+    MAX_CARD_COUNT_DEFAULT,
+    SYNTHESIS_CANDIDATE_POLICIES,
+    SYNTHESIS_CANDIDATE_POLICY_DEFAULT,
+    SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT,
+    SyntheticVisibleRegionAllRecordingsError,
+    build_synthetic_visible_region_all_recordings,
+    render_synthetic_visible_region_all_recordings_human,
+    write_synthetic_visible_region_all_recordings_manifest,
+)
+from .synthetic_visible_region_recording_synthesis import (
     M1_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_M1_DEFAULT,
 )
 from .synthetic_visible_region_recording_synthesis import (
@@ -216,15 +227,6 @@ from .synthetic_visible_region_recording_synthesis import (
 )
 from .synthetic_visible_region_recording_synthesis import (
     SOURCE_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_ALL_RECORDINGS_SOURCE_DEFAULT,
-)
-from .synthetic_visible_region_recording_synthesis import (
-    SYNTHESIS_CANDIDATE_POLICIES,
-    SYNTHESIS_CANDIDATE_POLICY_DEFAULT,
-    SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT,
-    SyntheticVisibleRegionAllRecordingsError,
-    build_synthetic_visible_region_all_recordings,
-    render_synthetic_visible_region_all_recordings_human,
-    write_synthetic_visible_region_all_recordings_manifest,
 )
 from .synthetic_visible_region_rendering import (
     OUTPUT_DIRECTORY_DEFAULT as SYNTHETIC_VISIBLE_REGION_SCENES_OUTPUT_DEFAULT,
@@ -1010,6 +1012,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT,
         help="Render this many deterministic card-asset and photometric variants per candidate.",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--max-card-count",
+        type=int,
+        default=MAX_CARD_COUNT_DEFAULT,
+        help="Include corrected geometry frames with up to this many cards (maximum: 4).",
+    )
+    synthetic_visible_region_all_recordings.add_argument(
+        "--geometry-reference-frame-count",
+        type=int,
+        default=GEOMETRY_REFERENCE_FRAME_COUNT_DEFAULT,
+        help="Use this many train-only frames to estimate each table setup's card geometry.",
     )
     synthetic_visible_region_all_recordings.add_argument(
         "--format", choices=("human", "json"), default="human"
@@ -2301,6 +2315,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 discover_only=args.discover_only,
                 candidate_policy=args.candidate_policy,
                 variants_per_candidate=args.variants_per_candidate,
+                max_card_count=args.max_card_count,
+                geometry_reference_frame_count=args.geometry_reference_frame_count,
             )
             output_path = args.output
             if not output_path.is_absolute():

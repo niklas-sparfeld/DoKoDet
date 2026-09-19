@@ -59,6 +59,9 @@ HELD_OUT_PARTITIONS = frozenset({"validation", "sealed_test"})
 SYNTHESIS_CANDIDATE_POLICIES = ("selected_per_recording", "all_train_candidates")
 SYNTHESIS_CANDIDATE_POLICY_DEFAULT = "selected_per_recording"
 SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT = 1
+MAX_CARD_COUNT_DEFAULT = max(CARD_COUNTS)
+GEOMETRY_REFERENCE_FRAME_COUNT_DEFAULT = 1
+GEOMETRY_REGULARIZATION_BLEND = 0.35
 _SHA256_LENGTH = 64
 
 
@@ -218,10 +221,12 @@ def _source_group_by_recording(manifest: Mapping[str, Any]) -> dict[str, Mapping
 
 
 def _candidate_from_sample(
-    sample: Mapping[str, Any], group: Mapping[str, Any]
+    sample: Mapping[str, Any],
+    group: Mapping[str, Any],
+    card_counts: Sequence[int] = CARD_COUNTS,
 ) -> dict[str, Any] | None:
     targets = sample.get("targets")
-    if not isinstance(targets, list) or len(targets) not in CARD_COUNTS:
+    if not isinstance(targets, list) or len(targets) not in card_counts:
         return None
     if sample.get("ignored_regions"):
         return None
@@ -260,12 +265,62 @@ def _candidate_from_sample(
     }
 
 
+def _geometry_reference_from_sample(
+    sample: Mapping[str, Any], group: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    targets = sample.get("targets")
+    if not isinstance(targets, list) or sample.get("ignored_regions"):
+        return None
+    quads: list[list[dict[str, float]]] = []
+    kinds: list[str] = []
+    sides: list[str] = []
+    for target in targets:
+        if not isinstance(target, Mapping):
+            continue
+        parsed = _quad(target)
+        if parsed is None:
+            continue
+        geometry = target.get("geometry", {})
+        quads.append(parsed)
+        kinds.append(str(geometry.get("kind", "unknown")))
+        sides.append(str(target.get("side", "unknown")))
+    if not quads:
+        return None
+    metrics = _quad_metrics(quads)
+    reviewed_count = sum(kind == "reviewed-visible-region/v1" for kind in kinds)
+    return {
+        "candidate_id": f"{sample['event_id']}-geometry-reference",
+        "event_id": str(sample["event_id"]),
+        "item_id": str(sample.get("item_id", sample["event_id"])),
+        "recording_id": str(sample["recording_id"]),
+        "source_group_key": str(group["group_key"]),
+        "source_split": str(sample["split"]),
+        "table_setup": str(group["table_setup"]),
+        "frame_identity": dict(sample["frame_identity"]),
+        "card_count": len(quads),
+        "card_sides": sides,
+        "annotation_kinds": kinds,
+        "reviewed_target_count": reviewed_count,
+        "normalized_quadrilaterals": quads,
+        "metrics": metrics,
+        "selection_score": _candidate_score(metrics, reviewed_count, len(quads)),
+        "selection": "train-only-valid-four-corner-geometry-reference-v1",
+    }
+
+
 def build_synthetic_visible_region_recording_discovery(
     repository_root: str | Path,
     *,
     source_manifest_path: str | Path = SOURCE_MANIFEST_DEFAULT,
+    max_card_count: int = MAX_CARD_COUNT_DEFAULT,
 ) -> dict[str, Any]:
-    """Audit exact 1/2/3-card geometry across every frozen 0068 recording."""
+    """Audit exact 1-to-4-card geometry across every frozen 0068 recording."""
+
+    if not 1 <= max_card_count <= 4:
+        raise SyntheticVisibleRegionAllRecordingsError(
+            "max_card_count must be between 1 and 4"
+        )
+    card_counts = tuple(range(1, max_card_count + 1))
 
     repository = Path(repository_root).expanduser().resolve()
     source_path = _resolve(repository, source_manifest_path)
@@ -278,6 +333,7 @@ def build_synthetic_visible_region_recording_discovery(
         ) from error
     groups = _source_group_by_recording(source_manifest)
     candidates: list[dict[str, Any]] = []
+    geometry_reference_candidates: list[dict[str, Any]] = []
     for sample in source_manifest.get("samples", []):
         if not isinstance(sample, Mapping) or str(sample.get("split")) not in {
             "train",
@@ -289,10 +345,17 @@ def build_synthetic_visible_region_recording_discovery(
         group = groups.get(recording_id)
         if group is None:
             continue
-        candidate = _candidate_from_sample(sample, group)
+        candidate = _candidate_from_sample(sample, group, card_counts)
         if candidate is not None:
             candidates.append(candidate)
+        if str(sample.get("split")) == TRAIN_PARTITION:
+            reference = _geometry_reference_from_sample(sample, group)
+            if reference is not None:
+                geometry_reference_candidates.append(reference)
     candidates.sort(key=lambda item: (item["recording_id"], item["card_count"], item["event_id"]))
+    geometry_reference_candidates.sort(
+        key=lambda item: (item["table_setup"], item["event_id"])
+    )
     by_recording: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for candidate in candidates:
         by_recording[candidate["recording_id"]].append(candidate)
@@ -301,7 +364,7 @@ def build_synthetic_visible_region_recording_discovery(
         group = groups[recording_id]
         recording_candidates = by_recording.get(recording_id, [])
         selected = {}
-        for card_count in CARD_COUNTS:
+        for card_count in card_counts:
             options = [item for item in recording_candidates if item["card_count"] == card_count]
             if options:
                 selected[str(card_count)] = max(
@@ -326,7 +389,7 @@ def build_synthetic_visible_region_recording_discovery(
                     str(card_count): sum(
                         item["card_count"] == card_count for item in recording_candidates
                     )
-                    for card_count in CARD_COUNTS
+                    for card_count in card_counts
                 },
                 "selected_candidates": selected,
                 "synthesis_policy": (
@@ -353,7 +416,8 @@ def build_synthetic_visible_region_recording_discovery(
             "manifest_digest": str(source_manifest["manifest_digest"]),
         },
         "policy": {
-            "card_counts": list(CARD_COUNTS),
+            "card_counts": list(card_counts),
+            "max_card_count": max_card_count,
             "discovery_partitions": ["train", "validation", "sealed_test"],
             "synthesis_partitions": [TRAIN_PARTITION],
             "held_out_synthesis": False,
@@ -372,6 +436,7 @@ def build_synthetic_visible_region_recording_discovery(
         },
         "recordings": recordings,
         "candidates": candidates,
+        "geometry_reference_candidates": geometry_reference_candidates,
         "outputs": None,
         "coverage_gaps": [
             "validation and sealed_test geometry is audited for table discovery only",
@@ -486,13 +551,138 @@ def _synthesis_candidates(
         ]
 
     result: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
+    card_counts = tuple(
+        int(value) for value in discovery.get("policy", {}).get("card_counts", CARD_COUNTS)
+    )
     for recording in discovery["recordings"]:
         if not isinstance(recording, Mapping) or recording["source_split"] != TRAIN_PARTITION:
             continue
-        for card_count in CARD_COUNTS:
+        for card_count in card_counts:
             candidate = recording["selected_candidates"].get(str(card_count))
             if candidate is not None:
                 result.append((recording, candidate))
+    return result
+
+
+def _canonical_quad_array(quad: Sequence[Mapping[str, float]]) -> np.ndarray:
+    points = _quad_array(quad)
+    center = np.mean(points, axis=0)
+    order = np.argsort(np.arctan2(points[:, 1] - center[1], points[:, 0] - center[0]))
+    points = points[order]
+    if cv2.contourArea(points, oriented=True) < 0:
+        points = points[::-1]
+    start = int(np.argmin(np.sum(points, axis=1)))
+    return np.roll(points, -start, axis=0)
+
+
+def _normalized_quad_shape(quad: Sequence[Mapping[str, float]]) -> np.ndarray:
+    points = _canonical_quad_array(quad)
+    area = abs(float(cv2.contourArea(points)))
+    if area <= 0.0:
+        raise SyntheticVisibleRegionAllRecordingsError("geometry quad has zero area")
+    return (points - np.mean(points, axis=0)) / np.sqrt(area)
+
+
+def _select_table_geometry_references(
+    discovery: Mapping[str, Any], reference_frame_count: int
+) -> dict[str, list[Mapping[str, Any]]]:
+    candidates_by_setup: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    geometry_candidates = discovery.get(
+        "geometry_reference_candidates", discovery["candidates"]
+    )
+    for candidate in geometry_candidates:
+        if isinstance(candidate, Mapping) and candidate.get("source_split") == TRAIN_PARTITION:
+            candidates_by_setup[str(candidate["table_setup"])].append(candidate)
+    card_counts = tuple(
+        int(value) for value in discovery.get("policy", {}).get("card_counts", CARD_COUNTS)
+    )
+    preferred_counts = tuple(
+        value for value in (1, 2, 4, 3) if value in card_counts
+    )
+    result: dict[str, list[Mapping[str, Any]]] = {}
+    for table_setup, candidates in sorted(candidates_by_setup.items()):
+        ranked = sorted(
+            candidates,
+            key=lambda item: (
+                float(item["selection_score"]),
+                int(item["reviewed_target_count"]),
+                str(item["event_id"]),
+            ),
+            reverse=True,
+        )
+        references: list[Mapping[str, Any]] = []
+        for card_count in preferred_counts:
+            options = [
+                candidate
+                for candidate in ranked
+                if candidate["card_count"] == card_count and candidate not in references
+            ]
+            if options:
+                references.append(options[0])
+            if len(references) == reference_frame_count:
+                break
+        for candidate in ranked:
+            if len(references) == reference_frame_count:
+                break
+            if candidate not in references:
+                references.append(candidate)
+        if len(references) < reference_frame_count:
+            raise SyntheticVisibleRegionAllRecordingsError(
+                f"table setup {table_setup} has only {len(references)} train geometry frames; "
+                f"{reference_frame_count} are required"
+            )
+        result[table_setup] = references
+    return result
+
+
+def _estimate_table_geometry(
+    table_setup: str, references: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    shapes = [
+        _normalized_quad_shape(quad)
+        for reference in references
+        for quad in reference["normalized_quadrilaterals"]
+    ]
+    estimate = np.median(np.stack(shapes), axis=0)
+    return {
+        "table_setup": table_setup,
+        "reference_frame_count": len(references),
+        "reference_candidate_ids": [str(reference["candidate_id"]) for reference in references],
+        "reference_event_ids": [str(reference["event_id"]) for reference in references],
+        "reference_card_counts": [int(reference["card_count"]) for reference in references],
+        "normalized_quad_shape": [
+            {"x": _round(float(point[0])), "y": _round(float(point[1]))}
+            for point in estimate
+        ],
+        "regularization_blend": GEOMETRY_REGULARIZATION_BLEND,
+    }
+
+
+def _regularize_quadrilaterals(
+    quads: Sequence[Sequence[Mapping[str, float]]], estimate: Mapping[str, Any]
+) -> list[list[dict[str, float]]]:
+    shape = np.asarray(
+        [[point["x"], point["y"]] for point in estimate["normalized_quad_shape"]],
+        dtype=np.float32,
+    )
+    result: list[list[dict[str, float]]] = []
+    for quad in quads:
+        original = _canonical_quad_array(quad)
+        area = abs(float(cv2.contourArea(original)))
+        center = np.mean(original, axis=0)
+        estimated = center + shape * np.sqrt(area)
+        blended = (
+            original * (1.0 - GEOMETRY_REGULARIZATION_BLEND)
+            + estimated * GEOMETRY_REGULARIZATION_BLEND
+        )
+        if float(np.min(blended)) <= 0.0 or float(np.max(blended)) >= 1.0:
+            blended = original
+        result.append(
+            [
+                {"x": _round(float(point[0])), "y": _round(float(point[1]))}
+                for point in blended
+            ]
+        )
     return result
 
 
@@ -508,6 +698,7 @@ def _render_recording_scene(
     assets: Sequence[Mapping[str, Any]],
     seed: int,
     image_id: int,
+    geometry_estimate: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     scene = cv2.imread(str(background_path), cv2.IMREAD_COLOR)
     if scene is None:
@@ -674,6 +865,7 @@ def _render_recording_scene(
             "normalized_quadrilaterals": candidate["normalized_quadrilaterals"],
             "metrics": candidate["metrics"],
         },
+        "geometry_estimate": dict(geometry_estimate) if geometry_estimate else None,
         "background": {
             "strategy": "reviewed-source-frame-card-region-inpaint-v1",
             "source_event_id": candidate["event_id"],
@@ -761,6 +953,8 @@ def build_synthetic_visible_region_all_recordings(
         "selected_per_recording", "all_train_candidates"
     ] = SYNTHESIS_CANDIDATE_POLICY_DEFAULT,
     variants_per_candidate: int = SYNTHESIS_VARIANTS_PER_CANDIDATE_DEFAULT,
+    max_card_count: int = MAX_CARD_COUNT_DEFAULT,
+    geometry_reference_frame_count: int = GEOMETRY_REFERENCE_FRAME_COUNT_DEFAULT,
 ) -> dict[str, Any]:
     """Discover all recording geometries and optionally render train-only scenes."""
 
@@ -772,10 +966,16 @@ def build_synthetic_visible_region_all_recordings(
         raise SyntheticVisibleRegionAllRecordingsError(
             "variants_per_candidate must be at least 1"
         )
+    if not 1 <= geometry_reference_frame_count <= 3:
+        raise SyntheticVisibleRegionAllRecordingsError(
+            "geometry_reference_frame_count must be between 1 and 3"
+        )
 
     repository = Path(repository_root).expanduser().resolve()
     discovery = build_synthetic_visible_region_recording_discovery(
-        repository, source_manifest_path=source_manifest_path
+        repository,
+        source_manifest_path=source_manifest_path,
+        max_card_count=max_card_count,
     )
     if discover_only:
         return discovery
@@ -793,6 +993,13 @@ def build_synthetic_visible_region_all_recordings(
     output_root.mkdir(parents=True, exist_ok=True)
     usable = _usable_cutouts(repository, m1)
     synthesis_candidates = _synthesis_candidates(discovery, candidate_policy)
+    table_references = _select_table_geometry_references(
+        discovery, geometry_reference_frame_count
+    )
+    table_geometry = {
+        table_setup: _estimate_table_geometry(table_setup, references)
+        for table_setup, references in table_references.items()
+    }
     scene_summaries: list[dict[str, Any]] = []
     coco_images: list[dict[str, Any]] = []
     coco_annotations: list[dict[str, Any]] = []
@@ -830,6 +1037,14 @@ def build_synthetic_visible_region_all_recordings(
                     f"could not encode background {recording['recording_id']}"
                 )
             background_digest = _write_bytes(background_path, encoded_background.tobytes())
+            geometry_estimate = table_geometry[str(recording["table_setup"])]
+            scene_candidate = dict(candidate)
+            scene_candidate["normalized_quadrilaterals"] = _regularize_quadrilaterals(
+                candidate["normalized_quadrilaterals"], geometry_estimate
+            )
+            scene_candidate["metrics"] = _quad_metrics(
+                scene_candidate["normalized_quadrilaterals"]
+            )
             if (
                 candidate_policy == SYNTHESIS_CANDIDATE_POLICY_DEFAULT
                 and variants_per_candidate == 1
@@ -849,7 +1064,7 @@ def build_synthetic_visible_region_all_recordings(
                 output_root,
                 scene_id=scene_id,
                 recording=recording,
-                candidate=candidate,
+                candidate=scene_candidate,
                 background_path=background_path,
                 background_digest=frame_digest,
                 assets=_selected_assets(
@@ -860,6 +1075,7 @@ def build_synthetic_visible_region_all_recordings(
                 ),
                 seed=7001 + scene_index,
                 image_id=scene_index + 1,
+                geometry_estimate=geometry_estimate,
             )
             summary["background_path"] = _relative(background_path, repository)
             summary["background_sha256"] = background_digest
@@ -908,6 +1124,9 @@ def build_synthetic_visible_region_all_recordings(
             "candidate_policy": candidate_policy,
             "candidate_count": len(synthesis_candidates),
             "variants_per_candidate": variants_per_candidate,
+            "max_card_count": max_card_count,
+            "geometry_reference_frame_count": geometry_reference_frame_count,
+            "table_geometry_estimates": table_geometry,
             "seed_start": 7001,
         },
         "inventory": {
@@ -949,11 +1168,13 @@ def write_synthetic_visible_region_all_recordings_manifest(
 
 def render_synthetic_visible_region_all_recordings_human(manifest: Mapping[str, Any]) -> str:
     inventory = manifest["inventory"]
+    card_counts = manifest.get("policy", {}).get("card_counts", list(CARD_COUNTS))
+    card_count_label = "/".join(str(value) for value in card_counts)
     lines = [
         "Epic 0070 all-recordings table geometry and synthesis",
         f"state: {manifest['freeze_state']}",
         f"recordings audited: {inventory['recording_count']}",
-        f"1/2/3-card candidates: {inventory['candidate_count']}",
+        f"{card_count_label}-card candidates: {inventory['candidate_count']}",
     ]
     if manifest.get("outputs"):
         lines.extend(
@@ -975,6 +1196,8 @@ __all__ = [
     "MANIFEST_DEFAULT",
     "M1_MANIFEST_DEFAULT",
     "MATERIALIZATION_DEFAULT",
+    "GEOMETRY_REFERENCE_FRAME_COUNT_DEFAULT",
+    "MAX_CARD_COUNT_DEFAULT",
     "OUTPUT_DIRECTORY_DEFAULT",
     "SOURCE_MANIFEST_DEFAULT",
     "SYNTHESIS_CANDIDATE_POLICIES",
