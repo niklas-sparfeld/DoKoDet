@@ -227,6 +227,18 @@ The pixels of one visible card that can be reviewed in a source frame. A visible
 include hidden card pixels, an occluding card, a human hand, or the background. One visible region
 can use more than one polygon when an occluder splits the visible pixels.
 
+### Card cutout
+
+A training-only image and exact alpha mask made from one reviewed, complete visible region. A card
+cutout is source material for offline compositing. It does not add hidden card pixels or change the
+maintained reference.
+
+### Synthetic training scene
+
+One offline training image made by compositing reviewed card cutouts onto a reviewed background with
+recorded geometry and z-order. Its exact visible-region masks are renderer outputs. A synthetic
+training scene is not a reviewed source frame or an independent source group.
+
 ### Visible-card ignore region
 
 A reviewed source-frame region that contains visible card-like evidence but does not support

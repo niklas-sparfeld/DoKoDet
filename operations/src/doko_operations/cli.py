@@ -172,6 +172,12 @@ from .round_split import (
     suggest_identifiers,
 )
 from .status import render_human, render_json
+from .synthetic_visible_region_campaign import (
+    SyntheticVisibleRegionCampaignError,
+    build_synthetic_visible_region_manifest,
+    render_synthetic_visible_region_human,
+    write_synthetic_visible_region_manifest,
+)
 from .system_holdout import (
     FAILURE_BOUNDARIES,
     SystemHoldoutEvaluationError,
@@ -648,6 +654,50 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reviewed_rfdetr_materialize.add_argument("--format", choices=("human", "json"), default="human")
     reviewed_rfdetr_materialize.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    synthetic_visible_region = data_commands.add_parser(
+        "synthetic-visible-region",
+        aliases=("synthetic-rfdetr",),
+        help="Audit and freeze the epic 0070 synthetic visible-region experiment input.",
+        description="Audit and freeze the epic 0070 synthetic visible-region experiment input.",
+    )
+    _add_path_options(synthetic_visible_region, suppress_defaults=True)
+    synthetic_visible_region.add_argument(
+        "--source-manifest",
+        type=Path,
+        default=None,
+        help="Frozen 0068 reviewed-detector M0 manifest.",
+    )
+    synthetic_visible_region.add_argument(
+        "--materialization",
+        type=Path,
+        default=None,
+        help="0068 materialization directory or materialization.json path.",
+    )
+    synthetic_visible_region.add_argument(
+        "--detector-bundle",
+        type=Path,
+        default=None,
+        help="0068 local RF-DETR detector bundle directory.",
+    )
+    synthetic_visible_region.add_argument(
+        "--validation-report",
+        type=Path,
+        default=None,
+        help="0068 locked validation report.",
+    )
+    synthetic_visible_region.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/operations/synthetic-visible-region-0070-m0-manifest.json"),
+        help=(
+            "Immutable manifest path (default: "
+            "data/operations/synthetic-visible-region-0070-m0-manifest.json)."
+        ),
+    )
+    synthetic_visible_region.add_argument("--format", choices=("human", "json"), default="human")
+    synthetic_visible_region.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     comparison = data_commands.add_parser(
@@ -1723,6 +1773,37 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"manifest: {result.materialization_digest}\n"
             )
         return 0
+    if args.command == "data" and args.data_command in {
+        "synthetic-visible-region",
+        "synthetic-rfdetr",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            manifest = build_synthetic_visible_region_manifest(
+                config.repository_root,
+                source_manifest_path=args.source_manifest,
+                materialization_path=args.materialization,
+                detector_bundle_path=args.detector_bundle,
+                validation_report_path=args.validation_report,
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            write_synthetic_visible_region_manifest(output_path, manifest)
+        except (ConfigurationError, OSError, SyntheticVisibleRegionCampaignError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_synthetic_visible_region_human(manifest))
+        return 0 if manifest["freeze_state"] == "frozen" else 1
     if args.command == "data" and args.data_command == "resilience-materialize":
         try:
             config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))

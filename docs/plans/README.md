@@ -58,6 +58,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0070 — Synthetic visible-region training data](4-blocked/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 training-only reviewed inputs; operator-reviewed background and face-down cutout required | M0 complete and blocked before M1: the dry run found 86 eligible card cutouts but no reviewed empty background and no eligible face-down cutout. Add those inputs before materialization or training. |
 | [0052 — Selected response to visible-region identity failures](4-blocked/0052-Selected_Visible_Region_Identity_Response.md) | 0051 selects one follow-up identity response | Implement and evaluate at most one response to the measured 0051 failure. Close as not required for any other 0051 conclusion. M0–M3 not started. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and 0051 complete; resolve 0052 if required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against the fixed resilient identifier, then select at most one justified capability response. The completed 0067 `poc_candidate` is optional later input; M0–M3 not started. |
 
@@ -288,6 +289,22 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   and do not enter the first campaign.
 - The operator runs real pretrained-weight acquisition and training. The agent completes short
   preflight work and supplies one exact concrete command for each long-running operation.
+
+### Planning decision — 2026-09-18
+
+- Add 0070 as a Ready, bounded synthetic visible-region training-data experiment. It builds on the
+  completed reviewed RF-DETR detector and does not depend on the blocked composed-quality epic
+  0050.
+- Use operator-marked single-card frames for clean cutouts and reviewed complete quadrilaterals for
+  table-setup-specific perspective examples. Do not claim that one card identifies a global camera
+  homography.
+- Use only 0068 training-partition source material for cards, backgrounds, geometry, image
+  distributions, and optional reviewed occluders. Synthetic scenes can enter training only. Keep
+  real validation and sealed-test data unchanged and free of synthetic contributors.
+- Generate exact visible-region masks from compositing order, clipping, and occlusion. Do not ask
+  Gemini to label generated scenes and do not synthesize visible-card ignore regions.
+- Judge the experiment on real held-out quality and measured human correction effort. Do not
+  promote a provider or change a runtime default in 0070.
 
 ## Closed-epic policy
 
