@@ -93,6 +93,65 @@ def test_calibration_is_repeatable_and_validates_held_out_candidates() -> None:
     assert first.calibration.card_long_size == 1.5
 
 
+def test_calibration_tolerates_one_held_out_crop_quality_region() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+            (2.0, 1.5),
+            (6.0, 4.5),
+            (10.0, 7.0),
+        ]
+    )
+    result["frames"][0]["predictions"][0]["polygon"] = [
+        [100.0, 100.0],
+        [210.0, 100.0],
+        [245.0, 310.0],
+        [100.0, 310.0],
+    ]
+
+    calibration = calibrate_recording(result)
+
+    assert calibration.status == "published"
+    validation = calibration.diagnostics["validation"]
+    assert validation["held_out_aligned_count"] < validation["held_out_count"]
+    assert validation["held_out_aligned_fraction"] >= 0.60
+
+
+def test_calibration_rejects_a_globally_inconsistent_card_plane() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+        ]
+    )
+    for index, frame in enumerate(result["frames"]):
+        frame["predictions"][0]["polygon"] = project_fixed_card(
+            TABLE_TO_IMAGE,
+            ((index % 3) * 4.0, (index // 3) * 3.0),
+            (index % 3) * 8.0,
+            1.0,
+            0.5 if index % 2 else 1.5,
+        ).tolist()
+
+    calibration = calibrate_recording(result)
+
+    assert calibration.status == "failed"
+    assert calibration.failure is not None
+    assert calibration.failure.code == "inconsistent_card_geometry"
+
+
 def test_candidate_mining_rejects_overlaps_and_deduplicates_bins() -> None:
     result = _recording_result(
         positions=[(0.0, 0.0), (4.0, 0.0), (8.0, 0.0), (0.0, 3.0), (4.0, 3.0), (8.0, 3.0)],

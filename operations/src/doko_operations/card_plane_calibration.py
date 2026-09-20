@@ -123,7 +123,11 @@ class CalibrationRecipe:
     holdout_modulus: int = 4
     minimum_spatial_coverage_x: float = 0.25
     minimum_spatial_coverage_y: float = 0.25
-    maximum_held_out_alignment_px: float = 12.0
+    maximum_held_out_alignment_px: float = 20.0
+    minimum_held_out_alignment_fraction: float = 0.60
+    maximum_median_angle_error_degrees: float = 10.0
+    maximum_median_aspect_error: float = 0.10
+    maximum_median_parallel_error: float = 0.10
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.confidence_threshold <= 1.0:
@@ -146,12 +150,23 @@ class CalibrationRecipe:
             _positive_int(getattr(self, field), field)
         if self.scale_bin_octaves <= 0 or self.orientation_bin_degrees <= 0:
             raise CardPlaneCalibrationError("scale and orientation bins must be positive")
-        for field in ("minimum_spatial_coverage_x", "minimum_spatial_coverage_y"):
+        for field in (
+            "minimum_spatial_coverage_x",
+            "minimum_spatial_coverage_y",
+            "minimum_held_out_alignment_fraction",
+        ):
             value = getattr(self, field)
             if not 0.0 <= value <= 1.0:
                 raise CardPlaneCalibrationError(f"{field} must be between zero and one")
         if self.maximum_held_out_alignment_px <= 0:
             raise CardPlaneCalibrationError("maximum_held_out_alignment_px must be positive")
+        for field in (
+            "maximum_median_angle_error_degrees",
+            "maximum_median_aspect_error",
+            "maximum_median_parallel_error",
+        ):
+            if getattr(self, field) <= 0:
+                raise CardPlaneCalibrationError(f"{field} must be positive")
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -174,6 +189,10 @@ class CalibrationRecipe:
             "minimum_spatial_coverage_x": self.minimum_spatial_coverage_x,
             "minimum_spatial_coverage_y": self.minimum_spatial_coverage_y,
             "maximum_held_out_alignment_px": self.maximum_held_out_alignment_px,
+            "minimum_held_out_alignment_fraction": self.minimum_held_out_alignment_fraction,
+            "maximum_median_angle_error_degrees": self.maximum_median_angle_error_degrees,
+            "maximum_median_aspect_error": self.maximum_median_aspect_error,
+            "maximum_median_parallel_error": self.maximum_median_parallel_error,
         }
 
     @property
@@ -901,6 +920,12 @@ def calibrate_recording(
             "median_parallel_error",
         )
     }
+    fit_quality = bool(
+        fit["median_angle_error_degrees"] <= selected_recipe.maximum_median_angle_error_degrees
+        and fit["median_aspect_error"] <= selected_recipe.maximum_median_aspect_error
+        and fit["median_parallel_error"] <= selected_recipe.maximum_median_parallel_error
+    )
+    diagnostics["fit"]["quality_passed"] = fit_quality
     table_to_image = fit["table_to_image"]
     image_to_table = fit["image_to_table"]
 
@@ -922,6 +947,10 @@ def calibrate_recording(
         return best
 
     held_out_errors = [alignment_error(item) for item in held_out]
+    aligned_count = sum(
+        error <= selected_recipe.maximum_held_out_alignment_px for error in held_out_errors
+    )
+    aligned_fraction = aligned_count / len(held_out_errors)
     diagnostics["validation"].update(
         {
             "held_out_alignment_errors_px": [
@@ -929,9 +958,12 @@ def calibrate_recording(
             ],
             "held_out_median_alignment_px": float(round(float(np.median(held_out_errors)), 6)),
             "held_out_max_alignment_px": float(round(float(max(held_out_errors)), 6)),
+            "held_out_aligned_count": aligned_count,
+            "held_out_aligned_fraction": float(round(aligned_fraction, 6)),
         }
     )
     gates = {
+        "fit_quality": fit_quality,
         "candidate_count": bool(len(accepted) >= selected_recipe.minimum_candidates),
         "temporal_diversity": bool(len(temporal_bins) >= selected_recipe.minimum_temporal_bins),
         "table_position_diversity": bool(
@@ -946,14 +978,27 @@ def calibrate_recording(
         ),
         "held_out_population": bool(len(held_out) >= selected_recipe.minimum_held_out_candidates),
         "held_out_alignment": bool(
-            max(held_out_errors) <= selected_recipe.maximum_held_out_alignment_px
+            aligned_fraction >= selected_recipe.minimum_held_out_alignment_fraction
         ),
     }
     diagnostics["gates"] = gates
+    if not gates["fit_quality"]:
+        return _failure(
+            "inconsistent_card_geometry",
+            "the accepted calibration candidates do not describe one stable standard-card plane",
+            (
+                "reject crop-only regions that are not complete cards, or split the recording "
+                "at a camera change"
+            ),
+            diagnostics,
+            recording_id,
+            source_revision,
+            receipts,
+        )
     if not gates["held_out_alignment"]:
         return _failure(
             "held_out_alignment_failed",
-            "held-out isolated-card candidates exceed the source-pixel alignment tolerance",
+            "too few held-out isolated-card candidates meet the source-pixel alignment tolerance",
             (
                 "do not publish this calibration; inspect the recording for camera movement, "
                 "zoom, or a changed table setup"
@@ -976,19 +1021,34 @@ def calibrate_recording(
         )[:24]
     )
     diagnostics["calibration_revision_id"] = calibration_revision_id
-    calibration = TablePlaneCalibration.create(
-        calibration_revision_id=calibration_revision_id,
-        recording_id=recording_id,
-        source_revision=source_revision,
-        frame_width=dimensions[0],
-        frame_height=dimensions[1],
-        image_to_table=image_to_table,
-        table_to_image=table_to_image,
-        card_short_size=fit["card_short_size"],
-        card_long_size=fit["card_long_size"],
-        candidate_receipt_digests=accepted_receipt_digests,
-        diagnostics=diagnostics,
-    )
+    try:
+        calibration = TablePlaneCalibration.create(
+            calibration_revision_id=calibration_revision_id,
+            recording_id=recording_id,
+            source_revision=source_revision,
+            frame_width=dimensions[0],
+            frame_height=dimensions[1],
+            image_to_table=image_to_table,
+            table_to_image=table_to_image,
+            card_short_size=fit["card_short_size"],
+            card_long_size=fit["card_long_size"],
+            candidate_receipt_digests=accepted_receipt_digests,
+            diagnostics=diagnostics,
+        )
+    except CardPlaneGeometryError as error:
+        diagnostics["calibration_error"] = str(error)
+        return _failure(
+            "unstable_table_transform",
+            "the fitted table transform is too unstable to publish",
+            (
+                "reject crop-only regions that destabilize the fit, or split the recording "
+                "at a camera change"
+            ),
+            diagnostics,
+            recording_id,
+            source_revision,
+            receipts,
+        )
     return _published_run(recording_id, source_revision, receipts, diagnostics, calibration)
 
 
