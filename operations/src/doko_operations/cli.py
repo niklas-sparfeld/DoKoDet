@@ -176,6 +176,24 @@ from .round_split import (
     suggest_identifiers,
 )
 from .status import render_human, render_json
+from .synthetic_visible_region_annotation_effort import (
+    M4_REPORT_DEFAULT as SYNTHETIC_VISIBLE_REGION_M6_M4_REPORT_DEFAULT,
+)
+from .synthetic_visible_region_annotation_effort import (
+    M5_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_M6_M5_MANIFEST_DEFAULT,
+)
+from .synthetic_visible_region_annotation_effort import (
+    M6_REPORT_DEFAULT as SYNTHETIC_VISIBLE_REGION_M6_REPORT_DEFAULT,
+)
+from .synthetic_visible_region_annotation_effort import (
+    SOURCE_MANIFEST_DEFAULT as SYNTHETIC_VISIBLE_REGION_M6_SOURCE_MANIFEST_DEFAULT,
+)
+from .synthetic_visible_region_annotation_effort import (
+    SyntheticVisibleRegionAnnotationEffortError,
+    build_synthetic_visible_region_m6_report,
+    render_synthetic_visible_region_m6_human,
+    write_synthetic_visible_region_m6_report,
+)
 from .synthetic_visible_region_campaign import (
     SyntheticVisibleRegionCampaignError,
     build_synthetic_visible_region_manifest,
@@ -1289,6 +1307,44 @@ def build_parser() -> argparse.ArgumentParser:
     )
     synthetic_visible_region_m4.add_argument("--format", choices=("human", "json"), default="human")
     synthetic_visible_region_m4.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    synthetic_visible_region_m6 = data_commands.add_parser(
+        "synthetic-visible-region-annotation-effort",
+        aliases=("synthetic-rfdetr-annotation-effort",),
+        help="Audit the epic 0070 M6 annotation-effort pilot boundary.",
+        description=(
+            "Freeze legal development source groups for the annotation-effort pilot and "
+            "publish the M6 decision without reusing held-out frames."
+        ),
+    )
+    _add_path_options(synthetic_visible_region_m6, suppress_defaults=True)
+    synthetic_visible_region_m6.add_argument(
+        "--source-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_M6_SOURCE_MANIFEST_DEFAULT),
+        help="Frozen 0068 reviewed-detector M0 manifest.",
+    )
+    synthetic_visible_region_m6.add_argument(
+        "--m5-manifest",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_M6_M5_MANIFEST_DEFAULT),
+        help="M5 all-recordings audit manifest.",
+    )
+    synthetic_visible_region_m6.add_argument(
+        "--m4-report",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_M6_M4_REPORT_DEFAULT),
+        help="Completed M4 paired comparison report.",
+    )
+    synthetic_visible_region_m6.add_argument(
+        "--output",
+        type=Path,
+        default=Path(SYNTHETIC_VISIBLE_REGION_M6_REPORT_DEFAULT),
+        help="Immutable M6 annotation-effort report.",
+    )
+    synthetic_visible_region_m6.add_argument("--format", choices=("human", "json"), default="human")
+    synthetic_visible_region_m6.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     comparison = data_commands.add_parser(
@@ -2701,6 +2757,40 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         else:
             sys.stdout.write(render_synthetic_visible_region_m4_human(report))
+        return 0
+    if args.command == "data" and args.data_command in {
+        "synthetic-visible-region-annotation-effort",
+        "synthetic-rfdetr-annotation-effort",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(
+                args.repository_root,
+                intake_root=args.intake_root,
+                evidence_package_root=args.evidence_package_root,
+                pending_video_root=args.pending_video_root,
+                artifacts_root=args.artifacts_root,
+            )
+            report = build_synthetic_visible_region_m6_report(
+                config.repository_root,
+                source_manifest_path=args.source_manifest,
+                m5_manifest_path=args.m5_manifest,
+                m4_report_path=args.m4_report,
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            write_synthetic_visible_region_m6_report(output_path, report)
+        except (
+            ConfigurationError,
+            OSError,
+            SyntheticVisibleRegionAnnotationEffortError,
+        ) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_synthetic_visible_region_m6_human(report))
         return 0
     if args.command == "data" and args.data_command == "resilience-materialize":
         try:

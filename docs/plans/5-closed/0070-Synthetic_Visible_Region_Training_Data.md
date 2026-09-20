@@ -6,7 +6,11 @@
   real table backgrounds with table-setup-specific perspective, exact visible-region masks, and
   controlled occlusion. Measure whether the added training data reduces visible-card correction
   work on real frames.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M6 are complete with declared data gaps. The 50/50 candidate improved the
+  frozen real validation result, but no legal development source group remained for human timing,
+  so the candidate is retained as an experiment and is not promoted as an annotation prefill.
 - **Depends on:** 0048, 0049, 0065, and 0068 complete
 - **Outcome:** A reproducible synthetic-data generator, one bounded RF-DETR training comparison,
   and a measured decision about using its candidate as an annotation prefill. Synthetic data does
@@ -33,7 +37,9 @@
   supplied scans, transparent rounded edges, table-level card-paper white balance, scene-shared
   appearance, and deterministic messy 2–4-card layouts. Earlier card-bearing-frame/inpainting pools are
   superseded. No validation or sealed-test recording contributes pixels or geometry.
-- **M6:** Not started — measure annotation correction effort and publish the decision.
+- **M6:** Complete with a declared gap — all 24 frozen source groups belong to training, validation,
+  or sealed test, so no legal development batch exists for human correction timing. The candidate
+  is retained as an experiment and is not promoted as an annotation prefill.
 
 ## 1. Purpose
 
@@ -566,6 +572,24 @@ Acceptance:
 - timing excludes model execution and operator idle time;
 - the report does not treat synthetic contributors as independent real coverage; and
 - no provider is promoted and no runtime default changes in this epic.
+
+#### M6 implementation evidence — 2026-09-20
+
+- Added `synthetic-visible-region-annotation-effort`, a provenance-checked M6 audit and report
+  writer. It validates the frozen 0068 source manifest, the M5 all-recordings audit, and the
+  completed M4 comparison before it selects any development frame.
+- The audit finds 24 source groups: 15 training, six validation, and three sealed-test groups.
+  The legal M6 development set is therefore empty. It does not reuse held-out or training frames,
+  run either detector, or fabricate correction timing and action counts.
+- The report is
+  `data/operations/synthetic-visible-region-0070-m6-annotation-effort.json` with report digest
+  `ba6633e9f72923f581172e00062f66aa1d2140f9f7192335a870bde228e203b0`.
+- M4 remains the only model comparison: the synthetic candidate improved real validation mask AP
+  from `0.813872` to `0.830406` and recall from `0.973404` to `0.984043`. The sealed-test result is
+  reused from M4 and is not rerun.
+- The decision is `retain_as_experiment`. The candidate is not an annotation prefill, no provider
+  is promoted, and no runtime default changes. A later effort pilot needs a new source group and
+  human timing data.
 
 ## 7. Expected decision value
 
