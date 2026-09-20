@@ -66,9 +66,7 @@ def _polygon_area(polygon: tuple[PixelPoint, ...]) -> float:
 
 
 def _mask_polygons(mask: Any, *, width: int, height: int) -> tuple[tuple[PixelPoint, ...], ...]:
-    raw_polygons = visible_cards._sequence(
-        visible_cards._mask_to_polygons(mask), "mask polygons"
-    )
+    raw_polygons = visible_cards._sequence(visible_cards._mask_to_polygons(mask), "mask polygons")
     polygons: list[tuple[PixelPoint, ...]] = []
     for polygon_index, raw_polygon in enumerate(raw_polygons):
         points = tuple(
@@ -111,7 +109,9 @@ def _normalized_polygon(
     )
 
 
-def _crop_source_image(source: Image.Image, crop: Any) -> Image.Image:
+def crop_source_image(source: Image.Image, crop: Any) -> Image.Image:
+    """Materialize the exact neutral-padded source crop used by the cascade runtime."""
+
     canvas = Image.new("RGB", (crop.crop_width, crop.crop_height), crop.padding_color)
     source_box = crop.padded_square_box.intersection(
         PixelBox(0, 0, crop.source_width, crop.source_height)
@@ -416,7 +416,7 @@ class LocalVisibleCardCascadeProvider:
         fine_records: list[dict[str, Any]] = []
         try:
             for cluster in layout.clusters:
-                crop_image = _crop_source_image(source_image, cluster)
+                crop_image = crop_source_image(source_image, cluster)
                 crop_bytes = _png_bytes(crop_image)
                 try:
                     _coarse_crop_records, crop_fine_records = self._predict(
@@ -510,4 +510,5 @@ __all__ = [
     "CASCADE_PROVIDER_NAME",
     "CASCADE_PROVIDER_VERSION",
     "LocalVisibleCardCascadeProvider",
+    "crop_source_image",
 ]

@@ -823,23 +823,23 @@ def _reference_audit(
             retained_frame_keys.add(frame_key)
         result["retained_frame_count"] += 1
         result["target_count"] += len(normalized_candidates)
-        result["samples"].append(
-            {
-                "recording_id": recording_id,
-                "split": recording["split"],
-                "session_id": recording["session_id"],
-                "table_setup": recording["table_setup"],
-                "source_asset_id": recording["source_asset_id"],
-                "source_sha256": recording["source_sha256"],
-                "reference_revision_id": revision_id,
-                "event_id": item_id,
-                "item_id": draft_item.get("item_id")
-                if isinstance(draft_item, Mapping)
-                else item_id,
-                "frame_identity": frame,
-                "targets": normalized_candidates,
-            }
-        )
+        sample = {
+            "recording_id": recording_id,
+            "split": recording["split"],
+            "session_id": recording["session_id"],
+            "table_setup": recording["table_setup"],
+            "source_asset_id": recording["source_asset_id"],
+            "source_sha256": recording["source_sha256"],
+            "reference_revision_id": revision_id,
+            "event_id": item_id,
+            "item_id": draft_item.get("item_id") if isinstance(draft_item, Mapping) else item_id,
+            "frame_identity": frame,
+            "targets": normalized_candidates,
+        }
+        card_scene = outcome.get("card_scene")
+        if isinstance(card_scene, Mapping):
+            sample["card_scene"] = dict(card_scene)
+        result["samples"].append(sample)
     return result, gaps
 
 

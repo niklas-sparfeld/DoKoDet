@@ -772,6 +772,10 @@ def _validated_samples(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
                 and (
                     reference_sample.get("item_id") != sample.get("item_id")
                     or reference_sample.get("targets") != sample.get("targets")
+                    or (
+                        "card_scene" in sample
+                        and reference_sample.get("card_scene") != sample.get("card_scene")
+                    )
                 )
             )
         ):

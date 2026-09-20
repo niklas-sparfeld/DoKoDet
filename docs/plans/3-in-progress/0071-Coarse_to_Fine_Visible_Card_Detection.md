@@ -73,7 +73,7 @@ without a completed reviewed card scene and a valid derived view.
 - **M2:** Complete — derive and materialize the full-frame card-cluster detection dataset.
 - **M3:** Complete — the bounded real RF-DETR Small campaign produced and reload-validated one
   bundle. Its selected threshold meets the frozen crop-containment recall floor.
-- **M4:** Not started — derive and materialize the cluster-crop segmentation dataset.
+- **M4:** Complete — derive and materialize the reviewed cluster-crop segmentation dataset with train-only 0070 synthetic rows.
 - **M5:** Not started — fine-tune and bundle one RF-DETR SegMedium cluster model.
 - **M6:** Not started — assemble, integrate, and verify the completed cascade provider.
 
@@ -412,6 +412,24 @@ Acceptance:
 - crop targets map back to the reviewed source geometry within tolerance;
 - source-group partitions remain disjoint; and
 - cold and warm materialization have equal manifests and generated-file digests.
+
+#### M4 implementation evidence — 2026-09-20
+
+- Added `rfdetr-cluster-crop-materialize` and the reloadable
+  `rfdetr-cluster-crop-materialization/v1` view. It writes train and validation COCO instance
+  segmentation data, lineage, exclusions, coverage and scale reports, and a target contact sheet.
+- Real rows require the completed 0072 scene, calibration, and derived-region receipt. The shared
+  0072 validator rejects missing, stale, processor-owned, or incomplete scene derivations before
+  target conversion. The 0068 materialization path now retains and validates scene envelopes when
+  they are present.
+- The frozen perturbation policy is `quarter-span-diagonal-shift-v1`. It shifts a crop by one
+  quarter reference span on each axis when the shifted crop still contains every assigned visible
+  region; otherwise it records a deterministic fallback to the base crop.
+- 0070 synthetic rows are loaded from their frozen COCO view and scene receipts and are added to
+  train only. Validation remains real and reviewed. A local 0072 scene-bearing fixture covers real,
+  synthetic, missing-scene, cold, and warm paths.
+- Focused materialization, campaign, analyzer, Ruff, format, and CLI checks pass. Cold and warm
+  fixture runs produce equal manifests and generated-file digests.
 
 ### M5 — Train the cluster visible-card model
 

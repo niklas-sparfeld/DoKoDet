@@ -155,6 +155,10 @@ from .rfdetr_card_cluster_materialization import (
     RfdetrCardClusterMaterializationError,
     materialize_rfdetr_card_cluster_dataset,
 )
+from .rfdetr_cluster_crop_materialization import (
+    RfdetrClusterCropMaterializationError,
+    materialize_rfdetr_cluster_crop_dataset,
+)
 from .rfdetr_segmentation_campaign import (
     RfdetrSegmentationCampaignError,
     build_rfdetr_segmentation_manifest,
@@ -845,6 +849,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     card_cluster_materialize.add_argument("--format", choices=("human", "json"), default="human")
     card_cluster_materialize.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
+    cluster_crop_materialize = data_commands.add_parser(
+        "rfdetr-cluster-crop-materialize",
+        aliases=("rfdetr-cluster-crop-view",),
+        help="Materialize the validated M4 cluster-crop segmentation view.",
+        description="Materialize the epic 0071 cluster-crop segmentation view.",
+    )
+    _add_path_options(cluster_crop_materialize, suppress_defaults=True)
+    cluster_crop_materialize.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+        help="Frozen 0068 M0 manifest with 0072 card_scene envelopes.",
+    )
+    cluster_crop_materialize.add_argument(
+        "--output",
+        type=Path,
+        default=Path(".runtime/rfdetr-cluster-crop-0071-m4"),
+        help="Disposable train and validation COCO crop view directory.",
+    )
+    cluster_crop_materialize.add_argument(
+        "--synthetic-view",
+        type=Path,
+        default=Path(".runtime/synthetic-visible-region-0070-m4-50-50/synthetic-candidate-view"),
+        help="Frozen 0070 synthetic candidate view used for train rows.",
+    )
+    cluster_crop_materialize.add_argument(
+        "--synthetic-manifest",
+        type=Path,
+        default=Path("data/operations/synthetic-visible-region-0070-m5-50-50-training-view.json"),
+        help="Frozen 0070 training-view manifest used for scene receipts.",
+    )
+    cluster_crop_materialize.add_argument(
+        "--without-synthetic",
+        action="store_true",
+        help="Materialize real reviewed rows only; intended for focused local fixtures.",
+    )
+    cluster_crop_materialize.add_argument("--format", choices=("human", "json"), default="human")
+    cluster_crop_materialize.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     synthetic_visible_region = data_commands.add_parser(
@@ -2449,6 +2493,47 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"images: {result.image_count}\n"
                 f"clusters: {result.cluster_count}\n"
                 f"reviewed cards: {result.reviewed_card_count}\n"
+                f"manifest: {result.materialization_digest}\n"
+            )
+        return 0
+    if args.command == "data" and args.data_command in {
+        "rfdetr-cluster-crop-materialize",
+        "rfdetr-cluster-crop-view",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
+            manifest_path = args.manifest
+            if not manifest_path.is_absolute():
+                manifest_path = config.repository_root / manifest_path
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            synthetic_view = args.synthetic_view
+            if not synthetic_view.is_absolute():
+                synthetic_view = config.repository_root / synthetic_view
+            synthetic_manifest = args.synthetic_manifest
+            if not synthetic_manifest.is_absolute():
+                synthetic_manifest = config.repository_root / synthetic_manifest
+            result = materialize_rfdetr_cluster_crop_dataset(
+                manifest_path,
+                repository_root=config.repository_root,
+                output_root=output_path,
+                synthetic_view_root=synthetic_view,
+                synthetic_manifest_path=synthetic_manifest,
+                include_synthetic=not args.without_synthetic,
+            )
+        except (ConfigurationError, OSError, RfdetrClusterCropMaterializationError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(result.to_mapping(), indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(
+                "RF-DETR cluster-crop segmentation view materialized\n"
+                f"view: {result.view_root}\n"
+                f"real crops: {result.real_crop_count}\n"
+                f"synthetic crops: {result.synthetic_crop_count}\n"
+                f"annotations: {result.annotation_count}\n"
                 f"manifest: {result.materialization_digest}\n"
             )
         return 0
