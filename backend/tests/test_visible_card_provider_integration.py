@@ -254,6 +254,39 @@ def test_local_pipeline_selection_detects_segmentation_bundle_with_cloud_default
     assert selected.name == "local-rfdetr-segmentation"
 
 
+def test_explicit_rfdetr_variants_use_their_own_bundle_paths(tmp_path: Path, monkeypatch) -> None:
+    segmentation_bundle = tmp_path / "segmentation-bundle"
+    segmentation_bundle.mkdir()
+    cascade_bundle = tmp_path / "cascade-bundle"
+    cascade_bundle.mkdir()
+    monkeypatch.setattr(
+        gemini_analyzer,
+        "LocalVisibleCardSegmentationProvider",
+        FakeLocalSegmentationProvider,
+    )
+    monkeypatch.setattr(
+        gemini_analyzer,
+        "LocalVisibleCardCascadeProvider",
+        FakeLocalCascadeProvider,
+    )
+    visible, _ = gemini_analyzer.create_configured_processor_registries(
+        _settings(
+            tmp_path,
+            visible_card_bundle_path=None,
+            visible_card_segmentation_bundle_path=segmentation_bundle,
+            visible_card_cascade_bundle_path=cascade_bundle,
+            visible_card_device="cpu",
+        )
+    )
+
+    segmentation = visible["local-rfdetr-segmentation"].provider
+    cascade = visible["local-rfdetr-cascade"].provider
+    assert segmentation.name == "local-rfdetr-segmentation"
+    assert segmentation.bundle == segmentation_bundle
+    assert cascade.name == "local-rfdetr-cascade"
+    assert cascade.bundle == cascade_bundle
+
+
 def test_local_identity_selection_does_not_require_gemini_or_construct_gemini(
     tmp_path: Path, monkeypatch
 ) -> None:

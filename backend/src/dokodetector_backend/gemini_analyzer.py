@@ -77,11 +77,16 @@ def _create_visible_card_provider(
             max_retries=settings.gemini_max_retries,
             request_limiter=request_limiter,
         )
-    elif provider_name == "local":
-        if settings.visible_card_bundle_path is None:
+    elif provider_name in {
+        "local",
+        "local-rfdetr-segmentation",
+        "local-rfdetr-cascade",
+    }:
+        bundle_path = _bundle_path_for_provider(settings, provider_name)
+        if bundle_path is None:
             raise ConfigurationError(
-                "VISIBLE_CARD_BUNDLE_PATH is required when the Local visible-card "
-                "processor is selected."
+                f"{_bundle_setting_name(provider_name)} is required when the "
+                f"{provider_name} visible-card processor is selected."
             )
         if settings.visible_card_device is None:
             raise ConfigurationError(
@@ -89,53 +94,15 @@ def _create_visible_card_provider(
                 "visible-card processor is selected."
             )
         try:
-            provider = LocalVisibleCardProvider(
-                settings.visible_card_bundle_path,
-                device=settings.visible_card_device,
-            )
+            provider_class = {
+                "local": LocalVisibleCardProvider,
+                "local-rfdetr-segmentation": LocalVisibleCardSegmentationProvider,
+                "local-rfdetr-cascade": LocalVisibleCardCascadeProvider,
+            }[provider_name]
+            provider = provider_class(bundle_path, device=settings.visible_card_device)
         except Exception as error:
             raise ConfigurationError(
-                f"The local visible-card provider could not start: {error}"
-            ) from error
-    elif provider_name == "local-rfdetr-segmentation":
-        if settings.visible_card_bundle_path is None:
-            raise ConfigurationError(
-                "VISIBLE_CARD_BUNDLE_PATH is required when the Local visible-card "
-                "processor is selected."
-            )
-        if settings.visible_card_device is None:
-            raise ConfigurationError(
-                "VISIBLE_CARD_DEVICE must be set to cpu or mps when the Local "
-                "visible-card processor is selected."
-            )
-        try:
-            provider = LocalVisibleCardSegmentationProvider(
-                settings.visible_card_bundle_path,
-                device=settings.visible_card_device,
-            )
-        except Exception as error:
-            raise ConfigurationError(
-                f"The local visible-card provider could not start: {error}"
-            ) from error
-    elif provider_name == "local-rfdetr-cascade":
-        if settings.visible_card_bundle_path is None:
-            raise ConfigurationError(
-                "VISIBLE_CARD_BUNDLE_PATH is required when the Local RF-DETR cascade "
-                "processor is selected."
-            )
-        if settings.visible_card_device is None:
-            raise ConfigurationError(
-                "VISIBLE_CARD_DEVICE must be set to cpu or mps when the Local RF-DETR "
-                "cascade processor is selected."
-            )
-        try:
-            provider = LocalVisibleCardCascadeProvider(
-                settings.visible_card_bundle_path,
-                device=settings.visible_card_device,
-            )
-        except Exception as error:
-            raise ConfigurationError(
-                f"The local RF-DETR cascade provider could not start: {error}"
+                f"The {provider_name} visible-card provider could not start: {error}"
             ) from error
     else:
         raise ConfigurationError(f"Unsupported visible-card provider: {provider_name}.")
@@ -214,7 +181,27 @@ def _configured_local_visible_provider(settings: Settings) -> str:
             and manifest.get("schema_version") == _RFDETR_CASCADE_BUNDLE_SCHEMA
         ):
             return "local-rfdetr-cascade"
+    if settings.visible_card_cascade_bundle_path is not None:
+        return "local-rfdetr-cascade"
+    if settings.visible_card_segmentation_bundle_path is not None:
+        return "local-rfdetr-segmentation"
     return "local"
+
+
+def _bundle_path_for_provider(settings: Settings, provider_name: str) -> Path | None:
+    if provider_name == "local-rfdetr-segmentation":
+        return settings.visible_card_segmentation_bundle_path or settings.visible_card_bundle_path
+    if provider_name == "local-rfdetr-cascade":
+        return settings.visible_card_cascade_bundle_path or settings.visible_card_bundle_path
+    return settings.visible_card_bundle_path
+
+
+def _bundle_setting_name(provider_name: str) -> str:
+    if provider_name == "local-rfdetr-segmentation":
+        return "VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH"
+    if provider_name == "local-rfdetr-cascade":
+        return "VISIBLE_CARD_CASCADE_BUNDLE_PATH"
+    return "VISIBLE_CARD_BUNDLE_PATH"
 
 
 def create_configured_processor_registries(

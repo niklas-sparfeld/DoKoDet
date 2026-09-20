@@ -102,6 +102,20 @@ class Settings(BaseSettings):
             "LOCAL_VISIBLE_CARD_BUNDLE",
         ),
     )
+    visible_card_segmentation_bundle_path: Path | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH",
+            "LOCAL_VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH",
+        ),
+    )
+    visible_card_cascade_bundle_path: Path | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "VISIBLE_CARD_CASCADE_BUNDLE_PATH",
+            "LOCAL_VISIBLE_CARD_CASCADE_BUNDLE_PATH",
+        ),
+    )
     visible_card_device: Literal["cpu", "mps"] | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -174,6 +188,14 @@ class Settings(BaseSettings):
             self.card_event_checkpoint_path = _resolve_path(self.card_event_checkpoint_path, root)
         if self.visible_card_bundle_path is not None:
             self.visible_card_bundle_path = _resolve_path(self.visible_card_bundle_path, root)
+        if self.visible_card_segmentation_bundle_path is not None:
+            self.visible_card_segmentation_bundle_path = _resolve_path(
+                self.visible_card_segmentation_bundle_path, root
+            )
+        if self.visible_card_cascade_bundle_path is not None:
+            self.visible_card_cascade_bundle_path = _resolve_path(
+                self.visible_card_cascade_bundle_path, root
+            )
         if self.visible_card_identity_bundle_path is not None:
             self.visible_card_identity_bundle_path = _resolve_path(
                 self.visible_card_identity_bundle_path, root

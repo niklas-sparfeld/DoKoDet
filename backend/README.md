@@ -110,9 +110,10 @@ the direct `uvicorn` command for device discovery. It starts HTTP but does not a
 The normal server uses Gemini for both visible-card detection and visual card identity by default.
 Set `VISIBLE_CARD_PROVIDER=local`, `VISIBLE_CARD_BUNDLE_PATH`, and `VISIBLE_CARD_DEVICE=cpu` or
 `mps` to use a validated native detector bundle. Set
-`VISIBLE_CARD_PROVIDER=local-rfdetr-segmentation` with the same bundle and device settings to
-select the reviewed RF-DETR segmentation candidate from epic 0068. This candidate is selectable
-only; Gemini remains the default and the older `local` provider remains unchanged. Set
+`VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH` and `VISIBLE_CARD_CASCADE_BUNDLE_PATH` to make both
+explicit RF-DETR variants available in the Web UI. The older `VISIBLE_CARD_BUNDLE_PATH` remains
+the fallback path for one configured local provider. The visible-card model selector sends
+`gemini`, `local-rfdetr-segmentation`, or `local-rfdetr-cascade` explicitly. Set
 `VISIBLE_CARD_IDENTITY_CLASSIFIER=local`, `VISIBLE_CARD_IDENTITY_BUNDLE_PATH`, and
 `VISIBLE_CARD_IDENTITY_DEVICE=cpu` or `mps` to use the validated local DINOv3 identity bundle.
 The detector and identity settings are independent. A Gemini API key is required only when either
@@ -252,6 +253,8 @@ GEMINI_TIMEOUT_SECONDS=120
 GEMINI_MAX_RETRIES=2
 VISIBLE_CARD_PROVIDER=gemini
 VISIBLE_CARD_BUNDLE_PATH=
+VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH=
+VISIBLE_CARD_CASCADE_BUNDLE_PATH=
 VISIBLE_CARD_DEVICE=
 VISIBLE_CARD_IDENTITY_CLASSIFIER=gemini
 VISIBLE_CARD_IDENTITY_BUNDLE_PATH=

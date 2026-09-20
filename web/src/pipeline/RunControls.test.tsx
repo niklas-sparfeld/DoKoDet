@@ -372,7 +372,7 @@ describe("RunControls", () => {
     });
   });
 
-  it("allows a local processor for visible-card and identity runs", async () => {
+  it("selects an explicit visible-card model variant", async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(
         new Response(JSON.stringify(runResponse("visible-local-run")), {
@@ -398,11 +398,13 @@ describe("RunControls", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Cloud" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    expect(screen.getByRole("combobox", { name: "Model variant" })).toHaveValue(
+      "gemini",
     );
-    await userEvent.click(screen.getByRole("button", { name: "Local" }));
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Model variant" }),
+      "local-rfdetr-cascade",
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "Run processor" }),
     );
@@ -417,7 +419,65 @@ describe("RunControls", () => {
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
-        configuration: { provider: "local" },
+        configuration: { provider: "local-rfdetr-cascade" },
+      },
+    });
+  });
+
+  it("does not inherit the previous visible-card provider when a variant changes", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(runResponse("visible-cascade-run")), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const events = stage("events", {
+      selected_generated_revision_id: "events-generated",
+    });
+    const previousRun = {
+      ...runResponse("visible-segmentation-run", "complete", {
+        configuration: { provider: "local-rfdetr-segmentation" },
+      }),
+      input_revision_ids: ["events-generated"],
+      implementation: { name: "visible-card-detector-adapter", version: "v1" },
+      model: { name: "local-rfdetr-segmentation", version: "v1" },
+      configuration: { provider: "local-rfdetr-segmentation" },
+      output_revision_ids: ["visible-segmentation-revision"],
+    } as unknown as PipelineWorkspaceStage["runs"][number];
+    const visible = stage("visible_cards", {
+      selected_generated_revision_id: "visible-generated",
+      runs: [previousRun],
+    });
+
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={visible}
+        stages={[events, visible]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Model variant" }),
+      "local-rfdetr-cascade",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Run again" }));
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.find(([, init]) => init?.method === "POST"),
+      ).toBeDefined(),
+    );
+    const postCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      request: {
+        configuration: { provider: "local-rfdetr-cascade" },
       },
     });
   });

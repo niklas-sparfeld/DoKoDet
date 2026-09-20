@@ -21,6 +21,24 @@ type RunStageKey = Extract<
 >;
 type InputOrigin = "generated" | "reviewed";
 type ProcessorOrigin = "cloud" | "local";
+type VisibleCardModelVariant =
+  | "gemini"
+  | "local"
+  | "local-rfdetr-segmentation"
+  | "local-rfdetr-cascade";
+
+const VISIBLE_CARD_MODEL_VARIANTS: readonly {
+  value: VisibleCardModelVariant;
+  label: string;
+}[] = [
+  { value: "gemini", label: "Cloud · Gemini" },
+  { value: "local", label: "Local · configured legacy provider" },
+  {
+    value: "local-rfdetr-segmentation",
+    label: "Local · RF-DETR segmentation",
+  },
+  { value: "local-rfdetr-cascade", label: "Local · RF-DETR cascade" },
+];
 
 const RUN_STAGE_KEYS: readonly RunStageKey[] = [
   "events",
@@ -80,6 +98,10 @@ export function RunControls({
   );
   const [processorOrigin, setProcessorOrigin] =
     useState<ProcessorOrigin>("cloud");
+  const [visibleCardModelVariant, setVisibleCardModelVariant] =
+    useState<VisibleCardModelVariant>(() =>
+      initialVisibleCardModelVariant(stage.runs[0]),
+    );
   const [historicalRevisionId, setHistoricalRevisionId] = useState<string>("");
   const [trackedRunId, setTrackedRunId] = useState<string | null>(
     () =>
@@ -184,6 +206,7 @@ export function RunControls({
           latestRun,
           inputOrigin,
           processorOrigin,
+          visibleCardModelVariant,
         ),
       );
       setLiveRun(response);
@@ -300,8 +323,28 @@ export function RunControls({
                     : `${inputOrigin === "reviewed" && !historicalRevisionId ? "Reviewed" : "Exact historical"} · ${selectedRevisionId}`}
                 </p>
               ) : null}
-              {runStage === "visible_cards" ||
-              runStage === "visual_identities" ? (
+              {runStage === "visible_cards" ? (
+                <label className={styles.pipelineRunSelector}>
+                  <span>Model variant used by the next run</span>
+                  <select
+                    aria-label="Model variant"
+                    value={visibleCardModelVariant}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setVisibleCardModelVariant(
+                        event.target.value as VisibleCardModelVariant,
+                      );
+                      setMessage(null);
+                    }}
+                  >
+                    {VISIBLE_CARD_MODEL_VARIANTS.map((variant) => (
+                      <option key={variant.value} value={variant.value}>
+                        {variant.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : runStage === "visual_identities" ? (
                 <div className={styles.pipelineRunProcessorChoice}>
                   <span className={styles.statusLabel}>
                     Processor used by the next run
@@ -588,6 +631,7 @@ function buildRunRequest(
   latestRun: PipelineRun | null,
   inputOrigin: InputOrigin,
   processorOrigin: ProcessorOrigin = "cloud",
+  visibleCardModelVariant: VisibleCardModelVariant = "gemini",
 ): PipelineRunStartRequest {
   const request = latestRun?.request ?? {};
   const implementation =
@@ -599,9 +643,11 @@ function buildRunRequest(
         : { name: "visual-identity-classifier-adapter", version: "v1" });
   const configuration = {
     ...(latestRun?.configuration ?? readRecord(request.configuration) ?? {}),
-    ...(stage === "visible_cards" || stage === "visual_identities"
-      ? { provider: processorOrigin === "cloud" ? "gemini" : "local" }
-      : {}),
+    ...(stage === "visible_cards"
+      ? { provider: visibleCardModelVariant }
+      : stage === "visual_identities"
+        ? { provider: processorOrigin === "cloud" ? "gemini" : "local" }
+        : {}),
   };
   const extractionPolicy =
     latestRun?.extraction_policy ??
@@ -637,6 +683,18 @@ function buildRunRequest(
       crop_policy: cropPolicy,
     },
   };
+}
+
+function initialVisibleCardModelVariant(
+  run: PipelineRun | undefined,
+): VisibleCardModelVariant {
+  const provider = readString(
+    readObject(run?.configuration)?.provider ??
+      readObject(run?.request.configuration)?.provider,
+  );
+  return VISIBLE_CARD_MODEL_VARIANTS.some((variant) => variant.value === provider)
+    ? (provider as VisibleCardModelVariant)
+    : "gemini";
 }
 
 function createRunId(stage: RunStageKey): string {
