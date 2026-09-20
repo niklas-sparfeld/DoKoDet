@@ -66,6 +66,11 @@ class FakeLocalSegmentationProvider(FakeLocalVisibleCardProvider):
     version = "local-visible-card-segmentation-test-v1"
 
 
+class FakeLocalCascadeProvider(FakeLocalVisibleCardProvider):
+    name = "local-rfdetr-cascade"
+    version = "local-rfdetr-cascade-test-v1"
+
+
 class FakeLocalIdentityClassifier:
     name = "local-dinov3"
     version = "dinov3-local-identity-test-v1"
@@ -191,6 +196,30 @@ def test_reviewed_segmentation_backend_selection_is_explicit_and_non_default(
     selected = app.state.analyzer.provider.provider
     assert selected.name == "local-rfdetr-segmentation"
     assert selected.device == device
+    assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
+
+
+def test_cascade_backend_selection_is_explicit_and_non_default(tmp_path: Path, monkeypatch) -> None:
+    bundle_path = tmp_path / "cascade-bundle"
+    bundle_path.mkdir()
+    monkeypatch.setattr(
+        gemini_analyzer,
+        "LocalVisibleCardCascadeProvider",
+        FakeLocalCascadeProvider,
+    )
+    app = create_app(
+        _settings(
+            tmp_path,
+            visible_card_provider="local-rfdetr-cascade",
+            visible_card_bundle_path=bundle_path,
+            visible_card_device="cpu",
+            visible_card_identity_classifier="gemini",
+        )
+    )
+
+    selected = app.state.analyzer.provider.provider
+    assert selected.name == "local-rfdetr-cascade"
+    assert selected.device == "cpu"
     assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
 
 

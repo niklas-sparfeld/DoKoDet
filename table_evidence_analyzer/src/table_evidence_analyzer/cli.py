@@ -381,6 +381,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--device", choices=("cpu", "mps", "cuda"), default="mps"
     )
 
+    cascade_assembly_parser = commands.add_parser(
+        "assemble-rfdetr-cascade",
+        aliases=("assemble-local-rfdetr-cascade",),
+        help="Assemble and validate the selectable RF-DETR coarse-to-fine bundle.",
+        description=(
+            "Verify the M3 RF-DETR Small and M5 RF-DETR SegMedium child bundles, freeze the "
+            "M0 cascade recipe, and write one digest-checked cascade manifest."
+        ),
+    )
+    cascade_assembly_parser.add_argument("--coarse-bundle", type=Path, required=True)
+    cascade_assembly_parser.add_argument("--fine-bundle", type=Path, required=True)
+    cascade_assembly_parser.add_argument("--output-dir", type=Path, required=True)
+
     segmentation_validation_parser = commands.add_parser(
         "evaluate-rfdetr-segmentation-campaign",
         help="Run the locked RF-DETR segmentation baseline and candidate validation.",
@@ -911,6 +924,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "assemble-rfdetr-cascade":
+        from .rfdetr_cascade import assemble_rfdetr_cascade_bundle
+
+        try:
+            manifest = assemble_rfdetr_cascade_bundle(
+                coarse_bundle=args.coarse_bundle,
+                fine_bundle=args.fine_bundle,
+                output_dir=args.output_dir,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(manifest, sort_keys=True))
         return 0
     if args.command in {
         "train-rfdetr-segmentation-campaign",

@@ -13,6 +13,7 @@ from table_evidence_analyzer import (
     DinoV3IdentityClassifier,
     GeminiCardClassifier,
     GeminiVisibleCardProvider,
+    LocalVisibleCardCascadeProvider,
     LocalVisibleCardProvider,
     LocalVisibleCardSegmentationProvider,
     TableEvidenceAnalyzer,
@@ -23,6 +24,7 @@ from table_evidence_analyzer import (
 from dokodetector_backend.config import ConfigurationError, Settings
 
 _RFDETR_SEGMENTATION_BUNDLE_SCHEMA = "rfdetr-segmentation-bundle/v1"
+_RFDETR_CASCADE_BUNDLE_SCHEMA = "rfdetr-cascade-bundle/v1"
 
 
 class LazyProcessorRegistry(Mapping[str, Any]):
@@ -115,6 +117,26 @@ def _create_visible_card_provider(
             raise ConfigurationError(
                 f"The local visible-card provider could not start: {error}"
             ) from error
+    elif provider_name == "local-rfdetr-cascade":
+        if settings.visible_card_bundle_path is None:
+            raise ConfigurationError(
+                "VISIBLE_CARD_BUNDLE_PATH is required when the Local RF-DETR cascade "
+                "processor is selected."
+            )
+        if settings.visible_card_device is None:
+            raise ConfigurationError(
+                "VISIBLE_CARD_DEVICE must be set to cpu or mps when the Local RF-DETR "
+                "cascade processor is selected."
+            )
+        try:
+            provider = LocalVisibleCardCascadeProvider(
+                settings.visible_card_bundle_path,
+                device=settings.visible_card_device,
+            )
+        except Exception as error:
+            raise ConfigurationError(
+                f"The local RF-DETR cascade provider could not start: {error}"
+            ) from error
     else:
         raise ConfigurationError(f"Unsupported visible-card provider: {provider_name}.")
     return CachedVisibleCardProvider(provider, cache_root / "visible-cards")
@@ -168,7 +190,11 @@ def _create_identity_classifier(
 def _configured_local_visible_provider(settings: Settings) -> str:
     """Select the local adapter that matches the configured bundle."""
 
-    if settings.visible_card_provider in {"local", "local-rfdetr-segmentation"}:
+    if settings.visible_card_provider in {
+        "local",
+        "local-rfdetr-segmentation",
+        "local-rfdetr-cascade",
+    }:
         return settings.visible_card_provider
     bundle_path = settings.visible_card_bundle_path
     if bundle_path is not None:
@@ -183,6 +209,11 @@ def _configured_local_visible_provider(settings: Settings) -> str:
             and manifest.get("schema_version") == _RFDETR_SEGMENTATION_BUNDLE_SCHEMA
         ):
             return "local-rfdetr-segmentation"
+        if (
+            isinstance(manifest, dict)
+            and manifest.get("schema_version") == _RFDETR_CASCADE_BUNDLE_SCHEMA
+        ):
+            return "local-rfdetr-cascade"
     return "local"
 
 
@@ -217,6 +248,12 @@ def create_configured_processor_registries(
             "local-rfdetr-segmentation": lambda: _create_visible_card_provider(
                 settings,
                 "local-rfdetr-segmentation",
+                cache_root=cache_root,
+                request_limiter=request_limiter,
+            ),
+            "local-rfdetr-cascade": lambda: _create_visible_card_provider(
+                settings,
+                "local-rfdetr-cascade",
                 cache_root=cache_root,
                 request_limiter=request_limiter,
             ),

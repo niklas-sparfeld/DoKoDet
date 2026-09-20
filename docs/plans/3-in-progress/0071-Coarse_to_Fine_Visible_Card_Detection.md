@@ -75,7 +75,8 @@ without a completed reviewed card scene and a valid derived view.
   bundle. Its selected threshold meets the frozen crop-containment recall floor.
 - **M4:** Complete — derive and materialize the reviewed cluster-crop segmentation dataset with train-only 0070 synthetic rows.
 - **M5:** Complete — the frozen M4 crop view now has a bounded RF-DETR SegMedium fine-tuning campaign and crop/source-coordinate evaluator.
-- **M6:** Not started — assemble, integrate, and verify the completed cascade provider.
+- **M6:** Complete — the M3 and M5 child bundles now assemble into a digest-checked selectable
+  cascade provider with source-linked diagnostics and backend registration.
 
 ## 1. Purpose
 
@@ -489,6 +490,25 @@ Acceptance:
 - end-to-end reporting separates coarse-stage misses from fine-stage instance-separation errors;
 - the existing providers and maintained references remain unchanged; and
 - the new provider is selectable for annotation without becoming the runtime default.
+
+#### M6 implementation evidence — 2026-09-20
+
+- Added `rfdetr-cascade-bundle/v1`. Its manifest pins the M0 recipe, the M3 RF-DETR Small child,
+  the M5 RF-DETR SegMedium child, both child bundle and manifest digests, the calibrated coarse
+  threshold, and the non-default `local-rfdetr-cascade` selection.
+- Upgraded the cascade provider to load one native RF-DETR Small model for full-frame clustering
+  and one native M5 RF-DETR SegMedium model for every cluster crop. The M1 one-bundle provider
+  path remains available for its development fixtures. The production path rejects stale child or
+  recipe identities before inference, keeps exact source transforms, and records a retained
+  fine-result mapping for every final candidate.
+- Registered `local-rfdetr-cascade` in the backend settings and lazy provider registry. Gemini,
+  `local`, `local-rfdetr-segmentation`, the Gemini default, and maintained reference paths remain
+  unchanged.
+- Added source-linked cascade validation and decision reporting for coarse-stage misses, crop
+  counts and duplicates, fine-stage overlapping-target separation failures, mapped visible-card
+  matches, and latency. Fixture validation and the backend provider-selection/recording boundary
+  smoke pass. The checkout still has no materialized production M4 view or M5 bundle, so no real
+  M6 model execution is claimed in this phase.
 
 ## 6. Verification
 

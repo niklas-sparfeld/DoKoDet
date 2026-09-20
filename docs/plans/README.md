@@ -52,7 +52,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M5 complete at the implementation and contract level. M3 remains validated on MPS with threshold `0.65` and `0.984043` crop-containment recall against the `0.98` floor. M4 materializes validated 0072 scene-derived crops and adds 0070 rows to train only. M5 now trains and evaluates one crop RF-DETR SegMedium candidate from the selected 0068 bundle; M6 remains. |
+| [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M6 complete at the implementation and contract level. M3 remains validated on MPS with threshold `0.65` and `0.984043` crop-containment recall against the `0.98` floor. M4 materializes validated 0072 scene-derived crops and adds 0070 rows to train only. M5 supplies the crop RF-DETR SegMedium child contract. M6 assembles and registers the selectable, non-default `local-rfdetr-cascade`; real M4/M5 runtime artifacts are still required for a real cascade execution. |
 
 ### Blocked
 

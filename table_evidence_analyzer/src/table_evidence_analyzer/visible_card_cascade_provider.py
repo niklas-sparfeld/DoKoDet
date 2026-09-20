@@ -8,6 +8,8 @@ its mask polygons are mapped back to the source frame and reconciled with the M0
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
+import json
 import math
 import time
 from collections.abc import Callable
@@ -18,7 +20,14 @@ from typing import Any, Literal
 from PIL import Image, UnidentifiedImageError
 
 from . import visible_cards
+from .rfdetr_cascade import (
+    RFDETR_CASCADE_BUNDLE_SCHEMA,
+    RfdetrCascadeBundle,
+    load_rfdetr_cascade_bundle,
+)
+from .rfdetr_import import block_pyav_import
 from .visible_card_cascade import (
+    CASCADE_COARSE_INPUT_SIZE,
     CASCADE_FINE_INPUT_SIZE,
     CASCADE_FINE_MODEL_CLASS,
     CASCADE_FINE_MODEL_VARIANT,
@@ -40,6 +49,40 @@ from .visible_cards import (
 
 CASCADE_PROVIDER_NAME = "local-rfdetr-cascade"
 CASCADE_PROVIDER_VERSION = "local-rfdetr-cascade-v1"
+
+
+def _load_local_rfdetr_small(bundle: Any, device: str) -> Any:
+    """Load the native M3 RF-DETR Small checkpoint on the requested device."""
+
+    try:
+        with block_pyav_import():
+            from rfdetr import RFDETRSmall
+    except ImportError as error:
+        raise VisibleCardError(
+            "local cascade inference requires rfdetr 1.9.4; install the inference dependency"
+        ) from error
+    try:
+        version = importlib.metadata.version("rfdetr")
+    except importlib.metadata.PackageNotFoundError as error:
+        raise VisibleCardError("RF-DETR package metadata is not installed") from error
+    if version != "1.9.4":
+        raise VisibleCardError(f"installed rfdetr version {version} does not match 1.9.4")
+    try:
+        model = RFDETRSmall.from_checkpoint(
+            str(bundle.checkpoint_path),
+            num_classes=1,
+            resolution=CASCADE_COARSE_INPUT_SIZE,
+            device=device,
+        )
+    except Exception as error:
+        raise VisibleCardError(f"could not load the local RF-DETR Small bundle: {error}") from error
+    model_context = getattr(model, "model", None)
+    actual_device = getattr(model_context, "device", None)
+    if actual_device is not None and str(actual_device).split(":", 1)[0] != device:
+        raise VisibleCardError(
+            f"RF-DETR Small loaded on {actual_device!s}, but the requested device is {device}"
+        )
+    return model
 
 
 def _finite_pixel_point(value: Any, field: str) -> PixelPoint:
@@ -151,7 +194,7 @@ def _source_frame_mapping(request: VisibleCardRequest) -> dict[str, Any]:
 
 
 class LocalVisibleCardCascadeProvider:
-    """Run one loaded 0068 segmentation model as a development cascade."""
+    """Run the M1 development or M6 production cascade selected by the bundle path."""
 
     name = CASCADE_PROVIDER_NAME
     version = CASCADE_PROVIDER_VERSION
@@ -163,23 +206,106 @@ class LocalVisibleCardCascadeProvider:
         device: Literal["cpu", "mps", "cuda"] = "mps",
         detector: Any | None = None,
         model_loader: Callable[[Any, str], Any] | None = None,
+        coarse_detector: Any | None = None,
+        fine_detector: Any | None = None,
+        coarse_model_loader: Callable[[Any, str], Any] | None = None,
+        fine_model_loader: Callable[[Any, str], Any] | None = None,
         torch_module: Any | None = None,
     ) -> None:
-        self._segmentation_provider = visible_cards.LocalVisibleCardSegmentationProvider(
-            bundle,
-            device=device,
-            detector=detector,
-            model_loader=model_loader,
-            torch_module=torch_module,
-        )
-        self.bundle = self._segmentation_provider.bundle
+        manifest_path = Path(bundle).expanduser().resolve() / "manifest.json"
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise VisibleCardError(f"could not read cascade provider bundle: {error}") from error
+        self._cascade_bundle: RfdetrCascadeBundle | None = None
+        self._segmentation_provider: Any | None = None
+        self._coarse_detector: Any
+        self._fine_detector: Any
+        started = time.monotonic()
+        if (
+            isinstance(manifest, dict)
+            and manifest.get("schema_version") == RFDETR_CASCADE_BUNDLE_SCHEMA
+        ):
+            try:
+                cascade_bundle = load_rfdetr_cascade_bundle(bundle)
+            except Exception as error:
+                raise VisibleCardError(
+                    f"could not validate the local cascade bundle: {error}"
+                ) from error
+            if device not in {"cpu", "mps", "cuda"}:
+                raise VisibleCardError("local cascade device must be cpu, mps, or cuda")
+            if torch_module is None and device != "cpu":
+                torch_module = visible_cards._import_torch()
+            if torch_module is not None:
+                if device == "mps":
+                    available = visible_cards._local_device_available(device, torch_module)
+                elif device == "cuda":
+                    cuda = getattr(torch_module, "cuda", None)
+                    available_fn = getattr(cuda, "is_available", None)
+                    available = bool(callable(available_fn) and available_fn())
+                else:
+                    available = True
+                if not available:
+                    raise VisibleCardError(
+                        f"requested local cascade device is unavailable: {device}"
+                    )
+            self._cascade_bundle = cascade_bundle
+            self._coarse_bundle = cascade_bundle.coarse_bundle
+            self._fine_bundle = cascade_bundle.fine_bundle
+            if detector is not None:
+                coarse_detector = detector
+                fine_detector = detector
+            self._coarse_detector = coarse_detector or (
+                coarse_model_loader or _load_local_rfdetr_small
+            )(self._coarse_bundle, device)
+            self._fine_detector = fine_detector or (
+                fine_model_loader or visible_cards._load_local_rfdetr_segmentation
+            )(self._fine_bundle, device)
+            self.bundle = cascade_bundle
+            self._coarse_input_size = CASCADE_COARSE_INPUT_SIZE
+            self._coarse_confidence_threshold = float(
+                cascade_bundle.manifest["thresholds"]["coarse"]
+            )
+            self._coarse_accepted_class_ids = frozenset({0, 1})
+        else:
+            self._segmentation_provider = visible_cards.LocalVisibleCardSegmentationProvider(
+                bundle,
+                device=device,
+                detector=detector,
+                model_loader=model_loader,
+                torch_module=torch_module,
+            )
+            self.bundle = self._segmentation_provider.bundle
+            self._coarse_detector = self._segmentation_provider._detector
+            self._fine_detector = self._segmentation_provider._detector
+            self._coarse_input_size = CASCADE_FINE_INPUT_SIZE
+            self._coarse_confidence_threshold = self._segmentation_provider.confidence_threshold
+            self._coarse_accepted_class_ids = self._segmentation_provider.accepted_class_ids
         self.device = device
         self.input_size = CASCADE_FINE_INPUT_SIZE
-        self.confidence_threshold = self._segmentation_provider.confidence_threshold
-        self.load_latency_ms = self._segmentation_provider.load_latency_ms
+        self.confidence_threshold = (
+            float(self._cascade_bundle.manifest["thresholds"]["fine"])
+            if self._cascade_bundle is not None
+            else self._segmentation_provider.confidence_threshold
+        )
+        self.load_latency_ms = (
+            _elapsed_ms(started)
+            if self._cascade_bundle is not None
+            else self._segmentation_provider.load_latency_ms
+        )
 
     @property
     def bundle_identity(self) -> dict[str, Any]:
+        if self._cascade_bundle is not None:
+            manifest = self._cascade_bundle.manifest
+            return {
+                "schema_version": manifest["schema_version"],
+                "bundle_digest": manifest["bundle_digest"],
+                "recipe_digest": manifest["recipe"]["recipe_digest"],
+                "coarse": manifest["children"]["coarse"],
+                "fine": manifest["children"]["fine"],
+            }
+        assert self._segmentation_provider is not None
         identity = self._segmentation_provider.bundle_identity
         return {
             "coarse": {
@@ -199,21 +325,29 @@ class LocalVisibleCardCascadeProvider:
         }
 
     def _base_raw_response(self, request: VisibleCardRequest) -> dict[str, Any]:
-        return {
+        response = {
             "provider": self.name,
             "version": self.version,
             "device": self.device,
             "source_frame": _source_frame_mapping(request),
             "bundle_identity": self.bundle_identity,
             "cascade_recipe": frozen_cascade_recipe(),
-            "development_coarse_model": {
+            "load_latency_ms": self.load_latency_ms,
+        }
+        if self._cascade_bundle is not None:
+            response["cascade_bundle"] = {
+                "schema_version": RFDETR_CASCADE_BUNDLE_SCHEMA,
+                "bundle_digest": self._cascade_bundle.manifest["bundle_digest"],
+                "children_loaded_once": True,
+            }
+        else:
+            response["development_coarse_model"] = {
                 "model_class": CASCADE_FINE_MODEL_CLASS,
                 "model_variant": CASCADE_FINE_MODEL_VARIANT,
                 "input_size": self.input_size,
                 "replacement_milestone": "M3",
-            },
-            "load_latency_ms": self.load_latency_ms,
-        }
+            }
+        return response
 
     def _unavailable(
         self,
@@ -237,10 +371,18 @@ class LocalVisibleCardCascadeProvider:
     def _predict(
         self, image: Image.Image, *, use_masks: bool
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        detections = self._segmentation_provider._detector.predict(
+        detector = self._fine_detector if use_masks else self._coarse_detector
+        input_size = self.input_size if use_masks else self._coarse_input_size
+        threshold = self.confidence_threshold if use_masks else self._coarse_confidence_threshold
+        accepted_class_ids = (
+            self._segmentation_provider.accepted_class_ids
+            if self._segmentation_provider is not None and use_masks
+            else (frozenset({0, 1}) if use_masks else self._coarse_accepted_class_ids)
+        )
+        detections = detector.predict(
             image,
-            threshold=self.confidence_threshold,
-            shape=(self.input_size, self.input_size),
+            threshold=threshold,
+            shape=(input_size, input_size),
             include_source_image=False,
         )
         boxes = visible_cards._normalise_detection_rows(
@@ -275,9 +417,9 @@ class LocalVisibleCardCascadeProvider:
             class_id = int(raw_class_id)
             if not math.isfinite(score) or not 0 <= score <= 1:
                 raise VisibleCardError("detector output confidence must be finite in [0, 1]")
-            if class_id not in self._segmentation_provider.accepted_class_ids:
+            if class_id not in accepted_class_ids:
                 raise VisibleCardError(f"detector returned unsupported class id: {class_id}")
-            if score <= self.confidence_threshold:
+            if score <= threshold:
                 continue
             _normalized_box, pixel_box = visible_cards._normalised_box_from_pixels(
                 coordinates, width=width, height=height
@@ -388,7 +530,7 @@ class LocalVisibleCardCascadeProvider:
         raw["coarse"] = {
             "status": "ok",
             "latency_ms": _elapsed_ms(coarse_started),
-            "threshold": self.confidence_threshold,
+            "threshold": self._coarse_confidence_threshold,
             "detections": [
                 {
                     **record,
@@ -487,6 +629,18 @@ class LocalVisibleCardCascadeProvider:
             "prediction_count": len(all_mapped),
             "predictions": [prediction.to_mapping() for prediction in all_mapped],
         }
+        cluster_by_id = {cluster.cluster_id: cluster for cluster in layout.clusters}
+        retained_ids = {prediction.prediction_id for prediction in reconciliation.retained}
+        raw["candidate_mapping"] = [
+            {
+                "prediction_id": prediction.prediction_id,
+                "retained_fine_result_id": prediction.prediction_id,
+                "retained": prediction.prediction_id in retained_ids,
+                "cluster_id": prediction.cluster_id,
+                "source_transform": cluster_by_id[prediction.cluster_id].transform.to_mapping(),
+            }
+            for prediction in reconciliation.retained
+        ]
         raw["reconciliation"] = {
             **reconciliation.to_mapping(),
             "retained": [prediction.to_mapping() for prediction in reconciliation.retained],

@@ -170,6 +170,22 @@ from table_evidence_analyzer.rfdetr_card_cluster_training import (
     load_rfdetr_card_cluster_bundle,
     run_rfdetr_card_cluster_training,
 )
+from table_evidence_analyzer.rfdetr_cascade import (
+    RFDETR_CASCADE_BUNDLE_SCHEMA,
+    RFDETR_CASCADE_CAMPAIGN_ID,
+    RFDETR_CASCADE_PROVIDER_NAME,
+    RfdetrCascadeBundle,
+    RfdetrCascadeBundleError,
+    assemble_rfdetr_cascade_bundle,
+    load_rfdetr_cascade_bundle,
+)
+from table_evidence_analyzer.rfdetr_cascade_evaluation import (
+    RFDETR_CASCADE_DECISION_SCHEMA,
+    RFDETR_CASCADE_EVALUATION_SCHEMA,
+    RfdetrCascadeEvaluationError,
+    RfdetrCascadeValidationCase,
+    run_rfdetr_cascade_validation,
+)
 from table_evidence_analyzer.rfdetr_segmentation_decision import (
     DEFAULT_VISIBLE_CARD_PROVIDER,
     LEGACY_LOCAL_VISIBLE_CARD_PROVIDER,
@@ -642,6 +658,18 @@ __all__ = [
     "evaluate_rfdetr_card_cluster_validation",
     "load_rfdetr_card_cluster_bundle",
     "run_rfdetr_card_cluster_training",
+    "RFDETR_CASCADE_BUNDLE_SCHEMA",
+    "RFDETR_CASCADE_CAMPAIGN_ID",
+    "RFDETR_CASCADE_DECISION_SCHEMA",
+    "RFDETR_CASCADE_EVALUATION_SCHEMA",
+    "RFDETR_CASCADE_PROVIDER_NAME",
+    "RfdetrCascadeBundle",
+    "RfdetrCascadeBundleError",
+    "RfdetrCascadeEvaluationError",
+    "RfdetrCascadeValidationCase",
+    "assemble_rfdetr_cascade_bundle",
+    "load_rfdetr_cascade_bundle",
+    "run_rfdetr_cascade_validation",
     "DEFAULT_VISIBLE_CARD_PROVIDER",
     "LEGACY_LOCAL_VISIBLE_CARD_PROVIDER",
     "REVIEWED_SEGMENTATION_PROVIDER",
