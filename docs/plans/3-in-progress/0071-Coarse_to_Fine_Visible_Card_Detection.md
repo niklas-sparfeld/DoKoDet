@@ -5,8 +5,9 @@
 - **Summary:** Find card clusters in the full source frame, run the reviewed RF-DETR segmentation
   model at higher effective card resolution on each cluster crop, and train one model for each stage.
 - **Status:** In Progress
-- **Depends on:** 0048 pipeline data and execution, 0049 recording pipeline review, and the 0068
-  reviewed RF-DETR training corpus, checkpoint, provider, and evaluation boundaries
+- **Depends on:** 0048 pipeline data and execution, 0049 recording pipeline review, the 0068
+  reviewed RF-DETR training corpus, checkpoint, provider, and evaluation boundaries, and the
+  completed 0072 pose-based visible-card review authority for M4–M6
 - **Outcome:** One locally reproducible `local-rfdetr-cascade` provider with a detection-only
   full-frame card-cluster model, a crop-trained visible-card segmentation model, deterministic
   source-coordinate mapping, and retained end-to-end diagnostics.
