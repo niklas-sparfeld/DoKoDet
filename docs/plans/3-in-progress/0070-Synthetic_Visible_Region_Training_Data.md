@@ -26,8 +26,8 @@
 - **M3:** Complete with a declared gap — one deterministic scene per supported bucket is merged
   into a disposable train-only COCO view and approved after contact-sheet inspection; face-down
   and mixed-side buckets remain unavailable.
-- **M4:** Running — the approved paired real-only versus real-plus-synthetic RF-DETR comparison is
-  launched in the background against the new 50/50 view; do not start another candidate.
+- **M4:** Complete — the approved paired real-only versus real-plus-synthetic RF-DETR comparison
+  improved the frozen real validation result and passed the one permitted sealed-test gate.
 - **M5:** Complete with a declared gap — the approved planar renderer now materializes 537 scenes
   from nine explicit empty training tables. It uses same-recording multi-card calibration, upright
   supplied scans, transparent rounded edges, table-level card-paper white balance, scene-shared
@@ -408,6 +408,23 @@ Acceptance:
 - the result states whether synthetic data improved, harmed, or did not clearly change real-frame
   visible-region quality.
 
+#### M4 implementation evidence — 2026-09-20
+
+- The paired report is
+  `data/operations/synthetic-visible-region-0070-m4-50-50-training-comparison.json` with manifest
+  digest `03963a7378c166502409e10abe79988b41989d08968b28e78a28419f5d6459e9`.
+- The real-only control scored mask AP 0.50:0.95 `0.813872`, recall `0.973404`, 5 false
+  predictions, and 2 duplicate predictions on the unchanged 143-frame validation partition.
+- The 50/50 real-plus-synthetic candidate scored mask AP 0.50:0.95 `0.830406` (+`0.016534`),
+  recall `0.984043` (+`0.010639`), 5 false predictions, and 1 duplicate prediction. The frozen
+  validation gate passed on both mask AP and recall.
+- The candidate passed the one permitted sealed-test run: mask AP 0.50:0.95 `0.851146`, recall
+  `0.982877`, and non-zero recall for every sealed-test recording. No runtime provider or default
+  changed.
+- Retained prediction artifacts reproduce all reported metrics. A resumed completed campaign can
+  now be reused by the comparison command; the resume checkpoint remains execution history, not a
+  second candidate configuration.
+
 ### M5 — Find table geometry and synthesize every training recording
 
 - Audit all frozen 0068 recordings for corrected exact four-corner one-, two-, and three-card
@@ -516,7 +533,7 @@ Acceptance:
   references do not label a card as face-up. No larger pool or training run was started. Operator
   approval of the appearance and geometry is required before expansion.
 
-#### M5 production and M4 training evidence — 2026-09-20
+#### M5 production evidence — 2026-09-20
 
 - Operator approval was applied to the reviewed empty-table renderer. The deterministic production
   command generated 537 scenes from the nine eligible training recordings in
@@ -528,9 +545,8 @@ Acceptance:
 - The merged training view contains 537 real and 537 synthetic images. The validation and sealed
   test partitions remain byte-for-byte unchanged. The candidate materialization digest is
   recorded by the M4 preflight at `.runtime/synthetic-visible-region-0070-m4-50-50`.
-- The new M4 paired comparison is running in the background. It uses the frozen 0068 real-only
-  control, the same pretrained RF-DETR checkpoint and recipe, and the new 50/50 candidate. No
-  progress monitoring is performed during the run.
+- M4 used the frozen 0068 real-only control, the same pretrained RF-DETR checkpoint and recipe, and
+  the new 50/50 candidate. Its completed comparison is recorded above.
 
 ### M6 — Measure correction effort and publish the decision
 

@@ -1557,12 +1557,20 @@ def run_rfdetr_segmentation_campaign_training(
             if existing_run.is_file():
                 record = _read_json(existing_run, "RF-DETR campaign run record")
                 expected_config = _campaign_config(config, output)
+                existing_config = record.get("config")
+                if isinstance(existing_config, dict) and "resume" not in expected_config:
+                    # A resumed run is still reusable when the caller asks for the
+                    # original campaign again. The resume checkpoint is execution
+                    # history, not a different candidate configuration.
+                    existing_config = {
+                        key: value for key, value in existing_config.items() if key != "resume"
+                    }
                 if (
                     record.get("schema_version") == expected_schema
                     and record.get("status") == "completed"
                     and record.get("runner") == config.runner
                     and record.get("device") == config.device
-                    and record.get("config") == expected_config
+                    and existing_config == expected_config
                 ):
                     try:
                         view = _load_materialization_view(config.dataset_dir)

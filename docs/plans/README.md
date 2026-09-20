@@ -52,7 +52,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0070 — Synthetic visible-region training data](3-in-progress/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 frozen training inputs plus explicitly reviewed training-only card sources; face-down cutout required before face-down or mixed-side rendering | M0–M3 complete with a declared gap; M5 production is complete with 537 empty-table scenes; M4 paired 50/50 RF-DETR training is running in the background. The view contains 537 real and 537 synthetic train images. Held-out and unfrozen recordings are excluded. |
+| [0070 — Synthetic visible-region training data](3-in-progress/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 frozen training inputs plus explicitly reviewed training-only card sources; face-down cutout required before face-down or mixed-side rendering | M0–M5 complete with declared gaps; M4 improved the frozen real validation result and passed the permitted sealed-test gate. The view contains 537 real and 537 synthetic train images. Held-out and unfrozen recordings are excluded. M6 remains for annotation-effort measurement and the final decision. |
 | [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, and the 0068 reviewed RF-DETR training corpus, checkpoint, provider, and evaluation boundaries | M0–M2 complete. M3 trainer, evaluator, resource guard, and bundle contracts are implemented and fixture-tested, but the real run is blocked because the frozen 0068/M2 materialization and official RF-DETR Small checkpoint are absent. M4–M6 not started. |
 
 ### Blocked

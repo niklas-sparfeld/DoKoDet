@@ -536,6 +536,9 @@ def test_campaign_resume_reuses_staged_dataset_and_records_checkpoint(tmp_path: 
     assert record["training_arguments"]["resume"] == str(resume_checkpoint.resolve())
     assert staged_snapshot == resumed_snapshot
 
+    reused = run_rfdetr_segmentation_campaign_training(initial_config)
+    assert reused["run_id"] == resumed["run_id"]
+
 
 def test_reviewed_detector_smoke_records_matching_m0_m1_and_device_facts(tmp_path: Path) -> None:
     view = _write_view(tmp_path / "view", reviewed=True)
