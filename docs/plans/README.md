@@ -52,8 +52,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0070 — Synthetic visible-region training data](3-in-progress/0070-Synthetic_Visible_Region_Training_Data.md) | 0068 frozen training inputs plus explicitly reviewed training-only card sources; face-down cutout required before face-down or mixed-side rendering | M0–M5 complete with declared gaps; M4 improved the frozen real validation result and passed the permitted sealed-test gate. The view contains 537 real and 537 synthetic train images. Held-out and unfrozen recordings are excluded. M6 remains for annotation-effort measurement and the final decision. |
-| [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, and the 0068 reviewed RF-DETR training corpus, checkpoint, provider, and evaluation boundaries | M0–M2 complete. M3 trainer, evaluator, resource guard, and bundle contracts are implemented and fixture-tested, but the real run is blocked because the frozen 0068/M2 materialization and official RF-DETR Small checkpoint are absent. M4–M6 not started. |
+| [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M2 complete. M3 trainer, evaluator, resource guard, and bundle contracts are implemented and fixture-tested; its frozen 0068/M2 materialization and official RF-DETR Small checkpoint are prepared and load-validated, but the real run has not started. M4–M6 must consume validated 0072 scene-derived targets. |
 
 ### Blocked
 
@@ -65,6 +64,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0070 — Synthetic visible-region training data](5-closed/0070-Synthetic_Visible_Region_Training_Data.md) | Complete | M0–M6 complete with declared gaps. The 50/50 real-plus-synthetic candidate improved frozen real validation mask AP and recall. No legal M6 development source group remained for human correction timing, so the candidate is retained as an experiment and is not promoted as an annotation prefill. |
 | [0072 — Pose-based visible-card review](5-closed/0072-Pose_Based_Visible_Card_Review.md) | Complete | M0–M5 complete: shared calibrated card-plane geometry and versioned scene contracts are frozen; deterministic calibration, pose initialization, virtual-table correction, derived visible-region validation, maintained-reference integration, and dataset lineage are verified by a local end-to-end fixture. Unsupported frames fail explicitly; no Gemini, cloud service, or human calibration input is required. |
 | [0052 — Selected response to visible-region identity failures](5-closed/0052-Selected_Visible_Region_Identity_Response.md) | Won't Do | No measured 0051 failure selected a follow-up identity response; M0–M3 were not started. |
 | [0051 — Visible-region identity resilience baseline](5-closed/0051-Visible_Region_Identity_Resilience_Baseline.md) | Won't Do | The live 4,920-request comparison and M4 decision were not decision-critical. Retain the completed identity-outcome preservation and deterministic crop/receipt infrastructure. |

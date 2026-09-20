@@ -13,15 +13,34 @@
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
+## 0072 consolidation
+
+Epic 0072 is complete and is now the geometry authority for the fine-stage data path in this
+epic. A reviewed card scene owns card poses and stacking order. Visible-region polygons and their
+tight boxes are derived output. A processor polygon, an unvalidated scene, or a stale derivation
+receipt must not become an M4 or M5 training target.
+
+The frozen 0068 manifest remains an immutable historical input for M3. It contains the completed
+reviewed visible-card corpus that M3 needs for coarse cluster boxes, and it must not be rewritten to
+add post-0072 fields. The current repository has no production completed references with
+`card_scene` envelopes; the 0072 scene-bearing data exists only in its local end-to-end fixture.
+Therefore this consolidation changes the M4–M6 authority and lineage contract, but it does not
+claim that the M3 coarse corpus has been re-reviewed through 0072.
+
+When 0071 later materializes fine-stage data, it must use the validated dataset path from 0072 and
+retain the reviewed scene, calibration revision, derived-region receipt, source frame, and
+completed-reference identities. The existing dataset validator already rejects processor polygons
+without a completed reviewed card scene and a valid derived view.
+
 ## Milestone status
 
 - **M0:** Complete — frozen cascade identities, deterministic cluster/crop transforms, and duplicate reconciliation contracts are implemented and covered by focused tests.
 - **M1:** Complete — the development provider reuses one 0068 bundle for full-frame clustering and
   fine crop inference, with source-linked mapping, reconciliation, and partial diagnostics.
 - **M2:** Complete — derive and materialize the full-frame card-cluster detection dataset.
-- **M3:** Blocked — the deterministic RF-DETR Small trainer, evaluator, resource guard, and
-  reloadable bundle are implemented; the bounded real run needs the frozen 0068/M2 materialization
-  and official RF-DETR Small checkpoint, which are not present in this checkout.
+- **M3:** In progress — the deterministic RF-DETR Small trainer, evaluator, resource guard, and
+  reloadable bundle are implemented. The frozen 0068/M2 materialization and official RF-DETR Small
+  checkpoint are prepared and load-validated; the bounded real run has not started.
 - **M4:** Not started — derive and materialize the cluster-crop segmentation dataset.
 - **M5:** Not started — fine-tune and bundle one RF-DETR SegMedium cluster model.
 - **M6:** Not started — assemble, integrate, and verify the completed cascade provider.
@@ -328,13 +347,15 @@ Acceptance:
 - Added `table-analyzer train-rfdetr-card-cluster-campaign` and
   `table-analyzer evaluate-rfdetr-card-cluster`, plus four focused campaign and bundle tests.
   The full `table_evidence_analyzer` suite passes with 202 tests and 3 skips.
-- The real campaign is not run in this checkout because the frozen 0068/M2 materialization and
-  official RF-DETR Small checkpoint are absent. Fixture execution proves the contract but does
-  not satisfy the real-run acceptance gate. No M3 checkpoint is claimed as a model result.
+- Prepared the real 0068/M2 materialization with digest
+  `d7081d618b5d1d58559c205e777cf1d713d34802a43d23383cf0c43de19f1302`, downloaded the official
+  RF-DETR Small checkpoint, and load-validated it as `RFDETRSmall`. The fixture execution proves
+  the contract, but the real run has not started and no M3 checkpoint is claimed as a model result.
 
 ### M4 — Materialize cluster-crop segmentation data
 
-- Build deterministic train and validation crops from reviewed clusters with the M0 transform.
+- Build deterministic train and validation crops from reviewed clusters with the M0 transform and
+  the validated 0072 scene-derived visible-card view.
 - Apply the one frozen perturbation policy while keeping all assigned visible regions complete.
 - Transform every visible-region polygon component and tight box into crop coordinates.
 - Produce the COCO instance-segmentation view and a contact sheet that overlays each crop target.
@@ -342,8 +363,9 @@ Acceptance:
 Acceptance:
 
 - every crop links to its source frame, reviewed revision, cluster, transform, perturbation, and
-  source group;
+  source group, reviewed card scene, calibration revision, and derived-region receipt;
 - no crop splits an assigned visible region or drops a polygon component;
+- processor polygons and stale or missing scene derivations are rejected before target conversion;
 - crop targets map back to the reviewed source geometry within tolerance;
 - source-group partitions remain disjoint; and
 - cold and warm materialization have equal manifests and generated-file digests.
@@ -351,7 +373,8 @@ Acceptance:
 ### M5 — Train the cluster visible-card model
 
 - Generalize the 0068 segmentation trainer to accept the M4 crop view and the selected 0068
-  checkpoint as its initializer.
+  checkpoint as its initializer. The M4 manifest remains the sole target authority and must retain
+  the 0072 reviewed-scene lineage.
 - Freeze the real training manifest and recipe before model execution.
 - Run one bounded real fine-tuning campaign and select one checkpoint by the frozen validation rule.
 - Evaluate crop-coordinate and mapped source-coordinate results with the section 4.2 metrics.
