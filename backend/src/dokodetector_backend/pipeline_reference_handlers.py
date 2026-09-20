@@ -692,6 +692,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         replacement = dict(existing.item)
         replacement["candidates"] = []
         replacement["ignored_regions"] = []
+        replacement.pop("card_scene", None)
         if operation.operation == "set_frame_empty":
             replacement.update(status="empty", error=None)
             state = "empty"

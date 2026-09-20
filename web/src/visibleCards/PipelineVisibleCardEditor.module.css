@@ -102,6 +102,153 @@
   padding: 0;
 }
 
+.poseEditor {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.poseEditorHeader,
+.poseViewHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.poseEditorHeader h2,
+.poseViewPanel h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.poseEditorStatus,
+.poseEditorHelp,
+.poseLegend {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+.poseEditorViews {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.poseViewPanel {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--surface) 55%, var(--panel));
+}
+
+.poseSourceViewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #18242f;
+}
+
+.poseSourceViewport img,
+.poseSourceViewport svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.poseSourceViewport img {
+  object-fit: contain;
+}
+
+.poseSourceViewport svg {
+  position: absolute;
+  inset: 0;
+}
+
+.poseTableSvg {
+  width: 100%;
+  min-height: 18rem;
+  aspect-ratio: 1.35;
+  overflow: hidden;
+  border: 1px solid #34515e;
+  border-radius: 0.35rem;
+  background: #18242f;
+  touch-action: none;
+}
+
+.poseViewActions,
+.poseEditorControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.poseViewActions button,
+.poseEditorControls button,
+.poseEditorControls input {
+  min-height: 1.9rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+}
+
+.poseViewActions button {
+  min-width: 1.9rem;
+}
+
+.poseEditorControls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+.poseEditorControls input {
+  width: 5rem;
+}
+
+.poseEditorControls button:hover,
+.poseViewActions button:hover,
+.poseEditorControls button:focus-visible,
+.poseViewActions button:focus-visible {
+  border-color: var(--accent);
+}
+
+.poseLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin: 0;
+}
+
+.poseLegend span::before {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-right: 0.3rem;
+  border-radius: 50%;
+  content: "";
+}
+
+.poseLegend span[data-tone="model"]::before {
+  background: #a7aebc;
+}
+
+.poseLegend span[data-tone="reviewed"]::before {
+  background: #30c9ac;
+}
+
 .canvasViewport {
   position: relative;
   width: 100%;
@@ -356,6 +503,15 @@
 @media (max-width: 600px) {
   .reviewCount {
     text-align: left;
+  }
+
+  .poseEditorViews {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .poseEditorHeader,
+  .poseViewHeading {
+    display: grid;
   }
 }
 

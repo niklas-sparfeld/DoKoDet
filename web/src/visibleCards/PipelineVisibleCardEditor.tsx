@@ -41,6 +41,8 @@ import {
   VisibleCardReviewControls,
 } from "./PipelineVisibleCardPresentation";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
+import { PoseBasedVisibleCardEditor } from "./PoseBasedVisibleCardEditor";
+import { readPoseScene } from "./PoseBasedVisibleCardScene";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import type {
   Candidate,
@@ -522,6 +524,26 @@ export function PipelineVisibleCardEditor({
     [enqueue],
   );
 
+  const updatePoseScene = useCallback(
+    (
+      frame: EditableFrame,
+      cardScene: NonNullable<Outcome["card_scene"]>,
+      noticeText: string,
+    ) => {
+      setFrameReview(
+        frame,
+        {
+          ...frame.outcome,
+          status: "detected",
+          card_scene: cardScene,
+          error: null,
+        },
+        noticeText,
+      );
+    },
+    [setFrameReview],
+  );
+
   const acceptSuggestions = useCallback(
     (frame: EditableFrame) => {
       endEditMode();
@@ -599,6 +621,7 @@ export function PipelineVisibleCardEditor({
         status: outcome === "empty" ? "empty" : "failed",
         candidates: [],
         ignored_regions: [],
+        card_scene: undefined,
         error: outcome === "empty" ? null : "Reviewed unusable frame.",
       };
       enqueue(
@@ -1441,7 +1464,7 @@ export function PipelineVisibleCardEditor({
         selectFrame(current[index + 1]);
       } else if (canEdit && (event.key === "n" || event.key === "N")) {
         const frame = current[index >= 0 ? index : 0];
-        if (frame !== undefined) {
+        if (frame !== undefined && frame.outcome.card_scene === undefined) {
           event.preventDefault();
           openEditor(frame, null);
         }
@@ -1626,7 +1649,11 @@ export function PipelineVisibleCardEditor({
           if (next !== undefined) selectFrame(next);
         }}
         onAccept={() => toggleFrameAcceptance(activeFrame)}
-        onAddCard={() => openEditor(activeFrame, null)}
+        onAddCard={
+          activeFrame.outcome.card_scene === undefined
+            ? () => openEditor(activeFrame, null)
+            : undefined
+        }
         selectedCandidateCount={selectedCandidateIds.length}
         onConvertToIgnoreRegion={() =>
           convertSelectedToIgnoreRegion(activeFrame)
@@ -1675,59 +1702,72 @@ export function PipelineVisibleCardEditor({
           <>
             {reviewControls}
             <div className={visibleStyles.reviewWorkbench}>
-              <VisibleCardFramePanel
-                recordingId={recordingId}
-                frame={activeFrame}
-                editor={
-                  editor?.frameItemId === activeFrame.itemId ? editor : null
-                }
-                selectedCandidateId={selectedCandidateId}
-                editorError={editorError}
-                selectedCandidateIds={selectedCandidateIds}
-                onToggleCandidateSelection={toggleCandidateSelection}
-                onOpenIgnoreRegion={
-                  editable
-                    ? (region) => openIgnoreRegionEditor(activeFrame, region)
-                    : undefined
-                }
-                onRemoveIgnoreRegion={
-                  editable
-                    ? (regionId) => removeIgnoreRegion(activeFrame, regionId)
-                    : undefined
-                }
-                readOnly={!editable}
-                onSelectCandidate={(candidate) => {
-                  setSelectedCandidateId(candidate.card_id);
-                  if (editable) openEditor(activeFrame, candidate);
-                }}
-                onSelectCandidatePolygon={
-                  editable
-                    ? (candidate, polygonIndex) =>
-                        openEditor(activeFrame, candidate, polygonIndex)
-                    : undefined
-                }
-                onOpenEditor={
-                  editable
-                    ? (candidate) => openEditor(activeFrame, candidate)
-                    : undefined
-                }
-                onCancelEditor={editable ? () => setEditor(null) : undefined}
-                onRemoveCard={
-                  editable
-                    ? (cardId) => removeCard(activeFrame, cardId)
-                    : undefined
-                }
-                onPointerMove={handleCanvasPointerMove}
-                onPointerLeave={handleCanvasPointerLeave}
-                onCanvasPointerDown={addVisibleRegionPoint}
-                onPointerUp={stopCanvasPointer}
-                onPointPointerDown={startPointDrag}
-                onDeleteSelectedPoint={deleteSelectedPoint}
-                onSelectEditorPolygon={selectEditorPolygon}
-                onAddEditorPolygon={addEditorPolygon}
-                onRemoveEditorPolygon={removeEditorPolygon}
-                proposalSlot={proposalSlot}
-              />
+              {activeFrame.outcome.card_scene !== undefined ? (
+                <PoseBasedVisibleCardEditor
+                  key={`${activeFrame.itemId}-${activeFrame.outcome.card_scene.scene.scene_digest}`}
+                  recordingId={recordingId}
+                  frame={activeFrame}
+                  scene={activeFrame.outcome.card_scene}
+                  readOnly={!editable}
+                  onChange={(nextScene, noticeText) =>
+                    updatePoseScene(activeFrame, nextScene, noticeText)
+                  }
+                />
+              ) : (
+                <VisibleCardFramePanel
+                  recordingId={recordingId}
+                  frame={activeFrame}
+                  editor={
+                    editor?.frameItemId === activeFrame.itemId ? editor : null
+                  }
+                  selectedCandidateId={selectedCandidateId}
+                  editorError={editorError}
+                  selectedCandidateIds={selectedCandidateIds}
+                  onToggleCandidateSelection={toggleCandidateSelection}
+                  onOpenIgnoreRegion={
+                    editable
+                      ? (region) => openIgnoreRegionEditor(activeFrame, region)
+                      : undefined
+                  }
+                  onRemoveIgnoreRegion={
+                    editable
+                      ? (regionId) => removeIgnoreRegion(activeFrame, regionId)
+                      : undefined
+                  }
+                  readOnly={!editable}
+                  onSelectCandidate={(candidate) => {
+                    setSelectedCandidateId(candidate.card_id);
+                    if (editable) openEditor(activeFrame, candidate);
+                  }}
+                  onSelectCandidatePolygon={
+                    editable
+                      ? (candidate, polygonIndex) =>
+                          openEditor(activeFrame, candidate, polygonIndex)
+                      : undefined
+                  }
+                  onOpenEditor={
+                    editable
+                      ? (candidate) => openEditor(activeFrame, candidate)
+                      : undefined
+                  }
+                  onCancelEditor={editable ? () => setEditor(null) : undefined}
+                  onRemoveCard={
+                    editable
+                      ? (cardId) => removeCard(activeFrame, cardId)
+                      : undefined
+                  }
+                  onPointerMove={handleCanvasPointerMove}
+                  onPointerLeave={handleCanvasPointerLeave}
+                  onCanvasPointerDown={addVisibleRegionPoint}
+                  onPointerUp={stopCanvasPointer}
+                  onPointPointerDown={startPointDrag}
+                  onDeleteSelectedPoint={deleteSelectedPoint}
+                  onSelectEditorPolygon={selectEditorPolygon}
+                  onAddEditorPolygon={addEditorPolygon}
+                  onRemoveEditorPolygon={removeEditorPolygon}
+                  proposalSlot={proposalSlot}
+                />
+              )}
             </div>
           </>
         )}
@@ -1803,12 +1843,14 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
   const ignoredRegions = (rawIgnoredRegions ?? [])
     .map(readIgnoreRegion)
     .filter((region): region is IgnoreRegion => region !== null);
+  const cardScene = readPoseScene(value.card_scene);
   return {
     event_id: eventId,
     frame_identity: frame,
     status: status as Outcome["status"],
     candidates,
     ignored_regions: ignoredRegions,
+    ...(cardScene === null ? {} : { card_scene: cardScene }),
     error: typeof value.error === "string" ? value.error : null,
   };
 }

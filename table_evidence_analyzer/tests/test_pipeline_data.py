@@ -92,6 +92,21 @@ def test_visible_card_data_round_trips_to_canonical_bytes() -> None:
     assert raw == canonical_visible_card_data_bytes(parse_visible_card_data_bytes(raw))
 
 
+def test_visible_card_data_preserves_reviewed_card_scene_envelope() -> None:
+    value = _content()
+    value["outcomes"][0]["card_scene"] = {
+        "schema_version": "reviewed-card-scene-editor/v1",
+        "scene": {"scene_digest": "a" * 64},
+        "initialized_scene": {"scene_digest": "b" * 64},
+        "projection": {"card_short_size": 1.0},
+    }
+
+    parsed = VisibleCardData.from_mapping(value)
+    restored = parse_visible_card_data_bytes(canonical_visible_card_data_bytes(parsed))
+
+    assert restored.outcomes[0].card_scene == value["outcomes"][0]["card_scene"]
+
+
 @pytest.mark.parametrize(
     "mutate",
     [

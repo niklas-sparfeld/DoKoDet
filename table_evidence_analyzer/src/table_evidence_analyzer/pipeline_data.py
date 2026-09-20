@@ -1093,15 +1093,20 @@ class VisibleCardOutcome:
     candidates: tuple[VisibleCardCandidate, ...]
     error: str | None = None
     ignored_regions: tuple[VisibleCardIgnoreRegion, ...] = ()
+    card_scene: dict[str, Any] | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any], context: str = "outcome") -> "VisibleCardOutcome":
         data = _mapping(raw, context)
-        _strict(
-            data,
-            {"event_id", "frame_identity", "status", "candidates", "ignored_regions", "error"},
-            context,
-        )
+        expected = {
+            "event_id",
+            "frame_identity",
+            "status",
+            "candidates",
+            "ignored_regions",
+            "error",
+        }
+        _strict(data, expected | {"card_scene"} if "card_scene" in data else expected, context)
         status = data["status"]
         if status not in {"detected", "empty", "failed"}:
             raise PipelineDataError(f"{context}.status is unsupported")
@@ -1138,6 +1143,13 @@ class VisibleCardOutcome:
         error = data["error"]
         if error is not None:
             error = _text(error, f"{context}.error")
+        raw_card_scene = data.get("card_scene")
+        card_scene: dict[str, Any] | None
+        if raw_card_scene is None:
+            card_scene = None
+        else:
+            card_scene = dict(_mapping(raw_card_scene, f"{context}.card_scene"))
+            _validate_json(card_scene, f"{context}.card_scene")
         if status == "detected" and not candidates and not ignored_regions:
             raise PipelineDataError(
                 f"{context}.detected outcome needs candidates or ignored regions"
@@ -1159,10 +1171,11 @@ class VisibleCardOutcome:
             candidates=candidates,
             error=error,
             ignored_regions=ignored_regions,
+            card_scene=card_scene,
         )
 
     def to_mapping(self) -> dict[str, Any]:
-        return {
+        value = {
             "event_id": self.event_id,
             "frame_identity": None
             if self.frame_identity is None
@@ -1172,6 +1185,9 @@ class VisibleCardOutcome:
             "ignored_regions": [region.to_mapping() for region in self.ignored_regions],
             "error": self.error,
         }
+        if self.card_scene is not None:
+            value["card_scene"] = self.card_scene
+        return value
 
 
 @dataclass(frozen=True, slots=True)

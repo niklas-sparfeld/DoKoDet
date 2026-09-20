@@ -61,7 +61,7 @@ export function VisibleCardReviewControls({
   onPrevious: () => void;
   onNext: () => void;
   onAccept: () => void;
-  onAddCard: () => void;
+  onAddCard?: () => void;
   selectedCandidateCount: number;
   onConvertToIgnoreRegion: () => void;
   onCreateIgnoreRegion: () => void;
@@ -79,7 +79,8 @@ export function VisibleCardReviewControls({
   const canAddCard =
     editable &&
     selectedFrame !== null &&
-    selectedFrame.outcome.frame_identity !== null;
+    selectedFrame.outcome.frame_identity !== null &&
+    onAddCard !== undefined;
   const timelineSeekingSlot = useTimelineRailSeekingSlot();
   const timelineReviewControlsSlot = useTimelineRailReviewControlsSlot();
   const seekingGroups = [
@@ -135,15 +136,17 @@ export function VisibleCardReviewControls({
             disabledReason="Accept is available for detected frames."
             onClick={onAccept}
           />
-          <ShortcutButton
-            label="Add missed card"
-            shortcut="N"
-            ariaShortcut="N"
-            variant="primary"
-            disabled={!canAddCard}
-            disabledReason="A resolved source frame is required to add a card."
-            onClick={onAddCard}
-          />
+          {onAddCard !== undefined ? (
+            <ShortcutButton
+              label="Add missed card"
+              shortcut="N"
+              ariaShortcut="N"
+              variant="primary"
+              disabled={!canAddCard}
+              disabledReason="A resolved source frame is required to add a card."
+              onClick={onAddCard}
+            />
+          ) : null}
           <ShortcutButton
             label="Convert selected to ignore region"
             shortcut="I"

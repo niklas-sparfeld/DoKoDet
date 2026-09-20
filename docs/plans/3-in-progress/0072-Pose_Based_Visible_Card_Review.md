@@ -25,7 +25,8 @@
   isolated-card detections, with immutable local revision storage and read-only diagnostics.
 - **M2:** Complete — initialize fixed-size card poses and deterministic frame-local stacking order
   from model predictions, with retained suggestion evidence and fit diagnostics.
-- **M3:** Not started — implement the virtual-table card-scene editor.
+- **M3:** Complete — the calibrated local result path now uses a synchronized source-frame and
+  rectified virtual-table card-scene editor with ordered maintained-reference commands.
 - **M4:** Not started — derive and publish reviewed visible regions from the reviewed card scene.
 - **M5:** Not started — verify the complete local-prediction-to-reviewed-data loop.
 
@@ -353,6 +354,23 @@ Acceptance:
 - uncertain evidence is visible and never becomes an automatic review decision;
 - initialization never changes the immutable generated revision; and
 - a failed candidate fit does not block manual card creation on an otherwise valid frame.
+
+#### M3 implementation evidence — 2026-09-20
+
+- Added the versioned card-scene editor envelope to visible-card pipeline data. It preserves the
+  reviewed scene, initialized scene, calibrated projection, and immutable suggestion lineage through
+  canonical data round trips.
+- Added the synchronized source-frame and rectified virtual-table editor. It supports card select,
+  move, rotate, keyboard nudge, reorder, add, remove, restore, zoom, pan, and fit actions. The
+  source view keeps model polygons dim and shows projected fixed-card outlines with live
+  card-card visible-region masks.
+- Routed calibrated scene edits through the existing maintained-reference `set_frame_review` queue.
+  Each completed gesture produces one ordered command and keeps the existing retry, duplicate
+  command, conflict recovery, reload, and optimistic save behavior. Empty and unusable decisions
+  clear the draft scene.
+- Added responsive and accessible controls plus focused scene-contract and editor interaction tests.
+  Web typecheck, lint, formatting, production build, and all 183 web tests pass. Focused backend
+  reference/data tests and the M0–M2 geometry suites pass.
 
 ### M3 — Edit cards on the virtual table
 

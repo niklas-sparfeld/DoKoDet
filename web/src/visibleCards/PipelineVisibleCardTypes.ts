@@ -1,4 +1,5 @@
 import type { PipelineReferenceOperation } from "../api/client";
+import type { PoseSceneEnvelope } from "./PoseBasedVisibleCardScene";
 
 export type Point = { x: number; y: number };
 
@@ -54,6 +55,7 @@ export type Outcome = {
   status: "detected" | "empty" | "failed";
   candidates: Candidate[];
   ignored_regions: IgnoreRegion[];
+  card_scene?: PoseSceneEnvelope;
   error: string | null;
 };
 
