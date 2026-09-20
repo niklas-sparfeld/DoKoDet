@@ -23,7 +23,8 @@
   uses the shared homography, calibration, mask, polygon, component, and occlusion primitives.
 - **M1:** Complete — automatically mine and validate a recording-global table calibration from
   isolated-card detections, with immutable local revision storage and read-only diagnostics.
-- **M2:** Not started — initialize card poses and stacking order from model predictions.
+- **M2:** Complete — initialize fixed-size card poses and deterministic frame-local stacking order
+  from model predictions, with retained suggestion evidence and fit diagnostics.
 - **M3:** Not started — implement the virtual-table card-scene editor.
 - **M4:** Not started — derive and publish reviewed visible regions from the reviewed card scene.
 - **M5:** Not started — verify the complete local-prediction-to-reviewed-data loop.
@@ -321,6 +322,19 @@ Acceptance:
   default, or generated training artifact changed.
 - Added repeatability, rejection, failure, held-out validation, and immutable-store tests. The M1
   tests and shared geometry regressions pass.
+
+#### M2 implementation evidence — 2026-09-20
+
+- Added the deterministic `card_plane_initialization` processor. It selects one exact source frame,
+  maps each model polygon into the calibrated table plane, and fits a bounded fixed-size card pose
+  with a frozen grid-search recipe.
+- Added source-linked suggestion diagnostics that retain polygons, confidence, provider, bundle,
+  and fit residuals without changing the generated revision. Partial, rough, duplicate, malformed,
+  and below-threshold candidates remain visible as failed or low-confidence diagnostics.
+- Added pairwise overlap-evidence scoring and deterministic front-to-back ordering. Weak edges and
+  order cycles are explicit in the stacking contract and do not become automatic review decisions.
+- Added repeatability, calibrated-dimension, partial/low-confidence, failed-candidate, duplicate,
+  and all-failed initialization tests. The M2, M1, and shared-geometry focused suites pass.
 
 ### M2 — Initialize poses and card stacking order
 
