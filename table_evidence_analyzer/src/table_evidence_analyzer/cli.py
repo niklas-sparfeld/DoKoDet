@@ -336,6 +336,51 @@ def build_parser() -> argparse.ArgumentParser:
         "--device", choices=("cpu", "mps", "cuda"), default="mps"
     )
 
+    cluster_crop_campaign_parser = commands.add_parser(
+        "train-rfdetr-cluster-crop-campaign",
+        aliases=("train-rfdetr-cluster-crop",),
+        help="Train and bundle the bounded RF-DETR SegMedium cluster-crop campaign.",
+        description=(
+            "Validate the frozen 0071 M4 crop view, fine-tune one RF-DETR SegMedium candidate "
+            "from the selected 0068 bundle, and write a reloadable bundle."
+        ),
+    )
+    cluster_crop_campaign_parser.add_argument("--dataset-dir", type=Path, required=True)
+    cluster_crop_campaign_parser.add_argument(
+        "--initializer-bundle",
+        type=Path,
+        required=True,
+        help="Selected 0068 RF-DETR SegMedium bundle used as the initializer.",
+    )
+    cluster_crop_campaign_parser.add_argument("--output-dir", type=Path, required=True)
+    cluster_crop_campaign_parser.add_argument(
+        "--runner",
+        choices=("rfdetr", "fixture"),
+        default="rfdetr",
+        help="Use rfdetr for the real campaign or fixture for contract tests.",
+    )
+    cluster_crop_campaign_parser.add_argument(
+        "--device", choices=("cpu", "mps", "cuda"), default="mps"
+    )
+
+    cluster_crop_validation_parser = commands.add_parser(
+        "evaluate-rfdetr-cluster-crop",
+        help="Evaluate the M5 cluster-crop bundle in crop and source coordinates.",
+        description=(
+            "Run the frozen M4 validation crops through the M5 RF-DETR SegMedium bundle and "
+            "report mask, exact-count, overlap-separation, and mapped-resolution metrics."
+        ),
+    )
+    cluster_crop_validation_parser.add_argument("--dataset-dir", type=Path, required=True)
+    cluster_crop_validation_parser.add_argument("--candidate-bundle", type=Path, required=True)
+    cluster_crop_validation_parser.add_argument("--output-dir", type=Path, required=True)
+    cluster_crop_validation_parser.add_argument(
+        "--runner", choices=("rfdetr", "fixture"), default="rfdetr"
+    )
+    cluster_crop_validation_parser.add_argument(
+        "--device", choices=("cpu", "mps", "cuda"), default="mps"
+    )
+
     segmentation_validation_parser = commands.add_parser(
         "evaluate-rfdetr-segmentation-campaign",
         help="Run the locked RF-DETR segmentation baseline and candidate validation.",
@@ -815,6 +860,49 @@ def main(argv: Sequence[str] | None = None) -> int:
                 RfdetrCardClusterEvaluationConfig(
                     dataset_dir=args.dataset_dir,
                     checkpoint=args.checkpoint,
+                    output_dir=args.output_dir,
+                    runner=args.runner,
+                    device=args.device,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command in {
+        "train-rfdetr-cluster-crop-campaign",
+        "train-rfdetr-cluster-crop",
+    }:
+        from .rfdetr_cluster_crop_training import (
+            RfdetrClusterCropTrainingConfig,
+            run_rfdetr_cluster_crop_training,
+        )
+
+        try:
+            report = run_rfdetr_cluster_crop_training(
+                RfdetrClusterCropTrainingConfig(
+                    dataset_dir=args.dataset_dir,
+                    initializer_bundle=args.initializer_bundle,
+                    output_dir=args.output_dir,
+                    runner=args.runner,
+                    device=args.device,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "evaluate-rfdetr-cluster-crop":
+        from .rfdetr_cluster_crop_evaluation import (
+            RfdetrClusterCropEvaluationConfig,
+            run_rfdetr_cluster_crop_validation,
+        )
+
+        try:
+            report = run_rfdetr_cluster_crop_validation(
+                RfdetrClusterCropEvaluationConfig(
+                    dataset_dir=args.dataset_dir,
+                    candidate_bundle=args.candidate_bundle,
                     output_dir=args.output_dir,
                     runner=args.runner,
                     device=args.device,

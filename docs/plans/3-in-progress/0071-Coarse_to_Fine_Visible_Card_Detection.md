@@ -74,7 +74,7 @@ without a completed reviewed card scene and a valid derived view.
 - **M3:** Complete — the bounded real RF-DETR Small campaign produced and reload-validated one
   bundle. Its selected threshold meets the frozen crop-containment recall floor.
 - **M4:** Complete — derive and materialize the reviewed cluster-crop segmentation dataset with train-only 0070 synthetic rows.
-- **M5:** Not started — fine-tune and bundle one RF-DETR SegMedium cluster model.
+- **M5:** Complete — the frozen M4 crop view now has a bounded RF-DETR SegMedium fine-tuning campaign and crop/source-coordinate evaluator.
 - **M6:** Not started — assemble, integrate, and verify the completed cascade provider.
 
 ## 1. Purpose
@@ -430,6 +430,27 @@ Acceptance:
   synthetic, missing-scene, cold, and warm paths.
 - Focused materialization, campaign, analyzer, Ruff, format, and CLI checks pass. Cold and warm
   fixture runs produce equal manifests and generated-file digests.
+
+#### M5 implementation evidence — 2026-09-20
+
+- Added `train-rfdetr-cluster-crop-campaign`. It loads and digest-checks the frozen M4 view,
+  rejects missing 0072 scene authority or cross-partition source groups, stages the materialized
+  crop bytes without resizing a complete source frame, and keeps 0070 rows in the training
+  partition only.
+- The campaign accepts only the selected 0068 `RFDETRSegMedium` bundle as its initializer. The
+  emitted segmentation bundle records the initializer bundle digest, checkpoint digest, M4
+  materialization digest, crop perturbation policy, training recipe, and `RFDETRSegMedium` reload
+  identity.
+- Added `evaluate-rfdetr-cluster-crop`. Its report contains crop-coordinate and mapped
+  source-coordinate mask metrics, duplicate predictions, exact card-count frames, overlapping
+  target separation, polygon-component counts, and source pixels represented by one fine-model
+  input pixel. Mapped results retain crop, source-frame, and card identities.
+- Added fixture coverage for initializer pinning, exact crop staging, train-only synthetic rows,
+  0072 authority rejection, source mapping, exact counts, and overlapping-target separation. The
+  fixture campaign and evaluator pass, as does the full local analyzer suite and CLI help.
+- The repository checkout has no materialized production M4 view or selected 0068 runtime bundle;
+  therefore the bounded real campaign is ready and digest-pinned but was not executed in this
+  local phase.
 
 ### M5 — Train the cluster visible-card model
 
