@@ -100,6 +100,9 @@ describe("PoseBasedVisibleCardEditor", () => {
     expect(
       screen.getByRole("application", { name: "Rectified virtual table" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("list", { name: "Pose review checklist" }),
+    ).toHaveTextContent("Check calibration coverage and rejected candidates");
     fireEvent.click(
       screen.getByRole("button", { name: "Add standard-size card" }),
     );

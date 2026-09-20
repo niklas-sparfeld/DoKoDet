@@ -302,6 +302,23 @@ export function PoseBasedVisibleCardEditor({
           back
         </span>
       </div>
+      <ol
+        className={styles.poseEditorGuidance}
+        aria-label="Pose review checklist"
+      >
+        <li>
+          Check calibration coverage and rejected candidates before editing
+          cards.
+        </li>
+        <li>
+          Correct card count, center, rotation, and front-to-back order on the
+          virtual table.
+        </li>
+        <li>
+          Use an ignore region or mark the frame unusable when an external
+          occluder is not explained by card poses.
+        </li>
+      </ol>
 
       <div className={styles.poseEditorViews}>
         <div className={styles.poseViewPanel}>

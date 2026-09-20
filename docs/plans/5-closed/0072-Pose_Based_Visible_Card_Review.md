@@ -5,7 +5,12 @@
 - **Summary:** Automatically calibrate one table plane from high-confidence isolated-card detections
   across a recording, fit full-card poses and stacking order, and let the operator correct cards by
   moving them on a virtual table.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** The local pose-based review loop is fixture-verified from generated local
+  predictions through calibration, scene correction, maintained-reference completion, and frozen
+  dataset materialization. Unsupported frames fail explicitly and the Gemini/cloud path is not
+  required.
 - **Depends on:** 0048 pipeline data and execution, and 0049 recording pipeline review
 - **Builds on:** The table-plane calibration in 0070, the reviewed local segmentation provider in
   0068, and the local cascade in 0071
@@ -29,7 +34,7 @@
   rectified virtual-table card-scene editor with ordered maintained-reference commands.
 - **M4:** Complete — derive and validate deterministic reviewed visible regions from the reviewed
   card scene and gate downstream identity and dataset use on the validated view.
-- **M5:** Not started — verify the complete local-prediction-to-reviewed-data loop.
+- **M5:** Complete — verify the complete local-prediction-to-reviewed-data loop.
 
 ## 1. Purpose
 
@@ -454,6 +459,30 @@ Acceptance:
   retain complete lineage;
 - browser, API, persistence, geometry, dataset, type, lint, formatting, and build checks pass; and
 - unsupported frames fail explicitly instead of producing plausible but incorrect geometry.
+
+#### M5 implementation evidence — 2026-09-20
+
+- Added `backend/tests/test_pose_based_review_loop.py`, a deterministic local fixture that mines a
+  recording-global calibration from generated predictions, initializes fixed-size poses, and
+  exercises distant cards, two-card overlap, three-card overlap, wrong model count, wrong initial
+  stacking order, and an unsupported frame.
+- The fixture records calibration runtime, candidate yield and rejection reasons, accepted and
+  final pose counts, move, rotation, reorder, add, remove, ignore-region, and unusable-frame
+  counts. The fixture run records 13 calibration candidates, 12 accepted calibration candidates,
+  one duplicate rejection, 11 accepted poses, two moves, two rotations, two reorder actions, one
+  addition, one removal, zero ignore regions, and one explicit unusable frame.
+- The fixture publishes generated event and visible-card revisions, applies scene corrections and
+  an explicit unusable decision through the maintained-reference command path, completes review
+  coverage, and materializes an 11-target visible-card dataset. The frozen manifest links the
+  generated visible-card revision, completed reference, event reference, calibration revision,
+  reviewed scenes, derived-region receipts, and dataset digest.
+- Added a concise pose-editor checklist for calibration coverage and rejected candidates, pose and
+  order correction, and ignore-region or unusable-frame decisions. No Gemini, cloud service, or
+  human calibration input is used.
+- Verification passed for the new end-to-end backend fixture, focused geometry, calibration,
+  initialization, dataset, and reference suites, plus all 183 web tests, typecheck, lint,
+  formatting, OpenAPI verification, and production build. The full-suite baseline exceptions
+  remain the existing operations M8 artifact test and backend route-inventory count test.
 
 ## 8. Verification
 

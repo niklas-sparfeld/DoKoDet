@@ -130,6 +130,17 @@
   font-size: 0.72rem;
 }
 
+.poseEditorGuidance {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0.55rem 0.75rem 0.55rem 1.9rem;
+  border-left: 2px solid var(--accent);
+  color: var(--muted-ink);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
 .poseEditorViews {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 1fr);
