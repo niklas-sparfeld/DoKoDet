@@ -1806,6 +1806,10 @@ export interface components {
         PipelineVisibleCardOutcomeResponse: {
             /** Candidates */
             candidates: components["schemas"]["PipelineVisibleCardCandidateResponse"][];
+            /** Card Scene */
+            card_scene?: {
+                [key: string]: unknown;
+            } | null;
             /** Error */
             error: string | null;
             /** Event Id */

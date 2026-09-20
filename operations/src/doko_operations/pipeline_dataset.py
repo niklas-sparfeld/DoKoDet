@@ -23,6 +23,7 @@ from table_evidence_analyzer.local_identity import (
 )
 from table_evidence_analyzer.pipeline_data import VisibleCardData, parse_pipeline_geometry
 
+from .card_plane_geometry import CardPlaneGeometryError, validate_pose_scene_candidate_view
 from .pipeline_data import (
     DataRevision,
     EventData,
@@ -555,6 +556,7 @@ def _targets(
             candidates = outcome.get("candidates")
             if not isinstance(candidates, list):
                 raise PipelineDatasetError("visible-card target candidates are invalid")
+            _validate_pose_scene_outcome(outcome)
             for candidate in candidates:
                 if not isinstance(candidate, Mapping):
                     raise PipelineDatasetError("visible-card target candidate is invalid")
@@ -610,6 +612,45 @@ def _targets(
             }
         )
     return targets
+
+
+def _validate_pose_scene_outcome(outcome: Mapping[str, Any]) -> None:
+    """Require scene-derived geometry before a processor polygon enters a dataset target."""
+
+    candidates = outcome.get("candidates")
+    if not isinstance(candidates, list):
+        raise PipelineDatasetError("visible-card target candidates are invalid")
+    raw_envelope = outcome.get("card_scene")
+    if raw_envelope is None:
+        if any(
+            isinstance(candidate, Mapping)
+            and isinstance(candidate.get("geometry"), Mapping)
+            and candidate["geometry"].get("kind") == "visible-region/v1"
+            for candidate in candidates
+        ):
+            raise PipelineDatasetError(
+                "processor visible-card polygons need a completed reviewed card scene"
+            )
+        return
+    if not isinstance(raw_envelope, Mapping):
+        raise PipelineDatasetError("visible-card card_scene is invalid")
+    scene = raw_envelope.get("scene")
+    projection = raw_envelope.get("projection")
+    if not isinstance(scene, Mapping) or not isinstance(projection, Mapping):
+        raise PipelineDatasetError(
+            "visible-card card_scene needs a reviewed scene and calibrated projection"
+        )
+    try:
+        validate_pose_scene_candidate_view(
+            scene,
+            projection,
+            candidates,
+            receipt=raw_envelope.get("derived_region_receipt"),
+        )
+    except (CardPlaneGeometryError, TypeError, ValueError) as error:
+        raise PipelineDatasetError(
+            f"visible-card scene-derived geometry is invalid: {error}"
+        ) from error
 
 
 def _visible_card_projection(
@@ -781,6 +822,9 @@ def _validate_alignment(
         for candidate in outcome.get("candidates", [])
         if isinstance(candidate, Mapping)
     }
+    for outcome in upstream_content.get("outcomes", []):
+        if isinstance(outcome, Mapping) and outcome.get("status") == "detected":
+            _validate_pose_scene_outcome(outcome)
     identity_outcomes = {
         outcome.get("card_id"): outcome
         for outcome in reference_content.get("outcomes", [])

@@ -20,6 +20,7 @@ from table_evidence_analyzer.pipeline_data import (
     VisualIdentityOutcome,
 )
 
+from .card_plane_geometry import CardPlaneGeometryError, validate_pose_scene_candidate_view
 from .pipeline_comparison_contract import (
     ComparisonOutcome,
     ComparisonPolicyKind,
@@ -419,6 +420,9 @@ def compare_visible_card_data(
     """Compare visible-card outcomes only on equal reviewed frame identities."""
 
     threshold = _geometry_threshold(policy, "visible_card_geometry")
+    _validate_pose_scene_content(reference)
+    _validate_pose_scene_content(left)
+    _validate_pose_scene_content(right)
     reviewed_keys = {_frame_identity_key(frame) for frame in scope.reviewed_frame_identities}
     results: dict[
         str,
@@ -444,6 +448,30 @@ def compare_visible_card_data(
             )
         ),
     )
+
+
+def _validate_pose_scene_content(content: VisibleCardData) -> None:
+    """Keep comparison inputs aligned with any persisted reviewed card scene."""
+
+    for outcome in content.outcomes:
+        envelope = outcome.card_scene
+        if envelope is None:
+            continue
+        scene = envelope.get("scene")
+        projection = envelope.get("projection")
+        if not isinstance(scene, Mapping) or not isinstance(projection, Mapping):
+            raise PipelineComparisonContractError("visible-card scene-derived view is incomplete")
+        try:
+            validate_pose_scene_candidate_view(
+                scene,
+                projection,
+                [candidate.to_mapping() for candidate in outcome.candidates],
+                receipt=envelope.get("derived_region_receipt"),
+            )
+        except (CardPlaneGeometryError, TypeError, ValueError) as error:
+            raise PipelineComparisonContractError(
+                "visible-card scene-derived view is stale or invalid"
+            ) from error
 
 
 def _compare_visible_card_side(

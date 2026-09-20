@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 import pytest
 
@@ -15,13 +17,16 @@ from doko_operations.card_plane_geometry import (
     TablePlaneCalibration,
     apply_homography,
     card_quad_from_pose,
+    derive_pose_scene_visible_regions,
     derive_visible_masks,
     geometry_contract_manifest,
     invert_homography,
     mask_to_polygons,
     project_fixed_card,
     validate_derived_region_receipt,
+    validate_pose_scene_candidate_view,
 )
+from doko_operations.pipeline_data import canonical_json_bytes
 
 
 def _digest(fill: str = "a") -> str:
@@ -176,3 +181,113 @@ def test_visible_mask_occlusion_preserves_disconnected_back_components() -> None
 def test_homography_rejects_singular_transforms() -> None:
     with pytest.raises(CardPlaneGeometryError, match="invertible"):
         apply_homography(np.zeros((3, 3)), np.zeros((1, 2)))
+
+
+def _derived_scene(*, poses: tuple[CardPose, ...], order: tuple[str, ...]) -> ReviewedCardScene:
+    return ReviewedCardScene.create(
+        source_frame_id="frame-1",
+        source_frame_width=24,
+        source_frame_height=24,
+        calibration_revision_id="calibration-1",
+        calibration_digest=_digest("a"),
+        poses=poses,
+        stacking_order=CardStackingOrder(
+            card_ids=order,
+            uncertain_edges=(),
+            contradictions=(),
+        ),
+    )
+
+
+def test_pose_scene_derivation_clips_cards_and_keeps_ordered_regions_deterministic() -> None:
+    scene = _derived_scene(
+        poses=(
+            CardPose("card-front", (8.0, 12.0), 0.0, None, None),
+            CardPose("card-back", (-1.0, 12.0), 0.0, None, None),
+        ),
+        order=("card-front", "card-back"),
+    )
+    projection = {
+        "table_to_image_homography": np.eye(3).tolist(),
+        "card_short_size": 6.0,
+        "card_long_size": 10.0,
+    }
+
+    first = derive_pose_scene_visible_regions(scene, projection)
+    second = derive_pose_scene_visible_regions(scene.to_mapping(), projection)
+
+    assert first.to_mapping() == second.to_mapping()
+    assert [region["card_id"] for region in first.regions] == ["card-front", "card-back"]
+    assert first.hidden_card_ids == ()
+    assert all(
+        0 <= point[axis] <= 1000
+        for region in first.regions
+        for polygon in region["geometry"]["visible_region"]["polygons"]
+        for point in polygon
+        for axis in ("x", "y")
+    )
+    assert first.receipt.region_digests == tuple(
+        hashlib.sha256(canonical_json_bytes(region)).hexdigest() for region in first.regions
+    )
+
+
+def test_pose_scene_candidate_view_rejects_hidden_cards_and_stale_geometry() -> None:
+    scene = _derived_scene(
+        poses=(
+            CardPose("card-front", (8.0, 12.0), 0.0, None, None),
+            CardPose("card-back", (8.0, 12.0), 0.0, None, None),
+        ),
+        order=("card-front", "card-back"),
+    )
+    projection = {
+        "table_to_image_homography": np.eye(3).tolist(),
+        "card_short_size": 6.0,
+        "card_long_size": 10.0,
+    }
+    derivation = derive_pose_scene_visible_regions(scene, projection)
+    assert derivation.hidden_card_ids == ("card-back",)
+    with pytest.raises(CardPlaneGeometryError, match="fully hidden"):
+        validate_pose_scene_candidate_view(
+            scene,
+            projection,
+            list(derivation.regions),
+            receipt=derivation.receipt.to_mapping(),
+        )
+
+    visible_scene = _derived_scene(
+        poses=(CardPose("card-front", (8.0, 12.0), 0.0, None, None),),
+        order=("card-front",),
+    )
+    visible = derive_pose_scene_visible_regions(visible_scene, projection)
+    candidates = [
+        {
+            "card_id": region["card_id"],
+            "geometry": region["geometry"],
+            "normalization": region["normalization"],
+        }
+        for region in visible.regions
+    ]
+    candidates[0]["geometry"] = {
+        "kind": "reviewed-visible-region/v1",
+        "visible_region": {"polygons": []},
+    }
+    with pytest.raises(CardPlaneGeometryError, match="do not match"):
+        validate_pose_scene_candidate_view(
+            visible_scene,
+            projection,
+            candidates,
+            receipt=visible.receipt.to_mapping(),
+        )
+
+
+def test_scene_pose_storage_order_can_differ_from_front_to_back_order() -> None:
+    scene = _derived_scene(
+        poses=(
+            CardPose("card-a", (8.0, 8.0), 0.0, None, None),
+            CardPose("card-b", (16.0, 16.0), 0.0, None, None),
+        ),
+        order=("card-b", "card-a"),
+    )
+
+    assert scene.stacking_order.card_ids == ("card-b", "card-a")
+    assert ReviewedCardScene.from_mapping(scene.to_mapping()) == scene

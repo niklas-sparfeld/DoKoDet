@@ -14,6 +14,10 @@ from pathlib import Path
 from threading import RLock
 from typing import Any
 
+from doko_operations.card_plane_geometry import (
+    CardPlaneGeometryError,
+    validate_pose_scene_candidate_view,
+)
 from doko_operations.derived_view import (
     DerivedViewError,
     FFmpegFrameResolver,
@@ -644,6 +648,31 @@ class VisualIdentityPipelineService:
                 if outcome.status == "detected"
                 for candidate in outcome.candidates
             ]
+            for outcome in visible_revision.content.outcomes:
+                raw_envelope = outcome.card_scene
+                if raw_envelope is None:
+                    continue
+                if not isinstance(raw_envelope, Mapping):
+                    raise VisualIdentityPipelineError(
+                        "The visible-card scene-derived view is invalid."
+                    )
+                raw_scene = raw_envelope.get("scene")
+                projection = raw_envelope.get("projection")
+                if not isinstance(raw_scene, Mapping) or not isinstance(projection, Mapping):
+                    raise VisualIdentityPipelineError(
+                        "The visible-card scene-derived view is incomplete."
+                    )
+                try:
+                    validate_pose_scene_candidate_view(
+                        raw_scene,
+                        projection,
+                        [candidate.to_mapping() for candidate in outcome.candidates],
+                        receipt=raw_envelope.get("derived_region_receipt"),
+                    )
+                except (CardPlaneGeometryError, TypeError, ValueError) as error:
+                    raise VisualIdentityPipelineError(
+                        "The visible-card scene-derived view is stale or invalid."
+                    ) from error
             outcomes_by_index: list[VisualIdentityOutcome | None] = [None] * len(candidates)
             prior_items = {item.item_id: item for item in run.state.items}
             candidate_ids = {candidate.card_id for _, candidate in candidates}

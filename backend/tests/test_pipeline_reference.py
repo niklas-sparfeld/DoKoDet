@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from app_factory import create_test_app
+from doko_operations.card_plane_geometry import CardPose, CardStackingOrder, ReviewedCardScene
 from doko_operations.pipeline_data import (
     DataRevision,
     EventData,
@@ -811,6 +812,135 @@ def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
                 ],
             },
         )
+
+
+def _pose_card_scene(*, hidden_back_card: bool = False) -> dict[str, object]:
+    poses = [CardPose("card-01", (50.0, 50.0), 0.0, "suggestion-01", None)]
+    order = ["card-01"]
+    if hidden_back_card:
+        poses.append(CardPose("card-back", (50.0, 50.0), 0.0, None, None))
+        order = ["card-01", "card-back"]
+    scene = ReviewedCardScene.create(
+        source_frame_id="frame-01",
+        source_frame_width=100,
+        source_frame_height=100,
+        calibration_revision_id="calibration-01",
+        calibration_digest="a" * 64,
+        poses=poses,
+        stacking_order=CardStackingOrder(
+            card_ids=tuple(order), uncertain_edges=(), contradictions=()
+        ),
+    )
+    return {
+        "schema_version": "reviewed-card-scene-editor/v1",
+        "scene": scene.to_mapping(),
+        "initialized_scene": scene.to_mapping(),
+        "projection": {
+            "table_to_image_homography": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            "card_short_size": 20.0,
+            "card_long_size": 30.0,
+        },
+    }
+
+
+def test_pose_scene_updates_derive_candidates_and_completion_rejects_stale_views(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    created = service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    item = dict(created.draft.items[0].item)
+    item["card_scene"] = _pose_card_scene()
+    updated = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "set_frame_review", "item_id": "event-01", "item": item}],
+        },
+    )
+    derived_item = updated.draft.items[0].item
+    assert derived_item["candidates"][0]["card_id"] == "card-01"
+    assert derived_item["candidates"][0]["geometry"]["kind"] == ("reviewed-visible-region/v1")
+    assert "derived_region_receipt" in derived_item["card_scene"]
+
+    stale = service.get_reference("recording-01", "visible_cards")
+    stale_item = dict(stale.draft.items[0].item)
+    stale_scene = dict(stale_item["card_scene"])
+    stale_scene["derived_region_receipt"] = {
+        **stale_scene["derived_region_receipt"],
+        "scene_digest": "b" * 64,
+    }
+    stale_item["card_scene"] = stale_scene
+    with service.reference_store.locked("recording-01", "visible_cards"):
+        service.reference_store.write_locked(
+            replace(
+                stale,
+                draft=replace(stale.draft, items=(replace(stale.draft.items[0], item=stale_item),)),
+            )
+        )
+    with pytest.raises(PipelineReferenceCoverageError) as stale_error:
+        service.complete_reference(
+            "recording-01",
+            "visible_cards",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 1,
+                "coverage": {
+                    "kind": "visible_frames",
+                    "frames": [
+                        {"frame_identity": stale_item["frame_identity"], "decision": "cards"}
+                    ],
+                },
+            },
+        )
+    assert "pose scene derivation" in stale_error.value.details[0]["message"]
+
+
+def test_pose_scene_draft_can_keep_hidden_pose_but_completion_rejects_it(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    created = service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    item = dict(created.draft.items[0].item)
+    item["card_scene"] = _pose_card_scene(hidden_back_card=True)
+    updated = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "set_frame_review", "item_id": "event-01", "item": item}],
+        },
+    )
+    assert updated.draft.items[0].item["candidates"]
+    with pytest.raises(PipelineReferenceCoverageError) as hidden_error:
+        service.complete_reference(
+            "recording-01",
+            "visible_cards",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 1,
+                "coverage": {
+                    "kind": "visible_frames",
+                    "frames": [
+                        {
+                            "frame_identity": updated.draft.items[0].item["frame_identity"],
+                            "decision": "cards",
+                        }
+                    ],
+                },
+            },
+        )
+    assert "fully hidden" in hidden_error.value.details[0]["message"]
 
 
 def test_visible_card_ignore_region_operations_are_atomic_idempotent_and_durable(

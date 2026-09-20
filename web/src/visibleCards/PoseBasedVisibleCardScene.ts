@@ -44,6 +44,7 @@ export type PoseSceneEnvelope = {
   scene: ReviewedCardScene;
   initialized_scene: ReviewedCardScene;
   projection: CardSceneProjection;
+  derived_region_receipt?: Record<string, unknown>;
 };
 
 export type PoseSceneAction =
@@ -80,6 +81,13 @@ export function readPoseScene(value: unknown): PoseSceneEnvelope | null {
       scene,
       initialized_scene: initialized,
       projection,
+      ...(readDerivedRegionReceipt(value.derived_region_receipt) === null
+        ? {}
+        : {
+            derived_region_receipt: readDerivedRegionReceipt(
+              value.derived_region_receipt,
+            )!,
+          }),
     };
   }
   if (value.schema_version !== REVIEWED_CARD_SCENE_SCHEMA) return null;
@@ -93,6 +101,13 @@ export function readPoseScene(value: unknown): PoseSceneEnvelope | null {
     scene,
     initialized_scene: cloneScene(scene),
     projection,
+    ...(readDerivedRegionReceipt(value.derived_region_receipt) === null
+      ? {}
+      : {
+          derived_region_receipt: readDerivedRegionReceipt(
+            value.derived_region_receipt,
+          )!,
+        }),
   };
 }
 
@@ -387,6 +402,12 @@ function readProjection(value: unknown): CardSceneProjection | null {
     card_short_size: value.card_short_size,
     card_long_size: value.card_long_size,
   };
+}
+
+function readDerivedRegionReceipt(
+  value: unknown,
+): Record<string, unknown> | null {
+  return isRecord(value) ? { ...value } : null;
 }
 
 function placeId(

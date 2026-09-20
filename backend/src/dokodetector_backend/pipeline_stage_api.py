@@ -141,6 +141,7 @@ class PipelineVisibleCardOutcomeResponse(ContractModel):
     status: Literal["detected", "empty", "failed"]
     candidates: list[PipelineVisibleCardCandidateResponse]
     ignored_regions: list[PipelineVisibleCardIgnoreRegionResponse]
+    card_scene: dict[str, Any] | None = None
     error: str | None
 
 

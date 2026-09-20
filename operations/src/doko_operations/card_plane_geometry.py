@@ -37,6 +37,8 @@ CARD_STACKING_ORDER_SCHEMA_VERSION = "card-stacking-order/v1"
 POSE_FIT_DIAGNOSTICS_SCHEMA_VERSION = "card-pose-fit-diagnostics/v1"
 REVIEWED_CARD_SCENE_SCHEMA_VERSION = "reviewed-card-scene/v1"
 DERIVED_REGION_RECEIPT_SCHEMA_VERSION = "derived-visible-region-receipt/v1"
+POSE_SCENE_DERIVED_VIEW_SCHEMA_VERSION = "pose-scene-derived-visible-regions/v1"
+POSE_SCENE_NORMALIZATION_POLICY = "full-frame-0-1000/v1"
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
@@ -1062,7 +1064,9 @@ class ReviewedCardScene:
         pose_ids = tuple(pose.card_id for pose in pose_values)
         if not pose_ids or len(pose_ids) != len(set(pose_ids)):
             raise CardPlaneGeometryError("reviewed card scene poses must have unique card ids")
-        if pose_ids != stacking_order.card_ids:
+        if set(pose_ids) != set(stacking_order.card_ids) or len(stacking_order.card_ids) != len(
+            pose_ids
+        ):
             raise CardPlaneGeometryError(
                 "stacking order must contain every scene pose exactly once"
             )
@@ -1249,6 +1253,181 @@ def validate_derived_region_receipt(
     return value
 
 
+@dataclass(frozen=True, slots=True)
+class PoseSceneDerivation:
+    """The deterministic visible-region view derived from one reviewed scene."""
+
+    regions: tuple[dict[str, Any], ...]
+    hidden_card_ids: tuple[str, ...]
+    receipt: DerivedRegionReceipt
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "schema_version": POSE_SCENE_DERIVED_VIEW_SCHEMA_VERSION,
+            "regions": [dict(region) for region in self.regions],
+            "hidden_card_ids": list(self.hidden_card_ids),
+            "receipt": self.receipt.to_mapping(),
+        }
+
+
+def _pose_scene_projection(raw: Mapping[str, Any]) -> tuple[np.ndarray, float, float]:
+    data = _mapping(raw, "pose scene projection")
+    _strict(
+        data,
+        {"table_to_image_homography", "card_short_size", "card_long_size"},
+        "pose scene projection",
+    )
+    return (
+        _matrix_array(data["table_to_image_homography"], "table_to_image_homography"),
+        _positive(data["card_short_size"], "card_short_size"),
+        _positive(data["card_long_size"], "card_long_size"),
+    )
+
+
+def _normalized_mask_polygons(
+    mask: np.ndarray, *, width: int, height: int
+) -> list[list[dict[str, int]]]:
+    polygons: list[list[dict[str, int]]] = []
+    for flat_polygon in mask_to_polygons(mask):
+        points = [
+            {
+                "x": max(0, min(1000, int(round(flat_polygon[index] * 1000 / width)))),
+                "y": max(0, min(1000, int(round(flat_polygon[index + 1] * 1000 / height)))),
+            }
+            for index in range(0, len(flat_polygon), 2)
+        ]
+        if len(points) < 3:
+            continue
+        area = sum(
+            points[index]["x"] * points[(index + 1) % len(points)]["y"]
+            - points[(index + 1) % len(points)]["x"] * points[index]["y"]
+            for index in range(len(points))
+        )
+        if area != 0:
+            polygons.append(points)
+    return polygons
+
+
+def derive_pose_scene_visible_regions(
+    scene: ReviewedCardScene | Mapping[str, Any],
+    projection: Mapping[str, Any],
+) -> PoseSceneDerivation:
+    """Derive clipped, card-occluded regions from one reviewed card scene.
+
+    The stacking order is front-to-back.  A card earlier in that order removes its pixels from
+    every card behind it.  The returned regions use the existing normalized reviewed-region
+    geometry contract so identity crops, comparison, and datasets can consume one candidate view.
+    """
+
+    selected_scene = (
+        scene if isinstance(scene, ReviewedCardScene) else ReviewedCardScene.from_mapping(scene)
+    )
+    table_to_image, short_size, long_size = _pose_scene_projection(projection)
+    width = selected_scene.source_frame_width
+    height = selected_scene.source_frame_height
+    full_masks = [
+        rasterize_polygon(
+            project_fixed_card(
+                table_to_image,
+                pose.center,
+                pose.rotation_degrees,
+                short_size,
+                long_size,
+            ),
+            width,
+            height,
+        )
+        for pose in selected_scene.poses
+    ]
+    pose_index = {pose.card_id: index for index, pose in enumerate(selected_scene.poses)}
+    stacking_order = [pose_index[card_id] for card_id in selected_scene.stacking_order.card_ids]
+    visible_masks = derive_visible_masks(full_masks, stacking_order)
+    regions: list[dict[str, Any]] = []
+    hidden_card_ids: list[str] = []
+    for pose, mask in zip(selected_scene.poses, visible_masks, strict=True):
+        if not np.any(mask):
+            hidden_card_ids.append(pose.card_id)
+            continue
+        polygons = _normalized_mask_polygons(mask, width=width, height=height)
+        if not polygons:
+            hidden_card_ids.append(pose.card_id)
+            continue
+        regions.append(
+            {
+                "card_id": pose.card_id,
+                "geometry": {
+                    "kind": "reviewed-visible-region/v1",
+                    "visible_region": {"polygons": polygons},
+                },
+                "normalization": {
+                    "width": width,
+                    "height": height,
+                    "policy_id": POSE_SCENE_NORMALIZATION_POLICY,
+                },
+                "pixel_count": int(np.count_nonzero(mask)),
+            }
+        )
+    region_digests = [_digest(region) for region in regions]
+    return PoseSceneDerivation(
+        regions=tuple(regions),
+        hidden_card_ids=tuple(hidden_card_ids),
+        receipt=DerivedRegionReceipt.create(
+            source_frame_id=selected_scene.source_frame_id,
+            scene_digest=selected_scene.scene_digest,
+            calibration_digest=selected_scene.calibration_digest,
+            region_digests=region_digests,
+        ),
+    )
+
+
+def validate_pose_scene_candidate_view(
+    scene: ReviewedCardScene | Mapping[str, Any],
+    projection: Mapping[str, Any],
+    candidates: Sequence[Mapping[str, Any]],
+    receipt: DerivedRegionReceipt | Mapping[str, Any] | None = None,
+) -> PoseSceneDerivation:
+    """Reject candidate geometry that is not the current deterministic scene derivation."""
+
+    selected_scene = (
+        scene if isinstance(scene, ReviewedCardScene) else ReviewedCardScene.from_mapping(scene)
+    )
+    derivation = derive_pose_scene_visible_regions(selected_scene, projection)
+    if derivation.hidden_card_ids:
+        raise CardPlaneGeometryError(
+            "reviewed card scene contains fully hidden cards: "
+            + ", ".join(derivation.hidden_card_ids)
+        )
+    actual = [
+        {
+            "card_id": candidate.get("card_id"),
+            "geometry": candidate.get("geometry"),
+            "normalization": candidate.get("normalization"),
+        }
+        for candidate in candidates
+    ]
+    expected = [
+        {
+            "card_id": region["card_id"],
+            "geometry": region["geometry"],
+            "normalization": region["normalization"],
+        }
+        for region in derivation.regions
+    ]
+    if actual != expected:
+        raise CardPlaneGeometryError(
+            "visible-card candidates do not match the reviewed card scene derivation"
+        )
+    if receipt is not None:
+        selected_receipt = validate_derived_region_receipt(
+            receipt,
+            scene_digest=selected_scene.scene_digest,
+            calibration_digest=selected_scene.calibration_digest,
+        )
+        if selected_receipt.to_mapping() != derivation.receipt.to_mapping():
+            raise CardPlaneGeometryError("derived-region receipt is stale")
+    return derivation
+
+
 def geometry_contract_manifest() -> dict[str, Any]:
     """Return the frozen M0 constants recorded by a campaign manifest."""
 
@@ -1261,6 +1440,8 @@ def geometry_contract_manifest() -> dict[str, Any]:
         "mask_threshold": MASK_THRESHOLD,
         "mask_raster_policy": MASK_RASTER_POLICY,
         "derivation_recipe_version": DERIVATION_RECIPE_VERSION,
+        "pose_scene_derived_view_schema_version": POSE_SCENE_DERIVED_VIEW_SCHEMA_VERSION,
+        "pose_scene_normalization_policy": POSE_SCENE_NORMALIZATION_POLICY,
         "card_aspect_ratio": CARD_ASPECT_RATIO,
     }
 
@@ -1275,6 +1456,8 @@ __all__ = [
     "CORNER_ORDER_VERSION",
     "DERIVATION_RECIPE_VERSION",
     "DERIVED_REGION_RECEIPT_SCHEMA_VERSION",
+    "POSE_SCENE_DERIVED_VIEW_SCHEMA_VERSION",
+    "POSE_SCENE_NORMALIZATION_POLICY",
     "GEOMETRY_ALGORITHM_VERSION",
     "MASK_RASTER_POLICY",
     "MASK_THRESHOLD",
@@ -1296,6 +1479,7 @@ __all__ = [
     "card_vectors",
     "cyclic_quad",
     "derive_visible_masks",
+    "derive_pose_scene_visible_regions",
     "fit_table_plane",
     "geometry_contract_manifest",
     "invert_homography",
@@ -1308,4 +1492,6 @@ __all__ = [
     "remove_small_components",
     "rotate_vector",
     "validate_derived_region_receipt",
+    "validate_pose_scene_candidate_view",
+    "PoseSceneDerivation",
 ]

@@ -27,7 +27,8 @@
   from model predictions, with retained suggestion evidence and fit diagnostics.
 - **M3:** Complete — the calibrated local result path now uses a synchronized source-frame and
   rectified virtual-table card-scene editor with ordered maintained-reference commands.
-- **M4:** Not started — derive and publish reviewed visible regions from the reviewed card scene.
+- **M4:** Complete — derive and validate deterministic reviewed visible regions from the reviewed
+  card scene and gate downstream identity and dataset use on the validated view.
 - **M5:** Not started — verify the complete local-prediction-to-reviewed-data loop.
 
 ## 1. Purpose
@@ -402,6 +403,26 @@ Acceptance:
   validated derived candidate view.
 - Reject completion for stale derivation, invalid order, fully hidden retained cards, failed
   calibration, or unsupported external occlusion.
+
+#### M4 implementation evidence — 2026-09-20
+
+- Added one shared deterministic scene derivation path. It projects fixed-size poses, clips them to
+  the exact source frame, subtracts higher cards in the reviewed order, preserves disconnected
+  components, and emits reviewed visible-region candidates plus a digest receipt.
+- Wired maintained-reference scene updates to replace stale candidate geometry with the derived
+  candidate view. Completion re-derives the view and rejects stale receipts, invalid scene order,
+  source-frame dimension mismatches, and fully hidden retained poses. Drafts can keep a hidden pose
+  while the operator corrects the scene.
+- Added downstream validation for visual identity crops, comparison inputs, review coverage, and
+  dataset materialization. Processor polygons cannot enter dataset targets without reviewed scene
+  derivation and completed coverage. Scene card IDs and calibration revision changes now propagate
+  identity re-review impact.
+- Exposed `card_scene` through the visible-card API contract and preserved the derived receipt in
+  the web editor envelope. Added geometry, backend reference, dataset, and contract regression
+  tests.
+- Focused geometry, reference, data, dataset, comparison, identity, web, type, lint, formatting,
+  and build checks pass. Full operations coverage passes except the pre-existing M8 campaign
+  artifact test; full backend coverage passes except the pre-existing route-inventory count test.
 
 Acceptance:
 

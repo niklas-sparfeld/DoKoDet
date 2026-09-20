@@ -1150,7 +1150,12 @@ class VisibleCardOutcome:
         else:
             card_scene = dict(_mapping(raw_card_scene, f"{context}.card_scene"))
             _validate_json(card_scene, f"{context}.card_scene")
-        if status == "detected" and not candidates and not ignored_regions:
+        if (
+            status == "detected"
+            and not candidates
+            and not ignored_regions
+            and raw_card_scene is None
+        ):
             raise PipelineDataError(
                 f"{context}.detected outcome needs candidates or ignored regions"
             )

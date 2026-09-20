@@ -7,6 +7,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any
 
+from doko_operations.card_plane_geometry import (
+    CardPlaneGeometryError,
+    ReviewedCardScene,
+    derive_pose_scene_visible_regions,
+    validate_pose_scene_candidate_view,
+)
 from doko_operations.pipeline_data import (
     EventData,
     RecordingVideoSource,
@@ -662,11 +668,12 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 raise PipelineReferenceInputError(
                     "set_frame_review cannot change the resolved frame identity"
                 )
+            reviewed_item = self._derive_pose_scene_item(operation.item)
             updated = ReferenceDraftItem(
-                item_id=self.item_id(operation.item),
+                item_id=self.item_id(reviewed_item),
                 base_item_id=existing.item_id,
                 review_state="corrected",
-                item=dict(operation.item),
+                item=reviewed_item,
             )
             if updated.item_id != existing.item_id:
                 raise PipelineReferenceInputError("set_frame_review cannot change the source item")
@@ -952,6 +959,16 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         by_key = {self._frame_coverage_key(entry): entry for entry in normalized_frames}
         details: list[dict[str, str]] = []
         for item in items:
+            if item.item.get("card_scene") is not None:
+                try:
+                    self._validate_pose_scene_item(item.item)
+                except (CardPlaneGeometryError, PipelineDataError, TypeError, ValueError) as error:
+                    details.append(
+                        {
+                            "field": f"items.{item.item_id}.card_scene",
+                            "message": f"pose scene derivation is invalid: {error}",
+                        }
+                    )
             entry = by_key.get(self._item_frame_key(item))
             if entry is None:
                 details.append(
@@ -990,7 +1007,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             return "unusable"
         if status != "detected":
             return None
-        has_candidates = bool(item.get("candidates"))
+        has_candidates = bool(item.get("candidates")) or item.get("card_scene") is not None
         has_regions = bool(item.get("ignored_regions"))
         if has_candidates and has_regions:
             return "cards_and_ignored"
@@ -1010,6 +1027,22 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             for candidate in item.get("candidates", [])
             if isinstance(candidate, Mapping) and isinstance(candidate.get("card_id"), str)
         }
+        calibration_revisions: set[str] = set()
+        for item in (previous.item, corrected.item):
+            raw_envelope = item.get("card_scene")
+            raw_scene = raw_envelope.get("scene") if isinstance(raw_envelope, Mapping) else None
+            if not isinstance(raw_scene, Mapping):
+                continue
+            calibration_revision = raw_scene.get("calibration_revision_id")
+            if isinstance(calibration_revision, str):
+                calibration_revisions.add(calibration_revision)
+            raw_poses = raw_scene.get("poses")
+            if isinstance(raw_poses, list):
+                card_ids.update(
+                    pose.get("card_id")
+                    for pose in raw_poses
+                    if isinstance(pose, Mapping) and isinstance(pose.get("card_id"), str)
+                )
         identities = self._selected_revision(recording_id, "visual_identities")
         if identities is None or not card_ids:
             return ()
@@ -1020,13 +1053,107 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         ]
         if not affected_identity:
             return ()
+        reason = "visible-card evidence changed; review its downstream identity again"
+        if len(calibration_revisions) > 1:
+            reason = (
+                "visible-card calibration revision changed; review its downstream identity again"
+            )
         return (
             self._impact_entry(
                 previous.item_id,
                 "visual_identities",
                 affected_identity,
-                "visible-card evidence changed; review its downstream identity again",
+                reason,
             ),
+        )
+
+    @staticmethod
+    def _pose_scene_parts(
+        item: Mapping[str, Any],
+    ) -> tuple[Mapping[str, Any], Mapping[str, Any]] | None:
+        raw_envelope = item.get("card_scene")
+        if raw_envelope is None:
+            return None
+        if not isinstance(raw_envelope, Mapping):
+            raise PipelineReferenceInputError("visible-card card_scene must be an object")
+        scene = raw_envelope.get("scene")
+        projection = raw_envelope.get("projection")
+        if not isinstance(scene, Mapping) or not isinstance(projection, Mapping):
+            raise PipelineReferenceInputError(
+                "visible-card card_scene needs a reviewed scene and calibrated projection"
+            )
+        return scene, projection
+
+    @classmethod
+    def _derive_pose_scene_item(cls, item: Mapping[str, Any]) -> dict[str, Any]:
+        parts = cls._pose_scene_parts(item)
+        if parts is None:
+            return dict(item)
+        scene, projection = parts
+        try:
+            selected_scene = ReviewedCardScene.from_mapping(scene)
+            frame = item.get("frame_identity")
+            if isinstance(frame, Mapping) and (
+                selected_scene.source_frame_width != frame.get("width")
+                or selected_scene.source_frame_height != frame.get("height")
+            ):
+                raise CardPlaneGeometryError(
+                    "reviewed card scene dimensions do not match the exact source frame"
+                )
+            derivation = derive_pose_scene_visible_regions(selected_scene, projection)
+        except (CardPlaneGeometryError, TypeError, ValueError) as error:
+            raise PipelineReferenceInputError("visible-card card_scene is invalid") from error
+        previous_candidates = item.get("candidates", [])
+        if not isinstance(previous_candidates, list):
+            raise PipelineReferenceInputError("visible-card candidates must be a list")
+        by_id = {
+            candidate.get("card_id"): candidate
+            for candidate in previous_candidates
+            if isinstance(candidate, Mapping) and isinstance(candidate.get("card_id"), str)
+        }
+        candidates: list[dict[str, Any]] = []
+        for region in derivation.regions:
+            previous = by_id.get(region["card_id"])
+            candidate = {
+                "card_id": region["card_id"],
+                "geometry": region["geometry"],
+                "normalization": region["normalization"],
+                "side": (
+                    previous.get("side", "unknown") if isinstance(previous, Mapping) else "unknown"
+                ),
+            }
+            if isinstance(previous, Mapping) and previous.get("model_scores") is not None:
+                candidate["model_scores"] = previous["model_scores"]
+            candidates.append(candidate)
+        updated = dict(item)
+        updated["candidates"] = candidates
+        envelope = dict(item["card_scene"])
+        envelope["derived_region_receipt"] = derivation.receipt.to_mapping()
+        updated["card_scene"] = envelope
+        return updated
+
+    @classmethod
+    def _validate_pose_scene_item(cls, item: Mapping[str, Any]) -> None:
+        parts = cls._pose_scene_parts(item)
+        if parts is None:
+            return
+        scene, projection = parts
+        selected_scene = ReviewedCardScene.from_mapping(scene)
+        frame = item.get("frame_identity")
+        if isinstance(frame, Mapping) and (
+            selected_scene.source_frame_width != frame.get("width")
+            or selected_scene.source_frame_height != frame.get("height")
+        ):
+            raise CardPlaneGeometryError(
+                "reviewed card scene dimensions do not match the exact source frame"
+            )
+        raw_envelope = item["card_scene"]
+        receipt = raw_envelope.get("derived_region_receipt")
+        validate_pose_scene_candidate_view(
+            selected_scene,
+            projection,
+            item.get("candidates", []),
+            receipt=receipt,
         )
 
     @staticmethod
