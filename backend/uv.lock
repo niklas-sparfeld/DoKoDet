@@ -240,7 +240,6 @@ dependencies = [
     { name = "opencv-python" },
     { name = "pillow" },
     { name = "pyyaml" },
-    { name = "rfdetr" },
     { name = "table-evidence-analyzer" },
 ]
 
@@ -251,7 +250,6 @@ requires-dist = [
     { name = "opencv-python", specifier = ">=4.10" },
     { name = "pillow", specifier = "==12.3.0" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
-    { name = "rfdetr", specifier = "==1.9.4" },
     { name = "table-evidence-analyzer", editable = "../table_evidence_analyzer" },
 ]
 
@@ -260,6 +258,7 @@ dev = [
     { name = "pytest", specifier = ">=8.0,<9" },
     { name = "ruff", specifier = ">=0.6,<1" },
 ]
+inference = [{ name = "rfdetr", specifier = "==1.9.4" }]
 training = [
     { name = "rfdetr", extras = ["train", "augment"], specifier = "==1.9.4" },
     { name = "safetensors", specifier = "==0.8.0" },

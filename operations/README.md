@@ -308,6 +308,13 @@ reads the receipt and does not rerun the test or export.
 
 ## RF-DETR visible-region segmentation campaign
 
+RF-DETR is an optional operations dependency. Install the inference group before running the
+commands in this section:
+
+```bash
+mise exec -- uv sync --project operations --group inference
+```
+
 Epic 0067 M0 audits the nine selected recording bundles and their completed maintained
 `visible_cards` references. It freezes the source-group split, reviewed visible-region masks,
 frame exclusions, RF-DETR segmentation recipe, and coverage counts in one immutable manifest. The
@@ -328,7 +335,7 @@ ineligible evidence and does not create background negatives.
 Materialize the frozen M0 manifest into the disposable RF-DETR COCO trainer view:
 
 ```bash
-mise exec -- uv run --project operations doko data rfdetr-segmentation-materialize \
+mise exec -- uv run --project operations --group inference doko data rfdetr-segmentation-materialize \
   --repository-root . \
   --manifest data/operations/rfdetr-segmentation-0067-m0-manifest.json \
   --output .runtime/rfdetr-segmentation-0067
@@ -349,7 +356,7 @@ and held-out gate in one immutable manifest. The command exits with `1` and writ
 the audit is blocked:
 
 ```bash
-mise exec -- uv run --project operations doko data rfdetr-visible-card-detector \
+mise exec -- uv run --project operations --group inference doko data rfdetr-visible-card-detector \
   --repository-root . \
   --output data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json
 ```

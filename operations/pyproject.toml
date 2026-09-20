@@ -14,7 +14,6 @@ dependencies = [
   "av==15.1.0",
   "opencv-python>=4.10",
   "pyyaml>=6.0,<7",
-  "rfdetr==1.9.4",
   "table-evidence-analyzer",
 ]
 
@@ -29,6 +28,9 @@ doko = "doko_operations.cli:main"
 dev = [
   "pytest>=8.0,<9",
   "ruff>=0.6,<1",
+]
+inference = [
+  "rfdetr==1.9.4",
 ]
 training = [
   "rfdetr[train,augment]==1.9.4",
