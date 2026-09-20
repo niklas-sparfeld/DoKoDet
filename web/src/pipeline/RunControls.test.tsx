@@ -403,7 +403,7 @@ describe("RunControls", () => {
     );
     await userEvent.selectOptions(
       screen.getByRole("combobox", { name: "Model variant" }),
-      "local-rfdetr-cascade",
+      "local-rfdetr-cascade-0070",
     );
     await userEvent.click(
       screen.getByRole("button", { name: "Run processor" }),
@@ -419,9 +419,34 @@ describe("RunControls", () => {
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
-        configuration: { provider: "local-rfdetr-cascade" },
+        configuration: { provider: "local-rfdetr-cascade-0070" },
       },
     });
+  });
+
+  it("offers the reviewed and synthetic cascade variants", () => {
+    const events = stage("events", {
+      selected_generated_revision_id: "events-generated",
+    });
+    const visible = stage("visible_cards", {
+      selected_generated_revision_id: "visible-generated",
+    });
+
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={visible}
+        stages={[events, visible]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    expect(screen.getByRole("option", { name: /0068 reviewed/ })).toHaveValue(
+      "local-rfdetr-cascade-0068",
+    );
+    expect(screen.getByRole("option", { name: /0070 synthetic/ })).toHaveValue(
+      "local-rfdetr-cascade-0070",
+    );
   });
 
   it("does not inherit the previous visible-card provider when a variant changes", async () => {
@@ -463,7 +488,7 @@ describe("RunControls", () => {
 
     await userEvent.selectOptions(
       screen.getByRole("combobox", { name: "Model variant" }),
-      "local-rfdetr-cascade",
+      "local-rfdetr-cascade-0068",
     );
     await userEvent.click(screen.getByRole("button", { name: "Run again" }));
 
@@ -477,7 +502,7 @@ describe("RunControls", () => {
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
-        configuration: { provider: "local-rfdetr-cascade" },
+        configuration: { provider: "local-rfdetr-cascade-0068" },
       },
     });
   });

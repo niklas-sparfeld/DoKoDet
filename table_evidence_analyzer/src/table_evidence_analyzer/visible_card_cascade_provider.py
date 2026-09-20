@@ -204,6 +204,7 @@ class LocalVisibleCardCascadeProvider:
         bundle: str | Path,
         *,
         device: Literal["cpu", "mps", "cuda"] = "mps",
+        provider_name: str = CASCADE_PROVIDER_NAME,
         detector: Any | None = None,
         model_loader: Callable[[Any, str], Any] | None = None,
         coarse_detector: Any | None = None,
@@ -212,6 +213,10 @@ class LocalVisibleCardCascadeProvider:
         fine_model_loader: Callable[[Any, str], Any] | None = None,
         torch_module: Any | None = None,
     ) -> None:
+        if not provider_name.startswith("local-rfdetr-cascade"):
+            raise VisibleCardError(f"invalid local cascade provider name: {provider_name}")
+        self.name = provider_name
+        self.version = f"{provider_name}-v1"
         manifest_path = Path(bundle).expanduser().resolve() / "manifest.json"
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

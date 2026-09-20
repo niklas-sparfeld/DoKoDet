@@ -70,6 +70,12 @@ class FakeLocalCascadeProvider(FakeLocalVisibleCardProvider):
     name = "local-rfdetr-cascade"
     version = "local-rfdetr-cascade-test-v1"
 
+    def __init__(self, bundle: Path, *, device: str, provider_name: str | None = None) -> None:
+        super().__init__(bundle, device=device)
+        if provider_name is not None:
+            self.name = provider_name
+            self.version = f"{provider_name}-test-v1"
+
 
 class FakeLocalIdentityClassifier:
     name = "local-dinov3"
@@ -285,6 +291,34 @@ def test_explicit_rfdetr_variants_use_their_own_bundle_paths(tmp_path: Path, mon
     assert segmentation.bundle == segmentation_bundle
     assert cascade.name == "local-rfdetr-cascade"
     assert cascade.bundle == cascade_bundle
+
+
+def test_named_cascade_variants_use_separate_bundle_paths(tmp_path: Path, monkeypatch) -> None:
+    reviewed_bundle = tmp_path / "cascade-0068"
+    reviewed_bundle.mkdir()
+    synthetic_bundle = tmp_path / "cascade-0070"
+    synthetic_bundle.mkdir()
+    monkeypatch.setattr(
+        gemini_analyzer,
+        "LocalVisibleCardCascadeProvider",
+        FakeLocalCascadeProvider,
+    )
+    visible, _ = gemini_analyzer.create_configured_processor_registries(
+        _settings(
+            tmp_path,
+            visible_card_bundle_path=None,
+            visible_card_cascade_0068_bundle_path=reviewed_bundle,
+            visible_card_cascade_0070_bundle_path=synthetic_bundle,
+            visible_card_device="cpu",
+        )
+    )
+
+    reviewed = visible["local-rfdetr-cascade-0068"].provider
+    synthetic = visible["local-rfdetr-cascade-0070"].provider
+    assert reviewed.name == "local-rfdetr-cascade-0068"
+    assert reviewed.bundle == reviewed_bundle
+    assert synthetic.name == "local-rfdetr-cascade-0070"
+    assert synthetic.bundle == synthetic_bundle
 
 
 def test_local_identity_selection_does_not_require_gemini_or_construct_gemini(

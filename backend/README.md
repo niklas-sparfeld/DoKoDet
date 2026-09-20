@@ -113,7 +113,12 @@ Set `VISIBLE_CARD_PROVIDER=local`, `VISIBLE_CARD_BUNDLE_PATH`, and `VISIBLE_CARD
 `VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH` and `VISIBLE_CARD_CASCADE_BUNDLE_PATH` to make both
 explicit RF-DETR variants available in the Web UI. The older `VISIBLE_CARD_BUNDLE_PATH` remains
 the fallback path for one configured local provider. The visible-card model selector sends
-`gemini`, `local-rfdetr-segmentation`, or `local-rfdetr-cascade` explicitly. Set
+`gemini`, `local-rfdetr-segmentation`, `local-rfdetr-cascade-0068`, or
+`local-rfdetr-cascade-0070` explicitly. The named cascade variants default to
+`.runtime/rfdetr-cascade-0071-m6-0068/bundle` and
+`.runtime/rfdetr-cascade-0071-m6-0070/bundle`; override them with
+`VISIBLE_CARD_CASCADE_0068_BUNDLE_PATH` and `VISIBLE_CARD_CASCADE_0070_BUNDLE_PATH` when needed.
+Set
 `VISIBLE_CARD_IDENTITY_CLASSIFIER=local`, `VISIBLE_CARD_IDENTITY_BUNDLE_PATH`, and
 `VISIBLE_CARD_IDENTITY_DEVICE=cpu` or `mps` to use the validated local DINOv3 identity bundle.
 The detector and identity settings are independent. A Gemini API key is required only when either
@@ -255,6 +260,8 @@ VISIBLE_CARD_PROVIDER=gemini
 VISIBLE_CARD_BUNDLE_PATH=
 VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH=
 VISIBLE_CARD_CASCADE_BUNDLE_PATH=
+VISIBLE_CARD_CASCADE_0068_BUNDLE_PATH=.runtime/rfdetr-cascade-0071-m6-0068/bundle
+VISIBLE_CARD_CASCADE_0070_BUNDLE_PATH=.runtime/rfdetr-cascade-0071-m6-0070/bundle
 VISIBLE_CARD_DEVICE=
 VISIBLE_CARD_IDENTITY_CLASSIFIER=gemini
 VISIBLE_CARD_IDENTITY_BUNDLE_PATH=
