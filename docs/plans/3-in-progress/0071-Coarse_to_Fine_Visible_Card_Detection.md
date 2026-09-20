@@ -71,9 +71,8 @@ without a completed reviewed card scene and a valid derived view.
 - **M1:** Complete — the development provider reuses one 0068 bundle for full-frame clustering and
   fine crop inference, with source-linked mapping, reconciliation, and partial diagnostics.
 - **M2:** Complete — derive and materialize the full-frame card-cluster detection dataset.
-- **M3:** In progress — the deterministic RF-DETR Small trainer, evaluator, resource guard, and
-  reloadable bundle are implemented. The frozen 0068/M2 materialization and official RF-DETR Small
-  checkpoint are prepared and load-validated; the bounded real run has not started.
+- **M3:** Complete — the bounded real RF-DETR Small campaign produced and reload-validated one
+  bundle. Its selected threshold meets the frozen crop-containment recall floor.
 - **M4:** Not started — derive and materialize the cluster-crop segmentation dataset.
 - **M5:** Not started — fine-tune and bundle one RF-DETR SegMedium cluster model.
 - **M6:** Not started — assemble, integrate, and verify the completed cascade provider.
@@ -382,10 +381,18 @@ Acceptance:
 - Added `table-analyzer train-rfdetr-card-cluster-campaign` and
   `table-analyzer evaluate-rfdetr-card-cluster`, plus four focused campaign and bundle tests.
   The full `table_evidence_analyzer` suite passes with 202 tests and 3 skips.
-- Prepared the real 0068/M2 materialization with digest
-  `d7081d618b5d1d58559c205e777cf1d713d34802a43d23383cf0c43de19f1302`, downloaded the official
-  RF-DETR Small checkpoint, and load-validated it as `RFDETRSmall`. The fixture execution proves
-  the contract, but the real run has not started and no M3 checkpoint is claimed as a model result.
+- Completed the real 0068/M2 campaign from materialization digest
+  `d7081d618b5d1d58559c205e777cf1d713d34802a43d23383cf0c43de19f1302` on the explicit MPS
+  device. The 4,116.531-second run stopped under the frozen early-stopping rule at Epoch 16.
+  The selected `RFDETRSmall` checkpoint differs from the pretrained checkpoint and reloads
+  natively. The bundle is at
+  `.runtime/rfdetr-card-cluster-0071-m3-real/bundle` with bundle digest
+  `0c83cd876eb4bc2b1b43047e0b136e905008c754a80cd477d1eb51d238798203`.
+- Validation selected threshold `0.65`: reviewed-card crop-containment recall `0.984043` against
+  the `0.98` floor, cluster recall `0.873494`, 6 missed cards, 8 extra clusters, 1.069930
+  clusters per frame, `0.598364` crop-area ratio, and 57.743 ms coarse latency. The validation
+  report retains source-linked missed-card and extra-cluster records and has digest
+  `36b7621e06cfa3a05270852a7cc78de14b50f751037ffd20fafcf6c02f630fc1`.
 
 ### M4 — Materialize cluster-crop segmentation data
 
