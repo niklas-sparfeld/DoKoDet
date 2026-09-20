@@ -15,6 +15,7 @@ import time
 from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
+from threading import Lock
 from typing import Any, Literal
 
 from PIL import Image, UnidentifiedImageError
@@ -226,6 +227,10 @@ class LocalVisibleCardCascadeProvider:
         self._segmentation_provider: Any | None = None
         self._coarse_detector: Any
         self._fine_detector: Any
+        # RF-DETR's MPS inference path is not safe to invoke concurrently on the
+        # shared model instances. The pipeline may process several event frames
+        # in parallel, so serialize only the native predict calls.
+        self._inference_lock = Lock()
         started = time.monotonic()
         if (
             isinstance(manifest, dict)
@@ -384,12 +389,13 @@ class LocalVisibleCardCascadeProvider:
             if self._segmentation_provider is not None and use_masks
             else (frozenset({0, 1}) if use_masks else self._coarse_accepted_class_ids)
         )
-        detections = detector.predict(
-            image,
-            threshold=threshold,
-            shape=(input_size, input_size),
-            include_source_image=False,
-        )
+        with self._inference_lock:
+            detections = detector.predict(
+                image,
+                threshold=threshold,
+                shape=(input_size, input_size),
+                include_source_image=False,
+            )
         boxes = visible_cards._normalise_detection_rows(
             visible_cards._detections_field(detections, "xyxy"), "xyxy"
         )

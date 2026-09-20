@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
+import time
 from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
@@ -177,3 +179,37 @@ def test_cascade_rejects_requests_for_another_provider(tmp_path: Path) -> None:
     request = replace(request, provider="local-rfdetr-segmentation")
     with pytest.raises(VisibleCardError, match="does not match"):
         provider.propose(request)
+
+
+def test_cascade_serializes_shared_model_inference_across_requests(tmp_path: Path) -> None:
+    class ConcurrentDetector(_Detector):
+        def __init__(self) -> None:
+            super().__init__()
+            self.active = 0
+            self.max_active = 0
+            self._lock = threading.Lock()
+
+        def predict(self, image: Image.Image, **kwargs: object) -> object:
+            with self._lock:
+                self.active += 1
+                self.max_active = max(self.max_active, self.active)
+            try:
+                time.sleep(0.01)
+                return super().predict(image, **kwargs)
+            finally:
+                with self._lock:
+                    self.active -= 1
+
+    detector = ConcurrentDetector()
+    provider = LocalVisibleCardCascadeProvider(
+        _bundle(tmp_path), device="cpu", detector=detector
+    )
+    first = threading.Thread(target=provider.propose, args=(_request(),))
+    second = threading.Thread(target=provider.propose, args=(_request(),))
+
+    first.start()
+    second.start()
+    first.join()
+    second.join()
+
+    assert detector.max_active == 1
