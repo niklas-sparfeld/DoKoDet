@@ -52,7 +52,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M2 complete. M3 trainer, evaluator, resource guard, and bundle contracts are implemented and fixture-tested; its frozen 0068/M2 materialization and official RF-DETR Small checkpoint are prepared and load-validated, but the real run has not started. M4–M6 must consume validated 0072 scene-derived targets. |
+| [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M2 complete. M3 trainer, evaluator, resource guard, and bundle contracts are implemented and fixture-tested; its frozen 0068/M2 materialization and official RF-DETR Small checkpoint are prepared and load-validated, but the real run has not started. 0070 is reserved for M4–M5 supplemental training rows; M3 remains 0068-derived. M4–M6 must consume validated 0072 real targets. |
 
 ### Blocked
 

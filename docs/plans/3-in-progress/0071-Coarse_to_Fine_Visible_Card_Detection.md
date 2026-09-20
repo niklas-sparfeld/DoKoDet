@@ -6,20 +6,52 @@
   model at higher effective card resolution on each cluster crop, and train one model for each stage.
 - **Status:** In Progress
 - **Depends on:** 0048 pipeline data and execution, 0049 recording pipeline review, the 0068
-  reviewed RF-DETR training corpus, checkpoint, provider, and evaluation boundaries, and the
-  completed 0072 pose-based visible-card review authority for M4–M6
+  reviewed RF-DETR training corpus, checkpoint, provider, and evaluation boundaries, the
+  completed 0070 synthetic visible-region experiment for train-only supplemental M4–M5 data, and
+  the completed 0072 pose-based visible-card review authority for M4–M6
 - **Outcome:** One locally reproducible `local-rfdetr-cascade` provider with a detection-only
   full-frame card-cluster model, a crop-trained visible-card segmentation model, deterministic
   source-coordinate mapping, and retained end-to-end diagnostics.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
+## 0070 consolidation
+
+Epic 0070 is complete. Its result is a frozen, train-only supplemental input for the fine
+segmentation path. The approved 50/50 view contains 537 real training images and 537 synthetic
+training images with 1,824 synthetic visible-region annotations. The real validation and sealed
+test partitions are unchanged.
+
+The 0071 input identities are fixed:
+
+- training-view manifest:
+  `data/operations/synthetic-visible-region-0070-m5-50-50-training-view.json`, manifest digest
+  `2b30c3bc5e1a9c2fd675f95117a1ba25dba6d5ea122fa85e5ab257958c004e63`;
+- synthetic candidate materialization:
+  `.runtime/synthetic-visible-region-0070-m4-50-50/synthetic-candidate-view`, materialization
+  digest `7613694041f9cbcf00dc2a992c28ef1cb6b923c9866ffbe28acd82b4688eef24`;
+- paired comparison report:
+  `data/operations/synthetic-visible-region-0070-m4-50-50-training-comparison.json`, report
+  manifest digest `03963a7378c166502409e10abe79988b41989d08968b28e78a28419f5d645e9`.
+
+M4 must add only the 0070 synthetic training rows after the common cluster-crop transform. M4
+validation and all sealed-test data remain real, reviewed, and unchanged. Synthetic rows retain
+their scene receipt and exact-mask lineage; they are supplemental training data, not maintained
+references or independent source groups. M5 starts from the selected 0068 segmentation checkpoint,
+not from the 0070 comparison checkpoint. The 0070 `retain_as_experiment` decision remains in
+force: no provider, runtime default, or annotation-prefill policy changes.
+
+0070 does not enter M3. Its targets are `visible_card` instance-segmentation masks. M3 requires
+`card_cluster` detection boxes. A mask-to-cluster conversion would be a new target policy and a
+new experiment, so the M3 real run stays on the frozen 0068-derived materialization.
+
 ## 0072 consolidation
 
-Epic 0072 is complete and is now the geometry authority for the fine-stage data path in this
-epic. A reviewed card scene owns card poses and stacking order. Visible-region polygons and their
-tight boxes are derived output. A processor polygon, an unvalidated scene, or a stale derivation
-receipt must not become an M4 or M5 training target.
+Epic 0072 is complete and is the geometry authority for real reviewed targets in the fine-stage
+data path. A reviewed card scene owns card poses and stacking order. Visible-region polygons and
+their tight boxes are derived output. A processor polygon, an unvalidated scene, or a stale
+derivation receipt must not become an M4 or M5 real training target. The explicit 0070 synthetic
+rows are the only supplemental exception, and their own frozen scene receipts remain attached.
 
 The frozen 0068 manifest remains an immutable historical input for M3. It contains the completed
 reviewed visible-card corpus that M3 needs for coarse cluster boxes, and it must not be rewritten to
@@ -89,7 +121,7 @@ The epic excludes:
 - SAM or another promptable segmenter;
 - fixed table crops, sliding windows, or tiling as alternate paths;
 - model-size, resolution, clustering-policy, threshold, augmentation, or seed sweeps;
-- synthetic-data generation or changes to epic 0070;
+- new synthetic-data generation or changes to the closed 0070 experiment;
 - visual card identity training;
 - new background-only, face-down, motion, or hand-occlusion data campaigns;
 - a production champion or default-provider change; and
@@ -189,7 +221,9 @@ cluster. Preserve multi-polygon visible regions.
 Fine-tune exactly one `RFDETRSegMedium` model at 432 × 432 from the selected 0068 checkpoint. Keep
 the 0068 package version and one `visible_card` class. Freeze the seed, training recipe, crop
 perturbation, augmentation, optimizer, threshold, checkpoint-selection rule, and resource bound
-before training. Do not train another full-frame segmentation baseline in this epic.
+before training. Add the frozen 0070 synthetic training rows only after the M0 crop transform and
+keep the 0072-derived real validation view unchanged. Do not train another full-frame segmentation
+baseline in this epic or reuse the 0070 comparison checkpoint.
 
 The fine report must include mask AP 0.50:0.95, instance recall, duplicate predictions, exact
 card-count frames, and overlapping-target separation. For each reviewed pair whose tight boxes overlap,
@@ -356,7 +390,8 @@ Acceptance:
 ### M4 — Materialize cluster-crop segmentation data
 
 - Build deterministic train and validation crops from reviewed clusters with the M0 transform and
-  the validated 0072 scene-derived visible-card view.
+  the validated 0072 scene-derived visible-card view. Add the frozen 0070 synthetic training rows
+  to the train view only.
 - Apply the one frozen perturbation policy while keeping all assigned visible regions complete.
 - Transform every visible-region polygon component and tight box into crop coordinates.
 - Produce the COCO instance-segmentation view and a contact sheet that overlays each crop target.
@@ -374,8 +409,9 @@ Acceptance:
 ### M5 — Train the cluster visible-card model
 
 - Generalize the 0068 segmentation trainer to accept the M4 crop view and the selected 0068
-  checkpoint as its initializer. The M4 manifest remains the sole target authority and must retain
-  the 0072 reviewed-scene lineage.
+  checkpoint as its initializer. The M4 manifest remains the target authority for real reviewed
+  targets and must retain the 0072 reviewed-scene lineage; the attached 0070 receipts are the
+  authority for supplemental synthetic training rows.
 - Freeze the real training manifest and recipe before model execution.
 - Run one bounded real fine-tuning campaign and select one checkpoint by the frozen validation rule.
 - Evaluate crop-coordinate and mapped source-coordinate results with the section 4.2 metrics.
