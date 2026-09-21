@@ -246,6 +246,19 @@ system. It also records the common card dimensions robustly measured from comple
 across the recording. A table-plane calibration is not a camera model and is invalid after camera
 or table movement.
 
+### Calibration anchor
+
+One operator-confirmed complete-card geometry observation that can constrain a table-plane
+calibration. A calibration anchor belongs to one exact source frame and records its review state and
+fit lineage. It does not make the complete frame or its card scene reviewed.
+
+### Proposed card scene
+
+A processor-generated initial set of card poses and card stacking order for one exact source frame
+under one table-plane calibration. A proposed card scene is an editor prefill. It is not a reviewed
+card scene or training authority until an operator accepts or corrects it through the maintained
+reference.
+
 ### Card pose
 
 The full rectangular placement of one card on a calibrated table plane. It contains a table-plane

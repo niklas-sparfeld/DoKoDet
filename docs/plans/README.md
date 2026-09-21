@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0073 — Production proposed card scenes and calibration refinement](2-ready/0073-Production_Proposed_Card_Scenes_and_Calibration_Refinement.md) | Completed 0048, 0049, and 0072, plus the selectable cascade provider from 0071 M6 | M0–M7 not started. Create proposed card scenes from real local results, review them in synchronized source and rectified views, and refine the recording-wide table-plane calibration through explicit weighted anchors and reversible draft reflow. |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
 
 ### In Progress
