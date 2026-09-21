@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from dokodetector_backend.calibration_refinement_service import CalibrationRefinementService
 from dokodetector_backend.event_pipeline_service import EventPipelineService, EventProcessorProvider
 from dokodetector_backend.observation_pipeline_service import ObservationPipelineService
 from dokodetector_backend.pipeline_comparison_service import PipelineComparisonService
@@ -40,6 +41,7 @@ class PipelineComposition:
     comparison_service: PipelineComparisonService
     visible_card_service: VisibleCardPipelineService
     proposed_card_scene_service: ProposedCardScenePipelineService
+    calibration_refinement_service: CalibrationRefinementService
     visual_identity_service: VisualIdentityPipelineService
     observation_service: ObservationPipelineService
     workspace_service: RecordingPipelineWorkspaceService
@@ -119,6 +121,12 @@ def build_pipeline_composition(
         run_store=run_store,
         selection_store=selection_store,
     )
+    calibration_refinement_service = CalibrationRefinementService(
+        settings,
+        revision_store=revision_store,
+        proposal_service=proposed_card_scene_service,
+        reference_service=reference_service,
+    )
     visual_identity_service = VisualIdentityPipelineService(
         settings,
         recording_store,
@@ -155,6 +163,7 @@ def build_pipeline_composition(
         comparison_service=comparison_service,
         visible_card_service=visible_card_service,
         proposed_card_scene_service=proposed_card_scene_service,
+        calibration_refinement_service=calibration_refinement_service,
         visual_identity_service=visual_identity_service,
         observation_service=observation_service,
         workspace_service=workspace_service,
@@ -173,6 +182,7 @@ def install_pipeline_composition(state: Any, composition: PipelineComposition) -
     state.pipeline_comparison_service = composition.comparison_service
     state.visible_card_pipeline_service = composition.visible_card_service
     state.proposed_card_scene_pipeline_service = composition.proposed_card_scene_service
+    state.calibration_refinement_service = composition.calibration_refinement_service
     state.visual_identity_pipeline_service = composition.visual_identity_service
     state.observation_pipeline_service = composition.observation_service
     state.pipeline_workspace_service = composition.workspace_service

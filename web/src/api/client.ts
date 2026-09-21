@@ -73,6 +73,37 @@ export type PipelineProposalResultResponse = PipelineRunResponse & {
     content: Record<string, unknown>;
   }>;
 };
+export type CalibrationRefinementResponse = {
+  schema_version: "table-plane-calibration-refinement/v1";
+  recording_id: string;
+  proposal_revision_id: string;
+  draft: Record<string, unknown>;
+  preview: {
+    status: "pass" | "blocked";
+    candidate_calibration: {
+      table_to_image: number[][];
+      card_short_size: number;
+      card_long_size: number;
+    } | null;
+    accepted_anchor_count: number;
+    rejected_candidate_count: number;
+    fit_residual: number;
+    held_out_alignment_change_px: number;
+    changed_frame_ids: string[];
+    changed_card_ids: string[];
+    max_source_pixel_displacement: number;
+    most_affected_frame_ids: string[];
+    gates: Array<{
+      gate_id: string;
+      passed: boolean;
+      observed: number;
+      threshold: number;
+      message: string;
+    }>;
+    failure: { code: string; message: string; action: string } | null;
+  };
+  anchor_contributions: Array<Record<string, unknown>>;
+};
 export type RoundAnalysisCreateRequest =
   components["schemas"]["RoundAnalysisCreateRequest"];
 export type PipelineComparisonRequest =
@@ -313,6 +344,32 @@ export interface DokoDetectorClient {
     runId: string,
     init?: RequestInit,
   ): Promise<PipelineProposalResultResponse>;
+  startCalibrationRefinement(
+    recordingId: string,
+    payload: { proposal_revision_id: string; draft_id?: string },
+    init?: RequestInit,
+  ): Promise<CalibrationRefinementResponse>;
+  getCalibrationRefinement(
+    recordingId: string,
+    proposalRevisionId: string,
+    draftId?: string,
+    init?: RequestInit,
+  ): Promise<CalibrationRefinementResponse>;
+  updateCalibrationRefinement(
+    recordingId: string,
+    proposalRevisionId: string,
+    payload: {
+      draft_id: string;
+      expected_revision: number;
+      command: Record<string, unknown>;
+    },
+    init?: RequestInit,
+  ): Promise<CalibrationRefinementResponse>;
+  discardCalibrationRefinement(
+    recordingId: string,
+    payload: { proposal_revision_id: string; draft_id: string },
+    init?: RequestInit,
+  ): Promise<CalibrationRefinementResponse>;
   startVisualIdentityRun(
     recordingId: string,
     payload: PipelineRunStartRequest,
@@ -551,6 +608,59 @@ export function createDokoDetectorClient(
         fetchImplementation,
         pipelineProposedCardSceneResultPath(recordingId, runId),
         init,
+      ),
+    startCalibrationRefinement: (recordingId, payload, init) =>
+      requestJson<CalibrationRefinementResponse>(
+        fetchImplementation,
+        pipelineCalibrationRefinementPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    getCalibrationRefinement: (
+      recordingId,
+      proposalRevisionId,
+      draftId,
+      init,
+    ) =>
+      requestJson<CalibrationRefinementResponse>(
+        fetchImplementation,
+        pipelineCalibrationRefinementReadPath(
+          recordingId,
+          proposalRevisionId,
+          draftId,
+        ),
+        init,
+      ),
+    updateCalibrationRefinement: (
+      recordingId,
+      proposalRevisionId,
+      payload,
+      init,
+    ) =>
+      requestJson<CalibrationRefinementResponse>(
+        fetchImplementation,
+        pipelineCalibrationRefinementReadPath(recordingId, proposalRevisionId),
+        {
+          ...init,
+          method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    discardCalibrationRefinement: (recordingId, payload, init) =>
+      requestJson<CalibrationRefinementResponse>(
+        fetchImplementation,
+        pipelineCalibrationRefinementDiscardPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
       ),
     startVisualIdentityRun: (recordingId, payload, init) =>
       requestJson<PipelineRunResponse>(
@@ -850,6 +960,28 @@ export function pipelineProposedCardSceneResultPath(
   runId: string,
 ): string {
   return `${pipelineProposedCardSceneRunPath(recordingId, runId)}/result`;
+}
+
+export function pipelineCalibrationRefinementPath(recordingId: string): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/calibration-refinement`;
+}
+
+export function pipelineCalibrationRefinementReadPath(
+  recordingId: string,
+  proposalRevisionId: string,
+  draftId?: string,
+): string {
+  const query = new URLSearchParams({
+    proposal_revision_id: proposalRevisionId,
+  });
+  if (draftId !== undefined) query.set("draft_id", draftId);
+  return `${pipelineCalibrationRefinementPath(recordingId)}?${query.toString()}`;
+}
+
+export function pipelineCalibrationRefinementDiscardPath(
+  recordingId: string,
+): string {
+  return `${pipelineCalibrationRefinementPath(recordingId)}/discard`;
 }
 
 export function pipelineVisualIdentityRunsPath(recordingId: string): string {

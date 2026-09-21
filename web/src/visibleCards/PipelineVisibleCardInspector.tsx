@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type {
+  CalibrationRefinementResponse,
   PipelineProposalRunResponse,
   PipelineReferenceResource,
 } from "../api/client";
@@ -105,6 +106,12 @@ export type VisibleCardInspectorProps = {
   completeReference: () => Promise<void>;
   createReference: () => Promise<void>;
   onReviewRequested?: () => void;
+  calibrationRefinement: CalibrationRefinementResponse | null;
+  calibrationLoading: boolean;
+  calibrationError: string | null;
+  startCalibrationRefinement: () => void;
+  discardCalibrationRefinement: () => void;
+  onSelectCalibrationFrame: (frameId: string) => void;
 };
 
 export function VisibleCardInspectorPortals(props: VisibleCardInspectorProps) {
@@ -163,6 +170,11 @@ function VisibleCardInspectorAction({
   completeReference,
   createReference,
   onReviewRequested,
+  calibrationRefinement,
+  calibrationLoading,
+  calibrationError,
+  startCalibrationRefinement,
+  discardCalibrationRefinement,
 }: VisibleCardInspectorProps) {
   if (view === "generated") {
     return (
@@ -317,7 +329,75 @@ function VisibleCardInspectorAction({
             ? "Publish corrected reference"
             : "Complete reference"}
       </button>
+      <CalibrationRefinementControls
+        proposalRevisionId={proposalRevisionId}
+        refinement={calibrationRefinement}
+        loading={calibrationLoading}
+        error={calibrationError}
+        onStart={startCalibrationRefinement}
+        onDiscard={discardCalibrationRefinement}
+      />
     </>
+  );
+}
+
+function CalibrationRefinementControls({
+  proposalRevisionId,
+  refinement,
+  loading,
+  error,
+  onStart,
+  onDiscard,
+}: {
+  proposalRevisionId: string | null;
+  refinement: CalibrationRefinementResponse | null;
+  loading: boolean;
+  error: string | null;
+  onStart: () => void;
+  onDiscard: () => void;
+}) {
+  if (proposalRevisionId === null) return null;
+  return (
+    <section
+      className={visibleStyles.proposalControls}
+      aria-label="Calibration refinement"
+    >
+      <p className={styles.statusLabel}>Recording-wide mapping</p>
+      <h3>Refine calibration</h3>
+      {error !== null ? (
+        <p className={visibleStyles.error} role="alert">
+          {error}
+        </p>
+      ) : null}
+      {refinement === null ? (
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={onStart}
+          disabled={loading}
+        >
+          {loading
+            ? "Preparing calibration…"
+            : "Prepare calibration refinement"}
+        </button>
+      ) : (
+        <>
+          <p className={styles.pipelineInspectorEmpty}>
+            Preview: {formatIdentifier(refinement.preview.status)} ·{" "}
+            {refinement.preview.accepted_anchor_count} confirmed anchors ·{" "}
+            {refinement.preview.changed_frame_ids.length} changed frames
+          </p>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={onDiscard}
+            disabled={loading}
+          >
+            Discard calibration preview
+          </button>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -465,6 +545,8 @@ function VisibleCardInspectorSelection({
   referenceNeedsSeed,
   restoreGeneratedSuggestions,
   canRestoreGeneratedSuggestions,
+  calibrationRefinement,
+  onSelectCalibrationFrame,
 }: VisibleCardInspectorProps) {
   return (
     <div className={visibleStyles.inspectorSelection}>
@@ -545,7 +627,70 @@ function VisibleCardInspectorSelection({
           </div>
         </>
       ) : null}
+      {calibrationRefinement !== null ? (
+        <CalibrationPreviewPanel
+          refinement={calibrationRefinement}
+          onSelectFrame={onSelectCalibrationFrame}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function CalibrationPreviewPanel({
+  refinement,
+  onSelectFrame,
+}: {
+  refinement: CalibrationRefinementResponse;
+  onSelectFrame: (frameId: string) => void;
+}) {
+  const preview = refinement.preview;
+  return (
+    <section
+      className={visibleStyles.coverageInspector}
+      aria-label="Calibration preview"
+    >
+      <strong>Calibration preview: {formatIdentifier(preview.status)}</strong>
+      <dl className={styles.pipelineInspectorFacts}>
+        <div>
+          <dt>Fit residual</dt>
+          <dd>{preview.fit_residual.toFixed(3)} table units</dd>
+        </div>
+        <div>
+          <dt>Held-out alignment change</dt>
+          <dd>{preview.held_out_alignment_change_px.toFixed(1)} px</dd>
+        </div>
+        <div>
+          <dt>Maximum displacement</dt>
+          <dd>{preview.max_source_pixel_displacement.toFixed(1)} px</dd>
+        </div>
+      </dl>
+      <ul aria-label="Calibration gates">
+        {preview.gates.map((gate) => (
+          <li key={gate.gate_id}>
+            {gate.passed ? "Pass" : "Blocked"}: {formatIdentifier(gate.gate_id)}
+          </li>
+        ))}
+      </ul>
+      {preview.failure !== null ? <p>{preview.failure.action}</p> : null}
+      {preview.most_affected_frame_ids.length > 0 ? (
+        <div
+          className={visibleStyles.outcomeButtons}
+          aria-label="Most affected frames"
+        >
+          {preview.most_affected_frame_ids.map((frameId) => (
+            <button
+              className={styles.inlineAction}
+              type="button"
+              key={frameId}
+              onClick={() => onSelectFrame(frameId)}
+            >
+              Inspect {frameId}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 

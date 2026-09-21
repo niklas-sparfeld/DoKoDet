@@ -21,6 +21,7 @@ import {
   withSceneDigest,
   type AnchorConstraint,
   type CalibrationAnchorCommand,
+  type CardSceneProjection,
   type PoseCard,
   type PoseSceneEnvelope,
   type ReviewedCardScene,
@@ -37,6 +38,11 @@ type PoseBasedVisibleCardEditorProps = {
   onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
   onResolveRemaining?: () => void;
   onAnchorCommand?: (command: CalibrationAnchorCommand) => void;
+  candidateCalibration?: {
+    table_to_image: number[][];
+    card_short_size: number;
+    card_long_size: number;
+  } | null;
 };
 
 type TableViewBox = { x: number; y: number; width: number; height: number };
@@ -70,6 +76,7 @@ export function PoseBasedVisibleCardEditor({
   onCardDecision,
   onResolveRemaining,
   onAnchorCommand,
+  candidateCalibration = null,
 }: PoseBasedVisibleCardEditorProps) {
   const identity = frame.outcome.frame_identity;
   const width = identity?.width ?? scene.scene.source_frame_width;
@@ -205,6 +212,36 @@ export function PoseBasedVisibleCardEditor({
         ]),
       ),
     [draft.projection, draft.scene.poses],
+  );
+  const candidateProjection = useMemo<CardSceneProjection | null>(
+    () =>
+      candidateCalibration === null
+        ? null
+        : {
+            table_to_image_homography: candidateCalibration.table_to_image,
+            card_short_size: candidateCalibration.card_short_size,
+            card_long_size: candidateCalibration.card_long_size,
+          },
+    [candidateCalibration],
+  );
+  const candidateProjectedPolygons = useMemo(
+    () =>
+      candidateProjection === null
+        ? new Map<string, [number, number][]>()
+        : new Map(
+            draft.scene.poses.map((pose) => [
+              pose.card_id,
+              cardPolygon(pose, candidateProjection)
+                .map((point) =>
+                  projectTablePoint(
+                    point,
+                    candidateProjection.table_to_image_homography,
+                  ),
+                )
+                .filter((point): point is [number, number] => point !== null),
+            ]),
+          ),
+    [candidateProjection, draft.scene.poses],
   );
 
   const getTablePoint = useCallback(
@@ -867,6 +904,21 @@ export function PoseBasedVisibleCardEditor({
                       strokeWidth={Math.max(1, width / 500)}
                     />
                   ))}
+                  {candidateProjection !== null
+                    ? draft.scene.poses.map((pose) => (
+                        <polygon
+                          key={`${pose.card_id}-candidate-calibration`}
+                          points={pointsAttribute(
+                            candidateProjectedPolygons.get(pose.card_id) ?? [],
+                          )}
+                          fill="none"
+                          stroke="#ffd166"
+                          strokeDasharray="10 6"
+                          strokeWidth={Math.max(1, width / 400)}
+                          pointerEvents="none"
+                        />
+                      ))
+                    : null}
                   {draft.scene.poses.map((pose) => {
                     const polygon = projectedPolygons.get(pose.card_id) ?? [];
                     const anchorPolygon =
@@ -944,6 +996,11 @@ export function PoseBasedVisibleCardEditor({
             <p className={styles.poseLegend}>
               <span data-tone="model">Dashed: detector suggestion</span>
               <span data-tone="proposal">Teal outline: proposed card</span>
+              {candidateProjection !== null ? (
+                <span data-tone="candidate">
+                  Gold dashed: candidate calibration
+                </span>
+              ) : null}
               <span data-tone="reviewed">
                 Filled: reviewed geometry and derived visible region
               </span>

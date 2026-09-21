@@ -23,7 +23,8 @@
 - **M2:** Complete — seed and validate a maintained reference from proposed card scenes.
 - **M3:** Complete — add proposal controls and the source/rectified editor toggle.
 - **M4:** Complete — add the card and calibration-anchor manipulation handles.
-- **M5:** Not started — implement weighted calibration refinement and a recording-wide preview.
+- **M5:** Complete — compute deterministic weighted calibration candidates, persist ordered draft
+  commands, and inspect recording-wide preview impact with fit gates and candidate overlays.
 - **M6:** Not started — apply a calibration revision and reflow the maintained draft safely.
 - **M7:** Not started — verify the complete real-result review loop and operator guidance.
 
@@ -463,6 +464,23 @@ Acceptance:
 - repeated views of one card cannot dominate the calibration;
 - adjusted and pinned anchors behave as declared, and conflicting pins block apply; and
 - discard restores the current calibration and draft byte-for-byte.
+
+#### M5 implementation evidence — 2026-09-21
+
+- Added deterministic anchor extraction from the selected local result, eligibility handling,
+  temporal and spatial de-duplication, bounded frame and region contributions, weighted fitting,
+  and pinned-anchor conflict gates. Candidate, accepted, and adjusted anchors use the frozen
+  relative influence policy.
+- Added a mutable calibration draft store with an immutable clean starting value. Ordered anchor
+  commands are applied with revision checks, duplicate retries are idempotent, and discard restores
+  the starting draft.
+- Added backend start, read, update, and discard routes for calibration refinement. Each response
+  includes the draft, candidate calibration, fit gates, affected frame and card IDs, maximum
+  displacement, anchor contributions, and actionable failure details.
+- Added the inspector preview panel and affected-frame links. Source view now shows the current
+  card outline with the candidate calibration as a distinct gold dashed overlay.
+- Verification passed for Ruff, the focused operations and backend suites, and the complete web
+  check (21 test files and 191 tests). OpenAPI types were regenerated and verified.
 
 ### M6 — Apply calibration and reflow the draft
 

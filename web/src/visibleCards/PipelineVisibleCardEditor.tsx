@@ -10,6 +10,7 @@ import {
 import {
   ApiError,
   createDokoDetectorClient,
+  type CalibrationRefinementResponse,
   type PipelineReferenceItem,
   type PipelineReferenceOperation,
   type PipelineReferenceResource,
@@ -44,6 +45,7 @@ import {
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import { PoseBasedVisibleCardEditor } from "./PoseBasedVisibleCardEditor";
 import { readPoseScene } from "./PoseBasedVisibleCardScene";
+import type { CalibrationAnchorCommand } from "./PoseBasedVisibleCardScene";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import type {
   Candidate,
@@ -155,6 +157,10 @@ export function PipelineVisibleCardEditor({
   );
   const [proposalLoading, setProposalLoading] = useState(false);
   const [proposalError, setProposalError] = useState<string | null>(null);
+  const [calibrationRefinement, setCalibrationRefinement] =
+    useState<CalibrationRefinementResponse | null>(null);
+  const [calibrationLoading, setCalibrationLoading] = useState(false);
+  const [calibrationError, setCalibrationError] = useState<string | null>(null);
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
   const proposalSlot = useVisibleCardProposalSlot();
   useEffect(
@@ -373,6 +379,103 @@ export function PipelineVisibleCardEditor({
       setProposalLoading(false);
     }
   }, [client, proposalRun, recordingId, settleProposalRun]);
+
+  const loadCalibrationRefinement = useCallback(async () => {
+    if (proposalRevisionId === null) {
+      setCalibrationRefinement(null);
+      return;
+    }
+    try {
+      const current = await client.getCalibrationRefinement(
+        recordingId,
+        proposalRevisionId,
+      );
+      setCalibrationRefinement(current);
+      setCalibrationError(null);
+    } catch (reason: unknown) {
+      if (reason instanceof ApiError && reason.status === 404) {
+        setCalibrationRefinement(null);
+        setCalibrationError(null);
+      } else {
+        setCalibrationError(describeError(reason));
+      }
+    }
+  }, [client, proposalRevisionId, recordingId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadCalibrationRefinement(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadCalibrationRefinement]);
+
+  const startCalibrationRefinement = useCallback(async () => {
+    if (proposalRevisionId === null) return;
+    setCalibrationLoading(true);
+    setCalibrationError(null);
+    try {
+      const started = await client.startCalibrationRefinement(recordingId, {
+        proposal_revision_id: proposalRevisionId,
+      });
+      setCalibrationRefinement(started);
+    } catch (reason: unknown) {
+      setCalibrationError(describeError(reason));
+    } finally {
+      setCalibrationLoading(false);
+    }
+  }, [client, proposalRevisionId, recordingId]);
+
+  const updateCalibrationRefinement = useCallback(
+    async (command: CalibrationAnchorCommand) => {
+      const current = calibrationRefinement;
+      if (current === null) return;
+      const draft = current.draft;
+      const revision = typeof draft.revision === "number" ? draft.revision : 0;
+      const commands = Array.isArray(draft.commands) ? draft.commands : [];
+      setCalibrationLoading(true);
+      setCalibrationError(null);
+      try {
+        const updated = await client.updateCalibrationRefinement(
+          recordingId,
+          current.proposal_revision_id,
+          {
+            draft_id: String(draft.draft_id),
+            expected_revision: revision,
+            command: {
+              ...command,
+              sequence: commands.length + 1,
+              expected_draft_revision: revision,
+              operator_id: operatorId.trim() || "operator",
+            },
+          },
+        );
+        setCalibrationRefinement(updated);
+      } catch (reason: unknown) {
+        setCalibrationError(describeError(reason));
+      } finally {
+        setCalibrationLoading(false);
+      }
+    },
+    [calibrationRefinement, client, operatorId, recordingId],
+  );
+
+  const discardCalibrationRefinement = useCallback(async () => {
+    const current = calibrationRefinement;
+    if (current === null) return;
+    const draftId = current.draft.draft_id;
+    if (typeof draftId !== "string") return;
+    setCalibrationLoading(true);
+    setCalibrationError(null);
+    try {
+      const reset = await client.discardCalibrationRefinement(recordingId, {
+        proposal_revision_id: current.proposal_revision_id,
+        draft_id: draftId,
+      });
+      setCalibrationRefinement(reset);
+    } catch (reason: unknown) {
+      setCalibrationError(describeError(reason));
+    } finally {
+      setCalibrationLoading(false);
+    }
+  }, [calibrationRefinement, client, recordingId]);
 
   const loadReference = useCallback(
     async (signal?: AbortSignal) => {
@@ -1855,6 +1958,17 @@ export function PipelineVisibleCardEditor({
       completeReference={completeReference}
       createReference={createReference}
       onReviewRequested={onReviewRequested}
+      calibrationRefinement={calibrationRefinement}
+      calibrationLoading={calibrationLoading}
+      calibrationError={calibrationError}
+      startCalibrationRefinement={() => void startCalibrationRefinement()}
+      discardCalibrationRefinement={() => void discardCalibrationRefinement()}
+      onSelectCalibrationFrame={(frameId) => {
+        const target = displayedFrames.find(
+          (frame) => frame.itemId === frameId,
+        );
+        if (target !== undefined) selectFrame(target);
+      }}
     />
   );
 
@@ -1949,6 +2063,14 @@ export function PipelineVisibleCardEditor({
                     editable
                       ? () => resolveRemainingCards(activeFrame)
                       : undefined
+                  }
+                  onAnchorCommand={
+                    editable && calibrationRefinement !== null
+                      ? (command) => void updateCalibrationRefinement(command)
+                      : undefined
+                  }
+                  candidateCalibration={
+                    calibrationRefinement?.preview.candidate_calibration ?? null
                   }
                 />
               ) : (
