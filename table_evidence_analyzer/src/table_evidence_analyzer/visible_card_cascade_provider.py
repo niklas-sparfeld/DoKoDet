@@ -49,7 +49,7 @@ from .visible_cards import (
 )
 
 CASCADE_PROVIDER_NAME = "local-rfdetr-cascade"
-CASCADE_PROVIDER_VERSION = "local-rfdetr-cascade-v1"
+CASCADE_PROVIDER_VERSION = "local-rfdetr-cascade-v2"
 
 
 def _load_local_rfdetr_small(bundle: Any, device: str) -> Any:
