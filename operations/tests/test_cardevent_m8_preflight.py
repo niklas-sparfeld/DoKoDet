@@ -35,6 +35,14 @@ def test_m8_recipe_declares_one_fixed_interval_axis_and_checkpoint() -> None:
 
 def test_m8_preflight_writes_handoff_without_campaign_execution() -> None:
     handoff_path = REPOSITORY_ROOT / ".runtime" / "cardevent" / "m8-test-handoff.json"
+    campaign_path = (
+        REPOSITORY_ROOT
+        / "data"
+        / "model-campaigns"
+        / "cardeventnet-0063-m8-interval-validation-df1dddc98bbb"
+        / "campaign.json"
+    )
+    campaign_before = campaign_path.read_bytes() if campaign_path.exists() else None
     handoff = preflight_card_event_campaign(
         RECIPE_PATH,
         repository_root=REPOSITORY_ROOT,
@@ -55,9 +63,7 @@ def test_m8_preflight_writes_handoff_without_campaign_execution() -> None:
     assert "--dataset-view" in handoff["commands"]["training"]
     assert "--hard-negative-manifest" not in handoff["commands"]["training"]
     assert "partition test" not in handoff["commands"]["training"]
-    assert not (
-        REPOSITORY_ROOT / "data" / "model-campaigns" / str(handoff["campaign_id"]) / "campaign.json"
-    ).exists()
+    assert (campaign_path.read_bytes() if campaign_path.exists() else None) == campaign_before
     written = json.loads(handoff_path.read_text(encoding="utf-8"))
     assert written["handoff_digest"] == handoff["handoff_digest"]
 

@@ -173,6 +173,8 @@ def test_factory_configures_the_gemini_analyzer(tmp_path: Path) -> None:
     settings = Settings(
         _env_file=None,
         gemini_api_key="test-key",
+        visible_card_provider="gemini",
+        visible_card_identity_classifier="gemini",
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "recordings",
         evidence_package_intake_root=tmp_path / "evidence-packages",

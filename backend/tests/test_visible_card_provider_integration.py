@@ -32,6 +32,12 @@ def _settings(tmp_path: Path, **values: object) -> Settings:
         "repository_intake_root": tmp_path / "intake" / "recordings",
         "pending_video_root": tmp_path / "pending-videos",
         "gemini_api_key": "test-key",
+        "visible_card_provider": "gemini",
+        "visible_card_bundle_path": None,
+        "visible_card_device": None,
+        "visible_card_identity_classifier": "gemini",
+        "visible_card_identity_bundle_path": None,
+        "visible_card_identity_device": None,
     }
     defaults.update(values)
     return Settings(**defaults)
@@ -202,6 +208,7 @@ def test_reviewed_segmentation_backend_selection_is_explicit_and_non_default(
     selected = app.state.analyzer.provider.provider
     assert selected.name == "local-rfdetr-segmentation"
     assert selected.device == device
+    monkeypatch.delenv("VISIBLE_CARD_PROVIDER", raising=False)
     assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
 
 
@@ -226,6 +233,7 @@ def test_cascade_backend_selection_is_explicit_and_non_default(tmp_path: Path, m
     selected = app.state.analyzer.provider.provider
     assert selected.name == "local-rfdetr-cascade"
     assert selected.device == "cpu"
+    monkeypatch.delenv("VISIBLE_CARD_PROVIDER", raising=False)
     assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
 
 
