@@ -5,7 +5,7 @@
 - **Summary:** Create proposed card scenes from a selected local visible-card result, review cards
   in a source or rectified table view, and refine the recording-wide table-plane calibration with
   explicit operator-confirmed anchors.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0048 pipeline data and execution, completed 0049 recording pipeline
   review, completed 0072 pose-based visible-card review, and the selectable cascade provider from
   0071 M6
@@ -17,7 +17,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze proposal, anchor, calibration-preview, and draft-reflow contracts.
+- **M0:** Complete — proposal, anchor, calibration-preview, and draft-reflow contracts are frozen
+  and covered by deterministic contract and pipeline-data tests.
 - **M1:** Not started — publish proposed card scenes from one selected local generated result.
 - **M2:** Not started — seed and validate a maintained reference from proposed card scenes.
 - **M3:** Not started — add proposal controls and the source/rectified editor toggle.
@@ -275,6 +276,25 @@ Acceptance:
 - the same inputs and ordered commands produce byte-equivalent calibration and preview results;
 - conflicting pins and invalid source lineage fail with actionable diagnostics; and
 - the contracts state exactly which draft items reinitialize, rebase, or become affected.
+
+#### M0 implementation evidence — 2026-09-21
+
+- Added strict versioned contracts for proposed card scenes, reviewed scene records, card-scene
+  drafts, calibration drafts, anchor observations and commands, calibration previews, calibration
+  failures, and atomic reflow receipts.
+- Separated processor proposal lineage from reviewed scene authority in visible-card pipeline data.
+  Pending, accepted, adjusted, and rejected card states now have explicit frame-completion rules;
+  rejected cards cannot enter a reviewed scene.
+- Froze accepted, adjusted, and pinned anchor weights (`1`, `4`, and `12` by weight class), the
+  temporal and table-region de-duplication buckets, per-frame and per-region contribution caps,
+  pin-conflict tolerance, handle modifier and keyboard policies, minimum handle size, calibration
+  gates, displacement tolerances, failure codes, and revision invalidation rules.
+- Added deterministic fixtures for accepted, adjusted, pinned, excluded, repeated, conflicting,
+  and stale anchor evidence. Ordered commands, preview values, and reflow receipts round-trip to
+  byte-equivalent digests.
+- Verification passed for the full table-evidence-analyzer suite (217 passed, 3 skipped), focused
+  backend pipeline-reference and pose-review suites, and focused operations geometry, calibration,
+  initialization, and lint checks.
 
 ### M1 — Publish proposed card scenes from a real generated result
 

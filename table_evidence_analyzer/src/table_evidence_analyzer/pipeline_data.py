@@ -10,6 +10,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from .card_scene_contract import (
+    CARD_SCENE_DRAFT_SCHEMA_VERSION,
+    CardSceneContractError,
+    CardSceneDraft,
+)
 from .cards import CARD_IDENTITIES
 from .table_observation import TableObservation, parse_observation_bytes
 
@@ -1093,7 +1098,7 @@ class VisibleCardOutcome:
     candidates: tuple[VisibleCardCandidate, ...]
     error: str | None = None
     ignored_regions: tuple[VisibleCardIgnoreRegion, ...] = ()
-    card_scene: dict[str, Any] | None = None
+    card_scene: CardSceneDraft | dict[str, Any] | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any], context: str = "outcome") -> "VisibleCardOutcome":
@@ -1144,12 +1149,24 @@ class VisibleCardOutcome:
         if error is not None:
             error = _text(error, f"{context}.error")
         raw_card_scene = data.get("card_scene")
-        card_scene: dict[str, Any] | None
+        card_scene: CardSceneDraft | dict[str, Any] | None
         if raw_card_scene is None:
             card_scene = None
         else:
-            card_scene = dict(_mapping(raw_card_scene, f"{context}.card_scene"))
-            _validate_json(card_scene, f"{context}.card_scene")
+            card_scene_mapping = _mapping(raw_card_scene, f"{context}.card_scene")
+            if card_scene_mapping.get("schema_version") == CARD_SCENE_DRAFT_SCHEMA_VERSION:
+                try:
+                    card_scene = CardSceneDraft.from_mapping(
+                        card_scene_mapping, f"{context}.card_scene"
+                    )
+                except (CardSceneContractError, TypeError, ValueError) as error:
+                    raise PipelineDataError(f"{context}.card_scene is invalid") from error
+            else:
+                # The 0072 envelope remains readable while M2 migrates maintained references to
+                # the explicit proposal/reviewed draft.  New processor proposals must use the
+                # typed card-scene draft above.
+                card_scene = dict(card_scene_mapping)
+                _validate_json(card_scene, f"{context}.card_scene")
         if (
             status == "detected"
             and not candidates
@@ -1191,7 +1208,11 @@ class VisibleCardOutcome:
             "error": self.error,
         }
         if self.card_scene is not None:
-            value["card_scene"] = self.card_scene
+            value["card_scene"] = (
+                self.card_scene.to_mapping()
+                if isinstance(self.card_scene, CardSceneDraft)
+                else self.card_scene
+            )
         return value
 
 
