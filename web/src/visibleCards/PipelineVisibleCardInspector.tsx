@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { PipelineReferenceResource } from "../api/client";
+import type {
+  PipelineProposalRunResponse,
+  PipelineReferenceResource,
+} from "../api/client";
 import styles from "../App.module.css";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
@@ -88,6 +91,13 @@ export type VisibleCardInspectorProps = {
   startReference: () => void;
   completionBusy: boolean;
   completionBlocker: string | null;
+  proposalRun: PipelineProposalRunResponse | null;
+  proposalRevisionId: string | null;
+  proposalLoading: boolean;
+  proposalError: string | null;
+  startProposal: () => void;
+  retryProposal: () => void;
+  startReviewFromProposal: () => void;
   restoreGeneratedSuggestions: () => void;
   canRestoreGeneratedSuggestions: boolean;
   retryQueuedCommands: () => void;
@@ -143,6 +153,13 @@ function VisibleCardInspectorAction({
   queueLength,
   completionBusy,
   completionBlocker,
+  proposalRun,
+  proposalRevisionId,
+  proposalLoading,
+  proposalError,
+  startProposal,
+  retryProposal,
+  startReviewFromProposal,
   completeReference,
   createReference,
   onReviewRequested,
@@ -152,6 +169,16 @@ function VisibleCardInspectorAction({
       <>
         <p className={styles.statusLabel}>Primary action</p>
         <h2 id="pipeline-inspector-action">Review visible cards</h2>
+        <ProposalControls
+          generatedRevisionId={generatedRevisionId}
+          proposalRun={proposalRun}
+          proposalRevisionId={proposalRevisionId}
+          proposalLoading={proposalLoading}
+          proposalError={proposalError}
+          onCreate={startProposal}
+          onRetry={retryProposal}
+          onStartReview={startReviewFromProposal}
+        />
         <p className={styles.pipelineInspectorEmpty}>
           {generatedLoading
             ? "Loading generated visible cards…"
@@ -176,7 +203,9 @@ function VisibleCardInspectorAction({
         <p className={styles.statusLabel}>Primary action</p>
         <h2 id="pipeline-inspector-action">Start visible-card review</h2>
         <p className={styles.pipelineInspectorEmpty}>
-          Seed the existing empty reference from the selected generated result.
+          {proposalRevisionId === null
+            ? "Seed the existing empty reference from the selected generated result."
+            : "Seed review from the preserved proposed card scenes."}
         </p>
         <label className={styles.pipelineSelector}>
           <span>Operator ID</span>
@@ -200,6 +229,16 @@ function VisibleCardInspectorAction({
             ? "Starting review…"
             : "Start review"}
         </button>
+        {proposalRevisionId !== null ? (
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={startReviewFromProposal}
+            disabled={proposalLoading}
+          >
+            Start review from proposed scenes
+          </button>
+        ) : null}
       </>
     );
   }
@@ -227,6 +266,11 @@ function VisibleCardInspectorAction({
         >
           {creatingReference ? "Starting review…" : "Start review"}
         </button>
+        {proposalRevisionId !== null ? (
+          <p className={styles.pipelineInspectorEmpty}>
+            The next review will retain the immutable proposal and homography.
+          </p>
+        ) : null}
       </>
     );
   }
@@ -274,6 +318,82 @@ function VisibleCardInspectorAction({
             : "Complete reference"}
       </button>
     </>
+  );
+}
+
+function ProposalControls({
+  generatedRevisionId,
+  proposalRun,
+  proposalRevisionId,
+  proposalLoading,
+  proposalError,
+  onCreate,
+  onRetry,
+  onStartReview,
+}: {
+  generatedRevisionId: string | null;
+  proposalRun: PipelineProposalRunResponse | null;
+  proposalRevisionId: string | null;
+  proposalLoading: boolean;
+  proposalError: string | null;
+  onCreate: () => void;
+  onRetry: () => void;
+  onStartReview: () => void;
+}) {
+  const status = proposalRun?.status ?? null;
+  return (
+    <section
+      className={visibleStyles.proposalControls}
+      aria-label="Proposed card scene controls"
+    >
+      <p className={styles.statusLabel}>Proposal processor</p>
+      <h3>Create proposed card scenes</h3>
+      <p className={styles.pipelineInspectorEmpty}>
+        {generatedRevisionId === null
+          ? "Select a generated local cascade result first."
+          : status === null
+            ? "Preserve the virtual cards and table homography for review and failure analysis."
+            : `Run status: ${formatIdentifier(status)}${proposalRevisionId === null ? "" : ` · ${proposalRevisionId}`}`}
+      </p>
+      {proposalError !== null ? (
+        <p className={visibleStyles.error} role="alert">
+          {proposalError}
+        </p>
+      ) : null}
+      {status === "failed" || status === "partial" ? (
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={onRetry}
+          disabled={proposalLoading}
+        >
+          {proposalLoading ? "Retrying proposal…" : "Retry proposal"}
+        </button>
+      ) : (
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={onCreate}
+          disabled={proposalLoading || generatedRevisionId === null}
+        >
+          {proposalLoading
+            ? "Creating proposed scenes…"
+            : status === "complete"
+              ? "Create new proposed scenes"
+              : "Create proposed card scenes"}
+        </button>
+      )}
+      {status === "complete" && proposalRevisionId !== null ? (
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={onStartReview}
+          disabled={proposalLoading}
+        >
+          Start review from proposed scenes
+        </button>
+      ) : null}
+    </section>
   );
 }
 

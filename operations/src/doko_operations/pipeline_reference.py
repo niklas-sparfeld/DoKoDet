@@ -469,6 +469,7 @@ class PipelineReferenceOperation:
     decision: str | None = None
     identity: str | None = None
     source_revision_id: str | None = None
+    proposal_revision_id: str | None = None
     region_id: str | None = None
     region: dict[str, Any] | None = None
     candidate_ids: tuple[str, ...] | None = None
@@ -597,12 +598,23 @@ class PipelineReferenceOperation:
                 raise PipelineReferenceContractError(f"{context}.decision is unsupported")
             return cls(operation=operation, item_id=item_id, decision=decision)
         if operation == "rebase":
-            _strict(data, {"operation", "source_revision_id"}, context)
+            _strict(
+                data,
+                {"operation", "source_revision_id"}
+                | ({"proposal_revision_id"} if "proposal_revision_id" in data else set()),
+                context,
+            )
+            proposal_revision_id = data.get("proposal_revision_id")
+            if proposal_revision_id is not None:
+                proposal_revision_id = _identifier(
+                    proposal_revision_id, f"{context}.proposal_revision_id"
+                )
             return cls(
                 operation=operation,
                 source_revision_id=_identifier(
                     data["source_revision_id"], f"{context}.source_revision_id"
                 ),
+                proposal_revision_id=proposal_revision_id,
             )
         _strict(data, {"operation", "item"}, context)
         item_value = _mapping(data["item"], f"{context}.item")
@@ -624,6 +636,8 @@ class PipelineReferenceOperation:
             value["identity"] = self.identity
         if self.source_revision_id is not None:
             value["source_revision_id"] = self.source_revision_id
+        if self.proposal_revision_id is not None:
+            value["proposal_revision_id"] = self.proposal_revision_id
         if self.region_id is not None:
             value["region_id"] = self.region_id
         if self.region is not None:

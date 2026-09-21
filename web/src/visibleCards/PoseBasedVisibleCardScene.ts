@@ -39,12 +39,22 @@ export type CardSceneProjection = {
   card_long_size: number;
 };
 
+export type CardReviewState = {
+  card_id: string;
+  source: "proposal" | "manual";
+  proposal_id: string | null;
+  state: "pending" | "accepted" | "adjusted" | "rejected";
+};
+
 export type PoseSceneEnvelope = {
   schema_version: typeof REVIEWED_CARD_SCENE_EDITOR_SCHEMA;
   scene: ReviewedCardScene;
   initialized_scene: ReviewedCardScene;
   projection: CardSceneProjection;
   derived_region_receipt?: Record<string, unknown>;
+  card_review_states?: CardReviewState[];
+  completion_state?: "pending" | "complete" | "unusable";
+  completion_reason?: string | null;
 };
 
 export type PoseSceneAction =
@@ -90,6 +100,41 @@ export function readPoseScene(value: unknown): PoseSceneEnvelope | null {
           }),
     };
   }
+  if (value.schema_version === "card-scene-draft/v1") {
+    const proposal = isRecord(value.proposal) ? value.proposal : null;
+    const initialized = proposal?.initialized_scene;
+    const projection = readProjection(value.projection);
+    const states = readCardReviewStates(value.card_states);
+    const completion = isRecord(value.completion) ? value.completion : null;
+    if (
+      initialized === null ||
+      !isRecord(initialized) ||
+      projection === null ||
+      states === null ||
+      completion === null ||
+      !isCardSceneStatus(completion.state)
+    )
+      return null;
+    const scene =
+      completion.state === "pending"
+        ? initialized
+        : isRecord(value.reviewed) && isRecord(value.reviewed.scene)
+          ? value.reviewed.scene
+          : initialized;
+    const parsedScene = readReviewedCardScene(scene);
+    const parsedInitialized = readReviewedCardScene(initialized);
+    if (parsedScene === null || parsedInitialized === null) return null;
+    return {
+      schema_version: REVIEWED_CARD_SCENE_EDITOR_SCHEMA,
+      scene: parsedScene,
+      initialized_scene: parsedInitialized,
+      projection,
+      card_review_states: states,
+      completion_state: completion.state,
+      completion_reason:
+        typeof completion.reason === "string" ? completion.reason : null,
+    };
+  }
   if (value.schema_version !== REVIEWED_CARD_SCENE_SCHEMA) return null;
   const scene = readReviewedCardScene(value);
   const projection = readProjection(
@@ -109,6 +154,38 @@ export function readPoseScene(value: unknown): PoseSceneEnvelope | null {
           )!,
         }),
   };
+}
+
+function readCardReviewStates(value: unknown): CardReviewState[] | null {
+  if (!Array.isArray(value)) return null;
+  const states = value.map((item) => {
+    if (!isRecord(item)) return null;
+    if (
+      typeof item.card_id !== "string" ||
+      (item.source !== "proposal" && item.source !== "manual") ||
+      (item.state !== "pending" &&
+        item.state !== "accepted" &&
+        item.state !== "adjusted" &&
+        item.state !== "rejected")
+    )
+      return null;
+    return {
+      card_id: item.card_id,
+      source: item.source,
+      proposal_id:
+        typeof item.proposal_id === "string" ? item.proposal_id : null,
+      state: item.state,
+    } as CardReviewState;
+  });
+  return states.every((item): item is CardReviewState => item !== null)
+    ? states
+    : null;
+}
+
+function isCardSceneStatus(
+  value: unknown,
+): value is "pending" | "complete" | "unusable" {
+  return value === "pending" || value === "complete" || value === "unusable";
 }
 
 export function applyPoseSceneAction(

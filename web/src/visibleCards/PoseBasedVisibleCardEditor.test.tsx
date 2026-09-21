@@ -58,6 +58,14 @@ function scene(): PoseSceneEnvelope {
       card_short_size: 1,
       card_long_size: 1.5,
     },
+    card_review_states: poses.map((pose) => ({
+      card_id: pose.card_id,
+      source: "proposal" as const,
+      proposal_id: `proposal-${pose.card_id}`,
+      state: "pending" as const,
+    })),
+    completion_state: "pending",
+    completion_reason: null,
   };
 }
 
@@ -133,5 +141,34 @@ describe("PoseBasedVisibleCardEditor", () => {
 
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
     expect(onChange.mock.calls[0][0].scene.poses[0].center[0]).toBe(0.025);
+  });
+
+  it("switches views without changing the scene and exposes card decisions", async () => {
+    const onChange = vi.fn();
+    const onCardDecision = vi.fn();
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={onChange}
+        onCardDecision={onCardDecision}
+      />,
+    );
+
+    expect(
+      screen.getByRole("application", { name: "Rectified virtual table" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Source" }));
+    expect(
+      screen.getByRole("img", { name: "Projected card scene" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("application", { name: "Rectified virtual table" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Rectified table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept card" }));
+    expect(onCardDecision).toHaveBeenCalledWith("card-a", "accept");
   });
 });

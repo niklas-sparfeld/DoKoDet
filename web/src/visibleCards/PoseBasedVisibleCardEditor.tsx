@@ -28,6 +28,8 @@ type PoseBasedVisibleCardEditorProps = {
   scene: PoseSceneEnvelope;
   readOnly: boolean;
   onChange: (scene: PoseSceneEnvelope, notice: string) => void;
+  onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
+  onResolveRemaining?: () => void;
 };
 
 type TableViewBox = { x: number; y: number; width: number; height: number };
@@ -38,6 +40,8 @@ export function PoseBasedVisibleCardEditor({
   scene,
   readOnly,
   onChange,
+  onCardDecision,
+  onResolveRemaining,
 }: PoseBasedVisibleCardEditorProps) {
   const identity = frame.outcome.frame_identity;
   const width = identity?.width ?? scene.scene.source_frame_width;
@@ -53,6 +57,9 @@ export function PoseBasedVisibleCardEditor({
   );
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<TablePoint>([0, 0]);
+  const [activeView, setActiveView] = useState<"source" | "rectified">(
+    "rectified",
+  );
   const dragRef = useRef<{
     pointerId: number;
     cardId: string;
@@ -84,6 +91,51 @@ export function PoseBasedVisibleCardEditor({
     draft.scene.poses.find((pose) => pose.card_id === selectedCardId) ??
     draft.scene.poses[0] ??
     null;
+  const selectedReviewState =
+    draft.card_review_states?.find(
+      (state) => state.card_id === selectedPose?.card_id,
+    ) ?? null;
+  const unresolvedCardCount =
+    draft.card_review_states?.filter((state) => state.state === "pending")
+      .length ?? 0;
+  const applyCardReviewState = useCallback(
+    (cardId: string, state: "accepted" | "rejected") => {
+      const current = draftRef.current;
+      if (current.card_review_states === undefined) return;
+      const card_review_states = current.card_review_states.map((candidate) =>
+        candidate.card_id === cardId ? { ...candidate, state } : candidate,
+      );
+      const next = {
+        ...current,
+        card_review_states,
+        completion_state: card_review_states.some(
+          (candidate) => candidate.state === "pending",
+        )
+          ? ("pending" as const)
+          : ("complete" as const),
+        completion_reason: null,
+      };
+      draftRef.current = next;
+      setDraft(next);
+    },
+    [],
+  );
+  const acceptRemainingCards = useCallback(() => {
+    const current = draftRef.current;
+    if (current.card_review_states === undefined) return;
+    const next = {
+      ...current,
+      card_review_states: current.card_review_states.map((candidate) =>
+        candidate.state === "pending"
+          ? { ...candidate, state: "accepted" as const }
+          : candidate,
+      ),
+      completion_state: "complete" as const,
+      completion_reason: null,
+    };
+    draftRef.current = next;
+    setDraft(next);
+  }, []);
   const tableViewBox = useMemo(
     () => getTableViewBox(draft.scene, draft.projection, zoom, pan),
     [draft.projection, draft.scene, pan, zoom],
@@ -302,6 +354,36 @@ export function PoseBasedVisibleCardEditor({
           back
         </span>
       </div>
+      <fieldset
+        className={styles.pipelineToggleGroup}
+        aria-label="Card scene view"
+      >
+        <legend className={styles.visuallyHidden}>Card scene view</legend>
+        <button
+          className={
+            activeView === "source"
+              ? styles.pipelineToggleActive
+              : styles.pipelineToggle
+          }
+          type="button"
+          aria-pressed={activeView === "source"}
+          onClick={() => setActiveView("source")}
+        >
+          Source
+        </button>
+        <button
+          className={
+            activeView === "rectified"
+              ? styles.pipelineToggleActive
+              : styles.pipelineToggle
+          }
+          type="button"
+          aria-pressed={activeView === "rectified"}
+          onClick={() => setActiveView("rectified")}
+        >
+          Rectified table
+        </button>
+      </fieldset>
       <ol
         className={styles.poseEditorGuidance}
         aria-label="Pose review checklist"
@@ -320,225 +402,278 @@ export function PoseBasedVisibleCardEditor({
         </li>
       </ol>
 
-      <div className={styles.poseEditorViews}>
-        <div className={styles.poseViewPanel}>
-          <h3>Source frame</h3>
-          {sourceUrl === null ? (
-            <p className={styles.editorHelp}>
-              No exact source frame is available.
-            </p>
-          ) : (
-            <div
-              className={styles.poseSourceViewport}
-              style={{ aspectRatio: `${width} / ${height}` }}
-            >
-              <img src={sourceUrl} alt="Selected visible-card source frame" />
-              <svg
-                viewBox={`0 0 ${width} ${height}`}
-                role="img"
-                aria-label="Projected card scene"
+      <div className={styles.poseEditorViews} data-active-view={activeView}>
+        {activeView === "source" ? (
+          <div className={styles.poseViewPanel}>
+            <h3>Source frame</h3>
+            {sourceUrl === null ? (
+              <p className={styles.editorHelp}>
+                No exact source frame is available.
+              </p>
+            ) : (
+              <div
+                className={styles.poseSourceViewport}
+                style={{ aspectRatio: `${width} / ${height}` }}
               >
-                <defs>
-                  {draft.scene.poses.map((pose) => {
-                    const polygon = projectedPolygons.get(pose.card_id) ?? [];
-                    const maskId = `${sourceMaskPrefix}-${pose.card_id.replace(/[^A-Za-z0-9_-]/g, "-")}`;
-                    return (
-                      <mask
-                        key={maskId}
-                        id={maskId}
-                        maskUnits="userSpaceOnUse"
-                        x="0"
-                        y="0"
-                        width={width}
-                        height={height}
-                      >
-                        <rect
+                <img src={sourceUrl} alt="Selected visible-card source frame" />
+                <svg
+                  viewBox={`0 0 ${width} ${height}`}
+                  role="img"
+                  aria-label="Projected card scene"
+                >
+                  <defs>
+                    {draft.scene.poses.map((pose) => {
+                      const polygon = projectedPolygons.get(pose.card_id) ?? [];
+                      const maskId = `${sourceMaskPrefix}-${pose.card_id.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+                      return (
+                        <mask
+                          key={maskId}
+                          id={maskId}
+                          maskUnits="userSpaceOnUse"
                           x="0"
                           y="0"
                           width={width}
                           height={height}
-                          fill="black"
-                        />
+                        >
+                          <rect
+                            x="0"
+                            y="0"
+                            width={width}
+                            height={height}
+                            fill="black"
+                          />
+                          <polygon
+                            points={pointsAttribute(polygon)}
+                            fill="white"
+                          />
+                          {higherCards(draft.scene, pose.card_id).map(
+                            (higher) => (
+                              <polygon
+                                key={higher.card_id}
+                                points={pointsAttribute(
+                                  projectedPolygons.get(higher.card_id) ?? [],
+                                )}
+                                fill="black"
+                              />
+                            ),
+                          )}
+                        </mask>
+                      );
+                    })}
+                  </defs>
+                  {sourcePolygons.map(({ candidate, polygon }, index) => (
+                    <polygon
+                      key={`${candidate.card_id}-${index}`}
+                      points={pointsAttribute(polygon)}
+                      fill="none"
+                      stroke="#a7aebc"
+                      strokeDasharray="5 5"
+                      strokeWidth={Math.max(1, width / 500)}
+                    />
+                  ))}
+                  {draft.scene.poses.map((pose) => {
+                    const polygon = projectedPolygons.get(pose.card_id) ?? [];
+                    const selected = pose.card_id === selectedCardId;
+                    const maskId = `${sourceMaskPrefix}-${pose.card_id.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+                    return (
+                      <g key={pose.card_id}>
                         <polygon
                           points={pointsAttribute(polygon)}
-                          fill="white"
+                          fill="rgba(59, 205, 180, 0.2)"
+                          mask={`url(#${maskId})`}
+                          stroke="#30c9ac"
+                          strokeWidth={
+                            selected
+                              ? Math.max(2, width / 250)
+                              : Math.max(1, width / 500)
+                          }
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Reviewed card ${pose.card_id}`}
+                          onClick={() => setSelectedCardId(pose.card_id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ")
+                              setSelectedCardId(pose.card_id);
+                          }}
                         />
-                        {higherCards(draft.scene, pose.card_id).map(
-                          (higher) => (
-                            <polygon
-                              key={higher.card_id}
-                              points={pointsAttribute(
-                                projectedPolygons.get(higher.card_id) ?? [],
-                              )}
-                              fill="black"
-                            />
-                          ),
-                        )}
-                      </mask>
+                        {selected ? (
+                          <text
+                            x={polygon[0]?.[0] ?? 0}
+                            y={polygon[0]?.[1] ?? 0}
+                            fill="#d9fff7"
+                            fontSize={Math.max(10, width / 45)}
+                          >
+                            {pose.card_id}
+                          </text>
+                        ) : null}
+                      </g>
                     );
                   })}
-                </defs>
-                {sourcePolygons.map(({ candidate, polygon }, index) => (
-                  <polygon
-                    key={`${candidate.card_id}-${index}`}
-                    points={pointsAttribute(polygon)}
-                    fill="none"
-                    stroke="#a7aebc"
-                    strokeDasharray="5 5"
-                    strokeWidth={Math.max(1, width / 500)}
-                  />
-                ))}
-                {draft.scene.poses.map((pose) => {
-                  const polygon = projectedPolygons.get(pose.card_id) ?? [];
-                  const selected = pose.card_id === selectedCardId;
-                  const maskId = `${sourceMaskPrefix}-${pose.card_id.replace(/[^A-Za-z0-9_-]/g, "-")}`;
-                  return (
-                    <g key={pose.card_id}>
-                      <polygon
-                        points={pointsAttribute(polygon)}
-                        fill="rgba(59, 205, 180, 0.2)"
-                        mask={`url(#${maskId})`}
-                        stroke="#30c9ac"
-                        strokeWidth={
-                          selected
-                            ? Math.max(2, width / 250)
-                            : Math.max(1, width / 500)
-                        }
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Reviewed card ${pose.card_id}`}
-                        onClick={() => setSelectedCardId(pose.card_id)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ")
-                            setSelectedCardId(pose.card_id);
-                        }}
-                      />
-                      {selected ? (
-                        <text
-                          x={polygon[0]?.[0] ?? 0}
-                          y={polygon[0]?.[1] ?? 0}
-                          fill="#d9fff7"
-                          fontSize={Math.max(10, width / 45)}
-                        >
-                          {pose.card_id}
-                        </text>
-                      ) : null}
-                    </g>
-                  );
-                })}
-              </svg>
-            </div>
-          )}
-          <p className={styles.poseLegend}>
-            <span data-tone="model">Dashed: model suggestion</span>
-            <span data-tone="reviewed">
-              Teal: derived visible-region preview
-            </span>
-          </p>
-        </div>
-
-        <div className={styles.poseViewPanel}>
-          <div className={styles.poseViewHeading}>
-            <h3>Virtual table</h3>
-            <div
-              className={styles.poseViewActions}
-              aria-label="Virtual table view controls"
-            >
-              <button
-                type="button"
-                onClick={() => setZoom((value) => Math.min(3, value * 1.25))}
-                aria-label="Zoom in"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                onClick={() => setZoom((value) => Math.max(0.5, value / 1.25))}
-                aria-label="Zoom out"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={() => setPan(([x, y]) => [x, y - 0.5])}
-                aria-label="Pan table up"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => setPan(([x, y]) => [x, y + 0.5])}
-                aria-label="Pan table down"
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                onClick={() => setPan(([x, y]) => [x - 0.5, y])}
-                aria-label="Pan table left"
-              >
-                ←
-              </button>
-              <button
-                type="button"
-                onClick={() => setPan(([x, y]) => [x + 0.5, y])}
-                aria-label="Pan table right"
-              >
-                →
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setZoom(1);
-                  setPan([0, 0]);
-                }}
-                aria-label="Fit virtual table"
-              >
-                Fit
-              </button>
-            </div>
+                </svg>
+              </div>
+            )}
+            <p className={styles.poseLegend}>
+              <span data-tone="model">Dashed: detector suggestion</span>
+              <span data-tone="proposal">Teal outline: proposed card</span>
+              <span data-tone="reviewed">
+                Filled: reviewed geometry and derived visible region
+              </span>
+            </p>
           </div>
-          <svg
-            className={styles.poseTableSvg}
-            viewBox={`${tableViewBox.x} ${tableViewBox.y} ${tableViewBox.width} ${tableViewBox.height}`}
-            role="application"
-            aria-label="Rectified virtual table"
-            onPointerMove={handleTablePointerMove}
-            onPointerUp={finishTablePointer}
-            onPointerCancel={finishTablePointer}
-          >
-            <rect
-              x={tableViewBox.x}
-              y={tableViewBox.y}
-              width={tableViewBox.width}
-              height={tableViewBox.height}
-              fill="rgba(24, 36, 47, 0.82)"
-            />
-            {draft.scene.poses.map((pose) => (
-              <TableCard
-                key={pose.card_id}
-                pose={pose}
-                projection={draft.projection}
-                selected={pose.card_id === selectedCardId}
-                readOnly={readOnly}
-                onSelect={() => setSelectedCardId(pose.card_id)}
-                onPointerDown={(event, mode) =>
-                  startTablePointer(event, pose.card_id, mode)
-                }
-                onKeyDown={(event) => handleCardKeyDown(event, pose.card_id)}
+        ) : null}
+        {activeView === "rectified" ? (
+          <div className={styles.poseViewPanel}>
+            <div className={styles.poseViewHeading}>
+              <h3>Virtual table</h3>
+              <div
+                className={styles.poseViewActions}
+                aria-label="Virtual table view controls"
+              >
+                <button
+                  type="button"
+                  onClick={() => setZoom((value) => Math.min(3, value * 1.25))}
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setZoom((value) => Math.max(0.5, value / 1.25))
+                  }
+                  aria-label="Zoom out"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPan(([x, y]) => [x, y - 0.5])}
+                  aria-label="Pan table up"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPan(([x, y]) => [x, y + 0.5])}
+                  aria-label="Pan table down"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPan(([x, y]) => [x - 0.5, y])}
+                  aria-label="Pan table left"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPan(([x, y]) => [x + 0.5, y])}
+                  aria-label="Pan table right"
+                >
+                  →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setZoom(1);
+                    setPan([0, 0]);
+                  }}
+                  aria-label="Fit virtual table"
+                >
+                  Fit
+                </button>
+              </div>
+            </div>
+            <svg
+              className={styles.poseTableSvg}
+              viewBox={`${tableViewBox.x} ${tableViewBox.y} ${tableViewBox.width} ${tableViewBox.height}`}
+              role="application"
+              aria-label="Rectified virtual table"
+              onPointerMove={handleTablePointerMove}
+              onPointerUp={finishTablePointer}
+              onPointerCancel={finishTablePointer}
+            >
+              <rect
+                x={tableViewBox.x}
+                y={tableViewBox.y}
+                width={tableViewBox.width}
+                height={tableViewBox.height}
+                fill="rgba(24, 36, 47, 0.82)"
               />
-            ))}
-          </svg>
-          <p className={styles.editorHelp}>
-            Select a card, drag its body to move it, or drag the handle to
-            rotate it. Arrow keys nudge the selected card; hold Shift for a
-            coarse step.
-          </p>
-        </div>
+              {draft.scene.poses.map((pose) => (
+                <TableCard
+                  key={pose.card_id}
+                  pose={pose}
+                  projection={draft.projection}
+                  selected={pose.card_id === selectedCardId}
+                  readOnly={readOnly}
+                  onSelect={() => setSelectedCardId(pose.card_id)}
+                  onPointerDown={(event, mode) =>
+                    startTablePointer(event, pose.card_id, mode)
+                  }
+                  onKeyDown={(event) => handleCardKeyDown(event, pose.card_id)}
+                />
+              ))}
+            </svg>
+            <p className={styles.editorHelp}>
+              Select a card, drag its body to move it, or drag the handle to
+              rotate it. Arrow keys nudge the selected card; hold Shift for a
+              coarse step.
+            </p>
+            <p className={styles.poseLegend}>
+              <span data-tone="model">
+                Detector suggestions are shown in Source
+              </span>
+              <span data-tone="proposal">
+                Card outlines: immutable proposal
+              </span>
+              <span data-tone="reviewed">Filled: reviewed card geometry</span>
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {!readOnly ? (
         <div className={styles.poseEditorControls}>
+          {selectedPose !== null && onCardDecision !== undefined ? (
+            <div className={styles.poseCardReviewControls}>
+              <span>
+                Card review: {selectedReviewState?.state ?? "reviewed"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  applyCardReviewState(selectedPose.card_id, "accepted");
+                  onCardDecision(selectedPose.card_id, "accept");
+                }}
+                disabled={selectedReviewState?.state === "accepted"}
+              >
+                Accept card
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  applyCardReviewState(selectedPose.card_id, "rejected");
+                  onCardDecision(selectedPose.card_id, "reject");
+                }}
+                disabled={selectedReviewState?.state === "rejected"}
+              >
+                Reject card
+              </button>
+              {unresolvedCardCount > 0 && onResolveRemaining !== undefined ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    acceptRemainingCards();
+                    onResolveRemaining();
+                  }}
+                >
+                  Accept remaining ({unresolvedCardCount})
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           <button type="button" onClick={addCard}>
             Add standard-size card
           </button>

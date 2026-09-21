@@ -529,17 +529,45 @@ class PipelineReferenceService:
             for operation in operations:
                 if operation.operation == "rebase":
                     assert operation.source_revision_id is not None
-                    items = handler.rebase_items(
-                        recording_id,
-                        working_current,
-                        operation.source_revision_id,
-                        self._require_source_revision,
-                    )
+                    if operation.proposal_revision_id is not None:
+                        if content_type != "visible_cards":
+                            raise PipelineReferenceInputError(
+                                "proposal rebase is only supported for visible-card references"
+                            )
+                        proposal_source_id, proposal_data = self._proposal_source(
+                            recording_id,
+                            self._require_proposal_revision(
+                                recording_id, operation.proposal_revision_id
+                            ),
+                        )
+                        if proposal_source_id != operation.source_revision_id:
+                            raise PipelineReferenceInputError(
+                                "proposal rebase source does not match its detector revision"
+                            )
+                        source_revision = self._require_source_revision(
+                            recording_id, content_type, proposal_source_id
+                        )
+                        items = list(
+                            self._proposal_seed_items(
+                                recording_id,
+                                source_revision,
+                                proposal_data,
+                                operation.proposal_revision_id,
+                            )
+                        )
+                    else:
+                        items = handler.rebase_items(
+                            recording_id,
+                            working_current,
+                            operation.source_revision_id,
+                            self._require_source_revision,
+                        )
                     working_current = replace(
                         working_current,
                         draft=replace(
                             working_current.draft,
                             source_revision_id=operation.source_revision_id,
+                            proposal_revision_id=operation.proposal_revision_id,
                         ),
                     )
                     requires_full_validation = True
@@ -595,6 +623,7 @@ class PipelineReferenceService:
                 current.draft,
                 revision=current.draft.revision + 1,
                 source_revision_id=working_current.draft.source_revision_id,
+                proposal_revision_id=working_current.draft.proposal_revision_id,
                 items=tuple(items),
                 coverage=None,
                 impact=tuple(impacts),

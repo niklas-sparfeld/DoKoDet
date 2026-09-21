@@ -1133,6 +1133,40 @@ def test_proposal_seed_keeps_immutable_scene_and_supports_card_decisions(
     assert stored_item["card_scene"]["projection"]["table_to_image_homography"]
 
 
+def test_empty_visible_card_reference_can_rebase_from_proposal_revision(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    proposal_revision_id = _proposal_revision(revision_store, source_revision_id)
+
+    empty = service.create_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {"operator_id": "operator-01", "seed": "empty"},
+    )
+    seeded = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": empty.draft.revision,
+            "operations": [
+                {
+                    "operation": "rebase",
+                    "source_revision_id": source_revision_id,
+                    "proposal_revision_id": proposal_revision_id,
+                }
+            ],
+        },
+    )
+
+    assert seeded.draft.source_revision_id == source_revision_id
+    assert seeded.draft.proposal_revision_id == proposal_revision_id
+    assert seeded.draft.items[0].item["card_scene"]["proposal_revision_id"] == (
+        proposal_revision_id
+    )
+    assert seeded.draft.items[0].review_state == "pending"
+
+
 def test_pose_scene_draft_can_keep_hidden_pose_but_completion_rejects_it(tmp_path: Path) -> None:
     service, revision_store = _service(tmp_path)
     source_revision_id = _vision_source_revision(revision_store, "visible_cards")

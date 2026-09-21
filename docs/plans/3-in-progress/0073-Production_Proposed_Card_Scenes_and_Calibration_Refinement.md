@@ -21,7 +21,7 @@
   and covered by deterministic contract and pipeline-data tests.
 - **M1:** Complete — publish immutable proposed card scenes from one selected local cascade result.
 - **M2:** Complete — seed and validate a maintained reference from proposed card scenes.
-- **M3:** Not started — add proposal controls and the source/rectified editor toggle.
+- **M3:** Complete — add proposal controls and the source/rectified editor toggle.
 - **M4:** Not started — add the card and calibration-anchor manipulation handles.
 - **M5:** Not started — implement weighted calibration refinement and a recording-wide preview.
 - **M6:** Not started — apply a calibration revision and reflow the maintained draft safely.
@@ -400,6 +400,23 @@ Acceptance:
 - both views distinguish detector suggestions, proposals, reviewed geometry, and derived regions;
   and
 - desktop and narrow layouts remain usable by pointer and keyboard.
+
+#### M3 implementation evidence — 2026-09-21
+
+- Added web client routes for proposal creation, listing, status, retry, and result reads. The
+  visible-card workspace now shows proposal status and diagnostics, exposes retry, and starts
+  maintained review from the immutable proposal revision.
+- Added proposal-backed rebase for an existing empty visible-card reference. The command carries
+  the detector and proposal revision together, validates their lineage, and keeps the proposal
+  revision and homography in the mutable draft.
+- Added a real Source/Rectified table toggle with Rectified table as the default. The toggle only
+  changes the rendered view. It does not change scene geometry, detector suggestions, or review
+  commands.
+- Added proposal-draft parsing, selected-card state display, Accept card, Reject card, and Accept
+  remaining controls. Pending proposal cards stay visible until their decisions resolve the frame.
+- Verification passed for the complete web check (187 tests), the focused backend reference suite
+  (29 tests), changed-file Ruff checks, and `git diff --check`. OpenAPI types were regenerated so
+  the existing M1 proposal routes are checked in and verified.
 
 ### M4 — Add card and calibration-anchor handles
 

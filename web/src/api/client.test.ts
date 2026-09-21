@@ -9,6 +9,10 @@ import {
   pipelineObservationRunPath,
   pipelineObservationRunRetryPath,
   pipelineObservationRunsPath,
+  pipelineProposedCardSceneResultPath,
+  pipelineProposedCardSceneRunPath,
+  pipelineProposedCardSceneRunRetryPath,
+  pipelineProposedCardSceneRunsPath,
   pipelineReferenceCompletionPath,
   pipelineReferenceDraftPath,
   pipelineReferencePath,
@@ -78,6 +82,34 @@ describe("DokoDetector API client", () => {
       pipelineIdentityCropPath("recording/1", "revision/1", "card 1"),
     ).toBe(
       "/api/recordings/recording%2F1/pipeline/derived-views/identity-crops/revision%2F1/card%201?preview=browser",
+    );
+  });
+
+  it("runs the proposed card-scene processor through its lifecycle routes", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(jsonResponse({ status: "complete", state: {} })),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+
+    await client.startProposedCardSceneRun("recording/1", {
+      run_id: "proposal/run",
+      visible_card_revision_id: "visible-revision-1",
+    });
+    await client.listProposedCardSceneRuns("recording/1");
+    await client.getProposedCardSceneRun("recording/1", "proposal/run");
+    await client.retryProposedCardSceneRun("recording/1", "proposal/run");
+    await client.getProposedCardSceneResult("recording/1", "proposal/run");
+
+    expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
+      pipelineProposedCardSceneRunsPath("recording/1"),
+      pipelineProposedCardSceneRunsPath("recording/1"),
+      pipelineProposedCardSceneRunPath("recording/1", "proposal/run"),
+      pipelineProposedCardSceneRunRetryPath("recording/1", "proposal/run"),
+      pipelineProposedCardSceneResultPath("recording/1", "proposal/run"),
+    ]);
+    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[0]?.[1]?.body).toContain(
+      "visible_card_revision_id",
     );
   });
 

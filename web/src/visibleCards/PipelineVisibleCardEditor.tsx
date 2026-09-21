@@ -13,6 +13,7 @@ import {
   type PipelineReferenceItem,
   type PipelineReferenceOperation,
   type PipelineReferenceResource,
+  type PipelineProposalRunResponse,
   type PipelineVisibleCardResult,
 } from "../api/client";
 import styles from "../App.module.css";
@@ -147,6 +148,13 @@ export function PipelineVisibleCardEditor({
   const [editorError, setEditorError] = useState<string | null>(null);
   const [creatingReference, setCreatingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
+  const [proposalRun, setProposalRun] =
+    useState<PipelineProposalRunResponse | null>(null);
+  const [proposalRevisionId, setProposalRevisionId] = useState<string | null>(
+    null,
+  );
+  const [proposalLoading, setProposalLoading] = useState(false);
+  const [proposalError, setProposalError] = useState<string | null>(null);
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
   const proposalSlot = useVisibleCardProposalSlot();
   useEffect(
@@ -266,6 +274,106 @@ export function PipelineVisibleCardEditor({
     [client, generatedSourceRevisionId, generatedRunId, recordingId],
   );
 
+  const settleProposalRun = useCallback(
+    async (run: PipelineProposalRunResponse) => {
+      if (run.status === "queued" || run.status === "running") {
+        return client.getProposedCardSceneRun(recordingId, run.run_id);
+      }
+      return run;
+    },
+    [client, recordingId],
+  );
+
+  const loadProposalRun = useCallback(
+    async (signal?: AbortSignal) => {
+      if (generatedSourceRevisionId === null) {
+        setProposalRun(null);
+        setProposalRevisionId(null);
+        return;
+      }
+      setProposalLoading(true);
+      setProposalError(null);
+      try {
+        const response = await client.listProposedCardSceneRuns(recordingId, {
+          signal,
+        });
+        const matching = (Array.isArray(response.runs) ? response.runs : [])
+          .filter(
+            (run) =>
+              readProposalInputRevisionId(run) === generatedSourceRevisionId,
+          )
+          .at(-1);
+        if (matching === undefined) {
+          if (!signal?.aborted) {
+            setProposalRun(null);
+            setProposalRevisionId(null);
+          }
+          return;
+        }
+        const settled = await settleProposalRun(matching);
+        if (!signal?.aborted) {
+          setProposalRun(settled);
+          setProposalRevisionId(readProposalRevisionId(settled));
+        }
+      } catch (reason: unknown) {
+        // Proposal history is optional for older recordings. Keep a failed
+        // history lookup from masking the selected detector result.
+        void reason;
+      } finally {
+        if (!signal?.aborted) setProposalLoading(false);
+      }
+    },
+    [client, generatedSourceRevisionId, recordingId, settleProposalRun],
+  );
+
+  const startProposal = useCallback(async () => {
+    if (generatedSourceRevisionId === null) return;
+    setProposalLoading(true);
+    setProposalError(null);
+    try {
+      const started = await client.startProposedCardSceneRun(recordingId, {
+        run_id: `card-scene-proposal-${Date.now()}`,
+        visible_card_revision_id: generatedSourceRevisionId,
+      });
+      const settled = await settleProposalRun(started);
+      setProposalRun(settled);
+      setProposalRevisionId(readProposalRevisionId(settled));
+      setNotice(
+        settled.status === "complete"
+          ? "Proposed card scenes are ready to inspect."
+          : `Proposal run ${settled.status}.`,
+      );
+    } catch (reason: unknown) {
+      setProposalError(describeError(reason));
+    } finally {
+      setProposalLoading(false);
+    }
+  }, [client, generatedSourceRevisionId, recordingId, settleProposalRun]);
+
+  const retryProposal = useCallback(async () => {
+    if (
+      proposalRun === null ||
+      (proposalRun.status !== "failed" && proposalRun.status !== "partial")
+    )
+      return;
+    setProposalLoading(true);
+    setProposalError(null);
+    try {
+      const retried = await client.retryProposedCardSceneRun(
+        recordingId,
+        proposalRun.run_id,
+      );
+      const settled = await settleProposalRun(retried);
+      setProposalRun(settled);
+      setProposalRevisionId(readProposalRevisionId(settled));
+      setNotice("Proposal run retried.");
+    } catch (reason: unknown) {
+      setProposalError(describeError(reason));
+    } finally {
+      setProposalLoading(false);
+    }
+  }, [client, proposalRun, recordingId, settleProposalRun]);
+
   const loadReference = useCallback(
     async (signal?: AbortSignal) => {
       setLoading(true);
@@ -314,6 +422,18 @@ export function PipelineVisibleCardEditor({
       }
     };
   }, [loadGenerated, loadReference, view]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(
+      () => void loadProposalRun(controller.signal),
+      0,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [loadProposalRun]);
 
   useEffect(() => {
     const candidates = usesMaintainedFrames ? frames : generatedFrames;
@@ -500,11 +620,14 @@ export function PipelineVisibleCardEditor({
       {
         operation: "rebase",
         source_revision_id: generatedSourceRevisionId,
+        ...(proposalRevisionId === null
+          ? {}
+          : { proposal_revision_id: proposalRevisionId }),
       },
       "Maintained visible-card reference seeded from the selected generated result.",
       (currentFrames) => currentFrames,
     );
-  }, [enqueue, generatedSourceRevisionId, operatorId]);
+  }, [enqueue, generatedSourceRevisionId, operatorId, proposalRevisionId]);
 
   const setFrameReview = useCallback(
     (frame: EditableFrame, outcome: Outcome, noticeText: string) => {
@@ -542,6 +665,86 @@ export function PipelineVisibleCardEditor({
       );
     },
     [setFrameReview],
+  );
+
+  const decideCard = useCallback(
+    (frame: EditableFrame, cardId: string, decision: "accept" | "reject") => {
+      const cardScene = frame.outcome.card_scene;
+      if (cardScene === undefined || cardScene.card_review_states === undefined)
+        return;
+      const nextState: "accepted" | "rejected" =
+        decision === "accept" ? "accepted" : "rejected";
+      const nextStates = cardScene.card_review_states.map((state) =>
+        state.card_id === cardId ? { ...state, state: nextState } : state,
+      );
+      const nextScene: NonNullable<Outcome["card_scene"]> = {
+        ...cardScene,
+        card_review_states: nextStates,
+        completion_state: nextStates.some((state) => state.state === "pending")
+          ? ("pending" as const)
+          : ("complete" as const),
+        completion_reason: null,
+      };
+      enqueue(
+        {
+          operation: decision === "accept" ? "accept_card" : "reject_card",
+          item_id: frame.itemId,
+          card_id: cardId,
+        },
+        decision === "accept" ? "Card accepted." : "Card rejected.",
+        (current) =>
+          current.map((candidate) =>
+            candidate.itemId === frame.itemId
+              ? {
+                  ...candidate,
+                  outcome: { ...candidate.outcome, card_scene: nextScene },
+                }
+              : candidate,
+          ),
+      );
+    },
+    [enqueue],
+  );
+
+  const resolveRemainingCards = useCallback(
+    (frame: EditableFrame) => {
+      const cardScene = frame.outcome.card_scene;
+      if (cardScene === undefined || cardScene.card_review_states === undefined)
+        return;
+      const pending = cardScene.card_review_states.filter(
+        (state) => state.state === "pending",
+      );
+      if (pending.length === 0) return;
+      const operations: PipelineReferenceOperation[] = pending.map((state) => ({
+        operation: "accept_card",
+        item_id: frame.itemId,
+        card_id: state.card_id,
+      }));
+      const nextScene: NonNullable<Outcome["card_scene"]> = {
+        ...cardScene,
+        card_review_states: cardScene.card_review_states.map((state) =>
+          state.state === "pending"
+            ? { ...state, state: "accepted" as const }
+            : state,
+        ),
+        completion_state: "complete" as const,
+        completion_reason: null,
+      };
+      enqueueOperations(
+        operations,
+        "All remaining cards accepted.",
+        (current) =>
+          current.map((candidate) =>
+            candidate.itemId === frame.itemId
+              ? {
+                  ...candidate,
+                  outcome: { ...candidate.outcome, card_scene: nextScene },
+                }
+              : candidate,
+          ),
+      );
+    },
+    [enqueueOperations],
   );
 
   const acceptSuggestions = useCallback(
@@ -1317,16 +1520,24 @@ export function PipelineVisibleCardEditor({
         {
           operator_id: operatorId.trim(),
           seed:
-            generatedSourceRevisionId === null ? "empty" : "selected_generated",
-          ...(generatedSourceRevisionId === null
-            ? {}
-            : { source_revision_id: generatedSourceRevisionId }),
+            proposalRevisionId !== null
+              ? "proposal"
+              : generatedSourceRevisionId === null
+                ? "empty"
+                : "selected_generated",
+          ...(proposalRevisionId !== null
+            ? { proposal_revision_id: proposalRevisionId }
+            : generatedSourceRevisionId === null
+              ? {}
+              : { source_revision_id: generatedSourceRevisionId }),
         },
       );
       hydrateReference(created, false);
       setReviewerId((current) => current || operatorId.trim());
       setNotice(
-        "Maintained visible-card reference created from the selected generated result.",
+        proposalRevisionId !== null
+          ? "Maintained visible-card review started from the preserved proposal."
+          : "Maintained visible-card reference created from the selected generated result.",
       );
     } catch (reason: unknown) {
       if (reason instanceof ApiError && reason.status === 409) {
@@ -1343,8 +1554,17 @@ export function PipelineVisibleCardEditor({
     hydrateReference,
     loadReference,
     operatorId,
+    proposalRevisionId,
     recordingId,
   ]);
+
+  const startReviewFromProposal = useCallback(async () => {
+    if (proposalRevisionId === null) return;
+    if (referenceRef.current === null) {
+      await createReference();
+    }
+    onReviewRequested?.();
+  }, [createReference, onReviewRequested, proposalRevisionId]);
 
   const reloadWinningDraft = useCallback(async () => {
     try {
@@ -1613,6 +1833,13 @@ export function PipelineVisibleCardEditor({
       startReference={startReference}
       completionBusy={completionBusy}
       completionBlocker={completionBlocker}
+      proposalRun={proposalRun}
+      proposalRevisionId={proposalRevisionId}
+      proposalLoading={proposalLoading}
+      proposalError={proposalError}
+      startProposal={() => void startProposal()}
+      retryProposal={() => void retryProposal()}
+      startReviewFromProposal={() => void startReviewFromProposal()}
       restoreGeneratedSuggestions={() =>
         activeFrame === null
           ? undefined
@@ -1712,6 +1939,17 @@ export function PipelineVisibleCardEditor({
                   onChange={(nextScene, noticeText) =>
                     updatePoseScene(activeFrame, nextScene, noticeText)
                   }
+                  onCardDecision={
+                    editable
+                      ? (cardId, decision) =>
+                          decideCard(activeFrame, cardId, decision)
+                      : undefined
+                  }
+                  onResolveRemaining={
+                    editable
+                      ? () => resolveRemainingCards(activeFrame)
+                      : undefined
+                  }
                 />
               ) : (
                 <VisibleCardFramePanel
@@ -1784,6 +2022,27 @@ export function PipelineVisibleCardEditor({
       </section>
     </>
   );
+}
+
+function readProposalInputRevisionId(
+  run: PipelineProposalRunResponse,
+): string | null {
+  const direct = run.request.visible_card_revision_id;
+  if (typeof direct === "string") return direct;
+  const inputs = run.request.input_revision_ids;
+  return Array.isArray(inputs) && typeof inputs[0] === "string"
+    ? inputs[0]
+    : null;
+}
+
+function readProposalRevisionId(
+  run: PipelineProposalRunResponse,
+): string | null {
+  const outputRevisionIds = run.state.output_revision_ids;
+  return Array.isArray(outputRevisionIds) &&
+    typeof outputRevisionIds[0] === "string"
+    ? outputRevisionIds[0]
+    : null;
 }
 
 function toEditableFrame(item: PipelineReferenceItem): EditableFrame | null {
