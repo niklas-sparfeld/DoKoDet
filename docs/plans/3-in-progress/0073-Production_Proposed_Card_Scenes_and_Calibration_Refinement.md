@@ -77,6 +77,22 @@ cards or treat the draft review states as geometry.
 One maintained-reference draft selects one active table-plane calibration revision. Completed
 references can continue to cite older revisions.
 
+### 2.1 Preservation for failure analysis and autonomy
+
+Treat the generated virtual cards as durable processor evidence. For every proposal run, preserve the
+exact proposed card scenes, card stacking order, source-frame status, and the table-plane homography
+used to project those cards. Preserve the detector revision, source-frame digests, initializer
+recipe, calibration inputs and diagnostics, and explicit unsupported or calibration-failure reasons
+with the same immutable lineage.
+
+The preserved artifact must remain reloadable after review accepts, corrects, or rejects a card; a
+run becomes partial or failed; calibration is refined; or a retry creates a new attempt. A retry
+publishes a new immutable artifact with parent and attempt lineage. It must not overwrite the prior
+proposal or homography. The backend and review tooling must support inspection and deterministic
+replay of the source and rectified projections so an operator can explain a failure and compare
+later algorithm versions. Preserved proposals are diagnostic and evaluation evidence, not training
+authority until an operator explicitly reviews them.
+
 ## 3. Workspace flow
 
 ### 3.1 Create proposals
@@ -240,6 +256,8 @@ This epic includes:
 
 - production proposal creation from the selected local segmentation or cascade provider;
 - immutable calibration and proposed-scene revisions with complete lineage;
+- durable virtual-card and table-plane-homography artifacts for failure analysis, deterministic
+  replay, and measured autonomy improvements;
 - the Source/Rectified table toggle and Review cards/Refine mapping modes;
 - body, rotation, and constrained calibration-corner handles;
 - operator-confirmed calibration anchors and deterministic bounded weighting;
@@ -332,6 +350,8 @@ Acceptance:
 
 - Seed a visible-card maintained reference from a completed proposal result.
 - Preserve the immutable proposed scene beside the mutable reviewed draft value.
+- Keep the original virtual-card poses and table-plane homography available when review changes the
+  draft, so proposal failures can be inspected against the operator result.
 - Convert a proposal into a reviewed card scene only through an explicit accept or correction.
 - Add selected-card acceptance and rejection while retaining frame-level review completion.
 - Validate scene derivation, completion coverage, conflict recovery, and downstream impact against
@@ -340,6 +360,8 @@ Acceptance:
 Acceptance:
 
 - starting review retains proposal, detector, calibration, and source-frame lineage;
+- the original proposed cards and homography can be reloaded after accept, correction, rejection,
+  partial completion, and retry;
 - pending proposals are not dataset-eligible;
 - accepting or correcting one scene derives its visible regions on the backend; and
 - reload and revision conflicts do not duplicate or lose scene commands.
@@ -414,6 +436,9 @@ Acceptance:
 - Run the complete flow on the retained real cascade result and a small stable-camera recording.
 - Cover isolated, distant, overlapping, clipped, rejected, manually adjusted, and conflicting-anchor
   cases.
+- Verify that preserved virtual-card and homography artifacts explain at least one supported result,
+  one unsupported frame, one calibration failure, and one changed proposal across processor
+  versions.
 - Record proposal runtime, calibration gates, anchor states, affected-frame counts, operator actions,
   and final review coverage.
 - Publish concise in-product guidance for view modes, handles, anchor eligibility, preview, apply,
@@ -423,6 +448,8 @@ Acceptance:
 
 - an operator completes a bounded real review without fixture injection or manual JSON changes;
 - the final reviewed scenes and derived regions retain complete source and revision lineage;
+- the original proposed cards, homography, diagnostics, and failure reasons remain inspectable after
+  review, retry, and calibration refinement;
 - unsupported recording or frame conditions fail explicitly; and
 - backend, web, contract, persistence, accessibility, type, lint, formatting, build, and focused
   browser checks pass.

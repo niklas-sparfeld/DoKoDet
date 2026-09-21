@@ -246,6 +246,12 @@ system. It also records the common card dimensions robustly measured from comple
 across the recording. A table-plane calibration is not a camera model and is invalid after camera
 or table movement.
 
+### Table-plane homography
+
+The versioned projective transform used by a table-plane calibration to map coordinates between the
+stable source image plane and the rectified table coordinate system. It is recording-scoped, with an
+inverse transform for the reverse projection. It is not a camera model or a per-frame homography.
+
 ### Calibration anchor
 
 One operator-confirmed complete-card geometry observation that can constrain a table-plane
