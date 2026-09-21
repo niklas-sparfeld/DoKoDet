@@ -25,7 +25,8 @@
 - **M4:** Complete — add the card and calibration-anchor manipulation handles.
 - **M5:** Complete — compute deterministic weighted calibration candidates, persist ordered draft
   commands, and inspect recording-wide preview impact with fit gates and candidate overlays.
-- **M6:** Not started — apply a calibration revision and reflow the maintained draft safely.
+- **M6:** Complete — apply an immutable calibration revision and reflow the maintained draft with
+  reviewed-item tolerance gates, receipts, and retry-safe reference commands.
 - **M7:** Not started — verify the complete real-result review loop and operator guidance.
 
 ## 1. Problem
@@ -497,6 +498,23 @@ Acceptance:
 - unreviewed cards update visibly across the Timeline Rail;
 - reviewed cards never change silently and require confirmation when a tolerance gate fails; and
 - an interrupted or rejected apply leaves the selected calibration and maintained draft unchanged.
+
+#### M6 implementation evidence — 2026-09-21
+
+- Added the atomic calibration-apply route. It publishes a new immutable calibration revision,
+  proposed-card-scene revision, and reflow receipt before the maintained-reference command.
+  Existing calibration, proposal, and completed-reference revisions stay unchanged.
+- Added deterministic draft reflow. Pending proposal cards are regenerated under the target
+  calibration. Accepted and corrected poses are refit through source pixels, with derived visible
+  regions rebuilt from the refit scene. The receipt records reinitialized, rebased, affected, and
+  preserved-anchor IDs.
+- Added the reviewed-displacement confirmation path. A confirmed tolerance failure marks affected
+  maintained items instead of silently accepting the refit. The reference command uses optimistic
+  revision checks, an ordered command digest, an immutable receipt, and idempotent duplicate retry.
+- Added web apply controls for passing previews and explicit “Apply and mark affected” confirmation,
+  then hydrates the returned maintained reference and target proposal revision after apply.
+- Verification passed for changed-file Ruff checks, 9 focused operations tests, 32 focused backend
+  pipeline tests, and the complete web check (21 test files and 191 tests).
 
 ### M7 — Verify the production review loop
 

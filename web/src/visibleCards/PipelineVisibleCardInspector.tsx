@@ -111,6 +111,7 @@ export type VisibleCardInspectorProps = {
   calibrationError: string | null;
   startCalibrationRefinement: () => void;
   discardCalibrationRefinement: () => void;
+  applyCalibrationRefinement: (confirmAffected: boolean) => void;
   onSelectCalibrationFrame: (frameId: string) => void;
 };
 
@@ -175,6 +176,7 @@ function VisibleCardInspectorAction({
   calibrationError,
   startCalibrationRefinement,
   discardCalibrationRefinement,
+  applyCalibrationRefinement,
 }: VisibleCardInspectorProps) {
   if (view === "generated") {
     return (
@@ -336,6 +338,8 @@ function VisibleCardInspectorAction({
         error={calibrationError}
         onStart={startCalibrationRefinement}
         onDiscard={discardCalibrationRefinement}
+        onApply={applyCalibrationRefinement}
+        canApply={saveState === "saved" && queueLength === 0}
       />
     </>
   );
@@ -348,6 +352,8 @@ function CalibrationRefinementControls({
   error,
   onStart,
   onDiscard,
+  onApply,
+  canApply,
 }: {
   proposalRevisionId: string | null;
   refinement: CalibrationRefinementResponse | null;
@@ -355,6 +361,8 @@ function CalibrationRefinementControls({
   error: string | null;
   onStart: () => void;
   onDiscard: () => void;
+  onApply: (confirmAffected: boolean) => void;
+  canApply: boolean;
 }) {
   if (proposalRevisionId === null) return null;
   return (
@@ -395,6 +403,28 @@ function CalibrationRefinementControls({
           >
             Discard calibration preview
           </button>
+          {refinement.preview.status === "pass" ||
+          refinement.preview.failure?.code ===
+            "reviewed_displacement_exceeded" ? (
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={() =>
+                onApply(
+                  refinement.preview.failure?.code ===
+                    "reviewed_displacement_exceeded",
+                )
+              }
+              disabled={loading || !canApply}
+            >
+              {loading
+                ? "Applying calibration…"
+                : refinement.preview.failure?.code ===
+                    "reviewed_displacement_exceeded"
+                  ? "Apply and mark affected"
+                  : "Apply calibration"}
+            </button>
+          ) : null}
         </>
       )}
     </section>

@@ -188,10 +188,48 @@ def build_proposed_card_scenes(
     if calibration_store is not None:
         calibration_store.publish(run)
     calibration = run.calibration
-    frames: list[ProposedCardSceneFrame] = []
+    assert calibration is not None
+    data = build_proposed_card_scene_data(
+        selected,
+        detector_revision_id=detector_revision_id,
+        detector_revision_digest=detector_revision_digest,
+        calibration=calibration,
+        calibration_diagnostics=run.diagnostics,
+        pose_recipe=pose_recipe,
+    )
+    status = "complete" if all(item.status == "supported" for item in data.frames) else "partial"
+    value = {
+        "schema_version": PROPOSED_CARD_SCENE_PROCESSOR_SCHEMA_VERSION,
+        "status": status,
+        "data": data.to_mapping(),
+        "calibration_run": run.to_mapping(),
+        "failure": None,
+    }
+    return ProposedCardSceneProcessorResult(
+        status=status,
+        data=data,
+        calibration_run=run,
+        failure=None,
+        result_digest=_digest(value),
+    )
+
+
+def build_proposed_card_scene_data(
+    local_result: Mapping[str, Any],
+    *,
+    detector_revision_id: str,
+    detector_revision_digest: str,
+    calibration: Any,
+    calibration_diagnostics: Mapping[str, Any],
+    pose_recipe: PoseFitRecipe | None = None,
+) -> ProposedCardSceneData:
+    """Initialize proposal scenes from a supplied immutable calibration."""
+
+    selected = _mapping(local_result, "local result")
     raw_frames = selected.get("frames")
     if not isinstance(raw_frames, list):
         raise ProposedCardSceneProcessorError("local result.frames must be a list")
+    frames: list[ProposedCardSceneFrame] = []
     seen_frame_ids: set[str] = set()
     for raw_frame in raw_frames:
         frame = _mapping(raw_frame, "local result frame")
@@ -323,29 +361,14 @@ def build_proposed_card_scenes(
             )
         )
 
-    data = ProposedCardSceneData.create(
+    return ProposedCardSceneData.create(
         detector_revision_id=detector_revision_id,
         detector_revision_digest=detector_revision_digest,
         calibration_revision_id=calibration.calibration_revision_id,
         calibration_digest=calibration.calibration_digest,
         calibration=calibration.to_mapping(),
-        calibration_diagnostics=run.diagnostics,
+        calibration_diagnostics=calibration_diagnostics,
         frames=frames,
-    )
-    status = "complete" if all(item.status == "supported" for item in frames) else "partial"
-    value = {
-        "schema_version": PROPOSED_CARD_SCENE_PROCESSOR_SCHEMA_VERSION,
-        "status": status,
-        "data": data.to_mapping(),
-        "calibration_run": run.to_mapping(),
-        "failure": None,
-    }
-    return ProposedCardSceneProcessorResult(
-        status=status,
-        data=data,
-        calibration_run=run,
-        failure=None,
-        result_digest=_digest(value),
     )
 
 
@@ -355,5 +378,6 @@ __all__ = [
     "ProposedCardSceneProcessorError",
     "ProposedCardSceneProcessorResult",
     "build_proposed_card_scenes",
+    "build_proposed_card_scene_data",
     "visible_card_data_to_local_result",
 ]

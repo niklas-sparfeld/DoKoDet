@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from dokodetector_backend.calibration_refinement_service import (
+    CalibrationRefinementConflict,
     CalibrationRefinementInputError,
     CalibrationRefinementNotFound,
 )
@@ -93,6 +94,28 @@ def discard_calibration_refinement(
     except CalibrationRefinementNotFound as error:
         raise ContractError(
             "calibration_refinement_not_found", str(error), status_code=404
+        ) from error
+
+
+@router.post(BASE + "/apply")
+def apply_calibration_refinement(
+    recording_id: str,
+    proposal_revision_id: str,
+    payload: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Publish one calibration revision and reflow the maintained visible-card draft."""
+
+    validate_recording_id(recording_id)
+    try:
+        return _service(request).apply(recording_id, proposal_revision_id, payload)
+    except CalibrationRefinementConflict as error:
+        raise ContractError(
+            "calibration_refinement_conflict", str(error), status_code=409
+        ) from error
+    except CalibrationRefinementInputError as error:
+        raise ContractError(
+            "invalid_calibration_refinement", str(error), status_code=422
         ) from error
 
 

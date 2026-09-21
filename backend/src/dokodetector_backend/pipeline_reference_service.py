@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
+from doko_operations.card_plane_calibration_refinement import reflow_reference_items
 from doko_operations.pipeline_data import (
     DataRevision,
     HumanProducer,
@@ -308,12 +309,165 @@ class PipelineReferenceService:
         if proposal.manifest.origin != "processor":
             raise PipelineReferenceInputError("the proposal revision must be processor output")
         if not isinstance(proposal.manifest.producer, ProcessorProducer) or (
-            proposal.manifest.producer.processor_type != "visible-card-scene-proposal"
+            proposal.manifest.producer.processor_type
+            not in {
+                "visible-card-scene-proposal",
+                "visible-card-scene-proposal-reflow",
+            }
         ):
             raise PipelineReferenceInputError(
                 "the proposal revision has invalid processor lineage"
             )
         return proposal
+
+    def plan_visible_card_reflow(
+        self,
+        recording_id: str,
+        source_proposal_revision_id: str,
+        target_proposal_revision_id: str,
+        source_calibration: Mapping[str, Any],
+        target_calibration: Mapping[str, Any],
+        force_affected_frame_ids: Sequence[str] = (),
+    ) -> tuple[
+        StoredPipelineReference,
+        tuple[ReferenceDraftItem, ...],
+        tuple[tuple[ReferenceDraftItem, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]],
+    ]:
+        """Build the target visible-card draft before the atomic write."""
+
+        current = self.get_reference(recording_id, "visible_cards")
+        if current.draft.proposal_revision_id != source_proposal_revision_id:
+            raise PipelineReferenceInputError(
+                "the maintained reference does not use the selected proposal revision"
+            )
+        target = self._require_proposal_revision(recording_id, target_proposal_revision_id)
+        target_source_id, target_data = self._proposal_source(recording_id, target)
+        if current.draft.source_revision_id != target_source_id:
+            raise PipelineReferenceInputError(
+                "the calibration reflow proposal source does not match the maintained reference"
+            )
+        source_revision = self._require_source_revision(
+            recording_id, "visible_cards", target_source_id
+        )
+        target_items = self._proposal_seed_items(
+            recording_id, source_revision, target_data, target_proposal_revision_id
+        )
+        reflowed = reflow_reference_items(
+            current.draft.items,
+            target_items,
+            source_calibration,
+            target_calibration,
+            target_proposal_revision_id=target_proposal_revision_id,
+            target_proposal_data_digest=target_data.data_digest,
+            force_affected_frame_ids=force_affected_frame_ids,
+        )
+        return current, target_items, reflowed
+
+    def apply_visible_card_reflow(
+        self,
+        recording_id: str,
+        *,
+        source_proposal_revision_id: str,
+        target_proposal_revision_id: str,
+        source_calibration: Mapping[str, Any],
+        target_calibration: Mapping[str, Any],
+        expected_revision: int,
+        command_id: str,
+        operator_id: str,
+        force_affected_frame_ids: Sequence[str] = (),
+    ) -> StoredPipelineReference:
+        """Commit one calibration reflow as one ordered maintained-reference command."""
+
+        current, _target_items, planned = self.plan_visible_card_reflow(
+            recording_id,
+            source_proposal_revision_id,
+            target_proposal_revision_id,
+            source_calibration,
+            target_calibration,
+            force_affected_frame_ids,
+        )
+        command_payload = {
+            "operation": "calibration_reflow",
+            "source_proposal_revision_id": source_proposal_revision_id,
+            "target_proposal_revision_id": target_proposal_revision_id,
+            "source_calibration": dict(source_calibration),
+            "target_calibration": dict(target_calibration),
+            "operator_id": operator_id,
+            "force_affected_frame_ids": list(force_affected_frame_ids),
+        }
+        command_digest = _command_digest(command_payload)
+        with self.reference_store.locked(recording_id, "visible_cards"):
+            commands = self.reference_store.read_commands_locked(recording_id, "visible_cards")
+            previous_digest = commands.get(command_id)
+            if previous_digest is not None:
+                if previous_digest != command_digest:
+                    raise PipelineReferenceInputError(
+                        "command_id was already used with different operation bytes"
+                    )
+                return self.reference_store.read_locked(recording_id, "visible_cards")
+            current = self.reference_store.read_locked(recording_id, "visible_cards")
+            if current.state.draft_revision != expected_revision:
+                raise PipelineReferenceConflict(
+                    "the maintained reference draft changed; reload the current revision",
+                    current,
+                )
+            if current.draft.proposal_revision_id != source_proposal_revision_id:
+                raise PipelineReferenceInputError(
+                    "the maintained reference proposal changed; reload the current revision"
+                )
+            target = self._require_proposal_revision(recording_id, target_proposal_revision_id)
+            target_source_id, target_data = self._proposal_source(recording_id, target)
+            source_revision = self._require_source_revision(
+                recording_id, "visible_cards", target_source_id
+            )
+            target_items = self._proposal_seed_items(
+                recording_id, source_revision, target_data, target_proposal_revision_id
+            )
+            items, _reinitialized, _rebased, _affected_frames = reflow_reference_items(
+                current.draft.items,
+                target_items,
+                source_calibration,
+                target_calibration,
+                target_proposal_revision_id=target_proposal_revision_id,
+                target_proposal_data_digest=target_data.data_digest,
+                force_affected_frame_ids=force_affected_frame_ids,
+            )
+            if items != planned[0]:
+                raise PipelineReferenceInputError(
+                    "the calibration reflow plan changed before apply"
+                )
+            handler = self._handler("visible_cards")
+            handler.validate_draft_items(recording_id, target_source_id, list(items))
+            impacts = list(current.draft.impact)
+            previous_by_id = {item.item_id: item for item in current.draft.items}
+            for item in items:
+                previous = previous_by_id.get(item.item_id)
+                if previous is not None:
+                    impacts.extend(handler.correction_impact(recording_id, previous, item))
+            timestamp = _now()
+            draft = replace(
+                current.draft,
+                revision=current.draft.revision + 1,
+                source_revision_id=target_source_id,
+                proposal_revision_id=target_proposal_revision_id,
+                items=items,
+                coverage=None,
+                impact=tuple(impacts),
+                updated_at=timestamp,
+            )
+            state = replace(
+                current.state,
+                draft_revision=draft.revision,
+                draft_state="draft",
+                source_revision_id=target_source_id,
+                updated_at=timestamp,
+            )
+            saved = self.reference_store.write_locked(
+                StoredPipelineReference(state=state, draft=draft)
+            )
+            commands[command_id] = command_digest
+            self.reference_store.write_commands_locked(recording_id, "visible_cards", commands)
+            return saved
 
     def _proposal_source(
         self, recording_id: str, proposal: StoredPipelineRevision

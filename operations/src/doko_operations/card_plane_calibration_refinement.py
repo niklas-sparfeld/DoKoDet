@@ -12,6 +12,7 @@ import json
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -28,25 +29,37 @@ from table_evidence_analyzer.card_scene_contract import (
     CalibrationFailure,
     CalibrationGate,
     CalibrationPreview,
+    CalibrationReflowReceipt,
+    CardReviewState,
     CardSceneContractError,
+    CardSceneDraft,
+    FrameReviewCompletion,
+    ProposedCardScene,
+    ReviewedCardSceneRecord,
     anchor_fit_contributions,
     deduplicate_anchor_observations,
     validate_pinned_anchor_conflicts,
 )
 
-from .card_plane_calibration import calibrate_recording
+from .card_plane_calibration import CalibrationRun, calibrate_recording
 from .card_plane_geometry import (
     CardPlaneGeometryError,
+    CardPose,
+    CardStackingOrder,
+    ReviewedCardScene,
     TablePlaneCalibration,
     apply_homography,
     card_residual,
+    derive_pose_scene_visible_regions,
     fit_table_plane,
     project_fixed_card,
     quadrilateral_orientations,
 )
 from .pipeline_data import canonical_json_bytes
+from .pipeline_reference import ReferenceDraftItem
 
 CALIBRATION_DRAFT_STORE_DIRECTORY = "table-plane-calibration-drafts"
+CALIBRATION_REFLOW_STORE_DIRECTORY = "table-plane-calibration-reflows"
 CALIBRATION_REFINEMENT_SCHEMA_VERSION = "table-plane-calibration-refinement/v1"
 
 
@@ -623,6 +636,312 @@ def build_calibration_draft(
     )
 
 
+def build_published_calibration_run(
+    calibration: TablePlaneCalibration,
+    *,
+    diagnostics: Mapping[str, Any],
+) -> CalibrationRun:
+    """Wrap one refined calibration in the immutable calibration-run store contract."""
+
+    core = {
+        "schema_version": "card-plane-calibration-run/v1",
+        "recording_id": calibration.recording_id,
+        "source_revision": calibration.source_revision,
+        "status": "published",
+        "candidate_receipts": [],
+        "diagnostics": json.loads(canonical_json_bytes(diagnostics).decode("utf-8")),
+        "calibration": calibration.to_mapping(),
+        "failure": None,
+    }
+    return CalibrationRun(
+        recording_id=calibration.recording_id,
+        source_revision=calibration.source_revision,
+        status="published",
+        candidate_receipts=(),
+        diagnostics=core["diagnostics"],
+        calibration=calibration,
+        failure=None,
+        run_digest=_digest(core),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class CardSceneReflowResult:
+    """One deterministic maintained-card-scene reflow result."""
+
+    draft: CardSceneDraft
+    max_source_pixel_displacement: float
+    affected_card_ids: tuple[str, ...]
+
+
+def _refit_scene_pose(
+    pose: CardPose,
+    source_calibration: TablePlaneCalibration,
+    target_calibration: TablePlaneCalibration,
+) -> tuple[CardPose, float]:
+    source_quad = project_fixed_card(
+        np.asarray(source_calibration.table_to_image, dtype=np.float64),
+        pose.center,
+        pose.rotation_degrees,
+        source_calibration.card_short_size,
+        source_calibration.card_long_size,
+    )
+    target_quad = apply_homography(
+        np.asarray(target_calibration.image_to_table, dtype=np.float64), source_quad
+    )
+    center = np.mean(target_quad, axis=0)
+    short_axis = (target_quad[1] - target_quad[0]) + (target_quad[2] - target_quad[3])
+    angle = float(np.degrees(np.arctan2(short_axis[1], short_axis[0])))
+    refit = CardPose(
+        card_id=pose.card_id,
+        center=(float(center[0]), float(center[1])),
+        rotation_degrees=angle,
+        source_suggestion_id=pose.source_suggestion_id,
+        fit_diagnostics_digest=pose.fit_diagnostics_digest,
+    )
+    refit_quad = project_fixed_card(
+        np.asarray(target_calibration.table_to_image, dtype=np.float64),
+        refit.center,
+        refit.rotation_degrees,
+        target_calibration.card_short_size,
+        target_calibration.card_long_size,
+    )
+    displacement = float(np.max(np.linalg.norm(refit_quad - source_quad, axis=1)))
+    return refit, displacement
+
+
+def reflow_card_scene_draft(
+    current: CardSceneDraft,
+    target_proposal: ProposedCardScene,
+    target_projection: Mapping[str, Any],
+    source_calibration: TablePlaneCalibration | Mapping[str, Any],
+    target_calibration: TablePlaneCalibration | Mapping[str, Any],
+    *,
+    target_proposal_revision_id: str | None = None,
+    target_proposal_data_digest: str | None = None,
+) -> CardSceneReflowResult:
+    """Rebase one mutable card-scene draft under a new immutable calibration."""
+
+    source = _calibration(source_calibration)
+    target = _calibration(target_calibration)
+    if current.proposal.calibration_digest != source.calibration_digest:
+        raise CalibrationRefinementError("card-scene draft uses a stale source calibration")
+    if target_proposal.status != "supported" or target_proposal.initialized_scene is None:
+        raise CalibrationRefinementError("a supported target proposal is required for scene reflow")
+
+    previous_states = {item.card_id: item for item in current.card_states}
+    states: list[CardReviewState] = []
+    for card_id in target_proposal.card_ids:
+        previous = previous_states.get(card_id)
+        states.append(
+            CardReviewState.create(
+                card_id=card_id,
+                source="proposal",
+                proposal_id=target_proposal.proposal_id,
+                state="pending" if previous is None else previous.state,
+            )
+        )
+    for previous in current.card_states:
+        if previous.source == "manual" and previous.card_id not in target_proposal.card_ids:
+            states.append(previous)
+
+    resolved_ids = {
+        item.card_id for item in states if item.state in {"accepted", "adjusted"}
+    }
+    maximum = 0.0
+    affected: list[str] = []
+    reviewed = None
+    if current.reviewed is not None:
+        previous_scene = ReviewedCardScene.from_mapping(current.reviewed.scene)
+        refit_poses: list[CardPose] = []
+        for pose in previous_scene.poses:
+            refit, displacement = _refit_scene_pose(pose, source, target)
+            refit_poses.append(refit)
+            maximum = max(maximum, displacement)
+            if displacement > MAX_REVIEWED_SOURCE_DISPLACEMENT_PX:
+                affected.append(pose.card_id)
+        selected_poses = tuple(pose for pose in refit_poses if pose.card_id in resolved_ids)
+        if selected_poses:
+            selected_ids = {pose.card_id for pose in selected_poses}
+            order = CardStackingOrder(
+                card_ids=tuple(
+                    card_id
+                    for card_id in previous_scene.stacking_order.card_ids
+                    if card_id in selected_ids
+                ),
+                uncertain_edges=tuple(
+                    edge
+                    for edge in previous_scene.stacking_order.uncertain_edges
+                    if edge[0] in selected_ids and edge[1] in selected_ids
+                ),
+                contradictions=previous_scene.stacking_order.contradictions,
+            )
+            refit_scene = ReviewedCardScene.create(
+                source_frame_id=previous_scene.source_frame_id,
+                source_frame_width=previous_scene.source_frame_width,
+                source_frame_height=previous_scene.source_frame_height,
+                calibration_revision_id=target.calibration_revision_id,
+                calibration_digest=target.calibration_digest,
+                poses=selected_poses,
+                stacking_order=order,
+            )
+            reviewed = ReviewedCardSceneRecord.create(
+                proposal_id=target_proposal.proposal_id,
+                scene=refit_scene.to_mapping(),
+                decision=current.reviewed.decision,
+            )
+
+    pending_ids = tuple(item.card_id for item in states if item.state == "pending")
+    draft = CardSceneDraft.create(
+        proposal=target_proposal,
+        reviewed=reviewed,
+        card_states=tuple(states),
+        completion=FrameReviewCompletion.create(
+            state="pending" if pending_ids else "complete",
+            unresolved_card_ids=pending_ids,
+        ),
+        draft_revision=current.draft_revision + 1,
+        proposal_revision_id=(
+            current.proposal_revision_id
+            if target_proposal_revision_id is None
+            else target_proposal_revision_id
+        ),
+        proposal_data_digest=(
+            current.proposal_data_digest
+            if target_proposal_data_digest is None
+            else target_proposal_data_digest
+        ),
+        projection=target_projection,
+    )
+    return CardSceneReflowResult(
+        draft=draft,
+        max_source_pixel_displacement=maximum,
+        affected_card_ids=tuple(sorted(set(affected))),
+    )
+
+
+def reflow_reference_items(
+    current_items: Sequence[ReferenceDraftItem],
+    target_items: Sequence[ReferenceDraftItem],
+    source_calibration: TablePlaneCalibration | Mapping[str, Any],
+    target_calibration: TablePlaneCalibration | Mapping[str, Any],
+    *,
+    target_proposal_revision_id: str,
+    target_proposal_data_digest: str,
+    force_affected_frame_ids: Sequence[str] = (),
+) -> tuple[tuple[ReferenceDraftItem, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Reflow visible-card items and return reinitialized, rebased, and affected IDs."""
+
+    current_by_id = {item.item_id: item for item in current_items}
+    updated: list[ReferenceDraftItem] = []
+    reinitialized: list[str] = []
+    rebased: list[str] = []
+    affected_frames: list[str] = []
+    for target_item in target_items:
+        previous = current_by_id.get(target_item.item_id)
+        if previous is None:
+            updated.append(target_item)
+            raw_scene = target_item.item.get("card_scene")
+            if isinstance(raw_scene, Mapping):
+                target_scene = CardSceneDraft.from_mapping(raw_scene)
+                reinitialized.extend(target_scene.proposal.card_ids)
+            continue
+        previous_scene_raw = previous.item.get("card_scene")
+        target_scene_raw = target_item.item.get("card_scene")
+        if not isinstance(previous_scene_raw, Mapping) or not isinstance(target_scene_raw, Mapping):
+            updated.append(previous)
+            continue
+        current_scene = CardSceneDraft.from_mapping(previous_scene_raw)
+        target_scene = CardSceneDraft.from_mapping(target_scene_raw)
+        result = reflow_card_scene_draft(
+            current_scene,
+            target_scene.proposal,
+            target_scene.projection or {},
+            source_calibration,
+            target_calibration,
+            target_proposal_revision_id=target_proposal_revision_id,
+            target_proposal_data_digest=target_proposal_data_digest,
+        )
+        item = dict(target_item.item)
+        item["ignored_regions"] = previous.item.get("ignored_regions", [])
+        item["candidates"] = []
+        if result.draft.reviewed is not None:
+            derivation = derive_pose_scene_visible_regions(
+                result.draft.reviewed.scene, target_scene.projection or {}
+            )
+            previous_candidates = {
+                candidate.get("card_id"): candidate
+                for candidate in previous.item.get("candidates", [])
+                if isinstance(candidate, Mapping) and isinstance(candidate.get("card_id"), str)
+            }
+            item["candidates"] = [
+                {
+                    "card_id": region["card_id"],
+                    "geometry": region["geometry"],
+                    "normalization": region["normalization"],
+                    "side": previous_candidates.get(region["card_id"], {}).get(
+                        "side", "unknown"
+                    ),
+                    **(
+                        {"model_scores": previous_candidates[region["card_id"]]["model_scores"]}
+                        if region["card_id"] in previous_candidates
+                        and "model_scores" in previous_candidates[region["card_id"]]
+                        else {}
+                    ),
+                }
+                for region in derivation.regions
+            ]
+            result = CardSceneReflowResult(
+                draft=CardSceneDraft.create(
+                    proposal=result.draft.proposal,
+                    reviewed=result.draft.reviewed,
+                    card_states=result.draft.card_states,
+                    completion=result.draft.completion,
+                    draft_revision=result.draft.draft_revision,
+                    proposal_revision_id=result.draft.proposal_revision_id,
+                    proposal_data_digest=result.draft.proposal_data_digest,
+                    projection=result.draft.projection,
+                    derived_region_receipt=derivation.receipt.to_mapping(),
+                ),
+                max_source_pixel_displacement=result.max_source_pixel_displacement,
+                affected_card_ids=result.affected_card_ids,
+            )
+        item["card_scene"] = result.draft.to_mapping()
+        state = previous.review_state
+        if (
+            (result.affected_card_ids or target_item.item_id in force_affected_frame_ids)
+            and state in {"accepted", "corrected"}
+        ):
+            state = "affected"
+            affected_frames.append(target_item.item_id)
+        if state in {"accepted", "corrected", "affected"}:
+            rebased.extend(
+                card_state.card_id
+                for card_state in result.draft.card_states
+                if card_state.state in {"accepted", "adjusted"}
+            )
+        else:
+            reinitialized.extend(
+                card_state.card_id
+                for card_state in result.draft.card_states
+                if card_state.state == "pending"
+            )
+        updated.append(
+            ReferenceDraftItem(
+                item_id=previous.item_id,
+                base_item_id=previous.base_item_id,
+                review_state=state,
+                item=item,
+            )
+        )
+    return (
+        tuple(updated),
+        tuple(sorted(set(reinitialized))),
+        tuple(sorted(set(rebased))),
+        tuple(sorted(set(affected_frames))),
+    )
+
+
 def anchor_observations_from_local_result(
     local_result: Mapping[str, Any],
     *,
@@ -758,13 +1077,56 @@ class CalibrationDraftStore:
         return tuple(sorted(path.parent.name for path in root.glob("*/draft.json")))
 
 
+class CalibrationReflowReceiptStore:
+    """Persist immutable calibration reflow receipts for retry and audit."""
+
+    def __init__(self, workspace_root: str | Path) -> None:
+        self.workspace_root = Path(workspace_root).expanduser().resolve()
+
+    def _path(self, recording_id: str, receipt_id: str) -> Path:
+        return (
+            self.workspace_root
+            / _identifier(recording_id, "recording_id")
+            / CALIBRATION_REFLOW_STORE_DIRECTORY
+            / _identifier(receipt_id, "receipt_id")
+            / "receipt.json"
+        )
+
+    def publish(self, recording_id: str, receipt: CalibrationReflowReceipt) -> Path:
+        path = self._path(recording_id, receipt.receipt_id)
+        payload = canonical_json_bytes(receipt.to_mapping())
+        if path.exists() and path.read_bytes() != payload:
+            raise CalibrationRefinementError("calibration reflow receipt is immutable")
+        if not path.exists():
+            _write_atomic(path, payload)
+        return path
+
+    def load(self, recording_id: str, receipt_id: str) -> CalibrationReflowReceipt:
+        path = self._path(recording_id, receipt_id)
+        if not path.is_file():
+            raise CalibrationRefinementError(f"calibration reflow receipt is missing: {receipt_id}")
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            return CalibrationReflowReceipt.from_mapping(_mapping(raw, "reflow receipt"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, CardSceneContractError) as error:
+            raise CalibrationRefinementError(
+                "calibration reflow receipt is not valid JSON"
+            ) from error
+
+
 __all__ = [
     "CALIBRATION_DRAFT_STORE_DIRECTORY",
+    "CALIBRATION_REFLOW_STORE_DIRECTORY",
     "CALIBRATION_REFINEMENT_SCHEMA_VERSION",
+    "CardSceneReflowResult",
     "CalibrationDraftStore",
+    "CalibrationReflowReceiptStore",
     "CalibrationRefinementError",
     "apply_anchor_command_to_draft",
     "anchor_observations_from_local_result",
     "build_calibration_draft",
     "build_calibration_preview",
+    "build_published_calibration_run",
+    "reflow_card_scene_draft",
+    "reflow_reference_items",
 ]

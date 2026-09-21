@@ -3,7 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from table_evidence_analyzer.card_scene_contract import AnchorCommand, AnchorObservation
+from table_evidence_analyzer.card_scene_contract import (
+    AnchorCommand,
+    AnchorObservation,
+    CardReviewState,
+    CardSceneDraft,
+    FrameReviewCompletion,
+    ReviewedCardSceneRecord,
+)
 
 from doko_operations.card_plane_calibration import calibrate_recording
 from doko_operations.card_plane_calibration_refinement import (
@@ -11,8 +18,10 @@ from doko_operations.card_plane_calibration_refinement import (
     apply_anchor_command_to_draft,
     build_calibration_draft,
     build_calibration_preview,
+    reflow_card_scene_draft,
 )
 from doko_operations.card_plane_geometry import project_fixed_card
+from doko_operations.proposed_card_scene_processor import build_proposed_card_scene_data
 
 TABLE_TO_IMAGE = np.asarray(
     [[120.0, 20.0, 420.0], [15.0, 100.0, 240.0], [0.0002, 0.0004, 1.0]],
@@ -227,3 +236,93 @@ def test_draft_store_round_trips(tmp_path: Path) -> None:
 
     assert path.is_file()
     assert store.load("recording-1", "draft-1") == draft
+
+
+def test_reflow_refits_reviewed_scene_under_new_calibration() -> None:
+    result = _result()
+    for frame in result["frames"]:
+        frame["source_frame_digest"] = "a" * 64
+    run = calibrate_recording(result)
+    assert run.calibration is not None
+    data = build_proposed_card_scene_data(
+        result,
+        detector_revision_id="detector-1",
+        detector_revision_digest="a" * 64,
+        calibration=run.calibration,
+        calibration_diagnostics={"source": "test"},
+    )
+    source_frame = data.frames[0]
+    assert source_frame.proposal is not None
+    initial = source_frame.proposal
+    assert initial.initialized_scene is not None
+    scene = initial.initialized_scene
+    scene_ids = [pose["card_id"] for pose in scene["poses"]]
+    reviewed = ReviewedCardSceneRecord.create(
+        proposal_id=initial.proposal_id,
+        scene=scene,
+        decision="accepted",
+    )
+    current = CardSceneDraft.create(
+        proposal=initial,
+        reviewed=reviewed,
+        card_states=tuple(
+            CardReviewState.create(
+                card_id=card_id,
+                source="proposal",
+                proposal_id=initial.proposal_id,
+                state="accepted",
+            )
+            for card_id in scene_ids
+        ),
+        completion=FrameReviewCompletion.create(state="complete", unresolved_card_ids=()),
+        proposal_revision_id="proposal-old",
+        proposal_data_digest=data.data_digest,
+        projection={
+            "table_to_image_homography": [list(row) for row in run.calibration.table_to_image],
+            "card_short_size": run.calibration.card_short_size,
+            "card_long_size": run.calibration.card_long_size,
+        },
+    )
+    target = type(run.calibration).create(
+        calibration_revision_id="calibration-target",
+        recording_id=run.calibration.recording_id,
+        source_revision=run.calibration.source_revision,
+        frame_width=run.calibration.frame_width,
+        frame_height=run.calibration.frame_height,
+        image_to_table=run.calibration.image_to_table,
+        table_to_image=run.calibration.table_to_image,
+        card_short_size=run.calibration.card_short_size,
+        card_long_size=run.calibration.card_long_size,
+        candidate_receipt_digests=run.calibration.candidate_receipt_digests,
+        diagnostics=run.calibration.diagnostics,
+    )
+    target_data = build_proposed_card_scene_data(
+        result,
+        detector_revision_id="detector-1",
+        detector_revision_digest="a" * 64,
+        calibration=target,
+        calibration_diagnostics={"source": "test"},
+    )
+    target_proposal = target_data.frames[0].proposal
+    assert target_proposal is not None
+    reflowed = reflow_card_scene_draft(
+        current,
+        target_proposal,
+        {
+            "table_to_image_homography": [list(row) for row in target.table_to_image],
+            "card_short_size": target.card_short_size,
+            "card_long_size": target.card_long_size,
+        },
+        run.calibration,
+        target,
+        target_proposal_revision_id="proposal-target",
+        target_proposal_data_digest=target_data.data_digest,
+    )
+
+    assert reflowed.draft.proposal.calibration_revision_id == "calibration-target"
+    assert reflowed.draft.proposal_revision_id == "proposal-target"
+    assert reflowed.draft.reviewed is not None
+    assert (
+        reflowed.draft.reviewed.scene["calibration_revision_id"] == "calibration-target"
+    )
+    assert reflowed.draft.completion.state == "complete"

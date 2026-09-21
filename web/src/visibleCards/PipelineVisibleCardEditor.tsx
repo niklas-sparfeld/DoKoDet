@@ -477,6 +477,52 @@ export function PipelineVisibleCardEditor({
     }
   }, [calibrationRefinement, client, recordingId]);
 
+  const applyCalibrationRefinement = useCallback(
+    async (confirmAffected: boolean) => {
+      const current = calibrationRefinement;
+      if (current === null) return;
+      const draftId = current.draft.draft_id;
+      const revision = current.draft.revision;
+      const previewDigest = current.preview.preview_digest;
+      if (
+        typeof draftId !== "string" ||
+        typeof revision !== "number" ||
+        typeof previewDigest !== "string"
+      ) {
+        setCalibrationError(
+          "The calibration preview is incomplete. Reload it and try again.",
+        );
+        return;
+      }
+      setCalibrationLoading(true);
+      setCalibrationError(null);
+      try {
+        const applied = await client.applyCalibrationRefinement(
+          recordingId,
+          current.proposal_revision_id,
+          {
+            draft_id: draftId,
+            expected_revision: revision,
+            preview_digest: previewDigest,
+            operator_id: operatorId.trim() || "operator",
+            confirm_affected: confirmAffected,
+          },
+        );
+        setProposalRevisionId(applied.proposal_revision_id);
+        hydrateReference(applied.reference);
+        setCalibrationRefinement(null);
+        setNotice(
+          `Applied calibration ${applied.calibration_revision_id}; review affected frames before completion.`,
+        );
+      } catch (reason: unknown) {
+        setCalibrationError(describeError(reason));
+      } finally {
+        setCalibrationLoading(false);
+      }
+    },
+    [calibrationRefinement, client, hydrateReference, operatorId, recordingId],
+  );
+
   const loadReference = useCallback(
     async (signal?: AbortSignal) => {
       setLoading(true);
@@ -1963,6 +2009,9 @@ export function PipelineVisibleCardEditor({
       calibrationError={calibrationError}
       startCalibrationRefinement={() => void startCalibrationRefinement()}
       discardCalibrationRefinement={() => void discardCalibrationRefinement()}
+      applyCalibrationRefinement={(confirmAffected) =>
+        void applyCalibrationRefinement(confirmAffected)
+      }
       onSelectCalibrationFrame={(frameId) => {
         const target = displayedFrames.find(
           (frame) => frame.itemId === frameId,

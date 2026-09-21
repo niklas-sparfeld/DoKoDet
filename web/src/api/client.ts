@@ -101,8 +101,19 @@ export type CalibrationRefinementResponse = {
       message: string;
     }>;
     failure: { code: string; message: string; action: string } | null;
+    preview_digest: string;
   };
   anchor_contributions: Array<Record<string, unknown>>;
+};
+export type CalibrationRefinementApplyResponse = {
+  schema_version: "table-plane-calibration-refinement/v1";
+  action: "applied";
+  recording_id: string;
+  source_proposal_revision_id: string;
+  proposal_revision_id: string;
+  calibration_revision_id: string;
+  receipt: Record<string, unknown>;
+  reference: PipelineReferenceResource;
 };
 export type RoundAnalysisCreateRequest =
   components["schemas"]["RoundAnalysisCreateRequest"];
@@ -370,6 +381,18 @@ export interface DokoDetectorClient {
     payload: { proposal_revision_id: string; draft_id: string },
     init?: RequestInit,
   ): Promise<CalibrationRefinementResponse>;
+  applyCalibrationRefinement(
+    recordingId: string,
+    proposalRevisionId: string,
+    payload: {
+      draft_id: string;
+      expected_revision: number;
+      preview_digest: string;
+      operator_id: string;
+      confirm_affected?: boolean;
+    },
+    init?: RequestInit,
+  ): Promise<CalibrationRefinementApplyResponse>;
   startVisualIdentityRun(
     recordingId: string,
     payload: PipelineRunStartRequest,
@@ -655,6 +678,22 @@ export function createDokoDetectorClient(
       requestJson<CalibrationRefinementResponse>(
         fetchImplementation,
         pipelineCalibrationRefinementDiscardPath(recordingId),
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    applyCalibrationRefinement: (
+      recordingId,
+      proposalRevisionId,
+      payload,
+      init,
+    ) =>
+      requestJson<CalibrationRefinementApplyResponse>(
+        fetchImplementation,
+        pipelineCalibrationRefinementApplyPath(recordingId, proposalRevisionId),
         {
           ...init,
           method: "POST",
@@ -982,6 +1021,16 @@ export function pipelineCalibrationRefinementDiscardPath(
   recordingId: string,
 ): string {
   return `${pipelineCalibrationRefinementPath(recordingId)}/discard`;
+}
+
+export function pipelineCalibrationRefinementApplyPath(
+  recordingId: string,
+  proposalRevisionId: string,
+): string {
+  const query = new URLSearchParams({
+    proposal_revision_id: proposalRevisionId,
+  });
+  return `${pipelineCalibrationRefinementPath(recordingId)}/apply?${query.toString()}`;
 }
 
 export function pipelineVisualIdentityRunsPath(recordingId: string): string {
