@@ -231,6 +231,67 @@
   font-size: 0.72rem;
 }
 
+.poseEditorWarning {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, #ff8a65 55%, var(--line));
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, #ff8a65 12%, var(--panel));
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.anchorGesturePreview,
+.anchorControls {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.6rem;
+  border: 1px solid color-mix(in srgb, #ff8a65 55%, var(--line));
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, #ff8a65 8%, var(--panel));
+}
+
+.anchorGesturePreview > span,
+.anchorControls > span {
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+}
+
+.anchorGesturePreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.anchorGesturePreviewGrid h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+}
+
+.anchorPreviewSvg {
+  display: block;
+  width: 100%;
+  min-height: 5rem;
+  aspect-ratio: 1.35;
+  border: 1px solid #34515e;
+  border-radius: 0.35rem;
+  background: #18242f;
+}
+
+.anchorControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  width: 100%;
+}
+
+.anchorControls label {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
 .poseViewActions button,
 .poseEditorControls button,
 .poseEditorControls input {

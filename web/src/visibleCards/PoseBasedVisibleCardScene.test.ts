@@ -1,7 +1,9 @@
 import {
   applyPoseSceneAction,
   cardPolygon,
+  constrainAnchorQuad,
   nextManualPoseId,
+  projectImagePointToTable,
   projectTablePoint,
   readPoseScene,
   type PoseSceneEnvelope,
@@ -138,5 +140,33 @@ describe("PoseBasedVisibleCardScene", () => {
     expect(
       applyPoseSceneAction(oneCard, { type: "remove", cardId: "card-a" }),
     ).toEqual(oneCard);
+  });
+
+  it("keeps the opposite corner fixed for every frozen anchor constraint", () => {
+    const corners: [
+      [number, number],
+      [number, number],
+      [number, number],
+      [number, number],
+    ] = [
+      [0, 0],
+      [1.5, 0],
+      [1.5, 1],
+      [0, 1],
+    ];
+    for (const constraint of ["diagonal", "card_x", "card_y"] as const) {
+      const adjusted = constrainAnchorQuad(corners, 0, [-1.5, -1], constraint);
+      expect(adjusted).toHaveLength(4);
+      expect(adjusted[2]).toEqual(corners[2]);
+    }
+  });
+
+  it("maps source points back through the preserved homography", () => {
+    const homography = [
+      [100, 0, 500],
+      [0, 100, 400],
+      [0, 0, 1],
+    ];
+    expect(projectImagePointToTable([600, 600], homography)).toEqual([1, 2]);
   });
 });

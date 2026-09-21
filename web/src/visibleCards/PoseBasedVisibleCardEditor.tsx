@@ -10,11 +10,17 @@ import {
 import styles from "./PipelineVisibleCardEditor.module.css";
 import { pipelineDerivedFramePath } from "../api/client";
 import {
+  ANCHOR_CONSTRAINTS,
   applyPoseSceneAction,
   cardPolygon,
+  constrainAnchorQuad,
+  createCalibrationAnchorCommand,
   nextManualPoseId,
+  projectImagePointToTable,
   projectTablePoint,
   withSceneDigest,
+  type AnchorConstraint,
+  type CalibrationAnchorCommand,
   type PoseCard,
   type PoseSceneEnvelope,
   type ReviewedCardScene,
@@ -30,9 +36,30 @@ type PoseBasedVisibleCardEditorProps = {
   onChange: (scene: PoseSceneEnvelope, notice: string) => void;
   onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
   onResolveRemaining?: () => void;
+  onAnchorCommand?: (command: CalibrationAnchorCommand) => void;
 };
 
 type TableViewBox = { x: number; y: number; width: number; height: number };
+type EditorMode = "review" | "refine";
+type GestureKind = "move" | "rotate" | "anchor";
+type GestureView = "source" | "rectified";
+type AnchorPreview = {
+  cardId: string;
+  movedCorner: number;
+  constraint: AnchorConstraint;
+  corners: TablePoint[];
+};
+type ActiveGesture = {
+  pointerId: number;
+  cardId: string;
+  kind: GestureKind;
+  view: GestureView;
+  dirty: boolean;
+  originalDraft: PoseSceneEnvelope;
+  originalCorners?: TablePoint[];
+  movedCorner?: number;
+  constraint?: AnchorConstraint;
+};
 
 export function PoseBasedVisibleCardEditor({
   recordingId,
@@ -42,6 +69,7 @@ export function PoseBasedVisibleCardEditor({
   onChange,
   onCardDecision,
   onResolveRemaining,
+  onAnchorCommand,
 }: PoseBasedVisibleCardEditorProps) {
   const identity = frame.outcome.frame_identity;
   const width = identity?.width ?? scene.scene.source_frame_width;
@@ -60,12 +88,33 @@ export function PoseBasedVisibleCardEditor({
   const [activeView, setActiveView] = useState<"source" | "rectified">(
     "rectified",
   );
-  const dragRef = useRef<{
-    pointerId: number;
+  const [editorMode, setEditorMode] = useState<EditorMode>("review");
+  const [anchorConstraint, setAnchorConstraint] =
+    useState<AnchorConstraint>("diagonal");
+  const [anchorPreview, setAnchorPreview] = useState<AnchorPreview | null>(
+    null,
+  );
+  const [lastAnchorCommand, setLastAnchorCommand] =
+    useState<CalibrationAnchorCommand | null>(null);
+  const [anchorCornerIndex, setAnchorCornerIndex] = useState(0);
+  const [numericAnchor, setNumericAnchor] = useState<{
     cardId: string;
-    mode: "move" | "rotate";
-    dirty: boolean;
+    cornerIndex: number;
+    point: TablePoint;
   } | null>(null);
+  const anchorPreviewRef = useRef<AnchorPreview | null>(null);
+  const [activeGesture, setActiveGesture] = useState<ActiveGesture | null>(
+    null,
+  );
+  const dragRef = useRef<ActiveGesture | null>(null);
+  const tableSvgRef = useRef<SVGSVGElement | null>(null);
+  const sourceSvgRef = useRef<SVGSVGElement | null>(null);
+  const sourceViewportRef = useRef<HTMLDivElement | null>(null);
+  const anchorSequenceRef = useRef(0);
+  const setAnchorPreviewState = useCallback((next: AnchorPreview | null) => {
+    anchorPreviewRef.current = next;
+    setAnchorPreview(next);
+  }, []);
   const sourceMaskPrefix = useMemo(
     () => `pose-scene-${frame.itemId.replace(/[^A-Za-z0-9_-]/g, "-")}`,
     [frame.itemId],
@@ -159,8 +208,11 @@ export function PoseBasedVisibleCardEditor({
   );
 
   const getTablePoint = useCallback(
-    (event: ReactPointerEvent<SVGSVGElement>): TablePoint | null => {
-      const rect = event.currentTarget.getBoundingClientRect();
+    (
+      event: ReactPointerEvent<SVGSVGElement>,
+      target = event.currentTarget,
+    ): TablePoint | null => {
+      const rect = target.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return null;
       return [
         tableViewBox.x +
@@ -172,23 +224,90 @@ export function PoseBasedVisibleCardEditor({
     [tableViewBox],
   );
 
+  const getSourcePoint = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>): [number, number] | null => {
+      const rect = sourceViewportRef.current?.getBoundingClientRect();
+      if (rect === undefined || rect.width <= 0 || rect.height <= 0)
+        return null;
+      return [
+        ((event.clientX - rect.left) / rect.width) * width,
+        ((event.clientY - rect.top) / rect.height) * height,
+      ];
+    },
+    [height, width],
+  );
+
+  const getGestureTablePoint = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>): TablePoint | null => {
+      const gesture = dragRef.current;
+      if (gesture?.view === "source") {
+        const sourcePoint = getSourcePoint(event);
+        return sourcePoint === null
+          ? null
+          : projectImagePointToTable(
+              sourcePoint,
+              draftRef.current.projection.table_to_image_homography,
+            );
+      }
+      return getTablePoint(event, tableSvgRef.current ?? event.currentTarget);
+    },
+    [getSourcePoint, getTablePoint],
+  );
+
+  const updateAnchorPreview = useCallback(
+    (point: TablePoint) => {
+      const gesture = dragRef.current;
+      if (
+        gesture === null ||
+        gesture.kind !== "anchor" ||
+        gesture.originalCorners === undefined ||
+        gesture.movedCorner === undefined ||
+        gesture.constraint === undefined
+      )
+        return;
+      const corners = constrainAnchorQuad(
+        gesture.originalCorners,
+        gesture.movedCorner,
+        point,
+        gesture.constraint,
+      );
+      gesture.dirty = corners.some(
+        (corner, index) =>
+          corner[0] !== gesture.originalCorners?.[index]?.[0] ||
+          corner[1] !== gesture.originalCorners?.[index]?.[1],
+      );
+      setAnchorPreviewState({
+        cardId: gesture.cardId,
+        movedCorner: gesture.movedCorner,
+        constraint: gesture.constraint,
+        corners,
+      });
+    },
+    [setAnchorPreviewState],
+  );
+
   const handleTablePointerMove = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
-      const drag = dragRef.current;
-      if (drag === null || drag.pointerId !== event.pointerId || readOnly)
+      const gesture = dragRef.current;
+      if (gesture === null || gesture.pointerId !== event.pointerId || readOnly)
         return;
-      const point = getTablePoint(event);
+      const point = getGestureTablePoint(event);
+      if (point === null) return;
+      if (gesture.kind === "anchor") {
+        updateAnchorPreview(point);
+        return;
+      }
       const pose = draftRef.current.scene.poses.find(
-        (candidate) => candidate.card_id === drag.cardId,
+        (candidate) => candidate.card_id === gesture.cardId,
       );
-      if (point === null || pose === undefined) return;
+      if (pose === undefined) return;
       const next = applyPoseSceneAction(
         draftRef.current,
-        drag.mode === "move"
-          ? { type: "move", cardId: drag.cardId, center: point }
+        gesture.kind === "move"
+          ? { type: "move", cardId: gesture.cardId, center: point }
           : {
               type: "rotate",
-              cardId: drag.cardId,
+              cardId: gesture.cardId,
               rotationDegrees:
                 (Math.atan2(
                   point[1] - pose.center[1],
@@ -199,29 +318,69 @@ export function PoseBasedVisibleCardEditor({
                 90,
             },
       );
-      drag.dirty = true;
+      gesture.dirty = true;
       draftRef.current = next;
       setDraft(next);
     },
-    [getTablePoint, readOnly],
+    [getGestureTablePoint, readOnly, updateAnchorPreview],
   );
 
-  const finishTablePointer = useCallback(
+  const cancelGesture = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
-      const drag = dragRef.current;
-      if (drag === null || drag.pointerId !== event.pointerId) return;
+      const gesture = dragRef.current;
+      if (gesture === null || gesture.pointerId !== event.pointerId) return;
       dragRef.current = null;
+      setActiveGesture(null);
       event.currentTarget.releasePointerCapture?.(event.pointerId);
-      if (drag.dirty) {
-        commit(
-          draftRef.current,
-          drag.mode === "move"
-            ? "Card moved on the virtual table."
-            : "Card rotation saved.",
-        );
-      }
+      draftRef.current = gesture.originalDraft;
+      setDraft(gesture.originalDraft);
+      setAnchorPreviewState(null);
     },
-    [commit],
+    [setAnchorPreviewState],
+  );
+
+  const finishGesture = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      const gesture = dragRef.current;
+      if (gesture === null || gesture.pointerId !== event.pointerId) return;
+      dragRef.current = null;
+      setActiveGesture(null);
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      if (!gesture.dirty) {
+        setAnchorPreviewState(null);
+        return;
+      }
+      if (
+        gesture.kind === "anchor" &&
+        gesture.originalCorners !== undefined &&
+        gesture.movedCorner !== undefined &&
+        gesture.constraint !== undefined &&
+        anchorPreviewRef.current !== null
+      ) {
+        const command = createCalibrationAnchorCommand({
+          command_id: `anchor-command-${frame.itemId}-${anchorSequenceRef.current + 1}`,
+          sequence: anchorSequenceRef.current + 1,
+          expected_draft_revision: 0,
+          anchor_id: `anchor-${frame.itemId}-${gesture.cardId}`,
+          moved_corner: gesture.movedCorner,
+          constraint: gesture.constraint,
+          corners: anchorPreviewRef.current.corners,
+          operator_id: "local-operator",
+        });
+        anchorSequenceRef.current += 1;
+        setLastAnchorCommand(command);
+        setAnchorPreviewState(null);
+        onAnchorCommand?.(command);
+        return;
+      }
+      commit(
+        draftRef.current,
+        gesture.kind === "move"
+          ? "Card moved on the virtual table."
+          : "Card rotation saved.",
+      );
+    },
+    [commit, frame.itemId, onAnchorCommand, setAnchorPreviewState],
   );
 
   const startTablePointer = useCallback(
@@ -230,21 +389,205 @@ export function PoseBasedVisibleCardEditor({
       cardId: string,
       mode: "move" | "rotate",
     ) => {
-      if (readOnly) return;
+      if (readOnly || editorMode !== "review") return;
       event.preventDefault();
       event.stopPropagation();
       setSelectedCardId(cardId);
-      dragRef.current = {
+      const gesture: ActiveGesture = {
         pointerId: event.pointerId,
         cardId,
-        mode,
+        kind: mode,
+        view: "rectified",
         dirty: false,
+        originalDraft: draftRef.current,
       };
-      (event.currentTarget as SVGSVGElement).setPointerCapture?.(
-        event.pointerId,
-      );
+      dragRef.current = gesture;
+      setActiveGesture(gesture);
+      tableSvgRef.current?.setPointerCapture?.(event.pointerId);
     },
-    [readOnly],
+    [editorMode, readOnly],
+  );
+
+  const startAnchorPointer = useCallback(
+    (
+      event: ReactPointerEvent<SVGElement>,
+      cardId: string,
+      movedCorner: number,
+      view: GestureView,
+      constraint = event.shiftKey
+        ? ("card_x" as const)
+        : event.altKey
+          ? ("card_y" as const)
+          : anchorConstraint,
+    ) => {
+      if (readOnly || editorMode !== "refine") return;
+      const pose = draftRef.current.scene.poses.find(
+        (candidate) => candidate.card_id === cardId,
+      );
+      if (pose === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setSelectedCardId(cardId);
+      const corners = cardPolygon(pose, draftRef.current.projection);
+      const gesture: ActiveGesture = {
+        pointerId: event.pointerId,
+        cardId,
+        kind: "anchor",
+        view,
+        dirty: false,
+        originalDraft: draftRef.current,
+        originalCorners: corners,
+        movedCorner,
+        constraint,
+      };
+      dragRef.current = gesture;
+      setActiveGesture(gesture);
+      setAnchorConstraint(constraint);
+      setAnchorCornerIndex(movedCorner);
+      setAnchorPreviewState({
+        cardId,
+        movedCorner,
+        constraint,
+        corners,
+      });
+      (view === "source"
+        ? sourceSvgRef.current
+        : tableSvgRef.current
+      )?.setPointerCapture?.(event.pointerId);
+    },
+    [anchorConstraint, editorMode, readOnly, setAnchorPreviewState],
+  );
+
+  const getAnchorCorners = useCallback(
+    (cardId: string): TablePoint[] => {
+      if (anchorPreview?.cardId === cardId) return anchorPreview.corners;
+      const pose = draft.scene.poses.find(
+        (candidate) => candidate.card_id === cardId,
+      );
+      return pose === undefined ? [] : cardPolygon(pose, draft.projection);
+    },
+    [anchorPreview, draft.projection, draft.scene.poses],
+  );
+
+  const projectedAnchorPolygons = useMemo(
+    () =>
+      new Map(
+        draft.scene.poses.map((pose) => [
+          pose.card_id,
+          getAnchorCorners(pose.card_id)
+            .map((point) =>
+              projectTablePoint(
+                point,
+                draft.projection.table_to_image_homography,
+              ),
+            )
+            .filter((point): point is [number, number] => point !== null),
+        ]),
+      ),
+    [
+      draft.projection.table_to_image_homography,
+      draft.scene.poses,
+      getAnchorCorners,
+    ],
+  );
+
+  const emitNumericAnchorCommand = useCallback(() => {
+    if (readOnly || editorMode !== "refine" || numericAnchor === null) return;
+    const pose = draftRef.current.scene.poses.find(
+      (candidate) => candidate.card_id === numericAnchor.cardId,
+    );
+    if (pose === undefined) return;
+    const corners = cardPolygon(pose, draftRef.current.projection);
+    const constrained = constrainAnchorQuad(
+      corners,
+      numericAnchor.cornerIndex,
+      numericAnchor.point,
+      anchorConstraint,
+    );
+    const command = createCalibrationAnchorCommand({
+      command_id: `anchor-command-${frame.itemId}-${anchorSequenceRef.current + 1}`,
+      sequence: anchorSequenceRef.current + 1,
+      expected_draft_revision: 0,
+      anchor_id: `anchor-${frame.itemId}-${numericAnchor.cardId}`,
+      moved_corner: numericAnchor.cornerIndex,
+      constraint: anchorConstraint,
+      corners: constrained,
+      operator_id: "local-operator",
+    });
+    anchorSequenceRef.current += 1;
+    setLastAnchorCommand(command);
+    setNumericAnchor(null);
+    onAnchorCommand?.(command);
+  }, [
+    anchorConstraint,
+    editorMode,
+    frame.itemId,
+    numericAnchor,
+    onAnchorCommand,
+    readOnly,
+  ]);
+
+  const cancelActiveGesture = useCallback(() => {
+    const gesture = dragRef.current;
+    if (gesture === null) return;
+    dragRef.current = null;
+    setActiveGesture(null);
+    draftRef.current = gesture.originalDraft;
+    setDraft(gesture.originalDraft);
+    setAnchorPreviewState(null);
+  }, [setAnchorPreviewState]);
+
+  const handleSurfaceKeyDown = useCallback(
+    (event: React.KeyboardEvent<SVGSVGElement>) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cancelActiveGesture();
+        return;
+      }
+      const nextConstraint: AnchorConstraint | null =
+        event.key.toLowerCase() === "d"
+          ? "diagonal"
+          : event.key.toLowerCase() === "x"
+            ? "card_x"
+            : event.key.toLowerCase() === "y"
+              ? "card_y"
+              : null;
+      if (nextConstraint !== null && editorMode === "refine") {
+        event.preventDefault();
+        setAnchorConstraint(nextConstraint);
+      }
+    },
+    [cancelActiveGesture, editorMode],
+  );
+
+  const handleAnchorHandleKeyDown = useCallback(
+    (
+      event: React.KeyboardEvent<SVGCircleElement>,
+      cardId: string,
+      cornerIndex: number,
+    ) => {
+      if (readOnly || editorMode !== "refine") return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cancelActiveGesture();
+        return;
+      }
+      if (event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        setAnchorConstraint("diagonal");
+      } else if (event.key.toLowerCase() === "x") {
+        event.preventDefault();
+        setAnchorConstraint("card_x");
+      } else if (event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        setAnchorConstraint("card_y");
+      } else if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        setSelectedCardId(cardId);
+        setAnchorCornerIndex(cornerIndex);
+      }
+    },
+    [cancelActiveGesture, editorMode, readOnly],
   );
 
   const applyAndCommit = useCallback(
@@ -384,6 +727,51 @@ export function PoseBasedVisibleCardEditor({
           Rectified table
         </button>
       </fieldset>
+      <fieldset
+        className={styles.pipelineToggleGroup}
+        aria-label="Card scene editing mode"
+      >
+        <legend className={styles.visuallyHidden}>
+          Card scene editing mode
+        </legend>
+        <button
+          className={
+            editorMode === "review"
+              ? styles.pipelineToggleActive
+              : styles.pipelineToggle
+          }
+          type="button"
+          aria-pressed={editorMode === "review"}
+          onClick={() => {
+            cancelActiveGesture();
+            setEditorMode("review");
+          }}
+        >
+          Review cards
+        </button>
+        <button
+          className={
+            editorMode === "refine"
+              ? styles.pipelineToggleActive
+              : styles.pipelineToggle
+          }
+          type="button"
+          aria-pressed={editorMode === "refine"}
+          onClick={() => {
+            cancelActiveGesture();
+            setEditorMode("refine");
+          }}
+        >
+          Refine mapping
+        </button>
+      </fieldset>
+      {editorMode === "refine" ? (
+        <p className={styles.poseEditorWarning} role="note">
+          Refine mapping changes recording-wide calibration anchors. Drag a
+          corner to preview a constrained anchor edit; release saves one ordered
+          anchor command. Press Escape to cancel.
+        </p>
+      ) : null}
       <ol
         className={styles.poseEditorGuidance}
         aria-label="Pose review checklist"
@@ -412,14 +800,22 @@ export function PoseBasedVisibleCardEditor({
               </p>
             ) : (
               <div
+                ref={sourceViewportRef}
                 className={styles.poseSourceViewport}
                 style={{ aspectRatio: `${width} / ${height}` }}
               >
                 <img src={sourceUrl} alt="Selected visible-card source frame" />
                 <svg
+                  ref={sourceSvgRef}
                   viewBox={`0 0 ${width} ${height}`}
                   role="img"
                   aria-label="Projected card scene"
+                  tabIndex={0}
+                  onPointerMove={handleTablePointerMove}
+                  onPointerUp={finishGesture}
+                  onPointerCancel={cancelGesture}
+                  onLostPointerCapture={cancelGesture}
+                  onKeyDown={handleSurfaceKeyDown}
                 >
                   <defs>
                     {draft.scene.poses.map((pose) => {
@@ -473,6 +869,8 @@ export function PoseBasedVisibleCardEditor({
                   ))}
                   {draft.scene.poses.map((pose) => {
                     const polygon = projectedPolygons.get(pose.card_id) ?? [];
+                    const anchorPolygon =
+                      projectedAnchorPolygons.get(pose.card_id) ?? [];
                     const selected = pose.card_id === selectedCardId;
                     const maskId = `${sourceMaskPrefix}-${pose.card_id.replace(/[^A-Za-z0-9_-]/g, "-")}`;
                     return (
@@ -496,6 +894,37 @@ export function PoseBasedVisibleCardEditor({
                               setSelectedCardId(pose.card_id);
                           }}
                         />
+                        {editorMode === "refine" && !readOnly && selected
+                          ? anchorPolygon.map((point, cornerIndex) => (
+                              <circle
+                                key={`${pose.card_id}-source-anchor-${cornerIndex}`}
+                                cx={point[0]}
+                                cy={point[1]}
+                                r={Math.max(5, width / 120)}
+                                fill="#ff8a65"
+                                stroke="#18242f"
+                                strokeWidth={Math.max(1, width / 600)}
+                                tabIndex={0}
+                                role="button"
+                                aria-label={`Anchor corner ${cornerIndex + 1} for card ${pose.card_id}`}
+                                onPointerDown={(event) =>
+                                  startAnchorPointer(
+                                    event,
+                                    pose.card_id,
+                                    cornerIndex,
+                                    "source",
+                                  )
+                                }
+                                onKeyDown={(event) =>
+                                  handleAnchorHandleKeyDown(
+                                    event,
+                                    pose.card_id,
+                                    cornerIndex,
+                                  )
+                                }
+                              />
+                            ))
+                          : null}
                         {selected ? (
                           <text
                             x={polygon[0]?.[0] ?? 0}
@@ -586,13 +1015,17 @@ export function PoseBasedVisibleCardEditor({
               </div>
             </div>
             <svg
+              ref={tableSvgRef}
               className={styles.poseTableSvg}
               viewBox={`${tableViewBox.x} ${tableViewBox.y} ${tableViewBox.width} ${tableViewBox.height}`}
               role="application"
               aria-label="Rectified virtual table"
+              tabIndex={0}
               onPointerMove={handleTablePointerMove}
-              onPointerUp={finishTablePointer}
-              onPointerCancel={finishTablePointer}
+              onPointerUp={finishGesture}
+              onPointerCancel={cancelGesture}
+              onLostPointerCapture={cancelGesture}
+              onKeyDown={handleSurfaceKeyDown}
             >
               <rect
                 x={tableViewBox.x}
@@ -608,18 +1041,31 @@ export function PoseBasedVisibleCardEditor({
                   projection={draft.projection}
                   selected={pose.card_id === selectedCardId}
                   readOnly={readOnly}
+                  editorMode={editorMode}
+                  anchorCorners={getAnchorCorners(pose.card_id)}
                   onSelect={() => setSelectedCardId(pose.card_id)}
                   onPointerDown={(event, mode) =>
                     startTablePointer(event, pose.card_id, mode)
+                  }
+                  onAnchorPointerDown={(event, cornerIndex) =>
+                    startAnchorPointer(
+                      event,
+                      pose.card_id,
+                      cornerIndex,
+                      "rectified",
+                    )
+                  }
+                  onAnchorHandleKeyDown={(event, cornerIndex) =>
+                    handleAnchorHandleKeyDown(event, pose.card_id, cornerIndex)
                   }
                   onKeyDown={(event) => handleCardKeyDown(event, pose.card_id)}
                 />
               ))}
             </svg>
             <p className={styles.editorHelp}>
-              Select a card, drag its body to move it, or drag the handle to
-              rotate it. Arrow keys nudge the selected card; hold Shift for a
-              coarse step.
+              {editorMode === "review"
+                ? "Select a card, drag its body to move it, or drag the handle to rotate it. Arrow keys nudge the selected card; hold Shift for a coarse step."
+                : "Drag a corner handle to refine its calibration anchor. Use D, X, or Y to change the constraint; Escape cancels the gesture."}
             </p>
             <p className={styles.poseLegend}>
               <span data-tone="model">
@@ -634,8 +1080,223 @@ export function PoseBasedVisibleCardEditor({
         ) : null}
       </div>
 
+      {editorMode === "refine" && anchorPreview !== null ? (
+        <div
+          className={styles.anchorGesturePreview}
+          aria-label="Anchor gesture previews"
+        >
+          <strong>Anchor gesture preview</strong>
+          <span>
+            {anchorPreview.constraint} · corner {anchorPreview.movedCorner + 1}
+          </span>
+          <div className={styles.anchorGesturePreviewGrid}>
+            <div>
+              <h4>Source preview</h4>
+              <svg
+                className={styles.anchorPreviewSvg}
+                viewBox={`0 0 ${width} ${height}`}
+                role="img"
+                aria-label="Source anchor gesture preview"
+              >
+                {projectedAnchorPolygons.get(anchorPreview.cardId) !==
+                undefined ? (
+                  <polygon
+                    points={pointsAttribute(
+                      projectedAnchorPolygons.get(anchorPreview.cardId) ?? [],
+                    )}
+                    fill="rgba(255, 138, 101, 0.18)"
+                    stroke="#ff8a65"
+                    strokeWidth={Math.max(2, width / 300)}
+                  />
+                ) : null}
+              </svg>
+            </div>
+            <div>
+              <h4>Rectified preview</h4>
+              <svg
+                className={styles.anchorPreviewSvg}
+                viewBox={`${tableViewBox.x} ${tableViewBox.y} ${tableViewBox.width} ${tableViewBox.height}`}
+                role="img"
+                aria-label="Rectified anchor gesture preview"
+              >
+                <polygon
+                  points={pointsAttribute(anchorPreview.corners)}
+                  fill="rgba(255, 138, 101, 0.18)"
+                  stroke="#ff8a65"
+                  strokeWidth="0.05"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {activeGesture !== null && activeGesture.kind !== "anchor" ? (
+        <div
+          className={styles.anchorGesturePreview}
+          aria-label="Card gesture previews"
+        >
+          <strong>Card gesture preview</strong>
+          <span>
+            {activeGesture.kind === "move" ? "translation" : "rotation"} · card{" "}
+            {activeGesture.cardId}
+          </span>
+          <div className={styles.anchorGesturePreviewGrid}>
+            <div>
+              <h4>Source preview</h4>
+              <svg
+                className={styles.anchorPreviewSvg}
+                viewBox={`0 0 ${width} ${height}`}
+                role="img"
+                aria-label="Source card gesture preview"
+              >
+                <polygon
+                  points={pointsAttribute(
+                    projectedPolygons.get(activeGesture.cardId) ?? [],
+                  )}
+                  fill="rgba(48, 201, 172, 0.18)"
+                  stroke="#30c9ac"
+                  strokeWidth={Math.max(2, width / 300)}
+                />
+              </svg>
+            </div>
+            <div>
+              <h4>Rectified preview</h4>
+              <svg
+                className={styles.anchorPreviewSvg}
+                viewBox={`${tableViewBox.x} ${tableViewBox.y} ${tableViewBox.width} ${tableViewBox.height}`}
+                role="img"
+                aria-label="Rectified card gesture preview"
+              >
+                <polygon
+                  points={pointsAttribute(
+                    cardPolygon(
+                      draft.scene.poses.find(
+                        (pose) => pose.card_id === activeGesture.cardId,
+                      ) ?? draft.scene.poses[0],
+                      draft.projection,
+                    ),
+                  )}
+                  fill="rgba(48, 201, 172, 0.18)"
+                  stroke="#30c9ac"
+                  strokeWidth="0.05"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {!readOnly ? (
         <div className={styles.poseEditorControls}>
+          {editorMode === "refine" && selectedPose !== null ? (
+            <div className={styles.anchorControls}>
+              <span>Anchor constraint</span>
+              {ANCHOR_CONSTRAINTS.map((constraint) => (
+                <button
+                  key={constraint}
+                  type="button"
+                  aria-pressed={anchorConstraint === constraint}
+                  onClick={() => setAnchorConstraint(constraint)}
+                >
+                  {constraint === "diagonal"
+                    ? "Diagonal (D)"
+                    : constraint === "card_x"
+                      ? "Card X (X)"
+                      : "Card Y (Y)"}
+                </button>
+              ))}
+              <span>Corner</span>
+              {[0, 1, 2, 3].map((cornerIndex) => (
+                <button
+                  key={cornerIndex}
+                  type="button"
+                  aria-pressed={anchorCornerIndex === cornerIndex}
+                  onClick={() => setAnchorCornerIndex(cornerIndex)}
+                >
+                  {cornerIndex + 1}
+                </button>
+              ))}
+              <label>
+                Anchor X
+                <input
+                  aria-label="Anchor X"
+                  type="number"
+                  step="0.01"
+                  value={
+                    numericAnchor?.cardId === selectedPose.card_id &&
+                    numericAnchor.cornerIndex === anchorCornerIndex
+                      ? numericAnchor.point[0]
+                      : (getAnchorCorners(selectedPose.card_id)[
+                          anchorCornerIndex
+                        ]?.[0] ?? 0)
+                  }
+                  onChange={(event) => {
+                    const point = getAnchorCorners(selectedPose.card_id)[
+                      anchorCornerIndex
+                    ];
+                    const value = Number(event.target.value);
+                    const currentPoint =
+                      numericAnchor?.cardId === selectedPose.card_id &&
+                      numericAnchor.cornerIndex === anchorCornerIndex
+                        ? numericAnchor.point
+                        : point;
+                    if (currentPoint !== undefined && Number.isFinite(value))
+                      setNumericAnchor({
+                        cardId: selectedPose.card_id,
+                        cornerIndex: anchorCornerIndex,
+                        point: [value, currentPoint[1]],
+                      });
+                  }}
+                />
+              </label>
+              <label>
+                Anchor Y
+                <input
+                  aria-label="Anchor Y"
+                  type="number"
+                  step="0.01"
+                  value={
+                    numericAnchor?.cardId === selectedPose.card_id &&
+                    numericAnchor.cornerIndex === anchorCornerIndex
+                      ? numericAnchor.point[1]
+                      : (getAnchorCorners(selectedPose.card_id)[
+                          anchorCornerIndex
+                        ]?.[1] ?? 0)
+                  }
+                  onChange={(event) => {
+                    const point = getAnchorCorners(selectedPose.card_id)[
+                      anchorCornerIndex
+                    ];
+                    const value = Number(event.target.value);
+                    const currentPoint =
+                      numericAnchor?.cardId === selectedPose.card_id &&
+                      numericAnchor.cornerIndex === anchorCornerIndex
+                        ? numericAnchor.point
+                        : point;
+                    if (currentPoint !== undefined && Number.isFinite(value))
+                      setNumericAnchor({
+                        cardId: selectedPose.card_id,
+                        cornerIndex: anchorCornerIndex,
+                        point: [currentPoint[0], value],
+                      });
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      emitNumericAnchorCommand();
+                    }
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={emitNumericAnchorCommand}
+                disabled={numericAnchor === null}
+              >
+                Apply anchor edit
+              </button>
+            </div>
+          ) : null}
           {selectedPose !== null && onCardDecision !== undefined ? (
             <div className={styles.poseCardReviewControls}>
               <span>
@@ -758,6 +1419,12 @@ export function PoseBasedVisibleCardEditor({
           ? "Generated card scenes are immutable suggestions."
           : "One completed gesture produces one saved scene command. Polygon points are not part of this editor."}
       </p>
+      {lastAnchorCommand !== null ? (
+        <p className={styles.poseEditorStatus} role="status">
+          Anchor command {lastAnchorCommand.sequence} ready for calibration
+          refinement. Card geometry and homography are unchanged.
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -767,18 +1434,32 @@ function TableCard({
   projection,
   selected,
   readOnly,
+  editorMode,
+  anchorCorners,
   onSelect,
   onPointerDown,
+  onAnchorPointerDown,
+  onAnchorHandleKeyDown,
   onKeyDown,
 }: {
   pose: PoseCard;
   projection: PoseSceneEnvelope["projection"];
   selected: boolean;
   readOnly: boolean;
+  editorMode: EditorMode;
+  anchorCorners: TablePoint[];
   onSelect: () => void;
   onPointerDown: (
     event: ReactPointerEvent<SVGElement>,
     mode: "move" | "rotate",
+  ) => void;
+  onAnchorPointerDown: (
+    event: ReactPointerEvent<SVGElement>,
+    cornerIndex: number,
+  ) => void;
+  onAnchorHandleKeyDown: (
+    event: React.KeyboardEvent<SVGCircleElement>,
+    cornerIndex: number,
   ) => void;
   onKeyDown: (event: React.KeyboardEvent<SVGGElement>) => void;
 }) {
@@ -801,7 +1482,9 @@ function TableCard({
         fill={selected ? "#2b8f83" : "#37606a"}
         stroke={selected ? "#d9fff7" : "#80b6b7"}
         strokeWidth={selected ? 0.06 : 0.035}
-        onPointerDown={(event) => onPointerDown(event, "move")}
+        onPointerDown={(event) => {
+          if (editorMode === "review") onPointerDown(event, "move");
+        }}
       />
       <text
         x={pose.center[0]}
@@ -814,7 +1497,7 @@ function TableCard({
       >
         {pose.card_id}
       </text>
-      {!readOnly && selected ? (
+      {!readOnly && selected && editorMode === "review" ? (
         <circle
           cx={handle[0]}
           cy={handle[1]}
@@ -826,6 +1509,24 @@ function TableCard({
           onPointerDown={(event) => onPointerDown(event, "rotate")}
         />
       ) : null}
+      {!readOnly && selected && editorMode === "refine"
+        ? anchorCorners.map((corner, cornerIndex) => (
+            <circle
+              key={`${pose.card_id}-table-anchor-${cornerIndex}`}
+              cx={corner[0]}
+              cy={corner[1]}
+              r="0.11"
+              fill="#ff8a65"
+              stroke="#18242f"
+              strokeWidth="0.035"
+              tabIndex={0}
+              role="button"
+              aria-label={`Anchor corner ${cornerIndex + 1} for card ${pose.card_id}`}
+              onPointerDown={(event) => onAnchorPointerDown(event, cornerIndex)}
+              onKeyDown={(event) => onAnchorHandleKeyDown(event, cornerIndex)}
+            />
+          ))
+        : null}
     </g>
   );
 }

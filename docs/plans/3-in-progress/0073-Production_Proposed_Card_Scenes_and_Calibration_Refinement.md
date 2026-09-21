@@ -22,7 +22,7 @@
 - **M1:** Complete — publish immutable proposed card scenes from one selected local cascade result.
 - **M2:** Complete — seed and validate a maintained reference from proposed card scenes.
 - **M3:** Complete — add proposal controls and the source/rectified editor toggle.
-- **M4:** Not started — add the card and calibration-anchor manipulation handles.
+- **M4:** Complete — add the card and calibration-anchor manipulation handles.
 - **M5:** Not started — implement weighted calibration refinement and a recording-wide preview.
 - **M6:** Not started — apply a calibration revision and reflow the maintained draft safely.
 - **M7:** Not started — verify the complete real-result review loop and operator guidance.
@@ -432,6 +432,21 @@ Acceptance:
 - a corner gesture creates an anchor edit without storing per-card size or skew;
 - every constraint mode preserves the canonical aspect ratio deterministically; and
 - cancel, Escape, lost pointer capture, and reload cannot save a partial gesture.
+
+#### M4 implementation evidence — 2026-09-21
+
+- Added explicit Review cards and Refine mapping modes. Review cards keeps fixed-size body and
+  rotation editing separate from calibration. Refine mapping exposes four focusable corner handles
+  with the frozen Diagonal, Card X, and Card Y constraint choices.
+- Mirrored the M0 opposite-corner and minimum-size mathematics in the web scene helpers. Completed
+  corner gestures emit one `calibration-anchor-command/v1` value and do not alter card poses,
+  dimensions, or the preserved table-plane homography. Numeric X/Y inputs and `D`, `X`, and `Y`
+  keyboard shortcuts use the same constrained path.
+- Added source-to-table homography inversion, pointer capture, lost-capture and Escape cancellation,
+  and reload-safe local previews. Body, rotation, and anchor gestures show paired source and
+  rectified previews while the pointer is active.
+- Verification passed for the complete web check: 21 test files and 191 tests, including focused
+  constraint, homography, numeric-command, and cancellation regressions. `git diff --check` passed.
 
 ### M5 — Compute and inspect candidate calibration
 

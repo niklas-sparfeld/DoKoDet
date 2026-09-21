@@ -171,4 +171,73 @@ describe("PoseBasedVisibleCardEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Accept card" }));
     expect(onCardDecision).toHaveBeenCalledWith("card-a", "accept");
   });
+
+  it("creates one numeric anchor command without changing card pose geometry", () => {
+    const onChange = vi.fn();
+    const onAnchorCommand = vi.fn();
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={onChange}
+        onAnchorCommand={onAnchorCommand}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Refine mapping" }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Anchor X" }), {
+      target: { value: "-0.75" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply anchor edit" }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onAnchorCommand).toHaveBeenCalledTimes(1);
+    expect(onAnchorCommand.mock.calls[0][0]).toMatchObject({
+      operation: "set_corners",
+      state: "adjusted",
+      moved_corner: 0,
+      constraint: "diagonal",
+    });
+  });
+
+  it("cancels an anchor gesture on Escape without emitting a command", () => {
+    const onAnchorCommand = vi.fn();
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+        onAnchorCommand={onAnchorCommand}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Refine mapping" }));
+    const table = screen.getByRole("application", {
+      name: "Rectified virtual table",
+    });
+    const handle = screen.getByRole("button", {
+      name: "Anchor corner 1 for card card-a",
+    });
+    Object.defineProperty(table, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100,
+        right: 100,
+        bottom: 100,
+      }),
+    });
+    fireEvent.pointerDown(handle, { pointerId: 7 });
+    fireEvent.pointerMove(table, { pointerId: 7, clientX: 5, clientY: 5 });
+    fireEvent.keyDown(table, { key: "Escape" });
+    fireEvent.pointerUp(table, { pointerId: 7 });
+
+    expect(onAnchorCommand).not.toHaveBeenCalled();
+  });
 });
