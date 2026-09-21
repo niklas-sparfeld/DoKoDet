@@ -124,6 +124,13 @@ def test_cascade_reuses_one_model_maps_source_candidates_and_retains_diagnostics
     assert len(loader_calls) == 1
     assert detector.calls == [(100, 80), (40, 40), (40, 40)]
     assert len(result.proposals) == 2
+    assert all(len(proposal.polygons or ()) == 2 for proposal in result.proposals)
+    assert all(
+        proposal.box_2d == cascade_provider.visible_cards._tight_box_for_polygon(
+            [point for component in proposal.polygons or () for point in component]
+        )
+        for proposal in result.proposals
+    )
     assert result.raw_response["source_frame"]["frame_part_name"] == "event-001"
     assert result.raw_response["coarse"]["layout"]["clusters"]
     assert all(

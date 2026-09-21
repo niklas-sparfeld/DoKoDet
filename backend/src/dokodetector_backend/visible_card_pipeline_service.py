@@ -593,7 +593,10 @@ class VisibleCardPipelineService:
         return VisibleCardCandidate(
             card_id=f"{_safe(run.run_id)}-{_safe(event_id)}-card-{index:04d}",
             geometry=PredictedVisibleRegionGeometry(
-                polygons=(tuple((point.x, point.y) for point in proposal.polygon),),
+                polygons=tuple(
+                    tuple((point.x, point.y) for point in component)
+                    for component in (proposal.polygons or (proposal.polygon,))
+                ),
             ),
             normalization={
                 "width": frame.width,

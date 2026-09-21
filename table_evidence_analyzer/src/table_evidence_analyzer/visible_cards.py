@@ -298,28 +298,41 @@ def _validate_coordinate(value: object, field: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class VisibleCardProposal:
-    """One anonymous visible-card polygon proposal."""
+    """One anonymous visible-card proposal with one or more visible components."""
 
     box_2d: NormalizedBox
     polygon: tuple[NormalizedPoint, ...]
     side: Literal["face_up", "face_down", "unknown"]
     label: str
+    polygons: tuple[tuple[NormalizedPoint, ...], ...] | None = None
 
     def __post_init__(self) -> None:
         if len(self.polygon) < 3:
             raise VisibleCardValidationError("polygon needs at least three points.")
+        if self.polygons is not None:
+            if not self.polygons or any(len(component) < 3 for component in self.polygons):
+                raise VisibleCardValidationError(
+                    "polygons need one or more components with three points."
+                )
+            if self.polygon != self.polygons[0]:
+                raise VisibleCardValidationError("polygon must be the first visible component.")
         if self.side not in _SIDES:
             raise VisibleCardValidationError("side must be face_up, face_down, or unknown.")
         if not isinstance(self.label, str) or not self.label.strip():
             raise VisibleCardValidationError("label must be a non-empty string.")
 
     def to_mapping(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "box_2d": self.box_2d.to_mapping(),
             "polygon": [point.to_mapping() for point in self.polygon],
             "side": self.side,
             "label": self.label,
         }
+        if self.polygons is not None:
+            result["polygons"] = [
+                [point.to_mapping() for point in component] for component in self.polygons
+            ]
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -365,7 +378,11 @@ def normalize_prediction(
     proposals: list[VisibleCardProposal] = []
     for index, card in enumerate(cards):
         context = f"card {index}"
-        if not isinstance(card, dict) or set(card) != {"box_2d", "polygon", "side", "label"}:
+        expected_fields = {"box_2d", "polygon", "side", "label"}
+        if not isinstance(card, dict) or set(card) not in (
+            expected_fields,
+            expected_fields | {"polygons"},
+        ):
             raise VisibleCardValidationError(f"{context} has an unexpected shape.")
         box_value = card["box_2d"]
         expected_box = {"y_min", "x_min", "y_max", "x_max"}
@@ -387,8 +404,36 @@ def normalize_prediction(
                     f"{context} polygon point {point_index} has an unexpected shape."
                 )
             points.append(NormalizedPoint(x=point_value["x"], y=point_value["y"]))
+        components: tuple[tuple[NormalizedPoint, ...], ...] | None = None
+        if "polygons" in card:
+            polygons_value = card["polygons"]
+            if not isinstance(polygons_value, list) or not polygons_value:
+                raise VisibleCardValidationError(f"{context} polygons need one or more components.")
+            parsed_components: list[tuple[NormalizedPoint, ...]] = []
+            for component_index, component_value in enumerate(polygons_value):
+                if not isinstance(component_value, list) or len(component_value) < 3:
+                    raise VisibleCardValidationError(
+                        f"{context} polygon {component_index} needs at least three points."
+                    )
+                component: list[NormalizedPoint] = []
+                for point_index, point_value in enumerate(component_value):
+                    if not isinstance(point_value, dict) or set(point_value) != {"x", "y"}:
+                        raise VisibleCardValidationError(
+                            f"{context} polygon {component_index} point {point_index} "
+                            "has an unexpected shape."
+                        )
+                    component.append(NormalizedPoint(x=point_value["x"], y=point_value["y"]))
+                parsed_components.append(tuple(component))
+            components = tuple(parsed_components)
+            if tuple(points) != components[0]:
+                raise VisibleCardValidationError(f"{context} polygon must equal polygons[0].")
+        all_points = [
+            point for component in (components or (tuple(points),)) for point in component
+        ]
         tight_box = (
-            _tight_box_for_polygon(points) if require_tight_boxes or repair_tight_boxes else None
+            _tight_box_for_polygon(all_points)
+            if require_tight_boxes or repair_tight_boxes
+            else None
         )
         if require_tight_boxes and box != tight_box:
             raise VisibleCardValidationError(
@@ -402,6 +447,7 @@ def normalize_prediction(
                 polygon=tuple(points),
                 side=card["side"],
                 label=card["label"],
+                polygons=components,
             )
         )
     return VisibleCardPrediction(cards=tuple(proposals))

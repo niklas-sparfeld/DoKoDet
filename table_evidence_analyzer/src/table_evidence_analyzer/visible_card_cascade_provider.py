@@ -625,10 +625,13 @@ class LocalVisibleCardCascadeProvider:
                 continue
             proposals.append(
                 VisibleCardProposal(
-                    box_2d=visible_cards._tight_box_for_polygon(polygons[0]),
+                    box_2d=visible_cards._tight_box_for_polygon(
+                        tuple(point for polygon in polygons for point in polygon)
+                    ),
                     polygon=polygons[0],
                     side="unknown",
                     label="visible_card",
+                    polygons=polygons,
                 )
             )
         raw["fine"] = {

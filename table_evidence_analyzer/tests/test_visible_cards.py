@@ -228,6 +228,32 @@ def test_normalize_prediction_returns_strict_proposals() -> None:
         normalize_prediction(invalid)
 
 
+def test_normalize_prediction_preserves_disconnected_visible_components() -> None:
+    prediction = _prediction()
+    card = prediction["cards"][0]
+    card["polygons"] = [
+        card["polygon"],
+        [
+            {"x": 700, "y": 600},
+            {"x": 900, "y": 600},
+            {"x": 900, "y": 900},
+            {"x": 700, "y": 900},
+        ],
+    ]
+    card["box_2d"] = {"y_min": 100, "x_min": 200, "y_max": 900, "x_max": 900}
+
+    proposal = normalize_prediction(prediction, require_tight_boxes=True).cards[0]
+
+    assert proposal.polygons is not None
+    assert len(proposal.polygons) == 2
+    assert proposal.box_2d.to_mapping() == {
+        "y_min": 100,
+        "x_min": 200,
+        "y_max": 900,
+        "x_max": 900,
+    }
+
+
 def test_fake_provider_is_deterministic_and_cache_stores_raw_and_normalized_outputs(
     tmp_path: Path,
 ) -> None:
