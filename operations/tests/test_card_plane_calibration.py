@@ -93,6 +93,27 @@ def test_calibration_is_repeatable_and_validates_held_out_candidates() -> None:
     assert first.calibration.card_long_size == 1.5
 
 
+def test_calibration_accepts_generated_revision_identifiers() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+        ],
+        source_revision="visible-cards-visible_cards-run-5bd52a7b-3ba-attempt-1",
+    )
+
+    run = calibrate_recording(result)
+
+    assert run.status == "published"
+
+
 def test_calibration_tolerates_one_held_out_crop_quality_region() -> None:
     result = _recording_result(
         positions=[

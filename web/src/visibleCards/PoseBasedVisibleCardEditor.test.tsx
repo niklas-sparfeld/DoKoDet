@@ -111,6 +111,13 @@ describe("PoseBasedVisibleCardEditor", () => {
     expect(
       screen.getByRole("list", { name: "Pose review checklist" }),
     ).toHaveTextContent("Check calibration coverage and rejected candidates");
+    expect(screen.getByText("How to review and refine")).toBeInTheDocument();
+    expect(
+      screen.getByText(/complete, visible, non-occluded cards/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Apply creates a new immutable revision/),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Add standard-size card" }),
     );

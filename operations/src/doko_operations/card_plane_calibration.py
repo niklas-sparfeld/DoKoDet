@@ -74,7 +74,7 @@ def _text(value: Any, field: str) -> str:
 def _identifier(value: Any, field: str) -> str:
     result = _text(value, field)
     if len(result) > 128 or any(
-        character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-:/"
+        character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-:/"
         for character in result
     ):
         raise CardPlaneCalibrationError(f"{field} must be a safe identifier")

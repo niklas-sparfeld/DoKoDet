@@ -6,6 +6,7 @@ import numpy as np
 from table_evidence_analyzer.pipeline_data import VisibleCardData
 
 from doko_operations.card_plane_geometry import project_fixed_card
+from doko_operations.card_plane_initialization import PoseFitRecipe
 from doko_operations.proposed_card_scene_processor import (
     build_proposed_card_scenes,
     visible_card_data_to_local_result,
@@ -110,6 +111,50 @@ def test_unresolvable_source_frame_is_explicitly_unsupported() -> None:
     assert frame.status == "unsupported"
     assert frame.proposal is None
     assert frame.source_frame_digest is None
+
+
+def test_generated_revision_and_candidate_identifiers_with_underscores_are_supported() -> None:
+    result = _local_result()
+    result["source_revision"] = "visible-cards_visible_cards-run-0073-attempt-1"
+    result["frames"][0]["predictions"][0]["candidate_id"] = (
+        "visible_cards-run-0073-event-000000-card-0000"
+    )
+
+    proposal = build_proposed_card_scenes(
+        result,
+        detector_revision_id="visible-cards_visible_cards-run-0073-attempt-1",
+        detector_revision_digest=DIGEST,
+    )
+
+    assert proposal.status == "complete"
+    assert proposal.data is not None
+    assert proposal.data.frames[0].status == "supported"
+
+
+def test_changed_initializer_recipe_publishes_changed_proposal_with_same_lineage() -> None:
+    baseline = build_proposed_card_scenes(
+        _local_result(),
+        detector_revision_id="visible-cards-001",
+        detector_revision_digest=DIGEST,
+    )
+    changed = build_proposed_card_scenes(
+        _local_result(),
+        detector_revision_id="visible-cards-001",
+        detector_revision_digest=DIGEST,
+        pose_recipe=PoseFitRecipe(center_search_radius=0.30),
+    )
+
+    assert baseline.data is not None
+    assert changed.data is not None
+    assert baseline.data.detector_revision_id == changed.data.detector_revision_id
+    assert baseline.data.detector_revision_digest == changed.data.detector_revision_digest
+    assert baseline.data.data_digest != changed.data.data_digest
+    assert baseline.data.frames[0].proposal is not None
+    assert changed.data.frames[0].proposal is not None
+    assert (
+        baseline.data.frames[0].proposal.proposal_digest
+        != changed.data.frames[0].proposal.proposal_digest
+    )
 
 
 def test_visible_card_revision_conversion_preserves_frame_and_detector_lineage() -> None:

@@ -5,7 +5,11 @@
 - **Summary:** Create proposed card scenes from a selected local visible-card result, review cards
   in a source or rectified table view, and refine the recording-wide table-plane calibration with
   explicit operator-confirmed anchors.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M7 are complete. The retained cascade review path, stable-camera regression path,
+  immutable lineage checks, calibration refinement coverage, and in-product operator guidance pass
+  the scoped local verification.
 - **Depends on:** Completed 0048 pipeline data and execution, completed 0049 recording pipeline
   review, completed 0072 pose-based visible-card review, and the selectable cascade provider from
   0071 M6
@@ -27,7 +31,9 @@
   commands, and inspect recording-wide preview impact with fit gates and candidate overlays.
 - **M6:** Complete — apply an immutable calibration revision and reflow the maintained draft with
   reviewed-item tolerance gates, receipts, and retry-safe reference commands.
-- **M7:** Not started — verify the complete real-result review loop and operator guidance.
+- **M7:** Complete — verify the retained real cascade review loop, stable-camera regression path,
+  preserved proposal and homography lineage, explicit unsupported and rejection diagnostics,
+  calibration refinement coverage, and in-product operator guidance.
 
 ## 1. Problem
 
@@ -538,6 +544,35 @@ Acceptance:
 - unsupported recording or frame conditions fail explicitly; and
 - backend, web, contract, persistence, accessibility, type, lint, formatting, build, and focused
   browser checks pass.
+
+#### M7 implementation evidence — 2026-09-21
+
+- Ran the retained `local-rfdetr-cascade-0070` result for recording
+  `game-2026-09-18-01-001` through the proposal service without fixture injection or manual JSON
+  changes. The 57-frame run published calibration `calibration-2122a8f9936e2e9a7d63e7e5` and
+  proposal revision `card-scene-proposals-m7-real-cascade-proposal-attempt-1` in a temporary
+  operations root. It completed in 89,884.658 ms with 55 supported and 2 explicit unsupported
+  frames.
+- Recorded the real calibration gates, candidate accounting, frame-boundary and overlap rejection
+  reasons, source-frame digests, homography digest, initializer diagnostics, and proposal lineage
+  in [the M7 verification report](../../reports/0073-M7_Production_Review_Loop_Verification.md).
+- Added a changed-recipe replay check. The changed proposal keeps the detector revision and digest
+  but receives a new immutable proposal digest, so later processor recipes can be compared without
+  replacing the original artifact. Calibration-failure tests retain explicit codes and recovery
+  actions for inconsistent geometry, insufficient diversity, dimension changes, and transform
+  changes.
+- Covered distant, isolated, overlapping, clipped, rejected, manually adjusted, unusable, and
+  conflicting-anchor cases through the retained real result and deterministic local review and
+  refinement tests. The review fixture records 2 moves, 2 rotations, 2 reorder actions, 1 card
+  addition, 1 removal, and 1 unusable-frame decision; its completed dataset has 11 reviewed targets
+  with derived-region receipts.
+- Added a generated-revision identifier regression for underscores. This fixed the real cascade
+  path at both calibration and pose initialization boundaries.
+- Added accessible in-product guidance for Source/Rectified table views, Review cards/Refine
+  mapping modes, handles, anchor eligibility, preview, apply, discard, failure recovery, and
+  affected-frame confirmation.
+- Verification passed: 20 focused operations tests, 3 focused backend tests, the complete web
+  check (21 test files and 191 tests), changed-file Ruff checks, and `git diff --check`.
 
 ## 10. Verification strategy
 

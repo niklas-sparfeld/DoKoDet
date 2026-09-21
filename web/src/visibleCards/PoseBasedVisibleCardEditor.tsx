@@ -826,6 +826,35 @@ export function PoseBasedVisibleCardEditor({
           occluder is not explained by card poses.
         </li>
       </ol>
+      <details className={styles.poseEditorGuidance}>
+        <summary>How to review and refine</summary>
+        <ul>
+          <li>
+            Use Source to check the detector suggestion against the frame. Use
+            Rectified table to judge fixed-size card placement and stacking.
+          </li>
+          <li>
+            Review cards changes only this frame. Drag a card body or use the
+            keyboard to move it; use the handle to rotate it.
+          </li>
+          <li>
+            Refine mapping changes the recording-wide homography. Use a corner
+            handle, choose Diagonal, Card X, or Card Y, and press Escape to
+            cancel a gesture.
+          </li>
+          <li>
+            Use complete, visible, non-occluded cards as calibration anchors. Do
+            not promote clipped or rejected candidates to anchors.
+          </li>
+          <li>
+            Preview checks the calibration gates and lists affected frames.
+            Apply creates a new immutable revision; Discard removes this
+            preview. If a gate fails, correct or exclude the listed anchor and
+            retry. Use Apply and mark affected only when the review accepts the
+            displacement.
+          </li>
+        </ul>
+      </details>
 
       <div className={styles.poseEditorViews} data-active-view={activeView}>
         {activeView === "source" ? (
