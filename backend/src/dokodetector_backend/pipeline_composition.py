@@ -17,6 +17,9 @@ from dokodetector_backend.pipeline_store import (
     ProcessorRunStore,
 )
 from dokodetector_backend.pipeline_workspace_service import RecordingPipelineWorkspaceService
+from dokodetector_backend.proposed_card_scene_pipeline_service import (
+    ProposedCardScenePipelineService,
+)
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
@@ -36,6 +39,7 @@ class PipelineComposition:
     event_service: EventPipelineService
     comparison_service: PipelineComparisonService
     visible_card_service: VisibleCardPipelineService
+    proposed_card_scene_service: ProposedCardScenePipelineService
     visual_identity_service: VisualIdentityPipelineService
     observation_service: ObservationPipelineService
     workspace_service: RecordingPipelineWorkspaceService
@@ -47,6 +51,7 @@ class PipelineComposition:
         return (
             self.event_service,
             self.visible_card_service,
+            self.proposed_card_scene_service,
             self.visual_identity_service,
             self.observation_service,
         )
@@ -108,6 +113,12 @@ def build_pipeline_composition(
         run_store=run_store,
         selection_store=selection_store,
     )
+    proposed_card_scene_service = ProposedCardScenePipelineService(
+        settings,
+        revision_store=revision_store,
+        run_store=run_store,
+        selection_store=selection_store,
+    )
     visual_identity_service = VisualIdentityPipelineService(
         settings,
         recording_store,
@@ -143,6 +154,7 @@ def build_pipeline_composition(
         event_service=event_service,
         comparison_service=comparison_service,
         visible_card_service=visible_card_service,
+        proposed_card_scene_service=proposed_card_scene_service,
         visual_identity_service=visual_identity_service,
         observation_service=observation_service,
         workspace_service=workspace_service,
@@ -160,6 +172,7 @@ def install_pipeline_composition(state: Any, composition: PipelineComposition) -
     state.event_pipeline_service = composition.event_service
     state.pipeline_comparison_service = composition.comparison_service
     state.visible_card_pipeline_service = composition.visible_card_service
+    state.proposed_card_scene_pipeline_service = composition.proposed_card_scene_service
     state.visual_identity_pipeline_service = composition.visual_identity_service
     state.observation_pipeline_service = composition.observation_service
     state.pipeline_workspace_service = composition.workspace_service

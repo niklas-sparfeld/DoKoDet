@@ -29,6 +29,10 @@ from dokodetector_backend.pipeline_store import (
     PipelineSelectionConflict,
     PipelineStateError,
 )
+from dokodetector_backend.proposed_card_scene_pipeline_service import (
+    ProposedCardScenePipelineError,
+    ProposedCardScenePipelineInputError,
+)
 from dokodetector_backend.visible_card_pipeline_service import (
     VisibleCardPipelineError,
     VisibleCardPipelineInputError,
@@ -49,6 +53,9 @@ IDENTITY_CROP_BASE = (
     "/api/recordings/{recording_id}/pipeline/derived-views/identity-crops/{revision_id}/{item_id}"
 )
 OBSERVATION_BASE = "/api/recordings/{recording_id}/pipeline/observations"
+PROPOSED_CARD_SCENE_BASE = (
+    "/api/recordings/{recording_id}/pipeline/proposed-card-scenes"
+)
 
 
 class PipelineVisualIdentityOutcomeResponse(ContractModel):
@@ -186,6 +193,10 @@ def _visual_identity_service(request: Request) -> Any:
 
 def _observation_service(request: Request) -> Any:
     return request.app.state.observation_pipeline_service
+
+
+def _proposed_card_scene_service(request: Request) -> Any:
+    return request.app.state.proposed_card_scene_pipeline_service
 
 
 @router.post(BASE, status_code=202)
@@ -425,6 +436,94 @@ def get_visible_card_result(recording_id: str, run_id: str, request: Request) ->
     except PipelineNotFound as error:
         raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
     except VisibleCardPipelineError as error:
+        raise ContractError("pipeline_result_unavailable", str(error), status_code=409) from error
+    return {
+        **run_response(run),
+        "revisions": [revision.to_mapping() for revision in revisions],
+    }
+
+
+@router.post(PROPOSED_CARD_SCENE_BASE, status_code=202)
+@router.post(PROPOSED_CARD_SCENE_BASE + "/runs", status_code=202, include_in_schema=False)
+def start_proposed_card_scene_run(
+    recording_id: str, payload: dict[str, Any], request: Request
+) -> dict[str, Any]:
+    """Freeze one generated visible-card revision and queue proposal creation."""
+
+    validate_recording_id(recording_id)
+    try:
+        return run_response(
+            _proposed_card_scene_service(request).start_proposal(recording_id, payload)
+        )
+    except (ProposedCardScenePipelineInputError, PipelineConflict) as error:
+        raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
+    except PipelineNotFound as error:
+        raise ContractError("recording_not_found", str(error), status_code=404) from error
+    except ProposedCardScenePipelineError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.get(PROPOSED_CARD_SCENE_BASE)
+@router.get(PROPOSED_CARD_SCENE_BASE + "/runs", include_in_schema=False)
+def list_proposed_card_scene_runs(recording_id: str, request: Request) -> dict[str, Any]:
+    """List proposed-card-scene processor runs for one recording."""
+
+    validate_recording_id(recording_id)
+    try:
+        runs = _proposed_card_scene_service(request).list_runs(recording_id)
+    except ProposedCardScenePipelineError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+    return {"recording_id": recording_id, "runs": [run_response(run) for run in runs]}
+
+
+@router.get(PROPOSED_CARD_SCENE_BASE + "/{run_id}")
+@router.get(PROPOSED_CARD_SCENE_BASE + "/runs/{run_id}", include_in_schema=False)
+def get_proposed_card_scene_run(
+    recording_id: str, run_id: str, request: Request
+) -> dict[str, Any]:
+    """Return one proposed-card-scene run."""
+
+    try:
+        return run_response(_proposed_card_scene_service(request).get_run(recording_id, run_id))
+    except PipelineNotFound as error:
+        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
+    except ProposedCardScenePipelineError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.post(PROPOSED_CARD_SCENE_BASE + "/{run_id}/retry", status_code=202)
+@router.post(
+    PROPOSED_CARD_SCENE_BASE + "/runs/{run_id}/retry",
+    status_code=202,
+    include_in_schema=False,
+)
+def retry_proposed_card_scene_run(
+    recording_id: str, run_id: str, request: Request
+) -> dict[str, Any]:
+    """Retry one failed or partial proposal run."""
+
+    try:
+        return run_response(_proposed_card_scene_service(request).retry(recording_id, run_id))
+    except PipelineNotFound as error:
+        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
+    except (ProposedCardScenePipelineInputError, PipelineConflict, PipelineStateError) as error:
+        raise ContractError("invalid_pipeline_retry", str(error), status_code=422) from error
+    except ProposedCardScenePipelineError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+
+
+@router.get(PROPOSED_CARD_SCENE_BASE + "/{run_id}/result")
+@router.get(PROPOSED_CARD_SCENE_BASE + "/runs/{run_id}/result", include_in_schema=False)
+def get_proposed_card_scene_result(
+    recording_id: str, run_id: str, request: Request
+) -> dict[str, Any]:
+    """Return one completed or partial proposal result."""
+
+    try:
+        run, revisions = _proposed_card_scene_service(request).get_result(recording_id, run_id)
+    except PipelineNotFound as error:
+        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
+    except ProposedCardScenePipelineError as error:
         raise ContractError("pipeline_result_unavailable", str(error), status_code=409) from error
     return {
         **run_response(run),

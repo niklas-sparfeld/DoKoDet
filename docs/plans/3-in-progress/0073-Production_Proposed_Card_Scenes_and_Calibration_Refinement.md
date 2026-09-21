@@ -19,7 +19,7 @@
 
 - **M0:** Complete — proposal, anchor, calibration-preview, and draft-reflow contracts are frozen
   and covered by deterministic contract and pipeline-data tests.
-- **M1:** Not started — publish proposed card scenes from one selected local generated result.
+- **M1:** Complete — publish immutable proposed card scenes from one selected local cascade result.
 - **M2:** Not started — seed and validate a maintained reference from proposed card scenes.
 - **M3:** Not started — add proposal controls and the source/rectified editor toggle.
 - **M4:** Not started — add the card and calibration-anchor manipulation handles.
@@ -310,6 +310,23 @@ Acceptance:
 - rerunning identical inputs reuses or reproduces the same immutable outputs;
 - partial and failed results never turn unsupported frames into empty scenes; and
 - generated detector data remains unchanged.
+
+#### M1 implementation evidence — 2026-09-21
+
+- Added the strict `proposed-card-scene-data/v1` payload and `card_scene_proposals` revision type.
+  Each output retains detector and source-frame digests, calibration lineage, fit diagnostics, and
+  an explicit supported or unsupported frame result.
+- Added a resumable `visible-card-scene-proposal` processor. It accepts only generated local
+  RF-DETR cascade revisions, reuses the 0072 calibration and pose initialization code, publishes
+  immutable calibration revisions, and keeps detector content read-only.
+- Added backend create, list, status, retry, and result routes. Duplicate run requests reuse the
+  stored request and output, while retries use a new immutable proposal revision attempt.
+- Focused verification passed for 25 analyzer contract tests, 14 operations calibration,
+  initialization, and proposal tests, 2 backend proposal tests, the focused backend pipeline suite,
+  changed-file Ruff checks, and the full analyzer suite (217 passed, 3 skipped).
+- The full operations suite still has 23 unrelated artifact-dependent failures because retained
+  campaign and generated-data inputs are absent from this worktree. No M1-focused test depends on
+  those inputs.
 
 ### M2 — Seed maintained-reference review from proposals
 

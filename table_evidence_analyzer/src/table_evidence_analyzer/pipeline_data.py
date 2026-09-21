@@ -14,11 +14,13 @@ from .card_scene_contract import (
     CARD_SCENE_DRAFT_SCHEMA_VERSION,
     CardSceneContractError,
     CardSceneDraft,
+    ProposedCardScene,
 )
 from .cards import CARD_IDENTITIES
 from .table_observation import TableObservation, parse_observation_bytes
 
 VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
+PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION = "proposed-card-scene-data/v1"
 VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v1"
 TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 EXACT_EVENT_FRAME_SCHEMA_VERSION = "exact-event/v1"
@@ -1246,6 +1248,206 @@ class VisibleCardData:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class ProposedCardSceneFrame:
+    """One immutable proposal result for one source frame."""
+
+    frame_id: str
+    source_frame_digest: str | None
+    status: Literal["supported", "unsupported"]
+    proposal: ProposedCardScene | None
+    unsupported_reason: str | None
+
+    @classmethod
+    def from_mapping(
+        cls, raw: Mapping[str, Any], context: str = "proposed frame"
+    ) -> "ProposedCardSceneFrame":
+        data = _mapping(raw, context)
+        _strict(
+            data,
+            {"frame_id", "source_frame_digest", "status", "proposal", "unsupported_reason"},
+            context,
+        )
+        status = data["status"]
+        if status not in {"supported", "unsupported"}:
+            raise PipelineDataError(f"{context}.status is unsupported")
+        proposal_raw = data["proposal"]
+        proposal = (
+            None
+            if proposal_raw is None
+            else ProposedCardScene.from_mapping(
+                _mapping(proposal_raw, f"{context}.proposal"), f"{context}.proposal"
+            )
+        )
+        reason = data["unsupported_reason"]
+        if reason is not None:
+            reason = _text(reason, f"{context}.unsupported_reason")
+        if status == "supported":
+            if (
+                proposal is None
+                or proposal.status != "supported"
+                or reason is not None
+                or data["source_frame_digest"] is None
+                or proposal.source_frame_digest != data["source_frame_digest"]
+            ):
+                raise PipelineDataError(f"{context} has inconsistent supported proposal fields")
+        elif proposal is not None and proposal.status != "unsupported":
+            raise PipelineDataError(f"{context} has an inconsistent unsupported proposal")
+        if status == "unsupported" and reason is None:
+            raise PipelineDataError(f"{context}.unsupported_reason is required")
+        return cls(
+            frame_id=_identifier(data["frame_id"], f"{context}.frame_id"),
+            source_frame_digest=_optional_digest(
+                data["source_frame_digest"], f"{context}.source_frame_digest"
+            ),
+            status=status,
+            proposal=proposal,
+            unsupported_reason=reason,
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "frame_id": self.frame_id,
+            "source_frame_digest": self.source_frame_digest,
+            "status": self.status,
+            "proposal": None if self.proposal is None else self.proposal.to_mapping(),
+            "unsupported_reason": self.unsupported_reason,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ProposedCardSceneData:
+    """The immutable output of the proposed-card-scene processor."""
+
+    detector_revision_id: str
+    detector_revision_digest: str
+    calibration_revision_id: str
+    calibration_digest: str
+    calibration: dict[str, Any]
+    calibration_diagnostics: dict[str, Any]
+    frames: tuple[ProposedCardSceneFrame, ...]
+    data_digest: str
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        detector_revision_id: str,
+        detector_revision_digest: str,
+        calibration_revision_id: str,
+        calibration_digest: str,
+        calibration: Mapping[str, Any],
+        calibration_diagnostics: Mapping[str, Any],
+        frames: tuple[ProposedCardSceneFrame, ...] | list[ProposedCardSceneFrame],
+    ) -> "ProposedCardSceneData":
+        normalized_frames = tuple(frames)
+        if not normalized_frames:
+            raise PipelineDataError("proposed card scene data needs at least one frame")
+        if any(not isinstance(item, ProposedCardSceneFrame) for item in normalized_frames):
+            raise PipelineDataError("proposed card scene frames are invalid")
+        frame_ids = [item.frame_id for item in normalized_frames]
+        if len(frame_ids) != len(set(frame_ids)):
+            raise PipelineDataError("proposed card scene frames must have unique IDs")
+        calibration_mapping = _mapping(calibration, "proposed calibration")
+        diagnostics_mapping = _mapping(
+            calibration_diagnostics, "proposed calibration diagnostics"
+        )
+        if not calibration_mapping or not diagnostics_mapping:
+            raise PipelineDataError("proposed calibration values must not be empty")
+        _validate_json(calibration_mapping, "proposed calibration")
+        _validate_json(diagnostics_mapping, "proposed calibration diagnostics")
+        calibration_value = json.loads(canonical_json_bytes(calibration_mapping).decode("utf-8"))
+        diagnostics_value = json.loads(canonical_json_bytes(diagnostics_mapping).decode("utf-8"))
+        core = {
+            "schema_version": PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
+            "detector_revision_id": _identifier(detector_revision_id, "detector_revision_id"),
+            "detector_revision_digest": _digest(
+                detector_revision_digest, "detector_revision_digest"
+            ),
+            "calibration_revision_id": _identifier(
+                calibration_revision_id, "calibration_revision_id"
+            ),
+            "calibration_digest": _digest(calibration_digest, "calibration_digest"),
+            "calibration": calibration_value,
+            "calibration_diagnostics": diagnostics_value,
+            "frames": [item.to_mapping() for item in normalized_frames],
+        }
+        for item in normalized_frames:
+            proposal = item.proposal
+            if proposal is not None and (
+                proposal.source_frame_id != item.frame_id
+                or proposal.source_frame_digest != item.source_frame_digest
+                or proposal.detector_revision_id != core["detector_revision_id"]
+                or proposal.detector_revision_digest != core["detector_revision_digest"]
+                or proposal.calibration_revision_id != core["calibration_revision_id"]
+                or proposal.calibration_digest != core["calibration_digest"]
+            ):
+                raise PipelineDataError(
+                    "proposed card scene frame has inconsistent proposal lineage"
+                )
+        return cls(
+            detector_revision_id=core["detector_revision_id"],
+            detector_revision_digest=core["detector_revision_digest"],
+            calibration_revision_id=core["calibration_revision_id"],
+            calibration_digest=core["calibration_digest"],
+            calibration=calibration_value,
+            calibration_diagnostics=diagnostics_value,
+            frames=normalized_frames,
+            data_digest=sha256_bytes(canonical_json_bytes(core)),
+        )
+
+    @classmethod
+    def from_mapping(cls, raw: Mapping[str, Any]) -> "ProposedCardSceneData":
+        data = _mapping(raw, "proposed card scene data")
+        expected = {
+            "schema_version",
+            "detector_revision_id",
+            "detector_revision_digest",
+            "calibration_revision_id",
+            "calibration_digest",
+            "calibration",
+            "calibration_diagnostics",
+            "frames",
+            "data_digest",
+        }
+        _strict(data, expected, "proposed card scene data")
+        if data["schema_version"] != PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION:
+            raise PipelineDataError("proposed card scene data has an unsupported schema")
+        raw_frames = data["frames"]
+        if not isinstance(raw_frames, list):
+            raise PipelineDataError("proposed card scene data.frames must be a list")
+        result = cls.create(
+            detector_revision_id=data["detector_revision_id"],
+            detector_revision_digest=data["detector_revision_digest"],
+            calibration_revision_id=data["calibration_revision_id"],
+            calibration_digest=data["calibration_digest"],
+            calibration=_mapping(data["calibration"], "proposed calibration"),
+            calibration_diagnostics=_mapping(
+                data["calibration_diagnostics"], "proposed calibration diagnostics"
+            ),
+            frames=tuple(
+                ProposedCardSceneFrame.from_mapping(item, f"frames[{index}]")
+                for index, item in enumerate(raw_frames)
+            ),
+        )
+        if data["data_digest"] != result.data_digest:
+            raise PipelineDataError("proposed card scene data digest does not match its contents")
+        return result
+
+    def to_mapping(self) -> dict[str, Any]:
+        core = {
+            "schema_version": PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
+            "detector_revision_id": self.detector_revision_id,
+            "detector_revision_digest": self.detector_revision_digest,
+            "calibration_revision_id": self.calibration_revision_id,
+            "calibration_digest": self.calibration_digest,
+            "calibration": self.calibration,
+            "calibration_diagnostics": self.calibration_diagnostics,
+            "frames": [item.to_mapping() for item in self.frames],
+        }
+        return {**core, "data_digest": sha256_bytes(canonical_json_bytes(core))}
+
+
 def parse_visible_card_data_bytes(raw: bytes) -> VisibleCardData:
     if not isinstance(raw, bytes):
         raise TypeError("visible-card data must be bytes")
@@ -1271,6 +1473,38 @@ def parse_visible_card_data_bytes(raw: bytes) -> VisibleCardData:
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise PipelineDataError("visible-card data must be valid UTF-8 JSON") from error
     return VisibleCardData.from_mapping(_mapping(value, "visible-card data"))
+
+
+def parse_proposed_card_scene_data_bytes(raw: bytes) -> ProposedCardSceneData:
+    if not isinstance(raw, bytes):
+        raise TypeError("proposed card scene data must be bytes")
+
+    def reject_constant(value: str) -> None:
+        raise PipelineDataError(
+            "proposed card scene data contains a non-finite JSON number: " + value
+        )
+
+    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise PipelineDataError(
+                    "proposed card scene data contains a duplicate field: " + key
+                )
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(
+            raw.decode("utf-8"),
+            parse_constant=reject_constant,
+            object_pairs_hook=reject_duplicate_keys,
+        )
+    except PipelineDataError:
+        raise
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PipelineDataError("proposed card scene data must be valid UTF-8 JSON") from error
+    return ProposedCardSceneData.from_mapping(_mapping(value, "proposed card scene data"))
 
 
 def parse_visual_identity_data_bytes(raw: bytes) -> VisualIdentityData:
@@ -1336,6 +1570,17 @@ def canonical_visible_card_data_bytes(value: VisibleCardData | Mapping[str, Any]
     return canonical_json_bytes(data.to_mapping())
 
 
+def canonical_proposed_card_scene_data_bytes(
+    value: ProposedCardSceneData | Mapping[str, Any],
+) -> bytes:
+    data = (
+        value
+        if isinstance(value, ProposedCardSceneData)
+        else ProposedCardSceneData.from_mapping(value)
+    )
+    return canonical_json_bytes(data.to_mapping())
+
+
 def canonical_visual_identity_data_bytes(
     value: VisualIdentityData | Mapping[str, Any],
 ) -> bytes:
@@ -1366,10 +1611,13 @@ __all__ = [
     "PipelineGeometry",
     "TABLE_OBSERVATION_DATA_SCHEMA_VERSION",
     "VISIBLE_CARD_DATA_SCHEMA_VERSION",
+    "PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION",
     "VISUAL_IDENTITY_DATA_SCHEMA_VERSION",
     "VisibleCardCandidate",
     "VISIBLE_CARD_SIDES",
     "VisibleCardData",
+    "ProposedCardSceneData",
+    "ProposedCardSceneFrame",
     "VisibleCardFrameIdentity",
     "VisibleCardIgnoreRegion",
     "VisibleCardIgnoreSourceCandidate",
@@ -1387,10 +1635,12 @@ __all__ = [
     "TableObservationData",
     "canonical_json_bytes",
     "canonical_table_observation_data_bytes",
+    "canonical_proposed_card_scene_data_bytes",
     "canonical_visible_card_data_bytes",
     "canonical_visual_identity_data_bytes",
     "parse_pipeline_geometry",
     "parse_visible_card_data_bytes",
+    "parse_proposed_card_scene_data_bytes",
     "parse_visual_identity_data_bytes",
     "parse_table_observation_data_bytes",
     "sha256_bytes",

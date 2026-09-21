@@ -17,6 +17,10 @@ from datetime import datetime, timedelta
 from pathlib import PurePosixPath
 from typing import Any, TypeAlias
 
+from table_evidence_analyzer.pipeline_data import (
+    PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
+)
+
 DATA_REVISION_SCHEMA_VERSION = "data-revision/v1"
 EVENT_DATA_SCHEMA_VERSION = "event-data/v1"
 VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
@@ -40,7 +44,13 @@ _LEGACY_EVENT_TYPES = frozenset(
 )
 
 PIPELINE_CONTENT_TYPES = frozenset(
-    {"events", "visible_cards", "visual_identities", "table_observations"}
+    {
+        "events",
+        "visible_cards",
+        "visual_identities",
+        "table_observations",
+        "card_scene_proposals",
+    }
 )
 PIPELINE_ORIGINS = frozenset({"processor", "manual", "corrected"})
 PIPELINE_RUN_STATES = frozenset({"queued", "running", "complete", "partial", "failed"})
@@ -688,6 +698,7 @@ class DataRevision:
             "visible_cards": VISIBLE_CARD_DATA_SCHEMA_VERSION,
             "visual_identities": VISUAL_IDENTITY_DATA_SCHEMA_VERSION,
             "table_observations": TABLE_OBSERVATION_DATA_SCHEMA_VERSION,
+            "card_scene_proposals": PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
         }.get(content_type)
         if supported_schema is None or content_schema != supported_schema:
             raise PipelineDataContractError("content_type and content_schema do not match")

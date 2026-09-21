@@ -39,9 +39,9 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
 
     assert modules == {
         "dokodetector_backend.pipeline_workspace_api": 1,
-        "dokodetector_backend.pipeline_stage_api": 31,
+        "dokodetector_backend.pipeline_stage_api": 36,
         "dokodetector_backend.pipeline_comparison_api": 1,
-        "dokodetector_backend.pipeline_reference_api": 4,
+        "dokodetector_backend.pipeline_reference_api": 6,
     }
     assert len(pipeline_router.routes) == len(child_routers)
 
@@ -56,6 +56,7 @@ def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Pat
         services = (
             app.state.event_pipeline_service,
             app.state.visible_card_pipeline_service,
+            app.state.proposed_card_scene_pipeline_service,
             app.state.visual_identity_pipeline_service,
             app.state.observation_pipeline_service,
         )
