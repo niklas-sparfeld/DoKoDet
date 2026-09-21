@@ -35,6 +35,8 @@ PIPELINE_REFERENCE_OPERATIONS = frozenset(
     {
         "accept",
         "reject",
+        "accept_card",
+        "reject_card",
         "add",
         "correct",
         "decide",
@@ -271,23 +273,25 @@ class PipelineReferenceDraft:
     coverage: dict[str, Any] | None
     impact: tuple[dict[str, Any], ...]
     updated_at: str
+    proposal_revision_id: str | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> PipelineReferenceDraft:
         data = _mapping(raw, "pipeline reference draft")
+        expected = {
+            "schema_version",
+            "recording_id",
+            "content_type",
+            "revision",
+            "source_revision_id",
+            "items",
+            "coverage",
+            "impact",
+            "updated_at",
+        }
         _strict(
             data,
-            {
-                "schema_version",
-                "recording_id",
-                "content_type",
-                "revision",
-                "source_revision_id",
-                "items",
-                "coverage",
-                "impact",
-                "updated_at",
-            },
+            expected | ({"proposal_revision_id"} if "proposal_revision_id" in data else set()),
             "pipeline reference draft",
         )
         if data["schema_version"] != PIPELINE_REFERENCE_DRAFT_SCHEMA_VERSION:
@@ -367,10 +371,15 @@ class PipelineReferenceDraft:
             coverage=coverage,
             impact=tuple(impact),
             updated_at=_utc_timestamp(data["updated_at"], "updated_at"),
+            proposal_revision_id=(
+                None
+                if data.get("proposal_revision_id") is None
+                else _identifier(data["proposal_revision_id"], "proposal_revision_id")
+            ),
         )
 
     def to_mapping(self) -> dict[str, Any]:
-        return {
+        value = {
             "schema_version": PIPELINE_REFERENCE_DRAFT_SCHEMA_VERSION,
             "recording_id": self.recording_id,
             "content_type": self.content_type,
@@ -381,6 +390,9 @@ class PipelineReferenceDraft:
             "impact": list(self.impact),
             "updated_at": self.updated_at,
         }
+        if self.proposal_revision_id is not None:
+            value["proposal_revision_id"] = self.proposal_revision_id
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -452,6 +464,7 @@ class PipelineReferenceOperation:
 
     operation: str
     item_id: str | None = None
+    card_id: str | None = None
     item: dict[str, Any] | None = None
     decision: str | None = None
     identity: str | None = None
@@ -482,6 +495,13 @@ class PipelineReferenceOperation:
                 _validate_json(item_value, f"{context}.item")
                 item = json.loads(canonical_json_bytes(item_value).decode("utf-8"))
             return cls(operation=operation, item_id=item_id, item=item)
+        if operation in {"accept_card", "reject_card"}:
+            _strict(data, {"operation", "item_id", "card_id"}, context)
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                card_id=_identifier(data["card_id"], f"{context}.card_id"),
+            )
         if operation in {
             "accept_frame_suggestions",
             "set_frame_unreviewed",

@@ -9,6 +9,7 @@ from typing import Any
 
 from doko_operations.card_plane_geometry import (
     CardPlaneGeometryError,
+    CardStackingOrder,
     ReviewedCardScene,
     derive_pose_scene_visible_regions,
     validate_pose_scene_candidate_view,
@@ -26,6 +27,12 @@ from doko_operations.pipeline_reference import (
     ReferenceDraftItem,
 )
 from doko_operations.visible_card_ignore import geometry_is_within
+from table_evidence_analyzer.card_scene_contract import (
+    CardReviewState,
+    CardSceneDraft,
+    FrameReviewCompletion,
+    ReviewedCardSceneRecord,
+)
 from table_evidence_analyzer.pipeline_data import (
     PipelineDataError,
     VisibleCardData,
@@ -561,6 +568,240 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
     def _canonical_content_bytes(self, content: Mapping[str, Any]) -> bytes:
         return canonical_visible_card_data_bytes(VisibleCardData.from_mapping(content))
 
+    @staticmethod
+    def _typed_scene_draft(item: Mapping[str, Any]) -> CardSceneDraft | None:
+        raw_scene = item.get("card_scene")
+        if not isinstance(raw_scene, Mapping):
+            return None
+        if raw_scene.get("schema_version") != "card-scene-draft/v1":
+            return None
+        try:
+            return CardSceneDraft.from_mapping(raw_scene, "visible-card.card_scene")
+        except (CardPlaneGeometryError, PipelineDataError, TypeError, ValueError) as error:
+            raise PipelineReferenceInputError("visible-card card_scene draft is invalid") from error
+
+    @staticmethod
+    def _reviewed_scene_for(
+        draft: CardSceneDraft, resolved_card_ids: set[str]
+    ) -> ReviewedCardScene | None:
+        if not resolved_card_ids:
+            return None
+        if draft.proposal.initialized_scene is None:
+            raise PipelineReferenceInputError("unsupported proposal has no reviewed scene")
+        initial = ReviewedCardScene.from_mapping(draft.proposal.initialized_scene)
+        poses = tuple(pose for pose in initial.poses if pose.card_id in resolved_card_ids)
+        if not poses:
+            raise PipelineReferenceInputError("reviewed card decision references no proposal pose")
+        pose_ids = {pose.card_id for pose in poses}
+        order = tuple(card_id for card_id in initial.stacking_order.card_ids if card_id in pose_ids)
+        return ReviewedCardScene.create(
+            source_frame_id=initial.source_frame_id,
+            source_frame_width=initial.source_frame_width,
+            source_frame_height=initial.source_frame_height,
+            calibration_revision_id=initial.calibration_revision_id,
+            calibration_digest=initial.calibration_digest,
+            poses=poses,
+            stacking_order=CardStackingOrder(
+                card_ids=order,
+                uncertain_edges=tuple(
+                    edge
+                    for edge in initial.stacking_order.uncertain_edges
+                    if edge[0] in pose_ids and edge[1] in pose_ids
+                ),
+                contradictions=initial.stacking_order.contradictions,
+            ),
+        )
+
+    @classmethod
+    def _derive_typed_pose_scene_item(
+        cls, item: Mapping[str, Any], draft: CardSceneDraft
+    ) -> dict[str, Any]:
+        updated = dict(item)
+        if draft.reviewed is None:
+            updated["candidates"] = []
+            updated["card_scene"] = draft.to_mapping()
+            return updated
+        if draft.projection is None:
+            raise PipelineReferenceInputError(
+                "proposal-backed card_scene needs its immutable projection"
+            )
+        try:
+            selected_scene = ReviewedCardScene.from_mapping(draft.reviewed.scene)
+            frame = item.get("frame_identity")
+            if isinstance(frame, Mapping) and (
+                selected_scene.source_frame_width != frame.get("width")
+                or selected_scene.source_frame_height != frame.get("height")
+            ):
+                raise CardPlaneGeometryError(
+                    "reviewed card scene dimensions do not match the exact source frame"
+                )
+            derivation = derive_pose_scene_visible_regions(selected_scene, draft.projection)
+        except (CardPlaneGeometryError, TypeError, ValueError) as error:
+            raise PipelineReferenceInputError("visible-card card_scene is invalid") from error
+        previous_candidates = item.get("candidates", [])
+        if not isinstance(previous_candidates, list):
+            raise PipelineReferenceInputError("visible-card candidates must be a list")
+        by_id = {
+            candidate.get("card_id"): candidate
+            for candidate in previous_candidates
+            if isinstance(candidate, Mapping) and isinstance(candidate.get("card_id"), str)
+        }
+        candidates: list[dict[str, Any]] = []
+        for region in derivation.regions:
+            previous = by_id.get(region["card_id"])
+            candidate = {
+                "card_id": region["card_id"],
+                "geometry": region["geometry"],
+                "normalization": region["normalization"],
+                "side": (
+                    previous.get("side", "unknown") if isinstance(previous, Mapping) else "unknown"
+                ),
+            }
+            if isinstance(previous, Mapping) and previous.get("model_scores") is not None:
+                candidate["model_scores"] = previous["model_scores"]
+            candidates.append(candidate)
+        updated["candidates"] = candidates
+        updated["card_scene"] = CardSceneDraft.create(
+            proposal=draft.proposal,
+            reviewed=draft.reviewed,
+            card_states=draft.card_states,
+            completion=draft.completion,
+            draft_revision=draft.draft_revision,
+            proposal_revision_id=draft.proposal_revision_id,
+            proposal_data_digest=draft.proposal_data_digest,
+            projection=draft.projection,
+            derived_region_receipt=derivation.receipt.to_mapping(),
+        ).to_mapping()
+        return updated
+
+    @classmethod
+    def _apply_typed_card_decision(
+        cls,
+        existing: ReferenceDraftItem,
+        card_id: str,
+        state: str,
+    ) -> ReferenceDraftItem:
+        draft = cls._typed_scene_draft(existing.item)
+        if draft is None:
+            raise PipelineReferenceInputError(
+                "card-level decisions require a proposal-backed card scene"
+            )
+        if draft.proposal.status != "supported" or card_id not in draft.proposal.card_ids:
+            raise PipelineReferenceInputError(f"card was not found in the proposal: {card_id}")
+        states = tuple(
+            CardReviewState.create(
+                card_id=item.card_id,
+                source=item.source,
+                proposal_id=item.proposal_id,
+                state=state if item.card_id == card_id else item.state,
+            )
+            for item in draft.card_states
+        )
+        pending = tuple(item.card_id for item in states if item.state == "pending")
+        resolved_ids = {item.card_id for item in states if item.state in {"accepted", "adjusted"}}
+        reviewed_scene = cls._reviewed_scene_for(draft, resolved_ids)
+        reviewed = (
+            None
+            if reviewed_scene is None
+            else ReviewedCardSceneRecord.create(
+                proposal_id=draft.proposal.proposal_id,
+                scene=reviewed_scene.to_mapping(),
+                decision="accepted" if state == "accepted" else "adjusted",
+            )
+        )
+        updated_draft = CardSceneDraft.create(
+            proposal=draft.proposal,
+            reviewed=reviewed,
+            card_states=states,
+            completion=FrameReviewCompletion.create(
+                state="pending" if pending else "complete",
+                unresolved_card_ids=pending,
+            ),
+            draft_revision=draft.draft_revision + 1,
+            proposal_revision_id=draft.proposal_revision_id,
+            proposal_data_digest=draft.proposal_data_digest,
+            projection=draft.projection,
+        )
+        updated_item = dict(existing.item)
+        updated_item["card_scene"] = updated_draft.to_mapping()
+        updated_item["candidates"] = []
+        updated_item = cls._derive_typed_pose_scene_item(updated_item, updated_draft)
+        return replace(
+            existing,
+            review_state="accepted" if not pending else "pending",
+            item=updated_item,
+        )
+
+    @classmethod
+    def _typed_review_item(
+        cls, existing: ReferenceDraftItem, item: Mapping[str, Any]
+    ) -> ReferenceDraftItem:
+        existing_draft = cls._typed_scene_draft(existing.item)
+        if existing_draft is None:
+            raise PipelineReferenceInputError("the current item has no proposal-backed scene")
+        draft = cls._typed_scene_draft(item)
+        if draft is None:
+            parts = cls._pose_scene_parts(item)
+            if parts is None:
+                raise PipelineReferenceInputError(
+                    "corrected proposal scenes need a reviewed scene and projection"
+                )
+            scene, projection = parts
+            try:
+                reviewed_scene = ReviewedCardScene.from_mapping(scene)
+            except (CardPlaneGeometryError, TypeError, ValueError) as error:
+                raise PipelineReferenceInputError("corrected proposal scene is invalid") from error
+            if (
+                reviewed_scene.source_frame_id != existing_draft.proposal.source_frame_id
+                or reviewed_scene.calibration_revision_id
+                != existing_draft.proposal.calibration_revision_id
+                or reviewed_scene.calibration_digest != existing_draft.proposal.calibration_digest
+            ):
+                raise PipelineReferenceInputError(
+                    "corrected proposal scene changes immutable frame or calibration lineage"
+                )
+            reviewed_ids = set(reviewed_scene.card_ids)
+            if not reviewed_ids.issubset(existing_draft.proposal.card_ids):
+                raise PipelineReferenceInputError(
+                    "corrected proposal scene contains an unknown card"
+                )
+            draft = CardSceneDraft.create(
+                proposal=existing_draft.proposal,
+                reviewed=ReviewedCardSceneRecord.create(
+                    proposal_id=existing_draft.proposal.proposal_id,
+                    scene=reviewed_scene.to_mapping(),
+                    decision="adjusted",
+                ),
+                card_states=tuple(
+                    CardReviewState.create(
+                        card_id=card_id,
+                        source="proposal",
+                        proposal_id=existing_draft.proposal.proposal_id,
+                        state="adjusted" if card_id in reviewed_ids else "rejected",
+                    )
+                    for card_id in existing_draft.proposal.card_ids
+                ),
+                completion=FrameReviewCompletion.create(
+                    state="complete",
+                    unresolved_card_ids=(),
+                ),
+                draft_revision=existing_draft.draft_revision + 1,
+                proposal_revision_id=existing_draft.proposal_revision_id,
+                proposal_data_digest=existing_draft.proposal_data_digest,
+                projection=projection,
+            )
+        elif draft.proposal.proposal_digest != existing_draft.proposal.proposal_digest:
+            raise PipelineReferenceInputError(
+                "corrected proposal scene cannot replace the immutable proposal"
+            )
+        reviewed_item = cls._derive_typed_pose_scene_item(item, draft)
+        return ReferenceDraftItem(
+            item_id=cls.item_id(reviewed_item),
+            base_item_id=existing.item_id,
+            review_state="corrected",
+            item=reviewed_item,
+        )
+
     def rebase_items(
         self,
         recording_id: str,
@@ -607,6 +848,41 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         operation: PipelineReferenceOperation,
         source_revision_id: str | None,
     ) -> list[ReferenceDraftItem] | None:
+        if operation.operation in {"accept_card", "reject_card"}:
+            assert operation.item_id is not None and operation.card_id is not None
+            index = self.find_item(items, operation.item_id)
+            if index is None:
+                raise PipelineReferenceInputError(f"item was not found: {operation.item_id}")
+            return items[:index] + [
+                self._apply_typed_card_decision(
+                    items[index],
+                    operation.card_id,
+                    "accepted" if operation.operation == "accept_card" else "rejected",
+                )
+            ] + items[index + 1 :]
+
+        if operation.operation in {"accept", "reject"}:
+            assert operation.item_id is not None
+            index = self.find_item(items, operation.item_id)
+            if index is not None and self._typed_scene_draft(items[index].item) is not None:
+                draft = self._typed_scene_draft(items[index].item)
+                assert draft is not None
+                target_state = "accepted" if operation.operation == "accept" else "rejected"
+                updated = items[index]
+                for card_id in draft.proposal.card_ids:
+                    updated = self._apply_typed_card_decision(updated, card_id, target_state)
+                if operation.operation == "reject":
+                    updated = self._replace(updated, review_state="rejected")
+                return items[:index] + [updated] + items[index + 1 :]
+
+        if operation.operation == "correct":
+            assert operation.item_id is not None and operation.item is not None
+            index = self.find_item(items, operation.item_id)
+            if index is not None and self._typed_scene_draft(items[index].item) is not None:
+                return items[:index] + [
+                    self._typed_review_item(items[index], operation.item)
+                ] + items[index + 1 :]
+
         if operation.operation in {
             "create_ignore_region",
             "replace_ignore_region",
@@ -643,6 +919,44 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 raise PipelineReferenceInputError(
                     "restore_frame_suggestions cannot change the source item"
                 )
+            typed = self._typed_scene_draft(existing.item)
+            if typed is not None:
+                reset = CardSceneDraft.create(
+                    proposal=typed.proposal,
+                    reviewed=None,
+                    card_states=tuple(
+                        CardReviewState.create(
+                            card_id=card_id,
+                            source="proposal",
+                            proposal_id=typed.proposal.proposal_id,
+                            state="pending",
+                        )
+                        for card_id in typed.proposal.card_ids
+                    ),
+                    completion=FrameReviewCompletion.create(
+                        state="pending",
+                        unresolved_card_ids=typed.proposal.card_ids,
+                    ),
+                    draft_revision=typed.draft_revision + 1,
+                    proposal_revision_id=typed.proposal_revision_id,
+                    proposal_data_digest=typed.proposal_data_digest,
+                    projection=typed.projection,
+                )
+                replacement = dict(operation.item)
+                replacement["candidates"] = []
+                replacement["card_scene"] = reset.to_mapping()
+                return (
+                    items[:index]
+                    + [
+                        self._replace(
+                            existing,
+                            base_item_id=None,
+                            review_state="pending",
+                            item=replacement,
+                        )
+                    ]
+                    + items[index + 1 :]
+                )
             return (
                 items[:index]
                 + [
@@ -668,6 +982,16 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 raise PipelineReferenceInputError(
                     "set_frame_review cannot change the resolved frame identity"
                 )
+            typed = self._typed_scene_draft(operation.item)
+            existing_typed = self._typed_scene_draft(existing.item)
+            if typed is not None or existing_typed is not None:
+                if typed is None or existing_typed is None:
+                    return items[:index] + [
+                        self._typed_review_item(existing, operation.item)
+                    ] + items[index + 1 :]
+                return items[:index] + [
+                    self._typed_review_item(existing, operation.item)
+                ] + items[index + 1 :]
             reviewed_item = self._derive_pose_scene_item(operation.item)
             updated = ReferenceDraftItem(
                 item_id=self.item_id(reviewed_item),
@@ -679,6 +1003,12 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 raise PipelineReferenceInputError("set_frame_review cannot change the source item")
             return items[:index] + [updated] + items[index + 1 :]
         if operation.operation == "accept_frame_suggestions":
+            typed = self._typed_scene_draft(existing.item)
+            if typed is not None:
+                updated = existing
+                for card_id in typed.proposal.card_ids:
+                    updated = self._apply_typed_card_decision(updated, card_id, "accepted")
+                return items[:index] + [updated] + items[index + 1 :]
             if existing.item.get("status") == "empty":
                 state = "empty"
             elif existing.item.get("status") == "failed":
@@ -691,6 +1021,44 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if operation.operation == "set_frame_unreviewed":
             if existing.item.get("status") != "detected":
                 raise PipelineReferenceInputError("set_frame_unreviewed requires a detected frame")
+            typed = self._typed_scene_draft(existing.item)
+            if typed is not None:
+                reset = CardSceneDraft.create(
+                    proposal=typed.proposal,
+                    reviewed=None,
+                    card_states=tuple(
+                        CardReviewState.create(
+                            card_id=card_id,
+                            source="proposal",
+                            proposal_id=typed.proposal.proposal_id,
+                            state="pending",
+                        )
+                        for card_id in typed.proposal.card_ids
+                    ),
+                    completion=FrameReviewCompletion.create(
+                        state="pending",
+                        unresolved_card_ids=typed.proposal.card_ids,
+                    ),
+                    draft_revision=typed.draft_revision + 1,
+                    proposal_revision_id=typed.proposal_revision_id,
+                    proposal_data_digest=typed.proposal_data_digest,
+                    projection=typed.projection,
+                )
+                replacement = dict(existing.item)
+                replacement["candidates"] = []
+                replacement["card_scene"] = reset.to_mapping()
+                return (
+                    items[:index]
+                    + [
+                        self._replace(
+                            existing,
+                            base_item_id=None,
+                            review_state="pending",
+                            item=replacement,
+                        )
+                    ]
+                    + items[index + 1 :]
+                )
             return (
                 items[:index]
                 + [self._replace(existing, base_item_id=None, review_state="pending")]
@@ -699,7 +1067,32 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         replacement = dict(existing.item)
         replacement["candidates"] = []
         replacement["ignored_regions"] = []
-        replacement.pop("card_scene", None)
+        typed = self._typed_scene_draft(existing.item)
+        if typed is None:
+            replacement.pop("card_scene", None)
+        else:
+            replacement["card_scene"] = CardSceneDraft.create(
+                proposal=typed.proposal,
+                reviewed=None,
+                card_states=tuple(
+                    CardReviewState.create(
+                        card_id=item.card_id,
+                        source=item.source,
+                        proposal_id=item.proposal_id,
+                        state="pending",
+                    )
+                    for item in typed.card_states
+                ),
+                completion=FrameReviewCompletion.create(
+                    state="unusable",
+                    unresolved_card_ids=tuple(item.card_id for item in typed.card_states),
+                    reason="The operator marked this frame unusable.",
+                ),
+                draft_revision=typed.draft_revision + 1,
+                proposal_revision_id=typed.proposal_revision_id,
+                proposal_data_digest=typed.proposal_data_digest,
+                projection=typed.projection,
+            ).to_mapping()
         if operation.operation == "set_frame_empty":
             replacement.update(status="empty", error=None)
             state = "empty"
@@ -1031,6 +1424,14 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         for item in (previous.item, corrected.item):
             raw_envelope = item.get("card_scene")
             raw_scene = raw_envelope.get("scene") if isinstance(raw_envelope, Mapping) else None
+            if (
+                isinstance(raw_envelope, Mapping)
+                and raw_envelope.get("schema_version") == "card-scene-draft/v1"
+            ):
+                typed = self._typed_scene_draft(item)
+                raw_scene = (
+                    None if typed is None or typed.reviewed is None else typed.reviewed.scene
+                )
             if not isinstance(raw_scene, Mapping):
                 continue
             calibration_revision = raw_scene.get("calibration_revision_id")
@@ -1086,6 +1487,9 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
 
     @classmethod
     def _derive_pose_scene_item(cls, item: Mapping[str, Any]) -> dict[str, Any]:
+        typed = cls._typed_scene_draft(item)
+        if typed is not None:
+            return cls._derive_typed_pose_scene_item(item, typed)
         parts = cls._pose_scene_parts(item)
         if parts is None:
             return dict(item)
@@ -1134,6 +1538,34 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
 
     @classmethod
     def _validate_pose_scene_item(cls, item: Mapping[str, Any]) -> None:
+        typed = cls._typed_scene_draft(item)
+        if typed is not None:
+            if typed.reviewed is None:
+                if item.get("candidates"):
+                    raise CardPlaneGeometryError(
+                        "pending proposal scene cannot have derived candidates"
+                    )
+                return
+            if typed.projection is None:
+                raise CardPlaneGeometryError(
+                    "proposal-backed card_scene needs its immutable projection"
+                )
+            selected_scene = ReviewedCardScene.from_mapping(typed.reviewed.scene)
+            frame = item.get("frame_identity")
+            if isinstance(frame, Mapping) and (
+                selected_scene.source_frame_width != frame.get("width")
+                or selected_scene.source_frame_height != frame.get("height")
+            ):
+                raise CardPlaneGeometryError(
+                    "reviewed card scene dimensions do not match the exact source frame"
+                )
+            validate_pose_scene_candidate_view(
+                selected_scene,
+                typed.projection,
+                item.get("candidates", []),
+                receipt=typed.derived_region_receipt,
+            )
+            return
         parts = cls._pose_scene_parts(item)
         if parts is None:
             return

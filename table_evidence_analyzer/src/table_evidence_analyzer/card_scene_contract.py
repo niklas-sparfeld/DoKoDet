@@ -635,6 +635,10 @@ class CardSceneDraft:
     completion: FrameReviewCompletion
     draft_revision: int
     draft_digest: str
+    proposal_revision_id: str | None = None
+    proposal_data_digest: str | None = None
+    projection: dict[str, Any] | None = None
+    derived_region_receipt: dict[str, Any] | None = None
 
     @classmethod
     def create(
@@ -645,6 +649,10 @@ class CardSceneDraft:
         card_states: Sequence[CardReviewState],
         completion: FrameReviewCompletion,
         draft_revision: int = 0,
+        proposal_revision_id: str | None = None,
+        proposal_data_digest: str | None = None,
+        projection: Mapping[str, Any] | None = None,
+        derived_region_receipt: Mapping[str, Any] | None = None,
     ) -> "CardSceneDraft":
         if draft_revision < 0:
             raise CardSceneContractError("draft_revision must be non-negative")
@@ -685,8 +693,26 @@ class CardSceneDraft:
                 raise CardSceneContractError(
                     "reviewed scene must contain accepted or adjusted cards only"
                 )
-        if completion.state == "complete" and (reviewed is None or not resolved_ids):
+        if completion.state == "complete" and resolved_ids and reviewed is None:
             raise CardSceneContractError("complete frame needs a non-empty reviewed scene")
+        normalized_projection = (
+            None if projection is None else _json_object(projection, "card_scene.projection")
+        )
+        normalized_receipt = (
+            None
+            if derived_region_receipt is None
+            else _json_object(derived_region_receipt, "card_scene.derived_region_receipt")
+        )
+        normalized_proposal_revision_id = (
+            None
+            if proposal_revision_id is None
+            else _identifier(proposal_revision_id, "card_scene.proposal_revision_id")
+        )
+        normalized_proposal_data_digest = (
+            None
+            if proposal_data_digest is None
+            else _digest_value(proposal_data_digest, "card_scene.proposal_data_digest")
+        )
         core = {
             "schema_version": CARD_SCENE_DRAFT_SCHEMA_VERSION,
             "proposal": proposal.to_mapping(),
@@ -694,6 +720,10 @@ class CardSceneDraft:
             "card_states": [item.to_mapping() for item in states],
             "completion": completion.to_mapping(),
             "draft_revision": draft_revision,
+            "proposal_revision_id": normalized_proposal_revision_id,
+            "proposal_data_digest": normalized_proposal_data_digest,
+            "projection": normalized_projection,
+            "derived_region_receipt": normalized_receipt,
         }
         return cls(
             proposal=proposal,
@@ -702,6 +732,10 @@ class CardSceneDraft:
             completion=completion,
             draft_revision=draft_revision,
             draft_digest=_digest(core),
+            proposal_revision_id=normalized_proposal_revision_id,
+            proposal_data_digest=normalized_proposal_data_digest,
+            projection=normalized_projection,
+            derived_region_receipt=normalized_receipt,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -712,6 +746,10 @@ class CardSceneDraft:
             "card_states": [item.to_mapping() for item in self.card_states],
             "completion": self.completion.to_mapping(),
             "draft_revision": self.draft_revision,
+            "proposal_revision_id": self.proposal_revision_id,
+            "proposal_data_digest": self.proposal_data_digest,
+            "projection": self.projection,
+            "derived_region_receipt": self.derived_region_receipt,
         }
         return {**core, "draft_digest": _digest(core)}
 
@@ -727,7 +765,15 @@ class CardSceneDraft:
             "draft_revision",
             "draft_digest",
         }
-        _strict(data, expected, context)
+        optional = {
+            field for field in (
+                "proposal_revision_id",
+                "proposal_data_digest",
+                "projection",
+                "derived_region_receipt",
+            ) if field in data
+        }
+        _strict(data, expected | optional, context)
         if data["schema_version"] != CARD_SCENE_DRAFT_SCHEMA_VERSION:
             raise CardSceneContractError(f"{context}.schema_version is unsupported")
         raw_states = data["card_states"]
@@ -752,6 +798,20 @@ class CardSceneDraft:
                 _mapping(data["completion"], f"{context}.completion"), f"{context}.completion"
             ),
             draft_revision=data["draft_revision"],
+            proposal_revision_id=data.get("proposal_revision_id"),
+            proposal_data_digest=data.get("proposal_data_digest"),
+            projection=(
+                None
+                if data.get("projection") is None
+                else _mapping(data["projection"], f"{context}.projection")
+            ),
+            derived_region_receipt=(
+                None
+                if data.get("derived_region_receipt") is None
+                else _mapping(
+                    data["derived_region_receipt"], f"{context}.derived_region_receipt"
+                )
+            ),
         )
         if data["draft_digest"] != draft.draft_digest:
             raise CardSceneContractError(f"{context}.draft_digest does not match its contents")

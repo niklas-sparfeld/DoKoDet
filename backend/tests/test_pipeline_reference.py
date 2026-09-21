@@ -18,7 +18,11 @@ from doko_operations.pipeline_data import (
 )
 from fastapi.testclient import TestClient
 from table_evidence_analyzer.pipeline_data import (
+    ProposedCardScene,
+    ProposedCardSceneData,
+    ProposedCardSceneFrame,
     VisibleCardData,
+    canonical_proposed_card_scene_data_bytes,
     canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
 )
@@ -302,6 +306,103 @@ def _vision_source_revision(
     )
     revision_store.publish(manifest, content_bytes)
     return manifest.revision_id
+
+
+def _proposal_revision(
+    revision_store: PipelineRevisionStore,
+    source_revision_id: str,
+    *,
+    card_ids: tuple[str, ...] = ("card-01",),
+    revision_id: str = "card-scene-proposals-01",
+) -> str:
+    source = revision_store.require(source_revision_id)
+    scene = ReviewedCardScene.create(
+        source_frame_id="event-01",
+        source_frame_width=100,
+        source_frame_height=100,
+        calibration_revision_id="calibration-01",
+        calibration_digest="c" * 64,
+        poses=tuple(
+            CardPose(card_id, (25.0 + index * 30.0, 25.0), 0.0, card_id, None)
+            for index, card_id in enumerate(card_ids)
+        ),
+        stacking_order=CardStackingOrder(
+            card_ids=card_ids,
+            uncertain_edges=(),
+            contradictions=(),
+        ),
+    )
+    proposal = ProposedCardScene.create(
+        proposal_id="proposal-event-01",
+        source_frame_id="event-01",
+        source_frame_digest=DIGEST,
+        detector_revision_id=source_revision_id,
+        detector_revision_digest=source.manifest.content_sha256,
+        calibration_revision_id="calibration-01",
+        calibration_digest="c" * 64,
+        initializer_recipe_version="initializer/v1",
+        status="supported",
+        initialized_scene=scene.to_mapping(),
+        fit_diagnostics={"accepted": list(card_ids)},
+    )
+    calibration = {
+        "schema_version": "table-plane-calibration/v1",
+        "calibration_revision_id": "calibration-01",
+        "recording_id": SOURCE.recording_id,
+        "source_revision": source_revision_id,
+        "frame_width": 100,
+        "frame_height": 100,
+        "image_to_table": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        "table_to_image": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        "table_to_image_homography": [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ],
+        "card_short_size": 20.0,
+        "card_long_size": 30.0,
+        "calibration_digest": "c" * 64,
+    }
+    content = ProposedCardSceneData.create(
+        detector_revision_id=source_revision_id,
+        detector_revision_digest=source.manifest.content_sha256,
+        calibration_revision_id="calibration-01",
+        calibration_digest="c" * 64,
+        calibration=calibration,
+        calibration_diagnostics={"fit": {"quality_passed": True}},
+        frames=(
+            ProposedCardSceneFrame(
+                frame_id="event-01",
+                source_frame_digest=DIGEST,
+                status="supported",
+                proposal=proposal,
+                unsupported_reason=None,
+            ),
+        ),
+    )
+    manifest = DataRevision(
+        revision_id=revision_id,
+        content_type="card_scene_proposals",
+        content_schema="proposed-card-scene-data/v1",
+        recording_id=SOURCE.recording_id,
+        source=SOURCE,
+        content_sha256=sha256_bytes(canonical_proposed_card_scene_data_bytes(content)),
+        input_revision_ids=(source_revision_id,),
+        origin="processor",
+        producer=ProcessorProducer(
+            run_id="proposal-run-01",
+            processor_type="visible-card-scene-proposal",
+            implementation_id="proposal-processor.v1",
+            model_id=None,
+        ),
+        coverage={
+            "kind": "proposed-card-scenes",
+            "detector_revision_digest": source.manifest.content_sha256,
+        },
+        created_at="2026-09-05T10:00:00Z",
+    )
+    revision_store.publish(manifest, content)
+    return revision_id
 
 
 def test_reference_accepts_and_completes_without_model_scores_and_survives_restart(
@@ -900,6 +1001,136 @@ def test_pose_scene_updates_derive_candidates_and_completion_rejects_stale_views
             },
         )
     assert "pose scene derivation" in stale_error.value.details[0]["message"]
+
+
+def test_proposal_seed_keeps_immutable_scene_and_supports_card_decisions(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(
+        revision_store,
+        "visible_cards",
+        visible_candidate_ids=("card-01", "card-02"),
+    )
+    proposal_revision_id = _proposal_revision(
+        revision_store,
+        source_revision_id,
+        card_ids=("card-01", "card-02"),
+    )
+
+    seeded = service.create_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {"operator_id": "operator-01", "proposal_revision_id": proposal_revision_id},
+    )
+    item = seeded.draft.items[0]
+    assert seeded.draft.proposal_revision_id == proposal_revision_id
+    assert item.review_state == "pending"
+    assert item.item["candidates"] == []
+    assert item.item["card_scene"]["proposal_revision_id"] == proposal_revision_id
+    assert item.item["card_scene"]["projection"]["table_to_image_homography"]
+
+    with pytest.raises(PipelineReferenceCoverageError):
+        service.complete_reference(
+            SOURCE.recording_id,
+            "visible_cards",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": seeded.draft.revision,
+                "coverage": {
+                    "kind": "visible_frames",
+                    "frames": [
+                        {"frame_identity": item.item["frame_identity"], "decision": "cards"}
+                    ],
+                },
+            },
+        )
+
+    accepted = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": seeded.draft.revision,
+            "operations": [
+                {"operation": "accept_card", "item_id": "event-01", "card_id": "card-01"}
+            ],
+        },
+    )
+    accepted_item = accepted.draft.items[0]
+    assert accepted_item.review_state == "pending"
+    assert accepted_item.item["card_scene"]["card_states"] == [
+        {
+            "card_id": "card-01",
+            "source": "proposal",
+            "proposal_id": "proposal-event-01",
+            "state": "accepted",
+        },
+        {
+            "card_id": "card-02",
+            "source": "proposal",
+            "proposal_id": "proposal-event-01",
+            "state": "pending",
+        },
+    ]
+    assert [candidate["card_id"] for candidate in accepted_item.item["candidates"]] == ["card-01"]
+    assert accepted_item.item["card_scene"]["proposal"]["proposal_digest"]
+
+    with pytest.raises(PipelineReferenceConflict):
+        service.update_draft(
+            SOURCE.recording_id,
+            "visible_cards",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": seeded.draft.revision,
+                "operations": [
+                    {"operation": "reject_card", "item_id": "event-01", "card_id": "card-02"}
+                ],
+            },
+        )
+
+    resolved = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": accepted.draft.revision,
+            "operations": [
+                {"operation": "reject_card", "item_id": "event-01", "card_id": "card-02"}
+            ],
+        },
+    )
+    resolved_item = resolved.draft.items[0]
+    assert resolved_item.review_state == "accepted"
+    assert resolved_item.item["card_scene"]["completion"]["state"] == "complete"
+    assert resolved_item.item["card_scene"]["reviewed"]["scene"]["poses"][0]["card_id"] == (
+        "card-01"
+    )
+
+    completed = service.complete_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": resolved.draft.revision,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {"frame_identity": resolved_item.item["frame_identity"], "decision": "cards"}
+                ],
+            },
+        },
+    )
+    completed_revision_id = completed.state.selected_completed_revision_id
+    assert completed_revision_id is not None
+    completed_revision = revision_store.require(completed_revision_id)
+    assert completed_revision.manifest.input_revision_ids == (
+        source_revision_id,
+        proposal_revision_id,
+    )
+    stored_item = completed_revision.content.to_mapping()["outcomes"][0]
+    assert stored_item["card_scene"]["proposal_revision_id"] == proposal_revision_id
+    assert stored_item["card_scene"]["projection"]["table_to_image_homography"]
 
 
 def test_pose_scene_draft_can_keep_hidden_pose_but_completion_rejects_it(tmp_path: Path) -> None:

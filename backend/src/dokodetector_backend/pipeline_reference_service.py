@@ -12,6 +12,7 @@ from typing import Any
 from doko_operations.pipeline_data import (
     DataRevision,
     HumanProducer,
+    ProcessorProducer,
     RecordingVideoSource,
     sha256_bytes,
 )
@@ -23,7 +24,16 @@ from doko_operations.pipeline_reference import (
     PipelineReferenceState,
     ReferenceDraftItem,
 )
-from table_evidence_analyzer.pipeline_data import VisibleCardData
+from table_evidence_analyzer.card_scene_contract import (
+    CardReviewState,
+    CardSceneDraft,
+    FrameReviewCompletion,
+)
+from table_evidence_analyzer.pipeline_data import (
+    ProposedCardSceneData,
+    VisibleCardData,
+    canonical_proposed_card_scene_data_bytes,
+)
 
 from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceConflict,
@@ -149,7 +159,12 @@ class PipelineReferenceService:
         self._validate_content_type(content_type)
         if not isinstance(payload, Mapping):
             raise PipelineReferenceInputError("the reference request must be an object")
-        unknown = set(payload) - {"operator_id", "seed", "source_revision_id"}
+        unknown = set(payload) - {
+            "operator_id",
+            "seed",
+            "source_revision_id",
+            "proposal_revision_id",
+        }
         if unknown:
             raise PipelineReferenceInputError(
                 f"the reference request has unknown fields: {', '.join(sorted(unknown))}"
@@ -160,10 +175,22 @@ class PipelineReferenceService:
         if existing is not None:
             raise PipelineReferenceConflict("a maintained reference already exists", existing)
 
+        proposal_revision_id = payload.get("proposal_revision_id")
+        if proposal_revision_id is not None:
+            if content_type != "visible_cards":
+                raise PipelineReferenceInputError(
+                    "proposal_revision_id can only seed a visible-card reference"
+                )
+            proposal_revision_id = identifier(proposal_revision_id, "proposal_revision_id")
+            if payload.get("seed") not in {None, "proposal"}:
+                raise PipelineReferenceInputError(
+                    "proposal_revision_id requires seed=proposal or no seed"
+                )
+
         source_revision_id = payload.get("source_revision_id")
         if source_revision_id is not None:
             source_revision_id = identifier(source_revision_id, "source_revision_id")
-        else:
+        elif proposal_revision_id is None:
             seed = payload.get("seed", "selected_generated")
             if seed not in {"selected_generated", "selected_completed", "empty"}:
                 raise PipelineReferenceInputError(
@@ -190,7 +217,28 @@ class PipelineReferenceService:
 
         source_revision = None
         items: tuple[ReferenceDraftItem, ...] = ()
-        if source_revision_id is not None:
+        if proposal_revision_id is not None:
+            proposal_revision = self._require_proposal_revision(
+                recording_id, proposal_revision_id
+            )
+            proposal_source_revision_id, proposal_data = self._proposal_source(
+                recording_id, proposal_revision
+            )
+            if source_revision_id is not None and source_revision_id != proposal_source_revision_id:
+                raise PipelineReferenceInputError(
+                    "source_revision_id conflicts with the proposal input revision"
+                )
+            source_revision_id = proposal_source_revision_id
+            source_revision = self._require_source_revision(
+                recording_id, content_type, source_revision_id
+            )
+            items = self._proposal_seed_items(
+                recording_id,
+                source_revision,
+                proposal_data,
+                proposal_revision_id,
+            )
+        elif source_revision_id is not None:
             source_revision = self._require_source_revision(
                 recording_id, content_type, source_revision_id
             )
@@ -219,6 +267,7 @@ class PipelineReferenceService:
             coverage=None,
             impact=(),
             updated_at=timestamp,
+            proposal_revision_id=proposal_revision_id,
         )
         state = PipelineReferenceState(
             recording_id=recording_id,
@@ -238,6 +287,157 @@ class PipelineReferenceService:
             if current is not None:
                 raise PipelineReferenceConflict("a maintained reference already exists", current)
             return self.reference_store.write_locked(created)
+
+    def _require_proposal_revision(
+        self, recording_id: str, proposal_revision_id: str
+    ) -> StoredPipelineRevision:
+        try:
+            proposal = self.revision_store.require(proposal_revision_id)
+        except PipelineNotFound as error:
+            raise PipelineReferenceInputError("proposal revision was not found") from error
+        if proposal.manifest.recording_id != recording_id:
+            raise PipelineReferenceInputError(
+                "the proposal revision belongs to another recording"
+            )
+        if proposal.manifest.content_type != "card_scene_proposals" or not isinstance(
+            proposal.content, ProposedCardSceneData
+        ):
+            raise PipelineReferenceInputError(
+                "proposal_revision_id must reference proposed card scene data"
+            )
+        if proposal.manifest.origin != "processor":
+            raise PipelineReferenceInputError("the proposal revision must be processor output")
+        if not isinstance(proposal.manifest.producer, ProcessorProducer) or (
+            proposal.manifest.producer.processor_type != "visible-card-scene-proposal"
+        ):
+            raise PipelineReferenceInputError(
+                "the proposal revision has invalid processor lineage"
+            )
+        return proposal
+
+    def _proposal_source(
+        self, recording_id: str, proposal: StoredPipelineRevision
+    ) -> tuple[str, ProposedCardSceneData]:
+        data = proposal.content
+        assert isinstance(data, ProposedCardSceneData)
+        content_digest = sha256_bytes(canonical_proposed_card_scene_data_bytes(data))
+        if proposal.manifest.content_sha256 != content_digest:
+            raise PipelineReferenceInputError("the proposal revision content digest is stale")
+        input_revision_ids = proposal.manifest.input_revision_ids
+        if len(input_revision_ids) != 1 or input_revision_ids[0] != data.detector_revision_id:
+            raise PipelineReferenceInputError(
+                "the proposal revision must have one matching detector input"
+            )
+        source = self._require_source_revision(recording_id, "visible_cards", input_revision_ids[0])
+        if source.manifest.content_sha256 != data.detector_revision_digest:
+            raise PipelineReferenceInputError(
+                "the proposal detector digest does not match its input revision"
+            )
+        return source.manifest.revision_id, data
+
+    def _proposal_seed_items(
+        self,
+        recording_id: str,
+        source_revision: StoredPipelineRevision,
+        proposal_data: ProposedCardSceneData,
+        proposal_revision_id: str,
+    ) -> tuple[ReferenceDraftItem, ...]:
+        if not isinstance(source_revision.content, VisibleCardData):
+            raise PipelineReferenceInputError("the proposal source must be visible-card data")
+        outcomes = source_revision.content.outcomes
+        frames = {frame.frame_id: frame for frame in proposal_data.frames}
+        if set(frames) != {outcome.event_id for outcome in outcomes}:
+            raise PipelineReferenceInputError(
+                "proposal frames do not match the detector source coverage"
+            )
+        projection = self._proposal_projection(proposal_data)
+        items: list[ReferenceDraftItem] = []
+        for outcome in outcomes:
+            frame = frames[outcome.event_id]
+            item = outcome.to_mapping()
+            if frame.status == "supported":
+                if frame.proposal is None or outcome.frame_identity is None:
+                    raise PipelineReferenceInputError(
+                        f"supported proposal has incomplete frame lineage: {outcome.event_id}"
+                    )
+                if frame.source_frame_digest != outcome.frame_identity.image_sha256:
+                    raise PipelineReferenceInputError(
+                        f"proposal source frame digest does not match: {outcome.event_id}"
+                    )
+                if outcome.status != "detected":
+                    raise PipelineReferenceInputError(
+                        f"supported proposal requires a detected source frame: {outcome.event_id}"
+                    )
+                draft = CardSceneDraft.create(
+                    proposal=frame.proposal,
+                    reviewed=None,
+                    card_states=tuple(
+                        CardReviewState.create(
+                            card_id=card_id,
+                            source="proposal",
+                            proposal_id=frame.proposal.proposal_id,
+                            state="pending",
+                        )
+                        for card_id in frame.proposal.card_ids
+                    ),
+                    completion=FrameReviewCompletion.create(
+                        state="pending",
+                        unresolved_card_ids=frame.proposal.card_ids,
+                    ),
+                    proposal_revision_id=proposal_revision_id,
+                    proposal_data_digest=proposal_data.data_digest,
+                    projection=projection,
+                )
+                item["candidates"] = []
+                item["card_scene"] = draft.to_mapping()
+                review_state = "pending"
+            else:
+                reason = frame.unsupported_reason or "proposal frame is unsupported"
+                item["status"] = "failed"
+                item["candidates"] = []
+                item["ignored_regions"] = []
+                item["error"] = reason
+                if frame.proposal is not None:
+                    draft = CardSceneDraft.create(
+                        proposal=frame.proposal,
+                        reviewed=None,
+                        card_states=(),
+                        completion=FrameReviewCompletion.create(
+                            state="unusable",
+                            unresolved_card_ids=(),
+                            reason=reason,
+                        ),
+                        proposal_revision_id=proposal_revision_id,
+                        proposal_data_digest=proposal_data.data_digest,
+                        projection=projection,
+                    )
+                    item["card_scene"] = draft.to_mapping()
+                review_state = "unusable"
+            items.append(
+                ReferenceDraftItem(
+                    item_id=outcome.event_id,
+                    base_item_id=None,
+                    review_state=review_state,
+                    item=item,
+                )
+            )
+        handler = self._handler("visible_cards")
+        handler.validate_draft_items(recording_id, source_revision.manifest.revision_id, items)
+        return tuple(items)
+
+    @staticmethod
+    def _proposal_projection(proposal_data: ProposedCardSceneData) -> dict[str, Any]:
+        calibration = proposal_data.calibration
+        try:
+            return {
+                "table_to_image_homography": calibration["table_to_image"],
+                "card_short_size": calibration["card_short_size"],
+                "card_long_size": calibration["card_long_size"],
+            }
+        except KeyError as error:
+            raise PipelineReferenceInputError(
+                "proposal calibration has no card projection"
+            ) from error
 
     def update_draft(
         self,
@@ -468,6 +668,8 @@ class PipelineReferenceService:
             input_revision_ids = (
                 () if source_revision is None else (source_revision.manifest.revision_id,)
             )
+            if current.draft.proposal_revision_id is not None:
+                input_revision_ids = (*input_revision_ids, current.draft.proposal_revision_id)
             base_revision_id = (
                 None if source_revision is None else source_revision.manifest.revision_id
             )
@@ -491,7 +693,15 @@ class PipelineReferenceService:
                     operator_id=operator_id,
                     base_revision_id=base_revision_id,
                 ),
-                coverage={**coverage, "impact": list(current.draft.impact)},
+                coverage={
+                    **coverage,
+                    "impact": list(current.draft.impact),
+                    **(
+                        {}
+                        if current.draft.proposal_revision_id is None
+                        else {"proposal_revision_id": current.draft.proposal_revision_id}
+                    ),
+                },
                 created_at=_now(),
             )
             self.revision_store.publish(manifest, content_bytes)
@@ -507,7 +717,15 @@ class PipelineReferenceService:
                     else item
                     for item in ordered_items
                 ),
-                coverage={**coverage, "impact": list(current.draft.impact)},
+                coverage={
+                    **coverage,
+                    "impact": list(current.draft.impact),
+                    **(
+                        {}
+                        if current.draft.proposal_revision_id is None
+                        else {"proposal_revision_id": current.draft.proposal_revision_id}
+                    ),
+                },
                 updated_at=timestamp,
             )
             completed_state = replace(

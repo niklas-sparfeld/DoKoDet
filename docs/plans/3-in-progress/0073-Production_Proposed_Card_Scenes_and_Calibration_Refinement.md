@@ -20,7 +20,7 @@
 - **M0:** Complete — proposal, anchor, calibration-preview, and draft-reflow contracts are frozen
   and covered by deterministic contract and pipeline-data tests.
 - **M1:** Complete — publish immutable proposed card scenes from one selected local cascade result.
-- **M2:** Not started — seed and validate a maintained reference from proposed card scenes.
+- **M2:** Complete — seed and validate a maintained reference from proposed card scenes.
 - **M3:** Not started — add proposal controls and the source/rectified editor toggle.
 - **M4:** Not started — add the card and calibration-anchor manipulation handles.
 - **M5:** Not started — implement weighted calibration refinement and a recording-wide preview.
@@ -365,6 +365,23 @@ Acceptance:
 - pending proposals are not dataset-eligible;
 - accepting or correcting one scene derives its visible regions on the backend; and
 - reload and revision conflicts do not duplicate or lose scene commands.
+
+#### M2 implementation evidence — 2026-09-21
+
+- Added proposal-backed maintained-reference seeding through the existing reference API. The seed
+  validates processor lineage, detector input identity and digest, exact source-frame coverage, and
+  the immutable proposal content digest.
+- Extended the typed card-scene draft to retain the proposal revision, proposal data digest, exact
+  table-plane projection, and derived-region receipt beside the mutable review state. Unsupported
+  proposal frames remain explicit and keep their failure reason.
+- Added selected-card accept and reject commands plus frame accept, correction, reset, and unusable
+  handling. Backend derivation creates reviewed card scenes and visible regions only from explicit
+  operator decisions; pending frames cannot complete.
+- Completed references retain the proposal revision as an input and coverage lineage. Immutable
+  proposal scenes and homography data remain available after review and restart, while optimistic
+  revision checks reject stale commands.
+- Verification passed for the focused pipeline-reference, pose-review, proposal-pipeline, analyzer
+  contract, operations geometry, and full backend test suites, plus changed-file Ruff checks.
 
 ### M3 — Add proposal controls and synchronized view toggle
 
