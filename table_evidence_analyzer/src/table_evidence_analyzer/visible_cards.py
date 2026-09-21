@@ -898,6 +898,22 @@ def _local_device_available(device: str, torch_module: Any) -> bool:
     return bool(callable(is_available) and is_available())
 
 
+def _optimize_local_rfdetr_for_inference(model: Any, *, device: str) -> Any:
+    """Prepare a loaded RF-DETR model for repeated inference-only calls."""
+
+    inference = getattr(model, "inference", None)
+    if not callable(inference):
+        return model
+    dtype = "float16" if device in {"mps", "cuda"} else "float32"
+    try:
+        inference(compile=False, dtype=dtype, inplace=True)
+    except Exception as error:
+        raise VisibleCardError(
+            f"could not optimize the local RF-DETR model for inference: {error}"
+        ) from error
+    return model
+
+
 def _load_local_rfdetr(bundle: Any, device: str) -> Any:
     try:
         with block_pyav_import():
@@ -933,7 +949,7 @@ def _load_local_rfdetr(bundle: Any, device: str) -> Any:
             raise VisibleCardError(
                 f"RF-DETR loaded on {actual_device!s}, but the requested device is {device}"
             )
-    return model
+    return _optimize_local_rfdetr_for_inference(model, device=device)
 
 
 def _load_local_rfdetr_segmentation(bundle: Any, device: str) -> Any:
@@ -974,7 +990,7 @@ def _load_local_rfdetr_segmentation(bundle: Any, device: str) -> Any:
                 f"RF-DETR segmentation loaded on {actual_device!s}, but the requested "
                 f"device is {device}"
             )
-    return model
+    return _optimize_local_rfdetr_for_inference(model, device=device)
 
 
 def _sequence(value: Any, field_name: str) -> list[Any]:

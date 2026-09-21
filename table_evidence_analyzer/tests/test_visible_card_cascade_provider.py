@@ -220,3 +220,26 @@ def test_cascade_serializes_shared_model_inference_across_requests(tmp_path: Pat
     second.join()
 
     assert detector.max_active == 1
+
+
+@pytest.mark.parametrize(
+    ("device", "expected_dtype"),
+    [("cpu", "float32"), ("mps", "float16"), ("cuda", "float16")],
+)
+def test_local_rfdetr_loader_optimizes_models_for_inference(
+    device: str, expected_dtype: str
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    class Model:
+        def inference(self, **kwargs: object) -> None:
+            calls.append(kwargs)
+
+    model = Model()
+
+    assert cascade_provider.visible_cards._optimize_local_rfdetr_for_inference(
+        model, device=device
+    ) is model
+    assert calls == [
+        {"compile": False, "dtype": expected_dtype, "inplace": True}
+    ]

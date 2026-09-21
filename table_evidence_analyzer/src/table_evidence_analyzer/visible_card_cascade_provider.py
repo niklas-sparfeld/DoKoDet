@@ -83,7 +83,7 @@ def _load_local_rfdetr_small(bundle: Any, device: str) -> Any:
         raise VisibleCardError(
             f"RF-DETR Small loaded on {actual_device!s}, but the requested device is {device}"
         )
-    return model
+    return visible_cards._optimize_local_rfdetr_for_inference(model, device=device)
 
 
 def _finite_pixel_point(value: Any, field: str) -> PixelPoint:
@@ -199,6 +199,10 @@ class LocalVisibleCardCascadeProvider:
 
     name = CASCADE_PROVIDER_NAME
     version = CASCADE_PROVIDER_VERSION
+    # The shared MPS models are protected by _inference_lock. Keep the event
+    # executor single-flight so frames do not queue behind native inference
+    # while competing for the same device context.
+    event_concurrency_limit = 1
 
     def __init__(
         self,
@@ -228,8 +232,8 @@ class LocalVisibleCardCascadeProvider:
         self._coarse_detector: Any
         self._fine_detector: Any
         # RF-DETR's MPS inference path is not safe to invoke concurrently on the
-        # shared model instances. The pipeline may process several event frames
-        # in parallel, so serialize only the native predict calls.
+        # shared model instances. The pipeline also honors event_concurrency_limit
+        # so the native lock does not become an unbounded queue.
         self._inference_lock = Lock()
         started = time.monotonic()
         if (

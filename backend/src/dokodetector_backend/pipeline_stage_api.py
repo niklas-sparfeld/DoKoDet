@@ -385,7 +385,11 @@ def get_visible_card_run(recording_id: str, run_id: str, request: Request) -> di
     """Return one visible-card detector run and its immutable request."""
 
     try:
-        return run_response(_visible_service(request).get_run(recording_id, run_id))
+        service = _visible_service(request)
+        run = service.get_run(recording_id, run_id, include_items=False)
+        if run.state.status in {"complete", "failed", "partial"}:
+            run = service.get_run(recording_id, run_id)
+        return run_response(run)
     except PipelineNotFound as error:
         raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
     except VisibleCardPipelineError as error:

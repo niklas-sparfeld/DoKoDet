@@ -20,6 +20,7 @@ from doko_operations.pipeline_data import (
     EventDataRevision,
     EventRecord,
     HumanProducer,
+    RunItemOutcome,
     RunProgress,
     canonical_event_data_bytes,
     sha256_bytes,
@@ -197,7 +198,9 @@ class _GeminiDetector(_Detector):
     version = "gemini-visible-cards-v1"
 
 
-def _run_blocking_visible_detection(tmp_path: Path, cap: int) -> tuple[int, list[str]]:
+def _run_blocking_visible_detection(
+    tmp_path: Path, cap: int, *, event_limit: int | None = None
+) -> tuple[int, list[str]]:
     _install_recording(tmp_path)
     active = 0
     maximum = 0
@@ -228,6 +231,9 @@ def _run_blocking_visible_detection(tmp_path: Path, cap: int) -> tuple[int, list
                 with lock:
                     active -= 1
 
+    if event_limit is not None:
+        BlockingDetector.event_concurrency_limit = event_limit
+
     app = create_test_app(
         _settings(tmp_path, gemini_max_concurrent_requests=cap),
         event_provider=_EventProvider(),
@@ -250,7 +256,8 @@ def _run_blocking_visible_detection(tmp_path: Path, cap: int) -> tuple[int, list
         )
         assert visible_response.status_code == 202
         assert started_one.wait(2)
-        if cap == 1:
+        expected = min(cap, event_limit or cap)
+        if expected == 1:
             time.sleep(0.05)
             assert calls == 1
             assert not started_two.is_set()
@@ -287,6 +294,12 @@ def test_visible_card_cap_one_remains_serial(tmp_path: Path) -> None:
     assert maximum == 1
 
 
+def test_visible_card_provider_event_limit_overrides_global_cap(tmp_path: Path) -> None:
+    maximum, _ = _run_blocking_visible_detection(tmp_path, 2, event_limit=1)
+
+    assert maximum == 1
+
+
 def _wait(client: TestClient, run_id: str) -> dict:
     deadline = time.monotonic() + 5
     body: dict = {}
@@ -297,6 +310,55 @@ def _wait(client: TestClient, run_id: str) -> dict:
             return body
         time.sleep(0.01)
     return body
+
+
+def test_visible_card_status_poll_uses_run_metadata_without_item_payloads(
+    tmp_path: Path,
+) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+
+    with TestClient(app) as client:
+        event_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json={"run_id": "events-for-visible-status"},
+        )
+        assert event_response.status_code == 202
+        _wait_event(client, "events-for-visible-status")
+        event_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-visible-status/result"
+        ).json()["state"]["output_revision_ids"][0]
+        service = app.state.visible_card_pipeline_service
+        request = service._build_request(
+            RECORDING_ID,
+            {"run_id": "visible-status-metadata", "event_revision_id": event_revision_id},
+        )
+        stored, created = app.state.pipeline_run_store.create(request)
+        assert created
+        app.state.pipeline_run_store.start(stored.run_id)
+        app.state.pipeline_run_store.record_item_progress(
+            stored.run_id,
+            progress=RunProgress(completed=1, total=5),
+            item=RunItemOutcome(
+                item_id="event-000000",
+                status="succeeded",
+                result={"event_id": "event-000000"},
+                failure=None,
+            ),
+        )
+
+        response = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{stored.run_id}"
+        )
+
+    assert response.status_code == 200
+    assert response.json()["state"]["progress"] == {"completed": 1, "total": 5}
+    assert response.json()["state"]["items"] == []
 
 
 def _manual_event_revision(

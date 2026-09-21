@@ -147,20 +147,22 @@ class VisibleCardPipelineService:
             self._futures[run.run_id] = self._executor.submit(self._execute, run.run_id)
         return running
 
-    def get_run(self, recording_id: str, run_id: str) -> StoredProcessorRun:
-        run = self.run_store.require(run_id)
+    def get_run(
+        self, recording_id: str, run_id: str, *, include_items: bool = True
+    ) -> StoredProcessorRun:
+        run = self.run_store.require(run_id, include_items=include_items)
         self._require_recording(run.request, recording_id)
         with self._lock:
             future = self._futures.get(run_id)
         if run.state.status == "complete" and future is not None and not future.done():
             future.result()
-            run = self.run_store.require(run_id)
+            run = self.run_store.require(run_id, include_items=include_items)
         return run
 
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
         return tuple(
             run
-            for run in self.run_store.list()
+            for run in self.run_store.list_for_recording(recording_id, include_items=False)
             if run.request.source.recording_id == recording_id
             and run.request.processor_type == "visible-card-detection"
         )
@@ -393,7 +395,7 @@ class VisibleCardPipelineService:
                 progress=RunProgress(completed=completed, total=len(events)),
             )
             with ThreadPoolExecutor(
-                max_workers=self.max_concurrent_requests,
+                max_workers=self._event_concurrency_limit(run),
                 thread_name_prefix="visible-card-event",
             ) as executor:
                 futures: dict[Future[VisibleCardOutcome], int] = {
@@ -418,17 +420,18 @@ class VisibleCardPipelineService:
                             error="The visible-card detector failed for this event.",
                         )
                     outcomes_by_index[index] = outcome
-                    items_by_index[index] = RunItemOutcome(
+                    item = RunItemOutcome(
                         item_id=event.event_id,
                         status="succeeded",
                         result=outcome.to_mapping(),
                         failure=None,
                     )
+                    items_by_index[index] = item
                     completed += 1
-                    self.run_store.update_progress(
+                    self.run_store.record_item_progress(
                         run_id,
                         progress=RunProgress(completed=completed, total=len(events)),
-                        items=tuple(item for item in items_by_index if item is not None),
+                        item=item,
                     )
 
             outcomes = [outcome for outcome in outcomes_by_index if outcome is not None]
@@ -542,6 +545,21 @@ class VisibleCardPipelineService:
             model=model.name if model is not None else "visible-card-detector",
         )
         return provider.propose(request)
+
+    def _event_concurrency_limit(self, run: StoredProcessorRun) -> int:
+        """Limit per-run workers when a provider shares serialized native state."""
+
+        provider = self._provider_for_selection(configuration_provider(run.request.configuration))
+        if provider is None:
+            return self.max_concurrent_requests
+        limit = getattr(_base_provider(provider), "event_concurrency_limit", None)
+        if limit is None:
+            return self.max_concurrent_requests
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+            raise VisibleCardPipelineError(
+                "The detector provider has an invalid concurrency limit."
+            )
+        return min(self.max_concurrent_requests, limit)
 
     def _provider_for_selection(
         self, requested_provider: str | None
