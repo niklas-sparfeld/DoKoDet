@@ -1642,7 +1642,7 @@ function RectifiedSourceFrame({
 
   return (
     <g
-      opacity="0.48"
+      opacity="1"
       pointerEvents="none"
       role="img"
       aria-label="Source frame background"

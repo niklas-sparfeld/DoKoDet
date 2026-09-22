@@ -239,6 +239,7 @@ describe("PoseBasedVisibleCardEditor", () => {
     const background = screen.getByRole("img", {
       name: "Source frame background",
     });
+    expect(background).toHaveAttribute("opacity", "1");
     const patches = background.querySelectorAll("g[transform]");
     expect(patches.length).toBeGreaterThan(1);
     expect(
