@@ -400,8 +400,35 @@ describe("PoseBasedVisibleCardEditor", () => {
     });
 
     expect(screen.getByLabelText("Rotate card-a")).toBeInTheDocument();
-    fireEvent.click(table);
+    fireEvent.pointerDown(table, { button: 0, pointerId: 13 });
+    fireEvent.pointerUp(table, { pointerId: 13 });
     expect(screen.queryByLabelText("Rotate card-a")).not.toBeInTheDocument();
+  });
+
+  it("keeps a card selected when its surface is clicked", () => {
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+      />,
+    );
+    const table = screen.getByRole("application", {
+      name: "Rectified virtual table",
+    });
+    const card = screen.getByRole("button", {
+      name: "Virtual table card card-b",
+    });
+    const polygon = card.querySelector("polygon");
+    expect(polygon).not.toBeNull();
+
+    fireEvent.pointerDown(polygon!, { button: 0, pointerId: 14 });
+    fireEvent.pointerUp(table, { pointerId: 14 });
+    fireEvent.click(polygon!);
+
+    expect(screen.getByLabelText("Rotate card-b")).toBeInTheDocument();
   });
 
   it("zooms the table under the wheel or trackpad pointer", () => {

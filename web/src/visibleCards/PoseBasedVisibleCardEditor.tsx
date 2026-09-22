@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
@@ -622,6 +621,7 @@ export function PoseBasedVisibleCardEditor({
       )
         return;
       event.preventDefault();
+      setSelectedCardId(null);
       const gesture: ActiveGesture = {
         pointerId: event.pointerId,
         cardId: null,
@@ -640,9 +640,10 @@ export function PoseBasedVisibleCardEditor({
     [pan, tableViewBox],
   );
 
-  const handleSurfaceClick = useCallback(
-    (event: ReactMouseEvent<SVGSVGElement>) => {
-      if (event.target === event.currentTarget) setSelectedCardId(null);
+  const clearSelectionOnEmptyPointerDown = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      if (event.button === 0 && event.target === event.currentTarget)
+        setSelectedCardId(null);
     },
     [],
   );
@@ -1057,7 +1058,7 @@ export function PoseBasedVisibleCardEditor({
                   role="img"
                   aria-label="Projected card scene"
                   tabIndex={0}
-                  onClick={handleSurfaceClick}
+                  onPointerDown={clearSelectionOnEmptyPointerDown}
                   onPointerMove={handleTablePointerMove}
                   onPointerUp={finishGesture}
                   onPointerCancel={cancelGesture}
@@ -1204,7 +1205,6 @@ export function PoseBasedVisibleCardEditor({
               role="application"
               aria-label="Rectified virtual table"
               tabIndex={0}
-              onClick={handleSurfaceClick}
               onPointerDown={startTablePan}
               onPointerMove={handleTablePointerMove}
               onPointerUp={finishGesture}
