@@ -653,7 +653,7 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(screen.queryByRole("button", { name: "Accept frame" })).toBeNull();
   });
 
-  it("keeps frame decisions in the command bar", async () => {
+  it("puts frame decisions in the Timeline Rail", async () => {
     const onAccept = vi.fn();
     const onMarkEmpty = vi.fn();
     const onMarkUnusable = vi.fn();
@@ -677,6 +677,11 @@ describe("VisibleCardReviewWorkbench", () => {
     const frameDecision = screen.getByRole("group", {
       name: "Frame decision",
     });
+    expect(
+      within(
+        screen.getByRole("toolbar", { name: "Workbench command bar" }),
+      ).queryByRole("group", { name: "Frame decision" }),
+    ).toBeNull();
     expect(
       within(frameDecision).getByRole("button", { name: "Accept frame" }),
     ).toBeEnabled();

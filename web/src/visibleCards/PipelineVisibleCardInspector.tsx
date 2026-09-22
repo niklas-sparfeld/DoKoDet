@@ -703,8 +703,8 @@ function VisibleCardInspectorSelection({
             aria-label="Resolved-frame coverage"
           />
           <p>
-            Use the workbench command bar to decide this frame as accepted,
-            empty, or unusable.
+            Use the Timeline Rail to decide this frame as accepted, empty, or
+            unusable.
           </p>
         </div>
       ) : null}

@@ -538,7 +538,7 @@ describe("PipelineVisibleCardEditor", () => {
     ).toHaveLength(1);
   });
 
-  it("limits a portrait frame to the viewport height budget", async () => {
+  it("keeps a portrait frame aspect ratio before the fullscreen surface layout", async () => {
     const result = generatedResult();
     result.revisions[0].content.outcomes[0].frame_identity = {
       ...FRAME_IDENTITY,
@@ -564,8 +564,7 @@ describe("PipelineVisibleCardEditor", () => {
       "Selected visible-card source frame",
     );
     expect(image.parentElement).toHaveStyle({
-      aspectRatio: "1080 / 1920",
-      maxWidth: "min(100%, 2000px, calc(80vh * 0.5625))",
+      "--workbench-frame-aspect-ratio": "1080 / 1920",
     });
   });
 
@@ -2327,7 +2326,7 @@ describe("PipelineVisibleCardEditor", () => {
       item_id: ITEM_ID,
     });
     expect(
-      screen.getByText(/Use the workbench command bar to decide this frame/),
+      screen.getByText(/Use the Timeline Rail to decide this frame/),
     ).toBeInTheDocument();
   });
 });

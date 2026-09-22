@@ -15,21 +15,21 @@
 .workbench {
   display: grid;
   min-width: 0;
-  gap: 0.55rem;
+  gap: 0;
 }
 
 .workbenchSurfaceLayout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 0.7rem;
+  gap: 0;
   min-width: 0;
 }
 
 .workbenchEditor {
   display: grid;
   gap: 0.45rem;
-  padding: 0.65rem;
+  padding: 0.45rem;
   border: 1px solid var(--line);
   border-radius: 0.45rem;
   background: color-mix(in srgb, var(--surface) 50%, var(--panel));
@@ -55,9 +55,9 @@
 .workbenchCommandBar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   min-width: 0;
-  padding: 0.35rem 0;
+  padding: 0.25rem 0;
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -91,15 +91,6 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-}
-
-.workbenchGuidance {
-  flex: 1 1 18rem;
-  min-width: 18rem;
-  margin: 0;
-  color: var(--muted-ink);
-  font-size: 0.68rem;
-  line-height: 1.35;
 }
 
 .workbenchToggle {
@@ -197,6 +188,8 @@
 .workbenchCameraViewport {
   position: relative;
   width: 100%;
+  aspect-ratio: var(--workbench-frame-aspect-ratio);
+  max-width: 100%;
   max-height: 80vh;
   min-height: 18rem;
   overflow: hidden;
@@ -246,9 +239,24 @@
   }
 
   .workbench {
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    position: relative;
+    grid-template-rows: minmax(0, 1fr) auto;
     height: 100%;
     min-height: 0;
+  }
+
+  .workbenchCommandBar {
+    position: absolute;
+    inset: 0.35rem 0.35rem auto;
+    z-index: 2;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: calc(100% - 0.7rem);
+    padding: 0.25rem;
+    border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+    border-radius: 0.4rem;
+    background: color-mix(in srgb, var(--panel) 84%, transparent);
+    backdrop-filter: blur(0.5rem);
   }
 
   .workbenchSurfaceLayout {
@@ -260,6 +268,14 @@
   .workbenchRectifiedSurface {
     height: 100%;
     min-height: 0;
+  }
+
+  .workbenchCameraViewport {
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    min-height: 0;
+    aspect-ratio: auto;
   }
 }
 

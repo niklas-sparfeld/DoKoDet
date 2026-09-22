@@ -7,6 +7,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type CSSProperties,
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { createPortal } from "react-dom";
@@ -1022,6 +1023,7 @@ export function VisibleCardReviewWorkbench({
       editor={editor}
       canCopyIgnoreRegions={canCopyIgnoreRegions}
       canRestoreSuggestion={canRestoreSuggestion}
+      frameDecision={frameDecision}
       scene={scene}
       calibrationRefinement={calibrationRefinement}
       mappingAnchors={mappingAnchors}
@@ -1049,7 +1051,6 @@ export function VisibleCardReviewWorkbench({
         state={activeState}
         availability={availability}
         readOnly={readOnly}
-        frameDecision={frameDecision}
         enabledEditTools={
           enabledEditTools ?? ["visible_regions", "virtual_cards", "mapping"]
         }
@@ -1133,7 +1134,6 @@ function WorkbenchCommandBar({
   state,
   availability,
   readOnly,
-  frameDecision,
   enabledEditTools,
   onToggleViewpoint,
   onToggleLayer,
@@ -1142,7 +1142,6 @@ function WorkbenchCommandBar({
   state: VisibleCardReviewWorkbenchState;
   availability: ReturnType<typeof getWorkbenchAvailability>;
   readOnly: boolean;
-  frameDecision?: VisibleCardFrameDecision;
   enabledEditTools: readonly WorkbenchPreferences["activeTool"][];
   onToggleViewpoint: () => void;
   onToggleLayer: (layer: WorkbenchLayer) => void;
@@ -1224,14 +1223,6 @@ function WorkbenchCommandBar({
           },
         )}
       </div>
-      {frameDecision !== undefined ? (
-        <FrameDecisionActions decision={frameDecision} />
-      ) : null}
-      <p className={styles.workbenchGuidance}>
-        View changes coordinates. Show controls evidence layers. Edit selects
-        the active tool. Selection actions are in the Timeline Rail. Frame
-        decisions finish this frame.
-      </p>
     </div>
   );
 }
@@ -1243,6 +1234,7 @@ type WorkbenchTimelineSelectionActionsProps = {
   editor: EditorState | null;
   canCopyIgnoreRegions: boolean;
   canRestoreSuggestion: boolean;
+  frameDecision?: VisibleCardFrameDecision;
   scene: PoseSceneEnvelope | null;
   calibrationRefinement: CalibrationRefinementResponse | null;
   mappingAnchors: WorkbenchCalibrationAnchor[];
@@ -1268,6 +1260,7 @@ function WorkbenchTimelineSelectionActions({
   editor,
   canCopyIgnoreRegions,
   canRestoreSuggestion,
+  frameDecision,
   scene,
   calibrationRefinement,
   mappingAnchors,
@@ -1327,6 +1320,9 @@ function WorkbenchTimelineSelectionActions({
           onEmitNumeric={onEmitNumeric}
           onAction={onAction}
         />
+      ) : null}
+      {frameDecision !== undefined ? (
+        <FrameDecisionActions decision={frameDecision} />
       ) : null}
     </div>
   );
@@ -2328,10 +2324,11 @@ function WorkbenchSurface({
   return (
     <div
       className={styles.workbenchCameraViewport}
-      style={{
-        aspectRatio: `${width} / ${height}`,
-        maxWidth: `min(100%, 2000px, calc(80vh * ${width / height}))`,
-      }}
+      style={
+        {
+          "--workbench-frame-aspect-ratio": `${width} / ${height}`,
+        } as CSSProperties
+      }
     >
       {sourceUrl !== null ? (
         <img
