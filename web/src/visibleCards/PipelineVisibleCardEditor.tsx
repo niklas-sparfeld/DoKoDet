@@ -39,20 +39,15 @@ import {
 } from "./PipelineVisibleCardInspector";
 import {
   visibleCardReviewPrewarmUrls,
-  VisibleCardFramePanel,
   VisibleCardReviewControls,
 } from "./PipelineVisibleCardPresentation";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
-  PoseBasedVisibleCardEditor,
-  type VirtualTableViewState,
-} from "./PoseBasedVisibleCardEditor";
-import { VisibleCardReviewWorkbench } from "./VisibleCardReviewWorkbench";
+  VisibleCardReviewWorkbench,
+  type VisibleRegionWorkbenchAction,
+} from "./VisibleCardReviewWorkbench";
+import type { WorkbenchSelection } from "./VisibleCardReviewWorkbenchState";
 import { readPoseScene } from "./PoseBasedVisibleCardScene";
-import {
-  withCalibrationAnchorCommandDigest,
-  type CalibrationAnchorCommand,
-} from "./PoseBasedVisibleCardScene";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import type {
   Candidate,
@@ -76,57 +71,6 @@ const CONTENT_TYPE = "visible_cards" as const;
 const RETRY_LIMIT = 3;
 const POINT_DRAG_THRESHOLD_PX = 4;
 const POLYGON_SWITCH_CLEARANCE_RATIO = 0.08;
-const virtualTableViewStateByRecording = new Map<
-  string,
-  VirtualTableViewState
->();
-const VIRTUAL_TABLE_VIEW_STATE_STORAGE_PREFIX =
-  "doko-detector:virtual-table-view:";
-
-function readVirtualTableViewState(recordingId: string) {
-  const cached = virtualTableViewStateByRecording.get(recordingId);
-  if (cached !== undefined) return cached;
-  try {
-    const raw = window.sessionStorage.getItem(
-      `${VIRTUAL_TABLE_VIEW_STATE_STORAGE_PREFIX}${recordingId}`,
-    );
-    if (raw === null) return undefined;
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      typeof (parsed as { zoom?: unknown }).zoom !== "number" ||
-      !Array.isArray((parsed as { pan?: unknown }).pan) ||
-      (parsed as { pan: unknown[] }).pan.length !== 2 ||
-      !(parsed as { pan: unknown[] }).pan.every(
-        (value) => typeof value === "number",
-      )
-    ) {
-      return undefined;
-    }
-    const state = parsed as VirtualTableViewState;
-    virtualTableViewStateByRecording.set(recordingId, state);
-    return state;
-  } catch {
-    return undefined;
-  }
-}
-
-function writeVirtualTableViewState(
-  recordingId: string,
-  state: VirtualTableViewState,
-) {
-  virtualTableViewStateByRecording.set(recordingId, state);
-  try {
-    window.sessionStorage.setItem(
-      `${VIRTUAL_TABLE_VIEW_STATE_STORAGE_PREFIX}${recordingId}`,
-      JSON.stringify(state),
-    );
-  } catch {
-    // Session storage can be unavailable in privacy-restricted contexts.
-  }
-}
-
 export type PipelineVisibleCardEditorProps = {
   recordingId: string;
   durationUs: number;
@@ -183,12 +127,6 @@ export function PipelineVisibleCardEditor({
   const [frames, setFrames] = useState<EditableFrame[]>([]);
   const [generatedFrames, setGeneratedFrames] = useState<EditableFrame[]>([]);
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
-  const [poseEditorView, setPoseEditorView] = useState<"source" | "rectified">(
-    "rectified",
-  );
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
-    null,
-  );
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>(
     [],
   );
@@ -221,21 +159,6 @@ export function PipelineVisibleCardEditor({
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [calibrationRefinement, setCalibrationRefinement] =
     useState<CalibrationRefinementResponse | null>(null);
-  const [poseTableViewState, setPoseTableViewState] =
-    useState<VirtualTableViewState>(
-      () =>
-        readVirtualTableViewState(recordingId) ?? {
-          zoom: 1,
-          pan: [0, 0],
-        },
-    );
-  const updatePoseTableViewState = useCallback(
-    (next: VirtualTableViewState) => {
-      writeVirtualTableViewState(recordingId, next);
-      setPoseTableViewState(next);
-    },
-    [recordingId],
-  );
   const [calibrationLoading, setCalibrationLoading] = useState(false);
   const [calibrationError, setCalibrationError] = useState<string | null>(null);
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
@@ -285,7 +208,6 @@ export function PipelineVisibleCardEditor({
   const endEditMode = useCallback(() => {
     dragRef.current = null;
     setEditor(null);
-    setSelectedCandidateId(null);
     setSelectedCandidateIds([]);
     setEditorError(null);
   }, []);
@@ -499,43 +421,6 @@ export function PipelineVisibleCardEditor({
       setCalibrationLoading(false);
     }
   }, [client, proposalRevisionId, recordingId]);
-
-  const updateCalibrationRefinement = useCallback(
-    async (command: CalibrationAnchorCommand) => {
-      const current = calibrationRefinement;
-      if (current === null) return;
-      const draft = current.draft;
-      const revision = typeof draft.revision === "number" ? draft.revision : 0;
-      const commands = Array.isArray(draft.commands) ? draft.commands : [];
-      setCalibrationLoading(true);
-      setCalibrationError(null);
-      try {
-        const commandWithRevision = {
-          ...command,
-          sequence: commands.length + 1,
-          expected_draft_revision: revision,
-          operator_id: operatorId.trim() || "operator",
-        } satisfies CalibrationAnchorCommand;
-        const digestedCommand =
-          await withCalibrationAnchorCommandDigest(commandWithRevision);
-        const updated = await client.updateCalibrationRefinement(
-          recordingId,
-          current.proposal_revision_id,
-          {
-            draft_id: String(draft.draft_id),
-            expected_revision: revision,
-            command: digestedCommand,
-          },
-        );
-        setCalibrationRefinement(updated);
-      } catch (reason: unknown) {
-        setCalibrationError(describeError(reason));
-      } finally {
-        setCalibrationLoading(false);
-      }
-    },
-    [calibrationRefinement, client, operatorId, recordingId],
-  );
 
   const discardCalibrationRefinement = useCallback(async () => {
     const current = calibrationRefinement;
@@ -995,106 +880,6 @@ export function PipelineVisibleCardEditor({
     [enqueue],
   );
 
-  const updatePoseScene = useCallback(
-    (
-      frame: EditableFrame,
-      cardScene: NonNullable<Outcome["card_scene"]>,
-      noticeText: string,
-    ) => {
-      setFrameReview(
-        frame,
-        {
-          ...frame.outcome,
-          status: "detected",
-          card_scene: cardScene,
-          error: null,
-        },
-        noticeText,
-      );
-    },
-    [setFrameReview],
-  );
-
-  const decideCard = useCallback(
-    (frame: EditableFrame, cardId: string, decision: "accept" | "reject") => {
-      const cardScene = frame.outcome.card_scene;
-      if (cardScene === undefined || cardScene.card_review_states === undefined)
-        return;
-      const nextState: "accepted" | "rejected" =
-        decision === "accept" ? "accepted" : "rejected";
-      const nextStates = cardScene.card_review_states.map((state) =>
-        state.card_id === cardId ? { ...state, state: nextState } : state,
-      );
-      const nextScene: NonNullable<Outcome["card_scene"]> = {
-        ...cardScene,
-        card_review_states: nextStates,
-        completion_state: nextStates.some((state) => state.state === "pending")
-          ? ("pending" as const)
-          : ("complete" as const),
-        completion_reason: null,
-      };
-      enqueue(
-        {
-          operation: decision === "accept" ? "accept_card" : "reject_card",
-          item_id: frame.itemId,
-          card_id: cardId,
-        },
-        decision === "accept" ? "Card accepted." : "Card rejected.",
-        (current) =>
-          current.map((candidate) =>
-            candidate.itemId === frame.itemId
-              ? {
-                  ...candidate,
-                  outcome: { ...candidate.outcome, card_scene: nextScene },
-                }
-              : candidate,
-          ),
-      );
-    },
-    [enqueue],
-  );
-
-  const resolveRemainingCards = useCallback(
-    (frame: EditableFrame) => {
-      const cardScene = frame.outcome.card_scene;
-      if (cardScene === undefined || cardScene.card_review_states === undefined)
-        return;
-      const pending = cardScene.card_review_states.filter(
-        (state) => state.state === "pending",
-      );
-      if (pending.length === 0) return;
-      const operations: PipelineReferenceOperation[] = pending.map((state) => ({
-        operation: "accept_card",
-        item_id: frame.itemId,
-        card_id: state.card_id,
-      }));
-      const nextScene: NonNullable<Outcome["card_scene"]> = {
-        ...cardScene,
-        card_review_states: cardScene.card_review_states.map((state) =>
-          state.state === "pending"
-            ? { ...state, state: "accepted" as const }
-            : state,
-        ),
-        completion_state: "complete" as const,
-        completion_reason: null,
-      };
-      enqueueOperations(
-        operations,
-        "All remaining cards accepted.",
-        (current) =>
-          current.map((candidate) =>
-            candidate.itemId === frame.itemId
-              ? {
-                  ...candidate,
-                  outcome: { ...candidate.outcome, card_scene: nextScene },
-                }
-              : candidate,
-          ),
-      );
-    },
-    [enqueueOperations],
-  );
-
   const acceptSuggestions = useCallback(
     (frame: EditableFrame) => {
       endEditMode();
@@ -1203,7 +988,6 @@ export function PipelineVisibleCardEditor({
     (frame: EditableFrame, candidate: Candidate | null, polygonIndex = 0) => {
       if (frame.outcome.frame_identity === null) return;
       setEditorError(null);
-      setSelectedCandidateId(candidate?.card_id ?? null);
       const polygons =
         candidate === null ? [[]] : geometryPolygons(candidate.geometry);
       setEditor({
@@ -1225,7 +1009,6 @@ export function PipelineVisibleCardEditor({
       const nextRegion =
         region ?? newIgnoreRegion(frame, nextManualRegionId(frame));
       setEditorError(null);
-      setSelectedCandidateId(null);
       setSelectedCandidateIds([]);
       setEditor({
         frameItemId: frame.itemId,
@@ -1391,9 +1174,6 @@ export function PipelineVisibleCardEditor({
           error: null,
         },
         "Visible card removed from the frame review.",
-      );
-      setSelectedCandidateId((current) =>
-        current === cardId ? null : current,
       );
     },
     [setFrameReview],
@@ -1579,7 +1359,7 @@ export function PipelineVisibleCardEditor({
   );
 
   const handleCanvasPointerMove = useCallback(
-    (event: ReactPointerEvent<SVGSVGElement>) => {
+    (event: ReactPointerEvent<SVGSVGElement>, providedPoint?: Point | null) => {
       const drag = dragRef.current;
       if (drag === null || drag.pointerId !== event.pointerId) return;
       if (!drag.dragging) {
@@ -1593,7 +1373,7 @@ export function PipelineVisibleCardEditor({
         }
         drag.dragging = true;
       }
-      const point = pointFromEvent(event);
+      const point = pointFromEvent(event, providedPoint);
       if (point === null) return;
       setEditor((current) => {
         if (current === null) return current;
@@ -1609,7 +1389,7 @@ export function PipelineVisibleCardEditor({
   );
 
   const handleCanvasPointerLeave = useCallback(
-    (event: ReactPointerEvent<SVGSVGElement>) => {
+    (event: ReactPointerEvent<SVGSVGElement>, providedPoint?: Point | null) => {
       const drag = dragRef.current;
       if (drag === null || drag.pointerId !== event.pointerId) return;
       if (!drag.dragging) {
@@ -1617,7 +1397,7 @@ export function PipelineVisibleCardEditor({
         event.currentTarget.releasePointerCapture?.(event.pointerId);
         return;
       }
-      const point = pointFromEvent(event);
+      const point = pointFromEvent(event, providedPoint);
       if (point === null) return;
       const currentEditor = editorRef.current;
       const polygon = currentEditor?.polygons[drag.polygonIndex];
@@ -1639,8 +1419,8 @@ export function PipelineVisibleCardEditor({
   );
 
   const addVisibleRegionPoint = useCallback(
-    (event: ReactPointerEvent<SVGSVGElement>) => {
-      const point = pointFromEvent(event);
+    (event: ReactPointerEvent<SVGSVGElement>, providedPoint?: Point | null) => {
+      const point = pointFromEvent(event, providedPoint);
       if (point === null) return;
       const currentEditor = editorRef.current;
       if (currentEditor === null) return;
@@ -2153,6 +1933,89 @@ export function PipelineVisibleCardEditor({
                   ? "Enter the reviewer ID before completing the reference."
                   : null;
 
+  const handleWorkbenchSelection = useCallback(
+    (selection: WorkbenchSelection | null) => {
+      if (!editable || activeFrame === null || selection === null) return;
+      if (selection.type === "ignore_region") {
+        const region = activeFrame.outcome.ignored_regions.find(
+          (candidate) => candidate.region_id === selection.id,
+        );
+        if (region !== undefined) openIgnoreRegionEditor(activeFrame, region);
+        return;
+      }
+      if (
+        selection.type === "virtual_card" ||
+        selection.type === "calibration_anchor"
+      )
+        return;
+      const candidate = activeFrame.outcome.candidates.find(
+        (current) => current.card_id === selection.id,
+      );
+      if (candidate !== undefined)
+        openEditor(
+          activeFrame,
+          candidate,
+          selection.type === "polygon" ? selection.polygonIndex : 0,
+        );
+    },
+    [activeFrame, editable, openEditor, openIgnoreRegionEditor],
+  );
+
+  const handleWorkbenchAction = useCallback(
+    (
+      action: VisibleRegionWorkbenchAction,
+      selection: WorkbenchSelection | null,
+    ) => {
+      if (!editable || activeFrame === null) return;
+      switch (action) {
+        case "add_visible_card":
+          openEditor(activeFrame, null);
+          break;
+        case "add_polygon":
+          addEditorPolygon();
+          break;
+        case "remove_polygon":
+          removeEditorPolygon();
+          break;
+        case "draw_ignore_region":
+          openIgnoreRegionEditor(activeFrame);
+          break;
+        case "convert_to_ignore_region":
+          convertSelectedToIgnoreRegion(activeFrame);
+          break;
+        case "copy_ignore_regions":
+          if (canCopyIgnoreRegions && previousReviewedFrame !== null)
+            copyIgnoreRegions(activeFrame, previousReviewedFrame);
+          break;
+        case "delete_selection":
+          if (selection?.type === "ignore_region")
+            removeIgnoreRegion(activeFrame, selection.id);
+          else if (selection?.type === "visible_card")
+            removeCard(activeFrame, selection.id);
+          else if (selection?.type === "polygon") removeEditorPolygon();
+          break;
+        case "restore_suggestion":
+          restoreGeneratedSuggestions(activeFrame);
+          break;
+      }
+    },
+    [
+      activeFrame,
+      addEditorPolygon,
+      canCopyIgnoreRegions,
+      convertSelectedToIgnoreRegion,
+      copyIgnoreRegions,
+      editable,
+      openEditor,
+      openIgnoreRegionEditor,
+      previousReviewedFrame,
+      removeCard,
+      removeEditorPolygon,
+      removeIgnoreRegion,
+      restoreGeneratedSuggestions,
+    ],
+  );
+
   const inspector = (
     <VisibleCardInspectorPortals
       slots={inspectorSlots}
@@ -2296,109 +2159,60 @@ export function PipelineVisibleCardEditor({
           <>
             {reviewControls}
             <div className={visibleStyles.reviewWorkbench}>
-              {activeFrame.outcome.card_scene !== undefined ? (
-                view === "generated" ? (
-                  <VisibleCardReviewWorkbench
-                    recordingId={recordingId}
-                    frame={activeFrame}
-                    readOnly
-                  />
-                ) : (
-                  <PoseBasedVisibleCardEditor
-                    recordingId={recordingId}
-                    frame={activeFrame}
-                    scene={activeFrame.outcome.card_scene}
-                    readOnly={!editable}
-                    activeView={poseEditorView}
-                    onActiveViewChange={setPoseEditorView}
-                    tableViewState={poseTableViewState}
-                    onTableViewStateChange={updatePoseTableViewState}
-                    onChange={(nextScene, noticeText) =>
-                      updatePoseScene(activeFrame, nextScene, noticeText)
-                    }
-                    onCardDecision={
-                      editable
-                        ? (cardId, decision) =>
-                            decideCard(activeFrame, cardId, decision)
-                        : undefined
-                    }
-                    onResolveRemaining={
-                      editable
-                        ? () => resolveRemainingCards(activeFrame)
-                        : undefined
-                    }
-                    onAnchorCommand={
-                      editable && calibrationRefinement !== null
-                        ? (command) => void updateCalibrationRefinement(command)
-                        : undefined
-                    }
-                    candidateCalibration={
-                      calibrationRefinement?.preview.candidate_calibration ??
-                      null
-                    }
-                  />
-                )
-              ) : view === "generated" ? (
-                <VisibleCardReviewWorkbench
-                  recordingId={recordingId}
-                  frame={activeFrame}
-                  readOnly
-                />
-              ) : (
-                <VisibleCardFramePanel
-                  recordingId={recordingId}
-                  frame={activeFrame}
-                  editor={
-                    editor?.frameItemId === activeFrame.itemId ? editor : null
-                  }
-                  selectedCandidateId={selectedCandidateId}
-                  editorError={editorError}
-                  selectedCandidateIds={selectedCandidateIds}
-                  onToggleCandidateSelection={toggleCandidateSelection}
-                  onOpenIgnoreRegion={
-                    editable
-                      ? (region) => openIgnoreRegionEditor(activeFrame, region)
-                      : undefined
-                  }
-                  onRemoveIgnoreRegion={
-                    editable
-                      ? (regionId) => removeIgnoreRegion(activeFrame, regionId)
-                      : undefined
-                  }
-                  readOnly={!editable}
-                  onSelectCandidate={(candidate) => {
-                    setSelectedCandidateId(candidate.card_id);
-                    if (editable) openEditor(activeFrame, candidate);
-                  }}
-                  onSelectCandidatePolygon={
-                    editable
-                      ? (candidate, polygonIndex) =>
-                          openEditor(activeFrame, candidate, polygonIndex)
-                      : undefined
-                  }
-                  onOpenEditor={
-                    editable
-                      ? (candidate) => openEditor(activeFrame, candidate)
-                      : undefined
-                  }
-                  onCancelEditor={editable ? () => setEditor(null) : undefined}
-                  onRemoveCard={
-                    editable
-                      ? (cardId) => removeCard(activeFrame, cardId)
-                      : undefined
-                  }
-                  onPointerMove={handleCanvasPointerMove}
-                  onPointerLeave={handleCanvasPointerLeave}
-                  onCanvasPointerDown={addVisibleRegionPoint}
-                  onPointerUp={stopCanvasPointer}
-                  onPointPointerDown={startPointDrag}
-                  onDeleteSelectedPoint={deleteSelectedPoint}
-                  onSelectEditorPolygon={selectEditorPolygon}
-                  onAddEditorPolygon={addEditorPolygon}
-                  onRemoveEditorPolygon={removeEditorPolygon}
-                  proposalSlot={proposalSlot}
-                />
-              )}
+              <VisibleCardReviewWorkbench
+                recordingId={recordingId}
+                frame={activeFrame}
+                readOnly={!editable}
+                initialPreferences={{ activeTool: "visible_regions" }}
+                enabledEditTools={editable ? ["visible_regions"] : []}
+                editor={
+                  editor?.frameItemId === activeFrame.itemId ? editor : null
+                }
+                editorError={editorError}
+                selectedCandidateIds={selectedCandidateIds}
+                proposalSlot={proposalSlot}
+                canCopyIgnoreRegions={canCopyIgnoreRegions}
+                canRestoreSuggestion={
+                  generatedFrames.some(
+                    (frame) => frame.itemId === activeFrame.itemId,
+                  ) && activeFrame.reviewState !== "pending"
+                }
+                candidateCalibration={
+                  calibrationRefinement?.preview.candidate_calibration ?? null
+                }
+                onSelectionChange={handleWorkbenchSelection}
+                onAction={handleWorkbenchAction}
+                onOpenEditor={
+                  editable
+                    ? (candidate, polygonIndex) =>
+                        openEditor(activeFrame, candidate, polygonIndex)
+                    : undefined
+                }
+                onOpenIgnoreRegion={
+                  editable
+                    ? (region) => openIgnoreRegionEditor(activeFrame, region)
+                    : undefined
+                }
+                onRemoveIgnoreRegion={
+                  editable
+                    ? (regionId) => removeIgnoreRegion(activeFrame, regionId)
+                    : undefined
+                }
+                onToggleCandidateSelection={toggleCandidateSelection}
+                onRemoveCard={
+                  editable
+                    ? (cardId) => removeCard(activeFrame, cardId)
+                    : undefined
+                }
+                onCancelEditor={editable ? () => setEditor(null) : undefined}
+                onSelectEditorPolygon={selectEditorPolygon}
+                onPointerMove={handleCanvasPointerMove}
+                onPointerLeave={handleCanvasPointerLeave}
+                onCanvasPointerDown={addVisibleRegionPoint}
+                onPointerUp={stopCanvasPointer}
+                onPointPointerDown={startPointDrag}
+                onDeleteSelectedPoint={deleteSelectedPoint}
+              />
             </div>
           </>
         )}
@@ -2981,7 +2795,11 @@ function squaredDistanceToSegment(
   return (point.x - nearestX) ** 2 + (point.y - nearestY) ** 2;
 }
 
-function pointFromEvent(event: ReactPointerEvent<SVGSVGElement>): Point | null {
+function pointFromEvent(
+  event: ReactPointerEvent<SVGSVGElement>,
+  providedPoint?: Point | null,
+): Point | null {
+  if (providedPoint !== undefined) return providedPoint;
   const rect = event.currentTarget.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
   return {

@@ -4,8 +4,10 @@ import {
   useReducer,
   useRef,
   type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { pipelineDerivedFramePath } from "../api/client";
 import styles from "./PipelineVisibleCardEditor.module.css";
@@ -22,6 +24,8 @@ import {
 import type {
   Candidate,
   EditableFrame,
+  EditorState,
+  IgnoreRegion,
   Point,
 } from "./PipelineVisibleCardTypes";
 import {
@@ -47,6 +51,21 @@ type CandidateCalibration = {
   card_long_size: number;
 };
 
+export type VisibleRegionWorkbenchAction =
+  | "add_visible_card"
+  | "add_polygon"
+  | "remove_polygon"
+  | "draw_ignore_region"
+  | "convert_to_ignore_region"
+  | "copy_ignore_regions"
+  | "delete_selection"
+  | "restore_suggestion";
+
+type WorkbenchPointHandler = (
+  event: ReactPointerEvent<SVGSVGElement>,
+  point: Point | null,
+) => void;
+
 export type VisibleCardReviewWorkbenchProps = {
   recordingId: string;
   frame: EditableFrame;
@@ -54,6 +73,35 @@ export type VisibleCardReviewWorkbenchProps = {
   candidateCalibration?: CandidateCalibration | null;
   initialPreferences?: Partial<WorkbenchPreferences>;
   onSelectionChange?: (selection: WorkbenchSelection | null) => void;
+  enabledEditTools?: readonly WorkbenchPreferences["activeTool"][];
+  editor?: EditorState | null;
+  editorError?: string | null;
+  selectedCandidateIds?: string[];
+  proposalSlot?: HTMLElement | null;
+  canCopyIgnoreRegions?: boolean;
+  canRestoreSuggestion?: boolean;
+  onToolChange?: (tool: WorkbenchPreferences["activeTool"]) => void;
+  onAction?: (
+    action: VisibleRegionWorkbenchAction,
+    selection: WorkbenchSelection | null,
+  ) => void;
+  onOpenEditor?: (candidate: Candidate | null, polygonIndex?: number) => void;
+  onOpenIgnoreRegion?: (region: IgnoreRegion | null) => void;
+  onRemoveIgnoreRegion?: (regionId: string) => void;
+  onToggleCandidateSelection?: (cardId: string) => void;
+  onRemoveCard?: (cardId: string) => void;
+  onSelectEditorPolygon?: (polygonIndex: number) => void;
+  onCancelEditor?: () => void;
+  onPointPointerDown?: (
+    event: ReactPointerEvent<SVGCircleElement>,
+    polygonIndex: number,
+    pointIndex: number,
+  ) => void;
+  onCanvasPointerDown?: WorkbenchPointHandler;
+  onPointerMove?: WorkbenchPointHandler;
+  onPointerLeave?: WorkbenchPointHandler;
+  onPointerUp?: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  onDeleteSelectedPoint?: (event: ReactKeyboardEvent<SVGSVGElement>) => void;
 };
 
 const VIEWPOINT_LABELS: Record<WorkbenchViewpoint, string> = {
@@ -69,8 +117,8 @@ const LAYER_LABELS: Record<WorkbenchLayer, string> = {
   mapping: "Mapping diagnostics",
 };
 
-const M1_EDIT_REASON =
-  "Editing is disabled while the shared workbench surface is being introduced.";
+const LATER_EDIT_REASON =
+  "This edit tool is planned for a later workbench phase.";
 
 export function VisibleCardReviewWorkbench({
   recordingId,
@@ -79,6 +127,28 @@ export function VisibleCardReviewWorkbench({
   candidateCalibration = null,
   initialPreferences,
   onSelectionChange,
+  enabledEditTools,
+  editor = null,
+  editorError = null,
+  selectedCandidateIds = [],
+  proposalSlot,
+  canCopyIgnoreRegions = false,
+  canRestoreSuggestion = false,
+  onToolChange,
+  onAction,
+  onOpenEditor,
+  onOpenIgnoreRegion,
+  onRemoveIgnoreRegion,
+  onToggleCandidateSelection,
+  onRemoveCard,
+  onSelectEditorPolygon,
+  onCancelEditor,
+  onPointPointerDown,
+  onCanvasPointerDown,
+  onPointerMove,
+  onPointerLeave,
+  onPointerUp,
+  onDeleteSelectedPoint,
 }: VisibleCardReviewWorkbenchProps) {
   const capabilities = workbenchCapabilitiesFromFrame(frame, readOnly);
   const [state, dispatch] = useReducer(
@@ -88,12 +158,24 @@ export function VisibleCardReviewWorkbench({
       createVisibleCardReviewWorkbenchState(initialCapabilities, preferences),
   );
   const previousFrameId = useRef(frame.itemId);
+  const capabilitiesKey = JSON.stringify(capabilities);
+  const appliedCapabilitiesKey = useRef(capabilitiesKey);
 
   useEffect(() => {
     if (previousFrameId.current === frame.itemId) return;
     previousFrameId.current = frame.itemId;
     dispatch({ type: "navigate_frame", capabilities });
   }, [capabilities, frame.itemId]);
+
+  useEffect(() => {
+    if (
+      state.frameId !== frame.itemId ||
+      appliedCapabilitiesKey.current === capabilitiesKey
+    )
+      return;
+    appliedCapabilitiesKey.current = capabilitiesKey;
+    dispatch({ type: "refresh_capabilities", capabilities });
+  }, [capabilitiesKey, frame.itemId, state.frameId]);
 
   const activeState =
     state.frameId === frame.itemId
@@ -190,23 +272,72 @@ export function VisibleCardReviewWorkbench({
         state={activeState}
         availability={availability}
         readOnly={readOnly}
+        enabledEditTools={
+          enabledEditTools ?? ["visible_regions", "virtual_cards", "mapping"]
+        }
+        selectedCandidateIds={selectedCandidateIds}
+        editor={editor}
+        canCopyIgnoreRegions={canCopyIgnoreRegions}
+        canRestoreSuggestion={canRestoreSuggestion}
         onToggleViewpoint={() => dispatch({ type: "toggle_viewpoint" })}
         onToggleLayer={(layer) => dispatch({ type: "toggle_layer", layer })}
+        onSelectTool={(tool) => {
+          dispatch({ type: "select_tool", tool });
+          onToolChange?.(tool);
+        }}
+        onAction={(action) => onAction?.(action, activeState.selection)}
       />
-      <WorkbenchSurface
-        frame={frame}
-        scene={scene}
-        sourceUrl={sourceUrl}
-        width={width}
-        height={height}
-        viewpoint={activeState.viewpoint}
-        enabledLayers={activeState.enabledLayers}
-        selection={activeState.selection}
-        viewport={activeState.viewport}
-        candidateProjection={candidateProjection}
-        onSelect={select}
-        onKeyDown={handleSurfaceKeyDown}
-      />
+      <div className={styles.workbenchSurfaceLayout}>
+        <WorkbenchSurface
+          frame={frame}
+          scene={scene}
+          sourceUrl={sourceUrl}
+          width={width}
+          height={height}
+          viewpoint={activeState.viewpoint}
+          enabledLayers={activeState.enabledLayers}
+          selection={activeState.selection}
+          viewport={activeState.viewport}
+          candidateProjection={candidateProjection}
+          editor={editor}
+          includeIgnoreRegionCount={proposalSlot !== undefined}
+          onSelect={select}
+          onKeyDown={handleSurfaceKeyDown}
+          onPointPointerDown={onPointPointerDown}
+          onCanvasPointerDown={onCanvasPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerLeave={onPointerLeave}
+          onPointerUp={onPointerUp}
+          onDeleteSelectedPoint={onDeleteSelectedPoint}
+        />
+        {proposalSlot !== undefined ? (
+          <WorkbenchProposalColumn
+            frame={frame}
+            readOnly={readOnly}
+            selection={activeState.selection}
+            editor={editor}
+            selectedCandidateIds={selectedCandidateIds}
+            onToggleCandidateSelection={onToggleCandidateSelection}
+            onSelectCandidate={(candidate) => {
+              select({ type: "visible_card", id: candidate.card_id });
+              onOpenEditor?.(candidate);
+            }}
+            onOpenEditor={onOpenEditor}
+            onRemoveCard={onRemoveCard}
+            onOpenIgnoreRegion={onOpenIgnoreRegion}
+            onRemoveIgnoreRegion={onRemoveIgnoreRegion}
+            proposalSlot={proposalSlot}
+          />
+        ) : null}
+      </div>
+      {editor !== null && !readOnly ? (
+        <WorkbenchEditorControls
+          editor={editor}
+          editorError={editorError}
+          onSelectEditorPolygon={onSelectEditorPolygon}
+          onCancelEditor={onCancelEditor}
+        />
+      ) : null}
     </section>
   );
 }
@@ -215,14 +346,28 @@ function WorkbenchCommandBar({
   state,
   availability,
   readOnly,
+  enabledEditTools,
+  selectedCandidateIds,
+  editor,
+  canCopyIgnoreRegions,
+  canRestoreSuggestion,
   onToggleViewpoint,
   onToggleLayer,
+  onSelectTool,
+  onAction,
 }: {
   state: VisibleCardReviewWorkbenchState;
   availability: ReturnType<typeof getWorkbenchAvailability>;
   readOnly: boolean;
+  enabledEditTools: readonly WorkbenchPreferences["activeTool"][];
+  selectedCandidateIds: string[];
+  editor: EditorState | null;
+  canCopyIgnoreRegions: boolean;
+  canRestoreSuggestion: boolean;
   onToggleViewpoint: () => void;
   onToggleLayer: (layer: WorkbenchLayer) => void;
+  onSelectTool: (tool: WorkbenchPreferences["activeTool"]) => void;
+  onAction: (action: VisibleRegionWorkbenchAction) => void;
 }) {
   const nextViewpoint = state.viewpoint === "camera" ? "rectified" : "camera";
   const viewpointAvailability = availability.viewpoints[nextViewpoint];
@@ -270,9 +415,12 @@ function WorkbenchCommandBar({
         {(["visible_regions", "virtual_cards", "mapping"] as const).map(
           (tool) => {
             const toolAvailability = availability.tools[tool];
+            const enabledInPhase = enabledEditTools.includes(tool);
             const disabledReason = readOnly
               ? toolAvailability.mutationDisabledReason
-              : M1_EDIT_REASON;
+              : enabledInPhase
+                ? null
+                : LATER_EDIT_REASON;
             return (
               <button
                 key={tool}
@@ -288,6 +436,7 @@ function WorkbenchCommandBar({
                 disabled={
                   !toolAvailability.available || disabledReason !== null
                 }
+                onClick={() => onSelectTool(tool)}
               >
                 {tool === "mapping" ? "Mapping" : LAYER_LABELS[tool]}
               </button>
@@ -295,8 +444,331 @@ function WorkbenchCommandBar({
           },
         )}
       </div>
+      {state.activeTool === "visible_regions" ? (
+        <VisibleRegionSelectionActions
+          readOnly={readOnly}
+          sourceAvailable={availability.viewpoints.camera.available}
+          selectedCandidateCount={selectedCandidateIds.length}
+          editor={editor}
+          selection={state.selection}
+          canCopyIgnoreRegions={canCopyIgnoreRegions}
+          canRestoreSuggestion={canRestoreSuggestion}
+          onAction={onAction}
+        />
+      ) : null}
     </div>
   );
+}
+
+function VisibleRegionSelectionActions({
+  readOnly,
+  sourceAvailable,
+  selectedCandidateCount,
+  editor,
+  selection,
+  canCopyIgnoreRegions,
+  canRestoreSuggestion,
+  onAction,
+}: {
+  readOnly: boolean;
+  sourceAvailable: boolean;
+  selectedCandidateCount: number;
+  editor: EditorState | null;
+  selection: WorkbenchSelection | null;
+  canCopyIgnoreRegions: boolean;
+  canRestoreSuggestion: boolean;
+  onAction: (action: VisibleRegionWorkbenchAction) => void;
+}) {
+  const actions: Array<{
+    action: VisibleRegionWorkbenchAction;
+    label: string;
+    disabled: boolean;
+    reason: string;
+  }> = [
+    {
+      action: "add_visible_card",
+      label: "Add visible card",
+      disabled: readOnly || !sourceAvailable,
+      reason: readOnly
+        ? "Generated visible-card results are read-only."
+        : "A resolved source frame is required to add a visible card.",
+    },
+    {
+      action: "add_polygon",
+      label: "Add polygon",
+      disabled: readOnly || editor === null || editor.cardId === null,
+      reason: "Select a visible card before adding a polygon.",
+    },
+    {
+      action: "remove_polygon",
+      label: "Remove polygon",
+      disabled: readOnly || editor === null || editor.polygons.length <= 1,
+      reason: "A visible card must keep one polygon.",
+    },
+    {
+      action: "draw_ignore_region",
+      label: "Draw ignore region",
+      disabled: readOnly || !sourceAvailable,
+      reason: "A resolved source frame is required to draw an ignore region.",
+    },
+    {
+      action: "convert_to_ignore_region",
+      label: "Convert selection to ignore region",
+      disabled: readOnly || selectedCandidateCount === 0,
+      reason:
+        "Select one or more proposals to convert them to an ignore region.",
+    },
+    {
+      action: "copy_ignore_regions",
+      label: "Copy ignore regions",
+      disabled: readOnly || !canCopyIgnoreRegions,
+      reason: "Review an earlier frame with ignore regions first.",
+    },
+    {
+      action: "delete_selection",
+      label: "Delete selection",
+      disabled:
+        readOnly ||
+        selection === null ||
+        (selection.type !== "visible_card" &&
+          selection.type !== "polygon" &&
+          selection.type !== "ignore_region"),
+      reason: "Select a visible card or ignore region first.",
+    },
+    {
+      action: "restore_suggestion",
+      label: "Restore suggestion",
+      disabled: readOnly || !canRestoreSuggestion,
+      reason: "A generated suggestion is required to restore this frame.",
+    },
+  ];
+  return (
+    <div
+      className={styles.workbenchCommandGroup}
+      aria-label="Selection actions"
+    >
+      <span className={styles.workbenchCommandLabel}>Selection actions</span>
+      {actions.map(({ action, label, disabled, reason }) => (
+        <button
+          key={action}
+          type="button"
+          className={styles.workbenchToggle}
+          disabled={disabled}
+          title={disabled ? reason : undefined}
+          aria-label={
+            action === "draw_ignore_region"
+              ? "Draw ignore region in shared workbench"
+              : undefined
+          }
+          onClick={() => onAction(action)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function WorkbenchEditorControls({
+  editor,
+  editorError,
+  onSelectEditorPolygon,
+  onCancelEditor,
+}: {
+  editor: EditorState;
+  editorError: string | null;
+  onSelectEditorPolygon?: (polygonIndex: number) => void;
+  onCancelEditor?: () => void;
+}) {
+  return (
+    <section
+      className={styles.workbenchEditor}
+      aria-label="Visible region editor"
+    >
+      <p className={styles.workbenchEditorHelp}>
+        Drag a point to adjust a region. Click an edge to add a point. Changes
+        save through the maintained-reference command queue.
+      </p>
+      <div
+        className={styles.workbenchPolygonActions}
+        aria-label="Visible region polygons"
+      >
+        {editor.polygons.map((polygon, polygonIndex) => (
+          <button
+            className={styles.workbenchToggle}
+            type="button"
+            key={`polygon-${polygonIndex}`}
+            aria-pressed={editor.polygonIndex === polygonIndex}
+            onClick={() => onSelectEditorPolygon?.(polygonIndex)}
+          >
+            Polygon {polygonIndex + 1} ({polygon.length} point
+            {polygon.length === 1 ? "" : "s"})
+          </button>
+        ))}
+        <button
+          className={styles.workbenchToggle}
+          type="button"
+          onClick={onCancelEditor}
+        >
+          Close editor Esc
+        </button>
+      </div>
+      {editorError !== null ? (
+        <p className={styles.workbenchEditorError}>{editorError}</p>
+      ) : null}
+    </section>
+  );
+}
+
+function WorkbenchProposalColumn({
+  frame,
+  readOnly,
+  selection,
+  editor,
+  selectedCandidateIds,
+  onToggleCandidateSelection,
+  onSelectCandidate,
+  onOpenEditor,
+  onRemoveCard,
+  onOpenIgnoreRegion,
+  onRemoveIgnoreRegion,
+  proposalSlot,
+}: {
+  frame: EditableFrame;
+  readOnly: boolean;
+  selection: WorkbenchSelection | null;
+  editor: EditorState | null;
+  selectedCandidateIds: string[];
+  onToggleCandidateSelection?: (cardId: string) => void;
+  onSelectCandidate: (candidate: Candidate) => void;
+  onOpenEditor?: (candidate: Candidate | null, polygonIndex?: number) => void;
+  onRemoveCard?: (cardId: string) => void;
+  onOpenIgnoreRegion?: (region: IgnoreRegion | null) => void;
+  onRemoveIgnoreRegion?: (regionId: string) => void;
+  proposalSlot: HTMLElement | null;
+}) {
+  const content = (
+    <section
+      className={styles.proposalColumn}
+      aria-label="Visible-card proposals"
+    >
+      {frame.outcome.candidates.length === 0 ? (
+        <p className={styles.detailEmptyState}>
+          No proposals. Add a visible card or review this frame as empty.
+        </p>
+      ) : (
+        <ol className={styles.proposalItems}>
+          {frame.outcome.candidates.map((candidate, index) => (
+            <li key={candidate.card_id}>
+              <div className={styles.proposalRow}>
+                {!readOnly ? (
+                  <label className={styles.proposalCheckbox}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select proposal ${index + 1} for ignore region`}
+                      checked={selectedCandidateIds.includes(candidate.card_id)}
+                      onChange={() =>
+                        onToggleCandidateSelection?.(candidate.card_id)
+                      }
+                    />
+                    <span className={styles.visuallyHidden}>
+                      Select for ignore region
+                    </span>
+                  </label>
+                ) : null}
+                <button
+                  className={styles.proposalSelect}
+                  type="button"
+                  aria-label={`Select proposal ${index + 1}`}
+                  aria-pressed={
+                    (selection?.id === candidate.card_id &&
+                      (selection.type === "visible_card" ||
+                        selection.type === "polygon")) ||
+                    editor?.cardId === candidate.card_id
+                  }
+                  onClick={() => onSelectCandidate(candidate)}
+                >
+                  <strong>Proposal {index + 1}</strong>
+                  <span>Detector suggestion</span>
+                  <small>
+                    {candidate.geometry.visible_region !== undefined
+                      ? "Polygon"
+                      : candidate.geometry.box_2d !== undefined
+                        ? "Box"
+                        : candidate.geometry.kind}
+                  </small>
+                </button>
+                {!readOnly ? (
+                  <div className={styles.actionButtons}>
+                    <button
+                      className={styles.inlineAction}
+                      type="button"
+                      onClick={() => {
+                        onSelectCandidate(candidate);
+                        onOpenEditor?.(candidate);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className={styles.inlineAction}
+                      type="button"
+                      onClick={() => onRemoveCard?.(candidate.card_id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      {frame.outcome.ignored_regions.length > 0 ? (
+        <section
+          className={styles.ignoreRegionList}
+          aria-label="Visible-card ignore regions"
+        >
+          <p className={styles.statusLabel}>Ignore regions</p>
+          <ol className={styles.proposalItems}>
+            {frame.outcome.ignored_regions.map((region, index) => (
+              <li key={region.region_id}>
+                <div className={styles.ignoreRegionRow}>
+                  <span
+                    className={styles.ignoreRegionSwatch}
+                    aria-hidden="true"
+                  />
+                  <span className={styles.proposalDetails}>
+                    <strong>Ignore region {index + 1}</strong>
+                    <span>Untidy stack</span>
+                  </span>
+                  {!readOnly ? (
+                    <div className={styles.actionButtons}>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        onClick={() => onOpenIgnoreRegion?.(region)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        onClick={() => onRemoveIgnoreRegion?.(region.region_id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+    </section>
+  );
+  return proposalSlot === null ? content : createPortal(content, proposalSlot);
 }
 
 function WorkbenchSurface({
@@ -310,8 +782,16 @@ function WorkbenchSurface({
   selection,
   viewport,
   candidateProjection,
+  editor,
+  includeIgnoreRegionCount,
   onSelect,
   onKeyDown,
+  onPointPointerDown,
+  onCanvasPointerDown,
+  onPointerMove,
+  onPointerLeave,
+  onPointerUp,
+  onDeleteSelectedPoint,
 }: {
   frame: EditableFrame;
   scene: PoseSceneEnvelope | null;
@@ -323,11 +803,23 @@ function WorkbenchSurface({
   selection: WorkbenchSelection | null;
   viewport: { zoom: number; pan: { x: number; y: number } };
   candidateProjection: CardSceneProjection | null;
+  editor: EditorState | null;
+  includeIgnoreRegionCount: boolean;
   onSelect: (selection: WorkbenchSelection) => void;
   onKeyDown: (event: ReactKeyboardEvent<SVGSVGElement>) => void;
+  onPointPointerDown?: (
+    event: ReactPointerEvent<SVGCircleElement>,
+    polygonIndex: number,
+    pointIndex: number,
+  ) => void;
+  onCanvasPointerDown?: WorkbenchPointHandler;
+  onPointerMove?: WorkbenchPointHandler;
+  onPointerLeave?: WorkbenchPointHandler;
+  onPointerUp?: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  onDeleteSelectedPoint?: (event: ReactKeyboardEvent<SVGSVGElement>) => void;
 }) {
   const count = frame.outcome.candidates.length;
-  const proposalLabel = `${count} visible-card proposal${count === 1 ? "" : "s"}`;
+  const proposalLabel = `${count} visible-card proposal${count === 1 ? "" : "s"}${includeIgnoreRegionCount && frame.outcome.ignored_regions.length > 0 ? ` and ${frame.outcome.ignored_regions.length} ignore region${frame.outcome.ignored_regions.length === 1 ? "" : "s"}` : ""}`;
   if (viewpoint === "rectified" && scene !== null) {
     const viewBox = tableViewBox(scene.scene, scene.projection, viewport);
     return (
@@ -337,7 +829,51 @@ function WorkbenchSurface({
         role="img"
         aria-label={`Rectified visible-card workbench with ${proposalLabel}`}
         tabIndex={0}
-        onKeyDown={onKeyDown}
+        onKeyDown={(event) => {
+          onKeyDown(event);
+          onDeleteSelectedPoint?.(event);
+        }}
+        onPointerDown={(event) =>
+          onCanvasPointerDown?.(
+            event,
+            sourcePointFromEvent(
+              event,
+              "rectified",
+              viewBox,
+              width,
+              height,
+              scene,
+            ),
+          )
+        }
+        onPointerMove={(event) =>
+          onPointerMove?.(
+            event,
+            sourcePointFromEvent(
+              event,
+              "rectified",
+              viewBox,
+              width,
+              height,
+              scene,
+            ),
+          )
+        }
+        onPointerLeave={(event) =>
+          onPointerLeave?.(
+            event,
+            sourcePointFromEvent(
+              event,
+              "rectified",
+              viewBox,
+              width,
+              height,
+              scene,
+            ),
+          )
+        }
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
         {sourceUrl !== null ? (
           <RectifiedSourceFrame
@@ -358,6 +894,14 @@ function WorkbenchSurface({
           selection,
           candidateProjection,
           onSelect,
+        })}
+        {renderEditorOverlay({
+          editor,
+          viewpoint,
+          width,
+          height,
+          scene,
+          onPointPointerDown,
         })}
       </svg>
     );
@@ -385,7 +929,51 @@ function WorkbenchSurface({
         role="img"
         aria-label={proposalLabel}
         tabIndex={0}
-        onKeyDown={onKeyDown}
+        onKeyDown={(event) => {
+          onKeyDown(event);
+          onDeleteSelectedPoint?.(event);
+        }}
+        onPointerDown={(event) =>
+          onCanvasPointerDown?.(
+            event,
+            sourcePointFromEvent(
+              event,
+              "camera",
+              { x: 0, y: 0, width, height },
+              width,
+              height,
+              scene,
+            ),
+          )
+        }
+        onPointerMove={(event) =>
+          onPointerMove?.(
+            event,
+            sourcePointFromEvent(
+              event,
+              "camera",
+              { x: 0, y: 0, width, height },
+              width,
+              height,
+              scene,
+            ),
+          )
+        }
+        onPointerLeave={(event) =>
+          onPointerLeave?.(
+            event,
+            sourcePointFromEvent(
+              event,
+              "camera",
+              { x: 0, y: 0, width, height },
+              width,
+              height,
+              scene,
+            ),
+          )
+        }
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
         {renderLayers({
           frame,
@@ -397,6 +985,14 @@ function WorkbenchSurface({
           selection,
           candidateProjection,
           onSelect,
+        })}
+        {renderEditorOverlay({
+          editor,
+          viewpoint: "camera",
+          width,
+          height,
+          scene,
+          onPointPointerDown,
         })}
       </svg>
     </div>
@@ -414,6 +1010,143 @@ type LayerRenderContext = {
   candidateProjection: CardSceneProjection | null;
   onSelect: (selection: WorkbenchSelection) => void;
 };
+
+function renderEditorOverlay({
+  editor,
+  viewpoint,
+  width,
+  height,
+  scene,
+  onPointPointerDown,
+}: {
+  editor: EditorState | null;
+  viewpoint: WorkbenchViewpoint;
+  width: number;
+  height: number;
+  scene: PoseSceneEnvelope | null;
+  onPointPointerDown?: (
+    event: ReactPointerEvent<SVGCircleElement>,
+    polygonIndex: number,
+    pointIndex: number,
+  ) => void;
+}) {
+  if (editor === null) return null;
+  return (
+    <g data-workbench-editor="visible-regions">
+      {editor.polygons.map((polygon, polygonIndex) => {
+        const points = polygon
+          .map((point) => editorPoint(point, viewpoint, width, height, scene))
+          .filter((point): point is [number, number] => point !== null);
+        return (
+          <g key={`editor-${polygonIndex}`}>
+            {points.length >= 2 ? (
+              <polygon
+                points={pointsAttribute(points)}
+                fill={
+                  editor.polygonIndex === polygonIndex
+                    ? "rgba(255, 210, 79, 0.25)"
+                    : "rgba(255, 210, 79, 0.12)"
+                }
+                stroke={
+                  editor.polygonIndex === polygonIndex ? "#ffd24f" : "#c79f34"
+                }
+                strokeDasharray="4 3"
+                strokeWidth={strokeWidth(viewpoint, width)}
+                pointerEvents="none"
+              />
+            ) : null}
+            {polygon.map((point, pointIndex) => {
+              const displayPoint = editorPoint(
+                point,
+                viewpoint,
+                width,
+                height,
+                scene,
+              );
+              if (displayPoint === null) return null;
+              const [x, y] = displayPoint;
+              return (
+                <circle
+                  key={`${point.x}:${point.y}:${pointIndex}`}
+                  cx={x}
+                  cy={y}
+                  r={viewpoint === "camera" ? Math.max(1, width / 160) : 0.1}
+                  fill={
+                    editor.polygonIndex === polygonIndex &&
+                    editor.selectedPointIndex === pointIndex
+                      ? "#ffffff"
+                      : "#ffd24f"
+                  }
+                  stroke="#ffd24f"
+                  strokeWidth={strokeWidth(viewpoint, width) / 2}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Polygon ${polygonIndex + 1}, point ${pointIndex + 1} at ${point.x}, ${point.y}`}
+                  onPointerDown={(event) =>
+                    onPointPointerDown?.(event, polygonIndex, pointIndex)
+                  }
+                  onClick={(event) => event.stopPropagation()}
+                />
+              );
+            })}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+function editorPoint(
+  point: Point,
+  viewpoint: WorkbenchViewpoint,
+  width: number,
+  height: number,
+  scene: PoseSceneEnvelope | null,
+): [number, number] | null {
+  const source = sourcePoint(point, width, height);
+  if (viewpoint === "camera" || scene === null) return source;
+  const projected = projectImagePointToTable(
+    source,
+    scene.projection.table_to_image_homography,
+  );
+  return projected === null ? null : projected;
+}
+
+function sourcePointFromEvent(
+  event: ReactPointerEvent<SVGSVGElement>,
+  viewpoint: WorkbenchViewpoint,
+  viewBox: { x: number; y: number; width: number; height: number },
+  width: number,
+  height: number,
+  scene: PoseSceneEnvelope | null,
+): Point | null {
+  const rect = event.currentTarget.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  const displayX =
+    viewBox.x + ((event.clientX - rect.left) / rect.width) * viewBox.width;
+  const displayY =
+    viewBox.y + ((event.clientY - rect.top) / rect.height) * viewBox.height;
+  if (viewpoint === "camera" || scene === null) {
+    return {
+      x: clamp((displayX / width) * 1000, 1000),
+      y: clamp((displayY / height) * 1000, 1000),
+    };
+  }
+  const source = projectTablePoint(
+    [displayX, displayY],
+    scene.projection.table_to_image_homography,
+  );
+  return source === null
+    ? null
+    : {
+        x: clamp((source[0] / width) * 1000, 1000),
+        y: clamp((source[1] / height) * 1000, 1000),
+      };
+}
+
+function clamp(value: number, maximum: number): number {
+  return Math.min(Math.max(value, 0), maximum);
+}
 
 type LayerRenderer = {
   layer: WorkbenchLayer;
@@ -473,7 +1206,7 @@ function renderVisibleRegionLayer({
           data-polygon-index={polygonIndex}
           role="button"
           tabIndex={0}
-          aria-label={`Select visible card ${candidate.card_id}, polygon ${polygonIndex + 1}`}
+          aria-label={`Edit ${candidate.card_id}, polygon ${polygonIndex + 1}`}
           onClick={(event) => {
             event.stopPropagation();
             onSelect({
@@ -837,7 +1570,7 @@ function strokeWidth(
   selected = false,
 ): number {
   if (viewpoint === "rectified") return selected ? 0.06 : 0.035;
-  return selected ? Math.max(2, width / 250) : Math.max(1, width / 500);
+  return selected ? Math.max(2, width / 250) : Math.max(1.25, width / 500);
 }
 
 function pointsAttribute(points: Array<[number, number]>): string {

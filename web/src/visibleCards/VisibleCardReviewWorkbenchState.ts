@@ -81,6 +81,7 @@ export type WorkbenchAction =
   | { type: "begin_gesture"; gesture: WorkbenchGesture }
   | { type: "cancel_gesture" }
   | { type: "commit_gesture" }
+  | { type: "refresh_capabilities"; capabilities: WorkbenchFrameCapabilities }
   | { type: "navigate_frame"; capabilities: WorkbenchFrameCapabilities }
   | { type: "restore_preferences"; preferences: WorkbenchPreferences }
   | { type: "set_viewport"; viewport: WorkbenchViewport }
@@ -315,6 +316,38 @@ export function visibleCardReviewWorkbenchReducer(
         viewport: cloneViewport(EMPTY_VIEWPORT),
       };
     }
+    case "refresh_capabilities": {
+      const enabledLayers: WorkbenchLayer[] = [
+        ...state.enabledLayers,
+        ...(state.capabilities.hasVisibleRegions ||
+        !action.capabilities.hasVisibleRegions
+          ? []
+          : (["visible_regions"] as const)),
+        ...(state.capabilities.hasIgnoreRegions ||
+        !action.capabilities.hasIgnoreRegions
+          ? []
+          : (["ignore_regions"] as const)),
+      ];
+      const preferences = normalizePreferences(action.capabilities, {
+        viewpoint: state.viewpoint,
+        enabledLayers,
+        activeTool: state.activeTool,
+      });
+      return {
+        ...state,
+        ...preferences,
+        capabilities: action.capabilities,
+        selection:
+          state.selection !== null &&
+          isSelectionAvailable(state.selection, {
+            ...state,
+            capabilities: action.capabilities,
+          })
+            ? state.selection
+            : null,
+        visualFocus: false,
+      };
+    }
     case "restore_preferences": {
       const preferences = normalizePreferences(
         state.capabilities,
@@ -540,6 +573,16 @@ function isSelectionAvailable(
   selection: WorkbenchSelection,
   state: VisibleCardReviewWorkbenchState,
 ): boolean {
+  if (
+    selection.type === "visible_card" &&
+    !getWorkbenchAvailability(state.capabilities).layers.visible_regions
+      .available
+  ) {
+    return (
+      state.capabilities.hasProposals &&
+      isSelectionCompatible(state.activeTool, selection)
+    );
+  }
   return (
     getWorkbenchAvailability(state.capabilities).layers[
       layerForSelection(selection)

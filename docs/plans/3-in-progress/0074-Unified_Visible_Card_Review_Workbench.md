@@ -24,7 +24,9 @@
 - **M1:** Complete — generated-result inspection uses one shared Camera/Rectified surface with a
   typed layer registry, shared selection, fixed draw order, mapping diagnostics, and explicit
   disabled reasons.
-- **M2:** Not started — move visible-region and ignore-region editing into the workbench.
+- **M2:** Complete — visible-region polygon and ignore-region editing now use the shared
+  Camera/Rectified workbench surface, selection actions, source-coordinate pointer mapping, and
+  existing command callbacks.
 - **M3:** Not started — move virtual-card editing into the workbench.
 - **M4:** Not started — move mapping refinement into the workbench.
 - **M5:** Not started — consolidate actions, remove the split presentations, and verify the complete

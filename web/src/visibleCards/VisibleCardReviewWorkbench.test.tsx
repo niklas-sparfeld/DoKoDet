@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { VisibleCardReviewWorkbench } from "./VisibleCardReviewWorkbench";
 import type { EditableFrame } from "./PipelineVisibleCardTypes";
@@ -200,5 +200,84 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(
       screen.getByRole("button", { name: "Mapping diagnostics" }),
     ).toBeDisabled();
+  });
+
+  it("puts visible-region actions and editor points in the shared surface", async () => {
+    const onAction = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{ activeTool: "visible_regions" }}
+        enabledEditTools={["visible_regions"]}
+        editor={{
+          frameItemId: frame.itemId,
+          cardId: "suggestion-1",
+          regionId: null,
+          ignoreRegion: null,
+          polygons: [
+            [
+              { x: 100, y: 100 },
+              { x: 800, y: 100 },
+              { x: 800, y: 800 },
+            ],
+          ],
+          polygonIndex: 0,
+          selectedPointIndex: null,
+        }}
+        onAction={onAction}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Add visible card" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: /Polygon 1, point 1/ }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add visible card" }));
+    expect(onAction).toHaveBeenCalledWith("add_visible_card", null);
+  });
+
+  it("converts rectified pointer coordinates back to source coordinates", () => {
+    const onCanvasPointerDown = vi.fn();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{ activeTool: "visible_regions" }}
+        enabledEditTools={["visible_regions"]}
+        onCanvasPointerDown={onCanvasPointerDown}
+      />,
+    );
+    const surface = screen.getByRole("img", {
+      name: /Rectified visible-card workbench/,
+    });
+    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
+    fireEvent.pointerDown(surface, {
+      clientX: ((50 - viewBox[0]) / viewBox[2]) * 100,
+      clientY: ((50 - viewBox[1]) / viewBox[3]) * 100,
+    });
+    expect(onCanvasPointerDown).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        x: expect.closeTo(500),
+        y: expect.closeTo(500),
+      }),
+    );
   });
 });
