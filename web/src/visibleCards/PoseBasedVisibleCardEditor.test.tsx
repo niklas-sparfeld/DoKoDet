@@ -126,7 +126,7 @@ describe("PoseBasedVisibleCardEditor", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("application", { name: "Rectified virtual table" }),
-    ).toHaveAttribute("viewBox", "-3 -2.5 6.75 5");
+    ).toHaveAttribute("viewBox", "-4 -3.5 8.75 7");
     fireEvent.click(
       screen.getByRole("button", { name: "Add standard-size card" }),
     );
@@ -461,7 +461,7 @@ describe("PoseBasedVisibleCardEditor", () => {
     });
     fireEvent.pointerUp(table, { pointerId: 9 });
 
-    expect(table.getAttribute("viewBox")).toBe("-3.675 -3.5 6.75 5");
+    expect(table.getAttribute("viewBox")).toBe("-4.875 -4.9 8.75 7");
   });
 
   it("keeps the viewport state when the card scene or mapping changes", () => {
@@ -528,10 +528,10 @@ describe("PoseBasedVisibleCardEditor", () => {
       ?.split(" ")
       .map(Number);
     expect(viewBox).toEqual([
-      expect.closeTo(-1.825, 10),
-      expect.closeTo(-2, 10),
-      expect.closeTo(5.4, 10),
-      expect.closeTo(4, 10),
+      expect.closeTo(-2.625, 10),
+      expect.closeTo(-2.8, 10),
+      expect.closeTo(7, 10),
+      expect.closeTo(5.6, 10),
     ]);
   });
 

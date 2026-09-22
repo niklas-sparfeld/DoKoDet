@@ -1577,6 +1577,7 @@ function getTableViewBox(
 ): TableViewBox {
   const halfShort = projection.card_short_size / 2;
   const halfLong = projection.card_long_size / 2;
+  const viewportPadding = projection.card_long_size;
   const xs = scene.poses.flatMap((pose) => [
     pose.center[0] - halfShort - halfLong,
     pose.center[0] + halfShort + halfLong,
@@ -1585,7 +1586,8 @@ function getTableViewBox(
     pose.center[1] - halfShort - halfLong,
     pose.center[1] + halfShort + halfLong,
   ]);
-  const minX = Math.min(...xs, backgroundBounds?.x ?? Infinity, -1) - 0.5;
+  const minX =
+    Math.min(...xs, backgroundBounds?.x ?? Infinity, -1) - viewportPadding;
   const maxX =
     Math.max(
       ...xs,
@@ -1593,8 +1595,9 @@ function getTableViewBox(
         ? -Infinity
         : backgroundBounds.x + backgroundBounds.width,
       1,
-    ) + 0.5;
-  const minY = Math.min(...ys, backgroundBounds?.y ?? Infinity, -1) - 0.5;
+    ) + viewportPadding;
+  const minY =
+    Math.min(...ys, backgroundBounds?.y ?? Infinity, -1) - viewportPadding;
   const maxY =
     Math.max(
       ...ys,
@@ -1602,7 +1605,7 @@ function getTableViewBox(
         ? -Infinity
         : backgroundBounds.y + backgroundBounds.height,
       1,
-    ) + 0.5;
+    ) + viewportPadding;
   const width = (maxX - minX) / zoom;
   const height = (maxY - minY) / zoom;
   const centerX = (minX + maxX) / 2 + pan[0];
