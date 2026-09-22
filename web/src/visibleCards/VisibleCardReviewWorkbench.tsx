@@ -107,6 +107,7 @@ type WorkbenchCalibrationAnchor = {
   anchorId: string;
   cardId: string;
   sourceFrameId: string;
+  eligible: boolean;
   state: AnchorState;
   corners: TablePoint[];
 };
@@ -506,7 +507,12 @@ export function VisibleCardReviewWorkbench({
 
   const emitAnchorStateCommand = (state: AnchorState) => {
     const anchor = selectedMappingAnchor;
-    if (anchor === null || onAnchorCommand === undefined) return;
+    if (
+      anchor === null ||
+      (!anchor.eligible && state !== "excluded") ||
+      onAnchorCommand === undefined
+    )
+      return;
     const context = anchorCommandContext();
     emitAnchorCommand(
       createCalibrationAnchorStateCommand({
@@ -553,6 +559,7 @@ export function VisibleCardReviewWorkbench({
   ) => {
     if (
       readOnly ||
+      !anchor.eligible ||
       activeState.activeTool !== "mapping" ||
       onAnchorCommand === undefined
     )
@@ -601,7 +608,12 @@ export function VisibleCardReviewWorkbench({
   };
 
   const beginMappingNumericEdit = (value: number, axis: 0 | 1) => {
-    if (selectedMappingAnchor === null || !Number.isFinite(value)) return;
+    if (
+      selectedMappingAnchor === null ||
+      !selectedMappingAnchor.eligible ||
+      !Number.isFinite(value)
+    )
+      return;
     const corner = selectedMappingAnchor.corners[anchorCornerIndex];
     if (corner === undefined) return;
     setNumericAnchor({
@@ -615,7 +627,7 @@ export function VisibleCardReviewWorkbench({
     const anchor = mappingAnchors.find(
       (candidate) => candidate.anchorId === numericAnchor.anchorId,
     );
-    if (anchor === undefined) return;
+    if (anchor === undefined || !anchor.eligible) return;
     const context = anchorCommandContext();
     emitAnchorCommand(
       createCalibrationAnchorCommand({
@@ -1084,6 +1096,13 @@ export function VisibleCardReviewWorkbench({
         onSelectTool={(tool) => {
           dispatch({ type: "select_tool", tool });
           onToolChange?.(tool);
+          if (
+            tool === "mapping" &&
+            calibrationRefinement === null &&
+            !mappingLoading
+          ) {
+            onStartMappingPreview?.();
+          }
         }}
       />
       {timelineReviewControlsSlot === null
@@ -1662,6 +1681,7 @@ function MappingSelectionActions({
     disabled:
       readOnly ||
       selectedAnchor === null ||
+      (!selectedAnchor.eligible && state !== "excluded") ||
       selectedAnchor.state === state ||
       refinement === null,
     disabledReason:
@@ -2686,7 +2706,16 @@ function readCalibrationAnchors(
       !frameIds.has(sourceFrameId)
     )
       return [];
-    return [{ anchorId, cardId, sourceFrameId, state, corners }];
+    return [
+      {
+        anchorId,
+        cardId,
+        sourceFrameId,
+        eligible: raw.eligible === true,
+        state,
+        corners,
+      },
+    ];
   });
 }
 
@@ -3029,10 +3058,6 @@ function renderMappingLayer({
       zoom={zoom}
       stroke="#ff8a65"
       dataProjection="current"
-      selection={selection}
-      mappingAnchors={mappingAnchors}
-      onSelect={onSelect}
-      onMappingAnchorPointerDown={onMappingAnchorPointerDown}
     />
   ));
   const candidate =
@@ -3048,10 +3073,6 @@ function renderMappingLayer({
             zoom={zoom}
             stroke="#ffd166"
             dataProjection="candidate"
-            selection={selection}
-            mappingAnchors={mappingAnchors}
-            onSelect={onSelect}
-            onMappingAnchorPointerDown={onMappingAnchorPointerDown}
           />
         ));
   return (
@@ -3132,27 +3153,29 @@ function MappingAnchorOverlay({
           }}
         />
       ) : null}
-      {corners.map(([x, y], index) => (
-        <circle
-          key={`${anchor.anchorId}-${index}`}
-          cx={x}
-          cy={y}
-          r={mappingCornerRadius(viewpoint, width, zoom, 0.1)}
-          fill={selected ? "#ffffff" : "#ff8a65"}
-          stroke="#18242f"
-          strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
-          opacity={0.5}
-          data-mapping-anchor={index}
-          role="button"
-          tabIndex={0}
-          aria-label={`Adjust calibration anchor ${index + 1} for ${anchor.anchorId}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onSelect({ type: "calibration_anchor", id: anchor.anchorId });
-          }}
-          onPointerDown={(event) => onPointerDown?.(event, anchor, index)}
-        />
-      ))}
+      {anchor.eligible
+        ? corners.map(([x, y], index) => (
+            <circle
+              key={`${anchor.anchorId}-${index}`}
+              cx={x}
+              cy={y}
+              r={mappingCornerRadius(viewpoint, width, zoom, 0.1)}
+              fill={selected ? "#ffffff" : "#ff8a65"}
+              stroke="#18242f"
+              strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
+              opacity={0.5}
+              data-mapping-anchor={index}
+              role="button"
+              tabIndex={0}
+              aria-label={`Adjust calibration anchor ${index + 1} for ${anchor.anchorId}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect({ type: "calibration_anchor", id: anchor.anchorId });
+              }}
+              onPointerDown={(event) => onPointerDown?.(event, anchor, index)}
+            />
+          ))
+        : null}
     </g>
   );
 }
@@ -3165,10 +3188,6 @@ function MappingProjection({
   zoom,
   stroke,
   dataProjection,
-  selection,
-  mappingAnchors,
-  onSelect,
-  onMappingAnchorPointerDown,
 }: {
   pose: PoseCard;
   projection: CardSceneProjection;
@@ -3177,24 +3196,8 @@ function MappingProjection({
   zoom: number;
   stroke: string;
   dataProjection: "current" | "candidate";
-  selection: WorkbenchSelection | null;
-  mappingAnchors: WorkbenchCalibrationAnchor[];
-  onSelect: (selection: WorkbenchSelection) => void;
-  onMappingAnchorPointerDown?: (
-    event: ReactPointerEvent<SVGCircleElement>,
-    anchor: WorkbenchCalibrationAnchor,
-    cornerIndex: number,
-  ) => void;
 }) {
   const polygon = posePolygon(pose, projection, viewpoint);
-  const anchor = mappingAnchorForPose(pose, mappingAnchors, projection);
-  const selected =
-    isSelected(selection, { type: "virtual_card", id: pose.card_id }) ||
-    (anchor !== undefined &&
-      isSelected(selection, {
-        type: "calibration_anchor",
-        id: anchor.anchorId,
-      }));
   return (
     <g data-projection={dataProjection} data-card-id={pose.card_id}>
       <polygon
@@ -3206,79 +3209,8 @@ function MappingProjection({
         opacity={0.5}
         pointerEvents="none"
       />
-      {dataProjection === "current"
-        ? polygon.map(([x, y], index) => (
-            <circle
-              key={`${pose.card_id}-${dataProjection}-${index}`}
-              cx={x}
-              cy={y}
-              r={mappingCornerRadius(viewpoint, width, zoom, 0.25)}
-              fill={selected ? "#ffffff" : stroke}
-              stroke="#18242f"
-              strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
-              opacity={0.5}
-              data-mapping-corner={index}
-              role="button"
-              tabIndex={0}
-              aria-pressed={selected}
-              aria-label={`${anchor === undefined ? "Select" : "Adjust"} mapped card corner ${index + 1} for ${pose.card_id}`}
-              onPointerDown={(event) => {
-                if (anchor !== undefined) {
-                  onMappingAnchorPointerDown?.(event, anchor, index);
-                }
-              }}
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelect(
-                  anchor === undefined
-                    ? { type: "virtual_card", id: pose.card_id }
-                    : { type: "calibration_anchor", id: anchor.anchorId },
-                );
-              }}
-            />
-          ))
-        : null}
     </g>
   );
-}
-
-function mappingAnchorForPose(
-  pose: PoseCard,
-  anchors: WorkbenchCalibrationAnchor[],
-  projection: CardSceneProjection,
-): WorkbenchCalibrationAnchor | undefined {
-  const identified =
-    anchors.find((anchor) => anchor.cardId === pose.card_id) ??
-    (pose.source_suggestion_id === null
-      ? undefined
-      : anchors.find((anchor) => anchor.cardId === pose.source_suggestion_id));
-  if (identified !== undefined) return identified;
-
-  let closest: { anchor: WorkbenchCalibrationAnchor; distance: number } | null =
-    null;
-  for (const anchor of anchors) {
-    const corners = anchor.corners
-      .map((point) =>
-        projectImagePointToTable(
-          point,
-          projection.table_to_image_homography,
-        ),
-      )
-      .filter((point): point is TablePoint => point !== null);
-    if (corners.length !== 4) continue;
-    const center: TablePoint = [
-      corners.reduce((total, point) => total + point[0], 0) / corners.length,
-      corners.reduce((total, point) => total + point[1], 0) / corners.length,
-    ];
-    const distance = Math.hypot(
-      center[0] - pose.center[0],
-      center[1] - pose.center[1],
-    );
-    if (closest === null || distance < closest.distance) {
-      closest = { anchor, distance };
-    }
-  }
-  return closest?.anchor;
 }
 
 function mappingStrokeWidth(

@@ -125,22 +125,19 @@ class CalibrationRefinementService:
             )
             self.store.publish_initial(draft)
             self.store.publish(draft)
+        self._require_current_source(draft, source)
         return self._response(recording_id, proposal_revision_id, draft, data)
 
     def get(
         self, recording_id: str, proposal_revision_id: str, draft_id: str | None
     ) -> dict[str, Any]:
-        _proposal, _source, data = self._proposal(recording_id, proposal_revision_id)
-        selected_draft_id = draft_id
-        if selected_draft_id is None:
-            selected = self.store.list_draft_ids(recording_id)
-            selected_draft_id = selected[-1] if selected else None
-        if selected_draft_id is None:
-            raise CalibrationRefinementNotFound("no calibration refinement draft exists")
+        _proposal, source, data = self._proposal(recording_id, proposal_revision_id)
+        selected_draft_id = draft_id or f"calibration-draft-{proposal_revision_id}"
         try:
             draft = self.store.load(recording_id, selected_draft_id)
         except CalibrationRefinementError as error:
             raise CalibrationRefinementNotFound(str(error)) from error
+        self._require_current_source(draft, source)
         return self._response(recording_id, proposal_revision_id, draft, data)
 
     def update(
@@ -167,8 +164,9 @@ class CalibrationRefinementService:
             draft = self.store.load(recording_id, draft_id)
         except (CalibrationRefinementError, TypeError, ValueError) as error:
             raise CalibrationRefinementInputError(str(error)) from error
+        _proposal, source, data = self._proposal(recording_id, proposal_revision_id)
+        self._require_current_source(draft, source)
         if any(existing.command_id == command.command_id for existing in draft.commands):
-            _proposal, _source, data = self._proposal(recording_id, proposal_revision_id)
             return self._response(recording_id, proposal_revision_id, draft, data)
         if draft.revision != expected_revision:
             raise CalibrationRefinementInputError(
@@ -177,7 +175,6 @@ class CalibrationRefinementService:
             )
         updated = apply_anchor_command_to_draft(draft, command)
         self.store.publish(updated)
-        _proposal, _source, data = self._proposal(recording_id, proposal_revision_id)
         return self._response(recording_id, proposal_revision_id, updated, data)
 
     def discard(
@@ -186,12 +183,27 @@ class CalibrationRefinementService:
         proposal_revision_id: str,
         draft_id: str,
     ) -> dict[str, Any]:
-        _proposal, _source, data = self._proposal(recording_id, proposal_revision_id)
+        _proposal, source, data = self._proposal(recording_id, proposal_revision_id)
+        try:
+            draft = self.store.load(recording_id, draft_id)
+        except CalibrationRefinementError as error:
+            raise CalibrationRefinementNotFound(str(error)) from error
+        self._require_current_source(draft, source)
         try:
             draft = self.store.reset(recording_id, draft_id)
         except CalibrationRefinementError as error:
             raise CalibrationRefinementNotFound(str(error)) from error
         return self._response(recording_id, proposal_revision_id, draft, data)
+
+    @staticmethod
+    def _require_current_source(draft: CalibrationDraft, source: DataRevision) -> None:
+        if (
+            draft.detector_revision_id != source.manifest.revision_id
+            or draft.detector_revision_digest != source.manifest.content_sha256
+        ):
+            raise CalibrationRefinementInputError(
+                "calibration draft uses a different detector revision; start a new mapping preview"
+            )
 
     def apply(
         self,

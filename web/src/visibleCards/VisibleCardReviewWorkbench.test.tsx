@@ -104,7 +104,7 @@ const frame: EditableFrame = {
     status: "detected",
     candidates: [
       {
-        card_id: "unlinked-anchor-card",
+        card_id: "suggestion-1",
         geometry: {
           kind: "detector-box/v1",
           box_2d: { x_min: 30, y_min: 30, x_max: 70, y_max: 70 },
@@ -149,6 +149,7 @@ const calibrationRefinement = {
         anchor_id: "anchor-1",
         card_id: "suggestion-1",
         source_frame_id: "event-1",
+        eligible: true,
         state: "candidate",
         quadrilateral: [
           [40, 40],
@@ -447,11 +448,11 @@ describe("VisibleCardReviewWorkbench", () => {
       name: "Selection actions",
     });
     const addVisibleCard = within(selectionActions).getByRole("button", {
-      name: "Add visible card",
+      name: "Add visible card N",
     });
     expect(addVisibleCard).toBeEnabled();
     expect(addVisibleCard).toHaveTextContent("＋");
-    expect(addVisibleCard).toHaveAttribute("title", "Add visible card · N");
+    expect(addVisibleCard).toHaveAttribute("title", "Add visible card (N)");
     expect(
       screen.getByRole("button", { name: /Polygon 1, point 1/ }),
     ).toBeInTheDocument();
@@ -810,12 +811,12 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(
       within(
         screen.getByRole("group", { name: "Selection actions" }),
-      ).getByRole("button", { name: "Accept card card-1" }),
-    ).toHaveAttribute("title", "Accept card card-1 · Click");
+      ).getByRole("button", { name: "Accept card card-1 Click" }),
+    ).toHaveAttribute("title", "Accept card card-1 (Click)");
     expect(
-      screen.getByRole("button", { name: "Accept card card-1" }),
+      screen.getByRole("button", { name: "Accept card card-1 Click" }),
     ).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Add virtual card" }));
+    await user.click(screen.getByRole("button", { name: "Add virtual card Click" }));
 
     await waitFor(() => expect(onSceneChange).toHaveBeenCalledTimes(1));
     expect(onSceneChange.mock.calls[0][0].scene.poses).toHaveLength(2);
@@ -844,7 +845,7 @@ describe("VisibleCardReviewWorkbench", () => {
       50.025,
     );
     expect(
-      screen.getByRole("button", { name: "Remove card card-1" }),
+      screen.getByRole("button", { name: "Remove card card-1 Click" }),
     ).toBeDisabled();
   });
 
@@ -864,7 +865,7 @@ describe("VisibleCardReviewWorkbench", () => {
       screen.getByRole("button", { name: "Select virtual card card-1" }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Accept card card-1" }),
+      screen.getByRole("button", { name: "Accept card card-1 Click" }),
     );
 
     expect(onCardDecision).toHaveBeenCalledWith("card-1", "accept");
@@ -949,8 +950,8 @@ describe("VisibleCardReviewWorkbench", () => {
         name: "Adjust calibration anchor 1 for anchor-1",
       }),
     );
-    expect(screen.getByRole("button", { name: "Accept anchor" })).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Accept anchor" }));
+    expect(screen.getByRole("button", { name: "Accept anchor Click" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Accept anchor Click" }));
 
     expect(onAnchorCommand).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -961,10 +962,62 @@ describe("VisibleCardReviewWorkbench", () => {
         sequence: 1,
       }),
     );
-    expect(screen.getByRole("button", { name: "Apply mapping" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Apply mapping Click" })).toBeEnabled();
   });
 
-  it("moves calibration anchors from mapped card corner handles", () => {
+  it("starts the current mapping preview when mapping edit mode opens", async () => {
+    const onStartMappingPreview = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        enabledEditTools={["mapping"]}
+        onStartMappingPreview={onStartMappingPreview}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit Mapping diagnostics" }),
+    );
+
+    expect(onStartMappingPreview).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("button", { name: /mapped card corner/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Adjust calibration anchor/i }),
+    ).toBeNull();
+  });
+
+  it("does not offer corner edits for ineligible calibration anchors", () => {
+    const ineligibleRefinement = structuredClone(
+      calibrationRefinement,
+    ) as CalibrationRefinementResponse & {
+      draft: { anchors: Array<{ eligible?: boolean }> };
+    };
+    ineligibleRefinement.draft.anchors[0].eligible = false;
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={ineligibleRefinement}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /Adjust calibration anchor/i }),
+    ).toBeNull();
+  });
+
+  it("moves the actual calibration anchor corner in the rectified view", () => {
     const onAnchorCommand = vi.fn();
     const rectifiedFrame = structuredClone(frame);
     rectifiedFrame.outcome.card_scene!.projection.table_to_image_homography = [
@@ -1003,9 +1056,12 @@ describe("VisibleCardReviewWorkbench", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("button", {
-        name: /^Adjust mapped card corner \d for card-1$/,
+        name: /^Adjust calibration anchor \d for anchor-1$/,
       }),
     ).toHaveLength(4);
+    expect(
+      screen.queryByRole("button", { name: /mapped card corner/i }),
+    ).toBeNull();
     expect(
       screen.queryByRole("button", { name: /Select anchor corner/ }),
     ).not.toBeInTheDocument();
@@ -1029,7 +1085,7 @@ describe("VisibleCardReviewWorkbench", () => {
     } as DOMRect);
 
     const handle = screen.getByRole("button", {
-      name: "Adjust mapped card corner 1 for card-1",
+      name: "Adjust calibration anchor 1 for anchor-1",
     });
     const layerGroups = Array.from(
       surface.querySelectorAll("[data-workbench-layer]"),
@@ -1041,9 +1097,8 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(
       surface.querySelector('[data-workbench-layer="virtual_cards"]'),
     ).toHaveAttribute("pointer-events", "none");
-    expect(handle).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(handle);
-    expect(handle).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Anchor corner 1 X")).toBeInTheDocument();
     const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
     const scale = Math.min(100 / viewBox[2], 100 / viewBox[3]);
     const offsetX = (100 - viewBox[2] * scale) / 2;
@@ -1054,12 +1109,12 @@ describe("VisibleCardReviewWorkbench", () => {
     });
     fireEvent.pointerDown(handle, {
       pointerId: 1,
-      ...clientPoint(45, 40),
+      ...clientPoint(40, 40),
     });
     expect(screen.getByLabelText("Anchor corner 1 X")).toBeInTheDocument();
     fireEvent.pointerMove(surface, {
       pointerId: 1,
-      ...clientPoint(47, 47),
+      ...clientPoint(42, 47),
     });
     fireEvent.pointerUp(surface, { pointerId: 1 });
 
@@ -1069,7 +1124,7 @@ describe("VisibleCardReviewWorkbench", () => {
         moved_corner: 0,
         constraint: null,
         corners: [
-          [57, 52],
+          [52, 52],
           [70, 45],
           [70, 65],
           [50, 65],
@@ -1110,7 +1165,7 @@ describe("VisibleCardReviewWorkbench", () => {
     } as DOMRect);
 
     const handle = screen.getByRole("button", {
-      name: "Adjust mapped card corner 1 for card-1",
+      name: "Adjust calibration anchor 1 for anchor-1",
     });
     const projection = surface.querySelector(
       '[data-projection="current"] polygon',

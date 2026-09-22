@@ -95,6 +95,10 @@ def discard_calibration_refinement(
         raise ContractError(
             "calibration_refinement_not_found", str(error), status_code=404
         ) from error
+    except CalibrationRefinementInputError as error:
+        raise ContractError(
+            "invalid_calibration_refinement", str(error), status_code=422
+        ) from error
 
 
 @router.post(BASE + "/apply")
