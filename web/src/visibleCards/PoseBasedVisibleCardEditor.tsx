@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
 } from "react";
 
 import styles from "./PipelineVisibleCardEditor.module.css";
@@ -49,7 +50,7 @@ type PoseBasedVisibleCardEditorProps = {
 
 type TableViewBox = { x: number; y: number; width: number; height: number };
 type EditorMode = "review" | "refine";
-type GestureKind = "move" | "rotate" | "anchor";
+type GestureKind = "move" | "rotate" | "anchor" | "pan";
 type GestureView = "source" | "rectified";
 type AnchorPreview = {
   cardId: string;
@@ -59,7 +60,7 @@ type AnchorPreview = {
 };
 type ActiveGesture = {
   pointerId: number;
-  cardId: string;
+  cardId: string | null;
   kind: GestureKind;
   view: GestureView;
   dirty: boolean;
@@ -69,6 +70,8 @@ type ActiveGesture = {
   originalCorners?: TablePoint[];
   movedCorner?: number;
   constraint?: AnchorConstraint;
+  startPan?: TablePoint;
+  startViewBox?: TableViewBox;
 };
 
 const DRAG_THRESHOLD_PX = 4;
@@ -331,6 +334,7 @@ export function PoseBasedVisibleCardEditor({
         gesture.constraint === undefined
       )
         return;
+      if (gesture.cardId === null) return;
       const corners = constrainAnchorQuad(
         gesture.originalCorners,
         gesture.movedCorner,
@@ -355,14 +359,37 @@ export function PoseBasedVisibleCardEditor({
   const handleTablePointerMove = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
       const gesture = dragRef.current;
-      if (gesture === null || gesture.pointerId !== event.pointerId || readOnly)
+      if (gesture === null || gesture.pointerId !== event.pointerId) return;
+      if (gesture.kind === "pan") {
+        const startPan = gesture.startPan;
+        const startViewBox = gesture.startViewBox;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (
+          startPan === undefined ||
+          startViewBox === undefined ||
+          rect.width <= 0 ||
+          rect.height <= 0
+        )
+          return;
+        const deltaX = event.clientX - gesture.startClientX;
+        const deltaY = event.clientY - gesture.startClientY;
+        if (!gesture.dirty && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD_PX)
+          return;
+        gesture.dirty = true;
+        setPan([
+          startPan[0] - (deltaX / rect.width) * startViewBox.width,
+          startPan[1] - (deltaY / rect.height) * startViewBox.height,
+        ]);
         return;
+      }
+      if (readOnly) return;
       const point = getGestureTablePoint(event);
       if (point === null) return;
       if (gesture.kind === "anchor") {
         updateAnchorPreview(point);
         return;
       }
+      if (gesture.cardId === null) return;
       if (
         !gesture.dirty &&
         Math.hypot(
@@ -406,6 +433,8 @@ export function PoseBasedVisibleCardEditor({
       if (gesture === null || gesture.pointerId !== event.pointerId) return;
       dragRef.current = null;
       event.currentTarget.releasePointerCapture?.(event.pointerId);
+      if (gesture.kind === "pan" && gesture.startPan !== undefined)
+        setPan(gesture.startPan);
       draftRef.current = gesture.originalDraft;
       setDraft(gesture.originalDraft);
       setAnchorPreviewState(null);
@@ -423,6 +452,7 @@ export function PoseBasedVisibleCardEditor({
         setAnchorPreviewState(null);
         return;
       }
+      if (gesture.kind === "pan") return;
       if (
         gesture.kind === "anchor" &&
         gesture.originalCorners !== undefined &&
@@ -461,7 +491,10 @@ export function PoseBasedVisibleCardEditor({
       cardId: string,
       mode: "move" | "rotate",
     ) => {
-      if (readOnly || editorMode !== "review") return;
+      if (readOnly || editorMode !== "review") {
+        event.stopPropagation();
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       setSelectedCardId(cardId);
@@ -530,6 +563,72 @@ export function PoseBasedVisibleCardEditor({
       )?.setPointerCapture?.(event.pointerId);
     },
     [anchorConstraint, editorMode, readOnly, setAnchorPreviewState],
+  );
+
+  const startTablePan = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      if (
+        event.button !== 0 ||
+        event.target !== event.currentTarget ||
+        dragRef.current !== null
+      )
+        return;
+      event.preventDefault();
+      const gesture: ActiveGesture = {
+        pointerId: event.pointerId,
+        cardId: null,
+        kind: "pan",
+        view: "rectified",
+        dirty: false,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        originalDraft: draftRef.current,
+        startPan: [...pan],
+        startViewBox: tableViewBox,
+      };
+      dragRef.current = gesture;
+      tableSvgRef.current?.setPointerCapture?.(event.pointerId);
+    },
+    [pan, tableViewBox],
+  );
+
+  const handleTableWheel = useCallback(
+    (event: ReactWheelEvent<SVGSVGElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0 || event.deltaY === 0) return;
+      event.preventDefault();
+
+      const deltaY =
+        event.deltaY *
+        (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
+      const nextZoom = Math.min(
+        3,
+        Math.max(0.5, zoom * Math.pow(2, -deltaY / 240)),
+      );
+      if (nextZoom === zoom) return;
+
+      const focusX = (event.clientX - rect.left) / rect.width;
+      const focusY = (event.clientY - rect.top) / rect.height;
+      const focusedPoint: TablePoint = [
+        tableViewBox.x + focusX * tableViewBox.width,
+        tableViewBox.y + focusY * tableViewBox.height,
+      ];
+      const nextViewBox = getTableViewBox(
+        draft.scene,
+        draft.projection,
+        nextZoom,
+        pan,
+        projectedFrameBounds,
+      );
+      setPan([
+        pan[0] + focusedPoint[0] - (nextViewBox.x + focusX * nextViewBox.width),
+        pan[1] +
+          focusedPoint[1] -
+          (nextViewBox.y + focusY * nextViewBox.height),
+      ]);
+      setZoom(nextZoom);
+    },
+    [draft, pan, projectedFrameBounds, tableViewBox, zoom],
   );
 
   const getAnchorCorners = useCallback(
@@ -604,6 +703,8 @@ export function PoseBasedVisibleCardEditor({
     const gesture = dragRef.current;
     if (gesture === null) return;
     dragRef.current = null;
+    if (gesture.kind === "pan" && gesture.startPan !== undefined)
+      setPan(gesture.startPan);
     draftRef.current = gesture.originalDraft;
     setDraft(gesture.originalDraft);
     setAnchorPreviewState(null);
@@ -1037,11 +1138,13 @@ export function PoseBasedVisibleCardEditor({
               role="application"
               aria-label="Rectified virtual table"
               tabIndex={0}
+              onPointerDown={startTablePan}
               onPointerMove={handleTablePointerMove}
               onPointerUp={finishGesture}
               onPointerCancel={cancelGesture}
               onLostPointerCapture={cancelGesture}
               onKeyDown={handleSurfaceKeyDown}
+              onWheel={handleTableWheel}
             >
               {sourceUrl !== null && projectedFrameBounds !== null ? (
                 <RectifiedSourceFrame

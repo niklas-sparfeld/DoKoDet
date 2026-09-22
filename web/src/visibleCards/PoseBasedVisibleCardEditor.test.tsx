@@ -308,6 +308,91 @@ describe("PoseBasedVisibleCardEditor", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("zooms the table under the wheel or trackpad pointer", () => {
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+      />,
+    );
+    const table = screen.getByRole("application", {
+      name: "Rectified virtual table",
+    });
+    Object.defineProperty(table, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100,
+        right: 100,
+        bottom: 100,
+      }),
+    });
+    const initialViewBox = table.getAttribute("viewBox");
+
+    fireEvent.wheel(screen.getByRole("button", { name: "Zoom in" }), {
+      deltaY: -120,
+    });
+    expect(table.getAttribute("viewBox")).toBe(initialViewBox);
+
+    fireEvent.wheel(table, {
+      clientX: 50,
+      clientY: 50,
+      deltaY: -120,
+      ctrlKey: true,
+    });
+
+    expect(table.getAttribute("viewBox")).not.toBe(initialViewBox);
+    expect(Number(table.getAttribute("viewBox")?.split(" ")[2])).toBeLessThan(
+      6.75,
+    );
+  });
+
+  it("pans the virtual table by dragging its empty surface", () => {
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+      />,
+    );
+    const table = screen.getByRole("application", {
+      name: "Rectified virtual table",
+    });
+    Object.defineProperty(table, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100,
+        right: 100,
+        bottom: 100,
+      }),
+    });
+
+    fireEvent.pointerDown(table, {
+      button: 0,
+      clientX: 50,
+      clientY: 50,
+      pointerId: 9,
+    });
+    fireEvent.pointerMove(table, {
+      clientX: 60,
+      clientY: 70,
+      pointerId: 9,
+    });
+    fireEvent.pointerUp(table, { pointerId: 9 });
+
+    expect(table.getAttribute("viewBox")).toBe("-3.675 -3.5 6.75 5");
+  });
+
   it("creates one numeric anchor command without changing card pose geometry", () => {
     const onChange = vi.fn();
     const onAnchorCommand = vi.fn();
