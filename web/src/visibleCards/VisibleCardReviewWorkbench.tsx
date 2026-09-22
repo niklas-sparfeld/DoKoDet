@@ -3218,7 +3218,7 @@ function MappingProjection({
               key={`${pose.card_id}-${dataProjection}-${index}`}
               cx={x}
               cy={y}
-              r={mappingCornerRadius(viewpoint, width, zoom, 1.25)}
+              r={mappingCornerRadius(viewpoint, width, zoom, 0.25)}
               fill={selected ? "#ffffff" : stroke}
               stroke="#18242f"
               strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}

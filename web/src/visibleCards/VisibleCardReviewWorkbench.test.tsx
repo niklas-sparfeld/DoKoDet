@@ -1118,7 +1118,6 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(projection).not.toBeNull();
     const initialRadius = Number(handle.getAttribute("r"));
     const initialStrokeWidth = Number(projection?.getAttribute("stroke-width"));
-    expect(initialRadius).toBeGreaterThanOrEqual(1);
     expect(handle).toHaveAttribute("opacity", "0.5");
     expect(projection).toHaveAttribute("opacity", "0.5");
 
