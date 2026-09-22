@@ -11,15 +11,24 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import type { CalibrationRefinementResponse } from "../api/client";
 import { pipelineDerivedFramePath } from "../api/client";
 import styles from "./PipelineVisibleCardEditor.module.css";
 import {
   applyPoseSceneAction,
+  ANCHOR_CONSTRAINTS,
+  ANCHOR_STATES,
   cardPolygon,
+  constrainAnchorQuad,
+  createCalibrationAnchorCommand,
+  createCalibrationAnchorStateCommand,
   nextManualPoseId,
   projectImagePointToTable,
   projectTablePoint,
   withSceneDigest,
+  type AnchorConstraint,
+  type AnchorState,
+  type CalibrationAnchorCommand,
   type CardSceneProjection,
   type PoseCard,
   type PoseSceneEnvelope,
@@ -77,7 +86,26 @@ export type VirtualCardWorkbenchAction =
   | "restore_proposed_scene";
 
 export type VisibleCardReviewWorkbenchAction =
-  VisibleRegionWorkbenchAction | VirtualCardWorkbenchAction;
+  | VisibleRegionWorkbenchAction
+  | VirtualCardWorkbenchAction
+  | MappingWorkbenchAction;
+
+export type MappingWorkbenchAction =
+  | "accept_anchor"
+  | "adjust_anchor"
+  | "pin_anchor"
+  | "exclude_anchor"
+  | "start_mapping_preview"
+  | "discard_mapping_preview"
+  | "apply_mapping";
+
+type WorkbenchCalibrationAnchor = {
+  anchorId: string;
+  cardId: string;
+  sourceFrameId: string;
+  state: AnchorState;
+  corners: TablePoint[];
+};
 
 type WorkbenchPointHandler = (
   event: ReactPointerEvent<SVGSVGElement>,
@@ -96,11 +124,23 @@ type VirtualCardGesture = {
   startViewBox?: { x: number; y: number; width: number; height: number };
 };
 
+type MappingGesture = {
+  pointerId: number;
+  anchorId: string;
+  movedCorner: number;
+  constraint: AnchorConstraint;
+  dirty: boolean;
+  startClientX: number;
+  startClientY: number;
+  originalCorners: TablePoint[];
+};
+
 export type VisibleCardReviewWorkbenchProps = {
   recordingId: string;
   frame: EditableFrame;
   readOnly: boolean;
   candidateCalibration?: CandidateCalibration | null;
+  calibrationRefinement?: CalibrationRefinementResponse | null;
   initialPreferences?: Partial<WorkbenchPreferences>;
   onSelectionChange?: (selection: WorkbenchSelection | null) => void;
   enabledEditTools?: readonly WorkbenchPreferences["activeTool"][];
@@ -116,6 +156,12 @@ export type VisibleCardReviewWorkbenchProps = {
     selection: WorkbenchSelection | null,
   ) => void;
   onSceneChange?: (scene: PoseSceneEnvelope, notice: string) => void;
+  onAnchorCommand?: (command: CalibrationAnchorCommand) => void;
+  onStartMappingPreview?: () => void;
+  onDiscardMappingPreview?: () => void;
+  onApplyMapping?: () => void;
+  mappingLoading?: boolean;
+  mappingCanApply?: boolean;
   onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
   onResolveRemaining?: () => void;
   onOpenEditor?: (candidate: Candidate | null, polygonIndex?: number) => void;
@@ -159,6 +205,7 @@ export function VisibleCardReviewWorkbench({
   frame,
   readOnly,
   candidateCalibration = null,
+  calibrationRefinement = null,
   initialPreferences,
   onSelectionChange,
   enabledEditTools,
@@ -171,6 +218,12 @@ export function VisibleCardReviewWorkbench({
   onToolChange,
   onAction,
   onSceneChange,
+  onAnchorCommand,
+  onStartMappingPreview,
+  onDiscardMappingPreview,
+  onApplyMapping,
+  mappingLoading = false,
+  mappingCanApply = false,
   onCardDecision,
   onResolveRemaining,
   onOpenEditor,
@@ -197,6 +250,17 @@ export function VisibleCardReviewWorkbench({
   const sceneDraftRef = useRef<PoseSceneEnvelope | null>(frameScene);
   const sceneIdentityRef = useRef(sceneIdentity);
   const virtualGestureRef = useRef<VirtualCardGesture | null>(null);
+  const mappingGestureRef = useRef<MappingGesture | null>(null);
+  const [anchorPreview, setAnchorPreview] =
+    useState<WorkbenchCalibrationAnchor | null>(null);
+  const anchorPreviewRef = useRef<WorkbenchCalibrationAnchor | null>(null);
+  const [anchorConstraint, setAnchorConstraint] =
+    useState<AnchorConstraint>("diagonal");
+  const [anchorCornerIndex, setAnchorCornerIndex] = useState(0);
+  const [numericAnchor, setNumericAnchor] = useState<{
+    anchorId: string;
+    point: TablePoint;
+  } | null>(null);
   const [state, dispatch] = useReducer(
     visibleCardReviewWorkbenchReducer,
     { capabilities, preferences: initialPreferences },
@@ -283,6 +347,32 @@ export function VisibleCardReviewWorkbench({
           },
     [candidateCalibration],
   );
+  const mappingAnchors = useMemo(
+    () =>
+      readCalibrationAnchors(
+        calibrationRefinement,
+        frame.itemId,
+        frame.outcome.event_id,
+        scene?.scene.source_frame_id ?? null,
+      ),
+    [calibrationRefinement, frame.itemId, frame.outcome.event_id, scene],
+  );
+
+  const selectedMappingAnchor =
+    activeState.selection?.type === "calibration_anchor"
+      ? (mappingAnchors.find(
+          (anchor) => anchor.anchorId === activeState.selection?.id,
+        ) ?? null)
+      : null;
+
+  const renderMappingAnchors = mappingAnchors.map((anchor) =>
+    anchorPreview?.anchorId === anchor.anchorId ? anchorPreview : anchor,
+  );
+
+  const setAnchorPreviewState = (next: WorkbenchCalibrationAnchor | null) => {
+    anchorPreviewRef.current = next;
+    setAnchorPreview(next);
+  };
 
   const select = (selection: WorkbenchSelection) => {
     dispatch({ type: "select", selection });
@@ -290,6 +380,21 @@ export function VisibleCardReviewWorkbench({
   };
 
   const handleSurfaceKeyDown = (event: ReactKeyboardEvent<SVGSVGElement>) => {
+    if (activeState.activeTool === "mapping") {
+      const constraint =
+        event.key.toLowerCase() === "d"
+          ? "diagonal"
+          : event.key.toLowerCase() === "x"
+            ? "card_x"
+            : event.key.toLowerCase() === "y"
+              ? "card_y"
+              : null;
+      if (constraint !== null) {
+        event.preventDefault();
+        setAnchorConstraint(constraint);
+        return;
+      }
+    }
     const shortcut = workbenchViewportShortcut(event, "surface");
     if (shortcut === null) return;
     event.preventDefault();
@@ -382,6 +487,157 @@ export function VisibleCardReviewWorkbench({
     );
   };
 
+  const emitAnchorCommand = (command: CalibrationAnchorCommand) => {
+    if (readOnly || onAnchorCommand === undefined) return;
+    onAnchorCommand(command);
+  };
+
+  const anchorCommandContext = () => ({
+    sequence: calibrationCommandCount(calibrationRefinement) + 1,
+    expectedDraftRevision: calibrationDraftRevision(calibrationRefinement),
+  });
+
+  const emitAnchorStateCommand = (state: AnchorState) => {
+    const anchor = selectedMappingAnchor;
+    if (anchor === null || onAnchorCommand === undefined) return;
+    const context = anchorCommandContext();
+    emitAnchorCommand(
+      createCalibrationAnchorStateCommand({
+        command_id: `anchor-command-${frame.itemId}-${context.sequence}`,
+        sequence: context.sequence,
+        expected_draft_revision: context.expectedDraftRevision,
+        anchor_id: anchor.anchorId,
+        state,
+        operator_id: "local-operator",
+      }),
+    );
+  };
+
+  const handleMappingAction = (action: MappingWorkbenchAction) => {
+    switch (action) {
+      case "accept_anchor":
+        emitAnchorStateCommand("accepted");
+        return;
+      case "adjust_anchor":
+        emitAnchorStateCommand("adjusted");
+        return;
+      case "pin_anchor":
+        emitAnchorStateCommand("pinned");
+        return;
+      case "exclude_anchor":
+        emitAnchorStateCommand("excluded");
+        return;
+      case "start_mapping_preview":
+        onStartMappingPreview?.();
+        return;
+      case "discard_mapping_preview":
+        onDiscardMappingPreview?.();
+        return;
+      case "apply_mapping":
+        onApplyMapping?.();
+        return;
+    }
+  };
+
+  const beginMappingAnchorGesture = (
+    event: ReactPointerEvent<SVGCircleElement>,
+    anchor: WorkbenchCalibrationAnchor,
+    movedCorner: number,
+  ) => {
+    if (
+      readOnly ||
+      activeState.activeTool !== "mapping" ||
+      onAnchorCommand === undefined
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    const constraint = event.shiftKey
+      ? "card_x"
+      : event.altKey
+        ? "card_y"
+        : anchorConstraint;
+    select({ type: "calibration_anchor", id: anchor.anchorId });
+    setAnchorConstraint(constraint);
+    setAnchorCornerIndex(movedCorner);
+    const preview = { ...anchor, corners: cloneTablePoints(anchor.corners) };
+    mappingGestureRef.current = {
+      pointerId: event.pointerId,
+      anchorId: anchor.anchorId,
+      movedCorner,
+      constraint,
+      dirty: false,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      originalCorners: cloneTablePoints(anchor.corners),
+    };
+    setAnchorPreviewState(preview);
+    event.currentTarget.ownerSVGElement?.setPointerCapture?.(event.pointerId);
+    dispatch({
+      type: "begin_gesture",
+      gesture: { kind: "edit", tool: "mapping", pointerId: event.pointerId },
+    });
+  };
+
+  const updateMappingAnchorPreview = (point: Point | null) => {
+    const gesture = mappingGestureRef.current;
+    if (gesture === null || point === null) return;
+    const anchor = mappingAnchors.find(
+      (candidate) => candidate.anchorId === gesture.anchorId,
+    );
+    if (anchor === undefined) return;
+    const sourcePosition = sourcePoint(point, width, height) as TablePoint;
+    const corners = constrainAnchorQuad(
+      gesture.originalCorners,
+      gesture.movedCorner,
+      sourcePosition,
+      gesture.constraint,
+    );
+    gesture.dirty = corners.some(
+      (corner, index) =>
+        corner[0] !== gesture.originalCorners[index]?.[0] ||
+        corner[1] !== gesture.originalCorners[index]?.[1],
+    );
+    setAnchorPreviewState({ ...anchor, corners });
+  };
+
+  const beginMappingNumericEdit = (value: number, axis: 0 | 1) => {
+    if (selectedMappingAnchor === null || !Number.isFinite(value)) return;
+    const corner = selectedMappingAnchor.corners[anchorCornerIndex];
+    if (corner === undefined) return;
+    setNumericAnchor({
+      anchorId: selectedMappingAnchor.anchorId,
+      point: [axis === 0 ? value : corner[0], axis === 1 ? value : corner[1]],
+    });
+  };
+
+  const emitNumericAnchorCommand = () => {
+    if (numericAnchor === null || onAnchorCommand === undefined) return;
+    const anchor = mappingAnchors.find(
+      (candidate) => candidate.anchorId === numericAnchor.anchorId,
+    );
+    if (anchor === undefined) return;
+    const context = anchorCommandContext();
+    emitAnchorCommand(
+      createCalibrationAnchorCommand({
+        command_id: `anchor-command-${frame.itemId}-${context.sequence}`,
+        sequence: context.sequence,
+        expected_draft_revision: context.expectedDraftRevision,
+        anchor_id: anchor.anchorId,
+        moved_corner: anchorCornerIndex,
+        constraint: anchorConstraint,
+        corners: constrainAnchorQuad(
+          anchor.corners,
+          anchorCornerIndex,
+          numericAnchor.point,
+          anchorConstraint,
+        ),
+        operator_id: "local-operator",
+      }),
+    );
+    setNumericAnchor(null);
+  };
+
   const beginVirtualCardGesture = (
     event: ReactPointerEvent<SVGElement>,
     cardId: string,
@@ -460,7 +716,11 @@ export function VisibleCardReviewWorkbench({
     point: Point | null,
   ) => {
     if (beginVirtualTablePan(event)) return;
-    if (activeState.activeTool === "virtual_cards") return;
+    if (
+      activeState.activeTool === "virtual_cards" ||
+      activeState.activeTool === "mapping"
+    )
+      return;
     onCanvasPointerDown?.(event, point);
   };
 
@@ -468,9 +728,29 @@ export function VisibleCardReviewWorkbench({
     event: ReactPointerEvent<SVGSVGElement>,
     point: Point | null,
   ) => {
+    const mappingGesture = mappingGestureRef.current;
+    if (
+      mappingGesture !== null &&
+      mappingGesture.pointerId === event.pointerId
+    ) {
+      if (
+        !mappingGesture.dirty &&
+        Math.hypot(
+          event.clientX - mappingGesture.startClientX,
+          event.clientY - mappingGesture.startClientY,
+        ) < 4
+      )
+        return;
+      updateMappingAnchorPreview(point);
+      return;
+    }
     const gesture = virtualGestureRef.current;
     if (gesture === null || gesture.pointerId !== event.pointerId) {
-      if (activeState.activeTool === "virtual_cards") return;
+      if (
+        activeState.activeTool === "virtual_cards" ||
+        activeState.activeTool === "mapping"
+      )
+        return;
       onPointerMove?.(event, point);
       return;
     }
@@ -539,6 +819,33 @@ export function VisibleCardReviewWorkbench({
   };
 
   const finishVirtualGesture = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const mappingGesture = mappingGestureRef.current;
+    if (
+      mappingGesture !== null &&
+      mappingGesture.pointerId === event.pointerId
+    ) {
+      mappingGestureRef.current = null;
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      dispatch({ type: "commit_gesture" });
+      const preview = anchorPreviewRef.current;
+      setAnchorPreviewState(null);
+      if (mappingGesture.dirty && preview !== null) {
+        const context = anchorCommandContext();
+        emitAnchorCommand(
+          createCalibrationAnchorCommand({
+            command_id: `anchor-command-${frame.itemId}-${context.sequence}`,
+            sequence: context.sequence,
+            expected_draft_revision: context.expectedDraftRevision,
+            anchor_id: mappingGesture.anchorId,
+            moved_corner: mappingGesture.movedCorner,
+            constraint: mappingGesture.constraint,
+            corners: preview.corners,
+            operator_id: "local-operator",
+          }),
+        );
+      }
+      return;
+    }
     const gesture = virtualGestureRef.current;
     if (gesture === null || gesture.pointerId !== event.pointerId) {
       onPointerUp?.(event);
@@ -559,6 +866,17 @@ export function VisibleCardReviewWorkbench({
   };
 
   const cancelVirtualGesture = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const mappingGesture = mappingGestureRef.current;
+    if (
+      mappingGesture !== null &&
+      mappingGesture.pointerId === event.pointerId
+    ) {
+      mappingGestureRef.current = null;
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      setAnchorPreviewState(null);
+      dispatch({ type: "cancel_gesture" });
+      return;
+    }
     const gesture = virtualGestureRef.current;
     if (gesture === null || gesture.pointerId !== event.pointerId) {
       onPointerCancel?.(event);
@@ -643,6 +961,17 @@ export function VisibleCardReviewWorkbench({
         canCopyIgnoreRegions={canCopyIgnoreRegions}
         canRestoreSuggestion={canRestoreSuggestion}
         scene={scene}
+        calibrationRefinement={calibrationRefinement}
+        mappingAnchors={mappingAnchors}
+        mappingLoading={mappingLoading}
+        mappingCanApply={mappingCanApply}
+        anchorConstraint={anchorConstraint}
+        anchorCornerIndex={anchorCornerIndex}
+        numericAnchor={numericAnchor}
+        onConstraintChange={setAnchorConstraint}
+        onCornerChange={setAnchorCornerIndex}
+        onNumericChange={beginMappingNumericEdit}
+        onEmitNumeric={emitNumericAnchorCommand}
         onCardDecision={onCardDecision}
         onResolveRemaining={onResolveRemaining}
         onToggleViewpoint={() => dispatch({ type: "toggle_viewpoint" })}
@@ -713,6 +1042,18 @@ export function VisibleCardReviewWorkbench({
             );
             return;
           }
+          if (
+            action === "accept_anchor" ||
+            action === "adjust_anchor" ||
+            action === "pin_anchor" ||
+            action === "exclude_anchor" ||
+            action === "start_mapping_preview" ||
+            action === "discard_mapping_preview" ||
+            action === "apply_mapping"
+          ) {
+            handleMappingAction(action);
+            return;
+          }
           onAction?.(action, activeState.selection);
         }}
         onSceneAction={applySceneAction}
@@ -729,6 +1070,7 @@ export function VisibleCardReviewWorkbench({
           selection={activeState.selection}
           viewport={activeState.viewport}
           candidateProjection={candidateProjection}
+          mappingAnchors={renderMappingAnchors}
           editor={editor}
           includeIgnoreRegionCount={proposalSlot !== undefined}
           onSelect={select}
@@ -743,6 +1085,7 @@ export function VisibleCardReviewWorkbench({
           onDeleteSelectedPoint={onDeleteSelectedPoint}
           onVirtualCardPointerDown={beginVirtualCardGesture}
           onVirtualCardKeyDown={handleVirtualCardKeyDown}
+          onMappingAnchorPointerDown={beginMappingAnchorGesture}
         />
         {proposalSlot !== undefined ? (
           <WorkbenchProposalColumn
@@ -786,6 +1129,17 @@ function WorkbenchCommandBar({
   canCopyIgnoreRegions,
   canRestoreSuggestion,
   scene,
+  calibrationRefinement,
+  mappingAnchors,
+  mappingLoading,
+  mappingCanApply,
+  anchorConstraint,
+  anchorCornerIndex,
+  numericAnchor,
+  onConstraintChange,
+  onCornerChange,
+  onNumericChange,
+  onEmitNumeric,
   onCardDecision,
   onResolveRemaining,
   onSceneAction,
@@ -803,6 +1157,17 @@ function WorkbenchCommandBar({
   canCopyIgnoreRegions: boolean;
   canRestoreSuggestion: boolean;
   scene: PoseSceneEnvelope | null;
+  calibrationRefinement: CalibrationRefinementResponse | null;
+  mappingAnchors: WorkbenchCalibrationAnchor[];
+  mappingLoading: boolean;
+  mappingCanApply: boolean;
+  anchorConstraint: AnchorConstraint;
+  anchorCornerIndex: number;
+  numericAnchor: { anchorId: string; point: TablePoint } | null;
+  onConstraintChange: (constraint: AnchorConstraint) => void;
+  onCornerChange: (cornerIndex: number) => void;
+  onNumericChange: (value: number, axis: 0 | 1) => void;
+  onEmitNumeric: () => void;
   onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
   onResolveRemaining?: () => void;
   onSceneAction: (
@@ -910,6 +1275,24 @@ function WorkbenchCommandBar({
           onCardDecision={onCardDecision}
           onResolveRemaining={onResolveRemaining}
           onSceneAction={onSceneAction}
+        />
+      ) : null}
+      {state.activeTool === "mapping" ? (
+        <MappingSelectionActions
+          readOnly={readOnly}
+          refinement={calibrationRefinement}
+          anchors={mappingAnchors}
+          selection={state.selection}
+          anchorConstraint={anchorConstraint}
+          anchorCornerIndex={anchorCornerIndex}
+          numericAnchor={numericAnchor}
+          mappingLoading={mappingLoading}
+          mappingCanApply={mappingCanApply}
+          onConstraintChange={onConstraintChange}
+          onCornerChange={onCornerChange}
+          onNumericChange={onNumericChange}
+          onEmitNumeric={onEmitNumeric}
+          onAction={onAction}
         />
       ) : null}
     </div>
@@ -1106,6 +1489,213 @@ function selectedPoseForSelection(
   if (selection?.type !== "virtual_card") return null;
   return (
     scene.scene.poses.find((pose) => pose.card_id === selection.id) ?? null
+  );
+}
+
+function MappingSelectionActions({
+  readOnly,
+  refinement,
+  anchors,
+  selection,
+  anchorConstraint,
+  anchorCornerIndex,
+  numericAnchor,
+  mappingLoading,
+  mappingCanApply,
+  onConstraintChange,
+  onCornerChange,
+  onNumericChange,
+  onEmitNumeric,
+  onAction,
+}: {
+  readOnly: boolean;
+  refinement: CalibrationRefinementResponse | null;
+  anchors: WorkbenchCalibrationAnchor[];
+  selection: WorkbenchSelection | null;
+  anchorConstraint: AnchorConstraint;
+  anchorCornerIndex: number;
+  numericAnchor: { anchorId: string; point: TablePoint } | null;
+  mappingLoading: boolean;
+  mappingCanApply: boolean;
+  onConstraintChange: (constraint: AnchorConstraint) => void;
+  onCornerChange: (cornerIndex: number) => void;
+  onNumericChange: (value: number, axis: 0 | 1) => void;
+  onEmitNumeric: () => void;
+  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
+}) {
+  const selectedAnchor =
+    selection?.type === "calibration_anchor"
+      ? (anchors.find((anchor) => anchor.anchorId === selection.id) ?? null)
+      : null;
+  const stateButton = (state: AnchorState, label: string) => (
+    <button
+      key={state}
+      type="button"
+      className={styles.workbenchToggle}
+      disabled={
+        readOnly ||
+        selectedAnchor === null ||
+        selectedAnchor.state === state ||
+        refinement === null
+      }
+      title={
+        selectedAnchor === null
+          ? "Select a calibration anchor first."
+          : refinement === null
+            ? "Start a mapping preview before changing anchor decisions."
+            : undefined
+      }
+      onClick={() =>
+        onAction(
+          state === "accepted"
+            ? "accept_anchor"
+            : state === "adjusted"
+              ? "adjust_anchor"
+              : state === "pinned"
+                ? "pin_anchor"
+                : "exclude_anchor",
+        )
+      }
+    >
+      {label}
+    </button>
+  );
+  const corner =
+    selectedAnchor?.corners[anchorCornerIndex] ?? ([0, 0] as TablePoint);
+  const numericPoint =
+    numericAnchor !== null &&
+    numericAnchor.anchorId === selectedAnchor?.anchorId
+      ? numericAnchor.point
+      : corner;
+  const previewReady =
+    refinement?.preview.status === "pass" ||
+    refinement?.preview.failure?.code === "reviewed_displacement_exceeded";
+  return (
+    <div
+      className={styles.workbenchCommandGroup}
+      aria-label="Selection actions"
+    >
+      <span className={styles.workbenchCommandLabel}>Selection actions</span>
+      {stateButton("accepted", "Accept anchor")}
+      {stateButton("adjusted", "Adjust anchor")}
+      {stateButton("pinned", "Pin anchor")}
+      {stateButton("excluded", "Exclude anchor")}
+      <button
+        type="button"
+        className={styles.workbenchToggle}
+        disabled={readOnly || refinement !== null || mappingLoading}
+        onClick={() => onAction("start_mapping_preview")}
+      >
+        Start mapping preview
+      </button>
+      <button
+        type="button"
+        className={styles.workbenchToggle}
+        disabled={readOnly || refinement === null || mappingLoading}
+        onClick={() => onAction("discard_mapping_preview")}
+      >
+        Discard mapping preview
+      </button>
+      <button
+        type="button"
+        className={styles.workbenchToggle}
+        disabled={
+          readOnly ||
+          refinement === null ||
+          !previewReady ||
+          !mappingCanApply ||
+          mappingLoading
+        }
+        title={
+          refinement === null
+            ? "Start a mapping preview first."
+            : !previewReady
+              ? "The current mapping preview is blocked."
+              : !mappingCanApply
+                ? "Wait for the calibration preview to load."
+                : undefined
+        }
+        onClick={() => onAction("apply_mapping")}
+      >
+        Apply mapping
+      </button>
+      {selectedAnchor !== null ? (
+        <>
+          <span className={styles.workbenchCommandLabel}>
+            Anchor {selectedAnchor.anchorId}
+          </span>
+          {ANCHOR_CONSTRAINTS.map((constraint) => (
+            <button
+              key={constraint}
+              type="button"
+              className={styles.workbenchToggle}
+              aria-pressed={anchorConstraint === constraint}
+              aria-label={`Use ${constraint} anchor constraint`}
+              disabled={readOnly}
+              onClick={() => onConstraintChange(constraint)}
+            >
+              {constraint === "diagonal"
+                ? "Diagonal"
+                : constraint === "card_x"
+                  ? "Card X"
+                  : "Card Y"}
+            </button>
+          ))}
+          {[0, 1, 2, 3].map((cornerIndex) => (
+            <button
+              key={cornerIndex}
+              type="button"
+              className={styles.workbenchToggle}
+              aria-label={`Select anchor corner ${cornerIndex + 1}`}
+              aria-pressed={anchorCornerIndex === cornerIndex}
+              onClick={() => onCornerChange(cornerIndex)}
+            >
+              Corner {cornerIndex + 1}
+            </button>
+          ))}
+          <label className={styles.workbenchNumericField}>
+            <span>Anchor X</span>
+            <input
+              aria-label="Anchor X"
+              type="number"
+              step="0.01"
+              value={numericPoint[0]}
+              disabled={readOnly}
+              onChange={(event) =>
+                onNumericChange(Number(event.target.value), 0)
+              }
+            />
+          </label>
+          <label className={styles.workbenchNumericField}>
+            <span>Anchor Y</span>
+            <input
+              aria-label="Anchor Y"
+              type="number"
+              step="0.01"
+              value={numericPoint[1]}
+              disabled={readOnly}
+              onChange={(event) =>
+                onNumericChange(Number(event.target.value), 1)
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onEmitNumeric();
+                }
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            className={styles.workbenchToggle}
+            disabled={readOnly || numericAnchor === null}
+            onClick={onEmitNumeric}
+          >
+            Apply anchor edit
+          </button>
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -1431,6 +2021,7 @@ function WorkbenchSurface({
   selection,
   viewport,
   candidateProjection,
+  mappingAnchors,
   editor,
   includeIgnoreRegionCount,
   onSelect,
@@ -1445,6 +2036,7 @@ function WorkbenchSurface({
   onDeleteSelectedPoint,
   onVirtualCardPointerDown,
   onVirtualCardKeyDown,
+  onMappingAnchorPointerDown,
 }: {
   frame: EditableFrame;
   scene: PoseSceneEnvelope | null;
@@ -1456,6 +2048,7 @@ function WorkbenchSurface({
   selection: WorkbenchSelection | null;
   viewport: { zoom: number; pan: { x: number; y: number } };
   candidateProjection: CardSceneProjection | null;
+  mappingAnchors: WorkbenchCalibrationAnchor[];
   editor: EditorState | null;
   includeIgnoreRegionCount: boolean;
   onSelect: (selection: WorkbenchSelection) => void;
@@ -1480,6 +2073,11 @@ function WorkbenchSurface({
   onVirtualCardKeyDown?: (
     event: ReactKeyboardEvent<SVGPolygonElement>,
     cardId: string,
+  ) => void;
+  onMappingAnchorPointerDown?: (
+    event: ReactPointerEvent<SVGCircleElement>,
+    anchor: WorkbenchCalibrationAnchor,
+    cornerIndex: number,
   ) => void;
 }) {
   const count = frame.outcome.candidates.length;
@@ -1558,9 +2156,11 @@ function WorkbenchSurface({
           enabledLayers,
           selection,
           candidateProjection,
+          mappingAnchors,
           onSelect,
           onVirtualCardPointerDown,
           onVirtualCardKeyDown,
+          onMappingAnchorPointerDown,
         })}
         {renderEditorOverlay({
           editor,
@@ -1651,9 +2251,11 @@ function WorkbenchSurface({
           enabledLayers,
           selection,
           candidateProjection,
+          mappingAnchors,
           onSelect,
           onVirtualCardPointerDown,
           onVirtualCardKeyDown,
+          onMappingAnchorPointerDown,
         })}
         {renderEditorOverlay({
           editor,
@@ -1677,6 +2279,7 @@ type LayerRenderContext = {
   enabledLayers: WorkbenchLayer[];
   selection: WorkbenchSelection | null;
   candidateProjection: CardSceneProjection | null;
+  mappingAnchors: WorkbenchCalibrationAnchor[];
   onSelect: (selection: WorkbenchSelection) => void;
   onVirtualCardPointerDown?: (
     event: ReactPointerEvent<SVGElement>,
@@ -1686,6 +2289,11 @@ type LayerRenderContext = {
   onVirtualCardKeyDown?: (
     event: ReactKeyboardEvent<SVGPolygonElement>,
     cardId: string,
+  ) => void;
+  onMappingAnchorPointerDown?: (
+    event: ReactPointerEvent<SVGCircleElement>,
+    anchor: WorkbenchCalibrationAnchor,
+    cornerIndex: number,
   ) => void;
 };
 
@@ -1832,6 +2440,91 @@ function sourcePointToTablePoint(
     sourcePoint(point, width, height),
     scene.projection.table_to_image_homography,
   );
+}
+
+function readCalibrationAnchors(
+  refinement: CalibrationRefinementResponse | null,
+  frameId: string,
+  eventId: string,
+  sceneFrameId: string | null,
+): WorkbenchCalibrationAnchor[] {
+  if (refinement === null || !Array.isArray(refinement.draft.anchors))
+    return [];
+  const frameIds = new Set([frameId, eventId, sceneFrameId].filter(Boolean));
+  return refinement.draft.anchors.flatMap((raw) => {
+    if (!isRecord(raw)) return [];
+    const anchorId = readString(raw.anchor_id);
+    const cardId = readString(raw.card_id);
+    const sourceFrameId = readString(raw.source_frame_id);
+    const state = readAnchorState(raw.state);
+    const corners = readTablePoints(raw.quadrilateral);
+    if (
+      anchorId === null ||
+      cardId === null ||
+      sourceFrameId === null ||
+      state === null ||
+      corners === null ||
+      !frameIds.has(sourceFrameId)
+    )
+      return [];
+    return [{ anchorId, cardId, sourceFrameId, state, corners }];
+  });
+}
+
+function calibrationDraftRevision(
+  refinement: CalibrationRefinementResponse | null,
+): number {
+  const revision = refinement?.draft.revision;
+  return typeof revision === "number" &&
+    Number.isInteger(revision) &&
+    revision >= 0
+    ? revision
+    : 0;
+}
+
+function calibrationCommandCount(
+  refinement: CalibrationRefinementResponse | null,
+): number {
+  return Array.isArray(refinement?.draft.commands)
+    ? refinement.draft.commands.length
+    : 0;
+}
+
+function readAnchorState(value: unknown): AnchorState | null {
+  return typeof value === "string" &&
+    (ANCHOR_STATES as readonly string[]).includes(value)
+    ? (value as AnchorState)
+    : null;
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readTablePoints(value: unknown): TablePoint[] | null {
+  if (!Array.isArray(value) || value.length !== 4) return null;
+  const points = value.map((raw) => {
+    if (!Array.isArray(raw) || raw.length !== 2) return null;
+    const x = raw[0];
+    const y = raw[1];
+    return typeof x === "number" &&
+      Number.isFinite(x) &&
+      typeof y === "number" &&
+      Number.isFinite(y)
+      ? ([x, y] as TablePoint)
+      : null;
+  });
+  return points.every((point): point is TablePoint => point !== null)
+    ? points
+    : null;
+}
+
+function cloneTablePoints(points: TablePoint[]): TablePoint[] {
+  return points.map(([x, y]) => [x, y]);
 }
 
 function clamp(value: number, maximum: number): number {
@@ -2066,10 +2759,29 @@ function renderMappingLayer({
   viewpoint,
   candidateProjection,
   width,
+  mappingAnchors,
   selection,
   onSelect,
+  onMappingAnchorPointerDown,
 }: LayerRenderContext) {
-  if (scene === null) return null;
+  if (scene === null && mappingAnchors.length === 0) return null;
+  if (scene === null) {
+    return mappingAnchors.map((anchor) => (
+      <MappingAnchorOverlay
+        key={anchor.anchorId}
+        anchor={anchor}
+        viewpoint={viewpoint}
+        projection={null}
+        width={width}
+        selected={isSelected(selection, {
+          type: "calibration_anchor",
+          id: anchor.anchorId,
+        })}
+        onSelect={onSelect}
+        onPointerDown={onMappingAnchorPointerDown}
+      />
+    ));
+  }
   const currentProjection = scene.projection;
   const current = scene.scene.poses.map((pose) => (
     <MappingProjection
@@ -2104,7 +2816,90 @@ function renderMappingLayer({
     <>
       {current}
       {candidate}
+      {mappingAnchors.map((anchor) => (
+        <MappingAnchorOverlay
+          key={anchor.anchorId}
+          anchor={anchor}
+          viewpoint={viewpoint}
+          projection={currentProjection}
+          width={width}
+          selected={isSelected(selection, {
+            type: "calibration_anchor",
+            id: anchor.anchorId,
+          })}
+          onSelect={onSelect}
+          onPointerDown={onMappingAnchorPointerDown}
+        />
+      ))}
     </>
+  );
+}
+
+function MappingAnchorOverlay({
+  anchor,
+  viewpoint,
+  projection,
+  width,
+  selected,
+  onSelect,
+  onPointerDown,
+}: {
+  anchor: WorkbenchCalibrationAnchor;
+  viewpoint: WorkbenchViewpoint;
+  projection: CardSceneProjection | null;
+  width: number;
+  selected: boolean;
+  onSelect: (selection: WorkbenchSelection) => void;
+  onPointerDown?: (
+    event: ReactPointerEvent<SVGCircleElement>,
+    anchor: WorkbenchCalibrationAnchor,
+    cornerIndex: number,
+  ) => void;
+}) {
+  const corners =
+    projection === null || viewpoint === "camera"
+      ? anchor.corners
+      : anchor.corners
+          .map((point) =>
+            projectImagePointToTable(
+              point,
+              projection.table_to_image_homography,
+            ),
+          )
+          .filter((point): point is TablePoint => point !== null);
+  return (
+    <g data-anchor-id={anchor.anchorId} data-anchor-state={anchor.state}>
+      {corners.length === 4 ? (
+        <polygon
+          points={pointsAttribute(corners)}
+          fill="none"
+          stroke={selected ? "#ffffff" : "#ff8a65"}
+          strokeDasharray="4 3"
+          strokeWidth={strokeWidth(viewpoint, width)}
+          pointerEvents="none"
+        />
+      ) : null}
+      {corners.map(([x, y], index) => (
+        <circle
+          key={`${anchor.anchorId}-${index}`}
+          cx={x}
+          cy={y}
+          r={viewpoint === "camera" ? Math.max(4, width / 110) : 0.1}
+          fill={selected ? "#ffffff" : "#ff8a65"}
+          stroke="#18242f"
+          strokeWidth={strokeWidth(viewpoint, width) / 2}
+          data-mapping-anchor={index}
+          role="button"
+          tabIndex={0}
+          aria-label={`Adjust calibration anchor ${index + 1} for ${anchor.anchorId}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect({ type: "calibration_anchor", id: anchor.anchorId });
+          }}
+          onPointerDown={(event) => onPointerDown?.(event, anchor, index)}
+        />
+      ))}
+    </g>
   );
 }
 

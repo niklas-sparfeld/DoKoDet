@@ -47,7 +47,11 @@ import {
   type VisibleCardReviewWorkbenchAction,
 } from "./VisibleCardReviewWorkbench";
 import type { WorkbenchSelection } from "./VisibleCardReviewWorkbenchState";
-import { readPoseScene } from "./PoseBasedVisibleCardScene";
+import {
+  readPoseScene,
+  withCalibrationAnchorCommandDigest,
+  type CalibrationAnchorCommand,
+} from "./PoseBasedVisibleCardScene";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import type {
   Candidate,
@@ -421,6 +425,47 @@ export function PipelineVisibleCardEditor({
       setCalibrationLoading(false);
     }
   }, [client, proposalRevisionId, recordingId]);
+
+  const updateCalibrationAnchor = useCallback(
+    async (command: CalibrationAnchorCommand) => {
+      const current = calibrationRefinement;
+      const draftId = current?.draft.draft_id;
+      const revision = current?.draft.revision;
+      if (
+        current === null ||
+        typeof draftId !== "string" ||
+        typeof revision !== "number"
+      ) {
+        setCalibrationError(
+          "Start a mapping preview before changing calibration anchors.",
+        );
+        return;
+      }
+      setCalibrationLoading(true);
+      setCalibrationError(null);
+      try {
+        const digested = await withCalibrationAnchorCommandDigest({
+          ...command,
+          expected_draft_revision: revision,
+        });
+        const updated = await client.updateCalibrationRefinement(
+          recordingId,
+          current.proposal_revision_id,
+          {
+            draft_id: draftId,
+            expected_revision: revision,
+            command: digested,
+          },
+        );
+        setCalibrationRefinement(updated);
+      } catch (reason: unknown) {
+        setCalibrationError(describeError(reason));
+      } finally {
+        setCalibrationLoading(false);
+      }
+    },
+    [calibrationRefinement, client, recordingId],
+  );
 
   const discardCalibrationRefinement = useCallback(async () => {
     const current = calibrationRefinement;
@@ -2270,7 +2315,9 @@ export function PipelineVisibleCardEditor({
                       : "virtual_cards",
                 }}
                 enabledEditTools={
-                  editable ? ["visible_regions", "virtual_cards"] : []
+                  editable
+                    ? ["visible_regions", "virtual_cards", "mapping"]
+                    : []
                 }
                 editor={
                   editor?.frameItemId === activeFrame.itemId ? editor : null
@@ -2286,6 +2333,27 @@ export function PipelineVisibleCardEditor({
                 }
                 candidateCalibration={
                   calibrationRefinement?.preview.candidate_calibration ?? null
+                }
+                calibrationRefinement={calibrationRefinement}
+                onAnchorCommand={(command) =>
+                  void updateCalibrationAnchor(command)
+                }
+                onStartMappingPreview={() => void startCalibrationRefinement()}
+                onDiscardMappingPreview={() =>
+                  void discardCalibrationRefinement()
+                }
+                onApplyMapping={() =>
+                  void applyCalibrationRefinement(
+                    calibrationRefinement?.preview.failure?.code ===
+                      "reviewed_displacement_exceeded",
+                  )
+                }
+                mappingLoading={calibrationLoading}
+                mappingCanApply={
+                  calibrationRefinement !== null &&
+                  (calibrationRefinement.preview.status === "pass" ||
+                    calibrationRefinement.preview.failure?.code ===
+                      "reviewed_displacement_exceeded")
                 }
                 onSelectionChange={handleWorkbenchSelection}
                 onAction={handleWorkbenchAction}

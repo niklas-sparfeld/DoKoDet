@@ -7,6 +7,15 @@ export type TablePoint = [number, number];
 export const ANCHOR_CONSTRAINTS = ["diagonal", "card_x", "card_y"] as const;
 export type AnchorConstraint = (typeof ANCHOR_CONSTRAINTS)[number];
 
+export const ANCHOR_STATES = [
+  "candidate",
+  "accepted",
+  "adjusted",
+  "pinned",
+  "excluded",
+] as const;
+export type AnchorState = (typeof ANCHOR_STATES)[number];
+
 export const ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS = 0.25;
 
 export type CalibrationAnchorCommand = {
@@ -15,11 +24,11 @@ export type CalibrationAnchorCommand = {
   sequence: number;
   expected_draft_revision: number;
   anchor_id: string;
-  operation: "set_corners";
-  state: "adjusted";
-  moved_corner: number;
-  constraint: AnchorConstraint;
-  corners: TablePoint[];
+  operation: "set_state" | "set_corners" | "restore";
+  state: AnchorState | null;
+  moved_corner: number | null;
+  constraint: AnchorConstraint | null;
+  corners: TablePoint[] | null;
   operator_id: string;
 };
 
@@ -176,8 +185,17 @@ export function constrainAnchorQuad(
 export function createCalibrationAnchorCommand(
   input: Omit<
     CalibrationAnchorCommand,
-    "schema_version" | "operation" | "state"
-  >,
+    | "schema_version"
+    | "operation"
+    | "state"
+    | "moved_corner"
+    | "constraint"
+    | "corners"
+  > & {
+    moved_corner: number;
+    constraint: AnchorConstraint;
+    corners: TablePoint[];
+  },
 ): CalibrationAnchorCommand {
   return {
     schema_version: "calibration-anchor-command/v1",
@@ -188,12 +206,35 @@ export function createCalibrationAnchorCommand(
   };
 }
 
+export function createCalibrationAnchorStateCommand(input: {
+  command_id: string;
+  sequence: number;
+  expected_draft_revision: number;
+  anchor_id: string;
+  state: AnchorState;
+  operator_id: string;
+}): CalibrationAnchorCommand {
+  return {
+    schema_version: "calibration-anchor-command/v1",
+    command_id: input.command_id,
+    sequence: input.sequence,
+    expected_draft_revision: input.expected_draft_revision,
+    anchor_id: input.anchor_id,
+    operation: "set_state",
+    state: input.state,
+    moved_corner: null,
+    constraint: null,
+    corners: null,
+    operator_id: input.operator_id,
+  };
+}
+
 export async function withCalibrationAnchorCommandDigest(
   command: CalibrationAnchorCommand,
 ): Promise<DigestedCalibrationAnchorCommand> {
   const core = {
     ...command,
-    corners: command.corners.map(roundPoint),
+    corners: command.corners?.map(roundPoint) ?? null,
   };
   const bytes = new TextEncoder().encode(canonicalAnchorCommandStringify(core));
   const digest = await crypto.subtle.digest("SHA-256", bytes);

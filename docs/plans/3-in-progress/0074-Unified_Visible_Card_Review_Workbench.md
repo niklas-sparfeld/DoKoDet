@@ -31,7 +31,10 @@
   add/remove, card decisions, stacking order, restore, pointer pan, and trackpad zoom now use the
   shared Camera/Rectified workbench surface and command bar. Existing card-scene queue operations
   and proposal lineage remain unchanged.
-- **M4:** Not started — move mapping refinement into the workbench.
+- **M4:** Complete — mapping refinement now uses the shared surface for anchor overlays,
+  constrained pointer and numeric edits, anchor decisions, and current/candidate projections.
+  Recording-wide preview, discard, apply, stale-revision, affected-item, and failure handling
+  remain connected to the existing calibration refinement API and inspector.
 - **M5:** Not started — consolidate actions, remove the split presentations, and verify the complete
   operator loop.
 
@@ -312,6 +315,16 @@ Acceptance:
 - leaving Mapping never applies or discards a candidate without an explicit action; and
 - apply, discard, stale revision, affected-item confirmation, and failure recovery retain the 0073
   behavior.
+
+#### M4 implementation evidence — 2026-09-22
+
+- Added mapping anchor overlays, current and candidate projection rendering, constrained pointer
+  handles, numeric corner edits, anchor-state actions, and mapping preview actions to the shared
+  `VisibleCardReviewWorkbench` command bar and surface.
+- Connected ordered `calibration-anchor-command/v1` updates to the existing calibration refinement
+  draft API. The inspector remains the authority for recording-wide impact review and atomic apply.
+- Added shared-workbench regression coverage for anchor selection and acceptance. The complete web
+  check passes with 23 test files and 224 tests.
 
 ### M5 — Consolidate decisions and verify the complete loop
 

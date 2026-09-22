@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { VisibleCardReviewWorkbench } from "./VisibleCardReviewWorkbench";
 import type { EditableFrame } from "./PipelineVisibleCardTypes";
 import type { PoseSceneEnvelope } from "./PoseBasedVisibleCardScene";
+import type { CalibrationRefinementResponse } from "../api/client";
 
 const scene: PoseSceneEnvelope = {
   schema_version: "reviewed-card-scene-editor/v1",
@@ -129,6 +130,55 @@ const frame: EditableFrame = {
     error: null,
   },
 };
+
+const calibrationRefinement = {
+  schema_version: "table-plane-calibration-refinement/v1",
+  recording_id: "recording-1",
+  proposal_revision_id: "proposal-1",
+  draft: {
+    draft_id: "draft-1",
+    revision: 0,
+    anchors: [
+      {
+        anchor_id: "anchor-1",
+        card_id: "card-1",
+        source_frame_id: "event-1",
+        state: "candidate",
+        quadrilateral: [
+          [40, 40],
+          [60, 40],
+          [60, 60],
+          [40, 60],
+        ],
+      },
+    ],
+    commands: [],
+  },
+  preview: {
+    status: "pass",
+    candidate_calibration: {
+      table_to_image: [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+      ],
+      card_short_size: 10,
+      card_long_size: 20,
+    },
+    accepted_anchor_count: 0,
+    rejected_candidate_count: 0,
+    fit_residual: 0,
+    held_out_alignment_change_px: 0,
+    changed_frame_ids: [],
+    changed_card_ids: [],
+    max_source_pixel_displacement: 0,
+    most_affected_frame_ids: [],
+    gates: [],
+    failure: null,
+    preview_digest: "preview-digest",
+  },
+  anchor_contributions: [],
+} as CalibrationRefinementResponse;
 
 describe("VisibleCardReviewWorkbench", () => {
   it("renders enabled layers in the frozen order and keeps edit controls read-only", () => {
@@ -363,5 +413,44 @@ describe("VisibleCardReviewWorkbench", () => {
 
     expect(onCardDecision).toHaveBeenCalledWith("card-1", "accept");
     expect(screen.queryByRole("button", { name: "Accept frame" })).toBeNull();
+  });
+
+  it("keeps mapping anchor actions and gestures on the shared surface", async () => {
+    const onAnchorCommand = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={calibrationRefinement}
+        mappingCanApply
+        onAnchorCommand={onAnchorCommand}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Adjust calibration anchor 1 for anchor-1",
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Accept anchor" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Accept anchor" }));
+
+    expect(onAnchorCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "set_state",
+        state: "accepted",
+        anchor_id: "anchor-1",
+        expected_draft_revision: 0,
+        sequence: 1,
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Apply mapping" })).toBeEnabled();
   });
 });

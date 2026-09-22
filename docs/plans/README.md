@@ -52,7 +52,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0074 — Unified visible-card review workbench](3-in-progress/0074-Unified_Visible_Card_Review_Workbench.md) | Completed 0049, 0054, 0065, and 0073 | M0–M3 complete. Shared state, layered Camera/Rectified review, visible-region/ignore-region editing, and virtual-card editing are in place; M4–M5 remain. |
+| [0074 — Unified visible-card review workbench](3-in-progress/0074-Unified_Visible_Card_Review_Workbench.md) | Completed 0049, 0054, 0065, and 0073 | M0–M4 complete. Shared state, layered Camera/Rectified review, visible-region/ignore-region editing, virtual-card editing, and mapping refinement are in place; M5 remains. |
 | [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M6 complete at the implementation and contract level. M3 remains validated on MPS with threshold `0.65` and `0.984043` crop-containment recall against the `0.98` floor. M4 materializes validated 0072 scene-derived crops and adds 0070 rows to train only. M5 supplies the crop RF-DETR SegMedium child contract. M6 assembles and registers the selectable, non-default `local-rfdetr-cascade`; real M4/M5 runtime artifacts are still required for a real cascade execution. |
 
 ### Blocked
