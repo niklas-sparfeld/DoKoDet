@@ -54,7 +54,12 @@ def _resolve_frontend_dist(value: Path, root: Path) -> Path:
 class Settings(BaseSettings):
     """Settings loaded from environment variables with local defaults."""
 
-    model_config = SettingsConfigDict(env_prefix="", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="",
+        extra="ignore",
+        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file_encoding="utf-8",
+    )
 
     repository_root: Path | None = Field(
         default=None,
