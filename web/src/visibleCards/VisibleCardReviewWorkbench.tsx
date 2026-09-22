@@ -132,9 +132,10 @@ type VirtualCardGesture = {
   dirty: boolean;
   startClientX: number;
   startClientY: number;
-  originalScene: PoseSceneEnvelope;
+  originalScene: PoseSceneEnvelope | null;
   startPan?: { x: number; y: number };
   startViewBox?: { x: number; y: number; width: number; height: number };
+  startPoint?: Point | null;
 };
 
 type MappingGesture = {
@@ -678,12 +679,13 @@ export function VisibleCardReviewWorkbench({
     });
   };
 
-  const beginVirtualTablePan = (event: ReactPointerEvent<SVGSVGElement>) => {
+  const beginTablePan = (
+    event: ReactPointerEvent<SVGSVGElement>,
+    point: Point | null,
+  ) => {
     if (
       event.button !== 0 ||
       event.target !== event.currentTarget ||
-      activeState.activeTool !== "virtual_cards" ||
-      sceneDraftRef.current === null ||
       virtualGestureRef.current !== null
     )
       return false;
@@ -708,6 +710,7 @@ export function VisibleCardReviewWorkbench({
       originalScene: currentScene,
       startPan: { ...viewport.pan },
       startViewBox: viewBox,
+      startPoint: point,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
     dispatch({
@@ -721,7 +724,7 @@ export function VisibleCardReviewWorkbench({
     event: ReactPointerEvent<SVGSVGElement>,
     point: Point | null,
   ) => {
-    if (beginVirtualTablePan(event)) return;
+    if (beginTablePan(event, point)) return;
     if (
       activeState.activeTool === "virtual_cards" ||
       activeState.activeTool === "mapping"
@@ -861,7 +864,13 @@ export function VisibleCardReviewWorkbench({
     setGestureViewBox(undefined);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     dispatch({ type: "commit_gesture" });
-    if (!gesture.dirty || gesture.kind === "pan") return;
+    if (gesture.kind === "pan") {
+      if (!gesture.dirty && activeState.activeTool === "visible_regions") {
+        onCanvasPointerDown?.(event, gesture.startPoint ?? null);
+      }
+      return;
+    }
+    if (!gesture.dirty) return;
     const next = sceneDraftRef.current;
     if (next === null) return;
     commitScene(

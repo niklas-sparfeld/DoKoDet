@@ -466,13 +466,16 @@ describe("VisibleCardReviewWorkbench", () => {
         recordingId="recording-1"
         frame={frame}
         readOnly={false}
-        initialPreferences={{ activeTool: "visible_regions" }}
+        initialPreferences={{
+          activeTool: "visible_regions",
+          viewpoint: "camera",
+        }}
         enabledEditTools={["visible_regions"]}
         onCanvasPointerDown={onCanvasPointerDown}
       />,
     );
     const surface = screen.getByRole("img", {
-      name: /Rectified visible-card workbench/,
+      name: "1 visible-card proposal",
     });
     vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
       bottom: 100,
@@ -490,9 +493,12 @@ describe("VisibleCardReviewWorkbench", () => {
     const offsetX = (100 - viewBox[2] * scale) / 2;
     const offsetY = (100 - viewBox[3] * scale) / 2;
     fireEvent.pointerDown(surface, {
+      button: 0,
+      pointerId: 1,
       clientX: offsetX + (50 - viewBox[0]) * scale,
       clientY: offsetY + (50 - viewBox[1]) * scale,
     });
+    fireEvent.pointerUp(surface, { pointerId: 1 });
     expect(onCanvasPointerDown).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -637,6 +643,86 @@ describe("VisibleCardReviewWorkbench", () => {
     const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
     expect(viewBox[0]).toBe(-10);
     expect(viewBox[1]).toBe(0);
+  });
+
+  it.each(["visible_regions", "mapping"] as const)(
+    "pans the camera view when the %s tool is active",
+    (activeTool) => {
+      const onCanvasPointerDown = vi.fn();
+      const frameWithoutScene = structuredClone(frame);
+      if (activeTool === "visible_regions") {
+        frameWithoutScene.outcome.card_scene = undefined;
+      }
+      render(
+        <VisibleCardReviewWorkbench
+          recordingId="recording-1"
+          frame={frameWithoutScene}
+          readOnly={false}
+          initialPreferences={{ activeTool, viewpoint: "camera" }}
+          enabledEditTools={[activeTool]}
+          onCanvasPointerDown={onCanvasPointerDown}
+        />,
+      );
+      const surface = screen.getByRole("img", {
+        name: "1 visible-card proposal",
+      });
+      vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+        bottom: 100,
+        height: 100,
+        left: 0,
+        right: 100,
+        top: 0,
+        width: 100,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
+
+      fireEvent.pointerDown(surface, {
+        button: 0,
+        clientX: 50,
+        clientY: 50,
+        pointerId: 1,
+      });
+      fireEvent.pointerMove(surface, {
+        clientX: 60,
+        clientY: 50,
+        pointerId: 1,
+      });
+      fireEvent.pointerUp(surface, { pointerId: 1 });
+
+      const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
+      expect(viewBox[0]).toBe(-10);
+      expect(viewBox[1]).toBe(0);
+      expect(onCanvasPointerDown).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps visible-region canvas clicks when the pointer does not drag", () => {
+    const onCanvasPointerDown = vi.fn();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{ activeTool: "visible_regions" }}
+        enabledEditTools={["visible_regions"]}
+        onCanvasPointerDown={onCanvasPointerDown}
+      />,
+    );
+    const surface = screen.getByRole("img", {
+      name: /Rectified visible-card workbench/,
+    });
+
+    fireEvent.pointerDown(surface, {
+      button: 0,
+      clientX: 50,
+      clientY: 50,
+      pointerId: 1,
+    });
+    fireEvent.pointerUp(surface, { pointerId: 1 });
+
+    expect(onCanvasPointerDown).toHaveBeenCalledTimes(1);
   });
 
   it("moves a virtual card by the full pointer distance in Rectified view", async () => {
