@@ -49,7 +49,10 @@ import {
 } from "./PoseBasedVisibleCardEditor";
 import { VisibleCardReviewWorkbench } from "./VisibleCardReviewWorkbench";
 import { readPoseScene } from "./PoseBasedVisibleCardScene";
-import type { CalibrationAnchorCommand } from "./PoseBasedVisibleCardScene";
+import {
+  withCalibrationAnchorCommandDigest,
+  type CalibrationAnchorCommand,
+} from "./PoseBasedVisibleCardScene";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import type {
   Candidate,
@@ -507,18 +510,21 @@ export function PipelineVisibleCardEditor({
       setCalibrationLoading(true);
       setCalibrationError(null);
       try {
+        const commandWithRevision = {
+          ...command,
+          sequence: commands.length + 1,
+          expected_draft_revision: revision,
+          operator_id: operatorId.trim() || "operator",
+        } satisfies CalibrationAnchorCommand;
+        const digestedCommand =
+          await withCalibrationAnchorCommandDigest(commandWithRevision);
         const updated = await client.updateCalibrationRefinement(
           recordingId,
           current.proposal_revision_id,
           {
             draft_id: String(draft.draft_id),
             expected_revision: revision,
-            command: {
-              ...command,
-              sequence: commands.length + 1,
-              expected_draft_revision: revision,
-              operator_id: operatorId.trim() || "operator",
-            },
+            command: digestedCommand,
           },
         );
         setCalibrationRefinement(updated);

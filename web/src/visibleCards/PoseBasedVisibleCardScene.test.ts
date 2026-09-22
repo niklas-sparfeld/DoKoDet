@@ -2,6 +2,8 @@ import {
   applyPoseSceneAction,
   cardPolygon,
   constrainAnchorQuad,
+  createCalibrationAnchorCommand,
+  withCalibrationAnchorCommandDigest,
   nextManualPoseId,
   projectImagePointToTable,
   projectTablePoint,
@@ -159,6 +161,31 @@ describe("PoseBasedVisibleCardScene", () => {
       expect(adjusted).toHaveLength(4);
       expect(adjusted[2]).toEqual(corners[2]);
     }
+  });
+
+  it("adds the canonical digest required by calibration refinement updates", async () => {
+    const command = createCalibrationAnchorCommand({
+      command_id: "anchor-command-frame-1-1",
+      sequence: 1,
+      expected_draft_revision: 0,
+      anchor_id: "anchor-frame-1-card-1",
+      moved_corner: 0,
+      constraint: "diagonal",
+      corners: [
+        [-1, -1.5],
+        [1, -1.5],
+        [1, 1.5],
+        [-1, 1.5],
+      ],
+      operator_id: "operator",
+    });
+
+    await expect(withCalibrationAnchorCommandDigest(command)).resolves.toEqual(
+      expect.objectContaining({
+        command_digest:
+          "4da1fd0ccb7408838d0f0234f23433b83bf540abea1f401d57a24fc5b606f47e",
+      }),
+    );
   });
 
   it("maps source points back through the preserved homography", () => {

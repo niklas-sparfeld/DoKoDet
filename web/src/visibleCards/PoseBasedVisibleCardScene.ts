@@ -23,6 +23,10 @@ export type CalibrationAnchorCommand = {
   operator_id: string;
 };
 
+export type DigestedCalibrationAnchorCommand = CalibrationAnchorCommand & {
+  command_digest: string;
+};
+
 export type PoseCard = {
   schema_version: "card-pose/v1";
   card_id: string;
@@ -180,8 +184,23 @@ export function createCalibrationAnchorCommand(
     operation: "set_corners",
     state: "adjusted",
     ...input,
-    corners: input.corners.map((point) => [...point] as TablePoint),
+    corners: input.corners.map(roundPoint),
   };
+}
+
+export async function withCalibrationAnchorCommandDigest(
+  command: CalibrationAnchorCommand,
+): Promise<DigestedCalibrationAnchorCommand> {
+  const core = {
+    ...command,
+    corners: command.corners.map(roundPoint),
+  };
+  const bytes = new TextEncoder().encode(canonicalAnchorCommandStringify(core));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = Array.from(new Uint8Array(digest), (value) =>
+    value.toString(16).padStart(2, "0"),
+  ).join("");
+  return { ...core, command_digest: hex };
 }
 
 export function readPoseScene(value: unknown): PoseSceneEnvelope | null {
@@ -687,4 +706,31 @@ function stableStringify(value: unknown): string {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, child]) => `${JSON.stringify(key)}:${stableStringify(child)}`);
   return `{${entries.join(",")}}`;
+}
+
+function canonicalAnchorCommandStringify(
+  command: CalibrationAnchorCommand,
+): string {
+  const entries = Object.entries(command)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([key, value]) => {
+      if (key !== "corners") {
+        return `${JSON.stringify(key)}:${stableStringify(value)}`;
+      }
+      const corners = (value as TablePoint[])
+        .map(
+          (point) =>
+            `[${point.map((coordinate) => canonicalFloat(coordinate)).join(",")}]`,
+        )
+        .join(",");
+      return `${JSON.stringify(key)}:[${corners}]`;
+    });
+  return `{${entries.join(",")}}`;
+}
+
+function canonicalFloat(value: number): string {
+  const rounded = Number(value.toFixed(6));
+  if (Object.is(rounded, -0)) return "-0.0";
+  if (Number.isInteger(rounded)) return `${rounded.toFixed(1)}`;
+  return JSON.stringify(rounded);
 }
