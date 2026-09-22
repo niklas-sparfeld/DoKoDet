@@ -47,6 +47,7 @@ import {
   PoseBasedVisibleCardEditor,
   type VirtualTableViewState,
 } from "./PoseBasedVisibleCardEditor";
+import { VisibleCardReviewWorkbench } from "./VisibleCardReviewWorkbench";
 import { readPoseScene } from "./PoseBasedVisibleCardScene";
 import type { CalibrationAnchorCommand } from "./PoseBasedVisibleCardScene";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
@@ -2290,37 +2291,52 @@ export function PipelineVisibleCardEditor({
             {reviewControls}
             <div className={visibleStyles.reviewWorkbench}>
               {activeFrame.outcome.card_scene !== undefined ? (
-                <PoseBasedVisibleCardEditor
+                view === "generated" ? (
+                  <VisibleCardReviewWorkbench
+                    recordingId={recordingId}
+                    frame={activeFrame}
+                    readOnly
+                  />
+                ) : (
+                  <PoseBasedVisibleCardEditor
+                    recordingId={recordingId}
+                    frame={activeFrame}
+                    scene={activeFrame.outcome.card_scene}
+                    readOnly={!editable}
+                    activeView={poseEditorView}
+                    onActiveViewChange={setPoseEditorView}
+                    tableViewState={poseTableViewState}
+                    onTableViewStateChange={updatePoseTableViewState}
+                    onChange={(nextScene, noticeText) =>
+                      updatePoseScene(activeFrame, nextScene, noticeText)
+                    }
+                    onCardDecision={
+                      editable
+                        ? (cardId, decision) =>
+                            decideCard(activeFrame, cardId, decision)
+                        : undefined
+                    }
+                    onResolveRemaining={
+                      editable
+                        ? () => resolveRemainingCards(activeFrame)
+                        : undefined
+                    }
+                    onAnchorCommand={
+                      editable && calibrationRefinement !== null
+                        ? (command) => void updateCalibrationRefinement(command)
+                        : undefined
+                    }
+                    candidateCalibration={
+                      calibrationRefinement?.preview.candidate_calibration ??
+                      null
+                    }
+                  />
+                )
+              ) : view === "generated" ? (
+                <VisibleCardReviewWorkbench
                   recordingId={recordingId}
                   frame={activeFrame}
-                  scene={activeFrame.outcome.card_scene}
-                  readOnly={!editable}
-                  activeView={poseEditorView}
-                  onActiveViewChange={setPoseEditorView}
-                  tableViewState={poseTableViewState}
-                  onTableViewStateChange={updatePoseTableViewState}
-                  onChange={(nextScene, noticeText) =>
-                    updatePoseScene(activeFrame, nextScene, noticeText)
-                  }
-                  onCardDecision={
-                    editable
-                      ? (cardId, decision) =>
-                          decideCard(activeFrame, cardId, decision)
-                      : undefined
-                  }
-                  onResolveRemaining={
-                    editable
-                      ? () => resolveRemainingCards(activeFrame)
-                      : undefined
-                  }
-                  onAnchorCommand={
-                    editable && calibrationRefinement !== null
-                      ? (command) => void updateCalibrationRefinement(command)
-                      : undefined
-                  }
-                  candidateCalibration={
-                    calibrationRefinement?.preview.candidate_calibration ?? null
-                  }
+                  readOnly
                 />
               ) : (
                 <VisibleCardFramePanel

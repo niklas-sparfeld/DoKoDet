@@ -21,7 +21,9 @@
 - **M0:** Complete — frozen typed workbench state, availability rules, transition rules, layer and
   hit-test order, shortcut ownership, viewport keyboard controls, persistence behavior, and narrow
   command-bar layout contract are covered by focused reducer tests.
-- **M1:** Not started — render both viewpoints and all supported layers in one review surface.
+- **M1:** Complete — generated-result inspection uses one shared Camera/Rectified surface with a
+  typed layer registry, shared selection, fixed draw order, mapping diagnostics, and explicit
+  disabled reasons.
 - **M2:** Not started — move visible-region and ignore-region editing into the workbench.
 - **M3:** Not started — move virtual-card editing into the workbench.
 - **M4:** Not started — move mapping refinement into the workbench.
