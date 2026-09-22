@@ -226,7 +226,7 @@ export function RecordingWorkspaceTaskSurface({
       data-slot="center"
     >
       <div
-        className={`${styles.pipelineTaskSurfaceContent} ${shellStyles.taskSurfaceContent} ${stage.key === "events" && !compare ? styles.pipelineEventTaskSurfaceContent : ""} ${(stage.key === "visible_cards" || stage.key === "visual_identities") && !compare ? styles.pipelineVisibleCardTaskSurfaceContent : ""} ${stage.key === "visible_cards" && !compare ? styles.pipelineVirtualTableTaskSurfaceContent : ""}`}
+        className={`${shellStyles.taskSurfaceContent} ${(stage.key === "visible_cards" || stage.key === "visual_identities") && !compare ? shellStyles.compactTaskSurfaceContent : ""} ${stage.key === "events" && !compare ? styles.pipelineEventTaskSurfaceContent : ""} ${(stage.key === "visible_cards" || stage.key === "visual_identities") && !compare ? styles.pipelineVisibleCardTaskSurfaceContent : ""} ${stage.key === "visible_cards" && !compare ? styles.pipelineVirtualTableTaskSurfaceContent : ""}`}
       >
         {compare ? (
           <ComparisonView

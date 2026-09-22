@@ -134,8 +134,8 @@
   overscroll-behavior: contain;
 }
 
-.taskSurfaceContent:global(.pipelineVisibleCardTaskSurfaceContent) {
-  padding: 0.35rem;
+.taskSurfaceContent.compactTaskSurfaceContent {
+  padding: 0.25rem;
 }
 
 @media (max-width: 600px) {
