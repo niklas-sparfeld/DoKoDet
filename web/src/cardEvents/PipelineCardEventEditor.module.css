@@ -94,6 +94,16 @@
   transition: filter 120ms ease, opacity 120ms ease;
 }
 
+.frameImageHidden {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .frameImageBusy {
   opacity: 0.55;
   filter: grayscale(0.2);
@@ -148,6 +158,20 @@
   font-size: 0.74rem;
   line-height: 1.3;
   pointer-events: none;
+}
+
+.frameBufferBadge {
+  position: absolute;
+  inset: auto 1rem 1rem auto;
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.35rem;
+  background: rgb(0 0 0 / 72%);
+  color: rgb(255 255 255 / 92%);
+  font-size: 0.7rem;
+  line-height: 1.3;
+  pointer-events: none;
+  max-width: min(16rem, calc(100% - 2rem));
 }
 
 @keyframes frame-loading-spin {

@@ -33,6 +33,7 @@ import {
   useEventInspectorSlots,
 } from "./PipelineCardEventInspector";
 import type { CardEventFramePlayback } from "./CardEventFrameSurface";
+import { prefetchRecordingVideo } from "./recordingVideoCache";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import {
   CARD_STATE_CHANGED_EVENT_TYPE,
@@ -91,6 +92,11 @@ export function PipelineCardEventEditor({
   const selectedIdRef = useRef<string | null>(null);
   const playheadUsRef = useRef(0);
   const watchedThroughUsRef = useRef(0);
+  const externalSelectionRef = useRef<{
+    ready: boolean;
+    item: string | null | undefined;
+    time: number | null | undefined;
+  }>({ ready: false, item: undefined, time: undefined });
   const serverRevisionRef = useRef(0);
   const queueRef = useRef<PendingCommand[]>([]);
   const processingRef = useRef(false);
@@ -156,7 +162,7 @@ export function PipelineCardEventEditor({
   }, []);
 
   const setCurrentTime = useCallback(
-    (nextUs: number, updateUrl = true) => {
+    (nextUs: number, updateUrl = true, broadcastUrl = true) => {
       const clamped = clampMicroseconds(nextUs, durationUs);
       playheadUsRef.current = clamped;
       setPlayheadUs(clamped);
@@ -170,7 +176,8 @@ export function PipelineCardEventEditor({
       }
       if (view === "generated" && videoRef.current !== null)
         videoRef.current.currentTime = clamped / 1_000_000;
-      if (updateUrl) updatePipelineUrl({ t_us: clamped });
+      if (updateUrl)
+        updatePipelineUrl({ t_us: clamped }, { broadcast: broadcastUrl });
     },
     [durationUs, view],
   );
@@ -279,6 +286,10 @@ export function PipelineCardEventEditor({
   );
 
   useEffect(() => {
+    prefetchRecordingVideo(recordingId);
+  }, [recordingId]);
+
+  useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       if (view === "reviewed") void loadReference(controller.signal);
@@ -305,15 +316,34 @@ export function PipelineCardEventEditor({
           (view === "reviewed" ? events[0] : undefined));
     const requestedTimeUs =
       selectionTimeUs === undefined ? urlState.tUs : selectionTimeUs;
+    const previousExternal = externalSelectionRef.current;
+    const externalItemChanged =
+      !previousExternal.ready || previousExternal.item !== selectionItemId;
+    const externalTimeChanged =
+      !previousExternal.ready || previousExternal.time !== selectionTimeUs;
+    externalSelectionRef.current = {
+      ready: true,
+      item: selectionItemId,
+      time: selectionTimeUs,
+    };
     const timer = window.setTimeout(() => {
       const selectionChanged =
         selected !== undefined && selected.localId !== selectedIdRef.current;
       if (selectionChanged) {
         setSelected(selected.localId);
       }
-      if (requestedTimeUs !== null) {
+      // Only apply external playhead sync when the parent/URL selection changes.
+      // Local event edits (nudges) must not rewind the playhead to a stale prop.
+      if (
+        requestedTimeUs !== null &&
+        (externalTimeChanged || externalItemChanged || selectionChanged)
+      ) {
         setCurrentTime(requestedTimeUs, false);
-      } else if (selectionChanged && view === "reviewed") {
+      } else if (
+        selectionChanged &&
+        view === "reviewed" &&
+        requestedTimeUs === null
+      ) {
         setCurrentTime(selected.event.start_us, false);
       }
     }, 0);
@@ -638,7 +668,7 @@ export function PipelineCardEventEditor({
       );
       if (endUs < startUs) return;
       setFramePlayback("video");
-      setCurrentTime(startUs);
+      setCurrentTime(startUs, true, false);
       updateEvent(
         currentEvent,
         { start_us: startUs, end_us: endUs },
@@ -1293,10 +1323,13 @@ function readPipelineEditorUrlState(): {
     tUs: raw !== null && /^\d+$/.test(raw) ? Number(raw) : null,
   };
 }
-function updatePipelineUrl(values: {
-  item?: string | null;
-  t_us?: number | null;
-}): void {
+function updatePipelineUrl(
+  values: {
+    item?: string | null;
+    t_us?: number | null;
+  },
+  options: { broadcast?: boolean } = {},
+): void {
   const params = new URLSearchParams(window.location.search);
   for (const [key, value] of Object.entries(values)) {
     if (value === null || value === undefined) params.delete(key);
@@ -1308,5 +1341,7 @@ function updatePipelineUrl(values: {
     "",
     `${window.location.pathname}${query === "" ? "" : `?${query}`}`,
   );
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  if (options.broadcast !== false) {
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
 }

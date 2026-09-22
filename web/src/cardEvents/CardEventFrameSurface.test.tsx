@@ -1,12 +1,16 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { pipelineDerivedFramePath } from "../api/client";
+import {
+  pipelineDerivedFramePath,
+  repositoryBundleVideoPath,
+} from "../api/client";
 import { CardEventFrameSurface } from "./CardEventFrameSurface";
 import {
   loadCachedReviewFrame,
   resetReviewFrameCacheForTests,
 } from "./cardEventFrameCache";
+import { resetRecordingVideoCacheForTests } from "./recordingVideoCache";
 
 const recordingId = "recording-frame-surface";
 
@@ -17,18 +21,46 @@ function frameResponse(status = 200): Response {
   });
 }
 
+function videoResponse(): Response {
+  return new Response(Uint8Array.from([0, 1, 2, 3]), {
+    status: 200,
+    headers: {
+      "Content-Type": "video/mp4",
+      "Content-Length": "4",
+    },
+  });
+}
+
+function stubReviewFetch(
+  handler: (url: string) => Promise<Response> | Response,
+): ReturnType<typeof vi.fn<typeof fetch>> {
+  const fetchMock = vi.fn<typeof fetch>((input) => {
+    const url = String(input);
+    if (url === repositoryBundleVideoPath(recordingId)) {
+      return Promise.resolve(videoResponse());
+    }
+    return Promise.resolve(handler(url));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function derivedFetchCount(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>): number {
+  return fetchMock.mock.calls.filter(([input]) =>
+    String(input).includes("/derived-views/exact-event/"),
+  ).length;
+}
+
 describe("CardEventFrameSurface", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     resetReviewFrameCacheForTests();
+    resetRecordingVideoCacheForTests();
   });
 
   it("loads a cached exact review frame for the requested time", async () => {
-    const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(frameResponse()),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubReviewFetch(() => frameResponse());
 
     render(
       <CardEventFrameSurface
@@ -51,17 +83,19 @@ describe("CardEventFrameSurface", () => {
         screen.getByRole("region", { name: "CardEvent review source frame" }),
       ).toHaveAttribute("data-frame-settled", "true"),
     );
+    expect(
+      screen.getByLabelText("CardEvent review source frame").querySelector("video"),
+    ).not.toBeNull();
   });
 
   it("shows a loading overlay until the derived frame is ready", async () => {
     let release: ((value: Response) => void) | undefined;
-    const fetchMock = vi.fn<typeof fetch>(
+    stubReviewFetch(
       () =>
         new Promise<Response>((resolve) => {
           release = resolve;
         }),
     );
-    vi.stubGlobal("fetch", fetchMock);
 
     render(
       <CardEventFrameSurface
@@ -90,12 +124,9 @@ describe("CardEventFrameSurface", () => {
 
   it("reuses an in-memory cached frame without refetching", async () => {
     const url = pipelineDerivedFramePath(recordingId, 3_000_000);
-    const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(frameResponse()),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubReviewFetch(() => frameResponse());
     await loadCachedReviewFrame(url);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(derivedFetchCount(fetchMock)).toBe(1);
 
     render(
       <CardEventFrameSurface
@@ -110,21 +141,54 @@ describe("CardEventFrameSurface", () => {
         name: "CardEvent review frame at 0:03.000000",
       }),
     ).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(derivedFetchCount(fetchMock)).toBe(1);
     expect(
       screen.getByRole("region", { name: "CardEvent review source frame" }),
     ).toHaveAttribute("data-frame-settled", "true");
   });
 
+  it("keeps the video element mounted when switching to video playback", async () => {
+    stubReviewFetch(() => frameResponse());
+
+    const { rerender } = render(
+      <CardEventFrameSurface
+        recordingId={recordingId}
+        requestedTimeUs={1_000_000}
+        playback="derived"
+      />,
+    );
+
+    expect(
+      await screen.findByRole("img", {
+        name: "CardEvent review frame at 0:01.000000",
+      }),
+    ).toBeInTheDocument();
+    const video = screen
+      .getByLabelText("CardEvent review source frame")
+      .querySelector("video");
+    expect(video).not.toBeNull();
+
+    rerender(
+      <CardEventFrameSurface
+        recordingId={recordingId}
+        requestedTimeUs={1_033_333}
+        playback="video"
+      />,
+    );
+
+    expect(
+      screen.getByLabelText("CardEvent review source frame").querySelector("video"),
+    ).toBe(video);
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
   it("does not show an abort error when the requested time changes mid-fetch", async () => {
     const resolvers = new Map<string, (value: Response) => void>();
-    const fetchMock = vi.fn<typeof fetch>((input) => {
-      const url = String(input);
+    stubReviewFetch((url) => {
       return new Promise<Response>((resolve) => {
         resolvers.set(url, resolve);
       });
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     const { rerender } = render(
       <CardEventFrameSurface

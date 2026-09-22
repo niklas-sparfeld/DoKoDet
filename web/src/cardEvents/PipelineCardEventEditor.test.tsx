@@ -87,9 +87,23 @@ function frameImageResponse(): Response {
   });
 }
 
+function videoFileResponse(): Response {
+  return new Response(Uint8Array.from([0, 1, 2, 3]), {
+    status: 200,
+    headers: {
+      "Content-Type": "video/mp4",
+      "Content-Length": "4",
+    },
+  });
+}
+
 function withReviewFrames(fetchImplementation: typeof fetch): typeof fetch {
   return async (input, init) => {
-    if (String(input).includes("/derived-views/")) return frameImageResponse();
+    const url = String(input);
+    if (url.includes("/derived-views/")) return frameImageResponse();
+    if (url.includes("/repository-bundles/") && url.endsWith("/video")) {
+      return videoFileResponse();
+    }
     return fetchImplementation(input, init);
   };
 }
@@ -190,6 +204,7 @@ describe("PipelineCardEventEditor", () => {
         }),
       },
     ]);
+    expect(window.location.search).toContain("t_us=1033333");
 
     fireEvent.click(
       within(controls).getByRole("button", { name: "Dismiss D" }),
@@ -234,6 +249,53 @@ describe("PipelineCardEventEditor", () => {
       Number.isInteger((addOperation.item as Record<string, unknown>).start_us),
     ).toBe(true);
     expect(putCalls(fetchMock)).toHaveLength(4);
+  });
+
+  it("updates the playhead URL on nudge without broadcasting popstate", async () => {
+    const server = referenceResponse([eventItem()]);
+    const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body)) as {
+          operations?: Array<Record<string, unknown>>;
+        };
+        const operation = payload.operations?.[0];
+        if (
+          operation?.operation === "correct" &&
+          isRecord(operation.item) &&
+          typeof operation.item_id === "string"
+        ) {
+          return response(
+            referenceResponse(
+              [
+                {
+                  ...eventItem(),
+                  review_state: "corrected",
+                  item: operation.item,
+                },
+              ],
+              2,
+            ),
+          );
+        }
+      }
+      return response(server);
+    });
+    const popstate = vi.fn();
+    window.addEventListener("popstate", popstate);
+    renderReviewed(fetchMock);
+    const controls = await screen.findByRole("complementary", {
+      name: "CardEvent review controls",
+    });
+    popstate.mockClear();
+
+    fireEvent.click(
+      within(controls).getByRole("button", { name: "Nudge later ." }),
+    );
+    await waitFor(() =>
+      expect(window.location.search).toContain("t_us=1033333"),
+    );
+    expect(popstate).not.toHaveBeenCalled();
+    window.removeEventListener("popstate", popstate);
   });
 
   it("coalesces rapid nudges while an earlier save is in flight", async () => {
@@ -382,7 +444,7 @@ describe("PipelineCardEventEditor", () => {
     ]);
 
     fireEvent.click(
-      within(controls).getByRole("button", { name: "Seek right" }),
+      within(controls).getByRole("button", { name: /Seek right/ }),
     );
     fireEvent.click(
       within(controls).getByRole("button", { name: "Mark stable end E" }),
@@ -798,10 +860,10 @@ describe("PipelineCardEventEditor", () => {
       name: "CardEvent review controls",
     });
     for (const ariaName of [
-      "Previous event",
-      "Next event",
-      "Seek left",
-      "Seek right",
+      /Previous event/,
+      /Next event/,
+      /Seek left/,
+      /Seek right/,
       "Nudge earlier ,",
       "Nudge later .",
       "Mark start S",
@@ -817,7 +879,7 @@ describe("PipelineCardEventEditor", () => {
       ).toBeInTheDocument();
     }
     expect(
-      within(controls).getByRole("button", { name: "Previous event" }),
+      within(controls).getByRole("button", { name: /Previous event/ }),
     ).toBeDisabled();
     expect(
       within(controls).getByRole("button", { name: "Nudge earlier ," }),
@@ -833,13 +895,13 @@ describe("PipelineCardEventEditor", () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(controls).getByRole("button", { name: "Next event" }),
+      within(controls).getByRole("button", { name: /Next event/ }),
     );
     expect(window.location.search).toContain("item=event-2");
     expect(window.location.search).toContain("t_us=3000000");
 
     fireEvent.click(
-      within(controls).getByRole("button", { name: "Seek left" }),
+      within(controls).getByRole("button", { name: /Seek left/ }),
     );
     expect(window.location.search).toContain("t_us=2750000");
 
