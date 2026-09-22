@@ -46,13 +46,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0074 — Unified visible-card review workbench](2-ready/0074-Unified_Visible_Card_Review_Workbench.md) | Completed 0049, 0054, 0065, and 0073 | M0–M5 not started. Replace the polygon-versus-virtual-table presentation split with one visible-card workbench that has independent Camera/Rectified viewpoints, simultaneous evidence layers, exclusive edit tools, and one contextual command bar. |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0073 — Production proposed card scenes and calibration refinement](5-closed/0073-Production_Proposed_Card_Scenes_and_Calibration_Refinement.md) | Completed 0048, 0049, and 0072, plus the selectable cascade provider from 0071 M6 | M0–M7 complete: M0 froze proposal/reviewed authority, card draft states, weighted anchor policy, handle constraints, calibration preview, failure, invalidation, and atomic reflow contracts. M1 publishes immutable calibration and proposed-scene revisions from selected local cascade data with resumable backend run controls. M2 seeds maintained references from immutable proposals, preserves homography and proposal lineage, and derives reviewed regions only after explicit card decisions. M3 adds proposal lifecycle controls, direct proposal-backed review, card decisions, and a synchronized Source/Rectified editor toggle. M4 adds separate Review/Refine modes, fixed-size card move/rotate controls, constrained calibration-corner handles, keyboard/numeric equivalents, pointer cancellation, and paired source/rectified gesture previews. M5 adds weighted deterministic candidate fitting, persisted ordered calibration drafts, fit gates, affected-frame impact inspection, and candidate source overlays. M6 adds immutable calibration apply, pending-card regeneration, reviewed-pose reflow, affected-item confirmation, durable receipts, atomic reference commands, duplicate retry, conflict checks, and returned-reference hydration. M7 verifies the retained real cascade review path, stable-camera regression path, preserved lineage and diagnostics, explicit unsupported conditions, calibration refinement coverage, and in-product operator guidance. |
 | [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M6 complete at the implementation and contract level. M3 remains validated on MPS with threshold `0.65` and `0.984043` crop-containment recall against the `0.98` floor. M4 materializes validated 0072 scene-derived crops and adds 0070 rows to train only. M5 supplies the crop RF-DETR SegMedium child contract. M6 assembles and registers the selectable, non-default `local-rfdetr-cascade`; real M4/M5 runtime artifacts are still required for a real cascade execution. |
 
 ### Blocked
@@ -65,6 +65,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0073 — Production proposed card scenes and calibration refinement](5-closed/0073-Production_Proposed_Card_Scenes_and_Calibration_Refinement.md) | Complete | M0–M7 complete: production proposals, maintained-reference review, synchronized Source/Rectified card editing, calibration refinement, atomic reflow, preserved lineage, and bounded operator verification are complete. |
 | [0070 — Synthetic visible-region training data](5-closed/0070-Synthetic_Visible_Region_Training_Data.md) | Complete | M0–M6 complete with declared gaps. The 50/50 real-plus-synthetic candidate improved frozen real validation mask AP and recall. No legal M6 development source group remained for human correction timing, so the candidate is retained as an experiment and is not promoted as an annotation prefill. |
 | [0072 — Pose-based visible-card review](5-closed/0072-Pose_Based_Visible_Card_Review.md) | Complete | M0–M5 complete: shared calibrated card-plane geometry and versioned scene contracts are frozen; deterministic calibration, pose initialization, virtual-table correction, derived visible-region validation, maintained-reference integration, and dataset lineage are verified by a local end-to-end fixture. Unsupported frames fail explicitly; no Gemini, cloud service, or human calibration input is required. |
 | [0052 — Selected response to visible-region identity failures](5-closed/0052-Selected_Visible_Region_Identity_Response.md) | Won't Do | No measured 0051 failure selected a follow-up identity response; M0–M3 were not started. |
@@ -295,6 +296,23 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   Gemini to label generated scenes and do not synthesize visible-card ignore regions.
 - Judge the experiment on real held-out quality and measured human correction effort. Do not
   promote a provider or change a runtime default in 0070.
+
+### Planning decision — 2026-09-22
+
+- Add 0074 as a Ready presentation-only consolidation after completed 0073. Treat source-frame
+  polygons, virtual cards, ignore regions, detector suggestions, and mapping diagnostics as layers
+  of one selected visible-card frame, not as separate review products.
+- Use four independent UI dimensions: one Camera or Rectified viewpoint, zero or more visible
+  layers, one visible-region, virtual-card, or mapping edit tool, and one stable contextual command
+  bar.
+- Use one button to toggle Camera and Rectified. Use one pressed or unpressed button for each
+  visibility layer. Remove dedicated zoom, pan, and fit buttons; retain direct mouse and trackpad
+  gestures plus focused-surface keyboard controls.
+- Keep Accept card, Accept anchor, Apply mapping, and Accept frame explicit and distinct. Keep
+  temporal navigation in the Timeline Rail. Do not change backend contracts, review authority,
+  immutable lineage, calibration behavior, or dataset semantics.
+- Remove the replaced polygon and pose-editor presentations after their behavior moves to the
+  shared workbench. Do not retain compatibility paths for the undeployed UI structure.
 
 ## Closed-epic policy
 
