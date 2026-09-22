@@ -41,6 +41,7 @@ from .visible_card_cascade import (
     reconcile_predictions,
 )
 from .visible_cards import (
+    NormalizedPoint,
     ProviderResult,
     VisibleCardError,
     VisibleCardProposal,
@@ -156,6 +157,15 @@ def _normalized_polygon(
     return tuple(
         visible_cards.NormalizedPoint(**_normalized_point(point, width=width, height=height))
         for point in polygon
+    )
+
+
+def _normalized_polygon_area(polygon: tuple[NormalizedPoint, ...]) -> int:
+    return abs(
+        sum(
+            left.x * right.y - right.x * left.y
+            for left, right in zip(polygon, polygon[1:] + polygon[:1], strict=True)
+        )
     )
 
 
@@ -632,8 +642,12 @@ class LocalVisibleCardCascadeProvider:
         proposals: list[VisibleCardProposal] = []
         for prediction in reconciliation.retained:
             polygons = tuple(
-                _normalized_polygon(polygon, width=request.width, height=request.height)
-                for polygon in prediction.polygons
+                normalized
+                for normalized in (
+                    _normalized_polygon(polygon, width=request.width, height=request.height)
+                    for polygon in prediction.polygons
+                )
+                if _normalized_polygon_area(normalized) > 0
             )
             if not polygons:
                 continue

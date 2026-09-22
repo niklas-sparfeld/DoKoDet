@@ -178,6 +178,32 @@ def test_cascade_keeps_coarse_failure_and_partial_fine_diagnostics(
     assert partial.raw_response["fine"]["clusters"][1]["status"] == "unavailable"
 
 
+def test_cascade_drops_polygon_that_collapses_after_normalization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        cascade_provider.visible_cards,
+        "_mask_to_polygons",
+        lambda _mask: [[[5, 5], [25, 5], [25, 25], [5, 25]]],
+    )
+    monkeypatch.setattr(
+        cascade_provider,
+        "_normalized_polygon",
+        lambda _polygon, *, width, height: (
+            cascade_provider.visible_cards.NormalizedPoint(10, 10),
+            cascade_provider.visible_cards.NormalizedPoint(20, 20),
+            cascade_provider.visible_cards.NormalizedPoint(30, 30),
+        ),
+    )
+
+    result = LocalVisibleCardCascadeProvider(
+        _bundle(tmp_path), device="cpu", detector=_Detector()
+    ).propose(_request())
+
+    assert result.status == "ok"
+    assert result.proposals == ()
+
+
 def test_cascade_rejects_requests_for_another_provider(tmp_path: Path) -> None:
     provider = LocalVisibleCardCascadeProvider(
         _bundle(tmp_path), device="cpu", detector=_Detector()
