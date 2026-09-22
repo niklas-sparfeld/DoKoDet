@@ -3187,13 +3187,7 @@ function MappingProjection({
   ) => void;
 }) {
   const polygon = posePolygon(pose, projection, viewpoint);
-  const anchor =
-    mappingAnchors.find((candidate) => candidate.cardId === pose.card_id) ??
-    (pose.source_suggestion_id === null
-      ? undefined
-      : mappingAnchors.find(
-          (candidate) => candidate.cardId === pose.source_suggestion_id,
-        ));
+  const anchor = mappingAnchorForPose(pose, mappingAnchors, projection);
   const selected =
     isSelected(selection, { type: "virtual_card", id: pose.card_id }) ||
     (anchor !== undefined &&
@@ -3246,6 +3240,45 @@ function MappingProjection({
         : null}
     </g>
   );
+}
+
+function mappingAnchorForPose(
+  pose: PoseCard,
+  anchors: WorkbenchCalibrationAnchor[],
+  projection: CardSceneProjection,
+): WorkbenchCalibrationAnchor | undefined {
+  const identified =
+    anchors.find((anchor) => anchor.cardId === pose.card_id) ??
+    (pose.source_suggestion_id === null
+      ? undefined
+      : anchors.find((anchor) => anchor.cardId === pose.source_suggestion_id));
+  if (identified !== undefined) return identified;
+
+  let closest: { anchor: WorkbenchCalibrationAnchor; distance: number } | null =
+    null;
+  for (const anchor of anchors) {
+    const corners = anchor.corners
+      .map((point) =>
+        projectImagePointToTable(
+          point,
+          projection.table_to_image_homography,
+        ),
+      )
+      .filter((point): point is TablePoint => point !== null);
+    if (corners.length !== 4) continue;
+    const center: TablePoint = [
+      corners.reduce((total, point) => total + point[0], 0) / corners.length,
+      corners.reduce((total, point) => total + point[1], 0) / corners.length,
+    ];
+    const distance = Math.hypot(
+      center[0] - pose.center[0],
+      center[1] - pose.center[1],
+    );
+    if (closest === null || distance < closest.distance) {
+      closest = { anchor, distance };
+    }
+  }
+  return closest?.anchor;
 }
 
 function mappingStrokeWidth(

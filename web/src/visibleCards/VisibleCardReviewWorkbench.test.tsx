@@ -104,7 +104,7 @@ const frame: EditableFrame = {
     status: "detected",
     candidates: [
       {
-        card_id: "suggestion-1",
+        card_id: "unlinked-anchor-card",
         geometry: {
           kind: "detector-box/v1",
           box_2d: { x_min: 30, y_min: 30, x_max: 70, y_max: 70 },
