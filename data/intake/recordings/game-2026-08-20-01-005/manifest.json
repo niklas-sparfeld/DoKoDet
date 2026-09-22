@@ -1,0 +1,30 @@
+{
+  "files": {
+    "proposal_generator_runs": [],
+    "source_record": {
+      "byte_length": 825,
+      "relative_path": "source-record.json",
+      "sha256": "f28b52b4b87d16535bed60f3a9868b58a1d64f77a91488abc9bb730ee36ca8d3",
+      "type": "application/json"
+    },
+    "task_enrollment": {
+      "byte_length": 742,
+      "relative_path": "initial-task-enrollment.json",
+      "sha256": "4b6e62f60e9fcc1f241cbce869794b4fa24ed7416b8c07473b61bf374d392798",
+      "type": "application/json"
+    },
+    "video": {
+      "byte_length": 1061930405,
+      "relative_path": "videos/game-2026-08-20-01-005-video.mov",
+      "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73",
+      "type": "video/quicktime"
+    }
+  },
+  "recording_id": "game-2026-08-20-01-005",
+  "schema_version": "repository-bundle/v1",
+  "session_id": "session-2026-08-20",
+  "source_asset_id": "game-2026-08-20-01-005-source",
+  "source_sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73",
+  "state": "complete",
+  "video_id": "game-2026-08-20-01-005-video"
+}

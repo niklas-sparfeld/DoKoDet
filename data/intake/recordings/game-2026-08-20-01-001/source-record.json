@@ -1,0 +1,25 @@
+{
+  "acquisition_method": "operator_completed_pending_upload",
+  "allowed_uses": [
+    "train",
+    "validation",
+    "test",
+    "evaluation"
+  ],
+  "byte_length": 557067308,
+  "content_type": "real_game",
+  "game_id": "game-2026-08-20-01",
+  "media_type": "video/quicktime",
+  "notes": "Imported from inbox/IMG_8901.MOV.",
+  "original_filename": "game-2026-08-20-01-001-video.mov",
+  "recording_id": "game-2026-08-20-01-001",
+  "retention_state": "active",
+  "round_id": "round-001",
+  "schema_version": "source-record/v1",
+  "session_id": "session-2026-08-20",
+  "sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+  "source_asset_id": "game-2026-08-20-01-001-source",
+  "source_permission": "unrestricted",
+  "table_setup": "default_table_setup",
+  "video_id": "game-2026-08-20-01-001-video"
+}
