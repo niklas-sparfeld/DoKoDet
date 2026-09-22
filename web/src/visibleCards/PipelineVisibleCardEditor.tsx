@@ -39,12 +39,13 @@ import {
 } from "./PipelineVisibleCardInspector";
 import {
   visibleCardReviewPrewarmUrls,
-  VisibleCardReviewControls,
+  VisibleCardReviewNavigation,
 } from "./PipelineVisibleCardPresentation";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
   VisibleCardReviewWorkbench,
   type VisibleCardReviewWorkbenchAction,
+  type VisibleCardFrameDecision,
 } from "./VisibleCardReviewWorkbench";
 import type { WorkbenchSelection } from "./VisibleCardReviewWorkbenchState";
 import {
@@ -2201,16 +2202,6 @@ export function PipelineVisibleCardEditor({
       startProposal={() => void startProposal()}
       retryProposal={() => void retryProposal()}
       startReviewFromProposal={() => void startReviewFromProposal()}
-      restoreGeneratedSuggestions={() =>
-        activeFrame === null
-          ? undefined
-          : restoreGeneratedSuggestions(activeFrame)
-      }
-      canRestoreGeneratedSuggestions={
-        activeFrame !== null &&
-        generatedFrames.some((frame) => frame.itemId === activeFrame.itemId) &&
-        activeFrame.reviewState !== "pending"
-      }
       retryQueuedCommands={retryQueuedCommands}
       reloadWinningDraft={reloadWinningDraft}
       completeReference={completeReference}
@@ -2233,15 +2224,49 @@ export function PipelineVisibleCardEditor({
     />
   );
 
-  const reviewControls =
+  const activeFrameDecision: VisibleCardFrameDecision | undefined =
+    activeFrame !== null && editable
+      ? {
+          accepted: frameReviewStatus(activeFrame) === "accepted",
+          canAccept:
+            activeFrame.outcome.status === "detected" &&
+            activeFrame.outcome.card_scene?.completion_state !== "pending" &&
+            !activeFrame.outcome.card_scene?.card_review_states?.some(
+              (state) => state.state === "pending",
+            ) &&
+            (editor === null || validatePolygons(editor.polygons) === null) &&
+            !calibrationLoading &&
+            queueLength === 0 &&
+            saveState === "saved",
+          acceptDisabledReason:
+            activeFrame.outcome.status !== "detected"
+              ? "Only detected frames can be accepted."
+              : activeFrame.outcome.card_scene?.completion_state ===
+                    "pending" ||
+                  activeFrame.outcome.card_scene?.card_review_states?.some(
+                    (state) => state.state === "pending",
+                  )
+                ? "Resolve every virtual-card decision first."
+                : editor !== null && validatePolygons(editor.polygons) !== null
+                  ? "Finish the active visible-region polygon first."
+                  : calibrationLoading
+                    ? "Wait for the mapping operation to finish."
+                    : queueLength > 0 || saveState !== "saved"
+                      ? "Wait for all frame changes to save."
+                      : "Accept this frame.",
+          onAccept: () => toggleFrameAcceptance(activeFrame),
+          onMarkEmpty: () => setFrameOutcome(activeFrame, "empty"),
+          onMarkUnusable: () => setFrameOutcome(activeFrame, "unusable"),
+        }
+      : undefined;
+
+  const reviewNavigation =
     activeFrame !== null && (view === "generated" || editable) ? (
-      <VisibleCardReviewControls
-        editable={editable}
+      <VisibleCardReviewNavigation
         hasPrevious={activeFrameIndex > 0}
         hasNext={
           activeFrameIndex >= 0 && activeFrameIndex < displayedFrames.length - 1
         }
-        selectedFrame={activeFrame}
         onPrevious={() => {
           const previous = displayedFrames[activeFrameIndex - 1];
           if (previous !== undefined) selectFrame(previous);
@@ -2250,25 +2275,6 @@ export function PipelineVisibleCardEditor({
           const next = displayedFrames[activeFrameIndex + 1];
           if (next !== undefined) selectFrame(next);
         }}
-        onAccept={() => toggleFrameAcceptance(activeFrame)}
-        onAddCard={
-          activeFrame.outcome.card_scene === undefined
-            ? () => openEditor(activeFrame, null)
-            : undefined
-        }
-        selectedCandidateCount={selectedCandidateIds.length}
-        onConvertToIgnoreRegion={() =>
-          convertSelectedToIgnoreRegion(activeFrame)
-        }
-        onCreateIgnoreRegion={() => openIgnoreRegionEditor(activeFrame)}
-        canCopyIgnoreRegions={canCopyIgnoreRegions}
-        onCopyIgnoreRegions={() =>
-          !canCopyIgnoreRegions || previousReviewedFrame === null
-            ? undefined
-            : copyIgnoreRegions(activeFrame, previousReviewedFrame)
-        }
-        onMarkEmpty={() => setFrameOutcome(activeFrame, "empty")}
-        onMarkUnusable={() => setFrameOutcome(activeFrame, "unusable")}
       />
     ) : null;
 
@@ -2302,12 +2308,13 @@ export function PipelineVisibleCardEditor({
           </p>
         ) : (
           <>
-            {reviewControls}
+            {reviewNavigation}
             <div className={visibleStyles.reviewWorkbench}>
               <VisibleCardReviewWorkbench
                 recordingId={recordingId}
                 frame={activeFrame}
                 readOnly={!editable}
+                frameDecision={activeFrameDecision}
                 initialPreferences={{
                   activeTool:
                     activeFrame.outcome.card_scene === undefined
@@ -2385,17 +2392,7 @@ export function PipelineVisibleCardEditor({
                     ? (region) => openIgnoreRegionEditor(activeFrame, region)
                     : undefined
                 }
-                onRemoveIgnoreRegion={
-                  editable
-                    ? (regionId) => removeIgnoreRegion(activeFrame, regionId)
-                    : undefined
-                }
                 onToggleCandidateSelection={toggleCandidateSelection}
-                onRemoveCard={
-                  editable
-                    ? (cardId) => removeCard(activeFrame, cardId)
-                    : undefined
-                }
                 onCancelEditor={editable ? () => setEditor(null) : undefined}
                 onSelectEditorPolygon={selectEditorPolygon}
                 onPointerMove={handleCanvasPointerMove}

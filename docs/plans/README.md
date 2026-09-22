@@ -52,7 +52,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0074 — Unified visible-card review workbench](3-in-progress/0074-Unified_Visible_Card_Review_Workbench.md) | Completed 0049, 0054, 0065, and 0073 | M0–M4 complete. Shared state, layered Camera/Rectified review, visible-region/ignore-region editing, virtual-card editing, and mapping refinement are in place; M5 remains. |
 | [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M6 complete at the implementation and contract level. M3 remains validated on MPS with threshold `0.65` and `0.984043` crop-containment recall against the `0.98` floor. M4 materializes validated 0072 scene-derived crops and adds 0070 rows to train only. M5 supplies the crop RF-DETR SegMedium child contract. M6 assembles and registers the selectable, non-default `local-rfdetr-cascade`; real M4/M5 runtime artifacts are still required for a real cascade execution. |
 
 ### Blocked
@@ -65,6 +64,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0074 — Unified visible-card review workbench](5-closed/0074-Unified_Visible_Card_Review_Workbench.md) | Complete | M0–M5 complete: one shared Camera/Rectified workbench now owns visible-region, ignore-region, virtual-card, mapping, restore, and frame-decision actions; the Timeline Rail keeps navigation only; the split presentations and legacy editor path are removed. |
 | [0073 — Production proposed card scenes and calibration refinement](5-closed/0073-Production_Proposed_Card_Scenes_and_Calibration_Refinement.md) | Complete | M0–M7 complete: production proposals, maintained-reference review, synchronized Source/Rectified card editing, calibration refinement, atomic reflow, preserved lineage, and bounded operator verification are complete. |
 | [0070 — Synthetic visible-region training data](5-closed/0070-Synthetic_Visible_Region_Training_Data.md) | Complete | M0–M6 complete with declared gaps. The 50/50 real-plus-synthetic candidate improved frozen real validation mask AP and recall. No legal M6 development source group remained for human correction timing, so the candidate is retained as an experiment and is not promoted as an annotation prefill. |
 | [0072 — Pose-based visible-card review](5-closed/0072-Pose_Based_Visible_Card_Review.md) | Complete | M0–M5 complete: shared calibrated card-plane geometry and versioned scene contracts are frozen; deterministic calibration, pose initialization, virtual-table correction, derived visible-region validation, maintained-reference integration, and dataset lineage are verified by a local end-to-end fixture. Unsupported frames fail explicitly; no Gemini, cloud service, or human calibration input is required. |

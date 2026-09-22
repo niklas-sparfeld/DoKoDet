@@ -1,5 +1,11 @@
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 
 import { VisibleCardReviewWorkbench } from "./VisibleCardReviewWorkbench";
 import type { EditableFrame } from "./PipelineVisibleCardTypes";
@@ -413,6 +419,55 @@ describe("VisibleCardReviewWorkbench", () => {
 
     expect(onCardDecision).toHaveBeenCalledWith("card-1", "accept");
     expect(screen.queryByRole("button", { name: "Accept frame" })).toBeNull();
+  });
+
+  it("keeps frame decisions in the command bar", async () => {
+    const onAccept = vi.fn();
+    const onMarkEmpty = vi.fn();
+    const onMarkUnusable = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        frameDecision={{
+          accepted: false,
+          canAccept: true,
+          acceptDisabledReason: "Frame changes must be saved first.",
+          onAccept,
+          onMarkEmpty,
+          onMarkUnusable,
+        }}
+      />,
+    );
+
+    const frameDecision = screen.getByRole("group", {
+      name: "Frame decision",
+    });
+    expect(
+      within(frameDecision).getByRole("button", { name: "Accept frame" }),
+    ).toBeEnabled();
+    expect(
+      within(frameDecision).getByRole("button", { name: "Mark empty" }),
+    ).toBeEnabled();
+    expect(
+      within(frameDecision).getByRole("button", { name: "Mark unusable" }),
+    ).toBeEnabled();
+
+    await user.click(
+      within(frameDecision).getByRole("button", { name: "Accept frame" }),
+    );
+    await user.click(
+      within(frameDecision).getByRole("button", { name: "Mark empty" }),
+    );
+    await user.click(
+      within(frameDecision).getByRole("button", { name: "Mark unusable" }),
+    );
+
+    expect(onAccept).toHaveBeenCalledTimes(1);
+    expect(onMarkEmpty).toHaveBeenCalledTimes(1);
+    expect(onMarkUnusable).toHaveBeenCalledTimes(1);
   });
 
   it("keeps mapping anchor actions and gestures on the shared surface", async () => {

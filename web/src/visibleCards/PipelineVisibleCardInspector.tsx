@@ -104,8 +104,6 @@ export type VisibleCardInspectorProps = {
   startProposal: () => void;
   retryProposal: () => void;
   startReviewFromProposal: () => void;
-  restoreGeneratedSuggestions: () => void;
-  canRestoreGeneratedSuggestions: boolean;
   retryQueuedCommands: () => void;
   reloadWinningDraft: () => Promise<void>;
   completeReference: () => Promise<void>;
@@ -642,8 +640,6 @@ function VisibleCardInspectorSelection({
   coveragePercent,
   inspectedCount,
   referenceNeedsSeed,
-  restoreGeneratedSuggestions,
-  canRestoreGeneratedSuggestions,
   calibrationRefinement,
   onSelectCalibrationFrame,
 }: VisibleCardInspectorProps) {
@@ -695,36 +691,22 @@ function VisibleCardInspectorSelection({
         </dl>
       ) : null}
       {view === "reviewed" && reference !== null && !referenceNeedsSeed ? (
-        <>
-          <div
-            className={visibleStyles.outcomeButtons}
-            aria-label="Frame outcome"
-          >
-            <button
-              className={styles.inlineAction}
-              type="button"
-              onClick={restoreGeneratedSuggestions}
-              disabled={!canRestoreGeneratedSuggestions}
-            >
-              Restore generated suggestions
-            </button>
-          </div>
-          <div className={visibleStyles.coverageInspector}>
-            <span>Resolved-frame coverage</span>
-            <strong>
-              {Math.round(coveragePercent)}% inspected ({inspectedCount}/
-              {frames.length})
-            </strong>
-            <progress
-              max={100}
-              value={coveragePercent}
-              aria-label="Resolved-frame coverage"
-            />
-            <p>
-              Each frame must be accepted, empty, or unusable before completion.
-            </p>
-          </div>
-        </>
+        <div className={visibleStyles.coverageInspector}>
+          <span>Resolved-frame coverage</span>
+          <strong>
+            {Math.round(coveragePercent)}% inspected ({inspectedCount}/
+            {frames.length})
+          </strong>
+          <progress
+            max={100}
+            value={coveragePercent}
+            aria-label="Resolved-frame coverage"
+          />
+          <p>
+            Use the workbench command bar to decide this frame as accepted,
+            empty, or unusable.
+          </p>
+        </div>
       ) : null}
       {calibrationRefinement !== null ? (
         <CalibrationPreviewPanel

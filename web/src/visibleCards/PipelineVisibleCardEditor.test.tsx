@@ -569,9 +569,9 @@ describe("PipelineVisibleCardEditor", () => {
     });
   });
 
-  it("places review controls in the Timeline Rail slot", async () => {
+  it("keeps only frame navigation in the Timeline Rail slot", async () => {
     const controlsSlot = document.createElement("div");
-    controlsSlot.dataset.timelineReviewControlsSlot = "true";
+    controlsSlot.dataset.timelineSeekingSlot = "true";
     document.body.append(controlsSlot);
     try {
       vi.stubGlobal(
@@ -593,11 +593,10 @@ describe("PipelineVisibleCardEditor", () => {
 
       await waitFor(() =>
         expect(
-          controlsSlot.querySelector(
-            '[aria-label="Visible-card review controls"]',
-          ),
+          controlsSlot.querySelector('[data-timeline-seeking-controls="true"]'),
         ).not.toBeNull(),
       );
+      expect(controlsSlot.textContent).not.toContain("Accept frame");
     } finally {
       controlsSlot.remove();
     }
@@ -860,7 +859,7 @@ describe("PipelineVisibleCardEditor", () => {
       { operation: "rebase", source_revision_id: REVISION_ID },
     ]);
     expect(
-      await screen.findByRole("button", { name: "Edit" }),
+      await screen.findByRole("button", { name: "Select proposal 1" }),
     ).toBeInTheDocument();
   });
 
@@ -1071,8 +1070,8 @@ describe("PipelineVisibleCardEditor", () => {
     const user = userEvent.setup();
     await user.type(screen.getByPlaceholderText("operator-01"), "operator-01");
     await user.click(screen.getByRole("button", { name: "Start review" }));
-    await screen.findByRole("button", { name: "Edit" });
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await screen.findByRole("button", { name: "Select proposal 1" });
+    await user.click(screen.getByRole("button", { name: "Select proposal 1" }));
 
     expect(
       screen.getByRole("button", {
@@ -1148,7 +1147,7 @@ describe("PipelineVisibleCardEditor", () => {
 
     const user = userEvent.setup();
     await user.click(
-      (await screen.findAllByRole("button", { name: "Edit" }))[0],
+      (await screen.findAllByRole("button", { name: "Select proposal 1" }))[0],
     );
     const canvas = screen.getByRole("img", {
       name: "2 visible-card proposals",
@@ -1217,7 +1216,7 @@ describe("PipelineVisibleCardEditor", () => {
 
     const user = userEvent.setup();
     await user.click(
-      (await screen.findAllByRole("button", { name: "Edit" }))[0],
+      (await screen.findAllByRole("button", { name: "Select proposal 1" }))[0],
     );
     const canvas = screen.getByRole("img", {
       name: "2 visible-card proposals",
@@ -1285,7 +1284,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
     await user.click(
       screen.getByRole("button", {
-        name: "Convert selected to ignore region I",
+        name: "Convert selection to ignore region",
       }),
     );
 
@@ -1345,16 +1344,16 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     const user = userEvent.setup();
-    const controls = await screen.findByRole("complementary", {
-      name: "Visible-card review controls",
+    const frameNavigation = await screen.findByRole("group", {
+      name: "Frame navigation",
     });
-    const copyButton = within(controls).getByRole("button", {
-      name: "Copy ignore regions from previous reviewed frame",
+    const copyButton = screen.getByRole("button", {
+      name: "Copy ignore regions",
     });
     expect(copyButton).toBeDisabled();
 
     await user.click(
-      within(controls).getByRole("button", { name: "Next frame" }),
+      within(frameNavigation).getByRole("button", { name: "Next frame" }),
     );
     expect(copyButton).toBeEnabled();
     await user.click(copyButton);
@@ -1422,7 +1421,9 @@ describe("PipelineVisibleCardEditor", () => {
     const user = userEvent.setup();
     await screen.findByAltText("Selected visible-card source frame");
     await user.click(
-      screen.getByRole("button", { name: "Draw ignore region" }),
+      screen.getByRole("button", {
+        name: "Draw ignore region in shared workbench",
+      }),
     );
     const canvas = screen.getByRole("img", {
       name: "2 visible-card proposals",
@@ -1461,11 +1462,8 @@ describe("PipelineVisibleCardEditor", () => {
       region: { reason: "untidy_stack" },
     });
 
-    const ignoreRegions = screen.getByRole("region", {
-      name: "Visible-card ignore regions",
-    });
     await user.click(
-      within(ignoreRegions).getByRole("button", { name: "Edit" }),
+      screen.getByRole("button", { name: "Select ignore region 1" }),
     );
     const point = screen.getByRole("button", {
       name: "Polygon 1, point 1 at 100, 100",
@@ -1505,9 +1503,7 @@ describe("PipelineVisibleCardEditor", () => {
       region_id: IGNORE_REGION.region_id,
     });
 
-    await user.click(
-      within(ignoreRegions).getByRole("button", { name: "Delete" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Delete selection" }));
     await waitFor(() =>
       expect(
         fetchImplementation.mock.calls.filter(
@@ -1553,7 +1549,9 @@ describe("PipelineVisibleCardEditor", () => {
     const user = userEvent.setup();
     await screen.findByAltText("Selected visible-card source frame");
     await user.click(
-      screen.getByRole("button", { name: "Draw ignore region" }),
+      screen.getByRole("button", {
+        name: "Draw ignore region in shared workbench",
+      }),
     );
     const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
     vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
@@ -1634,7 +1632,9 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Select proposal 1" }),
+    );
     await user.click(screen.getByRole("button", { name: "Add polygon" }));
     expect(
       screen.getByRole("button", { name: "Polygon 2 (0 points)" }),
@@ -1697,8 +1697,8 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     await screen.findByAltText("Selected visible-card source frame");
-    const controls = screen.getByRole("complementary", {
-      name: "Visible-card review controls",
+    const controls = screen.getByRole("group", {
+      name: "Frame navigation",
     });
     expect(
       within(controls).getByRole("button", { name: "Previous frame" }),
@@ -1707,13 +1707,13 @@ describe("PipelineVisibleCardEditor", () => {
       within(controls).getByRole("button", { name: "Previous frame" }),
     ).toHaveAttribute("aria-keyshortcuts", "ArrowLeft");
     expect(
-      within(controls).getByRole("button", { name: "Accept frame A" }),
+      screen.getByRole("button", { name: "Accept frame" }),
     ).toBeInTheDocument();
     expect(
-      within(controls).getByRole("button", { name: "Add missed card N" }),
+      screen.getByRole("button", { name: "Add visible card" }),
     ).toBeInTheDocument();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Select proposal 1" }));
     const point = screen.getByRole("button", {
       name: "Polygon 1, point 1 at 100, 100",
     });
@@ -1819,7 +1819,9 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Select proposal 1" }),
+    );
     const point = screen.getByRole("button", {
       name: "Polygon 1, point 1 at 100, 100",
     });
@@ -1883,7 +1885,9 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Select proposal 1" }),
+    );
     expect(
       screen.getByRole("button", { name: "Close editor Esc" }),
     ).toBeInTheDocument();
@@ -1920,8 +1924,10 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("button", { name: "Accept frame A" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Select proposal 1" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Accept frame" }));
 
     expect(
       screen.queryByRole("button", { name: "Close editor Esc" }),
@@ -1945,7 +1951,9 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Select proposal 1" }),
+    );
     expect(
       screen.getByRole("button", { name: "Close editor Esc" }),
     ).toBeInTheDocument();
@@ -1986,7 +1994,7 @@ describe("PipelineVisibleCardEditor", () => {
 
     await screen.findByAltText("Selected visible-card source frame");
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Select proposal 1" }));
     const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
     vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
       bottom: 100,
@@ -2056,7 +2064,9 @@ describe("PipelineVisibleCardEditor", () => {
 
       await screen.findByAltText("Selected visible-card source frame");
       const user = userEvent.setup();
-      await user.click(screen.getByRole("button", { name: "Edit" }));
+      await user.click(
+        screen.getByRole("button", { name: "Select proposal 1" }),
+      );
       const point = screen.getByRole("button", {
         name: "Polygon 1, point 1 at 100, 100",
       });
@@ -2144,7 +2154,7 @@ describe("PipelineVisibleCardEditor", () => {
     const user = userEvent.setup();
     await user.click(
       await screen.findByRole("button", {
-        name: "Restore generated suggestions",
+        name: "Restore suggestion",
       }),
     );
     await waitFor(() =>
@@ -2195,7 +2205,7 @@ describe("PipelineVisibleCardEditor", () => {
 
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole("button", { name: "Mark unreviewed A" }),
+      await screen.findByRole("button", { name: "Mark frame unreviewed" }),
     );
     await waitFor(() =>
       expect(
@@ -2244,9 +2254,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
     await screen.findByAltText("Selected visible-card source frame");
     const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("button", { name: "Reviewed empty frame E" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Mark empty" }));
 
     await waitFor(
       () => {
@@ -2281,9 +2289,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
     await screen.findByAltText("Selected visible-card source frame");
     const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("button", { name: "Reviewed empty frame E" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Mark empty" }));
     await waitFor(() =>
       expect(
         fetchImplementation.mock.calls.some(
@@ -2302,6 +2308,8 @@ describe("PipelineVisibleCardEditor", () => {
       operation: "set_frame_empty",
       item_id: ITEM_ID,
     });
-    expect(screen.getByText(/Each frame must be accepted/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Use the workbench command bar to decide this frame/),
+    ).toBeInTheDocument();
   });
 });

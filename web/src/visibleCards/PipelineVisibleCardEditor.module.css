@@ -78,6 +78,15 @@
   text-transform: uppercase;
 }
 
+.workbenchGuidance {
+  flex: 1 1 18rem;
+  min-width: 18rem;
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
 .workbenchToggle {
   min-height: 1.9rem;
   padding: 0.2rem 0.5rem;
@@ -256,186 +265,6 @@
 
 .reviewCount strong {
   font-size: 1.1rem;
-}
-
-.framePanel {
-  display: grid;
-  align-items: start;
-  gap: 0.7rem;
-  min-width: 0;
-  padding: 0;
-}
-
-.poseEditor {
-  display: grid;
-  align-content: center;
-  gap: 0.65rem;
-  min-width: 0;
-  min-height: calc(100dvh - 10rem);
-  width: 100%;
-}
-
-.poseToolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  width: 100%;
-}
-
-.poseToolbar fieldset {
-  display: flex;
-  gap: 0.2rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.poseToolbar .poseViewActions {
-  margin-left: 0.35rem;
-}
-
-.poseEditorViews {
-  display: block;
-  min-width: 0;
-  width: 100%;
-}
-
-.poseViewPanel {
-  display: grid;
-  min-width: 0;
-  width: 100%;
-}
-
-.poseSourceViewport {
-  position: relative;
-  width: 100%;
-  max-height: calc(100dvh - 12rem);
-  margin: 0 auto;
-  overflow: hidden;
-  background: transparent;
-}
-
-.poseSourceViewport img,
-.poseSourceViewport svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.poseSourceViewport img {
-  object-fit: contain;
-}
-
-.poseSourceViewport svg {
-  position: absolute;
-  inset: 0;
-}
-
-.emptyView {
-  min-height: clamp(24rem, calc(100dvh - 12rem), 64rem);
-}
-
-.poseTableSvg {
-  width: 100%;
-  height: clamp(24rem, calc(100dvh - 12rem), 64rem);
-  min-height: 24rem;
-  overflow: hidden;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  touch-action: none;
-}
-
-.poseViewActions,
-.poseEditorControls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.poseCardReviewControls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  color: var(--muted-ink);
-  font-size: 0.72rem;
-}
-
-.anchorControls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.poseViewActions button,
-.poseEditorControls button,
-.poseEditorControls input {
-  min-height: 1.9rem;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid var(--line);
-  border-radius: 0.35rem;
-  background: var(--panel);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.72rem;
-}
-
-.poseViewActions button {
-  min-width: 1.9rem;
-}
-
-.poseEditorControls label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: var(--muted-ink);
-  font-size: 0.72rem;
-}
-
-.poseEditorControls input {
-  width: 5rem;
-}
-
-.poseEditorControls button:hover,
-.poseViewActions button:hover,
-.poseEditorControls button:focus-visible,
-.poseViewActions button:focus-visible {
-  border-color: var(--accent);
-}
-
-.canvasViewport {
-  position: relative;
-  width: 100%;
-  max-width: 2000px;
-  max-height: 80vh;
-  margin: 0 auto;
-  overflow: hidden;
-  background: transparent;
-}
-
-.canvasImage {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.overlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
 }
 
 .proposalColumn {
@@ -668,15 +497,6 @@
 @media (max-width: 600px) {
   .reviewCount {
     text-align: left;
-  }
-
-  .poseEditor {
-    min-height: calc(100dvh - 8rem);
-  }
-
-  .poseTableSvg {
-    height: 62dvh;
-    min-height: 18rem;
   }
 }
 

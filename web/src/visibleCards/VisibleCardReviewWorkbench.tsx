@@ -112,6 +112,15 @@ type WorkbenchPointHandler = (
   point: Point | null,
 ) => void;
 
+export type VisibleCardFrameDecision = {
+  accepted: boolean;
+  canAccept: boolean;
+  acceptDisabledReason: string;
+  onAccept: () => void;
+  onMarkEmpty: () => void;
+  onMarkUnusable: () => void;
+};
+
 type VirtualCardGesture = {
   pointerId: number;
   cardId: string | null;
@@ -143,6 +152,7 @@ export type VisibleCardReviewWorkbenchProps = {
   calibrationRefinement?: CalibrationRefinementResponse | null;
   initialPreferences?: Partial<WorkbenchPreferences>;
   onSelectionChange?: (selection: WorkbenchSelection | null) => void;
+  frameDecision?: VisibleCardFrameDecision;
   enabledEditTools?: readonly WorkbenchPreferences["activeTool"][];
   editor?: EditorState | null;
   editorError?: string | null;
@@ -166,9 +176,7 @@ export type VisibleCardReviewWorkbenchProps = {
   onResolveRemaining?: () => void;
   onOpenEditor?: (candidate: Candidate | null, polygonIndex?: number) => void;
   onOpenIgnoreRegion?: (region: IgnoreRegion | null) => void;
-  onRemoveIgnoreRegion?: (regionId: string) => void;
   onToggleCandidateSelection?: (cardId: string) => void;
-  onRemoveCard?: (cardId: string) => void;
   onSelectEditorPolygon?: (polygonIndex: number) => void;
   onCancelEditor?: () => void;
   onPointPointerDown?: (
@@ -208,6 +216,7 @@ export function VisibleCardReviewWorkbench({
   calibrationRefinement = null,
   initialPreferences,
   onSelectionChange,
+  frameDecision,
   enabledEditTools,
   editor = null,
   editorError = null,
@@ -228,9 +237,7 @@ export function VisibleCardReviewWorkbench({
   onResolveRemaining,
   onOpenEditor,
   onOpenIgnoreRegion,
-  onRemoveIgnoreRegion,
   onToggleCandidateSelection,
-  onRemoveCard,
   onSelectEditorPolygon,
   onCancelEditor,
   onPointPointerDown,
@@ -953,6 +960,7 @@ export function VisibleCardReviewWorkbench({
         state={activeState}
         availability={availability}
         readOnly={readOnly}
+        frameDecision={frameDecision}
         enabledEditTools={
           enabledEditTools ?? ["visible_regions", "virtual_cards", "mapping"]
         }
@@ -1099,10 +1107,10 @@ export function VisibleCardReviewWorkbench({
               select({ type: "visible_card", id: candidate.card_id });
               onOpenEditor?.(candidate);
             }}
-            onOpenEditor={onOpenEditor}
-            onRemoveCard={onRemoveCard}
-            onOpenIgnoreRegion={onOpenIgnoreRegion}
-            onRemoveIgnoreRegion={onRemoveIgnoreRegion}
+            onSelectIgnoreRegion={(region) => {
+              select({ type: "ignore_region", id: region.region_id });
+              onOpenIgnoreRegion?.(region);
+            }}
             proposalSlot={proposalSlot}
           />
         ) : null}
@@ -1123,6 +1131,7 @@ function WorkbenchCommandBar({
   state,
   availability,
   readOnly,
+  frameDecision,
   enabledEditTools,
   selectedCandidateIds,
   editor,
@@ -1151,6 +1160,7 @@ function WorkbenchCommandBar({
   state: VisibleCardReviewWorkbenchState;
   availability: ReturnType<typeof getWorkbenchAvailability>;
   readOnly: boolean;
+  frameDecision?: VisibleCardFrameDecision;
   enabledEditTools: readonly WorkbenchPreferences["activeTool"][];
   selectedCandidateIds: string[];
   editor: EditorState | null;
@@ -1295,6 +1305,62 @@ function WorkbenchCommandBar({
           onAction={onAction}
         />
       ) : null}
+      {frameDecision !== undefined ? (
+        <FrameDecisionActions decision={frameDecision} />
+      ) : null}
+      <p className={styles.workbenchGuidance}>
+        View changes coordinates. Show controls evidence layers. Edit selects
+        the active tool. Selection actions affect the selected item. Frame
+        decisions finish this frame.
+      </p>
+    </div>
+  );
+}
+
+function FrameDecisionActions({
+  decision,
+}: {
+  decision: VisibleCardFrameDecision;
+}) {
+  return (
+    <div
+      className={styles.workbenchCommandGroup}
+      aria-label="Frame decision"
+      role="group"
+    >
+      <span className={styles.workbenchCommandLabel}>Frame decision</span>
+      <button
+        type="button"
+        className={styles.workbenchToggle}
+        aria-keyshortcuts="A"
+        disabled={!decision.canAccept}
+        title={
+          decision.canAccept
+            ? "Accept frame · A"
+            : decision.acceptDisabledReason
+        }
+        onClick={decision.onAccept}
+      >
+        {decision.accepted ? "Mark frame unreviewed" : "Accept frame"}
+      </button>
+      <button
+        type="button"
+        className={styles.workbenchToggle}
+        aria-keyshortcuts="E"
+        title="Mark empty frame · E"
+        onClick={decision.onMarkEmpty}
+      >
+        Mark empty
+      </button>
+      <button
+        type="button"
+        className={styles.workbenchToggle}
+        aria-keyshortcuts="U"
+        title="Mark unusable frame · U"
+        onClick={decision.onMarkUnusable}
+      >
+        Mark unusable
+      </button>
     </div>
   );
 }
@@ -1867,10 +1933,7 @@ function WorkbenchProposalColumn({
   selectedCandidateIds,
   onToggleCandidateSelection,
   onSelectCandidate,
-  onOpenEditor,
-  onRemoveCard,
-  onOpenIgnoreRegion,
-  onRemoveIgnoreRegion,
+  onSelectIgnoreRegion,
   proposalSlot,
 }: {
   frame: EditableFrame;
@@ -1880,10 +1943,7 @@ function WorkbenchProposalColumn({
   selectedCandidateIds: string[];
   onToggleCandidateSelection?: (cardId: string) => void;
   onSelectCandidate: (candidate: Candidate) => void;
-  onOpenEditor?: (candidate: Candidate | null, polygonIndex?: number) => void;
-  onRemoveCard?: (cardId: string) => void;
-  onOpenIgnoreRegion?: (region: IgnoreRegion | null) => void;
-  onRemoveIgnoreRegion?: (regionId: string) => void;
+  onSelectIgnoreRegion?: (region: IgnoreRegion) => void;
   proposalSlot: HTMLElement | null;
 }) {
   const content = (
@@ -1937,27 +1997,6 @@ function WorkbenchProposalColumn({
                         : candidate.geometry.kind}
                   </small>
                 </button>
-                {!readOnly ? (
-                  <div className={styles.actionButtons}>
-                    <button
-                      className={styles.inlineAction}
-                      type="button"
-                      onClick={() => {
-                        onSelectCandidate(candidate);
-                        onOpenEditor?.(candidate);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className={styles.inlineAction}
-                      type="button"
-                      onClick={() => onRemoveCard?.(candidate.card_id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : null}
               </div>
             </li>
           ))}
@@ -1972,34 +2011,16 @@ function WorkbenchProposalColumn({
           <ol className={styles.proposalItems}>
             {frame.outcome.ignored_regions.map((region, index) => (
               <li key={region.region_id}>
-                <div className={styles.ignoreRegionRow}>
-                  <span
-                    className={styles.ignoreRegionSwatch}
-                    aria-hidden="true"
-                  />
-                  <span className={styles.proposalDetails}>
-                    <strong>Ignore region {index + 1}</strong>
-                    <span>Untidy stack</span>
-                  </span>
-                  {!readOnly ? (
-                    <div className={styles.actionButtons}>
-                      <button
-                        className={styles.secondaryButton}
-                        type="button"
-                        onClick={() => onOpenIgnoreRegion?.(region)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className={styles.secondaryButton}
-                        type="button"
-                        onClick={() => onRemoveIgnoreRegion?.(region.region_id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+                <button
+                  className={styles.proposalSelect}
+                  type="button"
+                  aria-label={`Select ignore region ${index + 1}`}
+                  aria-pressed={selection?.id === region.region_id}
+                  onClick={() => onSelectIgnoreRegion?.(region)}
+                >
+                  <strong>Ignore region {index + 1}</strong>
+                  <span>Untidy stack</span>
+                </button>
               </li>
             ))}
           </ol>

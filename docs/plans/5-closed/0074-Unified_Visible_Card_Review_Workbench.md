@@ -4,7 +4,10 @@
 
 - **Summary:** Replace the separate polygon and virtual-table review presentations with one
   visible-card workbench that has independent viewpoint, layer, edit-tool, and action controls.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M5 are complete. The shared workbench, final command bar, maintained-reference
+  actions, generated read-only path, and Timeline Rail navigation pass the scoped local verification.
 - **Depends on:** Completed 0049 recording pipeline review, completed 0054 unified recording
   workspace layout, completed 0065 visible-card ignore regions, and completed 0073 proposed card
   scenes and calibration refinement
@@ -35,7 +38,7 @@
   constrained pointer and numeric edits, anchor decisions, and current/candidate projections.
   Recording-wide preview, discard, apply, stale-revision, affected-item, and failure handling
   remain connected to the existing calibration refinement API and inspector.
-- **M5:** Not started — consolidate actions, remove the split presentations, and verify the complete
+- **M5:** Complete — consolidate actions, remove the split presentations, and verify the complete
   operator loop.
 
 ## 1. Problem
@@ -179,8 +182,8 @@ dedicated zoom-in, zoom-out, directional-pan, or fit buttons.
 Keep all backend schemas, immutable revisions, maintained-reference authority, proposal lineage,
 table-plane calibration authority, and dataset behavior unchanged.
 
-Replace the frame-shape conditional that chooses `PoseBasedVisibleCardEditor` or
-`VisibleCardFramePanel` with one workbench composition:
+Replace the frame-shape conditional that chooses the legacy card-scene editor or source-frame panel
+with one workbench composition:
 
 ```text
 VisibleCardReviewWorkbench
@@ -346,6 +349,19 @@ Acceptance:
 - the operator exercise completes without opening or recognizing a separate virtual-table editor;
   and
 - no old presentation or compatibility path remains.
+
+#### M5 implementation evidence — 2026-09-22
+
+- Moved frame decisions, restore, visible-region selection actions, virtual-card actions, and
+  mapping actions into the shared command bar. The command bar gives View, Show, Edit, selection,
+  and frame-decision guidance in one stable location.
+- Reduced the Timeline Rail integration to frame navigation. Removed the legacy card-scene editor,
+  source-frame presentation, duplicate inspector restore action, obsolete styles, and their tests.
+- Updated the retained polygon, ignore-region, card-scene, mapping, save-queue, retry, conflict,
+  keyboard, focus, and accessible-name fixtures. The local web check passes with 22 test files and
+  210 tests.
+- The production build passes. A targeted Playwright run reached an unrelated existing
+  processor-history assertion failure before any visible-card workbench assertion.
 
 ## 7. Verification
 
