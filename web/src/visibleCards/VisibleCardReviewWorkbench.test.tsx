@@ -293,6 +293,59 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toBeDisabled();
   });
 
+  it("focuses the matching view layer when switching editor modes", async () => {
+    const user = userEvent.setup();
+    const frameWithVisibleRegion = structuredClone(frame);
+    frameWithVisibleRegion.outcome.candidates[0].geometry.visible_region = {
+      polygons: [
+        [
+          { x: 30, y: 30 },
+          { x: 70, y: 30 },
+          { x: 70, y: 70 },
+          { x: 30, y: 70 },
+        ],
+      ],
+    };
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frameWithVisibleRegion}
+        readOnly={false}
+        enabledEditTools={["visible_regions", "virtual_cards", "mapping"]}
+      />,
+    );
+
+    const showLayer = (name: string) =>
+      screen.getByRole("button", { name: new RegExp(`^${name}$`) });
+    const expectOnlyLayer = (name: string) => {
+      for (const layer of [
+        "Visible regions",
+        "Virtual cards",
+        "Mapping diagnostics",
+      ]) {
+        expect(showLayer(layer)).toHaveAttribute(
+          "aria-pressed",
+          layer === name ? "true" : "false",
+        );
+      }
+    };
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit Visible regions" }),
+    );
+    expectOnlyLayer("Visible regions");
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit Virtual cards" }),
+    );
+    expectOnlyLayer("Virtual cards");
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit Mapping diagnostics" }),
+    );
+    expectOnlyLayer("Mapping diagnostics");
+  });
+
   it("puts visible-region actions in the Timeline Rail and keeps editor points in the shared surface", async () => {
     const onAction = vi.fn();
     const user = userEvent.setup();

@@ -174,6 +174,27 @@ describe("visible-card review workbench state", () => {
     expect(switched.gesture).toBeNull();
   });
 
+  it("preselects only the view layer that belongs to the active editor", () => {
+    const state = createVisibleCardReviewWorkbenchState(capabilities());
+
+    const visibleRegions = visibleCardReviewWorkbenchReducer(state, {
+      type: "select_tool",
+      tool: "visible_regions",
+    });
+    const virtualCards = visibleCardReviewWorkbenchReducer(visibleRegions, {
+      type: "select_tool",
+      tool: "virtual_cards",
+    });
+    const mapping = visibleCardReviewWorkbenchReducer(virtualCards, {
+      type: "select_tool",
+      tool: "mapping",
+    });
+
+    expect(visibleRegions.enabledLayers).toEqual(["visible_regions"]);
+    expect(virtualCards.enabledLayers).toEqual(["virtual_cards"]);
+    expect(mapping.enabledLayers).toEqual(["mapping"]);
+  });
+
   it("toggles the single viewpoint control without writing geometry", () => {
     const state = createVisibleCardReviewWorkbenchState(capabilities());
     const gesturing = visibleCardReviewWorkbenchReducer(state, {
