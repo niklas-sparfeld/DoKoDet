@@ -174,7 +174,7 @@ describe("visible-card review workbench state", () => {
     expect(switched.gesture).toBeNull();
   });
 
-  it("preselects only the view layer that belongs to the active editor", () => {
+  it("keeps layer visibility independent from the active editor", () => {
     const state = createVisibleCardReviewWorkbenchState(capabilities());
 
     const visibleRegions = visibleCardReviewWorkbenchReducer(state, {
@@ -190,9 +190,9 @@ describe("visible-card review workbench state", () => {
       tool: "mapping",
     });
 
-    expect(visibleRegions.enabledLayers).toEqual(["visible_regions"]);
-    expect(virtualCards.enabledLayers).toEqual(["virtual_cards"]);
-    expect(mapping.enabledLayers).toEqual(["mapping"]);
+    expect(visibleRegions.enabledLayers).toEqual(state.enabledLayers);
+    expect(virtualCards.enabledLayers).toEqual(state.enabledLayers);
+    expect(mapping.enabledLayers).toEqual(state.enabledLayers);
   });
 
   it("toggles the single viewpoint control without writing geometry", () => {

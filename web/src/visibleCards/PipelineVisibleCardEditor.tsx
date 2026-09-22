@@ -2014,6 +2014,15 @@ export function PipelineVisibleCardEditor({
     displayedFrames.find((frame) => frame.itemId === selectedFrameId) ??
     displayedFrames[0] ??
     null;
+  const detectedFrame =
+    activeFrame === null
+      ? null
+      : (generatedFrames.find(
+          (frame) =>
+            frame.itemId === activeFrame.itemId ||
+            frame.itemId === activeFrame.baseItemId,
+        ) ?? null);
+  const detectedCandidates = detectedFrame?.outcome.candidates ?? [];
   const requestedFrameId =
     selectionItemId === undefined
       ? readPipelineEditorUrlState().item
@@ -2095,7 +2104,15 @@ export function PipelineVisibleCardEditor({
         selection.type === "calibration_anchor"
       )
         return;
-      const candidate = activeFrame.outcome.candidates.find(
+      const sourceCandidates =
+        activeFrame.outcome.candidates.length > 0
+          ? activeFrame.outcome.candidates
+          : (generatedFrames.find(
+              (frame) =>
+                frame.itemId === activeFrame.itemId ||
+                frame.itemId === activeFrame.baseItemId,
+            )?.outcome.candidates ?? []);
+      const candidate = sourceCandidates.find(
         (current) => current.card_id === selection.id,
       );
       if (candidate !== undefined)
@@ -2105,7 +2122,13 @@ export function PipelineVisibleCardEditor({
           selection.type === "polygon" ? selection.polygonIndex : 0,
         );
     },
-    [activeFrame, editable, openEditor, openIgnoreRegionEditor],
+    [
+      activeFrame,
+      editable,
+      generatedFrames,
+      openEditor,
+      openIgnoreRegionEditor,
+    ],
   );
 
   const handleWorkbenchAction = useCallback(
@@ -2332,6 +2355,7 @@ export function PipelineVisibleCardEditor({
                 }
                 editorError={editorError}
                 selectedCandidateIds={selectedCandidateIds}
+                detectedCandidates={detectedCandidates}
                 proposalSlot={proposalSlot}
                 canCopyIgnoreRegions={canCopyIgnoreRegions}
                 canRestoreSuggestion={

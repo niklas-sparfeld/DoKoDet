@@ -152,6 +152,7 @@ export type VisibleCardReviewWorkbenchProps = {
   readOnly: boolean;
   candidateCalibration?: CandidateCalibration | null;
   calibrationRefinement?: CalibrationRefinementResponse | null;
+  detectedCandidates?: Candidate[];
   initialPreferences?: Partial<WorkbenchPreferences>;
   onSelectionChange?: (selection: WorkbenchSelection | null) => void;
   frameDecision?: VisibleCardFrameDecision;
@@ -216,6 +217,7 @@ export function VisibleCardReviewWorkbench({
   readOnly,
   candidateCalibration = null,
   calibrationRefinement = null,
+  detectedCandidates,
   initialPreferences,
   onSelectionChange,
   frameDecision,
@@ -250,7 +252,15 @@ export function VisibleCardReviewWorkbench({
   onPointerCancel,
   onDeleteSelectedPoint,
 }: VisibleCardReviewWorkbenchProps) {
-  const capabilities = workbenchCapabilitiesFromFrame(frame, readOnly);
+  const displayedCandidates =
+    frame.outcome.candidates.length > 0
+      ? frame.outcome.candidates
+      : (detectedCandidates ?? []);
+  const capabilities = workbenchCapabilitiesFromFrame(
+    frame,
+    readOnly,
+    displayedCandidates,
+  );
   const frameScene = frame.outcome.card_scene ?? null;
   const sceneIdentity = `${frame.itemId}:${frameScene?.scene.scene_digest ?? "none"}`;
   const [sceneDraft, setSceneDraft] = useState<PoseSceneEnvelope | null>(
@@ -1056,6 +1066,7 @@ export function VisibleCardReviewWorkbench({
       <div className={styles.workbenchSurfaceLayout}>
         <WorkbenchSurface
           frame={frame}
+          candidates={displayedCandidates}
           scene={scene}
           sourceUrl={sourceUrl}
           width={width}
@@ -1085,6 +1096,7 @@ export function VisibleCardReviewWorkbench({
         {proposalSlot !== undefined ? (
           <WorkbenchProposalColumn
             frame={frame}
+            candidates={displayedCandidates}
             sourceUrl={sourceUrl}
             frameWidth={width}
             frameHeight={height}
@@ -1946,6 +1958,7 @@ function WorkbenchEditorControls({
 
 function WorkbenchProposalColumn({
   frame,
+  candidates,
   sourceUrl,
   frameWidth,
   frameHeight,
@@ -1959,6 +1972,7 @@ function WorkbenchProposalColumn({
   proposalSlot,
 }: {
   frame: EditableFrame;
+  candidates: Candidate[];
   sourceUrl: string | null;
   frameWidth: number;
   frameHeight: number;
@@ -1976,13 +1990,13 @@ function WorkbenchProposalColumn({
       className={styles.proposalColumn}
       aria-label="Visible-card proposals"
     >
-      {frame.outcome.candidates.length === 0 ? (
+      {candidates.length === 0 ? (
         <p className={styles.detailEmptyState}>
           No proposals. Add a visible card or review this frame as empty.
         </p>
       ) : (
         <ol className={styles.proposalItems}>
-          {frame.outcome.candidates.map((candidate, index) => (
+          {candidates.map((candidate, index) => (
             <li key={candidate.card_id}>
               <div className={styles.proposalRow}>
                 {!readOnly ? (
@@ -2146,6 +2160,7 @@ function formatGeometryKind(geometry: Candidate["geometry"]): string {
 
 function WorkbenchSurface({
   frame,
+  candidates,
   scene,
   sourceUrl,
   width,
@@ -2173,6 +2188,7 @@ function WorkbenchSurface({
   onMappingAnchorPointerDown,
 }: {
   frame: EditableFrame;
+  candidates: Candidate[];
   scene: PoseSceneEnvelope | null;
   sourceUrl: string | null;
   width: number;
@@ -2283,6 +2299,7 @@ function WorkbenchSurface({
         ) : null}
         {renderLayers({
           frame,
+          candidates,
           scene,
           viewpoint,
           width,
@@ -2398,6 +2415,7 @@ function WorkbenchSurface({
         ) : null}
         {renderLayers({
           frame,
+          candidates,
           scene,
           viewpoint: "camera",
           width,
@@ -2426,6 +2444,7 @@ function WorkbenchSurface({
 
 type LayerRenderContext = {
   frame: EditableFrame;
+  candidates: Candidate[];
   scene: PoseSceneEnvelope | null;
   viewpoint: WorkbenchViewpoint;
   width: number;
@@ -2722,7 +2741,7 @@ function renderLayers(context: LayerRenderContext) {
 }
 
 function renderVisibleRegionLayer({
-  frame,
+  candidates,
   viewpoint,
   scene,
   width,
@@ -2730,7 +2749,7 @@ function renderVisibleRegionLayer({
   selection,
   onSelect,
 }: LayerRenderContext) {
-  return frame.outcome.candidates.flatMap((candidate) =>
+  return candidates.flatMap((candidate) =>
     candidatePolygons(candidate, width, height, viewpoint, scene).map(
       (polygon, polygonIndex) => (
         <polygon
@@ -2766,7 +2785,7 @@ function renderVisibleRegionLayer({
 }
 
 function renderSuggestionLayer({
-  frame,
+  candidates,
   viewpoint,
   scene,
   width,
@@ -2774,7 +2793,7 @@ function renderSuggestionLayer({
   selection,
   onSelect,
 }: LayerRenderContext) {
-  return frame.outcome.candidates.flatMap((candidate) =>
+  return candidates.flatMap((candidate) =>
     candidatePolygons(candidate, width, height, viewpoint, scene).map(
       (polygon, polygonIndex) => (
         <path

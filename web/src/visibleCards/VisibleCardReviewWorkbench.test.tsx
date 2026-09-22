@@ -317,33 +317,85 @@ describe("VisibleCardReviewWorkbench", () => {
 
     const showLayer = (name: string) =>
       screen.getByRole("button", { name: new RegExp(`^${name}$`) });
-    const expectOnlyLayer = (name: string) => {
-      for (const layer of [
-        "Visible regions",
-        "Virtual cards",
-        "Mapping diagnostics",
-      ]) {
-        expect(showLayer(layer)).toHaveAttribute(
-          "aria-pressed",
-          layer === name ? "true" : "false",
-        );
-      }
-    };
-
     await user.click(
       screen.getByRole("button", { name: "Edit Visible regions" }),
     );
-    expectOnlyLayer("Visible regions");
+    expect(showLayer("Visible regions")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(showLayer("Virtual cards")).toHaveAttribute("aria-pressed", "true");
 
     await user.click(
       screen.getByRole("button", { name: "Edit Virtual cards" }),
     );
-    expectOnlyLayer("Virtual cards");
+    expect(showLayer("Visible regions")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(showLayer("Virtual cards")).toHaveAttribute("aria-pressed", "true");
 
     await user.click(
       screen.getByRole("button", { name: "Edit Mapping diagnostics" }),
     );
-    expectOnlyLayer("Mapping diagnostics");
+    expect(showLayer("Visible regions")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(showLayer("Virtual cards")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows source detector cards and visible regions in every edit mode", async () => {
+    const user = userEvent.setup();
+    const virtualTableFrame = structuredClone(frame);
+    virtualTableFrame.outcome.candidates = [];
+    const detectedCandidate = structuredClone(frame.outcome.candidates[0]);
+    detectedCandidate.geometry.visible_region = {
+      polygons: [
+        [
+          { x: 30, y: 30 },
+          { x: 70, y: 30 },
+          { x: 70, y: 70 },
+          { x: 30, y: 70 },
+        ],
+      ],
+    };
+
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={virtualTableFrame}
+        detectedCandidates={[detectedCandidate]}
+        readOnly={false}
+        enabledEditTools={["visible_regions", "virtual_cards", "mapping"]}
+        proposalSlot={null}
+      />,
+    );
+
+    const expectDetectedCard = () => {
+      expect(
+        screen.getByRole("button", { name: "Select proposal 1" }),
+      ).toBeInTheDocument();
+      expect(
+        screen
+          .getByRole("img", { name: /Rectified visible-card workbench/ })
+          .querySelector('[data-workbench-layer="visible_regions"]'),
+      ).toBeInTheDocument();
+    };
+
+    expectDetectedCard();
+    await user.click(
+      screen.getByRole("button", { name: "Edit Visible regions" }),
+    );
+    expectDetectedCard();
+    await user.click(
+      screen.getByRole("button", { name: "Edit Virtual cards" }),
+    );
+    expectDetectedCard();
+    await user.click(
+      screen.getByRole("button", { name: "Edit Mapping diagnostics" }),
+    );
+    expectDetectedCard();
   });
 
   it("puts visible-region actions in the Timeline Rail and keeps editor points in the shared surface", async () => {

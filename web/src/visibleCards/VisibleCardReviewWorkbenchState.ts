@@ -1,4 +1,4 @@
-import type { EditableFrame } from "./PipelineVisibleCardTypes";
+import type { Candidate, EditableFrame } from "./PipelineVisibleCardTypes";
 
 export const WORKBENCH_VIEWPOINTS = ["camera", "rectified"] as const;
 export type WorkbenchViewpoint = (typeof WORKBENCH_VIEWPOINTS)[number];
@@ -269,13 +269,9 @@ export function visibleCardReviewWorkbenchReducer(
       const selection = isSelectionCompatible(action.tool, state.selection)
         ? state.selection
         : null;
-      const enabledLayers = availability.layers[action.tool].available
-        ? [action.tool]
-        : [];
       return {
         ...state,
         activeTool: action.tool,
-        enabledLayers,
         selection,
         visualFocus: selection === null ? false : state.visualFocus,
         gesture: null,
@@ -640,17 +636,18 @@ function normalizeViewport(viewport: WorkbenchViewport): WorkbenchViewport {
 export function workbenchCapabilitiesFromFrame(
   frame: EditableFrame,
   readOnly: boolean,
+  displayedCandidates: Candidate[] = frame.outcome.candidates,
 ): WorkbenchFrameCapabilities {
   return {
     frameId: frame.itemId,
     hasSourceFrame: frame.outcome.frame_identity !== null,
-    hasVisibleRegions: frame.outcome.candidates.some(
+    hasVisibleRegions: displayedCandidates.some(
       (candidate) =>
         (candidate.geometry.visible_region?.polygons.length ?? 0) > 0,
     ),
     hasCardScene: frame.outcome.card_scene !== undefined,
     hasCalibration: frame.outcome.card_scene !== undefined,
-    hasProposals: frame.outcome.candidates.length > 0,
+    hasProposals: displayedCandidates.length > 0,
     hasIgnoreRegions: frame.outcome.ignored_regions.length > 0,
     readOnly,
   };
