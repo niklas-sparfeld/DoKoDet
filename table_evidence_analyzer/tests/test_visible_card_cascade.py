@@ -191,6 +191,31 @@ def test_reconciliation_requires_both_box_and_visible_mask_iou() -> None:
     )
 
 
+def test_reconciliation_handles_large_polygon_masks() -> None:
+    polygon = (
+        PixelPoint(100.25, 50.25),
+        PixelPoint(900.75, 50.25),
+        PixelPoint(900.75, 500.75),
+        PixelPoint(100.25, 500.75),
+    )
+    predictions = [
+        MappedPrediction(
+            prediction_id=prediction_id,
+            cluster_id=prediction_id,
+            proposal_order=0,
+            score=0.9,
+            box=PixelBox(100.25, 50.25, 900.75, 500.75),
+            polygons=(polygon,),
+        )
+        for prediction_id in ("left", "right")
+    ]
+
+    result = reconcile_predictions(predictions, frame_width=1000, frame_height=600)
+
+    assert len(result.retained) == 1
+    assert result.decisions[0].mask_iou == 1.0
+
+
 def test_reconciliation_ties_use_cluster_then_proposal_order() -> None:
     first = _prediction(
         "later-id",

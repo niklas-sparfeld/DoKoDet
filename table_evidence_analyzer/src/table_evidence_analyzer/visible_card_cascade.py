@@ -736,19 +736,51 @@ def _polygon_mask(
     y_max = min(height, math.ceil(prediction.box.y_max))
     pixels: set[tuple[int, int]] = set()
     for y in range(y_min, y_max):
-        for x in range(x_min, x_max):
-            center = PixelPoint(x + 0.5, y + 0.5)
-            if any(_point_in_polygon(center, polygon) for polygon in prediction.polygons):
-                pixels.add((x, y))
+        center_y = y + 0.5
+        for polygon in prediction.polygons:
+            intersections: list[float] = []
+            for index, current in enumerate(polygon):
+                previous = polygon[index - 1]
+                if (current.y > center_y) == (previous.y > center_y):
+                    continue
+                intersections.append(
+                    (previous.x - current.x) * (center_y - current.y)
+                    / (previous.y - current.y)
+                    + current.x
+                )
+            intersections.sort()
+            for left, right in zip(intersections[::2], intersections[1::2], strict=False):
+                start = max(x_min, math.ceil(left - 0.5))
+                stop = min(x_max, math.ceil(right - 0.5))
+                pixels.update((x, y) for x in range(start, stop))
     return frozenset(pixels)
 
 
-def _mask_iou(left: MappedPrediction, right: MappedPrediction, *, width: int, height: int) -> float:
+def _mask_iou(
+    left: MappedPrediction,
+    right: MappedPrediction,
+    *,
+    width: int,
+    height: int,
+    mask_cache: dict[int, frozenset[tuple[int, int]]] | None = None,
+) -> float:
     left_mask = (
-        left.mask if left.mask is not None else _polygon_mask(left, width=width, height=height)
+        left.mask
+        if left.mask is not None
+        else (
+            mask_cache[id(left)]
+            if mask_cache is not None and id(left) in mask_cache
+            else _polygon_mask(left, width=width, height=height)
+        )
     )
     right_mask = (
-        right.mask if right.mask is not None else _polygon_mask(right, width=width, height=height)
+        right.mask
+        if right.mask is not None
+        else (
+            mask_cache[id(right)]
+            if mask_cache is not None and id(right) in mask_cache
+            else _polygon_mask(right, width=width, height=height)
+        )
     )
     union = left_mask | right_mask
     if not union:
@@ -789,10 +821,21 @@ def reconcile_predictions(
 
     comparisons: dict[tuple[str, str], tuple[float, float, bool]] = {}
     decisions: list[ReconciliationDecision] = []
+    mask_cache = {
+        id(prediction): _polygon_mask(prediction, width=frame_width, height=frame_height)
+        for prediction in predictions
+        if prediction.mask is None
+    }
     for left_index, left in enumerate(predictions):
         for right in predictions[left_index + 1 :]:
             box_iou = _box_iou(left.box, right.box)
-            mask_iou = _mask_iou(left, right, width=frame_width, height=frame_height)
+            mask_iou = _mask_iou(
+                left,
+                right,
+                width=frame_width,
+                height=frame_height,
+                mask_cache=mask_cache,
+            )
             duplicate = box_iou >= threshold and mask_iou >= threshold
             comparisons[(left.prediction_id, right.prediction_id)] = (box_iou, mask_iou, duplicate)
             decisions.append(
