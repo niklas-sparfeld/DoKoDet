@@ -34,6 +34,8 @@ CASCADE_DEVICE = "mps"
 CASCADE_SUPPORTED_DEVICES = frozenset({"cpu", "mps", "cuda"})
 CASCADE_COARSE_CONFIDENCE_THRESHOLD = 0.5
 DUPLICATE_IOU_THRESHOLD = 0.90
+DUPLICATE_MASK_CONTAINMENT_THRESHOLD = 0.90
+DUPLICATE_BOX_AREA_RATIO_MAX = 0.95
 NEUTRAL_PADDING_RGB = (128, 128, 128)
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -713,6 +715,18 @@ def _box_iou(left: PixelBox, right: PixelBox) -> float:
     return intersection_area / (union_area - intersection_area)
 
 
+def _box_containment(left: PixelBox, right: PixelBox) -> float:
+    """Return the intersection as a fraction of the smaller box."""
+
+    intersection = left.intersection(right)
+    if intersection is None:
+        return 0.0
+    smaller_area = min(left.width * left.height, right.width * right.height)
+    if smaller_area <= 0:
+        return 0.0
+    return intersection.width * intersection.height / smaller_area
+
+
 def _point_in_polygon(point: PixelPoint, polygon: Sequence[PixelPoint]) -> bool:
     inside = False
     for index, current in enumerate(polygon):
@@ -744,8 +758,7 @@ def _polygon_mask(
                 if (current.y > center_y) == (previous.y > center_y):
                     continue
                 intersections.append(
-                    (previous.x - current.x) * (center_y - current.y)
-                    / (previous.y - current.y)
+                    (previous.x - current.x) * (center_y - current.y) / (previous.y - current.y)
                     + current.x
                 )
             intersections.sort()
@@ -786,6 +799,44 @@ def _mask_iou(
     if not union:
         return 0.0
     return len(left_mask & right_mask) / len(union)
+
+
+def _mask_containment(
+    left: MappedPrediction,
+    right: MappedPrediction,
+    *,
+    width: int,
+    height: int,
+    mask_cache: dict[int, frozenset[tuple[int, int]]] | None = None,
+) -> float:
+    """Return the overlap as a fraction of the smaller visible mask.
+
+    A second detector result can be a partial mask fragment of the same card.  Its mask IoU with
+    the complete result is low even though nearly all of its pixels are explained by that result.
+    """
+
+    left_mask = (
+        left.mask
+        if left.mask is not None
+        else (
+            mask_cache[id(left)]
+            if mask_cache is not None and id(left) in mask_cache
+            else _polygon_mask(left, width=width, height=height)
+        )
+    )
+    right_mask = (
+        right.mask
+        if right.mask is not None
+        else (
+            mask_cache[id(right)]
+            if mask_cache is not None and id(right) in mask_cache
+            else _polygon_mask(right, width=width, height=height)
+        )
+    )
+    smaller_area = min(len(left_mask), len(right_mask))
+    if smaller_area == 0:
+        return 0.0
+    return len(left_mask & right_mask) / smaller_area
 
 
 def _priority(prediction: MappedPrediction) -> tuple[float, str, int, str]:
@@ -836,7 +887,28 @@ def reconcile_predictions(
                 height=frame_height,
                 mask_cache=mask_cache,
             )
-            duplicate = box_iou >= threshold and mask_iou >= threshold
+            mask_containment = _mask_containment(
+                left,
+                right,
+                width=frame_width,
+                height=frame_height,
+                mask_cache=mask_cache,
+            )
+            box_containment = _box_containment(left.box, right.box)
+            smaller_box_area = min(
+                left.box.width * left.box.height,
+                right.box.width * right.box.height,
+            )
+            larger_box_area = max(
+                left.box.width * left.box.height,
+                right.box.width * right.box.height,
+            )
+            nested_duplicate = (
+                mask_containment >= DUPLICATE_MASK_CONTAINMENT_THRESHOLD
+                and box_containment >= DUPLICATE_MASK_CONTAINMENT_THRESHOLD
+                and smaller_box_area / larger_box_area <= DUPLICATE_BOX_AREA_RATIO_MAX
+            )
+            duplicate = (box_iou >= threshold and mask_iou >= threshold) or nested_duplicate
             comparisons[(left.prediction_id, right.prediction_id)] = (box_iou, mask_iou, duplicate)
             decisions.append(
                 ReconciliationDecision(
@@ -1044,7 +1116,9 @@ __all__ = [
     "ClusterCrop",
     "CoarseProposal",
     "CoordinateTransform",
+    "DUPLICATE_BOX_AREA_RATIO_MAX",
     "DUPLICATE_IOU_THRESHOLD",
+    "DUPLICATE_MASK_CONTAINMENT_THRESHOLD",
     "MappedPrediction",
     "NEUTRAL_PADDING_RGB",
     "Padding",

@@ -191,6 +191,30 @@ def test_reconciliation_requires_both_box_and_visible_mask_iou() -> None:
     )
 
 
+def test_reconciliation_discards_nested_partial_mask_fragments() -> None:
+    complete = _prediction(
+        "complete",
+        "cluster-0001",
+        0.9,
+        (0, 0, 10, 10),
+        {(x, y) for x in range(10) for y in range(10)},
+    )
+    fragment = _prediction(
+        "fragment",
+        "cluster-0002",
+        0.8,
+        (2, 2, 8, 8),
+        {(x, y) for x in range(2, 8) for y in range(2, 8)},
+    )
+
+    result = reconcile_predictions([complete, fragment], frame_width=20, frame_height=20)
+
+    assert [prediction.prediction_id for prediction in result.retained] == ["complete"]
+    assert result.decisions[0].mask_iou < 0.90
+    assert result.decisions[0].duplicate is True
+    assert result.decisions[0].discarded_prediction_id == "fragment"
+
+
 def test_reconciliation_handles_large_polygon_masks() -> None:
     polygon = (
         PixelPoint(100.25, 50.25),
