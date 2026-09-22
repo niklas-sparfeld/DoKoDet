@@ -39,6 +39,7 @@
 !/data/operations/pipeline-references/
 /data/operations/pipeline/**/*.lock
 /data/operations/pipeline-references/**/*.lock
+/data/operations/pipeline-references/**/*.before-repair-*
 !/data/model-campaigns/
 /data/model-campaigns/*
 !/data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/
