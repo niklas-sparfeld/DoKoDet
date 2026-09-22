@@ -76,7 +76,7 @@ describe("DokoDetector API client", () => {
       "/api/recordings/recording%2F1/pipeline/derived-views/exact-event/123456",
     );
     expect(pipelineReviewFramePath("recording/1", 123456)).toBe(
-      "/api/recordings/recording%2F1/pipeline/derived-views/exact-event/123456",
+      "/api/recordings/recording%2F1/pipeline/derived-views/exact-event/250000?preview=sampled_250ms",
     );
     expect(
       pipelineIdentityCropPath("recording/1", "revision/1", "card 1"),

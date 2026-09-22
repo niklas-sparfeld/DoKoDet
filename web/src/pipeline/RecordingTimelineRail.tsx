@@ -10,7 +10,8 @@ import {
 } from "react";
 
 import {
-  pipelineDerivedFramePath,
+  pipelineReviewFramePath,
+  snapSampledFrameTimeUs,
   repositoryBundleVideoPath,
 } from "../api/client";
 import styles from "../App.module.css";
@@ -125,7 +126,9 @@ export function RecordingTimelineRail({
 
   const requestPreview = useCallback(
     (rawTimeUs: number) => {
-      const requestedTimeUs = clampTime(rawTimeUs, durationUs);
+      const requestedTimeUs = snapSampledFrameTimeUs(
+        clampTime(rawTimeUs, durationUs),
+      );
       if (previewTimerRef.current !== null) {
         window.clearTimeout(previewTimerRef.current);
         previewTimerRef.current = null;
@@ -143,7 +146,7 @@ export function RecordingTimelineRail({
       const load = () => {
         const controller = new AbortController();
         previewAbortRef.current = controller;
-        const requestUrl = pipelineDerivedFramePath(
+        const requestUrl = pipelineReviewFramePath(
           recordingId,
           requestedTimeUs,
         );
@@ -502,11 +505,11 @@ export function RecordingTimelineRail({
                 {preview.url !== null ? (
                   <img
                     src={preview.url}
-                    alt={`Exact source frame preview at ${formatTimeUs(preview.requestedTimeUs)}`}
+                    alt={`Review frame preview at ${formatTimeUs(preview.requestedTimeUs)}`}
                   />
                 ) : (
                   <span className={styles.recordingTimelinePreviewPlaceholder}>
-                    {preview.error ?? "Loading exact source frame…"}
+                    {preview.error ?? "Loading review frame…"}
                   </span>
                 )}
                 <span className={styles.recordingTimelinePreviewTime}>

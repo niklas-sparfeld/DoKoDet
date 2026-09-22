@@ -80,12 +80,26 @@ function response(value: unknown, status = 200): Response {
   });
 }
 
+function frameImageResponse(): Response {
+  return new Response(Uint8Array.from([1, 2, 3, 4]), {
+    status: 200,
+    headers: { "Content-Type": "image/jpeg" },
+  });
+}
+
+function withReviewFrames(fetchImplementation: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    if (String(input).includes("/derived-views/")) return frameImageResponse();
+    return fetchImplementation(input, init);
+  };
+}
+
 function renderReviewed(
   fetchImplementation: typeof fetch,
   durationUs = 5_000_000,
   selectionTimeUs?: number | null,
 ) {
-  vi.stubGlobal("fetch", fetchImplementation);
+  vi.stubGlobal("fetch", withReviewFrames(fetchImplementation));
   return render(
     <PipelineCardEventEditor
       recordingId={recordingId}
@@ -744,7 +758,6 @@ describe("PipelineCardEventEditor", () => {
         name: "CardEvent review frame at 0:01.000000",
       }),
     ).toBeInTheDocument();
-    expect(document.querySelector("video")).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Event timeline")).not.toBeInTheDocument();
     expect(

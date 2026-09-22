@@ -1,208 +1,326 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { pipelineReviewFramePath } from "../api/client";
+import {
+  pipelineDerivedFramePath,
+  repositoryBundleVideoPath,
+} from "../api/client";
 import styles from "../App.module.css";
 import eventStyles from "./PipelineCardEventEditor.module.css";
 import { formatMicroseconds } from "./PipelineCardEventFormatting";
+import {
+  loadCachedReviewFrame,
+  peekCachedReviewFrame,
+  ReviewFrameUnavailableError,
+} from "./cardEventFrameCache";
 
-type FrameStatus = "loading" | "ready" | "unavailable" | "failed";
+type FrameStatus = "loading" | "ready" | "failed";
 
-type FrameState = {
-  requestedTimeUs: number;
-  requestedUrl: string;
-  displayUrl: string | null;
-  displayedTimeUs: number | null;
-  status: FrameStatus;
-  error: string | null;
-};
+export type CardEventFramePlayback = "derived" | "video";
 
 export type CardEventFrameSurfaceProps = {
   recordingId: string;
   requestedTimeUs: number;
+  /** derived = cached exact JPEG (event jumps). video = local seek (nudges). */
+  playback?: CardEventFramePlayback;
 };
-
-class ReviewFrameUnavailableError extends Error {
-  constructor(status: number) {
-    super(`CardEvent review frame unavailable (${status}).`);
-    this.name = "ReviewFrameUnavailableError";
-  }
-}
 
 export function CardEventFrameSurface({
   recordingId,
   requestedTimeUs,
+  playback = "derived",
 }: CardEventFrameSurfaceProps) {
+  return playback === "video" ? (
+    <VideoFrameSurface
+      recordingId={recordingId}
+      requestedTimeUs={requestedTimeUs}
+    />
+  ) : (
+    <DerivedFrameSurface
+      recordingId={recordingId}
+      requestedTimeUs={requestedTimeUs}
+    />
+  );
+}
+
+function DerivedFrameSurface({
+  recordingId,
+  requestedTimeUs,
+}: {
+  recordingId: string;
+  requestedTimeUs: number;
+}) {
+  const normalizedTimeUs = normalizeTime(requestedTimeUs);
+  const requestUrl = pipelineDerivedFramePath(recordingId, normalizedTimeUs);
   const sequenceRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
-  const displayUrlRef = useRef<string | null>(null);
-  const objectUrlsRef = useRef(new Set<string>());
-  const [frame, setFrame] = useState<FrameState>(() => {
-    const normalizedTimeUs = normalizeTime(requestedTimeUs);
-    return {
-      requestedTimeUs: normalizedTimeUs,
-      requestedUrl: pipelineReviewFramePath(recordingId, normalizedTimeUs),
-      displayUrl: null,
-      displayedTimeUs: null,
-      status: "loading",
-      error: null,
-    };
-  });
+  const [status, setStatus] = useState<FrameStatus>(() =>
+    peekCachedReviewFrame(requestUrl) === null ? "loading" : "ready",
+  );
+  const [displayUrl, setDisplayUrl] = useState<string | null>(() =>
+    peekCachedReviewFrame(requestUrl),
+  );
+  const [displayedTimeUs, setDisplayedTimeUs] = useState<number | null>(() =>
+    peekCachedReviewFrame(requestUrl) === null ? null : normalizedTimeUs,
+  );
+  const [error, setError] = useState<string | null>(null);
+  const timeLabel = formatMicroseconds(normalizedTimeUs);
+  const displayedTimeLabel =
+    displayedTimeUs === null ? null : formatMicroseconds(displayedTimeUs);
+  const frameIsSettled =
+    status === "ready" &&
+    displayedTimeUs !== null &&
+    displayedTimeUs === normalizedTimeUs &&
+    displayUrl !== null;
 
   useEffect(() => {
-    const normalizedTimeUs = normalizeTime(requestedTimeUs);
-    const requestUrl = pipelineReviewFramePath(recordingId, normalizedTimeUs);
+    const cached = peekCachedReviewFrame(requestUrl);
+    if (cached !== null) {
+      setDisplayUrl(cached);
+      setDisplayedTimeUs(normalizedTimeUs);
+      setStatus("ready");
+      setError(null);
+      return;
+    }
+
     const sequence = sequenceRef.current + 1;
     sequenceRef.current = sequence;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    setStatus("loading");
+    setError(null);
 
-    void fetch(requestUrl, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok)
-          throw new ReviewFrameUnavailableError(response.status);
-        const displayedTimeUs = readFrameTime(response, normalizedTimeUs);
-        return response.blob().then((blob) => ({ blob, displayedTimeUs }));
-      })
-      .then(({ blob, displayedTimeUs }) => {
+    void loadCachedReviewFrame(requestUrl, controller.signal)
+      .then((objectUrl) => {
         if (controller.signal.aborted || sequence !== sequenceRef.current)
           return;
-        const displayUrl = createDisplayUrl(
-          blob,
-          requestUrl,
-          objectUrlsRef.current,
-        );
-        const previousUrl = displayUrlRef.current;
-        if (
-          previousUrl !== null &&
-          previousUrl !== displayUrl &&
-          objectUrlsRef.current.has(previousUrl)
-        ) {
-          URL.revokeObjectURL(previousUrl);
-          objectUrlsRef.current.delete(previousUrl);
-        }
-        displayUrlRef.current = displayUrl;
-        setFrame({
-          requestedTimeUs: normalizedTimeUs,
-          requestedUrl: requestUrl,
-          displayUrl,
-          displayedTimeUs,
-          status: "ready",
-          error: null,
-        });
+        setDisplayUrl(objectUrl);
+        setDisplayedTimeUs(normalizedTimeUs);
+        setStatus("ready");
+        setError(null);
       })
       .catch((reason: unknown) => {
         if (controller.signal.aborted || sequence !== sequenceRef.current)
           return;
-        setFrame((current) => ({
-          ...current,
-          requestedTimeUs: normalizedTimeUs,
-          requestedUrl: requestUrl,
-          status:
-            reason instanceof ReviewFrameUnavailableError
-              ? "unavailable"
-              : "failed",
-          error: describeFrameError(reason),
-        }));
+        setStatus(
+          reason instanceof ReviewFrameUnavailableError ? "failed" : "failed",
+        );
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "The CardEvent review frame request failed.",
+        );
       });
 
     return () => {
       controller.abort();
       if (abortRef.current === controller) abortRef.current = null;
     };
-  }, [recordingId, requestedTimeUs]);
+  }, [normalizedTimeUs, requestUrl]);
 
-  useEffect(
-    () => () => {
-      abortRef.current?.abort();
-      for (const url of objectUrlsRef.current) URL.revokeObjectURL(url);
-      objectUrlsRef.current.clear();
-    },
-    [],
-  );
+  const announcement = frameIsSettled
+    ? `CardEvent review frame ready at ${timeLabel}.`
+    : status === "failed"
+      ? (error ?? `CardEvent review frame failed at ${timeLabel}.`)
+      : displayedTimeLabel === null
+        ? `Loading CardEvent review frame at ${timeLabel}.`
+        : `Loading CardEvent review frame at ${timeLabel}. Still showing ${displayedTimeLabel}.`;
 
-  const normalizedRequestedTimeUs = normalizeTime(requestedTimeUs);
-  const requestedUrl = pipelineReviewFramePath(
-    recordingId,
-    normalizedRequestedTimeUs,
+  return (
+    <FrameChrome
+      status={
+        frameIsSettled ? "ready" : status === "failed" ? "failed" : "loading"
+      }
+      settled={frameIsSettled}
+      requestedTimeUs={normalizedTimeUs}
+      displayedTimeUs={displayedTimeUs}
+      timeLabel={timeLabel}
+      displayedTimeLabel={displayedTimeLabel}
+      announcement={announcement}
+      error={error}
+    >
+      {displayUrl !== null ? (
+        <img
+          className={`${eventStyles.frameImage}${frameIsSettled ? "" : ` ${eventStyles.frameImageBusy}`}`}
+          src={displayUrl}
+          alt={`CardEvent review frame at ${displayedTimeLabel ?? timeLabel}`}
+        />
+      ) : null}
+    </FrameChrome>
   );
-  const currentFrame =
-    frame.requestedTimeUs === normalizedRequestedTimeUs &&
-    frame.requestedUrl === requestedUrl
-      ? frame
-      : {
-          requestedTimeUs: normalizedRequestedTimeUs,
-          requestedUrl,
-          displayUrl: frame.displayUrl,
-          displayedTimeUs: frame.displayedTimeUs,
-          status: "loading" as const,
-          error: null,
-        };
-  const timeLabel = formatMicroseconds(currentFrame.requestedTimeUs);
-  const retained = currentFrame.displayUrl !== null;
+}
+
+function VideoFrameSurface({
+  recordingId,
+  requestedTimeUs,
+}: {
+  recordingId: string;
+  requestedTimeUs: number;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const seekGenerationRef = useRef(0);
+  const normalizedTimeUs = normalizeTime(requestedTimeUs);
+  const [status, setStatus] = useState<FrameStatus>("loading");
+  const [displayedTimeUs, setDisplayedTimeUs] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const timeLabel = formatMicroseconds(normalizedTimeUs);
   const displayedTimeLabel =
-    currentFrame.displayedTimeUs === null
-      ? null
-      : formatMicroseconds(currentFrame.displayedTimeUs);
-  const announcement = frameAnnouncement(
-    currentFrame.status,
-    timeLabel,
-    retained,
-  );
+    displayedTimeUs === null ? null : formatMicroseconds(displayedTimeUs);
+  const videoUrl = repositoryBundleVideoPath(recordingId);
+  const frameIsSettled =
+    status === "ready" &&
+    displayedTimeUs !== null &&
+    displayedTimeUs === normalizedTimeUs;
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null) return;
+
+    const generation = seekGenerationRef.current + 1;
+    seekGenerationRef.current = generation;
+    const targetSeconds = normalizedTimeUs / 1_000_000;
+    let cancelled = false;
+
+    setStatus("loading");
+    setError(null);
+
+    const markReady = () => {
+      if (cancelled || seekGenerationRef.current !== generation) return;
+      setDisplayedTimeUs(normalizedTimeUs);
+      setStatus("ready");
+      setError(null);
+    };
+    const markFailed = (message: string) => {
+      if (cancelled || seekGenerationRef.current !== generation) return;
+      setStatus("failed");
+      setError(message);
+    };
+
+    const seekToTarget = () => {
+      if (cancelled || seekGenerationRef.current !== generation) return;
+      try {
+        if (Math.abs(video.currentTime - targetSeconds) <= 0.0005) {
+          markReady();
+          return;
+        }
+        video.currentTime = targetSeconds;
+      } catch {
+        markFailed("The CardEvent review video could not seek to this time.");
+      }
+    };
+
+    const onSeeked = () => markReady();
+    const onError = () =>
+      markFailed("The CardEvent review video could not be loaded.");
+    const onLoadedMetadata = () => seekToTarget();
+
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("error", onError);
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
+
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) seekToTarget();
+
+    return () => {
+      cancelled = true;
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onError);
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+    };
+  }, [normalizedTimeUs, videoUrl]);
+
+  const announcement = frameIsSettled
+    ? `CardEvent review frame ready at ${timeLabel}.`
+    : status === "failed"
+      ? (error ?? `CardEvent review video failed at ${timeLabel}.`)
+      : displayedTimeLabel === null
+        ? `Loading CardEvent review frame at ${timeLabel}.`
+        : `Loading CardEvent review frame at ${timeLabel}. Still showing ${displayedTimeLabel}.`;
+
+  return (
+    <FrameChrome
+      status={
+        frameIsSettled ? "ready" : status === "failed" ? "failed" : "loading"
+      }
+      settled={frameIsSettled}
+      requestedTimeUs={normalizedTimeUs}
+      displayedTimeUs={displayedTimeUs}
+      timeLabel={timeLabel}
+      displayedTimeLabel={displayedTimeLabel}
+      announcement={announcement}
+      error={error}
+    >
+      <video
+        ref={videoRef}
+        className={`${eventStyles.frameImage}${frameIsSettled ? "" : ` ${eventStyles.frameImageBusy}`}`}
+        src={videoUrl}
+        muted
+        playsInline
+        preload="auto"
+        aria-label={`CardEvent review frame at ${timeLabel}`}
+      />
+    </FrameChrome>
+  );
+}
+
+function FrameChrome({
+  status,
+  settled,
+  requestedTimeUs,
+  displayedTimeUs,
+  timeLabel,
+  displayedTimeLabel,
+  announcement,
+  error,
+  children,
+}: {
+  status: FrameStatus;
+  settled: boolean;
+  requestedTimeUs: number;
+  displayedTimeUs: number | null;
+  timeLabel: string;
+  displayedTimeLabel: string | null;
+  announcement: string;
+  error: string | null;
+  children: ReactNode;
+}) {
   return (
     <section
       className={eventStyles.frameSurface}
       aria-label="CardEvent review source frame"
-      data-frame-status={currentFrame.status}
-      data-requested-time-us={currentFrame.requestedTimeUs}
+      data-frame-status={status}
+      data-requested-time-us={requestedTimeUs}
+      data-displayed-time-us={displayedTimeUs ?? undefined}
+      data-frame-settled={settled ? "true" : "false"}
     >
       <div className={eventStyles.frameViewport}>
-        {currentFrame.displayUrl !== null ? (
-          <img
-            className={eventStyles.frameImage}
-            src={currentFrame.displayUrl}
-            alt={
-              displayedTimeLabel === null
-                ? `CardEvent review frame at ${timeLabel}`
-                : `CardEvent review frame at ${displayedTimeLabel}`
-            }
-            data-frame-requested-time-us={currentFrame.requestedTimeUs}
-            onError={() => {
-              const failedUrl = currentFrame.displayUrl;
-              if (failedUrl === null || displayUrlRef.current !== failedUrl)
-                return;
-              if (objectUrlsRef.current.has(failedUrl)) {
-                URL.revokeObjectURL(failedUrl);
-                objectUrlsRef.current.delete(failedUrl);
-              }
-              displayUrlRef.current = null;
-              setFrame((current) =>
-                current.displayUrl === failedUrl
-                  ? {
-                      ...current,
-                      displayUrl: null,
-                      displayedTimeUs: null,
-                      status: "failed",
-                      error:
-                        "The CardEvent review frame image could not be displayed.",
-                    }
-                  : current,
-              );
-            }}
-          />
+        {children}
+        {!settled && status !== "failed" ? (
+          <div
+            className={eventStyles.frameLoadingOverlay}
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className={eventStyles.frameLoadingSpinner}
+              aria-hidden="true"
+            />
+            <p className={eventStyles.frameLoadingTitle}>Updating frame…</p>
+            <p className={eventStyles.frameLoadingDetail}>
+              Target {timeLabel}
+              {displayedTimeLabel === null
+                ? null
+                : ` · still showing ${displayedTimeLabel}`}
+            </p>
+          </div>
         ) : null}
-        {currentFrame.status === "loading" ? (
-          <p className={eventStyles.frameStatus} role="status">
-            Loading CardEvent review frame at {timeLabel}…
+        {settled ? (
+          <p className={eventStyles.frameReadyBadge} role="status">
+            Frame ready · {timeLabel}
           </p>
         ) : null}
-        {currentFrame.status === "unavailable" ||
-        currentFrame.status === "failed" ? (
+        {status === "failed" ? (
           <p className={eventStyles.frameStatus} role="alert">
-            {retained
-              ? `${currentFrame.error ?? announcement} Showing the last available frame.`
-              : (currentFrame.error ?? announcement)}
+            {error ?? announcement}
           </p>
         ) : null}
       </div>
@@ -215,44 +333,4 @@ export function CardEventFrameSurface({
 
 function normalizeTime(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
-}
-
-function readFrameTime(response: Response, fallback: number): number {
-  const raw = response.headers.get("X-DokoDetector-Frame-Time-Us");
-  if (raw === null) return fallback;
-  const value = Number(raw);
-  return Number.isFinite(value) && value >= 0 ? Math.round(value) : fallback;
-}
-
-function createDisplayUrl(
-  blob: Blob,
-  fallbackUrl: string,
-  objectUrls: Set<string>,
-): string {
-  if (typeof URL.createObjectURL !== "function") return fallbackUrl;
-  const displayUrl = URL.createObjectURL(blob);
-  objectUrls.add(displayUrl);
-  return displayUrl;
-}
-
-function frameAnnouncement(
-  status: FrameStatus,
-  timeLabel: string,
-  retained: boolean,
-): string {
-  if (status === "loading")
-    return retained
-      ? `Loading CardEvent review frame at ${timeLabel}. The last available frame remains visible.`
-      : `Loading CardEvent review frame at ${timeLabel}.`;
-  if (status === "ready")
-    return `CardEvent review frame loaded at ${timeLabel}.`;
-  if (status === "unavailable")
-    return `CardEvent review frame unavailable at ${timeLabel}.`;
-  return `CardEvent review frame failed at ${timeLabel}.`;
-}
-
-function describeFrameError(reason: unknown): string {
-  return reason instanceof Error
-    ? reason.message
-    : "The CardEvent review frame request failed.";
 }

@@ -207,7 +207,7 @@ describe("RecordingTimelineRail", () => {
     renderRail();
 
     fireEvent.pointerEnter(document.querySelector("[data-zoom]")!);
-    expect(screen.getByText("Loading exact source frame…")).toBeInTheDocument();
+    expect(screen.getByText("Loading review frame…")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Play recording" }));
 
     await act(async () => await Promise.resolve());
@@ -235,7 +235,7 @@ describe("RecordingTimelineRail", () => {
     expect(onTimeChange).toHaveBeenCalledWith(4_250_000);
   });
 
-  it("cancels stale exact-frame previews and caches the winning response", async () => {
+  it("cancels stale review-frame previews and caches the winning response", async () => {
     vi.useFakeTimers();
     const requests: Array<{
       resolve: (response: Response) => void;
@@ -277,19 +277,23 @@ describe("RecordingTimelineRail", () => {
     expect(requests[0].signal.aborted).toBe(true);
 
     await act(async () => {
-      requests[0].resolve(new Response(new Blob(["stale"]), { status: 200 }));
+      requests[0].resolve(
+        new Response(Uint8Array.from([1, 2, 3]), { status: 200 }),
+      );
       await Promise.resolve();
     });
     expect(screen.queryByRole("img", { name: /0:01/ })).not.toBeInTheDocument();
 
     await act(async () => {
-      requests[1].resolve(new Response(new Blob(["winning"]), { status: 200 }));
+      requests[1].resolve(
+        new Response(Uint8Array.from([4, 5, 6, 7]), { status: 200 }),
+      );
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
     });
     expect(
-      screen.getByRole("img", { name: "Exact source frame preview at 0:05" }),
+      screen.getByRole("img", { name: "Review frame preview at 0:05" }),
     ).toHaveAttribute("src", expect.stringMatching(/^blob:/));
   });
 });

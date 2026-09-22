@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   createDokoDetectorClient,
+  pipelineDerivedFramePath,
   repositoryBundleVideoPath,
   type PipelineEventResult,
   type PipelineReferenceItem,
@@ -31,6 +32,8 @@ import {
   EventInspectorPortals,
   useEventInspectorSlots,
 } from "./PipelineCardEventInspector";
+import type { CardEventFramePlayback } from "./CardEventFrameSurface";
+import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import {
   CARD_STATE_CHANGED_EVENT_TYPE,
   type EditableEvent,
@@ -102,6 +105,8 @@ export function PipelineCardEventEditor({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedBound, setSelectedBound] = useState<"start" | "end">("start");
   const [playheadUs, setPlayheadUs] = useState(0);
+  const [framePlayback, setFramePlayback] =
+    useState<CardEventFramePlayback>("derived");
   const [watchedThroughUs, setWatchedThroughUs] = useState(0);
   const [loading, setLoading] = useState(view === "reviewed");
   const [generatedLoading, setGeneratedLoading] = useState(false);
@@ -174,7 +179,10 @@ export function PipelineCardEventEditor({
     (event: EditableEvent, seek = true) => {
       setSelected(event.localId);
       updatePipelineUrl({ item: event.itemId });
-      if (seek) setCurrentTime(event.event.start_us);
+      if (seek) {
+        setFramePlayback("derived");
+        setCurrentTime(event.event.start_us);
+      }
     },
     [setCurrentTime, setSelected],
   );
@@ -590,7 +598,10 @@ export function PipelineCardEventEditor({
 
   const selectedEvent = events.find((event) => event.localId === selectedId);
   const seekBy = useCallback(
-    (deltaUs: number) => setCurrentTime(playheadUsRef.current + deltaUs),
+    (deltaUs: number) => {
+      setFramePlayback("derived");
+      setCurrentTime(playheadUsRef.current + deltaUs);
+    },
     [setCurrentTime],
   );
   const selectAdjacent = useCallback(
@@ -626,6 +637,7 @@ export function PipelineCardEventEditor({
         durationUs,
       );
       if (endUs < startUs) return;
+      setFramePlayback("video");
       setCurrentTime(startUs);
       updateEvent(
         currentEvent,
@@ -664,6 +676,7 @@ export function PipelineCardEventEditor({
     (bound: "start" | "end") => {
       if (selectedEvent === undefined) return;
       setSelectedBound(bound);
+      setFramePlayback("derived");
       setCurrentTime(
         bound === "start"
           ? selectedEvent.event.start_us
@@ -921,6 +934,23 @@ export function PipelineCardEventEditor({
   const hasNextEvent = events.some(
     (event) => event.event.start_us > playheadUs + 1_000,
   );
+  const prewarmEvents = referenceNeedsSeed ? [] : events;
+  const prewarmSelectedIndex = prewarmEvents.findIndex(
+    (event) => event.localId === selectedId,
+  );
+  const prewarmEventUrls = useCallback(
+    (event: EditableEvent) => [
+      pipelineDerivedFramePath(recordingId, event.event.start_us),
+      pipelineDerivedFramePath(recordingId, event.event.end_us),
+    ],
+    [recordingId],
+  );
+  usePipelineReviewPrewarm(
+    prewarmEvents,
+    prewarmSelectedIndex >= 0 ? prewarmSelectedIndex : 0,
+    prewarmEventUrls,
+    recordingId,
+  );
   const completionBlocker =
     reference === null
       ? null
@@ -1020,6 +1050,7 @@ export function PipelineCardEventEditor({
         <EventSourceSurface
           recordingId={recordingId}
           requestedTimeUs={playheadUs}
+          playback={framePlayback}
           durationUs={durationUs}
           watchedPercent={watchedPercent}
           watchedThroughUs={watchedThroughUs}
@@ -1091,6 +1122,7 @@ export function PipelineCardEventEditor({
           <EventSourceSurface
             recordingId={recordingId}
             requestedTimeUs={playheadUs}
+            playback={framePlayback}
             durationUs={durationUs}
             watchedPercent={watchedPercent}
             watchedThroughUs={watchedThroughUs}

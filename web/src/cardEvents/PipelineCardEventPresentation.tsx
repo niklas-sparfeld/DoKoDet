@@ -6,7 +6,7 @@ import type {
   EventState,
   PipelineEvent,
 } from "./PipelineCardEventTypes";
-import { CardEventFrameSurface } from "./CardEventFrameSurface";
+import { CardEventFrameSurface, type CardEventFramePlayback } from "./CardEventFrameSurface";
 import {
   formatDuration,
   formatIdentifier,
@@ -25,6 +25,7 @@ import { ShortcutButton } from "../pipeline/ShortcutButton";
 export function EventSourceSurface({
   recordingId,
   requestedTimeUs,
+  playback = "derived",
   watchedPercent,
   watchedThroughUs,
   coverageComplete,
@@ -38,6 +39,7 @@ export function EventSourceSurface({
 }: {
   recordingId: string;
   requestedTimeUs: number;
+  playback?: CardEventFramePlayback;
   watchedPercent: number;
   watchedThroughUs: number;
   coverageComplete: boolean;
@@ -54,6 +56,7 @@ export function EventSourceSurface({
       <CardEventFrameSurface
         recordingId={recordingId}
         requestedTimeUs={requestedTimeUs}
+        playback={playback}
       />
       {selectedEvent !== undefined && onSelectBound !== undefined ? (
         <div

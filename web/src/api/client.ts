@@ -1103,6 +1103,8 @@ export function pipelineIdentityCropPath(
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/identity-crops/${encodeURIComponent(revisionId)}/${encodeURIComponent(itemId)}?preview=browser`;
 }
 
+export const SAMPLED_FRAME_INTERVAL_US = 250_000;
+
 export function pipelineDerivedFramePath(
   recordingId: string,
   requestedTimeUs: number,
@@ -1110,11 +1112,23 @@ export function pipelineDerivedFramePath(
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/exact-event/${encodeURIComponent(String(Math.max(0, Math.round(requestedTimeUs))))}`;
 }
 
+/** Snap to the same 250 ms ceiling the sampled-frame provider uses. */
+export function snapSampledFrameTimeUs(requestedTimeUs: number): number {
+  const timeUs = Number.isFinite(requestedTimeUs)
+    ? Math.max(0, Math.round(requestedTimeUs))
+    : 0;
+  if (timeUs === 0) return 0;
+  return (
+    Math.ceil(timeUs / SAMPLED_FRAME_INTERVAL_US) * SAMPLED_FRAME_INTERVAL_US
+  );
+}
+
+/** Fast scrub/review JPEG (250 ms samples, max 1280px). */
 export function pipelineReviewFramePath(
   recordingId: string,
   requestedTimeUs: number,
 ): string {
-  return pipelineDerivedFramePath(recordingId, requestedTimeUs);
+  return `${pipelineDerivedFramePath(recordingId, snapSampledFrameTimeUs(requestedTimeUs))}?preview=sampled_250ms`;
 }
 
 export function pipelineReferencePath(
