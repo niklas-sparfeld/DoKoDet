@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -88,11 +89,14 @@ def predict_cached_samples(
     offsets_s: Sequence[float],
     batch_size: int,
     device: torch.device,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> list[ProbabilitySample]:
     """Run causal inference on cached samples in timestamp order."""
     if batch_size <= 0:
         raise InferenceError("batch_size must be positive.")
     if not samples:
+        if progress_callback is not None:
+            progress_callback(0, 0)
         return []
 
     dataset = CausalClipDataset(samples, offsets_s=offsets_s)
@@ -101,6 +105,9 @@ def predict_cached_samples(
     predictions: list[ProbabilitySample] = []
     sample_offset = 0
     model.eval()
+    total = len(samples)
+    if progress_callback is not None:
+        progress_callback(0, total)
     for clips, _labels in loader:
         clips = clips.to(device=device)
         logits = model(transform(clips)).float()
@@ -115,6 +122,8 @@ def predict_cached_samples(
                 )
             )
             sample_offset += 1
+        if progress_callback is not None:
+            progress_callback(sample_offset, total)
     return predictions
 
 
@@ -123,6 +132,7 @@ def infer_cached_video(
     cache_dir: str | Path,
     *,
     batch_size: int | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> list[ProbabilitySample]:
     """Run full-video causal inference using a prepared cache."""
     cache_path = Path(cache_dir)
@@ -140,6 +150,7 @@ def infer_cached_video(
         offsets_s=loaded.config.input.clip_offsets_s,
         batch_size=batch_size or loaded.config.training.batch_size,
         device=loaded.device,
+        progress_callback=progress_callback,
     )
 
 
@@ -186,11 +197,23 @@ def infer_from_files(
     batch_size: int | None = None,
     threshold: float | None = None,
     merge_window_s: float | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> dict[str, Any]:
     """Run inference for one source video and save its raw probability stream."""
     video = Path(video_path)
     loaded = load_checkpoint(checkpoint_path, device_override=device_override)
     cache_path = cache_path_for_video(video, cache_root=cache_dir)
+    prepare_total = 0
+
+    def report(completed: int, total: int) -> None:
+        if progress_callback is not None:
+            progress_callback(completed, total)
+
+    def cache_progress(current: int, total: int) -> None:
+        nonlocal prepare_total
+        prepare_total = total
+        report(current, total)
+
     try:
         if loaded.config.input.preprocessing == FULL_FRAME_LETTERBOX_V1:
             prepare_inference_cache(
@@ -198,6 +221,7 @@ def infer_from_files(
                 cache_root=cache_dir,
                 cache_fps=loaded.config.input.cache_fps,
                 size=loaded.config.input.size,
+                progress_callback=cache_progress if progress_callback is not None else None,
             )
         metadata = load_cache_metadata(cache_path)
     except (CacheError, VideoError, RuntimeError) as exc:
@@ -211,7 +235,15 @@ def infer_from_files(
             f"{metadata.source_video} != {video.name}"
         )
 
-    predictions = infer_cached_video(loaded, cache_path, batch_size=batch_size)
+    def infer_progress(current: int, total: int) -> None:
+        report(prepare_total + current, prepare_total + total)
+
+    predictions = infer_cached_video(
+        loaded,
+        cache_path,
+        batch_size=batch_size,
+        progress_callback=infer_progress if progress_callback is not None else None,
+    )
     selected_merge_window = (
         loaded.config.inference.merge_window_s if merge_window_s is None else merge_window_s
     )

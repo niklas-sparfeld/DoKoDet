@@ -51,11 +51,13 @@ def test_infer_from_files_prepares_missing_cache_without_annotation(
 
     monkeypatch.setattr(infer_module, "infer_cached_video", fake_infer_cached_video)
 
+    progress: list[tuple[int, int]] = []
     payload = infer_from_files(
         "unused-checkpoint.pt",
         video_path,
         out_path=tmp_path / "predictions.json",
         cache_dir=tmp_path / "cache",
+        progress_callback=lambda current, total: progress.append((current, total)),
     )
 
     metadata = observed["metadata"]
@@ -63,3 +65,6 @@ def test_infer_from_files_prepares_missing_cache_without_annotation(
     assert metadata.cache_fps == 10.0
     assert metadata.frame_size == 224
     assert payload["probabilities"] == []
+    assert progress[0] == (0, 4)
+    assert progress[-1] == (4, 4)
+    assert all(total == 4 for _, total in progress)

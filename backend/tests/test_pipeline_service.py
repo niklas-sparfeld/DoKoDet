@@ -94,6 +94,32 @@ def test_card_event_file_provider_uses_repository_runtime_cache_by_default(
     assert calls["kwargs"]["cache_dir"] == tmp_path / ".runtime" / "cardevent" / "inference-cache"
 
 
+def test_card_event_file_provider_forwards_progress_callback(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import cardevent
+
+    calls: dict[str, object] = {}
+
+    def fake_infer_from_files(checkpoint_path, video_path, **kwargs):
+        del checkpoint_path, video_path
+        calls["kwargs"] = kwargs
+        return {"events": []}
+
+    monkeypatch.setattr(cardevent, "infer_from_files", fake_infer_from_files)
+    provider = CardEventFileProvider(tmp_path)
+    progress = lambda current, total: None
+
+    provider.infer(
+        tmp_path / "recording.mov",
+        request=SimpleNamespace(configuration={"checkpoint_path": "checkpoints/best.pt"}),
+        progress_callback=progress,
+    )
+
+    assert calls["kwargs"]["progress_callback"] is progress
+
+
 def test_checkpoint_discovery_ignores_legacy_cardevent_output(tmp_path: Path) -> None:
     legacy_checkpoint = tmp_path / "card_event_net" / "data" / "outputs" / "best.pt"
     legacy_checkpoint.parent.mkdir(parents=True)

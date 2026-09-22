@@ -7,7 +7,7 @@ import json
 import logging
 import re
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -84,6 +84,7 @@ class EventProcessorProvider(Protocol):
         video_path: Path,
         *,
         request: ProcessorRunRequest,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> EventData | Mapping[str, Any] | Sequence[Mapping[str, Any]]: ...
 
 
@@ -108,6 +109,7 @@ class CardEventFileProvider:
         video_path: Path,
         *,
         request: ProcessorRunRequest,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> EventData | Mapping[str, Any] | Sequence[Mapping[str, Any]]:
         try:
             from cardevent import infer_from_files
@@ -143,6 +145,8 @@ class CardEventFileProvider:
                 kwargs["threshold"] = float(threshold)
             if merge_window is not None:
                 kwargs["merge_window_s"] = float(merge_window)
+            if progress_callback is not None:
+                kwargs["progress_callback"] = progress_callback
             try:
                 payload = infer_from_files(checkpoint, video_path, **kwargs)
             except Exception as error:  # provider details stay out of the HTTP response.
@@ -578,9 +582,32 @@ class EventPipelineService:
     def _execute(self, run_id: str) -> None:
         try:
             run = self.run_store.require(run_id)
+            last_reported = [-1, -1]
+
+            def on_progress(completed: int, total: int) -> None:
+                completed = max(0, int(completed))
+                total = max(completed, int(total))
+                if completed == last_reported[0] and total == last_reported[1]:
+                    return
+                step = max(1, total // 100) if total > 0 else 1
+                if (
+                    completed != total
+                    and completed != 0
+                    and completed - last_reported[0] < step
+                    and total == last_reported[1]
+                ):
+                    return
+                last_reported[0] = completed
+                last_reported[1] = total
+                self.run_store.update_progress(
+                    run_id,
+                    progress=RunProgress(completed=completed, total=total),
+                )
+
             result = self.event_provider.infer(
                 self._video_path(run.request.source.recording_id),
                 request=run.request,
+                progress_callback=on_progress,
             )
             metrics = _card_event_metrics_from_provider(result, run.request)
             content = _event_data_from_provider(result, run.request)

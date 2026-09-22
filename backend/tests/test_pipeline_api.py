@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -84,8 +85,14 @@ class FakeEventProvider:
         self.probabilities = probabilities
         self.calls: list[Path] = []
 
-    def infer(self, video_path: Path, *, request: object) -> dict[str, object]:
-        del request
+    def infer(
+        self,
+        video_path: Path,
+        *,
+        request: object,
+        progress_callback: object | None = None,
+    ) -> dict[str, object]:
+        del request, progress_callback
         self.calls.append(video_path)
         result: dict[str, object] = {"events": self.events}
         if self.probabilities is not None:
@@ -178,6 +185,54 @@ def _wait_for_status(client: TestClient, run_id: str, expected: str) -> dict[str
             return body
         time.sleep(0.01)
     return body
+
+
+def test_event_pipeline_exposes_provider_progress_while_running(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    started = threading.Event()
+    release = threading.Event()
+
+    class ProgressEventProvider:
+        def infer(
+            self,
+            video_path: Path,
+            *,
+            request: object,
+            progress_callback: object | None = None,
+        ) -> dict[str, object]:
+            del video_path, request
+            if callable(progress_callback):
+                progress_callback(3, 10)
+            started.set()
+            assert release.wait(timeout=5.0)
+            if callable(progress_callback):
+                progress_callback(10, 10)
+            return {"events": [{"time_s": 0.5, "probability": 0.95}]}
+
+    app = create_test_app(_settings(tmp_path), event_provider=ProgressEventProvider())
+    with TestClient(app) as client:
+        created = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events",
+            json=_request("run-progress"),
+        )
+        assert created.status_code == 202
+        assert started.wait(timeout=5.0)
+
+        deadline = time.monotonic() + 5
+        progress = None
+        while time.monotonic() < deadline:
+            status = client.get(
+                f"/api/recordings/{RECORDING_ID}/pipeline/events/run-progress"
+            ).json()
+            progress = status["state"]["progress"]
+            if progress == {"completed": 3, "total": 10}:
+                break
+            time.sleep(0.01)
+        assert progress == {"completed": 3, "total": 10}
+
+        release.set()
+        status = _wait_for_status(client, "run-progress", "complete")
+        assert status["state"]["progress"] == {"completed": 1, "total": 1}
 
 
 def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path) -> None:
@@ -549,8 +604,14 @@ def test_provider_failure_cannot_change_existing_generated_selection(tmp_path: P
     _install_recording(tmp_path)
 
     class FailingProvider:
-        def infer(self, video_path: Path, *, request: object) -> object:
-            del video_path, request
+        def infer(
+            self,
+            video_path: Path,
+            *,
+            request: object,
+            progress_callback: object | None = None,
+        ) -> object:
+            del video_path, request, progress_callback
             raise RuntimeError("provider secret")
 
     app = create_test_app(_settings(tmp_path), event_provider=FailingProvider())
