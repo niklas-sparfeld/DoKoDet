@@ -207,8 +207,36 @@ describe("visible-card review workbench state", () => {
 
     expect(next.viewpoint).toBe("camera");
     expect(next.gesture).toBeNull();
-    expect(next.viewport).toEqual(state.viewport);
+    expect(next.viewports).toEqual(state.viewports);
     expect(next.selection).toBeNull();
+  });
+
+  it("keeps zoom and pan independent for Camera and Rectified viewpoints", () => {
+    const state = createVisibleCardReviewWorkbenchState(capabilities());
+    const rectified = visibleCardReviewWorkbenchReducer(state, {
+      type: "set_viewport",
+      viewport: { zoom: 2, pan: { x: 12, y: -8 } },
+    });
+    const camera = visibleCardReviewWorkbenchReducer(rectified, {
+      type: "toggle_viewpoint",
+    });
+    const cameraAdjusted = visibleCardReviewWorkbenchReducer(camera, {
+      type: "set_viewport",
+      viewport: { zoom: 1.5, pan: { x: -4, y: 6 } },
+    });
+    const restored = visibleCardReviewWorkbenchReducer(cameraAdjusted, {
+      type: "toggle_viewpoint",
+    });
+
+    expect(cameraAdjusted.viewports).toEqual({
+      camera: { zoom: 1.5, pan: { x: -4, y: 6 } },
+      rectified: { zoom: 2, pan: { x: 12, y: -8 } },
+    });
+    expect(restored.viewpoint).toBe("rectified");
+    expect(restored.viewports.rectified).toEqual({
+      zoom: 2,
+      pan: { x: 12, y: -8 },
+    });
   });
 
   it("preserves valid preferences across frame navigation and clears transient frame state", () => {

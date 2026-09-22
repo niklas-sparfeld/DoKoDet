@@ -531,6 +531,70 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(viewBox[3]).toBeLessThan(100);
   });
 
+  it("restores each viewpoint's zoom without leaking its coordinate-space pan", () => {
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly
+      />,
+    );
+    const rectifiedSurface = screen.getByRole("img", {
+      name: /Rectified visible-card workbench/,
+    });
+    vi.spyOn(rectifiedSurface, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const initialRectifiedViewBox = rectifiedSurface
+      .getAttribute("viewBox")!
+      .split(" ")
+      .map(Number);
+    fireEvent.wheel(rectifiedSurface, {
+      clientX: 85,
+      clientY: 15,
+      deltaY: -120,
+    });
+    const zoomedRectifiedViewBox = rectifiedSurface
+      .getAttribute("viewBox")!
+      .split(" ")
+      .map(Number);
+    expect(zoomedRectifiedViewBox[2]).toBeLessThan(initialRectifiedViewBox[2]);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Viewpoint: Rectified. Switch to Camera",
+      }),
+    );
+    const cameraSurface = screen.getByRole("img", {
+      name: "1 visible-card proposal",
+    });
+    expect(cameraSurface.getAttribute("viewBox")).toBe("0 0 100 100");
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Viewpoint: Camera. Switch to Rectified",
+      }),
+    );
+    const restoredRectifiedSurface = screen.getByRole("img", {
+      name: /Rectified visible-card workbench/,
+    });
+    const restoredRectifiedViewBox = restoredRectifiedSurface
+      .getAttribute("viewBox")!
+      .split(" ")
+      .map(Number);
+    expect(restoredRectifiedViewBox[2]).toBeCloseTo(zoomedRectifiedViewBox[2]);
+    expect(restoredRectifiedViewBox[3]).toBeCloseTo(zoomedRectifiedViewBox[3]);
+  });
+
   it("pans the non-rectified camera view when dragged", () => {
     render(
       <VisibleCardReviewWorkbench

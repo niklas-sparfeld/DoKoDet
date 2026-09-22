@@ -69,7 +69,7 @@ export type VisibleCardReviewWorkbenchState = WorkbenchPreferences & {
   selection: WorkbenchSelection | null;
   visualFocus: boolean;
   gesture: WorkbenchGesture | null;
-  viewport: WorkbenchViewport;
+  viewports: Record<WorkbenchViewpoint, WorkbenchViewport>;
 };
 
 export type WorkbenchAction =
@@ -210,6 +210,13 @@ export type WorkbenchViewportShortcut =
 
 const EMPTY_VIEWPORT: WorkbenchViewport = { zoom: 1, pan: { x: 0, y: 0 } };
 
+function emptyViewports(): Record<WorkbenchViewpoint, WorkbenchViewport> {
+  return {
+    camera: cloneViewport(EMPTY_VIEWPORT),
+    rectified: cloneViewport(EMPTY_VIEWPORT),
+  };
+}
+
 export function createVisibleCardReviewWorkbenchState(
   capabilities: WorkbenchFrameCapabilities,
   preferences?: Partial<WorkbenchPreferences>,
@@ -226,7 +233,7 @@ export function createVisibleCardReviewWorkbenchState(
     selection: null,
     visualFocus: false,
     gesture: null,
-    viewport: cloneViewport(EMPTY_VIEWPORT),
+    viewports: emptyViewports(),
   };
 }
 
@@ -317,7 +324,7 @@ export function visibleCardReviewWorkbenchReducer(
         selection: null,
         visualFocus: false,
         gesture: null,
-        viewport: cloneViewport(EMPTY_VIEWPORT),
+        viewports: emptyViewports(),
       };
     }
     case "refresh_capabilities": {
@@ -371,9 +378,21 @@ export function visibleCardReviewWorkbenchReducer(
       };
     }
     case "set_viewport":
-      return { ...state, viewport: normalizeViewport(action.viewport) };
+      return {
+        ...state,
+        viewports: {
+          ...state.viewports,
+          [state.viewpoint]: normalizeViewport(action.viewport),
+        },
+      };
     case "reset_viewport":
-      return { ...state, viewport: cloneViewport(EMPTY_VIEWPORT) };
+      return {
+        ...state,
+        viewports: {
+          ...state.viewports,
+          [state.viewpoint]: cloneViewport(EMPTY_VIEWPORT),
+        },
+      };
   }
 }
 

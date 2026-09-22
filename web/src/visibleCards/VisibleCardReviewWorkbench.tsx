@@ -344,6 +344,7 @@ export function VisibleCardReviewWorkbench({
           capabilities,
           getWorkbenchPreferences(state),
         );
+  const viewport = activeState.viewports[activeState.viewpoint];
   const availability = getWorkbenchAvailability(capabilities);
   const scene = sceneDraft;
   const sourceIdentity = frame.outcome.frame_identity;
@@ -406,7 +407,6 @@ export function VisibleCardReviewWorkbench({
     const shortcut = workbenchViewportShortcut(event, "surface");
     if (shortcut === null) return;
     event.preventDefault();
-    const viewport = activeState.viewport;
     if (shortcut === "reset") {
       dispatch({ type: "reset_viewport" });
       return;
@@ -654,7 +654,7 @@ export function VisibleCardReviewWorkbench({
       width,
       height,
       sceneDraftRef.current,
-      activeState.viewport,
+      viewport,
     );
     if (startViewBox === null) return;
     select({ type: "virtual_card", id: cardId });
@@ -695,7 +695,7 @@ export function VisibleCardReviewWorkbench({
       width,
       height,
       currentScene,
-      activeState.viewport,
+      viewport,
     );
     if (viewBox === null) return false;
     event.preventDefault();
@@ -708,7 +708,7 @@ export function VisibleCardReviewWorkbench({
       startClientX: event.clientX,
       startClientY: event.clientY,
       originalScene: currentScene,
-      startPan: { ...activeState.viewport.pan },
+      startPan: { ...viewport.pan },
       startViewBox: viewBox,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -775,7 +775,7 @@ export function VisibleCardReviewWorkbench({
       dispatch({
         type: "set_viewport",
         viewport: {
-          zoom: activeState.viewport.zoom,
+          zoom: viewport.zoom,
           pan: {
             x: startPan.x - (deltaX / rect.width) * viewBox.width,
             y: startPan.y - (deltaY / rect.height) * viewBox.height,
@@ -911,7 +911,7 @@ export function VisibleCardReviewWorkbench({
       width,
       height,
       currentScene,
-      activeState.viewport,
+      viewport,
     );
     if (currentViewBox === null) return;
     const deltaY =
@@ -919,9 +919,9 @@ export function VisibleCardReviewWorkbench({
       (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
     const nextZoom = Math.min(
       4,
-      Math.max(0.5, activeState.viewport.zoom * Math.pow(2, -deltaY / 240)),
+      Math.max(0.5, viewport.zoom * Math.pow(2, -deltaY / 240)),
     );
-    if (nextZoom === activeState.viewport.zoom) return;
+    if (nextZoom === viewport.zoom) return;
     const focusX = (event.clientX - rect.left) / rect.width;
     const focusY = (event.clientY - rect.top) / rect.height;
     const focusedPoint: TablePoint = [
@@ -935,7 +935,7 @@ export function VisibleCardReviewWorkbench({
       currentScene,
       {
         zoom: nextZoom,
-        pan: activeState.viewport.pan,
+        pan: viewport.pan,
       },
     );
     if (nextViewBox === null) return;
@@ -945,11 +945,11 @@ export function VisibleCardReviewWorkbench({
         zoom: nextZoom,
         pan: {
           x:
-            activeState.viewport.pan.x +
+            viewport.pan.x +
             focusedPoint[0] -
             (nextViewBox.x + focusX * nextViewBox.width),
           y:
-            activeState.viewport.pan.y +
+            viewport.pan.y +
             focusedPoint[1] -
             (nextViewBox.y + focusY * nextViewBox.height),
         },
@@ -1093,7 +1093,7 @@ export function VisibleCardReviewWorkbench({
           viewpoint={activeState.viewpoint}
           enabledLayers={activeState.enabledLayers}
           selection={activeState.selection}
-          viewport={activeState.viewport}
+          viewport={viewport}
           gestureViewBox={gestureViewBox}
           candidateProjection={candidateProjection}
           mappingAnchors={renderMappingAnchors}
