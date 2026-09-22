@@ -88,6 +88,9 @@ export type VisibleCardInspectorProps = {
   setOperatorId: (value: string) => void;
   setReviewerId: (value: string) => void;
   creatingReference: boolean;
+  selectedGeneratedRevisionId: string | null;
+  rebasingReference: boolean;
+  rebaseReference: () => Promise<void>;
   referenceNeedsSeed: boolean;
   startReference: () => void;
   completionBusy: boolean;
@@ -155,6 +158,9 @@ function VisibleCardInspectorAction({
   setOperatorId,
   setReviewerId,
   creatingReference,
+  selectedGeneratedRevisionId,
+  rebasingReference,
+  rebaseReference,
   referenceNeedsSeed,
   startReference,
   saveState,
@@ -331,6 +337,35 @@ function VisibleCardInspectorAction({
             ? "Publish corrected reference"
             : "Complete reference"}
       </button>
+      {selectedGeneratedRevisionId !== null &&
+      reference.draft.source_revision_id !== selectedGeneratedRevisionId ? (
+        <section
+          className={visibleStyles.proposalControls}
+          aria-label="Review source"
+        >
+          <p className={styles.statusLabel}>Review source</p>
+          <h3>Different generated result selected</h3>
+          <p className={styles.pipelineInspectorEmpty}>
+            This review uses a different generated result. Switch it to the
+            selected result before continuing.
+          </p>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={() => void rebaseReference()}
+            disabled={
+              rebasingReference ||
+              queueLength > 0 ||
+              saveState !== "saved" ||
+              operatorId.trim() === ""
+            }
+          >
+            {rebasingReference
+              ? "Switching review…"
+              : "Switch review to selected result"}
+          </button>
+        </section>
+      ) : null}
       <CalibrationRefinementControls
         proposalRevisionId={proposalRevisionId}
         refinement={calibrationRefinement}

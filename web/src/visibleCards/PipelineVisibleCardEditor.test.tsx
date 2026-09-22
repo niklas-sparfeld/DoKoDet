@@ -863,6 +863,61 @@ describe("PipelineVisibleCardEditor", () => {
     ).toBeInTheDocument();
   });
 
+  it("switches an existing review to the selected generated result", async () => {
+    const staleReference = reference();
+    staleReference.state.source_revision_id = "older-visible-revision";
+    staleReference.draft.source_revision_id = "older-visible-revision";
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      if (init?.method === "PUT") {
+        return Promise.resolve(jsonResponse(reference()));
+      }
+      return String(input).includes("/result")
+        ? Promise.resolve(jsonResponse(generatedResult()))
+        : Promise.resolve(jsonResponse(staleReference));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const switchButton = await screen.findByRole("button", {
+      name: "Switch review to selected result",
+    });
+    const user = userEvent.setup();
+    await user.type(screen.getByPlaceholderText("operator-01"), "operator-01");
+    await user.click(switchButton);
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(requestBody.operations).toEqual([
+      { operation: "rebase", source_revision_id: REVISION_ID },
+    ]);
+    expect(
+      await screen.findByText(
+        /Review switched to the selected generated result/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("loads maintained frames when an older reference omits ignore regions", async () => {
     const legacyReference = structuredClone(reference()) as unknown as {
       draft: { items: Array<{ item: Record<string, unknown> }> };

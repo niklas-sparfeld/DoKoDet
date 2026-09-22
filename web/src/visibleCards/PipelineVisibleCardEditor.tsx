@@ -149,6 +149,7 @@ export function PipelineVisibleCardEditor({
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [creatingReference, setCreatingReference] = useState(false);
+  const [rebasingReference, setRebasingReference] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
   const [proposalRun, setProposalRun] =
     useState<PipelineProposalRunResponse | null>(null);
@@ -777,6 +778,62 @@ export function PipelineVisibleCardEditor({
       (currentFrames) => currentFrames,
     );
   }, [enqueue, generatedSourceRevisionId, operatorId, proposalRevisionId]);
+
+  const rebaseReference = useCallback(async () => {
+    const current = referenceRef.current;
+    const sourceRevisionId = generatedRevisionId;
+    if (
+      current === null ||
+      sourceRevisionId === null ||
+      current.draft.source_revision_id === sourceRevisionId ||
+      operatorId.trim() === "" ||
+      queueRef.current.length > 0 ||
+      processingRef.current ||
+      saveState !== "saved"
+    ) {
+      return;
+    }
+    setRebasingReference(true);
+    setSaveState("saving");
+    setError(null);
+    setNotice(null);
+    try {
+      const rebased = await client.updatePipelineReferenceDraft(
+        recordingId,
+        CONTENT_TYPE,
+        {
+          expected_revision: serverRevisionRef.current,
+          operator_id: operatorId.trim(),
+          command_id: nextCommandId(),
+          operations: [
+            { operation: "rebase", source_revision_id: sourceRevisionId },
+          ],
+        },
+      );
+      hydrateReference(rebased, false);
+      setSaveState("saved");
+      setNotice(
+        "Review switched to the selected generated result. Inspect the visible cards before completing the review.",
+      );
+    } catch (reason: unknown) {
+      setSaveState(
+        reason instanceof ApiError && reason.status === 409
+          ? "conflict"
+          : "error",
+      );
+      setError(describeError(reason));
+    } finally {
+      setRebasingReference(false);
+    }
+  }, [
+    client,
+    generatedRevisionId,
+    hydrateReference,
+    nextCommandId,
+    operatorId,
+    recordingId,
+    saveState,
+  ]);
 
   const setFrameReview = useCallback(
     (frame: EditableFrame, outcome: Outcome, noticeText: string) => {
@@ -1978,6 +2035,9 @@ export function PipelineVisibleCardEditor({
       setOperatorId={setOperatorId}
       setReviewerId={setReviewerId}
       creatingReference={creatingReference}
+      selectedGeneratedRevisionId={generatedRevisionId}
+      rebasingReference={rebasingReference}
+      rebaseReference={rebaseReference}
       referenceNeedsSeed={referenceNeedsSeed}
       startReference={startReference}
       completionBusy={completionBusy}
