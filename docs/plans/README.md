@@ -46,13 +46,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0074 — Unified visible-card review workbench](2-ready/0074-Unified_Visible_Card_Review_Workbench.md) | Completed 0049, 0054, 0065, and 0073 | M0–M5 not started. Replace the polygon-versus-virtual-table presentation split with one visible-card workbench that has independent Camera/Rectified viewpoints, simultaneous evidence layers, exclusive edit tools, and one contextual command bar. |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0074 — Unified visible-card review workbench](3-in-progress/0074-Unified_Visible_Card_Review_Workbench.md) | Completed 0049, 0054, 0065, and 0073 | M0 complete. Frozen shared workbench state and pure interaction rules; M1–M5 remain. |
 | [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M6 complete at the implementation and contract level. M3 remains validated on MPS with threshold `0.65` and `0.984043` crop-containment recall against the `0.98` floor. M4 materializes validated 0072 scene-derived crops and adds 0070 rows to train only. M5 supplies the crop RF-DETR SegMedium child contract. M6 assembles and registers the selectable, non-default `local-rfdetr-cascade`; real M4/M5 runtime artifacts are still required for a real cascade execution. |
 
 ### Blocked

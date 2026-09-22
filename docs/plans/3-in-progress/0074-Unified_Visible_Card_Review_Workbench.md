@@ -4,7 +4,7 @@
 
 - **Summary:** Replace the separate polygon and virtual-table review presentations with one
   visible-card workbench that has independent viewpoint, layer, edit-tool, and action controls.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0049 recording pipeline review, completed 0054 unified recording
   workspace layout, completed 0065 visible-card ignore regions, and completed 0073 proposed card
   scenes and calibration refinement
@@ -18,7 +18,9 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze the interaction model and add shared workbench state.
+- **M0:** Complete — frozen typed workbench state, availability rules, transition rules, layer and
+  hit-test order, shortcut ownership, viewport keyboard controls, persistence behavior, and narrow
+  command-bar layout contract are covered by focused reducer tests.
 - **M1:** Not started — render both viewpoints and all supported layers in one review surface.
 - **M2:** Not started — move visible-region and ignore-region editing into the workbench.
 - **M3:** Not started — move virtual-card editing into the workbench.
