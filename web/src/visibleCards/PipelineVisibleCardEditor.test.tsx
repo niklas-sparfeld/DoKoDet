@@ -1102,7 +1102,15 @@ describe("PipelineVisibleCardEditor", () => {
     expect(polygons[0]).toHaveAttribute("stroke-width", "1.25");
     expect(polygons[1]).toHaveAttribute("stroke-width", "1.25");
     expect(polygons[1]).toHaveAttribute("stroke-dasharray", "4 3");
-    expect(screen.getByText("Polygon")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Select polygon/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Drag a point to adjust a region/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Visible region editor" }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens the selected card and polygon when a canvas polygon is clicked", async () => {
@@ -1134,13 +1142,20 @@ describe("PipelineVisibleCardEditor", () => {
       screen.getByRole("button", { name: "Select proposal 1" }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(
-      screen.getByRole("button", { name: "Polygon 2 (4 points)" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(
       screen.getByRole("button", {
         name: "Polygon 2, point 1 at 100, 100",
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Select polygon 1 for proposal 1",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Select polygon 2 for proposal 1",
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("switches to another clearly separated card polygon from the editor canvas", async () => {
@@ -1192,7 +1207,9 @@ describe("PipelineVisibleCardEditor", () => {
       screen.getByRole("button", { name: "Polygon 1, point 1 at 550, 150" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Polygon 1 (5 points)" }),
+      screen.queryByRole("button", {
+        name: "Select polygon 1 for proposal 1",
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -1259,9 +1276,6 @@ describe("PipelineVisibleCardEditor", () => {
     );
     expect(
       screen.getByRole("button", { name: "Select proposal 1" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(
-      screen.getByRole("button", { name: "Polygon 1 (5 points)" }),
     ).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -1654,7 +1668,9 @@ describe("PipelineVisibleCardEditor", () => {
     );
     await user.click(screen.getByRole("button", { name: "Add polygon" }));
     expect(
-      screen.getByRole("button", { name: "Polygon 2 (0 points)" }),
+      screen.getByRole("button", {
+        name: "Select polygon 2 for proposal 1",
+      }),
     ).toHaveAttribute("aria-pressed", "true");
 
     const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
@@ -1815,8 +1831,8 @@ describe("PipelineVisibleCardEditor", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Close editor Esc" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Close editor Esc" }),
+    ).not.toBeInTheDocument();
   });
 
   it("selects a point without moving it until a real drag starts", async () => {
@@ -1906,14 +1922,16 @@ describe("PipelineVisibleCardEditor", () => {
       await screen.findByRole("button", { name: "Select proposal 1" }),
     );
     expect(
-      screen.getByRole("button", { name: "Close editor Esc" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Close editor Esc" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "ArrowRight" });
 
     await waitFor(() =>
       expect(
-        screen.queryByRole("button", { name: "Close editor Esc" }),
+        screen.queryByRole("button", {
+          name: "Polygon 1, point 1 at 100, 100",
+        }),
       ).not.toBeInTheDocument(),
     );
   });
@@ -1972,13 +1990,17 @@ describe("PipelineVisibleCardEditor", () => {
       await screen.findByRole("button", { name: "Select proposal 1" }),
     );
     expect(
-      screen.getByRole("button", { name: "Close editor Esc" }),
+      screen.getByRole("button", {
+        name: "Polygon 1, point 1 at 100, 100",
+      }),
     ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "Escape" });
 
     expect(
-      screen.queryByRole("button", { name: "Close editor Esc" }),
+      screen.queryByRole("button", {
+        name: "Polygon 1, point 1 at 100, 100",
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -2113,8 +2135,8 @@ describe("PipelineVisibleCardEditor", () => {
         { x: 100, y: 800 },
       ]);
       expect(
-        screen.getByRole("button", { name: "Close editor Esc" }),
-      ).toBeInTheDocument();
+        screen.queryByRole("button", { name: "Close editor Esc" }),
+      ).not.toBeInTheDocument();
     },
   );
 

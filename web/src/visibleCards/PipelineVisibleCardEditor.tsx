@@ -2418,7 +2418,6 @@ export function PipelineVisibleCardEditor({
                     : undefined
                 }
                 onToggleCandidateSelection={toggleCandidateSelection}
-                onCancelEditor={editable ? () => setEditor(null) : undefined}
                 onSelectEditorPolygon={selectEditorPolygon}
                 onPointerMove={handleCanvasPointerMove}
                 onPointerLeave={handleCanvasPointerLeave}

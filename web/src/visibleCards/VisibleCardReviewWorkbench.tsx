@@ -182,7 +182,6 @@ export type VisibleCardReviewWorkbenchProps = {
   onOpenIgnoreRegion?: (region: IgnoreRegion | null) => void;
   onToggleCandidateSelection?: (cardId: string) => void;
   onSelectEditorPolygon?: (polygonIndex: number) => void;
-  onCancelEditor?: () => void;
   onPointPointerDown?: (
     event: ReactPointerEvent<SVGCircleElement>,
     polygonIndex: number,
@@ -244,7 +243,6 @@ export function VisibleCardReviewWorkbench({
   onOpenIgnoreRegion,
   onToggleCandidateSelection,
   onSelectEditorPolygon,
-  onCancelEditor,
   onPointPointerDown,
   onCanvasPointerDown,
   onPointerMove,
@@ -1123,28 +1121,30 @@ export function VisibleCardReviewWorkbench({
             readOnly={readOnly}
             selection={activeState.selection}
             editor={editor}
+            editorError={editorError}
             selectedCandidateIds={selectedCandidateIds}
             onToggleCandidateSelection={onToggleCandidateSelection}
-            onSelectCandidate={(candidate) => {
-              select({ type: "visible_card", id: candidate.card_id });
-              onOpenEditor?.(candidate);
+            onSelectCandidate={(candidate, polygonIndex) => {
+              select(
+                polygonIndex === undefined
+                  ? { type: "visible_card", id: candidate.card_id }
+                  : {
+                      type: "polygon",
+                      id: candidate.card_id,
+                      polygonIndex,
+                    },
+              );
+              onOpenEditor?.(candidate, polygonIndex);
             }}
             onSelectIgnoreRegion={(region) => {
               select({ type: "ignore_region", id: region.region_id });
               onOpenIgnoreRegion?.(region);
             }}
+            onSelectEditorPolygon={onSelectEditorPolygon}
             proposalSlot={proposalSlot}
           />
         ) : null}
       </div>
-      {editor !== null && !readOnly ? (
-        <WorkbenchEditorControls
-          editor={editor}
-          editorError={editorError}
-          onSelectEditorPolygon={onSelectEditorPolygon}
-          onCancelEditor={onCancelEditor}
-        />
-      ) : null}
     </section>
   );
 }
@@ -1920,57 +1920,6 @@ function VisibleRegionSelectionActions({
   );
 }
 
-function WorkbenchEditorControls({
-  editor,
-  editorError,
-  onSelectEditorPolygon,
-  onCancelEditor,
-}: {
-  editor: EditorState;
-  editorError: string | null;
-  onSelectEditorPolygon?: (polygonIndex: number) => void;
-  onCancelEditor?: () => void;
-}) {
-  return (
-    <section
-      className={styles.workbenchEditor}
-      aria-label="Visible region editor"
-    >
-      <p className={styles.workbenchEditorHelp}>
-        Drag a point to adjust a region. Click an edge to add a point. Changes
-        save through the maintained-reference command queue.
-      </p>
-      <div
-        className={styles.workbenchPolygonActions}
-        aria-label="Visible region polygons"
-      >
-        {editor.polygons.map((polygon, polygonIndex) => (
-          <button
-            className={styles.workbenchToggle}
-            type="button"
-            key={`polygon-${polygonIndex}`}
-            aria-pressed={editor.polygonIndex === polygonIndex}
-            onClick={() => onSelectEditorPolygon?.(polygonIndex)}
-          >
-            Polygon {polygonIndex + 1} ({polygon.length} point
-            {polygon.length === 1 ? "" : "s"})
-          </button>
-        ))}
-        <button
-          className={styles.workbenchToggle}
-          type="button"
-          onClick={onCancelEditor}
-        >
-          Close editor Esc
-        </button>
-      </div>
-      {editorError !== null ? (
-        <p className={styles.workbenchEditorError}>{editorError}</p>
-      ) : null}
-    </section>
-  );
-}
-
 function WorkbenchProposalColumn({
   frame,
   candidates,
@@ -1980,10 +1929,12 @@ function WorkbenchProposalColumn({
   readOnly,
   selection,
   editor,
+  editorError,
   selectedCandidateIds,
   onToggleCandidateSelection,
   onSelectCandidate,
   onSelectIgnoreRegion,
+  onSelectEditorPolygon,
   proposalSlot,
 }: {
   frame: EditableFrame;
@@ -1994,10 +1945,12 @@ function WorkbenchProposalColumn({
   readOnly: boolean;
   selection: WorkbenchSelection | null;
   editor: EditorState | null;
+  editorError: string | null;
   selectedCandidateIds: string[];
   onToggleCandidateSelection?: (cardId: string) => void;
-  onSelectCandidate: (candidate: Candidate) => void;
+  onSelectCandidate: (candidate: Candidate, polygonIndex?: number) => void;
   onSelectIgnoreRegion?: (region: IgnoreRegion) => void;
+  onSelectEditorPolygon?: (polygonIndex: number) => void;
   proposalSlot: HTMLElement | null;
 }) {
   const content = (
@@ -2005,59 +1958,108 @@ function WorkbenchProposalColumn({
       className={styles.proposalColumn}
       aria-label="Visible-card proposals"
     >
+      {editorError !== null ? (
+        <p className={styles.inlineFormError} role="alert">
+          {editorError}
+        </p>
+      ) : null}
       {candidates.length === 0 ? (
         <p className={styles.detailEmptyState}>
           No proposals. Add a visible card or review this frame as empty.
         </p>
       ) : (
         <ol className={styles.proposalItems}>
-          {candidates.map((candidate, index) => (
-            <li key={candidate.card_id}>
-              <div className={styles.proposalRow}>
-                {!readOnly ? (
-                  <label className={styles.proposalCheckbox}>
-                    <input
-                      type="checkbox"
-                      aria-label={`Select proposal ${index + 1} for ignore region`}
-                      checked={selectedCandidateIds.includes(candidate.card_id)}
-                      onChange={() =>
-                        onToggleCandidateSelection?.(candidate.card_id)
-                      }
+          {candidates.map((candidate, index) => {
+            const polygonCount =
+              editor?.cardId === candidate.card_id
+                ? editor.polygons.length
+                : (candidate.geometry.visible_region?.polygons.length ?? 1);
+            const hasMultiplePolygons = polygonCount > 1;
+            return (
+              <li key={candidate.card_id}>
+                <div className={styles.proposalRow}>
+                  {!readOnly ? (
+                    <label className={styles.proposalCheckbox}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select proposal ${index + 1} for ignore region`}
+                        checked={selectedCandidateIds.includes(
+                          candidate.card_id,
+                        )}
+                        onChange={() =>
+                          onToggleCandidateSelection?.(candidate.card_id)
+                        }
+                      />
+                      <span className={styles.visuallyHidden}>
+                        Select for ignore region
+                      </span>
+                    </label>
+                  ) : null}
+                  <button
+                    className={styles.proposalSelect}
+                    type="button"
+                    aria-label={`Select proposal ${index + 1}`}
+                    aria-pressed={
+                      (selection?.id === candidate.card_id &&
+                        (selection.type === "visible_card" ||
+                          selection.type === "polygon")) ||
+                      editor?.cardId === candidate.card_id
+                    }
+                    onClick={() => onSelectCandidate(candidate)}
+                  >
+                    <CandidatePreview
+                      candidate={candidate}
+                      sourceUrl={sourceUrl}
+                      frameWidth={frameWidth}
+                      frameHeight={frameHeight}
+                      label={`Proposal ${index + 1} crop preview`}
                     />
-                    <span className={styles.visuallyHidden}>
-                      Select for ignore region
+                    <span className={styles.proposalDetails}>
+                      <strong>Proposal {index + 1}</strong>
+                      <span>Detector suggestion</span>
+                      <small>{formatIdentifier(candidate.side)}</small>
+                      <small>{formatGeometryKind(candidate.geometry)}</small>
                     </span>
-                  </label>
-                ) : null}
-                <button
-                  className={styles.proposalSelect}
-                  type="button"
-                  aria-label={`Select proposal ${index + 1}`}
-                  aria-pressed={
-                    (selection?.id === candidate.card_id &&
-                      (selection.type === "visible_card" ||
-                        selection.type === "polygon")) ||
-                    editor?.cardId === candidate.card_id
-                  }
-                  onClick={() => onSelectCandidate(candidate)}
-                >
-                  <CandidatePreview
-                    candidate={candidate}
-                    sourceUrl={sourceUrl}
-                    frameWidth={frameWidth}
-                    frameHeight={frameHeight}
-                    label={`Proposal ${index + 1} crop preview`}
-                  />
-                  <span className={styles.proposalDetails}>
-                    <strong>Proposal {index + 1}</strong>
-                    <span>Detector suggestion</span>
-                    <small>{formatIdentifier(candidate.side)}</small>
-                    <small>{formatGeometryKind(candidate.geometry)}</small>
-                  </span>
-                </button>
-              </div>
-            </li>
-          ))}
+                  </button>
+                  {hasMultiplePolygons ? (
+                    <div
+                      className={styles.proposalPolygonSelectors}
+                      aria-label={`Polygons for proposal ${index + 1}`}
+                    >
+                      {Array.from(
+                        { length: polygonCount },
+                        (_, polygonIndex) => (
+                          <button
+                            className={styles.proposalPolygonSelector}
+                            type="button"
+                            key={`polygon-${polygonIndex}`}
+                            aria-label={`Select polygon ${polygonIndex + 1} for proposal ${index + 1}`}
+                            aria-pressed={
+                              editor?.cardId === candidate.card_id
+                                ? editor.polygonIndex === polygonIndex
+                                : selection?.type === "polygon" &&
+                                  selection.id === candidate.card_id &&
+                                  selection.polygonIndex === polygonIndex
+                            }
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (editor?.cardId === candidate.card_id) {
+                                onSelectEditorPolygon?.(polygonIndex);
+                              } else {
+                                onSelectCandidate(candidate, polygonIndex);
+                              }
+                            }}
+                          >
+                            {polygonIndex + 1}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
         </ol>
       )}
       {frame.outcome.ignored_regions.length > 0 ? (

@@ -26,30 +26,10 @@
   min-width: 0;
 }
 
-.workbenchEditor {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.45rem;
-  border: 1px solid var(--line);
-  border-radius: 0.45rem;
-  background: color-mix(in srgb, var(--surface) 50%, var(--panel));
-}
-
-.workbenchEditorHelp,
-.workbenchEditorError {
+.workbenchEditorHelp {
   margin: 0;
   color: var(--muted-ink);
   font-size: 0.75rem;
-}
-
-.workbenchEditorError {
-  color: var(--danger, #ff7d72);
-}
-
-.workbenchPolygonActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
 }
 
 .workbenchCommandBar {
@@ -485,6 +465,39 @@
 
 .proposalDetails small {
   color: var(--accent-bright);
+}
+
+.proposalPolygonSelectors {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.proposalPolygonSelector {
+  display: inline-grid;
+  width: 1.45rem;
+  height: 1.45rem;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  background: var(--panel);
+  color: var(--muted-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.proposalPolygonSelector:hover,
+.proposalPolygonSelector:focus-visible,
+.proposalPolygonSelector[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--ink);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 1px;
 }
 
 .actionButtons,

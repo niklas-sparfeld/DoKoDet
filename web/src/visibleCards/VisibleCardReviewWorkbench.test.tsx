@@ -232,6 +232,9 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(
       screen.getByRole("button", { name: "Select ignore region 1" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Select polygon/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("switches to Camera with one viewpoint button and preserves selection", async () => {
@@ -883,7 +886,11 @@ describe("VisibleCardReviewWorkbench", () => {
       [0, 1, 5],
       [0, 0, 1],
     ];
-    const rectifiedCalibration = structuredClone(calibrationRefinement);
+    const rectifiedCalibration = structuredClone(
+      calibrationRefinement,
+    ) as CalibrationRefinementResponse & {
+      draft: { anchors: Array<{ quadrilateral: number[][] }> };
+    };
     rectifiedCalibration.draft.anchors[0].quadrilateral = [
       [50, 45],
       [70, 45],
