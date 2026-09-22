@@ -126,6 +126,9 @@ export function PipelineVisibleCardEditor({
   const [frames, setFrames] = useState<EditableFrame[]>([]);
   const [generatedFrames, setGeneratedFrames] = useState<EditableFrame[]>([]);
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
+  const [poseEditorView, setPoseEditorView] = useState<"source" | "rectified">(
+    "rectified",
+  );
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
     null,
   );
@@ -2225,6 +2228,8 @@ export function PipelineVisibleCardEditor({
                   frame={activeFrame}
                   scene={activeFrame.outcome.card_scene}
                   readOnly={!editable}
+                  activeView={poseEditorView}
+                  onActiveViewChange={setPoseEditorView}
                   onChange={(nextScene, noticeText) =>
                     updatePoseScene(activeFrame, nextScene, noticeText)
                   }

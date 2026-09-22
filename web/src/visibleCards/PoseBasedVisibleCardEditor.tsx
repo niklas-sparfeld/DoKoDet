@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useReducer,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -35,6 +34,8 @@ type PoseBasedVisibleCardEditorProps = {
   frame: EditableFrame;
   scene: PoseSceneEnvelope;
   readOnly: boolean;
+  activeView?: GestureView;
+  onActiveViewChange?: (view: GestureView) => void;
   onChange: (scene: PoseSceneEnvelope, notice: string) => void;
   onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
   onResolveRemaining?: () => void;
@@ -77,6 +78,8 @@ export function PoseBasedVisibleCardEditor({
   frame,
   scene,
   readOnly,
+  activeView: activeViewProp,
+  onActiveViewChange,
   onChange,
   onCardDecision,
   onResolveRemaining,
@@ -97,10 +100,9 @@ export function PoseBasedVisibleCardEditor({
   );
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<TablePoint>([0, 0]);
-  const [activeView, setActiveView] = useReducer(
-    (_current: "source" | "rectified", next: "source" | "rectified") => next,
-    "rectified" as const,
-  );
+  const [internalActiveView, setInternalActiveView] =
+    useState<GestureView>("rectified");
+  const activeView = activeViewProp ?? internalActiveView;
   const [editorMode, setEditorMode] = useState<EditorMode>("review");
   const [anchorConstraint, setAnchorConstraint] =
     useState<AnchorConstraint>("diagonal");
@@ -132,9 +134,13 @@ export function PoseBasedVisibleCardEditor({
     draftRef.current = scene;
   }, [scene]);
 
-  useEffect(() => {
-    setActiveView("rectified");
-  }, [frame.itemId]);
+  const changeActiveView = useCallback(
+    (next: GestureView) => {
+      setInternalActiveView(next);
+      onActiveViewChange?.(next);
+    },
+    [onActiveViewChange],
+  );
 
   const commit = useCallback(
     (next: PoseSceneEnvelope, notice: string) => {
@@ -197,9 +203,27 @@ export function PoseBasedVisibleCardEditor({
     draftRef.current = next;
     setDraft(next);
   }, []);
+  const projectedFrameBounds = useMemo(
+    () =>
+      sourceUrl === null
+        ? null
+        : projectImageBounds(
+            width,
+            height,
+            draft.projection.table_to_image_homography,
+          ),
+    [draft.projection.table_to_image_homography, height, sourceUrl, width],
+  );
   const tableViewBox = useMemo(
-    () => getTableViewBox(draft.scene, draft.projection, zoom, pan),
-    [draft.projection, draft.scene, pan, zoom],
+    () =>
+      getTableViewBox(
+        draft.scene,
+        draft.projection,
+        zoom,
+        pan,
+        projectedFrameBounds,
+      ),
+    [draft.projection, draft.scene, pan, projectedFrameBounds, zoom],
   );
   const projectedPolygons = useMemo(
     () =>
@@ -248,16 +272,6 @@ export function PoseBasedVisibleCardEditor({
           ),
     [candidateProjection, draft.scene.poses],
   );
-  const projectedFrameBounds = useMemo(
-    () =>
-      projectImageBounds(
-        width,
-        height,
-        draft.projection.table_to_image_homography,
-      ) ?? tableViewBox,
-    [draft.projection.table_to_image_homography, height, tableViewBox, width],
-  );
-
   const getTablePoint = useCallback(
     (
       event: ReactPointerEvent<SVGSVGElement>,
@@ -750,7 +764,7 @@ export function PoseBasedVisibleCardEditor({
             }
             type="button"
             aria-pressed={activeView === "source"}
-            onClick={() => setActiveView("source")}
+            onClick={() => changeActiveView("source")}
           >
             Source
           </button>
@@ -762,7 +776,7 @@ export function PoseBasedVisibleCardEditor({
             }
             type="button"
             aria-pressed={activeView === "rectified"}
-            onClick={() => setActiveView("rectified")}
+            onClick={() => changeActiveView("rectified")}
           >
             Rectified table
           </button>
@@ -1028,7 +1042,7 @@ export function PoseBasedVisibleCardEditor({
               onLostPointerCapture={cancelGesture}
               onKeyDown={handleSurfaceKeyDown}
             >
-              {sourceUrl !== null ? (
+              {sourceUrl !== null && projectedFrameBounds !== null ? (
                 <image
                   href={sourceUrl}
                   x={projectedFrameBounds.x}
@@ -1402,6 +1416,7 @@ function getTableViewBox(
   projection: PoseSceneEnvelope["projection"],
   zoom: number,
   pan: TablePoint,
+  backgroundBounds: TableViewBox | null,
 ): TableViewBox {
   const halfShort = projection.card_short_size / 2;
   const halfLong = projection.card_long_size / 2;
@@ -1413,10 +1428,24 @@ function getTableViewBox(
     pose.center[1] - halfShort - halfLong,
     pose.center[1] + halfShort + halfLong,
   ]);
-  const minX = Math.min(...xs, -1) - 0.5;
-  const maxX = Math.max(...xs, 1) + 0.5;
-  const minY = Math.min(...ys, -1) - 0.5;
-  const maxY = Math.max(...ys, 1) + 0.5;
+  const minX = Math.min(...xs, backgroundBounds?.x ?? Infinity, -1) - 0.5;
+  const maxX =
+    Math.max(
+      ...xs,
+      backgroundBounds === null
+        ? -Infinity
+        : backgroundBounds.x + backgroundBounds.width,
+      1,
+    ) + 0.5;
+  const minY = Math.min(...ys, backgroundBounds?.y ?? Infinity, -1) - 0.5;
+  const maxY =
+    Math.max(
+      ...ys,
+      backgroundBounds === null
+        ? -Infinity
+        : backgroundBounds.y + backgroundBounds.height,
+      1,
+    ) + 0.5;
   const width = (maxX - minX) / zoom;
   const height = (maxY - minY) / zoom;
   const centerX = (minX + maxX) / 2 + pan[0];

@@ -114,6 +114,9 @@ describe("PoseBasedVisibleCardEditor", () => {
     expect(
       screen.getByRole("img", { name: "Source frame background" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("application", { name: "Rectified virtual table" }),
+    ).toHaveAttribute("viewBox", "-3 -2.5 6.75 5");
     fireEvent.click(
       screen.getByRole("button", { name: "Add standard-size card" }),
     );
@@ -175,7 +178,7 @@ describe("PoseBasedVisibleCardEditor", () => {
     expect(onCardDecision).toHaveBeenCalledWith("card-a", "accept");
   });
 
-  it("returns to the rectified view when the selected frame changes", async () => {
+  it("keeps the selected view when the selected frame changes", async () => {
     const rendered = render(
       <PoseBasedVisibleCardEditor
         recordingId="recording-1"
@@ -202,7 +205,7 @@ describe("PoseBasedVisibleCardEditor", () => {
     );
 
     expect(
-      screen.getByRole("application", { name: "Rectified virtual table" }),
+      screen.getByRole("img", { name: "Projected card scene" }),
     ).toBeInTheDocument();
   });
 
