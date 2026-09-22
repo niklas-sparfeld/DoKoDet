@@ -34,6 +34,11 @@
 !/data/operations/cardeventnet-imports/**
 /data/intake/recordings/**/.DS_Store
 /data/operations/cardeventnet-imports/**/.DS_Store
+# Share durable processor runs, pipeline revisions, selections, and maintained references.
+!/data/operations/pipeline/
+!/data/operations/pipeline-references/
+/data/operations/pipeline/**/*.lock
+/data/operations/pipeline-references/**/*.lock
 !/data/model-campaigns/
 /data/model-campaigns/*
 !/data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/

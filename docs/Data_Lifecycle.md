@@ -19,6 +19,10 @@ data/operations/                              durable review, pipeline, and anal
 .runtime/                                     disposable backend cache and local process state
 ```
 
+Commit source recording bundles and durable pipeline files to Git. This includes processor runs,
+pipeline data revisions, selections, and maintained references. A clean checkout then sees the
+same generated and reviewed data. The repository ignores process lock files and `.runtime/`.
+
 A pending upload is not a recording and is not an evidence package. It is not visible to a data
 task. The backend and operations tools resolve these paths from the repository root.
 
