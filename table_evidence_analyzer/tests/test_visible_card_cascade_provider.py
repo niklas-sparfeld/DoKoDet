@@ -243,37 +243,3 @@ def test_local_rfdetr_loader_optimizes_models_for_inference(
     assert calls == [
         {"compile": False, "dtype": expected_dtype, "inplace": True}
     ]
-
-
-def test_rfdetr_segmentation_postprocess_moves_mask_outputs_to_cpu() -> None:
-    calls: list[tuple[str, str]] = []
-
-    class Tensor:
-        def __init__(self, device: str) -> None:
-            self.device = device
-
-        def cpu(self) -> "Tensor":
-            return Tensor("cpu")
-
-    def delegate(
-        outputs: dict[str, Tensor],
-        *,
-        target_sizes: Tensor,
-        score_threshold: float | None,
-    ) -> object:
-        calls.append((outputs["pred_masks"].device, target_sizes.device))
-        return object()
-
-    postprocess = cascade_provider.visible_cards._CpuMaskPostprocess(delegate)
-    result = postprocess(
-        {
-            "pred_logits": Tensor("mps"),
-            "pred_boxes": Tensor("mps"),
-            "pred_masks": Tensor("mps"),
-        },
-        target_sizes=Tensor("mps"),
-        score_threshold=0.5,
-    )
-
-    assert result is not None
-    assert calls == [("cpu", "cpu")]

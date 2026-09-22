@@ -203,6 +203,47 @@ def test_m6_bundle_verifies_children_and_provider_loads_each_once(
     )
 
 
+def test_mps_cascade_uses_cpu_for_the_fine_segmentation_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    coarse, fine = _child_bundles(tmp_path / "children")
+    bundle_dir = tmp_path / "cascade"
+    assemble_rfdetr_cascade_bundle(
+        coarse_bundle=coarse, fine_bundle=fine, output_dir=bundle_dir
+    )
+    monkeypatch.setattr(
+        cascade_provider.visible_cards,
+        "_mask_to_polygons",
+        lambda _mask: [[[5, 5], [25, 5], [25, 25], [5, 25]]],
+    )
+    load_calls: list[tuple[str, str]] = []
+
+    def loader(child: object, device: str) -> object:
+        model_class = child.manifest["model"]["class"]
+        load_calls.append((model_class, device))
+        return _CoarseDetector() if model_class == "RFDETRSmall" else _FineDetector()
+
+    torch_module = SimpleNamespace(
+        backends=SimpleNamespace(
+            mps=SimpleNamespace(is_available=lambda: True),
+        )
+    )
+    provider = LocalVisibleCardCascadeProvider(
+        bundle_dir,
+        device="mps",
+        coarse_model_loader=loader,
+        fine_model_loader=loader,
+        torch_module=torch_module,
+    )
+
+    result = provider.propose(_request())
+
+    assert result.status == "ok"
+    assert load_calls == [("RFDETRSmall", "mps"), ("RFDETRSegMedium", "cpu")]
+    assert result.raw_response["device"] == "mps"
+    assert result.raw_response["fine_device"] == "cpu"
+
+
 def test_m6_rejects_recipe_or_child_digest_drift(tmp_path: Path) -> None:
     coarse, fine = _child_bundles(tmp_path / "children")
     bundle_dir = tmp_path / "cascade"

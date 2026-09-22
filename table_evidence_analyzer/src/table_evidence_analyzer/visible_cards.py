@@ -898,58 +898,6 @@ def _local_device_available(device: str, torch_module: Any) -> bool:
     return bool(callable(is_available) and is_available())
 
 
-class _CpuMaskPostprocess:
-    """Run RF-DETR segmentation postprocessing on the CPU.
-
-    MPS handles the model forward pass well, but its mask interpolation path can
-    become very slow and retain large temporary buffers. Moving the small model
-    outputs to the CPU before postprocessing keeps the expensive segmentation
-    inference on the accelerator and avoids that MPS path.
-    """
-
-    def __init__(self, delegate: Any) -> None:
-        self._delegate = delegate
-
-    def __call__(
-        self,
-        outputs: Mapping[str, Any],
-        *,
-        target_sizes: Any,
-        score_threshold: float | None = None,
-    ) -> Any:
-        if "pred_masks" not in outputs:
-            return self._delegate(
-                outputs,
-                target_sizes=target_sizes,
-                score_threshold=score_threshold,
-            )
-        cpu_outputs = {
-            key: value.cpu() if callable(getattr(value, "cpu", None)) else value
-            for key, value in outputs.items()
-        }
-        cpu_target_sizes = (
-            target_sizes.cpu()
-            if callable(getattr(target_sizes, "cpu", None))
-            else target_sizes
-        )
-        return self._delegate(
-            cpu_outputs,
-            target_sizes=cpu_target_sizes,
-            score_threshold=score_threshold,
-        )
-
-
-def _configure_local_rfdetr_segmentation_postprocess(model: Any, *, device: str) -> None:
-    """Keep RF-DETR mask resizing off the MPS device."""
-
-    if device != "mps":
-        return
-    model_context = getattr(model, "model", None)
-    postprocess = getattr(model_context, "postprocess", None)
-    if postprocess is not None:
-        model_context.postprocess = _CpuMaskPostprocess(postprocess)
-
-
 def _optimize_local_rfdetr_for_inference(model: Any, *, device: str) -> Any:
     """Prepare a loaded RF-DETR model for repeated inference-only calls."""
 
@@ -1042,7 +990,6 @@ def _load_local_rfdetr_segmentation(bundle: Any, device: str) -> Any:
                 f"RF-DETR segmentation loaded on {actual_device!s}, but the requested "
                 f"device is {device}"
             )
-    _configure_local_rfdetr_segmentation_postprocess(model, device=device)
     return _optimize_local_rfdetr_for_inference(model, device=device)
 
 

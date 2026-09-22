@@ -52,6 +52,12 @@ CASCADE_PROVIDER_NAME = "local-rfdetr-cascade"
 CASCADE_PROVIDER_VERSION = "local-rfdetr-cascade-v2"
 
 
+def _fine_inference_device(device: str) -> str:
+    """Use the faster CPU path for RF-DETR segmentation on Apple MPS."""
+
+    return "cpu" if device == "mps" else device
+
+
 def _load_local_rfdetr_small(bundle: Any, device: str) -> Any:
     """Load the native M3 RF-DETR Small checkpoint on the requested device."""
 
@@ -272,9 +278,11 @@ class LocalVisibleCardCascadeProvider:
             self._coarse_detector = coarse_detector or (
                 coarse_model_loader or _load_local_rfdetr_small
             )(self._coarse_bundle, device)
+            fine_device = _fine_inference_device(device)
             self._fine_detector = fine_detector or (
                 fine_model_loader or visible_cards._load_local_rfdetr_segmentation
-            )(self._fine_bundle, device)
+            )(self._fine_bundle, fine_device)
+            self._fine_device = fine_device
             self.bundle = cascade_bundle
             self._coarse_input_size = CASCADE_COARSE_INPUT_SIZE
             self._coarse_confidence_threshold = float(
@@ -292,6 +300,7 @@ class LocalVisibleCardCascadeProvider:
             self.bundle = self._segmentation_provider.bundle
             self._coarse_detector = self._segmentation_provider._detector
             self._fine_detector = self._segmentation_provider._detector
+            self._fine_device = device
             self._coarse_input_size = CASCADE_FINE_INPUT_SIZE
             self._coarse_confidence_threshold = self._segmentation_provider.confidence_threshold
             self._coarse_accepted_class_ids = self._segmentation_provider.accepted_class_ids
@@ -343,6 +352,7 @@ class LocalVisibleCardCascadeProvider:
             "provider": self.name,
             "version": self.version,
             "device": self.device,
+            "fine_device": self._fine_device,
             "source_frame": _source_frame_mapping(request),
             "bundle_identity": self.bundle_identity,
             "cascade_recipe": frozen_cascade_recipe(),
