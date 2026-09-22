@@ -269,7 +269,7 @@ export function CardEventReviewControls({
         {
           label: "Previous event",
           symbol: "⏮",
-          shortcut: "ArrowLeft",
+          shortcut: "←",
           ariaShortcut: "ArrowLeft",
           disabled: !hasPrevious,
           disabledReason: "There is no previous event.",
@@ -278,7 +278,7 @@ export function CardEventReviewControls({
         {
           label: "Next event",
           symbol: "⏭",
-          shortcut: "ArrowRight",
+          shortcut: "→",
           ariaShortcut: "ArrowRight",
           disabled: !hasNext,
           disabledReason: "There is no next event.",
@@ -292,14 +292,14 @@ export function CardEventReviewControls({
         {
           label: "Seek left",
           symbol: "←",
-          shortcut: "Alt+ArrowLeft",
+          shortcut: "⌥←",
           ariaShortcut: "Alt+ArrowLeft",
           onClick: () => onSeek(-250_000),
         },
         {
           label: "Seek right",
           symbol: "→",
-          shortcut: "Alt+ArrowRight",
+          shortcut: "⌥→",
           ariaShortcut: "Alt+ArrowRight",
           onClick: () => onSeek(250_000),
         },

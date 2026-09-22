@@ -81,27 +81,39 @@ export function TimelineRailSeekingControls({
           role="group"
           aria-label={group.label}
         >
-          {group.controls.map((control) => (
-            <button
-              key={control.label}
-              className={styles.recordingTimelineSeekingButton}
-              type="button"
-              aria-label={control.ariaLabel ?? control.label}
-              aria-keyshortcuts={control.ariaShortcut}
-              aria-pressed={control.ariaPressed}
-              disabled={control.disabled}
-              title={
-                control.disabled && control.disabledReason !== undefined
-                  ? `${control.disabledReason} · ${control.shortcut}`
-                  : `${control.label} · ${control.shortcut}`
-              }
-              onClick={control.onClick}
-            >
-              <span aria-hidden="true">{control.symbol}</span>
-            </button>
-          ))}
+          {group.controls.map((control) => {
+            const shortcutLabel = formatSeekingShortcut(control.shortcut);
+            const tooltip =
+              control.disabled && control.disabledReason !== undefined
+                ? `${control.disabledReason} (${shortcutLabel})`
+                : `${control.label} (${shortcutLabel})`;
+            return (
+              <button
+                key={control.label}
+                className={styles.recordingTimelineSeekingButton}
+                type="button"
+                aria-label={`${control.ariaLabel ?? control.label} ${shortcutLabel}`}
+                aria-keyshortcuts={control.ariaShortcut ?? control.shortcut}
+                aria-pressed={control.ariaPressed}
+                disabled={control.disabled}
+                title={tooltip}
+                onClick={control.onClick}
+              >
+                <span aria-hidden="true">{control.symbol}</span>
+              </button>
+            );
+          })}
         </div>
       ))}
     </div>
   );
+}
+
+function formatSeekingShortcut(shortcut: string): string {
+  return shortcut
+    .replaceAll("ArrowLeft", "←")
+    .replaceAll("ArrowRight", "→")
+    .replaceAll("Alt+", "⌥")
+    .replaceAll("Meta+", "⌘")
+    .replaceAll("Shift+", "⇧");
 }
