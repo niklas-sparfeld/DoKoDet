@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 from app_factory import create_test_app
-from doko_operations.card_plane_geometry import CardPose, CardStackingOrder, ReviewedCardScene
+from doko_operations.card_plane_geometry import (
+    CardPose,
+    CardStackingOrder,
+    ReviewedCardScene,
+    derive_pose_scene_visible_regions,
+)
 from doko_operations.pipeline_data import (
     DataRevision,
     EventData,
@@ -1131,6 +1136,81 @@ def test_proposal_seed_keeps_immutable_scene_and_supports_card_decisions(
     stored_item = completed_revision.content.to_mapping()["outcomes"][0]
     assert stored_item["card_scene"]["proposal_revision_id"] == proposal_revision_id
     assert stored_item["card_scene"]["projection"]["table_to_image_homography"]
+
+
+def test_proposal_scene_angle_correction_updates_reviewed_scene(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    proposal_revision_id = _proposal_revision(revision_store, source_revision_id)
+    seeded = service.create_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {"operator_id": "operator-01", "proposal_revision_id": proposal_revision_id},
+    )
+
+    accepted = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": seeded.draft.revision,
+            "operations": [
+                {"operation": "accept_card", "item_id": "event-01", "card_id": "card-01"}
+            ],
+        },
+    )
+    accepted_item = accepted.draft.items[0].item
+    selected_scene = ReviewedCardScene.from_mapping(
+        accepted_item["card_scene"]["reviewed"]["scene"]
+    )
+    adjusted_scene = ReviewedCardScene.create(
+        source_frame_id=selected_scene.source_frame_id,
+        source_frame_width=selected_scene.source_frame_width,
+        source_frame_height=selected_scene.source_frame_height,
+        calibration_revision_id=selected_scene.calibration_revision_id,
+        calibration_digest=selected_scene.calibration_digest,
+        poses=tuple(replace(pose, rotation_degrees=17.0) for pose in selected_scene.poses),
+        stacking_order=selected_scene.stacking_order,
+    )
+    projection = accepted_item["card_scene"]["projection"]
+    derivation = derive_pose_scene_visible_regions(adjusted_scene, projection)
+    corrected = dict(accepted_item)
+    corrected["card_scene"] = {
+        "schema_version": "reviewed-card-scene-editor/v1",
+        "scene": adjusted_scene.to_mapping(),
+        "initialized_scene": accepted_item["card_scene"]["proposal"]["initialized_scene"],
+        "projection": projection,
+        "derived_region_receipt": derivation.receipt.to_mapping(),
+    }
+    corrected["candidates"] = [
+        {
+            "card_id": region["card_id"],
+            "geometry": region["geometry"],
+            "normalization": region["normalization"],
+            "side": "unknown",
+        }
+        for region in derivation.regions
+    ]
+
+    updated = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": accepted.draft.revision,
+            "operations": [
+                {"operation": "set_frame_review", "item_id": "event-01", "item": corrected}
+            ],
+        },
+    )
+
+    assert updated.draft.items[0].review_state == "corrected"
+    assert (
+        updated.draft.items[0].item["card_scene"]["reviewed"]["scene"]["poses"][0][
+            "rotation_degrees"
+        ]
+        == 17.0
+    )
 
 
 def test_empty_visible_card_reference_can_rebase_from_proposal_revision(tmp_path: Path) -> None:

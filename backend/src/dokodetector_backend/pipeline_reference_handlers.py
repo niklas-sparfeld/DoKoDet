@@ -760,7 +760,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 raise PipelineReferenceInputError(
                     "corrected proposal scene changes immutable frame or calibration lineage"
                 )
-            reviewed_ids = set(reviewed_scene.card_ids)
+            reviewed_ids = set(reviewed_scene.stacking_order.card_ids)
             if not reviewed_ids.issubset(existing_draft.proposal.card_ids):
                 raise PipelineReferenceInputError(
                     "corrected proposal scene contains an unknown card"
@@ -796,7 +796,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             )
         reviewed_item = cls._derive_typed_pose_scene_item(item, draft)
         return ReferenceDraftItem(
-            item_id=cls.item_id(reviewed_item),
+            item_id=existing.item_id,
             base_item_id=existing.item_id,
             review_state="corrected",
             item=reviewed_item,
