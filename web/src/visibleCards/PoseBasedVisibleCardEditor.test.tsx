@@ -109,14 +109,10 @@ describe("PoseBasedVisibleCardEditor", () => {
       screen.getByRole("application", { name: "Rectified virtual table" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("list", { name: "Pose review checklist" }),
-    ).toHaveTextContent("Check calibration coverage and rejected candidates");
-    expect(screen.getByText("How to review and refine")).toBeInTheDocument();
+      screen.queryByText("How to review and refine"),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/complete, visible, non-occluded cards/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Apply creates a new immutable revision/),
+      screen.getByRole("img", { name: "Source frame background" }),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Add standard-size card" }),
@@ -177,6 +173,73 @@ describe("PoseBasedVisibleCardEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Rectified table" }));
     fireEvent.click(screen.getByRole("button", { name: "Accept card" }));
     expect(onCardDecision).toHaveBeenCalledWith("card-a", "accept");
+  });
+
+  it("returns to the rectified view when the selected frame changes", async () => {
+    const rendered = render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Source" }));
+    expect(
+      screen.getByRole("img", { name: "Projected card scene" }),
+    ).toBeInTheDocument();
+
+    rendered.rerender(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={{ ...frame(), itemId: "event-2" }}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("application", { name: "Rectified virtual table" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not move a card for a click-sized pointer movement", async () => {
+    const onChange = vi.fn();
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={onChange}
+      />,
+    );
+    const table = screen.getByRole("application", {
+      name: "Rectified virtual table",
+    });
+    const card = screen.getByRole("button", {
+      name: "Virtual table card card-a",
+    });
+    Object.defineProperty(table, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100,
+        right: 100,
+        bottom: 100,
+      }),
+    });
+
+    fireEvent.pointerDown(card, { pointerId: 8, clientX: 50, clientY: 50 });
+    fireEvent.pointerMove(table, { pointerId: 8, clientX: 52, clientY: 52 });
+    fireEvent.pointerUp(table, { pointerId: 8, clientX: 52, clientY: 52 });
+
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("creates one numeric anchor command without changing card pose geometry", () => {

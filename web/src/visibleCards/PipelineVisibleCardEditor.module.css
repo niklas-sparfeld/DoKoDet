@@ -1,14 +1,14 @@
 .reviewPage {
   display: grid;
   min-width: 0;
-  gap: 0.6rem;
+  gap: 0;
 }
 
 .reviewWorkbench {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 1rem;
+  gap: 0;
   min-width: 0;
 }
 
@@ -123,65 +123,53 @@
 
 .poseEditor {
   display: grid;
-  gap: 0.75rem;
+  align-content: center;
+  gap: 0.65rem;
   min-width: 0;
+  min-height: calc(100dvh - 10rem);
+  width: 100%;
 }
 
-.poseEditorHeader,
-.poseViewHeading {
+.poseToolbar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
 }
 
-.poseEditorHeader h2,
-.poseViewPanel h3 {
-  margin: 0;
-  color: var(--ink);
-  font-size: 0.95rem;
-}
-
-.poseEditorStatus,
-.poseEditorHelp,
-.poseLegend {
-  color: var(--muted-ink);
-  font-size: 0.72rem;
-}
-
-.poseEditorGuidance {
-  display: grid;
+.poseToolbar fieldset {
+  display: flex;
   gap: 0.2rem;
   margin: 0;
-  padding: 0.55rem 0.75rem 0.55rem 1.9rem;
-  border-left: 2px solid var(--accent);
-  color: var(--muted-ink);
-  font-size: 0.74rem;
-  line-height: 1.45;
+  padding: 0;
+  border: 0;
+}
+
+.poseToolbar .poseViewActions {
+  margin-left: 0.35rem;
 }
 
 .poseEditorViews {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 1fr);
-  gap: 0.75rem;
+  display: block;
   min-width: 0;
+  width: 100%;
 }
 
 .poseViewPanel {
   display: grid;
-  gap: 0.45rem;
   min-width: 0;
-  padding: 0.65rem;
-  border: 1px solid var(--line);
-  border-radius: 0.55rem;
-  background: color-mix(in srgb, var(--surface) 55%, var(--panel));
+  width: 100%;
 }
 
 .poseSourceViewport {
   position: relative;
   width: 100%;
+  max-height: calc(100dvh - 12rem);
+  margin: 0 auto;
   overflow: hidden;
-  background: #18242f;
+  background: transparent;
 }
 
 .poseSourceViewport img,
@@ -200,14 +188,18 @@
   inset: 0;
 }
 
+.emptyView {
+  min-height: clamp(24rem, calc(100dvh - 12rem), 64rem);
+}
+
 .poseTableSvg {
   width: 100%;
-  min-height: 18rem;
-  aspect-ratio: 1.35;
+  height: clamp(24rem, calc(100dvh - 12rem), 64rem);
+  min-height: 24rem;
   overflow: hidden;
-  border: 1px solid #34515e;
-  border-radius: 0.35rem;
-  background: #18242f;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   touch-action: none;
 }
 
@@ -225,57 +217,10 @@
   align-items: center;
   gap: 0.35rem;
   width: 100%;
-  padding-bottom: 0.35rem;
-  border-bottom: 1px solid var(--line);
+  padding: 0;
+  border: 0;
   color: var(--muted-ink);
   font-size: 0.72rem;
-}
-
-.poseEditorWarning {
-  margin: 0;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid color-mix(in srgb, #ff8a65 55%, var(--line));
-  border-radius: 0.4rem;
-  background: color-mix(in srgb, #ff8a65 12%, var(--panel));
-  color: var(--ink);
-  font-size: 0.78rem;
-}
-
-.anchorGesturePreview,
-.anchorControls {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.6rem;
-  border: 1px solid color-mix(in srgb, #ff8a65 55%, var(--line));
-  border-radius: 0.45rem;
-  background: color-mix(in srgb, #ff8a65 8%, var(--panel));
-}
-
-.anchorGesturePreview > span,
-.anchorControls > span {
-  color: var(--muted-ink);
-  font-size: 0.75rem;
-}
-
-.anchorGesturePreviewGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
-}
-
-.anchorGesturePreviewGrid h4 {
-  margin: 0 0 0.25rem;
-  font-size: 0.75rem;
-}
-
-.anchorPreviewSvg {
-  display: block;
-  width: 100%;
-  min-height: 5rem;
-  aspect-ratio: 1.35;
-  border: 1px solid #34515e;
-  border-radius: 0.35rem;
-  background: #18242f;
 }
 
 .anchorControls {
@@ -283,13 +228,9 @@
   flex-wrap: wrap;
   align-items: end;
   width: 100%;
-}
-
-.anchorControls label {
-  display: grid;
-  gap: 0.15rem;
-  color: var(--muted-ink);
-  font-size: 0.72rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .poseViewActions button,
@@ -326,34 +267,6 @@
 .poseEditorControls button:focus-visible,
 .poseViewActions button:focus-visible {
   border-color: var(--accent);
-}
-
-.poseLegend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.8rem;
-  margin: 0;
-}
-
-.poseLegend span::before {
-  display: inline-block;
-  width: 0.55rem;
-  height: 0.55rem;
-  margin-right: 0.3rem;
-  border-radius: 50%;
-  content: "";
-}
-
-.poseLegend span[data-tone="model"]::before {
-  background: #a7aebc;
-}
-
-.poseLegend span[data-tone="proposal"]::before {
-  background: #ffd24f;
-}
-
-.poseLegend span[data-tone="reviewed"]::before {
-  background: #30c9ac;
 }
 
 .canvasViewport {
@@ -612,13 +525,13 @@
     text-align: left;
   }
 
-  .poseEditorViews {
-    grid-template-columns: minmax(0, 1fr);
+  .poseEditor {
+    min-height: calc(100dvh - 8rem);
   }
 
-  .poseEditorHeader,
-  .poseViewHeading {
-    display: grid;
+  .poseTableSvg {
+    height: 62dvh;
+    min-height: 18rem;
   }
 }
 
