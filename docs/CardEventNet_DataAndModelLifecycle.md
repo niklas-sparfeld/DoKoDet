@@ -74,9 +74,10 @@ mise exec -- uv run --project card_event_net cardevent evaluate \
   --partition val
 ```
 
-The model campaign stores durable checkpoints and reports below `data/model-campaigns/`. The
-materialized view and all direct-file caches remain disposable. Do not train from the legacy split,
-annotation, or output paths.
+The model campaign stores durable checkpoints and reports below `data/model-campaigns/`. Git tracks
+PyTorch checkpoint files in candidate run folders with Git LFS. The materialized view and all
+direct-file caches remain disposable. Do not train from the legacy split, annotation, or output
+paths.
 
 ## One-off inference
 
