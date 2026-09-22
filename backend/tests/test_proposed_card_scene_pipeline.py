@@ -158,6 +158,9 @@ def test_service_publishes_a_separate_proposal_revision_without_changing_detecto
     result, output_revisions = service.get_result(source.recording_id, started.run_id)
 
     assert result.state.status == "complete"
+    assert [run.run_id for run in service.list_runs(source.recording_id)] == [
+        started.run_id
+    ]
     assert len(output_revisions) == 1
     assert output_revisions[0].manifest.content_type == "card_scene_proposals"
     assert output_revisions[0].manifest.input_revision_ids == (input_revision.revision_id,)

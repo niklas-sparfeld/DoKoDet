@@ -150,6 +150,7 @@ export function PipelineVisibleCardEditor({
   const [editorError, setEditorError] = useState<string | null>(null);
   const [creatingReference, setCreatingReference] = useState(false);
   const [rebasingReference, setRebasingReference] = useState(false);
+  const [rebasingProposal, setRebasingProposal] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
   const [proposalRun, setProposalRun] =
     useState<PipelineProposalRunResponse | null>(null);
@@ -831,6 +832,69 @@ export function PipelineVisibleCardEditor({
     hydrateReference,
     nextCommandId,
     operatorId,
+    recordingId,
+    saveState,
+  ]);
+
+  const rebaseReferenceToProposal = useCallback(async () => {
+    const current = referenceRef.current;
+    const sourceRevisionId = generatedSourceRevisionId;
+    const targetProposalRevisionId = proposalRevisionId;
+    if (
+      current === null ||
+      sourceRevisionId === null ||
+      targetProposalRevisionId === null ||
+      current.draft.proposal_revision_id === targetProposalRevisionId ||
+      operatorId.trim() === "" ||
+      queueRef.current.length > 0 ||
+      processingRef.current ||
+      saveState !== "saved"
+    ) {
+      return;
+    }
+    setRebasingProposal(true);
+    setSaveState("saving");
+    setError(null);
+    setNotice(null);
+    try {
+      const rebased = await client.updatePipelineReferenceDraft(
+        recordingId,
+        CONTENT_TYPE,
+        {
+          expected_revision: serverRevisionRef.current,
+          operator_id: operatorId.trim(),
+          command_id: nextCommandId(),
+          operations: [
+            {
+              operation: "rebase",
+              source_revision_id: sourceRevisionId,
+              proposal_revision_id: targetProposalRevisionId,
+            },
+          ],
+        },
+      );
+      hydrateReference(rebased, false);
+      setSaveState("saved");
+      setNotice(
+        "Proposed card scenes loaded. Inspect the poses and homography before completing the review.",
+      );
+    } catch (reason: unknown) {
+      setSaveState(
+        reason instanceof ApiError && reason.status === 409
+          ? "conflict"
+          : "error",
+      );
+      setError(describeError(reason));
+    } finally {
+      setRebasingProposal(false);
+    }
+  }, [
+    client,
+    generatedSourceRevisionId,
+    hydrateReference,
+    nextCommandId,
+    operatorId,
+    proposalRevisionId,
     recordingId,
     saveState,
   ]);
@@ -2038,6 +2102,8 @@ export function PipelineVisibleCardEditor({
       selectedGeneratedRevisionId={generatedRevisionId}
       rebasingReference={rebasingReference}
       rebaseReference={rebaseReference}
+      rebasingProposal={rebasingProposal}
+      rebaseReferenceToProposal={rebaseReferenceToProposal}
       referenceNeedsSeed={referenceNeedsSeed}
       startReference={startReference}
       completionBusy={completionBusy}

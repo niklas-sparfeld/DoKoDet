@@ -13,6 +13,7 @@ import type { Candidate } from "./PipelineVisibleCardTypes";
 const RECORDING_ID = "visible-pipeline-recording";
 const RUN_ID = "visible-run-1";
 const REVISION_ID = "visible-revision-1";
+const PROPOSAL_REVISION_ID = "card-scene-proposal-revision-1";
 const ITEM_ID = "event-1";
 const SECOND_ITEM_ID = "event-2";
 const FRAME_IDENTITY = {
@@ -915,6 +916,91 @@ describe("PipelineVisibleCardEditor", () => {
       await screen.findByText(
         /Review switched to the selected generated result/,
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("loads ready proposed scenes into an existing review", async () => {
+    const currentReference = reference();
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      const url = String(input);
+      if (url.includes("/pipeline/proposed-card-scenes")) {
+        return Promise.resolve(
+          jsonResponse({
+            recording_id: RECORDING_ID,
+            runs: [
+              {
+                run_id: "proposal-run-1",
+                recording_id: RECORDING_ID,
+                processor_type: "visible-card-scene-proposal",
+                status: "complete",
+                attempt: 1,
+                request: { input_revision_ids: [REVISION_ID] },
+                state: { output_revision_ids: [PROPOSAL_REVISION_ID] },
+              },
+            ],
+          }),
+        );
+      }
+      if (url.includes("/pipeline/calibration-refinement")) {
+        return Promise.resolve(new Response(null, { status: 404 }));
+      }
+      if (init?.method === "PUT") {
+        return Promise.resolve(
+          jsonResponse({
+            ...currentReference,
+            draft: {
+              ...currentReference.draft,
+              proposal_revision_id: PROPOSAL_REVISION_ID,
+            },
+          }),
+        );
+      }
+      return url.includes("/result")
+        ? Promise.resolve(jsonResponse(generatedResult()))
+        : Promise.resolve(jsonResponse(currentReference));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const inspectButton = await screen.findByRole("button", {
+      name: "Inspect proposed card scenes",
+    });
+    const user = userEvent.setup();
+    await user.type(screen.getByPlaceholderText("operator-01"), "operator-01");
+    await user.click(inspectButton);
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(requestBody.operations).toEqual([
+      {
+        operation: "rebase",
+        source_revision_id: REVISION_ID,
+        proposal_revision_id: PROPOSAL_REVISION_ID,
+      },
+    ]);
+    expect(
+      await screen.findByText(/Proposed card scenes loaded/),
     ).toBeInTheDocument();
   });
 

@@ -106,9 +106,12 @@ class ProposedCardScenePipelineService:
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
         return tuple(
             run
-            for run in self.run_store.list()
-            if run.request.source.recording_id == recording_id
-            and run.request.processor_type == PROPOSED_CARD_SCENE_PROCESSOR_TYPE
+            for run in self.run_store.list_for_recording(
+                recording_id,
+                include_items=False,
+                validate_output_revisions=False,
+            )
+            if run.request.processor_type == PROPOSED_CARD_SCENE_PROCESSOR_TYPE
         )
 
     def get_run(self, recording_id: str, run_id: str) -> StoredProcessorRun:

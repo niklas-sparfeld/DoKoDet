@@ -91,6 +91,8 @@ export type VisibleCardInspectorProps = {
   selectedGeneratedRevisionId: string | null;
   rebasingReference: boolean;
   rebaseReference: () => Promise<void>;
+  rebasingProposal: boolean;
+  rebaseReferenceToProposal: () => Promise<void>;
   referenceNeedsSeed: boolean;
   startReference: () => void;
   completionBusy: boolean;
@@ -161,6 +163,8 @@ function VisibleCardInspectorAction({
   selectedGeneratedRevisionId,
   rebasingReference,
   rebaseReference,
+  rebasingProposal,
+  rebaseReferenceToProposal,
   referenceNeedsSeed,
   startReference,
   saveState,
@@ -363,6 +367,36 @@ function VisibleCardInspectorAction({
             {rebasingReference
               ? "Switching review…"
               : "Switch review to selected result"}
+          </button>
+        </section>
+      ) : null}
+      {proposalRun?.status === "complete" &&
+      proposalRevisionId !== null &&
+      reference.draft.proposal_revision_id !== proposalRevisionId ? (
+        <section
+          className={visibleStyles.proposalControls}
+          aria-label="Proposed card scenes"
+        >
+          <p className={styles.statusLabel}>Proposed card scenes</p>
+          <h3>Proposal ready to inspect</h3>
+          <p className={styles.pipelineInspectorEmpty}>
+            Load the immutable scene proposal into this review to inspect its
+            card poses and homography.
+          </p>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={() => void rebaseReferenceToProposal()}
+            disabled={
+              rebasingProposal ||
+              queueLength > 0 ||
+              saveState !== "saved" ||
+              operatorId.trim() === ""
+            }
+          >
+            {rebasingProposal
+              ? "Loading proposed scenes…"
+              : "Inspect proposed card scenes"}
           </button>
         </section>
       ) : null}
