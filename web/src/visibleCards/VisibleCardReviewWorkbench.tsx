@@ -2986,6 +2986,8 @@ function renderMappingLayer({
       width={width}
       stroke="#ff8a65"
       dataProjection="current"
+      selection={selection}
+      onSelect={onSelect}
     />
   ));
   const candidate =
@@ -3000,6 +3002,8 @@ function renderMappingLayer({
             width={width}
             stroke="#ffd166"
             dataProjection="candidate"
+            selection={selection}
+            onSelect={onSelect}
           />
         ));
   return (
@@ -3107,6 +3111,8 @@ function MappingProjection({
   width,
   stroke,
   dataProjection,
+  selection,
+  onSelect,
 }: {
   pose: PoseCard;
   projection: CardSceneProjection;
@@ -3114,8 +3120,14 @@ function MappingProjection({
   width: number;
   stroke: string;
   dataProjection: "current" | "candidate";
+  selection: WorkbenchSelection | null;
+  onSelect: (selection: WorkbenchSelection) => void;
 }) {
   const polygon = posePolygon(pose, projection, viewpoint);
+  const selected = isSelected(selection, {
+    type: "virtual_card",
+    id: pose.card_id,
+  });
   return (
     <g data-projection={dataProjection} data-card-id={pose.card_id}>
       <polygon
@@ -3126,6 +3138,25 @@ function MappingProjection({
         strokeWidth={strokeWidth(viewpoint, width)}
         pointerEvents="none"
       />
+      {polygon.map(([x, y], index) => (
+        <circle
+          key={`${pose.card_id}-${dataProjection}-${index}`}
+          cx={x}
+          cy={y}
+          r={viewpoint === "camera" ? Math.max(3, width / 120) : 0.08}
+          fill={selected ? "#ffffff" : stroke}
+          stroke="#18242f"
+          strokeWidth={strokeWidth(viewpoint, width) / 2}
+          data-mapping-corner={index}
+          role="button"
+          tabIndex={0}
+          aria-label={`Select mapped card corner ${index + 1} for ${pose.card_id}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect({ type: "virtual_card", id: pose.card_id });
+          }}
+        />
+      ))}
     </g>
   );
 }

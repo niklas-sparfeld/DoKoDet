@@ -916,6 +916,11 @@ describe("VisibleCardReviewWorkbench", () => {
       screen.queryByRole("button", { name: /Select calibration anchor 1 for/ }),
     ).not.toBeInTheDocument();
     expect(
+      screen.getAllByRole("button", {
+        name: /^Select mapped card corner \d for card-1$/,
+      }),
+    ).toHaveLength(4);
+    expect(
       screen.queryByRole("button", { name: /Select anchor corner/ }),
     ).not.toBeInTheDocument();
     expect(
