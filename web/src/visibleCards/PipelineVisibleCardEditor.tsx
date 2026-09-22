@@ -44,7 +44,7 @@ import {
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
   VisibleCardReviewWorkbench,
-  type VisibleRegionWorkbenchAction,
+  type VisibleCardReviewWorkbenchAction,
 } from "./VisibleCardReviewWorkbench";
 import type { WorkbenchSelection } from "./VisibleCardReviewWorkbenchState";
 import { readPoseScene } from "./PoseBasedVisibleCardScene";
@@ -878,6 +878,106 @@ export function PipelineVisibleCardEditor({
       );
     },
     [enqueue],
+  );
+
+  const updatePoseScene = useCallback(
+    (
+      frame: EditableFrame,
+      cardScene: NonNullable<Outcome["card_scene"]>,
+      noticeText: string,
+    ) => {
+      setFrameReview(
+        frame,
+        {
+          ...frame.outcome,
+          status: "detected",
+          card_scene: cardScene,
+          error: null,
+        },
+        noticeText,
+      );
+    },
+    [setFrameReview],
+  );
+
+  const decideCard = useCallback(
+    (frame: EditableFrame, cardId: string, decision: "accept" | "reject") => {
+      const cardScene = frame.outcome.card_scene;
+      if (cardScene === undefined || cardScene.card_review_states === undefined)
+        return;
+      const nextState: "accepted" | "rejected" =
+        decision === "accept" ? "accepted" : "rejected";
+      const nextStates = cardScene.card_review_states.map((state) =>
+        state.card_id === cardId ? { ...state, state: nextState } : state,
+      );
+      const nextScene = {
+        ...cardScene,
+        card_review_states: nextStates,
+        completion_state: nextStates.some((state) => state.state === "pending")
+          ? ("pending" as const)
+          : ("complete" as const),
+        completion_reason: null,
+      };
+      enqueue(
+        {
+          operation: decision === "accept" ? "accept_card" : "reject_card",
+          item_id: frame.itemId,
+          card_id: cardId,
+        },
+        decision === "accept" ? "Card accepted." : "Card rejected.",
+        (current) =>
+          current.map((candidate) =>
+            candidate.itemId === frame.itemId
+              ? {
+                  ...candidate,
+                  outcome: { ...candidate.outcome, card_scene: nextScene },
+                }
+              : candidate,
+          ),
+      );
+    },
+    [enqueue],
+  );
+
+  const resolveRemainingCards = useCallback(
+    (frame: EditableFrame) => {
+      const cardScene = frame.outcome.card_scene;
+      if (cardScene === undefined || cardScene.card_review_states === undefined)
+        return;
+      const pending = cardScene.card_review_states.filter(
+        (state) => state.state === "pending",
+      );
+      if (pending.length === 0) return;
+      const operations: PipelineReferenceOperation[] = pending.map((state) => ({
+        operation: "accept_card",
+        item_id: frame.itemId,
+        card_id: state.card_id,
+      }));
+      const nextScene = {
+        ...cardScene,
+        card_review_states: cardScene.card_review_states.map((state) =>
+          state.state === "pending"
+            ? { ...state, state: "accepted" as const }
+            : state,
+        ),
+        completion_state: "complete" as const,
+        completion_reason: null,
+      };
+      enqueueOperations(
+        operations,
+        "All remaining cards accepted.",
+        (current) =>
+          current.map((candidate) =>
+            candidate.itemId === frame.itemId
+              ? {
+                  ...candidate,
+                  outcome: { ...candidate.outcome, card_scene: nextScene },
+                }
+              : candidate,
+          ),
+      );
+    },
+    [enqueueOperations],
   );
 
   const acceptSuggestions = useCallback(
@@ -1963,7 +2063,7 @@ export function PipelineVisibleCardEditor({
 
   const handleWorkbenchAction = useCallback(
     (
-      action: VisibleRegionWorkbenchAction,
+      action: VisibleCardReviewWorkbenchAction,
       selection: WorkbenchSelection | null,
     ) => {
       if (!editable || activeFrame === null) return;
@@ -2163,8 +2263,15 @@ export function PipelineVisibleCardEditor({
                 recordingId={recordingId}
                 frame={activeFrame}
                 readOnly={!editable}
-                initialPreferences={{ activeTool: "visible_regions" }}
-                enabledEditTools={editable ? ["visible_regions"] : []}
+                initialPreferences={{
+                  activeTool:
+                    activeFrame.outcome.card_scene === undefined
+                      ? "visible_regions"
+                      : "virtual_cards",
+                }}
+                enabledEditTools={
+                  editable ? ["visible_regions", "virtual_cards"] : []
+                }
                 editor={
                   editor?.frameItemId === activeFrame.itemId ? editor : null
                 }
@@ -2182,6 +2289,23 @@ export function PipelineVisibleCardEditor({
                 }
                 onSelectionChange={handleWorkbenchSelection}
                 onAction={handleWorkbenchAction}
+                onSceneChange={
+                  editable
+                    ? (scene, noticeText) =>
+                        updatePoseScene(activeFrame, scene, noticeText)
+                    : undefined
+                }
+                onCardDecision={
+                  editable
+                    ? (cardId, decision) =>
+                        decideCard(activeFrame, cardId, decision)
+                    : undefined
+                }
+                onResolveRemaining={
+                  editable
+                    ? () => resolveRemainingCards(activeFrame)
+                    : undefined
+                }
                 onOpenEditor={
                   editable
                     ? (candidate, polygonIndex) =>

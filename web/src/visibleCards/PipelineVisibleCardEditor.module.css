@@ -99,6 +99,26 @@
   cursor: not-allowed;
 }
 
+.workbenchNumericField {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.workbenchNumericField input {
+  width: 4.5rem;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
 .workbenchCameraViewport {
   position: relative;
   width: 100%;

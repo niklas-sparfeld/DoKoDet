@@ -3,18 +3,23 @@ import {
   useMemo,
   useReducer,
   useRef,
+  useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type WheelEvent as ReactWheelEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
 import { pipelineDerivedFramePath } from "../api/client";
 import styles from "./PipelineVisibleCardEditor.module.css";
 import {
+  applyPoseSceneAction,
   cardPolygon,
+  nextManualPoseId,
   projectImagePointToTable,
   projectTablePoint,
+  withSceneDigest,
   type CardSceneProjection,
   type PoseCard,
   type PoseSceneEnvelope,
@@ -61,10 +66,35 @@ export type VisibleRegionWorkbenchAction =
   | "delete_selection"
   | "restore_suggestion";
 
+export type VirtualCardWorkbenchAction =
+  | "add_virtual_card"
+  | "accept_card"
+  | "reject_card"
+  | "accept_remaining_cards"
+  | "remove_card"
+  | "bring_forward"
+  | "send_backward"
+  | "restore_proposed_scene";
+
+export type VisibleCardReviewWorkbenchAction =
+  VisibleRegionWorkbenchAction | VirtualCardWorkbenchAction;
+
 type WorkbenchPointHandler = (
   event: ReactPointerEvent<SVGSVGElement>,
   point: Point | null,
 ) => void;
+
+type VirtualCardGesture = {
+  pointerId: number;
+  cardId: string | null;
+  kind: "move" | "rotate" | "pan";
+  dirty: boolean;
+  startClientX: number;
+  startClientY: number;
+  originalScene: PoseSceneEnvelope;
+  startPan?: { x: number; y: number };
+  startViewBox?: { x: number; y: number; width: number; height: number };
+};
 
 export type VisibleCardReviewWorkbenchProps = {
   recordingId: string;
@@ -82,9 +112,12 @@ export type VisibleCardReviewWorkbenchProps = {
   canRestoreSuggestion?: boolean;
   onToolChange?: (tool: WorkbenchPreferences["activeTool"]) => void;
   onAction?: (
-    action: VisibleRegionWorkbenchAction,
+    action: VisibleCardReviewWorkbenchAction,
     selection: WorkbenchSelection | null,
   ) => void;
+  onSceneChange?: (scene: PoseSceneEnvelope, notice: string) => void;
+  onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
+  onResolveRemaining?: () => void;
   onOpenEditor?: (candidate: Candidate | null, polygonIndex?: number) => void;
   onOpenIgnoreRegion?: (region: IgnoreRegion | null) => void;
   onRemoveIgnoreRegion?: (regionId: string) => void;
@@ -101,6 +134,7 @@ export type VisibleCardReviewWorkbenchProps = {
   onPointerMove?: WorkbenchPointHandler;
   onPointerLeave?: WorkbenchPointHandler;
   onPointerUp?: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  onPointerCancel?: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onDeleteSelectedPoint?: (event: ReactKeyboardEvent<SVGSVGElement>) => void;
 };
 
@@ -136,6 +170,9 @@ export function VisibleCardReviewWorkbench({
   canRestoreSuggestion = false,
   onToolChange,
   onAction,
+  onSceneChange,
+  onCardDecision,
+  onResolveRemaining,
   onOpenEditor,
   onOpenIgnoreRegion,
   onRemoveIgnoreRegion,
@@ -148,9 +185,18 @@ export function VisibleCardReviewWorkbench({
   onPointerMove,
   onPointerLeave,
   onPointerUp,
+  onPointerCancel,
   onDeleteSelectedPoint,
 }: VisibleCardReviewWorkbenchProps) {
   const capabilities = workbenchCapabilitiesFromFrame(frame, readOnly);
+  const frameScene = frame.outcome.card_scene ?? null;
+  const sceneIdentity = `${frame.itemId}:${frameScene?.scene.scene_digest ?? "none"}`;
+  const [sceneDraft, setSceneDraft] = useState<PoseSceneEnvelope | null>(
+    frameScene,
+  );
+  const sceneDraftRef = useRef<PoseSceneEnvelope | null>(frameScene);
+  const sceneIdentityRef = useRef(sceneIdentity);
+  const virtualGestureRef = useRef<VirtualCardGesture | null>(null);
   const [state, dispatch] = useReducer(
     visibleCardReviewWorkbenchReducer,
     { capabilities, preferences: initialPreferences },
@@ -160,6 +206,35 @@ export function VisibleCardReviewWorkbench({
   const previousFrameId = useRef(frame.itemId);
   const capabilitiesKey = JSON.stringify(capabilities);
   const appliedCapabilitiesKey = useRef(capabilitiesKey);
+
+  useEffect(() => {
+    if (sceneIdentityRef.current === sceneIdentity) return;
+    sceneIdentityRef.current = sceneIdentity;
+    sceneDraftRef.current = frameScene;
+    setSceneDraft(frameScene);
+  }, [frameScene, sceneIdentity]);
+
+  const commitScene = (next: PoseSceneEnvelope, notice: string) => {
+    sceneDraftRef.current = next;
+    setSceneDraft(next);
+    void withSceneDigest(next).then(
+      (digested) => {
+        sceneDraftRef.current = digested;
+        setSceneDraft(digested);
+        onSceneChange?.(digested, notice);
+      },
+      () => onSceneChange?.(next, notice),
+    );
+  };
+
+  const applySceneAction = (
+    action: Parameters<typeof applyPoseSceneAction>[1],
+    notice: string,
+  ) => {
+    const current = sceneDraftRef.current;
+    if (readOnly || current === null) return;
+    commitScene(applyPoseSceneAction(current, action), notice);
+  };
 
   useEffect(() => {
     if (previousFrameId.current === frame.itemId) return;
@@ -185,7 +260,7 @@ export function VisibleCardReviewWorkbench({
           getWorkbenchPreferences(state),
         );
   const availability = getWorkbenchAvailability(capabilities);
-  const scene = frame.outcome.card_scene ?? null;
+  const scene = sceneDraft;
   const sourceIdentity = frame.outcome.frame_identity;
   const width = sourceIdentity?.width ?? scene?.scene.source_frame_width ?? 1;
   const height =
@@ -261,6 +336,294 @@ export function VisibleCardReviewWorkbench({
     });
   };
 
+  const handleVirtualCardKeyDown = (
+    event: ReactKeyboardEvent<SVGPolygonElement>,
+    cardId: string,
+  ) => {
+    if (readOnly || activeState.activeTool !== "virtual_cards") return;
+    if (
+      event.key !== "ArrowLeft" &&
+      event.key !== "ArrowRight" &&
+      event.key !== "ArrowUp" &&
+      event.key !== "ArrowDown" &&
+      event.key.toLowerCase() !== "r"
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    const delta = event.shiftKey ? 0.1 : 0.025;
+    applySceneAction(
+      event.key.toLowerCase() === "r"
+        ? {
+            type: "nudge",
+            cardId,
+            delta: [0, 0],
+            rotationDeltaDegrees: event.shiftKey ? -5 : 5,
+          }
+        : {
+            type: "nudge",
+            cardId,
+            delta: [
+              event.key === "ArrowLeft"
+                ? -delta
+                : event.key === "ArrowRight"
+                  ? delta
+                  : 0,
+              event.key === "ArrowUp"
+                ? -delta
+                : event.key === "ArrowDown"
+                  ? delta
+                  : 0,
+            ],
+          },
+      event.key.toLowerCase() === "r"
+        ? "Card rotation nudge saved."
+        : "Card nudge saved.",
+    );
+  };
+
+  const beginVirtualCardGesture = (
+    event: ReactPointerEvent<SVGElement>,
+    cardId: string,
+    kind: "move" | "rotate",
+  ) => {
+    if (
+      readOnly ||
+      activeState.activeTool !== "virtual_cards" ||
+      sceneDraftRef.current === null
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    select({ type: "virtual_card", id: cardId });
+    virtualGestureRef.current = {
+      pointerId: event.pointerId,
+      cardId,
+      kind,
+      dirty: false,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      originalScene: sceneDraftRef.current,
+    };
+    event.currentTarget.ownerSVGElement?.setPointerCapture?.(event.pointerId);
+    dispatch({
+      type: "begin_gesture",
+      gesture: {
+        kind: "edit",
+        tool: "virtual_cards",
+        pointerId: event.pointerId,
+      },
+    });
+  };
+
+  const beginVirtualTablePan = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (
+      event.button !== 0 ||
+      event.target !== event.currentTarget ||
+      activeState.activeTool !== "virtual_cards" ||
+      sceneDraftRef.current === null ||
+      virtualGestureRef.current !== null
+    )
+      return false;
+    const currentScene = sceneDraftRef.current;
+    const viewBox =
+      activeState.viewpoint === "rectified"
+        ? tableViewBox(
+            currentScene.scene,
+            currentScene.projection,
+            activeState.viewport,
+          )
+        : null;
+    if (viewBox === null) return false;
+    event.preventDefault();
+    virtualGestureRef.current = {
+      pointerId: event.pointerId,
+      cardId: null,
+      kind: "pan",
+      dirty: false,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      originalScene: currentScene,
+      startPan: { ...activeState.viewport.pan },
+      startViewBox: viewBox,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    dispatch({
+      type: "begin_gesture",
+      gesture: { kind: "pan", tool: null, pointerId: event.pointerId },
+    });
+    return true;
+  };
+
+  const handleSurfacePointerDown = (
+    event: ReactPointerEvent<SVGSVGElement>,
+    point: Point | null,
+  ) => {
+    if (beginVirtualTablePan(event)) return;
+    if (activeState.activeTool === "virtual_cards") return;
+    onCanvasPointerDown?.(event, point);
+  };
+
+  const handleSurfacePointerMove = (
+    event: ReactPointerEvent<SVGSVGElement>,
+    point: Point | null,
+  ) => {
+    const gesture = virtualGestureRef.current;
+    if (gesture === null || gesture.pointerId !== event.pointerId) {
+      if (activeState.activeTool === "virtual_cards") return;
+      onPointerMove?.(event, point);
+      return;
+    }
+    if (gesture.kind === "pan") {
+      const viewBox = gesture.startViewBox;
+      const startPan = gesture.startPan;
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (viewBox === undefined || startPan === undefined || rect.width <= 0)
+        return;
+      const deltaX = event.clientX - gesture.startClientX;
+      const deltaY = event.clientY - gesture.startClientY;
+      if (!gesture.dirty && Math.hypot(deltaX, deltaY) < 4) return;
+      gesture.dirty = true;
+      dispatch({
+        type: "set_viewport",
+        viewport: {
+          zoom: activeState.viewport.zoom,
+          pan: {
+            x: startPan.x - (deltaX / rect.width) * viewBox.width,
+            y: startPan.y - (deltaY / rect.height) * viewBox.height,
+          },
+        },
+      });
+      return;
+    }
+    if (
+      point === null ||
+      sceneDraftRef.current === null ||
+      gesture.cardId === null
+    )
+      return;
+    const deltaX = event.clientX - gesture.startClientX;
+    const deltaY = event.clientY - gesture.startClientY;
+    if (!gesture.dirty && Math.hypot(deltaX, deltaY) < 4) return;
+    const tablePoint = sourcePointToTablePoint(
+      point,
+      width,
+      height,
+      sceneDraftRef.current,
+    );
+    if (tablePoint === null) return;
+    const pose = sceneDraftRef.current.scene.poses.find(
+      (candidate) => candidate.card_id === gesture.cardId,
+    );
+    if (pose === undefined) return;
+    const next = applyPoseSceneAction(
+      sceneDraftRef.current,
+      gesture.kind === "move"
+        ? { type: "move", cardId: gesture.cardId, center: tablePoint }
+        : {
+            type: "rotate",
+            cardId: gesture.cardId,
+            rotationDegrees:
+              (Math.atan2(
+                tablePoint[1] - pose.center[1],
+                tablePoint[0] - pose.center[0],
+              ) *
+                180) /
+                Math.PI +
+              90,
+          },
+    );
+    gesture.dirty = true;
+    sceneDraftRef.current = next;
+    setSceneDraft(next);
+  };
+
+  const finishVirtualGesture = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const gesture = virtualGestureRef.current;
+    if (gesture === null || gesture.pointerId !== event.pointerId) {
+      onPointerUp?.(event);
+      return;
+    }
+    virtualGestureRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    dispatch({ type: "commit_gesture" });
+    if (!gesture.dirty || gesture.kind === "pan") return;
+    const next = sceneDraftRef.current;
+    if (next === null) return;
+    commitScene(
+      next,
+      gesture.kind === "move"
+        ? "Card moved on the virtual table."
+        : "Card rotation saved.",
+    );
+  };
+
+  const cancelVirtualGesture = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const gesture = virtualGestureRef.current;
+    if (gesture === null || gesture.pointerId !== event.pointerId) {
+      onPointerCancel?.(event);
+      if (onPointerCancel === undefined) onPointerUp?.(event);
+      return;
+    }
+    virtualGestureRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    sceneDraftRef.current = gesture.originalScene;
+    setSceneDraft(gesture.originalScene);
+    dispatch({ type: "cancel_gesture" });
+  };
+
+  const handleSurfaceWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
+    if (activeState.viewpoint !== "rectified" || sceneDraftRef.current === null)
+      return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0 || event.deltaY === 0) return;
+    event.preventDefault();
+    const currentScene = sceneDraftRef.current;
+    const currentViewBox = tableViewBox(
+      currentScene.scene,
+      currentScene.projection,
+      activeState.viewport,
+    );
+    const deltaY =
+      event.deltaY *
+      (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
+    const nextZoom = Math.min(
+      4,
+      Math.max(0.5, activeState.viewport.zoom * Math.pow(2, -deltaY / 240)),
+    );
+    if (nextZoom === activeState.viewport.zoom) return;
+    const focusX = (event.clientX - rect.left) / rect.width;
+    const focusY = (event.clientY - rect.top) / rect.height;
+    const focusedPoint: TablePoint = [
+      currentViewBox.x + focusX * currentViewBox.width,
+      currentViewBox.y + focusY * currentViewBox.height,
+    ];
+    const nextViewBox = tableViewBox(
+      currentScene.scene,
+      currentScene.projection,
+      {
+        zoom: nextZoom,
+        pan: activeState.viewport.pan,
+      },
+    );
+    dispatch({
+      type: "set_viewport",
+      viewport: {
+        zoom: nextZoom,
+        pan: {
+          x:
+            activeState.viewport.pan.x +
+            focusedPoint[0] -
+            (nextViewBox.x + focusX * nextViewBox.width),
+          y:
+            activeState.viewport.pan.y +
+            focusedPoint[1] -
+            (nextViewBox.y + focusY * nextViewBox.height),
+        },
+      },
+    });
+  };
+
   return (
     <section
       className={styles.workbench}
@@ -279,13 +642,80 @@ export function VisibleCardReviewWorkbench({
         editor={editor}
         canCopyIgnoreRegions={canCopyIgnoreRegions}
         canRestoreSuggestion={canRestoreSuggestion}
+        scene={scene}
+        onCardDecision={onCardDecision}
+        onResolveRemaining={onResolveRemaining}
         onToggleViewpoint={() => dispatch({ type: "toggle_viewpoint" })}
         onToggleLayer={(layer) => dispatch({ type: "toggle_layer", layer })}
         onSelectTool={(tool) => {
           dispatch({ type: "select_tool", tool });
           onToolChange?.(tool);
         }}
-        onAction={(action) => onAction?.(action, activeState.selection)}
+        onAction={(action) => {
+          if (action === "add_virtual_card") {
+            if (scene !== null) {
+              const selectedPose = selectedPoseForSelection(
+                scene,
+                activeState.selection,
+              );
+              const center = selectedPose?.center ?? [0, 0];
+              const cardId = nextManualPoseId(scene.scene);
+              select({ type: "virtual_card", id: cardId });
+              applySceneAction(
+                {
+                  type: "add",
+                  cardId,
+                  center: [center[0] + 0.2, center[1] + 0.2],
+                },
+                "Standard-size card added to the virtual table.",
+              );
+            }
+            return;
+          }
+          if (action === "remove_card") {
+            const selectedPose =
+              scene === null
+                ? null
+                : selectedPoseForSelection(scene, activeState.selection);
+            if (scene !== null && selectedPose !== null) {
+              const nextSelection = scene.scene.poses.find(
+                (pose) => pose.card_id !== selectedPose.card_id,
+              );
+              applySceneAction(
+                { type: "remove", cardId: selectedPose.card_id },
+                "Card removed from the virtual table.",
+              );
+              if (nextSelection === undefined)
+                dispatch({ type: "clear_selection" });
+              else select({ type: "virtual_card", id: nextSelection.card_id });
+            }
+            return;
+          }
+          if (action === "bring_forward" || action === "send_backward") {
+            const selectedPose =
+              scene === null
+                ? null
+                : selectedPoseForSelection(scene, activeState.selection);
+            if (selectedPose !== null) {
+              applySceneAction(
+                { type: action, cardId: selectedPose.card_id },
+                action === "bring_forward"
+                  ? "Card brought forward."
+                  : "Card sent backward.",
+              );
+            }
+            return;
+          }
+          if (action === "restore_proposed_scene") {
+            applySceneAction(
+              { type: "restore_initialized" },
+              "Proposed card scene restored.",
+            );
+            return;
+          }
+          onAction?.(action, activeState.selection);
+        }}
+        onSceneAction={applySceneAction}
       />
       <div className={styles.workbenchSurfaceLayout}>
         <WorkbenchSurface
@@ -304,11 +734,15 @@ export function VisibleCardReviewWorkbench({
           onSelect={select}
           onKeyDown={handleSurfaceKeyDown}
           onPointPointerDown={onPointPointerDown}
-          onCanvasPointerDown={onCanvasPointerDown}
-          onPointerMove={onPointerMove}
+          onCanvasPointerDown={handleSurfacePointerDown}
+          onPointerMove={handleSurfacePointerMove}
           onPointerLeave={onPointerLeave}
-          onPointerUp={onPointerUp}
+          onPointerUp={finishVirtualGesture}
+          onPointerCancel={cancelVirtualGesture}
+          onWheel={handleSurfaceWheel}
           onDeleteSelectedPoint={onDeleteSelectedPoint}
+          onVirtualCardPointerDown={beginVirtualCardGesture}
+          onVirtualCardKeyDown={handleVirtualCardKeyDown}
         />
         {proposalSlot !== undefined ? (
           <WorkbenchProposalColumn
@@ -351,6 +785,10 @@ function WorkbenchCommandBar({
   editor,
   canCopyIgnoreRegions,
   canRestoreSuggestion,
+  scene,
+  onCardDecision,
+  onResolveRemaining,
+  onSceneAction,
   onToggleViewpoint,
   onToggleLayer,
   onSelectTool,
@@ -364,10 +802,17 @@ function WorkbenchCommandBar({
   editor: EditorState | null;
   canCopyIgnoreRegions: boolean;
   canRestoreSuggestion: boolean;
+  scene: PoseSceneEnvelope | null;
+  onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
+  onResolveRemaining?: () => void;
+  onSceneAction: (
+    action: Parameters<typeof applyPoseSceneAction>[1],
+    notice: string,
+  ) => void;
   onToggleViewpoint: () => void;
   onToggleLayer: (layer: WorkbenchLayer) => void;
   onSelectTool: (tool: WorkbenchPreferences["activeTool"]) => void;
-  onAction: (action: VisibleRegionWorkbenchAction) => void;
+  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
 }) {
   const nextViewpoint = state.viewpoint === "camera" ? "rectified" : "camera";
   const viewpointAvailability = availability.viewpoints[nextViewpoint];
@@ -456,7 +901,211 @@ function WorkbenchCommandBar({
           onAction={onAction}
         />
       ) : null}
+      {state.activeTool === "virtual_cards" ? (
+        <VirtualCardSelectionActions
+          readOnly={readOnly}
+          scene={scene}
+          selection={state.selection}
+          onAction={onAction}
+          onCardDecision={onCardDecision}
+          onResolveRemaining={onResolveRemaining}
+          onSceneAction={onSceneAction}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function VirtualCardSelectionActions({
+  readOnly,
+  scene,
+  selection,
+  onAction,
+  onCardDecision,
+  onResolveRemaining,
+  onSceneAction,
+}: {
+  readOnly: boolean;
+  scene: PoseSceneEnvelope | null;
+  selection: WorkbenchSelection | null;
+  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
+  onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
+  onResolveRemaining?: () => void;
+  onSceneAction: (
+    action: Parameters<typeof applyPoseSceneAction>[1],
+    notice: string,
+  ) => void;
+}) {
+  const selectedPose =
+    scene === null ? null : selectedPoseForSelection(scene, selection);
+  const selectedReviewState =
+    scene?.card_review_states?.find(
+      (state) => state.card_id === selectedPose?.card_id,
+    ) ?? null;
+  const pendingCount =
+    scene?.card_review_states?.filter((state) => state.state === "pending")
+      .length ?? 0;
+  const selectedCardId = selectedPose?.card_id ?? null;
+  const sceneAvailable = scene !== null;
+  const cardTarget = selectedCardId ?? "selected card";
+  const actionButton = (
+    action: VirtualCardWorkbenchAction,
+    label: string,
+    disabled: boolean,
+    reason: string,
+  ) => (
+    <button
+      key={action}
+      type="button"
+      className={styles.workbenchToggle}
+      disabled={disabled}
+      title={disabled ? reason : undefined}
+      onClick={() => {
+        if (
+          (action === "accept_card" || action === "reject_card") &&
+          selectedCardId !== null &&
+          onCardDecision !== undefined
+        ) {
+          onCardDecision?.(
+            selectedCardId,
+            action === "accept_card" ? "accept" : "reject",
+          );
+        } else if (
+          action === "accept_remaining_cards" &&
+          onResolveRemaining !== undefined
+        ) {
+          onResolveRemaining();
+        } else {
+          onAction(action);
+        }
+      }}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div
+      className={styles.workbenchCommandGroup}
+      aria-label="Selection actions"
+    >
+      <span className={styles.workbenchCommandLabel}>Selection actions</span>
+      {actionButton(
+        "add_virtual_card",
+        "Add virtual card",
+        readOnly || !sceneAvailable,
+        readOnly
+          ? "Generated visible-card results are read-only."
+          : "A proposed card scene is required to add a virtual card.",
+      )}
+      {actionButton(
+        "accept_card",
+        selectedCardId === null ? "Accept card" : `Accept card ${cardTarget}`,
+        readOnly ||
+          selectedCardId === null ||
+          selectedReviewState === null ||
+          selectedReviewState.state === "accepted",
+        selectedCardId === null
+          ? "Select a virtual card first."
+          : selectedReviewState === null
+            ? "This card has no review decision state."
+            : "The selected card is already accepted.",
+      )}
+      {actionButton(
+        "reject_card",
+        selectedCardId === null ? "Reject card" : `Reject card ${cardTarget}`,
+        readOnly ||
+          selectedCardId === null ||
+          selectedReviewState === null ||
+          selectedReviewState.state === "rejected",
+        selectedCardId === null
+          ? "Select a virtual card first."
+          : selectedReviewState === null
+            ? "This card has no review decision state."
+            : "The selected card is already rejected.",
+      )}
+      {actionButton(
+        "accept_remaining_cards",
+        "Accept remaining cards",
+        readOnly || pendingCount === 0 || onResolveRemaining === undefined,
+        pendingCount === 0
+          ? "No pending card decisions remain."
+          : "All pending cards must be resolved through the maintained reference.",
+      )}
+      {actionButton(
+        "remove_card",
+        selectedCardId === null ? "Remove card" : `Remove card ${cardTarget}`,
+        readOnly || selectedPose === null || scene?.scene.poses.length === 1,
+        selectedPose === null
+          ? "Select a virtual card first."
+          : scene?.scene.poses.length === 1
+            ? "A card scene must keep one virtual card."
+            : "",
+      )}
+      {actionButton(
+        "bring_forward",
+        selectedCardId === null
+          ? "Bring card forward"
+          : `Bring card ${cardTarget} forward`,
+        readOnly || selectedPose === null,
+        "Select a virtual card first.",
+      )}
+      {actionButton(
+        "send_backward",
+        selectedCardId === null
+          ? "Send card backward"
+          : `Send card ${cardTarget} backward`,
+        readOnly || selectedPose === null,
+        "Select a virtual card first.",
+      )}
+      {actionButton(
+        "restore_proposed_scene",
+        "Restore proposed scene",
+        readOnly || !sceneAvailable,
+        readOnly
+          ? "Generated visible-card results are read-only."
+          : "A proposed card scene is required to restore the scene.",
+      )}
+      {selectedPose !== null ? (
+        <label className={styles.workbenchNumericField}>
+          <span>Rotation {selectedPose.card_id}</span>
+          <input
+            aria-label={`Rotation for card ${selectedPose.card_id}`}
+            type="number"
+            step="1"
+            defaultValue={selectedPose.rotation_degrees}
+            disabled={readOnly}
+            onBlur={(event) => {
+              const value = Number(event.target.value);
+              if (!Number.isFinite(value) || scene === null) return;
+              onSceneAction(
+                {
+                  type: "rotate",
+                  cardId: selectedPose.card_id,
+                  rotationDegrees: value,
+                },
+                "Card angle saved.",
+              );
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </label>
+      ) : null}
+    </div>
+  );
+}
+
+function selectedPoseForSelection(
+  scene: PoseSceneEnvelope,
+  selection: WorkbenchSelection | null,
+): PoseCard | null {
+  if (selection?.type !== "virtual_card") return null;
+  return (
+    scene.scene.poses.find((pose) => pose.card_id === selection.id) ?? null
   );
 }
 
@@ -791,7 +1440,11 @@ function WorkbenchSurface({
   onPointerMove,
   onPointerLeave,
   onPointerUp,
+  onPointerCancel,
+  onWheel,
   onDeleteSelectedPoint,
+  onVirtualCardPointerDown,
+  onVirtualCardKeyDown,
 }: {
   frame: EditableFrame;
   scene: PoseSceneEnvelope | null;
@@ -816,7 +1469,18 @@ function WorkbenchSurface({
   onPointerMove?: WorkbenchPointHandler;
   onPointerLeave?: WorkbenchPointHandler;
   onPointerUp?: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  onPointerCancel?: (event: ReactPointerEvent<SVGSVGElement>) => void;
+  onWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void;
   onDeleteSelectedPoint?: (event: ReactKeyboardEvent<SVGSVGElement>) => void;
+  onVirtualCardPointerDown?: (
+    event: ReactPointerEvent<SVGElement>,
+    cardId: string,
+    kind: "move" | "rotate",
+  ) => void;
+  onVirtualCardKeyDown?: (
+    event: ReactKeyboardEvent<SVGPolygonElement>,
+    cardId: string,
+  ) => void;
 }) {
   const count = frame.outcome.candidates.length;
   const proposalLabel = `${count} visible-card proposal${count === 1 ? "" : "s"}${includeIgnoreRegionCount && frame.outcome.ignored_regions.length > 0 ? ` and ${frame.outcome.ignored_regions.length} ignore region${frame.outcome.ignored_regions.length === 1 ? "" : "s"}` : ""}`;
@@ -873,7 +1537,8 @@ function WorkbenchSurface({
           )
         }
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onWheel={onWheel}
       >
         {sourceUrl !== null ? (
           <RectifiedSourceFrame
@@ -894,6 +1559,8 @@ function WorkbenchSurface({
           selection,
           candidateProjection,
           onSelect,
+          onVirtualCardPointerDown,
+          onVirtualCardKeyDown,
         })}
         {renderEditorOverlay({
           editor,
@@ -973,7 +1640,7 @@ function WorkbenchSurface({
           )
         }
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerCancel={onPointerCancel}
       >
         {renderLayers({
           frame,
@@ -985,6 +1652,8 @@ function WorkbenchSurface({
           selection,
           candidateProjection,
           onSelect,
+          onVirtualCardPointerDown,
+          onVirtualCardKeyDown,
         })}
         {renderEditorOverlay({
           editor,
@@ -1009,6 +1678,15 @@ type LayerRenderContext = {
   selection: WorkbenchSelection | null;
   candidateProjection: CardSceneProjection | null;
   onSelect: (selection: WorkbenchSelection) => void;
+  onVirtualCardPointerDown?: (
+    event: ReactPointerEvent<SVGElement>,
+    cardId: string,
+    kind: "move" | "rotate",
+  ) => void;
+  onVirtualCardKeyDown?: (
+    event: ReactKeyboardEvent<SVGPolygonElement>,
+    cardId: string,
+  ) => void;
 };
 
 function renderEditorOverlay({
@@ -1142,6 +1820,18 @@ function sourcePointFromEvent(
         x: clamp((source[0] / width) * 1000, 1000),
         y: clamp((source[1] / height) * 1000, 1000),
       };
+}
+
+function sourcePointToTablePoint(
+  point: Point,
+  width: number,
+  height: number,
+  scene: PoseSceneEnvelope,
+): TablePoint | null {
+  return projectImagePointToTable(
+    sourcePoint(point, width, height),
+    scene.projection.table_to_image_homography,
+  );
 }
 
 function clamp(value: number, maximum: number): number {
@@ -1315,33 +2005,58 @@ function renderVirtualCardLayer({
   width,
   selection,
   onSelect,
+  onVirtualCardPointerDown,
+  onVirtualCardKeyDown,
 }: LayerRenderContext) {
   if (scene === null) return null;
-  return renderOrder(scene.scene).map((pose) => {
+  return renderOrder(scene.scene, selection).map((pose) => {
     const polygon = posePolygon(pose, scene.projection, viewpoint);
     const selected = isSelected(selection, {
       type: "virtual_card",
       id: pose.card_id,
     });
+    const handle = rotationHandle(pose, scene.projection, viewpoint);
     return (
-      <polygon
-        key={pose.card_id}
-        points={pointsAttribute(polygon)}
-        fill="rgba(55, 96, 106, 0.55)"
-        stroke={selected ? "#d9fff7" : "#80b6b7"}
-        strokeWidth={strokeWidth(viewpoint, width, selected)}
-        data-card-id={pose.card_id}
-        data-stacking-index={scene.scene.stacking_order.card_ids.indexOf(
-          pose.card_id,
-        )}
-        role="button"
-        tabIndex={0}
-        aria-label={`Select virtual card ${pose.card_id}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelect({ type: "virtual_card", id: pose.card_id });
-        }}
-      />
+      <g key={pose.card_id}>
+        <polygon
+          points={pointsAttribute(polygon)}
+          fill="rgba(55, 96, 106, 0.55)"
+          stroke={selected ? "#d9fff7" : "#80b6b7"}
+          strokeWidth={strokeWidth(viewpoint, width, selected)}
+          data-card-id={pose.card_id}
+          data-stacking-index={scene.scene.stacking_order.card_ids.indexOf(
+            pose.card_id,
+          )}
+          role="button"
+          tabIndex={0}
+          aria-label={`Select virtual card ${pose.card_id}`}
+          onKeyDown={(event) => onVirtualCardKeyDown?.(event, pose.card_id)}
+          onPointerDown={(event) =>
+            onVirtualCardPointerDown?.(event, pose.card_id, "move")
+          }
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect({ type: "virtual_card", id: pose.card_id });
+          }}
+        />
+        {selected ? (
+          <circle
+            cx={handle[0]}
+            cy={handle[1]}
+            r={viewpoint === "camera" ? Math.max(3, width / 120) : 0.11}
+            fill="#ffd24f"
+            stroke="#18242f"
+            strokeWidth={strokeWidth(viewpoint, width) / 2}
+            role="button"
+            tabIndex={0}
+            aria-label={`Rotate card ${pose.card_id}`}
+            onPointerDown={(event) =>
+              onVirtualCardPointerDown?.(event, pose.card_id, "rotate")
+            }
+            onClick={(event) => event.stopPropagation()}
+          />
+        ) : null}
+      </g>
     );
   });
 }
@@ -1549,19 +2264,47 @@ function isSelected(
   );
 }
 
-function renderOrder(scene: ReviewedCardScene): PoseCard[] {
+function renderOrder(
+  scene: ReviewedCardScene,
+  selection: WorkbenchSelection | null,
+): PoseCard[] {
   const poses = new Map(scene.poses.map((pose) => [pose.card_id, pose]));
   const ordered = scene.stacking_order.card_ids
     .slice()
     .reverse()
     .map((cardId) => poses.get(cardId))
     .filter((pose): pose is PoseCard => pose !== undefined);
-  return [
+  const result = [
     ...ordered,
     ...scene.poses.filter(
       (pose) => !scene.stacking_order.card_ids.includes(pose.card_id),
     ),
   ];
+  const selectedId = selection?.type === "virtual_card" ? selection.id : null;
+  if (selectedId === null) return result;
+  const selected = result.find((pose) => pose.card_id === selectedId);
+  return selected === undefined
+    ? result
+    : [...result.filter((pose) => pose.card_id !== selectedId), selected];
+}
+
+function rotationHandle(
+  pose: PoseCard,
+  projection: CardSceneProjection,
+  viewpoint: WorkbenchViewpoint,
+): [number, number] {
+  const angle = (pose.rotation_degrees * Math.PI) / 180;
+  const tablePoint: TablePoint = [
+    pose.center[0] + Math.sin(angle) * (projection.card_long_size / 2 + 0.18),
+    pose.center[1] - Math.cos(angle) * (projection.card_long_size / 2 + 0.18),
+  ];
+  if (viewpoint === "rectified") return tablePoint;
+  return (
+    projectTablePoint(tablePoint, projection.table_to_image_homography) ?? [
+      pose.center[0],
+      pose.center[1],
+    ]
+  );
 }
 
 function strokeWidth(

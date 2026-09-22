@@ -209,6 +209,7 @@ export function readPoseScene(value: unknown): PoseSceneEnvelope | null {
     const scene = readReviewedCardScene(value.scene);
     const initialized = readReviewedCardScene(value.initialized_scene);
     const projection = readProjection(value.projection);
+    const reviewStates = readCardReviewStates(value.card_review_states);
     if (scene === null || initialized === null || projection === null)
       return null;
     return {
@@ -216,6 +217,18 @@ export function readPoseScene(value: unknown): PoseSceneEnvelope | null {
       scene,
       initialized_scene: initialized,
       projection,
+      ...(reviewStates === null ? {} : { card_review_states: reviewStates }),
+      ...(value.completion_state === "pending" ||
+      value.completion_state === "complete" ||
+      value.completion_state === "unusable"
+        ? {
+            completion_state: value.completion_state,
+            completion_reason:
+              typeof value.completion_reason === "string"
+                ? value.completion_reason
+                : null,
+          }
+        : {}),
       ...(readDerivedRegionReceipt(value.derived_region_receipt) === null
         ? {}
         : {

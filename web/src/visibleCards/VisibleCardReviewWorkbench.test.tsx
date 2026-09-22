@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { VisibleCardReviewWorkbench } from "./VisibleCardReviewWorkbench";
 import type { EditableFrame } from "./PipelineVisibleCardTypes";
@@ -68,6 +68,16 @@ const scene: PoseSceneEnvelope = {
     card_short_size: 10,
     card_long_size: 20,
   },
+  card_review_states: [
+    {
+      card_id: "card-1",
+      source: "proposal",
+      proposal_id: "proposal-1",
+      state: "pending",
+    },
+  ],
+  completion_state: "pending",
+  completion_reason: null,
 };
 
 const frame: EditableFrame = {
@@ -279,5 +289,79 @@ describe("VisibleCardReviewWorkbench", () => {
         y: expect.closeTo(500),
       }),
     );
+  });
+
+  it("moves virtual-card actions into the shared command bar", async () => {
+    const onSceneChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        onSceneChange={onSceneChange}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Select virtual card card-1" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Accept card card-1" }),
+    ).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Add virtual card" }));
+
+    await waitFor(() => expect(onSceneChange).toHaveBeenCalledTimes(1));
+    expect(onSceneChange.mock.calls[0][0].scene.poses).toHaveLength(2);
+    expect(onSceneChange.mock.calls[0][1]).toContain("added");
+  });
+
+  it("uses the virtual-card keyboard nudge and keeps the card target explicit", async () => {
+    const onSceneChange = vi.fn();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        onSceneChange={onSceneChange}
+      />,
+    );
+
+    const card = screen.getByRole("button", {
+      name: "Select virtual card card-1",
+    });
+    fireEvent.click(card);
+    fireEvent.keyDown(card, { key: "ArrowRight" });
+
+    await waitFor(() => expect(onSceneChange).toHaveBeenCalledTimes(1));
+    expect(onSceneChange.mock.calls[0][0].scene.poses[0].center[0]).toBeCloseTo(
+      50.025,
+    );
+    expect(
+      screen.getByRole("button", { name: "Remove card card-1" }),
+    ).toBeDisabled();
+  });
+
+  it("keeps card acceptance separate from frame actions", async () => {
+    const onCardDecision = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        onCardDecision={onCardDecision}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Select virtual card card-1" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Accept card card-1" }),
+    );
+
+    expect(onCardDecision).toHaveBeenCalledWith("card-1", "accept");
+    expect(screen.queryByRole("button", { name: "Accept frame" })).toBeNull();
   });
 });

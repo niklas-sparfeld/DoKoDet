@@ -27,7 +27,10 @@
 - **M2:** Complete — visible-region polygon and ignore-region editing now use the shared
   Camera/Rectified workbench surface, selection actions, source-coordinate pointer mapping, and
   existing command callbacks.
-- **M3:** Not started — move virtual-card editing into the workbench.
+- **M3:** Complete — virtual-card selection, move, rotate, numeric rotation, keyboard nudge,
+  add/remove, card decisions, stacking order, restore, pointer pan, and trackpad zoom now use the
+  shared Camera/Rectified workbench surface and command bar. Existing card-scene queue operations
+  and proposal lineage remain unchanged.
 - **M4:** Not started — move mapping refinement into the workbench.
 - **M5:** Not started — consolidate actions, remove the split presentations, and verify the complete
   operator loop.
