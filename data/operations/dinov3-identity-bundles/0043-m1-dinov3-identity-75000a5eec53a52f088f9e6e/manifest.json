@@ -1,0 +1,156 @@
+{
+  "bundle_digest": "d83c50780a9f4332b4767d6c396a416e4d0210ee4915902917caecc06ac2aa9c",
+  "calibration": "uncalibrated",
+  "capabilities": [
+    "identity_candidates"
+  ],
+  "capability": "visual-card-identity",
+  "component": "table-evidence-analyzer",
+  "files": {
+    "config.json": "9481247be9f95a134a5599402b4bfc838eecdf9a7fffbf4debd1c70ec213898b",
+    "head.pt": "168ba2eb0f52681c977abb70ce2069355589a8df5ac3741b180c8ffa2c81f5d0",
+    "model.safetensors": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d",
+    "preprocessor_config.json": "960c41d1f3a7778b936365769a2d90550b318a6c0a53a0296957adacfe5e0dd7",
+    "target-map.json": "ddbfda93e4b869fa57878d39bb4c7c182861c79da4141dd00b3f1ee1a479d173"
+  },
+  "head": {
+    "adapter": "dinov3-frozen-linear-v1",
+    "class_count": 25,
+    "file": "head.pt",
+    "hidden_size": 384,
+    "schema_version": "dinov3-identity-linear-head/v1",
+    "sha256": "168ba2eb0f52681c977abb70ce2069355589a8df5ac3741b180c8ffa2c81f5d0"
+  },
+  "identity": {
+    "augmentation": {
+      "color_and_exposure": {
+        "brightness": 0.15,
+        "contrast": 0.15,
+        "saturation": 0.1
+      },
+      "identity_mark_mirroring": false,
+      "mirror": false,
+      "orientation": {
+        "allowed": [
+          "identity",
+          "rotate_180"
+        ],
+        "arbitrary_rotation": false
+      },
+      "schema_version": "dinov3-identity-augmentation/v1",
+      "train_only": true
+    },
+    "capability": "visual-card-identity",
+    "component": "table-evidence-analyzer",
+    "dependency_versions": {
+      "safetensors": "0.8.0",
+      "torch": "2.13.0",
+      "torchvision": "0.28.0",
+      "transformers": "5.16.1"
+    },
+    "license": {
+      "accepted": true,
+      "accepted_at_utc": "2026-09-17T18:51:54Z",
+      "license_id": "dinov3-license",
+      "name": "DINOv3 License",
+      "url": "https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md",
+      "version": "2025-08-19"
+    },
+    "model": {
+      "architecture": "DINOv3 ViT-S/16",
+      "config_file": "config.json",
+      "config_sha256": "9481247be9f95a134a5599402b4bfc838eecdf9a7fffbf4debd1c70ec213898b",
+      "feature": "pooler_output",
+      "id": "facebook/dinov3-vits16-pretrain-lvd1689m",
+      "patch_size": 16,
+      "processor_file": "preprocessor_config.json",
+      "processor_sha256": "960c41d1f3a7778b936365769a2d90550b318a6c0a53a0296957adacfe5e0dd7",
+      "revision": "master",
+      "weights": {
+        "file": "model.safetensors",
+        "sha256": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d"
+      }
+    },
+    "processor": {
+      "channels": "RGB",
+      "dtype": "float32",
+      "input_size": {
+        "height": 224,
+        "width": 224
+      },
+      "layout": "CHW",
+      "normalize": {
+        "enabled": true,
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "padding": {
+        "anchor": "center",
+        "fill_rgb": [
+          128,
+          128,
+          128
+        ],
+        "mode": "constant"
+      },
+      "rescale": {
+        "enabled": true,
+        "factor": 0.00392156862745098
+      },
+      "resize": {
+        "method": "aspect_ratio_preserving",
+        "resampling": "lanczos"
+      },
+      "schema_version": "dinov3-identity-processor/v1"
+    },
+    "quality_state": "unusable_smoke_artifact",
+    "schema_version": "dinov3-identity-config/v1",
+    "target": {
+      "card_set_id": "doko-german-suited-v1",
+      "class_count": 25,
+      "class_map": {
+        "0": "CLUBS_NINE",
+        "1": "CLUBS_JACK",
+        "10": "SPADES_TEN",
+        "11": "SPADES_ACE",
+        "12": "HEARTS_NINE",
+        "13": "HEARTS_JACK",
+        "14": "HEARTS_QUEEN",
+        "15": "HEARTS_KING",
+        "16": "HEARTS_TEN",
+        "17": "HEARTS_ACE",
+        "18": "DIAMONDS_NINE",
+        "19": "DIAMONDS_JACK",
+        "2": "CLUBS_QUEEN",
+        "20": "DIAMONDS_QUEEN",
+        "21": "DIAMONDS_KING",
+        "22": "DIAMONDS_TEN",
+        "23": "DIAMONDS_ACE",
+        "24": "FACE_DOWN",
+        "3": "CLUBS_KING",
+        "4": "CLUBS_TEN",
+        "5": "CLUBS_ACE",
+        "6": "SPADES_NINE",
+        "7": "SPADES_JACK",
+        "8": "SPADES_QUEEN",
+        "9": "SPADES_KING"
+      },
+      "schema_version": "dinov3-identity-target-map/v2"
+    },
+    "transform_version": "dinov3-identity-letterbox-224-v1"
+  },
+  "quality_state": "unusable_smoke_artifact",
+  "run_id": "dinov3-m1-1789675071",
+  "schema_version": "dinov3-identity-bundle/v2",
+  "source_checkpoint_sha256": "c372fbe142792ec650187d876e23e4c6fc45423b1d7d9d4208ddf9de2b89b254",
+  "target_map_file": "target-map.json",
+  "target_map_sha256": "ddbfda93e4b869fa57878d39bb4c7c182861c79da4141dd00b3f1ee1a479d173"
+}

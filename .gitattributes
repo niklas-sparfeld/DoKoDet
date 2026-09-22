@@ -12,3 +12,9 @@ card_event_net/data/raw/*.m4v filter=lfs diff=lfs merge=lfs -text
 **/data/intake/evidence-packages/**/*.jpg filter=lfs diff=lfs merge=lfs -text
 **/data/intake/evidence-packages/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
 **/data/model-campaigns/**/*.pt filter=lfs diff=lfs merge=lfs -text
+
+# Model checkpoints required by the checked-in local bundles.
+.runtime/rfdetr-card-cluster-0071-m3-real/bundle/checkpoint_best_total.pth filter=lfs diff=lfs merge=lfs -text
+.runtime/rfdetr-visible-card-detector-0068-m2-training/bundle/checkpoint_best_total.pth filter=lfs diff=lfs merge=lfs -text
+.runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/bundle/checkpoint_best_total.pth filter=lfs diff=lfs merge=lfs -text
+data/operations/dinov3-identity-bundles/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/model.safetensors filter=lfs diff=lfs merge=lfs -text
