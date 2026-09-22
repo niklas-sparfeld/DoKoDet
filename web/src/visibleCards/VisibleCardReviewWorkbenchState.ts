@@ -269,9 +269,13 @@ export function visibleCardReviewWorkbenchReducer(
       const selection = isSelectionCompatible(action.tool, state.selection)
         ? state.selection
         : null;
+      const enabledLayers = availability.layers[action.tool].available
+        ? [action.tool]
+        : [];
       return {
         ...state,
         activeTool: action.tool,
+        enabledLayers,
         selection,
         visualFocus: selection === null ? false : state.visualFocus,
         gesture: null,

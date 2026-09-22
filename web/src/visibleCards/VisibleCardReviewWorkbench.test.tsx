@@ -324,28 +324,40 @@ describe("VisibleCardReviewWorkbench", () => {
       "aria-pressed",
       "true",
     );
-    expect(showLayer("Virtual cards")).toHaveAttribute("aria-pressed", "true");
+    expect(showLayer("Virtual cards")).toHaveAttribute("aria-pressed", "false");
+    expect(showLayer("Mapping diagnostics")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
 
     await user.click(
       screen.getByRole("button", { name: "Edit Virtual cards" }),
     );
     expect(showLayer("Visible regions")).toHaveAttribute(
       "aria-pressed",
-      "true",
+      "false",
     );
     expect(showLayer("Virtual cards")).toHaveAttribute("aria-pressed", "true");
+    expect(showLayer("Mapping diagnostics")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
 
     await user.click(
       screen.getByRole("button", { name: "Edit Mapping diagnostics" }),
     );
     expect(showLayer("Visible regions")).toHaveAttribute(
       "aria-pressed",
+      "false",
+    );
+    expect(showLayer("Virtual cards")).toHaveAttribute("aria-pressed", "false");
+    expect(showLayer("Mapping diagnostics")).toHaveAttribute(
+      "aria-pressed",
       "true",
     );
-    expect(showLayer("Virtual cards")).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("shows source detector cards and visible regions in every edit mode", async () => {
+  it("shows source detector cards in every edit mode", async () => {
     const user = userEvent.setup();
     const virtualTableFrame = structuredClone(frame);
     virtualTableFrame.outcome.candidates = [];
@@ -375,11 +387,6 @@ describe("VisibleCardReviewWorkbench", () => {
     const expectDetectedCard = () => {
       expect(
         screen.getByRole("button", { name: "Select proposal 1" }),
-      ).toBeInTheDocument();
-      expect(
-        screen
-          .getByRole("img", { name: /Rectified visible-card workbench/ })
-          .querySelector('[data-workbench-layer="visible_regions"]'),
       ).toBeInTheDocument();
     };
 
