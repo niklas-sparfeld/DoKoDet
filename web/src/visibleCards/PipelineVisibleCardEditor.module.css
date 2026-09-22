@@ -420,6 +420,11 @@
   grid-column: 2;
 }
 
+.ignoreRegionRow .proposalSelect {
+  grid-column: 2;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .ignoreRegionSwatch {
   width: 0.65rem;
   height: 2.6rem;

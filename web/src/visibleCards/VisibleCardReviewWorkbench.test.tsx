@@ -209,6 +209,31 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toBeDisabled();
   });
 
+  it("keeps proposal sidebar previews and details in their separate grid columns", () => {
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly
+        proposalSlot={null}
+      />,
+    );
+
+    expect(
+      screen.getByRole("img", { name: "Proposal 1 crop preview" }),
+    ).toBeInTheDocument();
+    const proposal = screen.getByRole("button", { name: "Select proposal 1" });
+    expect(proposal.querySelector("svg")).toBeInTheDocument();
+    expect(
+      within(proposal).getByText("Detector suggestion"),
+    ).toBeInTheDocument();
+    expect(within(proposal).getByText("Unknown")).toBeInTheDocument();
+    expect(within(proposal).getByText("Box")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Select ignore region 1" }),
+    ).toBeInTheDocument();
+  });
+
   it("switches to Camera with one viewpoint button and preserves selection", async () => {
     const onSelectionChange = vi.fn();
     const user = userEvent.setup();
