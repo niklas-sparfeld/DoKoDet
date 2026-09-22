@@ -696,14 +696,13 @@ export function VisibleCardReviewWorkbench({
     )
       return false;
     const currentScene = sceneDraftRef.current;
-    const viewBox =
-      activeState.viewpoint === "rectified"
-        ? tableViewBox(
-            currentScene.scene,
-            currentScene.projection,
-            activeState.viewport,
-          )
-        : null;
+    const viewBox = surfaceViewBox(
+      activeState.viewpoint,
+      width,
+      height,
+      currentScene,
+      activeState.viewport,
+    );
     if (viewBox === null) return false;
     event.preventDefault();
     virtualGestureRef.current = {
@@ -905,17 +904,18 @@ export function VisibleCardReviewWorkbench({
   };
 
   const handleSurfaceWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
-    if (activeState.viewpoint !== "rectified" || sceneDraftRef.current === null)
-      return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0 || event.deltaY === 0) return;
     event.preventDefault();
     const currentScene = sceneDraftRef.current;
-    const currentViewBox = tableViewBox(
-      currentScene.scene,
-      currentScene.projection,
+    const currentViewBox = surfaceViewBox(
+      activeState.viewpoint,
+      width,
+      height,
+      currentScene,
       activeState.viewport,
     );
+    if (currentViewBox === null) return;
     const deltaY =
       event.deltaY *
       (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
@@ -930,14 +930,17 @@ export function VisibleCardReviewWorkbench({
       currentViewBox.x + focusX * currentViewBox.width,
       currentViewBox.y + focusY * currentViewBox.height,
     ];
-    const nextViewBox = tableViewBox(
-      currentScene.scene,
-      currentScene.projection,
+    const nextViewBox = surfaceViewBox(
+      activeState.viewpoint,
+      width,
+      height,
+      currentScene,
       {
         zoom: nextZoom,
         pan: activeState.viewport.pan,
       },
     );
+    if (nextViewBox === null) return;
     dispatch({
       type: "set_viewport",
       viewport: {
@@ -2396,6 +2399,7 @@ function WorkbenchSurface({
       </svg>
     );
   }
+  const viewBox = cameraViewBox(width, height, viewport);
   return (
     <div
       className={styles.workbenchCameraViewport}
@@ -2411,11 +2415,18 @@ function WorkbenchSurface({
           width={width}
           height={height}
           alt="Selected visible-card source frame"
+          style={{
+            position: "absolute",
+            width: 1,
+            height: 1,
+            opacity: 0,
+            pointerEvents: "none",
+          }}
         />
       ) : null}
       <svg
         className={styles.workbenchCameraSurface}
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
         role="img"
         aria-label={proposalLabel}
         tabIndex={0}
@@ -2429,7 +2440,7 @@ function WorkbenchSurface({
             sourcePointFromEvent(
               event,
               "camera",
-              { x: 0, y: 0, width, height },
+              viewBox,
               width,
               height,
               scene,
@@ -2442,7 +2453,7 @@ function WorkbenchSurface({
             sourcePointFromEvent(
               event,
               "camera",
-              { x: 0, y: 0, width, height },
+              viewBox,
               width,
               height,
               scene,
@@ -2455,7 +2466,7 @@ function WorkbenchSurface({
             sourcePointFromEvent(
               event,
               "camera",
-              { x: 0, y: 0, width, height },
+              viewBox,
               width,
               height,
               scene,
@@ -2464,7 +2475,18 @@ function WorkbenchSurface({
         }
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onWheel={onWheel}
       >
+        {sourceUrl !== null ? (
+          <image
+            href={sourceUrl}
+            x="0"
+            y="0"
+            width={width}
+            height={height}
+            preserveAspectRatio="none"
+          />
+        ) : null}
         {renderLayers({
           frame,
           scene,
@@ -3367,6 +3389,35 @@ function tableViewBox(
   const centerX = (minX + maxX) / 2 + viewport.pan.x;
   const centerY = (minY + maxY) / 2 + viewport.pan.y;
   return { x: centerX - width / 2, y: centerY - height / 2, width, height };
+}
+
+function cameraViewBox(
+  frameWidth: number,
+  frameHeight: number,
+  viewport: { zoom: number; pan: { x: number; y: number } },
+): { x: number; y: number; width: number; height: number } {
+  const zoom = Math.max(viewport.zoom, 0.01);
+  const width = frameWidth / zoom;
+  const height = frameHeight / zoom;
+  const centerX = frameWidth / 2 + viewport.pan.x;
+  const centerY = frameHeight / 2 + viewport.pan.y;
+  return { x: centerX - width / 2, y: centerY - height / 2, width, height };
+}
+
+function surfaceViewBox(
+  viewpoint: WorkbenchViewpoint,
+  frameWidth: number,
+  frameHeight: number,
+  scene: PoseSceneEnvelope | null,
+  viewport: { zoom: number; pan: { x: number; y: number } },
+): { x: number; y: number; width: number; height: number } | null {
+  if (viewpoint === "rectified" && scene !== null) {
+    return tableViewBox(scene.scene, scene.projection, viewport);
+  }
+  if (viewpoint === "camera") {
+    return cameraViewBox(frameWidth, frameHeight, viewport);
+  }
+  return null;
 }
 
 function RectifiedSourceFrame({
