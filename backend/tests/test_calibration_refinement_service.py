@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from doko_operations.card_plane_calibration_refinement import CalibrationRefinementError
@@ -51,9 +52,12 @@ def _draft(draft_id: str, detector_revision_id: str) -> SimpleNamespace:
 def test_get_does_not_load_another_proposals_draft() -> None:
     old_id = "calibration-draft-proposal-old"
     service = _service({old_id: _draft(old_id, "detector-old")})
+    service._proposal = Mock()
 
     with pytest.raises(CalibrationRefinementNotFound):
         service.get("recording-1", "proposal-new", None)
+
+    service._proposal.assert_not_called()
 
 
 def test_get_rejects_an_explicit_stale_draft() -> None:

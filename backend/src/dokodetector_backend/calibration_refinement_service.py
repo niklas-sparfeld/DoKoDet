@@ -131,12 +131,12 @@ class CalibrationRefinementService:
     def get(
         self, recording_id: str, proposal_revision_id: str, draft_id: str | None
     ) -> dict[str, Any]:
-        _proposal, source, data = self._proposal(recording_id, proposal_revision_id)
         selected_draft_id = draft_id or f"calibration-draft-{proposal_revision_id}"
         try:
             draft = self.store.load(recording_id, selected_draft_id)
         except CalibrationRefinementError as error:
             raise CalibrationRefinementNotFound(str(error)) from error
+        _proposal, source, data = self._proposal(recording_id, proposal_revision_id)
         self._require_current_source(draft, source)
         return self._response(recording_id, proposal_revision_id, draft, data)
 
