@@ -8,6 +8,7 @@ import styles from "../App.module.css";
 import eventStyles from "./PipelineCardEventEditor.module.css";
 import { formatMicroseconds } from "./PipelineCardEventFormatting";
 import {
+  isAbortError,
   loadCachedReviewFrame,
   peekCachedReviewFrame,
   ReviewFrameUnavailableError,
@@ -100,13 +101,16 @@ function DerivedFrameSurface({
         setError(null);
       })
       .catch((reason: unknown) => {
-        if (controller.signal.aborted || sequence !== sequenceRef.current)
+        if (
+          controller.signal.aborted ||
+          sequence !== sequenceRef.current ||
+          isAbortError(reason)
+        ) {
           return;
-        setStatus(
-          reason instanceof ReviewFrameUnavailableError ? "failed" : "failed",
-        );
+        }
+        setStatus("failed");
         setError(
-          reason instanceof Error
+          reason instanceof ReviewFrameUnavailableError || reason instanceof Error
             ? reason.message
             : "The CardEvent review frame request failed.",
         );

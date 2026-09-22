@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { pipelineDerivedFramePath } from "../api/client";
 import { CardEventFrameSurface } from "./CardEventFrameSurface";
-import { loadCachedReviewFrame } from "./cardEventFrameCache";
+import {
+  loadCachedReviewFrame,
+  resetReviewFrameCacheForTests,
+} from "./cardEventFrameCache";
 
 const recordingId = "recording-frame-surface";
 
@@ -18,6 +21,7 @@ describe("CardEventFrameSurface", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    resetReviewFrameCacheForTests();
   });
 
   it("loads a cached exact review frame for the requested time", async () => {
@@ -41,7 +45,6 @@ describe("CardEventFrameSurface", () => {
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       pipelineDerivedFramePath(recordingId, 1_250_001),
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     await waitFor(() =>
       expect(
@@ -111,5 +114,50 @@ describe("CardEventFrameSurface", () => {
     expect(
       screen.getByRole("region", { name: "CardEvent review source frame" }),
     ).toHaveAttribute("data-frame-settled", "true");
+  });
+
+  it("does not show an abort error when the requested time changes mid-fetch", async () => {
+    const resolvers = new Map<string, (value: Response) => void>();
+    const fetchMock = vi.fn<typeof fetch>((input) => {
+      const url = String(input);
+      return new Promise<Response>((resolve) => {
+        resolvers.set(url, resolve);
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(
+      <CardEventFrameSurface
+        recordingId={recordingId}
+        requestedTimeUs={1_000_000}
+        playback="derived"
+      />,
+    );
+
+    expect(await screen.findByText("Updating frame…")).toBeInTheDocument();
+
+    rerender(
+      <CardEventFrameSurface
+        recordingId={recordingId}
+        requestedTimeUs={2_000_000}
+        playback="derived"
+      />,
+    );
+
+    const secondUrl = pipelineDerivedFramePath(recordingId, 2_000_000);
+    await waitFor(() => expect(resolvers.has(secondUrl)).toBe(true));
+
+    await act(async () => {
+      resolvers.get(secondUrl)?.(frameResponse());
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("region", { name: "CardEvent review source frame" }),
+      ).toHaveAttribute("data-frame-settled", "true"),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/aborted/i)).not.toBeInTheDocument();
   });
 });

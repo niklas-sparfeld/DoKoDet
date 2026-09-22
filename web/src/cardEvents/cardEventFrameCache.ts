@@ -7,6 +7,17 @@ type CacheEntry = {
 const frameCache = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<string>>();
 
+/** Test helper: drop cached frames and in-flight loads. */
+export function resetReviewFrameCacheForTests(): void {
+  for (const entry of frameCache.values()) {
+    if (entry.objectUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(entry.objectUrl);
+    }
+  }
+  frameCache.clear();
+  inflight.clear();
+}
+
 export function peekCachedReviewFrame(url: string): string | null {
   const entry = frameCache.get(url);
   if (entry === undefined) return null;
@@ -23,34 +34,48 @@ export async function loadCachedReviewFrame(
   const cached = peekCachedReviewFrame(url);
   if (cached !== null) return cached;
 
-  const pending = inflight.get(url);
-  if (pending !== undefined) {
+  if (signal?.aborted) {
+    throw abortError();
+  }
+
+  let pending = inflight.get(url);
+  if (pending === undefined) {
+    // Do not attach the caller's AbortSignal to the shared fetch. Aborting a
+    // superseded UI request must not poison later waiters for the same URL.
+    pending = (async () => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new ReviewFrameUnavailableError(response.status);
+      }
+      const blob = await response.blob();
+      const objectUrl =
+        typeof URL.createObjectURL === "function"
+          ? URL.createObjectURL(blob)
+          : url;
+      rememberFrame(url, objectUrl);
+      return objectUrl;
+    })();
+    inflight.set(url, pending);
+    void pending.finally(() => {
+      if (inflight.get(url) === pending) inflight.delete(url);
+    });
+  }
+
+  if (signal === undefined) {
     return pending;
   }
 
-  const request = (async () => {
-    const response = await fetch(url, { signal });
-    if (!response.ok) {
-      throw new ReviewFrameUnavailableError(response.status);
-    }
-    const blob = await response.blob();
-    if (signal?.aborted) {
-      throw new DOMException("Aborted", "AbortError");
-    }
-    const objectUrl =
-      typeof URL.createObjectURL === "function"
-        ? URL.createObjectURL(blob)
-        : url;
-    rememberFrame(url, objectUrl);
-    return objectUrl;
-  })();
+  return raceWithAbort(pending, signal);
+}
 
-  inflight.set(url, request);
-  try {
-    return await request;
-  } finally {
-    if (inflight.get(url) === request) inflight.delete(url);
-  }
+export function isAbortError(reason: unknown): boolean {
+  return (
+    (typeof DOMException !== "undefined" &&
+      reason instanceof DOMException &&
+      reason.name === "AbortError") ||
+    (reason instanceof Error && reason.name === "AbortError") ||
+    (reason instanceof Error && /aborted/i.test(reason.message))
+  );
 }
 
 export class ReviewFrameUnavailableError extends Error {
@@ -61,6 +86,43 @@ export class ReviewFrameUnavailableError extends Error {
     this.name = "ReviewFrameUnavailableError";
     this.status = status;
   }
+}
+
+function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(abortError());
+      return;
+    }
+
+    const onAbort = () => {
+      cleanup();
+      reject(abortError());
+    };
+    const cleanup = () => {
+      signal.removeEventListener("abort", onAbort);
+    };
+
+    signal.addEventListener("abort", onAbort);
+    promise.then(
+      (value) => {
+        cleanup();
+        if (signal.aborted) {
+          reject(abortError());
+          return;
+        }
+        resolve(value);
+      },
+      (error: unknown) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
+}
+
+function abortError(): DOMException {
+  return new DOMException("Aborted", "AbortError");
 }
 
 function rememberFrame(url: string, objectUrl: string): void {
