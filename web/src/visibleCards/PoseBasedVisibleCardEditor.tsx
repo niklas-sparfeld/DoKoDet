@@ -53,6 +53,7 @@ type PoseBasedVisibleCardEditorProps = {
 export type VirtualTableViewState = {
   zoom: number;
   pan: TablePoint;
+  baseViewBox?: TableViewBox;
 };
 
 type TableViewBox = { x: number; y: number; width: number; height: number };
@@ -140,16 +141,24 @@ export function PoseBasedVisibleCardEditor({
   const setZoom = useCallback(
     (next: number | ((value: number) => number)) => {
       const resolved = typeof next === "function" ? next(zoom) : next;
-      updateTableViewState({ zoom: resolved, pan });
+      updateTableViewState({
+        zoom: resolved,
+        pan,
+        baseViewBox: tableViewState?.baseViewBox,
+      });
     },
-    [pan, updateTableViewState, zoom],
+    [pan, tableViewState?.baseViewBox, updateTableViewState, zoom],
   );
   const setPan = useCallback(
     (next: TablePoint | ((value: TablePoint) => TablePoint)) => {
       const resolved = typeof next === "function" ? next(pan) : next;
-      updateTableViewState({ zoom, pan: resolved });
+      updateTableViewState({
+        zoom,
+        pan: resolved,
+        baseViewBox: tableViewState?.baseViewBox,
+      });
     },
-    [pan, updateTableViewState, zoom],
+    [pan, tableViewState?.baseViewBox, updateTableViewState, zoom],
   );
   const [internalActiveView, setInternalActiveView] =
     useState<GestureView>("rectified");
@@ -265,7 +274,7 @@ export function PoseBasedVisibleCardEditor({
           ),
     [draft.projection.table_to_image_homography, height, sourceUrl, width],
   );
-  const tableViewBox = useMemo(
+  const fittedTableViewBox = useMemo(
     () =>
       getTableViewBox(
         draft.scene,
@@ -276,6 +285,36 @@ export function PoseBasedVisibleCardEditor({
       ),
     [draft.projection, draft.scene, pan, projectedFrameBounds, zoom],
   );
+  const tableViewBox = useMemo(
+    () =>
+      getTableViewBox(
+        draft.scene,
+        draft.projection,
+        zoom,
+        pan,
+        projectedFrameBounds,
+        tableViewState?.baseViewBox ?? null,
+      ),
+    [
+      draft.projection,
+      draft.scene,
+      pan,
+      projectedFrameBounds,
+      tableViewState?.baseViewBox,
+      zoom,
+    ],
+  );
+  useEffect(() => {
+    if (
+      tableViewState !== undefined &&
+      tableViewState.baseViewBox === undefined
+    ) {
+      onTableViewStateChange?.({
+        ...tableViewState,
+        baseViewBox: fittedTableViewBox,
+      });
+    }
+  }, [fittedTableViewBox, onTableViewStateChange, tableViewState]);
   const projectedPolygons = useMemo(
     () =>
       new Map(
@@ -675,6 +714,7 @@ export function PoseBasedVisibleCardEditor({
         nextZoom,
         pan,
         projectedFrameBounds,
+        tableViewState?.baseViewBox ?? null,
       );
       updateTableViewState({
         zoom: nextZoom,
@@ -686,6 +726,7 @@ export function PoseBasedVisibleCardEditor({
             focusedPoint[1] -
             (nextViewBox.y + focusY * nextViewBox.height),
         ],
+        baseViewBox: tableViewState?.baseViewBox,
       });
     },
     [
@@ -693,6 +734,7 @@ export function PoseBasedVisibleCardEditor({
       pan,
       projectedFrameBounds,
       tableViewBox,
+      tableViewState?.baseViewBox,
       updateTableViewState,
       zoom,
     ],
@@ -1031,7 +1073,11 @@ export function PoseBasedVisibleCardEditor({
           <button
             type="button"
             onClick={() => {
-              updateTableViewState({ zoom: 1, pan: [0, 0] });
+              updateTableViewState({
+                zoom: 1,
+                pan: [0, 0],
+                baseViewBox: tableViewState?.baseViewBox,
+              });
             }}
             aria-label="Fit virtual table"
           >
@@ -1584,6 +1630,7 @@ function getTableViewBox(
   zoom: number,
   pan: TablePoint,
   backgroundBounds: TableViewBox | null,
+  fixedBounds: TableViewBox | null = null,
 ): TableViewBox {
   const halfShort = projection.card_short_size / 2;
   const halfLong = projection.card_long_size / 2;
@@ -1597,25 +1644,31 @@ function getTableViewBox(
     pose.center[1] + halfShort + halfLong,
   ]);
   const minX =
+    fixedBounds?.x ??
     Math.min(...xs, backgroundBounds?.x ?? Infinity, -1) - viewportPadding;
   const maxX =
-    Math.max(
-      ...xs,
-      backgroundBounds === null
-        ? -Infinity
-        : backgroundBounds.x + backgroundBounds.width,
-      1,
-    ) + viewportPadding;
+    fixedBounds === null
+      ? Math.max(
+          ...xs,
+          backgroundBounds === null
+            ? -Infinity
+            : backgroundBounds.x + backgroundBounds.width,
+          1,
+        ) + viewportPadding
+      : fixedBounds.x + fixedBounds.width;
   const minY =
+    fixedBounds?.y ??
     Math.min(...ys, backgroundBounds?.y ?? Infinity, -1) - viewportPadding;
   const maxY =
-    Math.max(
-      ...ys,
-      backgroundBounds === null
-        ? -Infinity
-        : backgroundBounds.y + backgroundBounds.height,
-      1,
-    ) + viewportPadding;
+    fixedBounds === null
+      ? Math.max(
+          ...ys,
+          backgroundBounds === null
+            ? -Infinity
+            : backgroundBounds.y + backgroundBounds.height,
+          1,
+        ) + viewportPadding
+      : fixedBounds.y + fixedBounds.height;
   const width = (maxX - minX) / zoom;
   const height = (maxY - minY) / zoom;
   const centerX = (minX + maxX) / 2 + pan[0];
