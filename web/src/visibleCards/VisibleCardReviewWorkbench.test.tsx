@@ -293,7 +293,7 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toBeDisabled();
   });
 
-  it("puts visible-region actions and editor points in the shared surface", async () => {
+  it("puts visible-region actions in the Timeline Rail and keeps editor points in the shared surface", async () => {
     const onAction = vi.fn();
     const user = userEvent.setup();
     render(
@@ -322,13 +322,25 @@ describe("VisibleCardReviewWorkbench", () => {
       />,
     );
 
+    const commandBar = screen.getByRole("toolbar", {
+      name: "Workbench command bar",
+    });
     expect(
-      screen.getByRole("button", { name: "Add visible card" }),
-    ).toBeEnabled();
+      within(commandBar).queryByRole("group", { name: "Selection actions" }),
+    ).toBeNull();
+    const selectionActions = screen.getByRole("group", {
+      name: "Selection actions",
+    });
+    const addVisibleCard = within(selectionActions).getByRole("button", {
+      name: "Add visible card",
+    });
+    expect(addVisibleCard).toBeEnabled();
+    expect(addVisibleCard).toHaveTextContent("＋");
+    expect(addVisibleCard).toHaveAttribute("title", "Add visible card · N");
     expect(
       screen.getByRole("button", { name: /Polygon 1, point 1/ }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Add visible card" }));
+    await user.click(addVisibleCard);
     expect(onAction).toHaveBeenCalledWith("add_visible_card", null);
   });
 
@@ -372,7 +384,7 @@ describe("VisibleCardReviewWorkbench", () => {
     );
   });
 
-  it("moves virtual-card actions into the shared command bar", async () => {
+  it("moves virtual-card actions into the Timeline Rail", async () => {
     const onSceneChange = vi.fn();
     const user = userEvent.setup();
     render(
@@ -387,6 +399,11 @@ describe("VisibleCardReviewWorkbench", () => {
     await user.click(
       screen.getByRole("button", { name: "Select virtual card card-1" }),
     );
+    expect(
+      within(
+        screen.getByRole("group", { name: "Selection actions" }),
+      ).getByRole("button", { name: "Accept card card-1" }),
+    ).toHaveAttribute("title", "Accept card card-1 · Click");
     expect(
       screen.getByRole("button", { name: "Accept card card-1" }),
     ).toBeEnabled();

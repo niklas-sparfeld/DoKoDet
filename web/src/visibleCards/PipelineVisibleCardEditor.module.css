@@ -62,6 +62,21 @@
   scrollbar-width: thin;
 }
 
+.workbenchTimelineActions {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+}
+
+.workbenchTimelineFields {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .workbenchCommandGroup {
   display: flex;
   flex: 0 0 auto;
@@ -126,6 +141,57 @@
   background: var(--panel);
   color: var(--ink);
   font: inherit;
+}
+
+.workbenchTimelineField {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.workbenchTimelineField input {
+  width: 3.75rem;
+  min-height: 1.8rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+.workbenchTimelineFieldButton {
+  display: inline-flex;
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.workbenchTimelineFieldButton:hover:not(:disabled),
+.workbenchTimelineFieldButton:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 2px;
+}
+
+.workbenchTimelineFieldButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .workbenchCameraViewport {

@@ -2604,6 +2604,12 @@ progress {
   outline-offset: 2px;
 }
 
+.recordingTimelineSeekingButton[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-bright);
+}
+
 .recordingTimelineSeekingButton:disabled {
   cursor: not-allowed;
   opacity: 0.45;

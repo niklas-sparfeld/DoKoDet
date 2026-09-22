@@ -13,6 +13,10 @@ import { createPortal } from "react-dom";
 
 import type { CalibrationRefinementResponse } from "../api/client";
 import { pipelineDerivedFramePath } from "../api/client";
+import {
+  TimelineRailSeekingControls,
+  useTimelineRailReviewControlsSlot,
+} from "../pipeline/TimelineRailSeekingControls";
 import styles from "./PipelineVisibleCardEditor.module.css";
 import { formatIdentifier } from "./PipelineVisibleCardFormatting";
 import {
@@ -372,6 +376,8 @@ export function VisibleCardReviewWorkbench({
           (anchor) => anchor.anchorId === activeState.selection?.id,
         ) ?? null)
       : null;
+
+  const timelineReviewControlsSlot = useTimelineRailReviewControlsSlot();
 
   const renderMappingAnchors = mappingAnchors.map((anchor) =>
     anchorPreview?.anchorId === anchor.anchorId ? anchorPreview : anchor,
@@ -950,6 +956,109 @@ export function VisibleCardReviewWorkbench({
     });
   };
 
+  const handleWorkbenchAction = (action: VisibleCardReviewWorkbenchAction) => {
+    if (action === "add_virtual_card") {
+      if (scene !== null) {
+        const selectedPose = selectedPoseForSelection(
+          scene,
+          activeState.selection,
+        );
+        const center = selectedPose?.center ?? [0, 0];
+        const cardId = nextManualPoseId(scene.scene);
+        select({ type: "virtual_card", id: cardId });
+        applySceneAction(
+          {
+            type: "add",
+            cardId,
+            center: [center[0] + 0.2, center[1] + 0.2],
+          },
+          "Standard-size card added to the virtual table.",
+        );
+      }
+      return;
+    }
+    if (action === "remove_card") {
+      const selectedPose =
+        scene === null
+          ? null
+          : selectedPoseForSelection(scene, activeState.selection);
+      if (scene !== null && selectedPose !== null) {
+        const nextSelection = scene.scene.poses.find(
+          (pose) => pose.card_id !== selectedPose.card_id,
+        );
+        applySceneAction(
+          { type: "remove", cardId: selectedPose.card_id },
+          "Card removed from the virtual table.",
+        );
+        if (nextSelection === undefined) dispatch({ type: "clear_selection" });
+        else select({ type: "virtual_card", id: nextSelection.card_id });
+      }
+      return;
+    }
+    if (action === "bring_forward" || action === "send_backward") {
+      const selectedPose =
+        scene === null
+          ? null
+          : selectedPoseForSelection(scene, activeState.selection);
+      if (selectedPose !== null) {
+        applySceneAction(
+          { type: action, cardId: selectedPose.card_id },
+          action === "bring_forward"
+            ? "Card brought forward."
+            : "Card sent backward.",
+        );
+      }
+      return;
+    }
+    if (action === "restore_proposed_scene") {
+      applySceneAction(
+        { type: "restore_initialized" },
+        "Proposed card scene restored.",
+      );
+      return;
+    }
+    if (
+      action === "accept_anchor" ||
+      action === "adjust_anchor" ||
+      action === "pin_anchor" ||
+      action === "exclude_anchor" ||
+      action === "start_mapping_preview" ||
+      action === "discard_mapping_preview" ||
+      action === "apply_mapping"
+    ) {
+      handleMappingAction(action);
+      return;
+    }
+    onAction?.(action, activeState.selection);
+  };
+
+  const timelineSelectionActions = (
+    <WorkbenchTimelineSelectionActions
+      state={activeState}
+      readOnly={readOnly}
+      selectedCandidateIds={selectedCandidateIds}
+      editor={editor}
+      canCopyIgnoreRegions={canCopyIgnoreRegions}
+      canRestoreSuggestion={canRestoreSuggestion}
+      scene={scene}
+      calibrationRefinement={calibrationRefinement}
+      mappingAnchors={mappingAnchors}
+      mappingLoading={mappingLoading}
+      mappingCanApply={mappingCanApply}
+      anchorConstraint={anchorConstraint}
+      anchorCornerIndex={anchorCornerIndex}
+      numericAnchor={numericAnchor}
+      onConstraintChange={setAnchorConstraint}
+      onCornerChange={setAnchorCornerIndex}
+      onNumericChange={beginMappingNumericEdit}
+      onEmitNumeric={emitNumericAnchorCommand}
+      onCardDecision={onCardDecision}
+      onResolveRemaining={onResolveRemaining}
+      onSceneAction={applySceneAction}
+      onAction={handleWorkbenchAction}
+    />
+  );
+
   return (
     <section
       className={styles.workbench}
@@ -965,108 +1074,16 @@ export function VisibleCardReviewWorkbench({
         enabledEditTools={
           enabledEditTools ?? ["visible_regions", "virtual_cards", "mapping"]
         }
-        selectedCandidateIds={selectedCandidateIds}
-        editor={editor}
-        canCopyIgnoreRegions={canCopyIgnoreRegions}
-        canRestoreSuggestion={canRestoreSuggestion}
-        scene={scene}
-        calibrationRefinement={calibrationRefinement}
-        mappingAnchors={mappingAnchors}
-        mappingLoading={mappingLoading}
-        mappingCanApply={mappingCanApply}
-        anchorConstraint={anchorConstraint}
-        anchorCornerIndex={anchorCornerIndex}
-        numericAnchor={numericAnchor}
-        onConstraintChange={setAnchorConstraint}
-        onCornerChange={setAnchorCornerIndex}
-        onNumericChange={beginMappingNumericEdit}
-        onEmitNumeric={emitNumericAnchorCommand}
-        onCardDecision={onCardDecision}
-        onResolveRemaining={onResolveRemaining}
         onToggleViewpoint={() => dispatch({ type: "toggle_viewpoint" })}
         onToggleLayer={(layer) => dispatch({ type: "toggle_layer", layer })}
         onSelectTool={(tool) => {
           dispatch({ type: "select_tool", tool });
           onToolChange?.(tool);
         }}
-        onAction={(action) => {
-          if (action === "add_virtual_card") {
-            if (scene !== null) {
-              const selectedPose = selectedPoseForSelection(
-                scene,
-                activeState.selection,
-              );
-              const center = selectedPose?.center ?? [0, 0];
-              const cardId = nextManualPoseId(scene.scene);
-              select({ type: "virtual_card", id: cardId });
-              applySceneAction(
-                {
-                  type: "add",
-                  cardId,
-                  center: [center[0] + 0.2, center[1] + 0.2],
-                },
-                "Standard-size card added to the virtual table.",
-              );
-            }
-            return;
-          }
-          if (action === "remove_card") {
-            const selectedPose =
-              scene === null
-                ? null
-                : selectedPoseForSelection(scene, activeState.selection);
-            if (scene !== null && selectedPose !== null) {
-              const nextSelection = scene.scene.poses.find(
-                (pose) => pose.card_id !== selectedPose.card_id,
-              );
-              applySceneAction(
-                { type: "remove", cardId: selectedPose.card_id },
-                "Card removed from the virtual table.",
-              );
-              if (nextSelection === undefined)
-                dispatch({ type: "clear_selection" });
-              else select({ type: "virtual_card", id: nextSelection.card_id });
-            }
-            return;
-          }
-          if (action === "bring_forward" || action === "send_backward") {
-            const selectedPose =
-              scene === null
-                ? null
-                : selectedPoseForSelection(scene, activeState.selection);
-            if (selectedPose !== null) {
-              applySceneAction(
-                { type: action, cardId: selectedPose.card_id },
-                action === "bring_forward"
-                  ? "Card brought forward."
-                  : "Card sent backward.",
-              );
-            }
-            return;
-          }
-          if (action === "restore_proposed_scene") {
-            applySceneAction(
-              { type: "restore_initialized" },
-              "Proposed card scene restored.",
-            );
-            return;
-          }
-          if (
-            action === "accept_anchor" ||
-            action === "adjust_anchor" ||
-            action === "pin_anchor" ||
-            action === "exclude_anchor" ||
-            action === "start_mapping_preview" ||
-            action === "discard_mapping_preview" ||
-            action === "apply_mapping"
-          ) {
-            handleMappingAction(action);
-            return;
-          }
-          onAction?.(action, activeState.selection);
-        }}
-        onSceneAction={applySceneAction}
       />
+      {timelineReviewControlsSlot === null
+        ? timelineSelectionActions
+        : createPortal(timelineSelectionActions, timelineReviewControlsSlot)}
       <div className={styles.workbenchSurfaceLayout}>
         <WorkbenchSurface
           frame={frame}
@@ -1137,61 +1154,18 @@ function WorkbenchCommandBar({
   readOnly,
   frameDecision,
   enabledEditTools,
-  selectedCandidateIds,
-  editor,
-  canCopyIgnoreRegions,
-  canRestoreSuggestion,
-  scene,
-  calibrationRefinement,
-  mappingAnchors,
-  mappingLoading,
-  mappingCanApply,
-  anchorConstraint,
-  anchorCornerIndex,
-  numericAnchor,
-  onConstraintChange,
-  onCornerChange,
-  onNumericChange,
-  onEmitNumeric,
-  onCardDecision,
-  onResolveRemaining,
-  onSceneAction,
   onToggleViewpoint,
   onToggleLayer,
   onSelectTool,
-  onAction,
 }: {
   state: VisibleCardReviewWorkbenchState;
   availability: ReturnType<typeof getWorkbenchAvailability>;
   readOnly: boolean;
   frameDecision?: VisibleCardFrameDecision;
   enabledEditTools: readonly WorkbenchPreferences["activeTool"][];
-  selectedCandidateIds: string[];
-  editor: EditorState | null;
-  canCopyIgnoreRegions: boolean;
-  canRestoreSuggestion: boolean;
-  scene: PoseSceneEnvelope | null;
-  calibrationRefinement: CalibrationRefinementResponse | null;
-  mappingAnchors: WorkbenchCalibrationAnchor[];
-  mappingLoading: boolean;
-  mappingCanApply: boolean;
-  anchorConstraint: AnchorConstraint;
-  anchorCornerIndex: number;
-  numericAnchor: { anchorId: string; point: TablePoint } | null;
-  onConstraintChange: (constraint: AnchorConstraint) => void;
-  onCornerChange: (cornerIndex: number) => void;
-  onNumericChange: (value: number, axis: 0 | 1) => void;
-  onEmitNumeric: () => void;
-  onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
-  onResolveRemaining?: () => void;
-  onSceneAction: (
-    action: Parameters<typeof applyPoseSceneAction>[1],
-    notice: string,
-  ) => void;
   onToggleViewpoint: () => void;
   onToggleLayer: (layer: WorkbenchLayer) => void;
   onSelectTool: (tool: WorkbenchPreferences["activeTool"]) => void;
-  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
 }) {
   const nextViewpoint = state.viewpoint === "camera" ? "rectified" : "camera";
   const viewpointAvailability = availability.viewpoints[nextViewpoint];
@@ -1200,6 +1174,7 @@ function WorkbenchCommandBar({
     <div
       className={styles.workbenchCommandBar}
       aria-label="Workbench command bar"
+      role="toolbar"
     >
       <div className={styles.workbenchCommandGroup} aria-label="View">
         <span className={styles.workbenchCommandLabel}>View</span>
@@ -1268,10 +1243,82 @@ function WorkbenchCommandBar({
           },
         )}
       </div>
+      {frameDecision !== undefined ? (
+        <FrameDecisionActions decision={frameDecision} />
+      ) : null}
+      <p className={styles.workbenchGuidance}>
+        View changes coordinates. Show controls evidence layers. Edit selects
+        the active tool. Selection actions are in the Timeline Rail. Frame
+        decisions finish this frame.
+      </p>
+    </div>
+  );
+}
+
+type WorkbenchTimelineSelectionActionsProps = {
+  state: VisibleCardReviewWorkbenchState;
+  readOnly: boolean;
+  selectedCandidateIds: string[];
+  editor: EditorState | null;
+  canCopyIgnoreRegions: boolean;
+  canRestoreSuggestion: boolean;
+  scene: PoseSceneEnvelope | null;
+  calibrationRefinement: CalibrationRefinementResponse | null;
+  mappingAnchors: WorkbenchCalibrationAnchor[];
+  mappingLoading: boolean;
+  mappingCanApply: boolean;
+  anchorConstraint: AnchorConstraint;
+  anchorCornerIndex: number;
+  numericAnchor: { anchorId: string; point: TablePoint } | null;
+  onConstraintChange: (constraint: AnchorConstraint) => void;
+  onCornerChange: (cornerIndex: number) => void;
+  onNumericChange: (value: number, axis: 0 | 1) => void;
+  onEmitNumeric: () => void;
+  onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
+  onResolveRemaining?: () => void;
+  onSceneAction: (
+    action: Parameters<typeof applyPoseSceneAction>[1],
+    notice: string,
+  ) => void;
+  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
+};
+
+function WorkbenchTimelineSelectionActions({
+  state,
+  readOnly,
+  selectedCandidateIds,
+  editor,
+  canCopyIgnoreRegions,
+  canRestoreSuggestion,
+  scene,
+  calibrationRefinement,
+  mappingAnchors,
+  mappingLoading,
+  mappingCanApply,
+  anchorConstraint,
+  anchorCornerIndex,
+  numericAnchor,
+  onConstraintChange,
+  onCornerChange,
+  onNumericChange,
+  onEmitNumeric,
+  onCardDecision,
+  onResolveRemaining,
+  onSceneAction,
+  onAction,
+}: WorkbenchTimelineSelectionActionsProps) {
+  const content = (
+    <div
+      className={styles.workbenchTimelineActions}
+      aria-label="Selection actions"
+    >
       {state.activeTool === "visible_regions" ? (
         <VisibleRegionSelectionActions
           readOnly={readOnly}
-          sourceAvailable={availability.viewpoints.camera.available}
+          sourceAvailable={
+            getWorkbenchAvailability(state.capabilities).viewpoints.camera
+              .available
+          }
           selectedCandidateCount={selectedCandidateIds.length}
           editor={editor}
           selection={state.selection}
@@ -1309,16 +1356,9 @@ function WorkbenchCommandBar({
           onAction={onAction}
         />
       ) : null}
-      {frameDecision !== undefined ? (
-        <FrameDecisionActions decision={frameDecision} />
-      ) : null}
-      <p className={styles.workbenchGuidance}>
-        View changes coordinates. Show controls evidence layers. Edit selects
-        the active tool. Selection actions affect the selected item. Frame
-        decisions finish this frame.
-      </p>
     </div>
   );
+  return content;
 }
 
 function FrameDecisionActions({
@@ -1401,125 +1441,141 @@ function VirtualCardSelectionActions({
   const selectedCardId = selectedPose?.card_id ?? null;
   const sceneAvailable = scene !== null;
   const cardTarget = selectedCardId ?? "selected card";
-  const actionButton = (
+  const actionControl = (
     action: VirtualCardWorkbenchAction,
     label: string,
+    symbol: string,
+    shortcut: string,
     disabled: boolean,
     reason: string,
-  ) => (
-    <button
-      key={action}
-      type="button"
-      className={styles.workbenchToggle}
-      disabled={disabled}
-      title={disabled ? reason : undefined}
-      onClick={() => {
-        if (
-          (action === "accept_card" || action === "reject_card") &&
-          selectedCardId !== null &&
-          onCardDecision !== undefined
-        ) {
-          onCardDecision?.(
-            selectedCardId,
-            action === "accept_card" ? "accept" : "reject",
-          );
-        } else if (
-          action === "accept_remaining_cards" &&
-          onResolveRemaining !== undefined
-        ) {
-          onResolveRemaining();
-        } else {
-          onAction(action);
-        }
-      }}
-    >
-      {label}
-    </button>
-  );
+  ) => ({
+    label,
+    symbol,
+    shortcut,
+    ariaShortcut: shortcut === "Click" ? undefined : shortcut,
+    disabled,
+    disabledReason: reason,
+    onClick: () => {
+      if (
+        (action === "accept_card" || action === "reject_card") &&
+        selectedCardId !== null &&
+        onCardDecision !== undefined
+      ) {
+        onCardDecision(
+          selectedCardId,
+          action === "accept_card" ? "accept" : "reject",
+        );
+      } else if (
+        action === "accept_remaining_cards" &&
+        onResolveRemaining !== undefined
+      ) {
+        onResolveRemaining();
+      } else {
+        onAction(action);
+      }
+    },
+  });
+  const controls = [
+    actionControl(
+      "add_virtual_card",
+      "Add virtual card",
+      "＋",
+      "Click",
+      readOnly || !sceneAvailable,
+      readOnly
+        ? "Generated visible-card results are read-only."
+        : "A proposed card scene is required to add a virtual card.",
+    ),
+    actionControl(
+      "accept_card",
+      selectedCardId === null ? "Accept card" : `Accept card ${cardTarget}`,
+      "✓",
+      "Click",
+      readOnly ||
+        selectedCardId === null ||
+        selectedReviewState === null ||
+        selectedReviewState.state === "accepted",
+      selectedCardId === null
+        ? "Select a virtual card first."
+        : selectedReviewState === null
+          ? "This card has no review decision state."
+          : "The selected card is already accepted.",
+    ),
+    actionControl(
+      "reject_card",
+      selectedCardId === null ? "Reject card" : `Reject card ${cardTarget}`,
+      "×",
+      "Click",
+      readOnly ||
+        selectedCardId === null ||
+        selectedReviewState === null ||
+        selectedReviewState.state === "rejected",
+      selectedCardId === null
+        ? "Select a virtual card first."
+        : selectedReviewState === null
+          ? "This card has no review decision state."
+          : "The selected card is already rejected.",
+    ),
+    actionControl(
+      "accept_remaining_cards",
+      "Accept remaining cards",
+      "✓✓",
+      "Click",
+      readOnly || pendingCount === 0 || onResolveRemaining === undefined,
+      pendingCount === 0
+        ? "No pending card decisions remain."
+        : "All pending cards must be resolved through the maintained reference.",
+    ),
+    actionControl(
+      "remove_card",
+      selectedCardId === null ? "Remove card" : `Remove card ${cardTarget}`,
+      "−",
+      "Click",
+      readOnly || selectedPose === null || scene?.scene.poses.length === 1,
+      selectedPose === null
+        ? "Select a virtual card first."
+        : scene?.scene.poses.length === 1
+          ? "A card scene must keep one virtual card."
+          : "",
+    ),
+    actionControl(
+      "bring_forward",
+      selectedCardId === null
+        ? "Bring card forward"
+        : `Bring card ${cardTarget} forward`,
+      "↑",
+      "Click",
+      readOnly || selectedPose === null,
+      "Select a virtual card first.",
+    ),
+    actionControl(
+      "send_backward",
+      selectedCardId === null
+        ? "Send card backward"
+        : `Send card ${cardTarget} backward`,
+      "↓",
+      "Click",
+      readOnly || selectedPose === null,
+      "Select a virtual card first.",
+    ),
+    actionControl(
+      "restore_proposed_scene",
+      "Restore proposed scene",
+      "↺",
+      "Click",
+      readOnly || !sceneAvailable,
+      readOnly
+        ? "Generated visible-card results are read-only."
+        : "A proposed card scene is required to restore the scene.",
+    ),
+  ];
   return (
-    <div
-      className={styles.workbenchCommandGroup}
-      aria-label="Selection actions"
-    >
-      <span className={styles.workbenchCommandLabel}>Selection actions</span>
-      {actionButton(
-        "add_virtual_card",
-        "Add virtual card",
-        readOnly || !sceneAvailable,
-        readOnly
-          ? "Generated visible-card results are read-only."
-          : "A proposed card scene is required to add a virtual card.",
-      )}
-      {actionButton(
-        "accept_card",
-        selectedCardId === null ? "Accept card" : `Accept card ${cardTarget}`,
-        readOnly ||
-          selectedCardId === null ||
-          selectedReviewState === null ||
-          selectedReviewState.state === "accepted",
-        selectedCardId === null
-          ? "Select a virtual card first."
-          : selectedReviewState === null
-            ? "This card has no review decision state."
-            : "The selected card is already accepted.",
-      )}
-      {actionButton(
-        "reject_card",
-        selectedCardId === null ? "Reject card" : `Reject card ${cardTarget}`,
-        readOnly ||
-          selectedCardId === null ||
-          selectedReviewState === null ||
-          selectedReviewState.state === "rejected",
-        selectedCardId === null
-          ? "Select a virtual card first."
-          : selectedReviewState === null
-            ? "This card has no review decision state."
-            : "The selected card is already rejected.",
-      )}
-      {actionButton(
-        "accept_remaining_cards",
-        "Accept remaining cards",
-        readOnly || pendingCount === 0 || onResolveRemaining === undefined,
-        pendingCount === 0
-          ? "No pending card decisions remain."
-          : "All pending cards must be resolved through the maintained reference.",
-      )}
-      {actionButton(
-        "remove_card",
-        selectedCardId === null ? "Remove card" : `Remove card ${cardTarget}`,
-        readOnly || selectedPose === null || scene?.scene.poses.length === 1,
-        selectedPose === null
-          ? "Select a virtual card first."
-          : scene?.scene.poses.length === 1
-            ? "A card scene must keep one virtual card."
-            : "",
-      )}
-      {actionButton(
-        "bring_forward",
-        selectedCardId === null
-          ? "Bring card forward"
-          : `Bring card ${cardTarget} forward`,
-        readOnly || selectedPose === null,
-        "Select a virtual card first.",
-      )}
-      {actionButton(
-        "send_backward",
-        selectedCardId === null
-          ? "Send card backward"
-          : `Send card ${cardTarget} backward`,
-        readOnly || selectedPose === null,
-        "Select a virtual card first.",
-      )}
-      {actionButton(
-        "restore_proposed_scene",
-        "Restore proposed scene",
-        readOnly || !sceneAvailable,
-        readOnly
-          ? "Generated visible-card results are read-only."
-          : "A proposed card scene is required to restore the scene.",
-      )}
+    <>
+      <TimelineRailSeekingControls
+        groups={[{ label: "Selection actions", controls }]}
+      />
       {selectedPose !== null ? (
-        <label className={styles.workbenchNumericField}>
+        <label className={styles.workbenchTimelineField}>
           <span>Rotation {selectedPose.card_id}</span>
           <input
             aria-label={`Rotation for card ${selectedPose.card_id}`}
@@ -1548,7 +1604,7 @@ function VirtualCardSelectionActions({
           />
         </label>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -1597,39 +1653,32 @@ function MappingSelectionActions({
     selection?.type === "calibration_anchor"
       ? (anchors.find((anchor) => anchor.anchorId === selection.id) ?? null)
       : null;
-  const stateButton = (state: AnchorState, label: string) => (
-    <button
-      key={state}
-      type="button"
-      className={styles.workbenchToggle}
-      disabled={
-        readOnly ||
-        selectedAnchor === null ||
-        selectedAnchor.state === state ||
-        refinement === null
-      }
-      title={
-        selectedAnchor === null
-          ? "Select a calibration anchor first."
-          : refinement === null
-            ? "Start a mapping preview before changing anchor decisions."
-            : undefined
-      }
-      onClick={() =>
-        onAction(
-          state === "accepted"
-            ? "accept_anchor"
-            : state === "adjusted"
-              ? "adjust_anchor"
-              : state === "pinned"
-                ? "pin_anchor"
-                : "exclude_anchor",
-        )
-      }
-    >
-      {label}
-    </button>
-  );
+  const stateButton = (state: AnchorState, label: string, symbol: string) => ({
+    label,
+    symbol,
+    shortcut: "Click",
+    disabled:
+      readOnly ||
+      selectedAnchor === null ||
+      selectedAnchor.state === state ||
+      refinement === null,
+    disabledReason:
+      selectedAnchor === null
+        ? "Select a calibration anchor first."
+        : refinement === null
+          ? "Start a mapping preview before changing anchor decisions."
+          : "The selected anchor already has this state.",
+    onClick: () =>
+      onAction(
+        state === "accepted"
+          ? "accept_anchor"
+          : state === "adjusted"
+            ? "adjust_anchor"
+            : state === "pinned"
+              ? "pin_anchor"
+              : "exclude_anchor",
+      ),
+  });
   const corner =
     selectedAnchor?.corners[anchorCornerIndex] ?? ([0, 0] as TablePoint);
   const numericPoint =
@@ -1640,90 +1689,103 @@ function MappingSelectionActions({
   const previewReady =
     refinement?.preview.status === "pass" ||
     refinement?.preview.failure?.code === "reviewed_displacement_exceeded";
-  return (
-    <div
-      className={styles.workbenchCommandGroup}
-      aria-label="Selection actions"
-    >
-      <span className={styles.workbenchCommandLabel}>Selection actions</span>
-      {stateButton("accepted", "Accept anchor")}
-      {stateButton("adjusted", "Adjust anchor")}
-      {stateButton("pinned", "Pin anchor")}
-      {stateButton("excluded", "Exclude anchor")}
-      <button
-        type="button"
-        className={styles.workbenchToggle}
-        disabled={readOnly || refinement !== null || mappingLoading}
-        onClick={() => onAction("start_mapping_preview")}
-      >
-        Start mapping preview
-      </button>
-      <button
-        type="button"
-        className={styles.workbenchToggle}
-        disabled={readOnly || refinement === null || mappingLoading}
-        onClick={() => onAction("discard_mapping_preview")}
-      >
-        Discard mapping preview
-      </button>
-      <button
-        type="button"
-        className={styles.workbenchToggle}
-        disabled={
-          readOnly ||
-          refinement === null ||
-          !previewReady ||
-          !mappingCanApply ||
-          mappingLoading
-        }
-        title={
-          refinement === null
-            ? "Start a mapping preview first."
-            : !previewReady
-              ? "The current mapping preview is blocked."
-              : !mappingCanApply
-                ? "Wait for the calibration preview to load."
-                : undefined
-        }
-        onClick={() => onAction("apply_mapping")}
-      >
-        Apply mapping
-      </button>
-      {selectedAnchor !== null ? (
-        <>
-          <span className={styles.workbenchCommandLabel}>
-            Anchor {selectedAnchor.anchorId}
-          </span>
-          {ANCHOR_CONSTRAINTS.map((constraint) => (
-            <button
-              key={constraint}
-              type="button"
-              className={styles.workbenchToggle}
-              aria-pressed={anchorConstraint === constraint}
-              aria-label={`Use ${constraint} anchor constraint`}
-              disabled={readOnly}
-              onClick={() => onConstraintChange(constraint)}
-            >
-              {constraint === "diagonal"
-                ? "Diagonal"
+  const controls = [
+    stateButton("accepted", "Accept anchor", "✓"),
+    stateButton("adjusted", "Adjust anchor", "✎"),
+    stateButton("pinned", "Pin anchor", "⚑"),
+    stateButton("excluded", "Exclude anchor", "⊘"),
+    {
+      label: "Start mapping preview",
+      symbol: "▶",
+      shortcut: "Click",
+      disabled: readOnly || refinement !== null || mappingLoading,
+      disabledReason: "A mapping preview is already active.",
+      onClick: () => onAction("start_mapping_preview"),
+    },
+    {
+      label: "Discard mapping preview",
+      symbol: "↶",
+      shortcut: "Click",
+      disabled: readOnly || refinement === null || mappingLoading,
+      disabledReason: "Start a mapping preview first.",
+      onClick: () => onAction("discard_mapping_preview"),
+    },
+    {
+      label: "Apply mapping",
+      symbol: "✓",
+      shortcut: "Click",
+      disabled:
+        readOnly ||
+        refinement === null ||
+        !previewReady ||
+        !mappingCanApply ||
+        mappingLoading,
+      disabledReason:
+        refinement === null
+          ? "Start a mapping preview first."
+          : !previewReady
+            ? "The current mapping preview is blocked."
+            : !mappingCanApply
+              ? "Wait for the calibration preview to load."
+              : "Mapping is busy.",
+      onClick: () => onAction("apply_mapping"),
+    },
+  ];
+  const anchorControls =
+    selectedAnchor === null
+      ? []
+      : [
+          ...ANCHOR_CONSTRAINTS.map((constraint) => ({
+            label: `Use ${constraint} anchor constraint`,
+            symbol:
+              constraint === "diagonal"
+                ? "◇"
                 : constraint === "card_x"
-                  ? "Card X"
-                  : "Card Y"}
-            </button>
-          ))}
-          {[0, 1, 2, 3].map((cornerIndex) => (
-            <button
-              key={cornerIndex}
-              type="button"
-              className={styles.workbenchToggle}
-              aria-label={`Select anchor corner ${cornerIndex + 1}`}
-              aria-pressed={anchorCornerIndex === cornerIndex}
-              onClick={() => onCornerChange(cornerIndex)}
-            >
-              Corner {cornerIndex + 1}
-            </button>
-          ))}
-          <label className={styles.workbenchNumericField}>
+                  ? "↔"
+                  : "↕",
+            shortcut:
+              constraint === "diagonal"
+                ? "D"
+                : constraint === "card_x"
+                  ? "X"
+                  : "Y",
+            ariaShortcut:
+              constraint === "diagonal"
+                ? "D"
+                : constraint === "card_x"
+                  ? "X"
+                  : "Y",
+            ariaPressed: anchorConstraint === constraint,
+            disabled: readOnly,
+            disabledReason: "Mapping controls are read-only.",
+            onClick: () => onConstraintChange(constraint),
+          })),
+          ...[0, 1, 2, 3].map((cornerIndex) => ({
+            label: `Select anchor corner ${cornerIndex + 1}`,
+            symbol: `${cornerIndex + 1}`,
+            shortcut: "Click",
+            ariaPressed: anchorCornerIndex === cornerIndex,
+            onClick: () => onCornerChange(cornerIndex),
+          })),
+        ];
+  return (
+    <>
+      <TimelineRailSeekingControls
+        groups={[
+          { label: "Selection actions", controls },
+          ...(anchorControls.length > 0
+            ? [
+                {
+                  label: `Anchor ${selectedAnchor?.anchorId}`,
+                  controls: anchorControls,
+                },
+              ]
+            : []),
+        ]}
+      />
+      {selectedAnchor !== null ? (
+        <div className={styles.workbenchTimelineFields}>
+          <label className={styles.workbenchTimelineField}>
             <span>Anchor X</span>
             <input
               aria-label="Anchor X"
@@ -1736,7 +1798,7 @@ function MappingSelectionActions({
               }
             />
           </label>
-          <label className={styles.workbenchNumericField}>
+          <label className={styles.workbenchTimelineField}>
             <span>Anchor Y</span>
             <input
               aria-label="Anchor Y"
@@ -1757,15 +1819,17 @@ function MappingSelectionActions({
           </label>
           <button
             type="button"
-            className={styles.workbenchToggle}
+            className={styles.workbenchTimelineFieldButton}
+            aria-label="Apply anchor edit"
             disabled={readOnly || numericAnchor === null}
+            title="Apply anchor edit · Enter"
             onClick={onEmitNumeric}
           >
-            Apply anchor edit
+            <span aria-hidden="true">✓</span>
           </button>
-        </>
+        </div>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -1791,12 +1855,19 @@ function VisibleRegionSelectionActions({
   const actions: Array<{
     action: VisibleRegionWorkbenchAction;
     label: string;
+    ariaLabel?: string;
+    symbol: string;
+    shortcut: string;
+    ariaShortcut?: string;
     disabled: boolean;
     reason: string;
   }> = [
     {
       action: "add_visible_card",
       label: "Add visible card",
+      symbol: "＋",
+      shortcut: "N",
+      ariaShortcut: "N",
       disabled: readOnly || !sourceAvailable,
       reason: readOnly
         ? "Generated visible-card results are read-only."
@@ -1805,24 +1876,34 @@ function VisibleRegionSelectionActions({
     {
       action: "add_polygon",
       label: "Add polygon",
+      symbol: "◇+",
+      shortcut: "Click",
       disabled: readOnly || editor === null || editor.cardId === null,
       reason: "Select a visible card before adding a polygon.",
     },
     {
       action: "remove_polygon",
       label: "Remove polygon",
+      symbol: "◇−",
+      shortcut: "Click",
       disabled: readOnly || editor === null || editor.polygons.length <= 1,
       reason: "A visible card must keep one polygon.",
     },
     {
       action: "draw_ignore_region",
       label: "Draw ignore region",
+      ariaLabel: "Draw ignore region in shared workbench",
+      symbol: "⊘",
+      shortcut: "Click",
       disabled: readOnly || !sourceAvailable,
       reason: "A resolved source frame is required to draw an ignore region.",
     },
     {
       action: "convert_to_ignore_region",
       label: "Convert selection to ignore region",
+      symbol: "⇢",
+      shortcut: "I",
+      ariaShortcut: "I",
       disabled: readOnly || selectedCandidateCount === 0,
       reason:
         "Select one or more proposals to convert them to an ignore region.",
@@ -1830,12 +1911,17 @@ function VisibleRegionSelectionActions({
     {
       action: "copy_ignore_regions",
       label: "Copy ignore regions",
+      symbol: "⧉",
+      shortcut: "Click",
       disabled: readOnly || !canCopyIgnoreRegions,
       reason: "Review an earlier frame with ignore regions first.",
     },
     {
       action: "delete_selection",
       label: "Delete selection",
+      symbol: "⌫",
+      shortcut: "Delete",
+      ariaShortcut: "Delete",
       disabled:
         readOnly ||
         selection === null ||
@@ -1847,34 +1933,41 @@ function VisibleRegionSelectionActions({
     {
       action: "restore_suggestion",
       label: "Restore suggestion",
+      symbol: "↺",
+      shortcut: "Click",
       disabled: readOnly || !canRestoreSuggestion,
       reason: "A generated suggestion is required to restore this frame.",
     },
   ];
   return (
-    <div
-      className={styles.workbenchCommandGroup}
-      aria-label="Selection actions"
-    >
-      <span className={styles.workbenchCommandLabel}>Selection actions</span>
-      {actions.map(({ action, label, disabled, reason }) => (
-        <button
-          key={action}
-          type="button"
-          className={styles.workbenchToggle}
-          disabled={disabled}
-          title={disabled ? reason : undefined}
-          aria-label={
-            action === "draw_ignore_region"
-              ? "Draw ignore region in shared workbench"
-              : undefined
-          }
-          onClick={() => onAction(action)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <TimelineRailSeekingControls
+      groups={[
+        {
+          label: "Selection actions",
+          controls: actions.map(
+            ({
+              action,
+              label,
+              ariaLabel,
+              symbol,
+              shortcut,
+              ariaShortcut,
+              disabled,
+              reason,
+            }) => ({
+              label,
+              ariaLabel,
+              symbol,
+              shortcut,
+              ariaShortcut,
+              disabled,
+              disabledReason: reason,
+              onClick: () => onAction(action),
+            }),
+          ),
+        },
+      ]}
+    />
   );
 }
 

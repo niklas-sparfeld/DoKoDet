@@ -5,9 +5,11 @@ import styles from "../App.module.css";
 
 export type TimelineRailSeekingControl = {
   label: string;
+  ariaLabel?: string;
   symbol: string;
   shortcut: string;
-  ariaShortcut: string;
+  ariaShortcut?: string;
+  ariaPressed?: boolean;
   disabled?: boolean;
   disabledReason?: string;
   onClick: () => void;
@@ -84,12 +86,13 @@ export function TimelineRailSeekingControls({
               key={control.label}
               className={styles.recordingTimelineSeekingButton}
               type="button"
-              aria-label={control.label}
+              aria-label={control.ariaLabel ?? control.label}
               aria-keyshortcuts={control.ariaShortcut}
+              aria-pressed={control.ariaPressed}
               disabled={control.disabled}
               title={
-                control.disabled
-                  ? control.disabledReason
+                control.disabled && control.disabledReason !== undefined
+                  ? `${control.disabledReason} · ${control.shortcut}`
                   : `${control.label} · ${control.shortcut}`
               }
               onClick={control.onClick}

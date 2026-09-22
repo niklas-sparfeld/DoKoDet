@@ -569,10 +569,13 @@ describe("PipelineVisibleCardEditor", () => {
     });
   });
 
-  it("keeps only frame navigation in the Timeline Rail slot", async () => {
+  it("keeps frame navigation and selection actions in separate Timeline Rail slots", async () => {
     const controlsSlot = document.createElement("div");
     controlsSlot.dataset.timelineSeekingSlot = "true";
+    const reviewControlsSlot = document.createElement("div");
+    reviewControlsSlot.dataset.timelineReviewControlsSlot = "true";
     document.body.append(controlsSlot);
+    document.body.append(reviewControlsSlot);
     try {
       vi.stubGlobal(
         "fetch",
@@ -596,9 +599,24 @@ describe("PipelineVisibleCardEditor", () => {
           controlsSlot.querySelector('[data-timeline-seeking-controls="true"]'),
         ).not.toBeNull(),
       );
-      expect(controlsSlot.textContent).not.toContain("Accept frame");
+      await waitFor(() =>
+        expect(
+          reviewControlsSlot.querySelector(
+            '[data-timeline-seeking-controls="true"]',
+          ),
+        ).not.toBeNull(),
+      );
+      expect(controlsSlot.textContent).not.toContain("Add visible card");
+      expect(reviewControlsSlot.textContent).toContain("＋");
+      expect(
+        reviewControlsSlot.querySelector(
+          'button[title="Generated visible-card results are read-only. · N"]',
+        ),
+      ).not.toBeNull();
+      expect(reviewControlsSlot.textContent).not.toContain("Accept frame");
     } finally {
       controlsSlot.remove();
+      reviewControlsSlot.remove();
     }
   });
 
