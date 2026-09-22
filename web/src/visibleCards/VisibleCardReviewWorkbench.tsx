@@ -2485,6 +2485,7 @@ function WorkbenchSurface({
             width={width}
             height={height}
             preserveAspectRatio="none"
+            pointerEvents="none"
           />
         ) : null}
         {renderLayers({

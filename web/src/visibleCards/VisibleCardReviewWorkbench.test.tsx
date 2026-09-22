@@ -469,6 +469,47 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(viewBox[3]).toBeLessThan(100);
   });
 
+  it("pans the non-rectified camera view when dragged", () => {
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly
+        initialPreferences={{ viewpoint: "camera" }}
+      />,
+    );
+    const surface = screen.getByRole("img", {
+      name: "1 visible-card proposal",
+    });
+    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    fireEvent.pointerDown(surface, {
+      button: 0,
+      clientX: 50,
+      clientY: 50,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(surface, {
+      clientX: 60,
+      clientY: 50,
+      pointerId: 1,
+    });
+
+    const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
+    expect(viewBox[0]).toBe(-10);
+    expect(viewBox[1]).toBe(0);
+  });
+
   it("moves virtual-card actions into the Timeline Rail", async () => {
     const onSceneChange = vi.fn();
     const user = userEvent.setup();
