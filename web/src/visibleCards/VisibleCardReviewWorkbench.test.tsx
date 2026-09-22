@@ -147,7 +147,7 @@ const calibrationRefinement = {
     anchors: [
       {
         anchor_id: "anchor-1",
-        card_id: "card-1",
+        card_id: "suggestion-1",
         source_frame_id: "event-1",
         state: "candidate",
         quadrilateral: [
@@ -964,7 +964,7 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(screen.getByRole("button", { name: "Apply mapping" })).toBeEnabled();
   });
 
-  it("uses clicked anchor corners for free-form rectified edits", () => {
+  it("moves calibration anchors from mapped card corner handles", () => {
     const onAnchorCommand = vi.fn();
     const rectifiedFrame = structuredClone(frame);
     rectifiedFrame.outcome.card_scene!.projection.table_to_image_homography = [
@@ -990,7 +990,7 @@ describe("VisibleCardReviewWorkbench", () => {
         readOnly={false}
         initialPreferences={{
           activeTool: "mapping",
-          enabledLayers: ["mapping"],
+          enabledLayers: ["mapping", "virtual_cards"],
         }}
         enabledEditTools={["mapping"]}
         calibrationRefinement={rectifiedCalibration}
@@ -1003,7 +1003,7 @@ describe("VisibleCardReviewWorkbench", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("button", {
-        name: /^Select mapped card corner \d for card-1$/,
+        name: /^Adjust mapped card corner \d for card-1$/,
       }),
     ).toHaveLength(4);
     expect(
@@ -1029,8 +1029,21 @@ describe("VisibleCardReviewWorkbench", () => {
     } as DOMRect);
 
     const handle = screen.getByRole("button", {
-      name: "Adjust calibration anchor 1 for anchor-1",
+      name: "Adjust mapped card corner 1 for card-1",
     });
+    const layerGroups = Array.from(
+      surface.querySelectorAll("[data-workbench-layer]"),
+    );
+    expect(layerGroups.at(-1)).toHaveAttribute(
+      "data-workbench-layer",
+      "mapping",
+    );
+    expect(
+      surface.querySelector('[data-workbench-layer="virtual_cards"]'),
+    ).toHaveAttribute("pointer-events", "none");
+    expect(handle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(handle);
+    expect(handle).toHaveAttribute("aria-pressed", "true");
     const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
     const scale = Math.min(100 / viewBox[2], 100 / viewBox[3]);
     const offsetX = (100 - viewBox[2] * scale) / 2;
@@ -1041,11 +1054,12 @@ describe("VisibleCardReviewWorkbench", () => {
     });
     fireEvent.pointerDown(handle, {
       pointerId: 1,
-      ...clientPoint(40, 40),
+      ...clientPoint(45, 40),
     });
+    expect(screen.getByLabelText("Anchor corner 1 X")).toBeInTheDocument();
     fireEvent.pointerMove(surface, {
       pointerId: 1,
-      ...clientPoint(42, 47),
+      ...clientPoint(47, 47),
     });
     fireEvent.pointerUp(surface, { pointerId: 1 });
 
@@ -1055,12 +1069,63 @@ describe("VisibleCardReviewWorkbench", () => {
         moved_corner: 0,
         constraint: null,
         corners: [
-          [52, 52],
+          [57, 52],
           [70, 45],
           [70, 65],
           [50, 65],
         ],
       }),
+    );
+  });
+
+  it("shrinks mapping strokes and corner handles with zoom", () => {
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+          viewpoint: "rectified",
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={calibrationRefinement}
+      />,
+    );
+
+    const surface = screen.getByRole("img", {
+      name: /Rectified visible-card workbench/,
+    });
+    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const handle = screen.getByRole("button", {
+      name: "Adjust mapped card corner 1 for card-1",
+    });
+    const projection = surface.querySelector(
+      '[data-projection="current"] polygon',
+    );
+    expect(projection).not.toBeNull();
+    const initialRadius = Number(handle.getAttribute("r"));
+    const initialStrokeWidth = Number(projection?.getAttribute("stroke-width"));
+    expect(handle).toHaveAttribute("opacity", "0.5");
+    expect(projection).toHaveAttribute("opacity", "0.5");
+
+    fireEvent.wheel(surface, { deltaY: -240 });
+
+    expect(Number(handle.getAttribute("r"))).toBe(initialRadius / 2);
+    expect(Number(projection?.getAttribute("stroke-width"))).toBe(
+      initialStrokeWidth / 2,
     );
   });
 });

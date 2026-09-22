@@ -1098,6 +1098,7 @@ export function VisibleCardReviewWorkbench({
           width={width}
           height={height}
           viewpoint={activeState.viewpoint}
+          activeTool={activeState.activeTool}
           enabledLayers={activeState.enabledLayers}
           selection={activeState.selection}
           viewport={viewport}
@@ -2188,6 +2189,7 @@ function WorkbenchSurface({
   width,
   height,
   viewpoint,
+  activeTool,
   enabledLayers,
   selection,
   viewport,
@@ -2217,6 +2219,7 @@ function WorkbenchSurface({
   width: number;
   height: number;
   viewpoint: WorkbenchViewpoint;
+  activeTool: WorkbenchPreferences["activeTool"];
   enabledLayers: WorkbenchLayer[];
   selection: WorkbenchSelection | null;
   viewport: { zoom: number; pan: { x: number; y: number } };
@@ -2334,6 +2337,8 @@ function WorkbenchSurface({
           viewpoint,
           width,
           height,
+          zoom: viewport.zoom,
+          activeTool,
           enabledLayers,
           selection,
           candidateProjection,
@@ -2345,6 +2350,7 @@ function WorkbenchSurface({
         })}
         {renderEditorOverlay({
           editor,
+          activeTool,
           viewpoint,
           width,
           height,
@@ -2443,6 +2449,8 @@ function WorkbenchSurface({
           viewpoint: "camera",
           width,
           height,
+          zoom: viewport.zoom,
+          activeTool,
           enabledLayers,
           selection,
           candidateProjection,
@@ -2454,6 +2462,7 @@ function WorkbenchSurface({
         })}
         {renderEditorOverlay({
           editor,
+          activeTool,
           viewpoint: "camera",
           width,
           height,
@@ -2472,6 +2481,8 @@ type LayerRenderContext = {
   viewpoint: WorkbenchViewpoint;
   width: number;
   height: number;
+  zoom: number;
+  activeTool: WorkbenchPreferences["activeTool"];
   enabledLayers: WorkbenchLayer[];
   selection: WorkbenchSelection | null;
   candidateProjection: CardSceneProjection | null;
@@ -2495,6 +2506,7 @@ type LayerRenderContext = {
 
 function renderEditorOverlay({
   editor,
+  activeTool,
   viewpoint,
   width,
   height,
@@ -2502,6 +2514,7 @@ function renderEditorOverlay({
   onPointPointerDown,
 }: {
   editor: EditorState | null;
+  activeTool: WorkbenchPreferences["activeTool"];
   viewpoint: WorkbenchViewpoint;
   width: number;
   height: number;
@@ -2514,7 +2527,10 @@ function renderEditorOverlay({
 }) {
   if (editor === null) return null;
   return (
-    <g data-workbench-editor="visible-regions">
+    <g
+      data-workbench-editor="visible-regions"
+      pointerEvents={activeTool === "mapping" ? "none" : undefined}
+    >
       {editor.polygons.map((polygon, polygonIndex) => {
         const points = polygon
           .map((point) => editorPoint(point, viewpoint, width, height, scene))
@@ -2751,16 +2767,31 @@ export const WORKBENCH_LAYER_REGISTRY = LAYER_REGISTRY;
 
 function renderLayers(context: LayerRenderContext) {
   const registry = new Map(LAYER_REGISTRY.map((entry) => [entry.layer, entry]));
-  return WORKBENCH_LAYER_DRAW_ORDER.filter((layer) =>
-    context.enabledLayers.includes(layer),
-  ).map((layer) => {
-    const entry = registry.get(layer);
-    return entry === undefined ? null : (
-      <g key={layer} data-workbench-layer={layer}>
-        {entry.render(context)}
-      </g>
-    );
-  });
+  const layerOrder =
+    context.activeTool === "mapping"
+      ? [
+          ...WORKBENCH_LAYER_DRAW_ORDER.filter((layer) => layer !== "mapping"),
+          "mapping" as const,
+        ]
+      : WORKBENCH_LAYER_DRAW_ORDER;
+  return layerOrder
+    .filter((layer) => context.enabledLayers.includes(layer))
+    .map((layer) => {
+      const entry = registry.get(layer);
+      return entry === undefined ? null : (
+        <g
+          key={layer}
+          data-workbench-layer={layer}
+          pointerEvents={
+            context.activeTool === "mapping" && layer !== "mapping"
+              ? "none"
+              : undefined
+          }
+        >
+          {entry.render(context)}
+        </g>
+      );
+    });
 }
 
 function renderVisibleRegionLayer({
@@ -2962,6 +2993,7 @@ function renderMappingLayer({
   viewpoint,
   candidateProjection,
   width,
+  zoom,
   mappingAnchors,
   selection,
   onSelect,
@@ -2976,6 +3008,7 @@ function renderMappingLayer({
         viewpoint={viewpoint}
         projection={null}
         width={width}
+        zoom={zoom}
         selected={isSelected(selection, {
           type: "calibration_anchor",
           id: anchor.anchorId,
@@ -2993,10 +3026,13 @@ function renderMappingLayer({
       projection={currentProjection}
       viewpoint={viewpoint}
       width={width}
+      zoom={zoom}
       stroke="#ff8a65"
       dataProjection="current"
       selection={selection}
+      mappingAnchors={mappingAnchors}
       onSelect={onSelect}
+      onMappingAnchorPointerDown={onMappingAnchorPointerDown}
     />
   ));
   const candidate =
@@ -3009,10 +3045,13 @@ function renderMappingLayer({
             projection={candidateProjection}
             viewpoint={viewpoint}
             width={width}
+            zoom={zoom}
             stroke="#ffd166"
             dataProjection="candidate"
             selection={selection}
+            mappingAnchors={mappingAnchors}
             onSelect={onSelect}
+            onMappingAnchorPointerDown={onMappingAnchorPointerDown}
           />
         ));
   return (
@@ -3026,6 +3065,7 @@ function renderMappingLayer({
           viewpoint={viewpoint}
           projection={currentProjection}
           width={width}
+          zoom={zoom}
           selected={isSelected(selection, {
             type: "calibration_anchor",
             id: anchor.anchorId,
@@ -3043,6 +3083,7 @@ function MappingAnchorOverlay({
   viewpoint,
   projection,
   width,
+  zoom,
   selected,
   onSelect,
   onPointerDown,
@@ -3051,6 +3092,7 @@ function MappingAnchorOverlay({
   viewpoint: WorkbenchViewpoint;
   projection: CardSceneProjection | null;
   width: number;
+  zoom: number;
   selected: boolean;
   onSelect: (selection: WorkbenchSelection) => void;
   onPointerDown?: (
@@ -3078,7 +3120,8 @@ function MappingAnchorOverlay({
           fill="none"
           stroke={selected ? "#ffffff" : "#ff8a65"}
           strokeDasharray={selected ? undefined : "4 3"}
-          strokeWidth={strokeWidth(viewpoint, width)}
+          strokeWidth={mappingStrokeWidth(viewpoint, width, zoom)}
+          opacity={0.5}
           pointerEvents="stroke"
           role="button"
           tabIndex={0}
@@ -3094,10 +3137,11 @@ function MappingAnchorOverlay({
           key={`${anchor.anchorId}-${index}`}
           cx={x}
           cy={y}
-          r={viewpoint === "camera" ? Math.max(4, width / 110) : 0.1}
+          r={mappingCornerRadius(viewpoint, width, zoom, 0.1)}
           fill={selected ? "#ffffff" : "#ff8a65"}
           stroke="#18242f"
-          strokeWidth={strokeWidth(viewpoint, width) / 2}
+          strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
+          opacity={0.5}
           data-mapping-anchor={index}
           role="button"
           tabIndex={0}
@@ -3118,25 +3162,45 @@ function MappingProjection({
   projection,
   viewpoint,
   width,
+  zoom,
   stroke,
   dataProjection,
   selection,
+  mappingAnchors,
   onSelect,
+  onMappingAnchorPointerDown,
 }: {
   pose: PoseCard;
   projection: CardSceneProjection;
   viewpoint: WorkbenchViewpoint;
   width: number;
+  zoom: number;
   stroke: string;
   dataProjection: "current" | "candidate";
   selection: WorkbenchSelection | null;
+  mappingAnchors: WorkbenchCalibrationAnchor[];
   onSelect: (selection: WorkbenchSelection) => void;
+  onMappingAnchorPointerDown?: (
+    event: ReactPointerEvent<SVGCircleElement>,
+    anchor: WorkbenchCalibrationAnchor,
+    cornerIndex: number,
+  ) => void;
 }) {
   const polygon = posePolygon(pose, projection, viewpoint);
-  const selected = isSelected(selection, {
-    type: "virtual_card",
-    id: pose.card_id,
-  });
+  const anchor =
+    mappingAnchors.find((candidate) => candidate.cardId === pose.card_id) ??
+    (pose.source_suggestion_id === null
+      ? undefined
+      : mappingAnchors.find(
+          (candidate) => candidate.cardId === pose.source_suggestion_id,
+        ));
+  const selected =
+    isSelected(selection, { type: "virtual_card", id: pose.card_id }) ||
+    (anchor !== undefined &&
+      isSelected(selection, {
+        type: "calibration_anchor",
+        id: anchor.anchorId,
+      }));
   return (
     <g data-projection={dataProjection} data-card-id={pose.card_id}>
       <polygon
@@ -3144,30 +3208,63 @@ function MappingProjection({
         fill="none"
         stroke={stroke}
         strokeDasharray={dataProjection === "candidate" ? "8 5" : undefined}
-        strokeWidth={strokeWidth(viewpoint, width)}
+        strokeWidth={mappingStrokeWidth(viewpoint, width, zoom)}
+        opacity={0.5}
         pointerEvents="none"
       />
-      {polygon.map(([x, y], index) => (
-        <circle
-          key={`${pose.card_id}-${dataProjection}-${index}`}
-          cx={x}
-          cy={y}
-          r={viewpoint === "camera" ? Math.max(3, width / 120) : 0.08}
-          fill={selected ? "#ffffff" : stroke}
-          stroke="#18242f"
-          strokeWidth={strokeWidth(viewpoint, width) / 2}
-          data-mapping-corner={index}
-          role="button"
-          tabIndex={0}
-          aria-label={`Select mapped card corner ${index + 1} for ${pose.card_id}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onSelect({ type: "virtual_card", id: pose.card_id });
-          }}
-        />
-      ))}
+      {dataProjection === "current"
+        ? polygon.map(([x, y], index) => (
+            <circle
+              key={`${pose.card_id}-${dataProjection}-${index}`}
+              cx={x}
+              cy={y}
+              r={mappingCornerRadius(viewpoint, width, zoom, 0.25)}
+              fill={selected ? "#ffffff" : stroke}
+              stroke="#18242f"
+              strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
+              opacity={0.5}
+              data-mapping-corner={index}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selected}
+              aria-label={`${anchor === undefined ? "Select" : "Adjust"} mapped card corner ${index + 1} for ${pose.card_id}`}
+              onPointerDown={(event) => {
+                if (anchor !== undefined) {
+                  onMappingAnchorPointerDown?.(event, anchor, index);
+                }
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect(
+                  anchor === undefined
+                    ? { type: "virtual_card", id: pose.card_id }
+                    : { type: "calibration_anchor", id: anchor.anchorId },
+                );
+              }}
+            />
+          ))
+        : null}
     </g>
   );
+}
+
+function mappingStrokeWidth(
+  viewpoint: WorkbenchViewpoint,
+  width: number,
+  zoom: number,
+): number {
+  return strokeWidth(viewpoint, width) / Math.max(zoom, 0.01);
+}
+
+function mappingCornerRadius(
+  viewpoint: WorkbenchViewpoint,
+  width: number,
+  zoom: number,
+  rectifiedRadius: number,
+): number {
+  const radius =
+    viewpoint === "camera" ? Math.max(4, width / 110) : rectifiedRadius;
+  return radius / Math.max(zoom, 0.01);
 }
 
 function candidatePolygons(
