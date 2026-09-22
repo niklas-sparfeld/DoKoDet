@@ -2467,6 +2467,15 @@ progress {
   overflow: auto;
 }
 
+@media (min-width: 901px) {
+  .pipelineVirtualTableTaskSurfaceContent {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
 .pipelineEventTaskSurfaceContent {
   padding: 0;
   overflow: auto;
