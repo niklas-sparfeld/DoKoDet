@@ -1574,36 +1574,47 @@ function VirtualCardSelectionActions({
       <TimelineRailSeekingControls
         groups={[{ label: "Selection actions", controls }]}
       />
-      {selectedPose !== null ? (
-        <label className={styles.workbenchTimelineField}>
-          <span>Rotation {selectedPose.card_id}</span>
-          <input
-            aria-label={`Rotation for card ${selectedPose.card_id}`}
-            type="number"
-            step="1"
-            defaultValue={selectedPose.rotation_degrees}
-            disabled={readOnly}
-            onBlur={(event) => {
-              const value = Number(event.target.value);
-              if (!Number.isFinite(value) || scene === null) return;
-              onSceneAction(
-                {
-                  type: "rotate",
-                  cardId: selectedPose.card_id,
-                  rotationDegrees: value,
-                },
-                "Card angle saved.",
-              );
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                event.currentTarget.blur();
-              }
-            }}
-          />
-        </label>
-      ) : null}
+      <label
+        key={selectedPose?.card_id ?? "no-selected-card"}
+        className={styles.workbenchTimelineField}
+      >
+        <span>Rotation</span>
+        <input
+          aria-label="Rotation (degrees)"
+          type="number"
+          step="1"
+          defaultValue={selectedPose?.rotation_degrees ?? ""}
+          disabled={readOnly || selectedPose === null}
+          title={
+            selectedPose === null
+              ? "Select a virtual card to set its rotation."
+              : "Set rotation in degrees."
+          }
+          onBlur={(event) => {
+            const value = Number(event.target.value);
+            if (
+              !Number.isFinite(value) ||
+              scene === null ||
+              selectedPose === null
+            )
+              return;
+            onSceneAction(
+              {
+                type: "rotate",
+                cardId: selectedPose.card_id,
+                rotationDegrees: value,
+              },
+              "Card angle saved.",
+            );
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      </label>
     </>
   );
 }

@@ -396,9 +396,18 @@ describe("VisibleCardReviewWorkbench", () => {
       />,
     );
 
+    const rotation = screen.getByRole("spinbutton", {
+      name: "Rotation (degrees)",
+    });
+    expect(rotation).toBeDisabled();
+    expect(screen.queryByRole("spinbutton", { name: /card-1/ })).toBeNull();
+
     await user.click(
       screen.getByRole("button", { name: "Select virtual card card-1" }),
     );
+    expect(
+      screen.getByRole("spinbutton", { name: "Rotation (degrees)" }),
+    ).toBeEnabled();
     expect(
       within(
         screen.getByRole("group", { name: "Selection actions" }),
