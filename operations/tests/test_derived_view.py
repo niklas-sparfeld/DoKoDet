@@ -155,6 +155,36 @@ def test_ffmpeg_probe_reads_packet_timestamps_without_frame_side_data(
     assert len(calls) == 1
     assert "-show_packets" in calls[0]
     assert "-show_frames" not in calls[0]
+    assert "stream_side_data=rotation" in calls[0][calls[0].index("-show_entries") + 1]
+
+
+def test_ffmpeg_probe_uses_display_dimensions_for_rotated_streams(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = {
+        "streams": [
+            {
+                "width": 3840,
+                "height": 2160,
+                "side_data_list": [{"rotation": -90}],
+            }
+        ],
+        "packets": [{"pts_time": "0.000000"}, {"pts_time": "0.016667"}],
+    }
+
+    def run(command: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(payload).encode("utf-8"),
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(subprocess, "run", run)
+
+    frames = FFmpegFrameResolver()._probe_frames(tmp_path / "source.mov")
+
+    assert frames == [(0, 2160, 3840), (16_667, 2160, 3840)]
 
 
 def test_ffmpeg_decoder_seeks_to_the_requested_timestamp(

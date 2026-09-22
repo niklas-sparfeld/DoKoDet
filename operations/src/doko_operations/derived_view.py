@@ -1183,7 +1183,7 @@ class FFmpegFrameResolver:
             "-show_streams",
             "-show_packets",
             "-show_entries",
-            "stream=width,height:packet=pts_time",
+            "stream=width,height:stream_side_data=rotation:packet=pts_time",
             "-of",
             "json",
             str(video_path),
@@ -1211,8 +1211,7 @@ class FFmpegFrameResolver:
         if len(payload["streams"]) != 1:
             raise DerivedViewProbeError("ffprobe returned an invalid video stream count")
         stream = _require_mapping(payload["streams"][0], "ffprobe video stream")
-        width = _require_positive_probe_int(stream.get("width"), "frame width")
-        height = _require_positive_probe_int(stream.get("height"), "frame height")
+        width, height = _display_dimensions(stream)
         frames: list[tuple[int, int, int, int]] = []
         for packet_index, raw in enumerate(payload["packets"]):
             packet = _require_mapping(raw, f"ffprobe packet {packet_index}")
@@ -2153,6 +2152,39 @@ def _require_positive_probe_int(value: Any, field: str) -> int:
     if isinstance(value, bool) or result <= 0:
         raise DerivedViewProbeError(f"ffprobe returned an invalid {field}")
     return result
+
+
+def _stream_rotation_degrees(stream: Mapping[str, Any]) -> float:
+    """Return the display rotation ffmpeg applies when decoding the stream."""
+
+    tags = stream.get("tags")
+    if isinstance(tags, Mapping) and "rotate" in tags:
+        try:
+            return float(tags["rotate"])
+        except (TypeError, ValueError) as error:
+            raise DerivedViewProbeError("ffprobe returned an invalid stream rotation") from error
+    side_data = stream.get("side_data_list")
+    if isinstance(side_data, list):
+        for item in side_data:
+            if not isinstance(item, Mapping) or "rotation" not in item:
+                continue
+            try:
+                return float(item["rotation"])
+            except (TypeError, ValueError) as error:
+                raise DerivedViewProbeError(
+                    "ffprobe returned an invalid stream rotation"
+                ) from error
+    return 0.0
+
+
+def _display_dimensions(stream: Mapping[str, Any]) -> tuple[int, int]:
+    """Return coded stream size after applying display rotation."""
+
+    width = _require_positive_probe_int(stream.get("width"), "frame width")
+    height = _require_positive_probe_int(stream.get("height"), "frame height")
+    if abs(_stream_rotation_degrees(stream)) % 180 == 90:
+        return height, width
+    return width, height
 
 
 def _image_dimensions(image_bytes: bytes) -> tuple[int, int]:
