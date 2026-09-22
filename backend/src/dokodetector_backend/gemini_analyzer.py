@@ -66,6 +66,39 @@ class LazyProcessorRegistry(Mapping[str, Any]):
         self._instances[key] = processor
 
 
+class _UnconfiguredGeminiVisibleCardProvider:
+    """Stand in for Gemini until a Cloud request needs the API key."""
+
+    name = "gemini"
+    version = "gemini-visible-cards-v1"
+
+    def propose(self, request: Any) -> Any:
+        raise ConfigurationError(
+            "GEMINI_API_KEY is required when the Cloud visible-card processor is selected."
+        )
+
+
+class _UnconfiguredGeminiCardClassifier:
+    """Stand in for Gemini identity until a Cloud request needs the API key."""
+
+    name = "gemini"
+    version = "gemini-card-classification/v2"
+    calibration = "uncalibrated"
+
+    def __init__(self, *, model: str) -> None:
+        self.model = model
+
+    def classify_ppm(self, crop_bytes: bytes) -> Any:
+        raise ConfigurationError(
+            "GEMINI_API_KEY is required when the Cloud identity processor is selected."
+        )
+
+    def classify(self, request: Any) -> Any:
+        raise ConfigurationError(
+            "GEMINI_API_KEY is required when the Cloud identity processor is selected."
+        )
+
+
 def _create_visible_card_provider(
     settings: Settings,
     provider_name: str,
@@ -75,15 +108,14 @@ def _create_visible_card_provider(
 ) -> Any:
     if provider_name == "gemini":
         if not settings.gemini_api_key:
-            raise ConfigurationError(
-                "GEMINI_API_KEY is required when the Cloud visible-card processor is selected."
+            provider = _UnconfiguredGeminiVisibleCardProvider()
+        else:
+            provider = GeminiVisibleCardProvider(
+                api_key=settings.gemini_api_key,
+                timeout_s=settings.gemini_timeout_seconds,
+                max_retries=settings.gemini_max_retries,
+                request_limiter=request_limiter,
             )
-        provider = GeminiVisibleCardProvider(
-            api_key=settings.gemini_api_key,
-            timeout_s=settings.gemini_timeout_seconds,
-            max_retries=settings.gemini_max_retries,
-            request_limiter=request_limiter,
-        )
     elif provider_name in {
         "local",
         "local-rfdetr-segmentation",
@@ -133,17 +165,17 @@ def _create_identity_classifier(
 ) -> Any:
     if provider_name == "gemini":
         if not settings.gemini_api_key:
-            raise ConfigurationError(
-                "GEMINI_API_KEY is required when the Cloud identity processor is selected."
-            )
-        return CachedCardClassifier(
-            GeminiCardClassifier(
+            classifier: Any = _UnconfiguredGeminiCardClassifier(model=settings.gemini_model)
+        else:
+            classifier = GeminiCardClassifier(
                 api_key=settings.gemini_api_key,
                 model=settings.gemini_model,
                 timeout_s=settings.gemini_timeout_seconds,
                 max_retries=settings.gemini_max_retries,
                 request_limiter=request_limiter,
-            ),
+            )
+        return CachedCardClassifier(
+            classifier,
             cache_root / "card-classification",
         )
     if provider_name == "local":

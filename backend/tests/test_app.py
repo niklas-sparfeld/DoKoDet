@@ -186,17 +186,26 @@ def test_factory_configures_the_gemini_analyzer(tmp_path: Path) -> None:
     assert app.state.analyzer.classifier.classifier.name == "gemini"
 
 
-def test_factory_requires_the_gemini_api_key(tmp_path: Path) -> None:
+def test_factory_starts_without_gemini_api_key_and_fails_on_use(tmp_path: Path) -> None:
     settings = Settings(
         _env_file=None,
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "recordings",
         evidence_package_intake_root=tmp_path / "evidence-packages",
         gemini_api_key=None,
+        visible_card_provider="gemini",
+        visible_card_identity_classifier="gemini",
     )
 
+    app = create_app(settings)
+
+    assert app.state.analyzer.name == "visible-card-table-analyzer"
+    assert app.state.analyzer.provider.provider.name == "gemini"
+    assert app.state.analyzer.classifier.classifier.name == "gemini"
     with pytest.raises(ConfigurationError, match="GEMINI_API_KEY is required"):
-        create_app(settings)
+        app.state.analyzer.provider.provider.propose(object())
+    with pytest.raises(ConfigurationError, match="GEMINI_API_KEY is required"):
+        app.state.analyzer.classifier.classifier.classify_ppm(b"")
 
 
 @pytest.mark.parametrize("working_directory", [BACKEND_ROOT.parent, BACKEND_ROOT])
