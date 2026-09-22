@@ -72,6 +72,7 @@ type ActiveGesture = {
 };
 
 const DRAG_THRESHOLD_PX = 4;
+const RECTIFIED_BACKGROUND_GRID_SIZE = 12;
 
 export function PoseBasedVisibleCardEditor({
   recordingId,
@@ -1043,17 +1044,12 @@ export function PoseBasedVisibleCardEditor({
               onKeyDown={handleSurfaceKeyDown}
             >
               {sourceUrl !== null && projectedFrameBounds !== null ? (
-                <image
-                  href={sourceUrl}
-                  x={projectedFrameBounds.x}
-                  y={projectedFrameBounds.y}
-                  width={projectedFrameBounds.width}
-                  height={projectedFrameBounds.height}
-                  preserveAspectRatio="none"
-                  opacity="0.48"
-                  pointerEvents="none"
-                  role="img"
-                  aria-label="Source frame background"
+                <RectifiedSourceFrame
+                  sourceUrl={sourceUrl}
+                  width={width}
+                  height={height}
+                  homography={draft.projection.table_to_image_homography}
+                  clipPrefix={`${sourceMaskPrefix}-rectified-background`}
                 />
               ) : null}
               {rectifiedRenderOrder(draft.scene).map((pose) => (
@@ -1451,6 +1447,142 @@ function getTableViewBox(
   const centerX = (minX + maxX) / 2 + pan[0];
   const centerY = (minY + maxY) / 2 + pan[1];
   return { x: centerX - width / 2, y: centerY - height / 2, width, height };
+}
+
+type RectifiedBackgroundPatch = {
+  clipId: string;
+  sourceTriangle: TablePoint[];
+  transform: string;
+};
+
+function RectifiedSourceFrame({
+  sourceUrl,
+  width,
+  height,
+  homography,
+  clipPrefix,
+}: {
+  sourceUrl: string;
+  width: number;
+  height: number;
+  homography: number[][];
+  clipPrefix: string;
+}) {
+  const patches = rectifiedBackgroundPatches(
+    width,
+    height,
+    homography,
+    clipPrefix,
+  );
+  if (patches.length === 0) return null;
+
+  return (
+    <g
+      opacity="0.48"
+      pointerEvents="none"
+      role="img"
+      aria-label="Source frame background"
+    >
+      <defs>
+        {patches.map((patch) => (
+          <clipPath
+            key={patch.clipId}
+            id={patch.clipId}
+            clipPathUnits="userSpaceOnUse"
+          >
+            <polygon points={pointsAttribute(patch.sourceTriangle)} />
+          </clipPath>
+        ))}
+      </defs>
+      {patches.map((patch) => (
+        <g key={patch.clipId} transform={patch.transform}>
+          <image
+            href={sourceUrl}
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            preserveAspectRatio="none"
+            clipPath={`url(#${patch.clipId})`}
+            aria-hidden="true"
+          />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+function rectifiedBackgroundPatches(
+  width: number,
+  height: number,
+  homography: number[][],
+  clipPrefix: string,
+): RectifiedBackgroundPatch[] {
+  if (width <= 0 || height <= 0) return [];
+  const patches: RectifiedBackgroundPatch[] = [];
+  let index = 0;
+  for (let row = 0; row < RECTIFIED_BACKGROUND_GRID_SIZE; row += 1) {
+    for (let column = 0; column < RECTIFIED_BACKGROUND_GRID_SIZE; column += 1) {
+      const left = (column * width) / RECTIFIED_BACKGROUND_GRID_SIZE;
+      const right = ((column + 1) * width) / RECTIFIED_BACKGROUND_GRID_SIZE;
+      const top = (row * height) / RECTIFIED_BACKGROUND_GRID_SIZE;
+      const bottom = ((row + 1) * height) / RECTIFIED_BACKGROUND_GRID_SIZE;
+      const sourceTriangles: TablePoint[][] = [
+        [
+          [left, top],
+          [right, top],
+          [right, bottom],
+        ],
+        [
+          [left, top],
+          [right, bottom],
+          [left, bottom],
+        ],
+      ];
+      for (const sourceTriangle of sourceTriangles) {
+        const tableTriangle = sourceTriangle.map((point) =>
+          projectImagePointToTable(point, homography),
+        );
+        if (tableTriangle.some((point) => point === null)) continue;
+        const transform = affineTriangleTransform(
+          sourceTriangle,
+          tableTriangle as TablePoint[],
+        );
+        if (transform === null) continue;
+        patches.push({
+          clipId: `${clipPrefix}-${index}`,
+          sourceTriangle,
+          transform,
+        });
+        index += 1;
+      }
+    }
+  }
+  return patches;
+}
+
+function affineTriangleTransform(
+  source: TablePoint[],
+  destination: TablePoint[],
+): string | null {
+  const [[x0, y0], [x1, y1], [x2, y2]] = source;
+  const determinant = x0 * (y1 - y2) + x1 * (y2 - y0) + x2 * (y0 - y1);
+  if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-9)
+    return null;
+  const coefficients = [0, 1].flatMap((coordinate) => {
+    const [u0, u1, u2] = destination.map((point) => point[coordinate]);
+    return [
+      (u0 * (y1 - y2) + u1 * (y2 - y0) + u2 * (y0 - y1)) / determinant,
+      (u0 * (x2 - x1) + u1 * (x0 - x2) + u2 * (x1 - x0)) / determinant,
+      (u0 * (x1 * y2 - x2 * y1) +
+        u1 * (x2 * y0 - x0 * y2) +
+        u2 * (x0 * y1 - x1 * y0)) /
+        determinant,
+    ];
+  });
+  const [a, c, e, b, d, f] = coefficients;
+  if (![a, b, c, d, e, f].every(Number.isFinite)) return null;
+  return `matrix(${a} ${b} ${c} ${d} ${e} ${f})`;
 }
 
 function projectImageBounds(

@@ -2,7 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { PoseBasedVisibleCardEditor } from "./PoseBasedVisibleCardEditor";
 import type { EditableFrame } from "./PipelineVisibleCardTypes";
-import type { PoseSceneEnvelope } from "./PoseBasedVisibleCardScene";
+import {
+  projectImagePointToTable,
+  type PoseSceneEnvelope,
+} from "./PoseBasedVisibleCardScene";
 
 const DIGEST = "a".repeat(64);
 
@@ -142,6 +145,48 @@ describe("PoseBasedVisibleCardEditor", () => {
         .getAllByRole("button", { name: /Virtual table card/ })
         .map((card) => card.getAttribute("aria-label")),
     ).toEqual(["Virtual table card card-b", "Virtual table card card-a"]);
+  });
+
+  it("warps the source frame into the table plane for the rectified view", () => {
+    const perspectiveScene = scene();
+    perspectiveScene.projection.table_to_image_homography = [
+      [20, 3, 50],
+      [2, 20, 40],
+      [0.08, 0.04, 1],
+    ];
+
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={perspectiveScene}
+        readOnly={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const background = screen.getByRole("img", {
+      name: "Source frame background",
+    });
+    const patches = background.querySelectorAll("g[transform]");
+    expect(patches.length).toBeGreaterThan(1);
+    expect(
+      new Set(Array.from(patches, (patch) => patch.getAttribute("transform")))
+        .size,
+    ).toBeGreaterThan(1);
+    const transform = patches[0].getAttribute("transform");
+    const coefficients = transform
+      ?.slice("matrix(".length, -1)
+      .split(" ")
+      .map(Number);
+    const topLeft = projectImagePointToTable(
+      [0, 0],
+      perspectiveScene.projection.table_to_image_homography,
+    );
+    expect(coefficients).toBeDefined();
+    expect(topLeft).not.toBeNull();
+    expect(coefficients?.[4]).toBeCloseTo(topLeft![0]);
+    expect(coefficients?.[5]).toBeCloseTo(topLeft![1]);
   });
 
   it("uses the same editor action for keyboard nudges", async () => {
