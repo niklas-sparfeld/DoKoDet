@@ -126,6 +126,24 @@ describe("PoseBasedVisibleCardEditor", () => {
     expect(onChange.mock.calls[0][1]).toContain("added");
   });
 
+  it("renders the front card above the back card in the rectified view", () => {
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen
+        .getAllByRole("button", { name: /Virtual table card/ })
+        .map((card) => card.getAttribute("aria-label")),
+    ).toEqual(["Virtual table card card-b", "Virtual table card card-a"]);
+  });
+
   it("uses the same editor action for keyboard nudges", async () => {
     const onChange = vi.fn();
     render(

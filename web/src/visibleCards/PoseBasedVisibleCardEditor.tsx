@@ -1056,7 +1056,7 @@ export function PoseBasedVisibleCardEditor({
                   aria-label="Source frame background"
                 />
               ) : null}
-              {draft.scene.poses.map((pose) => (
+              {rectifiedRenderOrder(draft.scene).map((pose) => (
                 <TableCard
                   key={pose.card_id}
                   pose={pose}
@@ -1488,6 +1488,14 @@ function higherCards(scene: ReviewedCardScene, cardId: string): PoseCard[] {
   return scene.stacking_order.card_ids
     .slice(0, Math.max(0, index))
     .map((id) => scene.poses.find((pose) => pose.card_id === id))
+    .filter((pose): pose is PoseCard => pose !== undefined);
+}
+
+function rectifiedRenderOrder(scene: ReviewedCardScene): PoseCard[] {
+  const poses = new Map(scene.poses.map((pose) => [pose.card_id, pose]));
+  return [...scene.stacking_order.card_ids]
+    .reverse()
+    .map((cardId) => poses.get(cardId))
     .filter((pose): pose is PoseCard => pose !== undefined);
 }
 
