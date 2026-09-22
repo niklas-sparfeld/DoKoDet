@@ -197,7 +197,12 @@ def test_reconciliation_discards_nested_partial_mask_fragments() -> None:
         "cluster-0001",
         0.9,
         (0, 0, 10, 10),
-        {(x, y) for x in range(10) for y in range(10)},
+        {
+            (x, y)
+            for x in range(10)
+            for y in range(10)
+            if (x, y) not in {(3, 3), (4, 3), (5, 3), (3, 4), (4, 4), (5, 4)}
+        },
     )
     fragment = _prediction(
         "fragment",
@@ -210,7 +215,7 @@ def test_reconciliation_discards_nested_partial_mask_fragments() -> None:
     result = reconcile_predictions([complete, fragment], frame_width=20, frame_height=20)
 
     assert [prediction.prediction_id for prediction in result.retained] == ["complete"]
-    assert result.decisions[0].mask_iou < 0.90
+    assert result.decisions[0].mask_iou < 0.80
     assert result.decisions[0].duplicate is True
     assert result.decisions[0].discarded_prediction_id == "fragment"
 
