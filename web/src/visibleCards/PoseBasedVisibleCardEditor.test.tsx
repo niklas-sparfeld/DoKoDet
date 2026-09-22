@@ -140,11 +140,18 @@ describe("PoseBasedVisibleCardEditor", () => {
       />,
     );
 
+    const cards = screen.getAllByRole("button", {
+      name: /Virtual table card/,
+    });
+    expect(cards.map((card) => card.getAttribute("aria-label"))).toEqual([
+      "Virtual table card card-b",
+      "Virtual table card card-a",
+    ]);
     expect(
-      screen
-        .getAllByRole("button", { name: /Virtual table card/ })
-        .map((card) => card.getAttribute("aria-label")),
-    ).toEqual(["Virtual table card card-b", "Virtual table card card-a"]);
+      cards
+        .map((card) => card.querySelector("polygon"))
+        .map((polygon) => polygon?.getAttribute("fill-opacity")),
+    ).toEqual(["0.55", "0.55"]);
   });
 
   it("warps the source frame into the table plane for the rectified view", () => {

@@ -1470,6 +1470,7 @@ function TableCard({
       <polygon
         points={pointsAttribute(polygon)}
         fill={selected ? "#2b8f83" : "#37606a"}
+        fillOpacity="0.55"
         stroke={selected ? "#d9fff7" : "#80b6b7"}
         strokeWidth={selected ? 0.06 : 0.035}
         onPointerDown={(event) => {
