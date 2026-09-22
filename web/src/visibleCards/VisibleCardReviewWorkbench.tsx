@@ -270,6 +270,9 @@ export function VisibleCardReviewWorkbench({
   const sceneDraftRef = useRef<PoseSceneEnvelope | null>(frameScene);
   const sceneIdentityRef = useRef(sceneIdentity);
   const virtualGestureRef = useRef<VirtualCardGesture | null>(null);
+  const [gestureViewBox, setGestureViewBox] = useState<
+    { x: number; y: number; width: number; height: number } | undefined
+  >(undefined);
   const mappingGestureRef = useRef<MappingGesture | null>(null);
   const [anchorPreview, setAnchorPreview] =
     useState<WorkbenchCalibrationAnchor | null>(null);
@@ -646,7 +649,16 @@ export function VisibleCardReviewWorkbench({
       return;
     event.preventDefault();
     event.stopPropagation();
+    const startViewBox = surfaceViewBox(
+      activeState.viewpoint,
+      width,
+      height,
+      sceneDraftRef.current,
+      activeState.viewport,
+    );
+    if (startViewBox === null) return;
     select({ type: "virtual_card", id: cardId });
+    setGestureViewBox(startViewBox);
     virtualGestureRef.current = {
       pointerId: event.pointerId,
       cardId,
@@ -655,6 +667,7 @@ export function VisibleCardReviewWorkbench({
       startClientX: event.clientX,
       startClientY: event.clientY,
       originalScene: sceneDraftRef.current,
+      startViewBox,
     };
     event.currentTarget.ownerSVGElement?.setPointerCapture?.(event.pointerId);
     dispatch({
@@ -686,6 +699,7 @@ export function VisibleCardReviewWorkbench({
     );
     if (viewBox === null) return false;
     event.preventDefault();
+    setGestureViewBox(undefined);
     virtualGestureRef.current = {
       pointerId: event.pointerId,
       cardId: null,
@@ -819,6 +833,7 @@ export function VisibleCardReviewWorkbench({
       mappingGesture.pointerId === event.pointerId
     ) {
       mappingGestureRef.current = null;
+      setGestureViewBox(undefined);
       event.currentTarget.releasePointerCapture?.(event.pointerId);
       dispatch({ type: "commit_gesture" });
       const preview = anchorPreviewRef.current;
@@ -845,6 +860,7 @@ export function VisibleCardReviewWorkbench({
       return;
     }
     virtualGestureRef.current = null;
+    setGestureViewBox(undefined);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     dispatch({ type: "commit_gesture" });
     if (!gesture.dirty || gesture.kind === "pan") return;
@@ -865,6 +881,7 @@ export function VisibleCardReviewWorkbench({
       mappingGesture.pointerId === event.pointerId
     ) {
       mappingGestureRef.current = null;
+      setGestureViewBox(undefined);
       event.currentTarget.releasePointerCapture?.(event.pointerId);
       setAnchorPreviewState(null);
       dispatch({ type: "cancel_gesture" });
@@ -877,6 +894,7 @@ export function VisibleCardReviewWorkbench({
       return;
     }
     virtualGestureRef.current = null;
+    setGestureViewBox(undefined);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     sceneDraftRef.current = gesture.originalScene;
     setSceneDraft(gesture.originalScene);
@@ -1076,6 +1094,7 @@ export function VisibleCardReviewWorkbench({
           enabledLayers={activeState.enabledLayers}
           selection={activeState.selection}
           viewport={activeState.viewport}
+          gestureViewBox={gestureViewBox}
           candidateProjection={candidateProjection}
           mappingAnchors={renderMappingAnchors}
           editor={editor}
@@ -2165,6 +2184,7 @@ function WorkbenchSurface({
   enabledLayers,
   selection,
   viewport,
+  gestureViewBox,
   candidateProjection,
   mappingAnchors,
   editor,
@@ -2193,6 +2213,12 @@ function WorkbenchSurface({
   enabledLayers: WorkbenchLayer[];
   selection: WorkbenchSelection | null;
   viewport: { zoom: number; pan: { x: number; y: number } };
+  gestureViewBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
   candidateProjection: CardSceneProjection | null;
   mappingAnchors: WorkbenchCalibrationAnchor[];
   editor: EditorState | null;
@@ -2229,7 +2255,8 @@ function WorkbenchSurface({
   const count = frame.outcome.candidates.length;
   const proposalLabel = `${count} visible-card proposal${count === 1 ? "" : "s"}${includeIgnoreRegionCount && frame.outcome.ignored_regions.length > 0 ? ` and ${frame.outcome.ignored_regions.length} ignore region${frame.outcome.ignored_regions.length === 1 ? "" : "s"}` : ""}`;
   if (viewpoint === "rectified" && scene !== null) {
-    const viewBox = tableViewBox(scene.scene, scene.projection, viewport);
+    const viewBox =
+      gestureViewBox ?? tableViewBox(scene.scene, scene.projection, viewport);
     return (
       <svg
         className={styles.workbenchRectifiedSurface}
