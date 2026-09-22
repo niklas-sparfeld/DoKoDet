@@ -380,6 +380,25 @@ describe("PoseBasedVisibleCardEditor", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("clears the selected card when the empty table is clicked", () => {
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+      />,
+    );
+    const table = screen.getByRole("application", {
+      name: "Rectified virtual table",
+    });
+
+    expect(screen.getByLabelText("Rotate card-a")).toBeInTheDocument();
+    fireEvent.click(table);
+    expect(screen.queryByLabelText("Rotate card-a")).not.toBeInTheDocument();
+  });
+
   it("zooms the table under the wheel or trackpad pointer", () => {
     render(
       <PoseBasedVisibleCardEditor
