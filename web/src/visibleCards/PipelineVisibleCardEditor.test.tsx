@@ -1016,9 +1016,9 @@ describe("PipelineVisibleCardEditor", () => {
         proposal_revision_id: PROPOSAL_REVISION_ID,
       },
     ]);
-    expect(
-      await screen.findByText(/Proposed card scenes loaded/),
-    ).toBeInTheDocument();
+    const toast = await screen.findByRole("status");
+    expect(toast).toHaveTextContent(/Proposed card scenes loaded/);
+    expect(toast.parentElement).toBe(document.body);
   });
 
   it("loads maintained frames when an older reference omits ignore regions", async () => {

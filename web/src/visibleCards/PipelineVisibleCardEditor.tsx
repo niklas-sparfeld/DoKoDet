@@ -22,6 +22,7 @@ import {
   findAdjacentUnfinishedItem,
   ignoresReviewNavigationShortcut,
 } from "../reviewNavigation";
+import { Toast } from "../Toast";
 import {
   describeCommand,
   frameReviewStatus,
@@ -2405,11 +2406,7 @@ export function PipelineVisibleCardEditor({
             </div>
           </>
         )}
-        {notice !== null ? (
-          <p className={styles.recordingNotice} role="status">
-            {notice}
-          </p>
-        ) : null}
+        {notice !== null ? <Toast message={notice} /> : null}
         {inspectorSlots === null && error !== null ? (
           <div className={styles.cardEventError} role="alert">
             <p>{error}</p>

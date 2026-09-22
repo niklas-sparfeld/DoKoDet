@@ -6,6 +6,7 @@ import type {
   VisualIdentityAutoApprovalPlan,
 } from "../api/client";
 import styles from "../App.module.css";
+import { Toast } from "../Toast";
 import identityStyles from "./PipelineVisualIdentityEditor.module.css";
 import {
   type EditableIdentity,
@@ -245,11 +246,7 @@ function IdentityInspectorSave(props: IdentityInspectorProps) {
           <h2>{formatIdentifier(props.saveState)}</h2>
         </div>
       </div>
-      {props.notice !== null ? (
-        <p className={styles.recordingNotice} role="status">
-          {props.notice}
-        </p>
-      ) : null}
+      {props.notice !== null ? <Toast message={props.notice} /> : null}
       {props.error !== null ? (
         <p className={styles.detailBlocker} role="alert">
           {props.saveState === "conflict"

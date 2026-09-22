@@ -14,6 +14,7 @@ import {
   findAdjacentUnfinishedItem,
   ignoresReviewNavigationShortcut,
 } from "../reviewNavigation";
+import { Toast } from "../Toast";
 import eventStyles from "./PipelineCardEventEditor.module.css";
 import { formatIdentifier } from "./PipelineCardEventFormatting";
 import {
@@ -1103,11 +1104,7 @@ export function PipelineCardEventEditor({
           />
         </div>
 
-        {notice !== null ? (
-          <p className={styles.recordingNotice} role="status">
-            {notice}
-          </p>
-        ) : null}
+        {notice !== null ? <Toast message={notice} /> : null}
         {inspectorSlots === null && error !== null ? (
           <div className={eventStyles.error} role="alert">
             <p>

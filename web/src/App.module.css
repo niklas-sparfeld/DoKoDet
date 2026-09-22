@@ -1715,13 +1715,19 @@ progress {
   margin: 0;
 }
 
-.recordingNotice {
+.toast {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 1000;
+  width: min(30rem, calc(100vw - 2rem));
+  margin: 0;
   padding: 0.8rem 1rem;
-  margin: 0 0 1.25rem;
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-raised));
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
   border-radius: 0.65rem;
+  box-shadow: 0 0.8rem 2rem var(--shadow);
 }
 
 .recordingList {

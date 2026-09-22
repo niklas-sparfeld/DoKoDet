@@ -14,6 +14,7 @@ import {
   type PipelineVisualIdentityRailItem,
 } from "../visualIdentities/PipelineVisualIdentityEditor";
 import styles from "../App.module.css";
+import { Toast } from "../Toast";
 import { ComparisonView } from "./ComparisonView";
 import { PipelineObservationWorkbench } from "./PipelineObservationWorkbench";
 import { PipelineRoundAnalysisWorkbench } from "./PipelineRoundAnalysisWorkbench";
@@ -186,11 +187,7 @@ export function RecordingWorkspaceShell({
           <ProfileControl />
         </header>
 
-        {notice !== null ? (
-          <p className={styles.recordingNotice} role="status">
-            {notice}
-          </p>
-        ) : null}
+        {notice !== null ? <Toast message={notice} /> : null}
         {error !== null ? (
           <p className={styles.errorMessage} role="alert">
             {error}
