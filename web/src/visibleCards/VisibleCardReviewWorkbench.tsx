@@ -2361,12 +2361,15 @@ function WorkbenchSurface({
           src={sourceUrl}
           width={width}
           height={height}
-          alt="Selected visible-card source frame"
+          alt=""
+          aria-hidden="true"
           style={{
             position: "absolute",
-            width: 1,
-            height: 1,
-            opacity: 0,
+            left: `${(viewBox.x / width) * -viewport.zoom * 100}%`,
+            top: `${(viewBox.y / height) * -viewport.zoom * 100}%`,
+            width: `${viewport.zoom * 100}%`,
+            height: `${viewport.zoom * 100}%`,
+            objectFit: "fill",
             pointerEvents: "none",
           }}
         />
@@ -2424,17 +2427,6 @@ function WorkbenchSurface({
         onPointerCancel={onPointerCancel}
         onWheel={onWheel}
       >
-        {sourceUrl !== null ? (
-          <image
-            href={sourceUrl}
-            x="0"
-            y="0"
-            width={width}
-            height={height}
-            preserveAspectRatio="none"
-            pointerEvents="none"
-          />
-        ) : null}
         {renderLayers({
           frame,
           candidates,
