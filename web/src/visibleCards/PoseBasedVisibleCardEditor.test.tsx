@@ -158,7 +158,12 @@ describe("PoseBasedVisibleCardEditor", () => {
       cards
         .map((card) => card.querySelector("polygon"))
         .map((polygon) => polygon?.getAttribute("fill-opacity")),
-    ).toEqual(["0.55", "0.55"]);
+    ).toEqual(["0.25", "0.25"]);
+    expect(
+      cards
+        .map((card) => card.querySelector("polygon"))
+        .map((polygon) => polygon?.getAttribute("stroke-width")),
+    ).toEqual(["0.02", "0.035"]);
   });
 
   it("renders the selected card above higher cards for interaction", async () => {

@@ -1537,9 +1537,9 @@ function TableCard({
       <polygon
         points={pointsAttribute(polygon)}
         fill={selected ? "#2b8f83" : "#37606a"}
-        fillOpacity="0.55"
+        fillOpacity="0.25"
         stroke={selected ? "#d9fff7" : "#80b6b7"}
-        strokeWidth={selected ? 0.06 : 0.035}
+        strokeWidth={selected ? 0.035 : 0.02}
         onPointerDown={(event) => {
           if (editorMode === "review") onPointerDown(event, "move");
         }}
@@ -1551,7 +1551,7 @@ function TableCard({
           r="0.11"
           fill="#ffd24f"
           stroke="#18242f"
-          strokeWidth="0.035"
+          strokeWidth="0.02"
           aria-label={`Rotate ${pose.card_id}`}
           onPointerDown={(event) => onPointerDown(event, "rotate")}
         />
@@ -1565,7 +1565,7 @@ function TableCard({
               r="0.11"
               fill="#ff8a65"
               stroke="#18242f"
-              strokeWidth="0.035"
+              strokeWidth="0.02"
               tabIndex={0}
               role="button"
               aria-label={`Anchor corner ${cornerIndex + 1} for card ${pose.card_id}`}
