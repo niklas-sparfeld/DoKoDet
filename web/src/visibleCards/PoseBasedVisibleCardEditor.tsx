@@ -1212,7 +1212,7 @@ export function PoseBasedVisibleCardEditor({
                   clipPrefix={`${sourceMaskPrefix}-rectified-background`}
                 />
               ) : null}
-              {rectifiedRenderOrder(draft.scene).map((pose) => (
+              {rectifiedRenderOrder(draft.scene, selectedCardId).map((pose) => (
                 <TableCard
                   key={pose.card_id}
                   pose={pose}
@@ -1784,12 +1784,21 @@ function higherCards(scene: ReviewedCardScene, cardId: string): PoseCard[] {
     .filter((pose): pose is PoseCard => pose !== undefined);
 }
 
-function rectifiedRenderOrder(scene: ReviewedCardScene): PoseCard[] {
+function rectifiedRenderOrder(
+  scene: ReviewedCardScene,
+  selectedCardId: string | null,
+): PoseCard[] {
   const poses = new Map(scene.poses.map((pose) => [pose.card_id, pose]));
-  return [...scene.stacking_order.card_ids]
+  const ordered = [...scene.stacking_order.card_ids]
     .reverse()
     .map((cardId) => poses.get(cardId))
     .filter((pose): pose is PoseCard => pose !== undefined);
+  const selected = ordered.find((pose) => pose.card_id === selectedCardId);
+  if (selected === undefined) return ordered;
+  return [
+    ...ordered.filter((pose) => pose.card_id !== selectedCardId),
+    selected,
+  ];
 }
 
 function candidatePolygons(

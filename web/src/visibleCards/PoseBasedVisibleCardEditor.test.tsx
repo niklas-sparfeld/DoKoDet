@@ -4,6 +4,7 @@ import { PoseBasedVisibleCardEditor } from "./PoseBasedVisibleCardEditor";
 import type { EditableFrame } from "./PipelineVisibleCardTypes";
 import {
   projectImagePointToTable,
+  type PoseCard,
   type PoseSceneEnvelope,
 } from "./PoseBasedVisibleCardScene";
 
@@ -158,6 +159,63 @@ describe("PoseBasedVisibleCardEditor", () => {
         .map((card) => card.querySelector("polygon"))
         .map((polygon) => polygon?.getAttribute("fill-opacity")),
     ).toEqual(["0.55", "0.55"]);
+  });
+
+  it("renders the selected card above higher cards for interaction", async () => {
+    const overlappingScene = scene();
+    overlappingScene.scene.poses[1].center = [0.25, 0];
+    const onChange = vi.fn();
+    render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={overlappingScene}
+        readOnly={false}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Virtual table card card-b" }),
+    );
+
+    expect(
+      screen
+        .getAllByRole("button", { name: /Virtual table card/ })
+        .map((card) => card.getAttribute("aria-label")),
+    ).toEqual(["Virtual table card card-a", "Virtual table card card-b"]);
+    const table = screen.getByRole("application", {
+      name: "Rectified virtual table",
+    });
+    Object.defineProperty(table, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100,
+        right: 100,
+        bottom: 100,
+      }),
+    });
+    fireEvent.pointerDown(screen.getByLabelText("Rotate card-b"), {
+      pointerId: 12,
+      clientX: 50,
+      clientY: 50,
+    });
+    fireEvent.pointerMove(table, {
+      pointerId: 12,
+      clientX: 60,
+      clientY: 40,
+    });
+    fireEvent.pointerUp(table, { pointerId: 12 });
+
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(
+      onChange.mock.calls[0][0].scene.poses.find(
+        (pose: PoseCard) => pose.card_id === "card-b",
+      )?.rotation_degrees,
+    ).not.toBe(0);
   });
 
   it("warps the source frame into the table plane for the rectified view", () => {
