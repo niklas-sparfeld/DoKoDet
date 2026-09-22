@@ -203,7 +203,7 @@ def test_m6_bundle_verifies_children_and_provider_loads_each_once(
     )
 
 
-def test_mps_cascade_uses_cpu_for_the_fine_segmentation_model(
+def test_mps_cascade_keeps_fine_segmentation_on_the_requested_device(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     coarse, fine = _child_bundles(tmp_path / "children")
@@ -239,9 +239,9 @@ def test_mps_cascade_uses_cpu_for_the_fine_segmentation_model(
     result = provider.propose(_request())
 
     assert result.status == "ok"
-    assert load_calls == [("RFDETRSmall", "mps"), ("RFDETRSegMedium", "cpu")]
+    assert load_calls == [("RFDETRSmall", "mps"), ("RFDETRSegMedium", "mps")]
     assert result.raw_response["device"] == "mps"
-    assert result.raw_response["fine_device"] == "cpu"
+    assert result.raw_response["fine_device"] == "mps"
 
 
 def test_m6_rejects_recipe_or_child_digest_drift(tmp_path: Path) -> None:

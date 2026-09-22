@@ -54,9 +54,9 @@ CASCADE_PROVIDER_VERSION = "local-rfdetr-cascade-v2"
 
 
 def _fine_inference_device(device: str) -> str:
-    """Use the faster CPU path for RF-DETR segmentation on Apple MPS."""
+    """Keep fine inference on the configured accelerator after runtime optimization."""
 
-    return "cpu" if device == "mps" else device
+    return device
 
 
 def _load_local_rfdetr_small(bundle: Any, device: str) -> Any:
