@@ -4,9 +4,6 @@ export const REVIEWED_CARD_SCENE_SCHEMA = "reviewed-card-scene/v1" as const;
 
 export type TablePoint = [number, number];
 
-export const ANCHOR_CONSTRAINTS = ["diagonal", "card_x", "card_y"] as const;
-export type AnchorConstraint = (typeof ANCHOR_CONSTRAINTS)[number];
-
 export const ANCHOR_STATES = [
   "candidate",
   "accepted",
@@ -15,8 +12,6 @@ export const ANCHOR_STATES = [
   "excluded",
 ] as const;
 export type AnchorState = (typeof ANCHOR_STATES)[number];
-
-export const ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS = 0.25;
 
 export type CalibrationAnchorCommand = {
   schema_version: "calibration-anchor-command/v1";
@@ -27,7 +22,7 @@ export type CalibrationAnchorCommand = {
   operation: "set_state" | "set_corners" | "restore";
   state: AnchorState | null;
   moved_corner: number | null;
-  constraint: AnchorConstraint | null;
+  constraint: null;
   corners: TablePoint[] | null;
   operator_id: string;
 };
@@ -110,75 +105,18 @@ export type PoseSceneAction =
   | { type: "remove"; cardId: string }
   | { type: "restore_initialized" };
 
-export function constrainAnchorQuad(
+export function moveAnchorCorner(
   corners: TablePoint[],
   movedCorner: number,
   pointer: TablePoint,
-  constraint: AnchorConstraint,
 ): TablePoint[] {
   if (corners.length !== 4 || !Number.isInteger(movedCorner)) {
     return corners.map((point) => [...point] as TablePoint);
   }
   const original = corners.map((point) => [...point] as TablePoint);
-  const opposite = (movedCorner + 2) % 4;
-  const fixed = original[opposite];
-  const anchor = original[movedCorner];
-  const longVector = subtract(original[(movedCorner + 3) % 4], anchor);
-  const shortVector = subtract(original[(movedCorner + 1) % 4], anchor);
-  const longLength = length(longVector);
-  const shortLength = length(shortVector);
-  if (
-    movedCorner < 0 ||
-    movedCorner > 3 ||
-    longLength < ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS ||
-    shortLength < ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS
-  ) {
-    return original;
-  }
-  const longAxis = scale(longVector, 1 / longLength);
-  const shortAxis = scale(shortVector, 1 / shortLength);
-  const delta = subtract(pointer, fixed);
-  const currentDiagonal = subtract(anchor, fixed);
-  const diagonalLength = length(currentDiagonal);
-  if (diagonalLength < 1e-9) return original;
-
-  let longFactor = 1;
-  let shortFactor = 1;
-  if (constraint === "diagonal") {
-    const scaleFactor = Math.max(
-      dot(delta, currentDiagonal) / (diagonalLength * diagonalLength),
-      ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS / Math.max(shortLength, 1e-9),
-    );
-    longFactor = scaleFactor;
-    shortFactor = scaleFactor;
-  } else if (constraint === "card_x") {
-    const longScale = Math.max(
-      dot(delta, longAxis) / longLength,
-      ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS,
-    );
-    longFactor = longScale / longLength;
-  } else {
-    const shortScale = Math.max(
-      dot(delta, shortAxis) / shortLength,
-      ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS,
-    );
-    shortFactor = shortScale / shortLength;
-  }
-
-  const result = original.map((point) => {
-    const relative = subtract(point, fixed);
-    const longComponent = dot(relative, longAxis);
-    const shortComponent = dot(relative, shortAxis);
-    return roundPoint([
-      fixed[0] +
-        longAxis[0] * longComponent * longFactor +
-        shortAxis[0] * shortComponent * shortFactor,
-      fixed[1] +
-        longAxis[1] * longComponent * longFactor +
-        shortAxis[1] * shortComponent * shortFactor,
-    ]);
-  });
-  result[opposite] = [...fixed];
+  if (movedCorner < 0 || movedCorner > 3) return original;
+  const result = original;
+  result[movedCorner] = roundPoint(pointer);
   return result;
 }
 
@@ -193,7 +131,6 @@ export function createCalibrationAnchorCommand(
     | "corners"
   > & {
     moved_corner: number;
-    constraint: AnchorConstraint;
     corners: TablePoint[];
   },
 ): CalibrationAnchorCommand {
@@ -202,6 +139,7 @@ export function createCalibrationAnchorCommand(
     operation: "set_corners",
     state: "adjusted",
     ...input,
+    constraint: null,
     corners: input.corners.map(roundPoint),
   };
 }
@@ -731,14 +669,6 @@ function invertHomography(homography: number[][]): number[][] | null {
       (a * e - b * d) / determinant,
     ],
   ];
-}
-
-function dot(left: TablePoint, right: TablePoint): number {
-  return left[0] * right[0] + left[1] * right[1];
-}
-
-function length(point: TablePoint): number {
-  return Math.hypot(point[0], point[1]);
 }
 
 function roundPoint(point: TablePoint): TablePoint {

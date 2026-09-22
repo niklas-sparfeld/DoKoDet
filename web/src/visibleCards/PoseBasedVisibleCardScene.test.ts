@@ -1,8 +1,8 @@
 import {
   applyPoseSceneAction,
   cardPolygon,
-  constrainAnchorQuad,
   createCalibrationAnchorCommand,
+  moveAnchorCorner,
   withCalibrationAnchorCommandDigest,
   nextManualPoseId,
   projectImagePointToTable,
@@ -144,7 +144,7 @@ describe("PoseBasedVisibleCardScene", () => {
     ).toEqual(oneCard);
   });
 
-  it("keeps the opposite corner fixed for every frozen anchor constraint", () => {
+  it("moves only the selected anchor corner without a geometric constraint", () => {
     const corners: [
       [number, number],
       [number, number],
@@ -156,11 +156,12 @@ describe("PoseBasedVisibleCardScene", () => {
       [1.5, 1],
       [0, 1],
     ];
-    for (const constraint of ["diagonal", "card_x", "card_y"] as const) {
-      const adjusted = constrainAnchorQuad(corners, 0, [-1.5, -1], constraint);
-      expect(adjusted).toHaveLength(4);
-      expect(adjusted[2]).toEqual(corners[2]);
-    }
+    expect(moveAnchorCorner(corners, 0, [-1.5, -1])).toEqual([
+      [-1.5, -1],
+      [1.5, 0],
+      [1.5, 1],
+      [0, 1],
+    ]);
   });
 
   it("adds the canonical digest required by calibration refinement updates", async () => {
@@ -170,7 +171,6 @@ describe("PoseBasedVisibleCardScene", () => {
       expected_draft_revision: 0,
       anchor_id: "anchor-frame-1-card-1",
       moved_corner: 0,
-      constraint: "diagonal",
       corners: [
         [-1, -1.5],
         [1, -1.5],
@@ -183,7 +183,7 @@ describe("PoseBasedVisibleCardScene", () => {
     await expect(withCalibrationAnchorCommandDigest(command)).resolves.toEqual(
       expect.objectContaining({
         command_digest:
-          "4da1fd0ccb7408838d0f0234f23433b83bf540abea1f401d57a24fc5b606f47e",
+          "03709b841584e670c47865b1fb92770bb71362212509a3d97ba9a22f49eec5b1",
       }),
     );
   });

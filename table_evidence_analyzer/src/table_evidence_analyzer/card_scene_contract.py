@@ -37,7 +37,6 @@ ANCHOR_STATES = ("candidate", "accepted", "adjusted", "pinned", "excluded")
 ANCHOR_WEIGHT_CLASSES = ("candidate", "accepted", "adjusted")
 FRAME_REVIEW_STATES = ("pending", "complete", "unusable")
 CALIBRATION_DRAFT_STATES = ("clean", "dirty", "blocked")
-HANDLE_CONSTRAINTS = ("diagonal", "card_x", "card_y")
 CALIBRATION_PREVIEW_STATES = ("pass", "blocked")
 CALIBRATION_FAILURE_CODES = (
     "stale_detector_revision",
@@ -68,17 +67,7 @@ MAX_REVIEWED_SOURCE_DISPLACEMENT_PX = 12.0
 MAX_PROPOSED_SOURCE_DISPLACEMENT_PX = 24.0
 CARD_ASPECT_RATIO = 1.5
 CORNER_ORDER_VERSION = "cyclic-short-edge-first/v1"
-HANDLE_MODIFIER_POLICY = {
-    "none": "diagonal",
-    "shift": "card_x",
-    "alt": "card_y",
-}
-HANDLE_KEYBOARD_POLICY = {
-    "d": "diagonal",
-    "x": "card_x",
-    "y": "card_y",
-    "escape": "cancel",
-}
+ANCHOR_EDIT_POLICY = "freeform"
 REVISION_INVALIDATION_RULES = {
     "detector_revision": "block_proposal_and_apply",
     "calibration_revision": "mark_draft_affected",
@@ -1097,81 +1086,20 @@ def anchor_fit_contributions(
     return tuple(sorted(contributions, key=lambda item: item.anchor_id))
 
 
-def constrain_anchor_quad(
+def move_anchor_corner(
     corners: Sequence[Sequence[float]],
     *,
     moved_corner: int,
     pointer: Sequence[float],
-    constraint: str,
 ) -> tuple[tuple[float, float], ...]:
-    """Apply the frozen M0 corner-handle mathematics in table coordinates.
-
-    The diagonally opposite corner is fixed.  ``diagonal`` scales both local axes, ``card_x``
-    scales the local long axis only, and ``card_y`` scales the local short axis only.  The other
-    three corners move as a coupled rectangle.  The input corner order is the frozen cyclic order
-    with the short edge first.
-    """
+    """Move one anchor corner while leaving the other three corners unchanged."""
 
     original = _quad(corners, "corners")
     if isinstance(moved_corner, bool) or moved_corner not in range(4):
         raise CardSceneContractError("moved_corner must be from 0 through 3")
-    if constraint not in HANDLE_CONSTRAINTS:
-        raise CardSceneContractError("anchor constraint is unsupported")
     target = _point(pointer, "pointer")
-    opposite = (moved_corner + 2) % 4
-    fixed = original[opposite]
-    anchor = original[moved_corner]
-    long_vector = (
-        original[(moved_corner - 1) % 4][0] - anchor[0],
-        original[(moved_corner - 1) % 4][1] - anchor[1],
-    )
-    short_vector = (
-        original[(moved_corner + 1) % 4][0] - anchor[0],
-        original[(moved_corner + 1) % 4][1] - anchor[1],
-    )
-    long_length = math.hypot(*long_vector)
-    short_length = math.hypot(*short_vector)
-    if (
-        long_length < ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS
-        or short_length < ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS
-    ):
-        raise CardSceneContractError("anchor side is below the minimum handle size")
-    long_axis = (long_vector[0] / long_length, long_vector[1] / long_length)
-    short_axis = (short_vector[0] / short_length, short_vector[1] / short_length)
-    delta = (target[0] - fixed[0], target[1] - fixed[1])
-    current_diagonal = (anchor[0] - fixed[0], anchor[1] - fixed[1])
-    diagonal_length = math.hypot(*current_diagonal)
-    if diagonal_length < 1e-9:
-        raise CardSceneContractError("anchor diagonal is zero")
-    if constraint == "diagonal":
-        scale = (delta[0] * current_diagonal[0] + delta[1] * current_diagonal[1]) / (
-            diagonal_length**2
-        )
-        scale = max(scale, ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS / max(short_length, 1e-9))
-        factors = (scale, scale)
-    elif constraint == "card_x":
-        long_scale = (delta[0] * long_axis[0] + delta[1] * long_axis[1]) / long_length
-        long_scale = max(long_scale, ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS)
-        factors = (long_scale / long_length, 1.0)
-    else:
-        short_scale = (delta[0] * short_axis[0] + delta[1] * short_axis[1]) / short_length
-        short_scale = max(short_scale, ANCHOR_MIN_SIDE_LENGTH_TABLE_UNITS)
-        factors = (1.0, short_scale / short_length)
-    result: list[tuple[float, float]] = []
-    for point in original:
-        relative = (point[0] - fixed[0], point[1] - fixed[1])
-        long_component = relative[0] * long_axis[0] + relative[1] * long_axis[1]
-        short_component = relative[0] * short_axis[0] + relative[1] * short_axis[1]
-        transformed = (
-            fixed[0]
-            + long_axis[0] * long_component * factors[0]
-            + short_axis[0] * short_component * factors[1],
-            fixed[1]
-            + long_axis[1] * long_component * factors[0]
-            + short_axis[1] * short_component * factors[1],
-        )
-        result.append((_round(transformed[0]), _round(transformed[1])))
-    result[opposite] = fixed
+    result = list(original)
+    result[moved_corner] = (_round(target[0]), _round(target[1]))
     return tuple(result)
 
 
@@ -1217,10 +1145,10 @@ class AnchorCommand:
             if (
                 state != "adjusted"
                 or moved_corner not in range(4)
-                or constraint not in HANDLE_CONSTRAINTS
+                or constraint is not None
             ):
                 raise CardSceneContractError(
-                    "set_corners needs adjusted state, corner, and constraint"
+                    "set_corners needs adjusted state and corner without a constraint"
                 )
             if corners is None:
                 raise CardSceneContractError("set_corners command needs corners")
@@ -2043,8 +1971,7 @@ def calibration_refinement_contract_manifest() -> dict[str, Any]:
         "max_proposed_source_displacement_px": MAX_PROPOSED_SOURCE_DISPLACEMENT_PX,
         "card_aspect_ratio": CARD_ASPECT_RATIO,
         "corner_order": CORNER_ORDER_VERSION,
-        "handle_modifier_policy": dict(HANDLE_MODIFIER_POLICY),
-        "handle_keyboard_policy": dict(HANDLE_KEYBOARD_POLICY),
+        "anchor_edit_policy": ANCHOR_EDIT_POLICY,
         "revision_invalidation_rules": dict(REVISION_INVALIDATION_RULES),
     }
 
@@ -2080,9 +2007,7 @@ __all__ = [
     "CalibrationPreview",
     "CalibrationReflowReceipt",
     "FrameReviewCompletion",
-    "HANDLE_CONSTRAINTS",
-    "HANDLE_KEYBOARD_POLICY",
-    "HANDLE_MODIFIER_POLICY",
+    "ANCHOR_EDIT_POLICY",
     "MIN_ELIGIBLE_ANCHORS",
     "MAX_FIT_RESIDUAL_TABLE_UNITS",
     "MAX_HELD_OUT_ALIGNMENT_CHANGE_PX",
@@ -2098,7 +2023,7 @@ __all__ = [
     "anchor_fit_contributions",
     "calibration_refinement_contract_manifest",
     "canonical_card_scene_bytes",
-    "constrain_anchor_quad",
+    "move_anchor_corner",
     "deduplicate_anchor_observations",
     "validate_calibration_draft_lineage",
     "validate_pinned_anchor_conflicts",

@@ -19,8 +19,8 @@ from table_evidence_analyzer.card_scene_contract import (
     StaleCalibrationEvidenceError,
     anchor_fit_contributions,
     calibration_refinement_contract_manifest,
-    constrain_anchor_quad,
     deduplicate_anchor_observations,
+    move_anchor_corner,
     validate_calibration_draft_lineage,
     validate_pinned_anchor_conflicts,
 )
@@ -211,14 +211,10 @@ def test_conflicting_pins_and_stale_lineage_are_actionable() -> None:
         )
 
 
-def test_corner_constraints_keep_the_opposite_corner_and_command_is_one_gesture() -> None:
+def test_anchor_corner_moves_freely_and_command_is_one_gesture() -> None:
     corners = ((0.0, 0.0), (1.5, 0.0), (1.5, 1.0), (0.0, 1.0))
-    for constraint in ("diagonal", "card_x", "card_y"):
-        result = constrain_anchor_quad(
-            corners, moved_corner=0, pointer=(-1.5, -1.0), constraint=constraint
-        )
-        assert result[2] == corners[2]
-        assert len(result) == 4
+    result = move_anchor_corner(corners, moved_corner=0, pointer=(-1.5, -1.0))
+    assert result == ((-1.5, -1.0), (1.5, 0.0), (1.5, 1.0), (0.0, 1.0))
 
     command = AnchorCommand.create(
         command_id="command-corner-1",
@@ -228,7 +224,6 @@ def test_corner_constraints_keep_the_opposite_corner_and_command_is_one_gesture(
         operation="set_corners",
         state="adjusted",
         moved_corner=0,
-        constraint="diagonal",
         corners=corners,
         operator_id="operator-1",
     )
@@ -282,4 +277,5 @@ def test_preview_and_reflow_receipts_round_trip_and_manifest_freezes_policy() ->
     assert CalibrationReflowReceipt.from_mapping(receipt.to_mapping()) == receipt
     manifest = calibration_refinement_contract_manifest()
     assert manifest["anchor_base_weights"] == ANCHOR_BASE_WEIGHTS
+    assert manifest["anchor_edit_policy"] == "freeform"
     assert manifest["max_reviewed_source_displacement_px"] == 12.0

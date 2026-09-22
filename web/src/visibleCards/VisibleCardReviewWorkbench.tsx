@@ -21,17 +21,15 @@ import styles from "./PipelineVisibleCardEditor.module.css";
 import { formatIdentifier } from "./PipelineVisibleCardFormatting";
 import {
   applyPoseSceneAction,
-  ANCHOR_CONSTRAINTS,
   ANCHOR_STATES,
   cardPolygon,
-  constrainAnchorQuad,
   createCalibrationAnchorCommand,
   createCalibrationAnchorStateCommand,
+  moveAnchorCorner,
   nextManualPoseId,
   projectImagePointToTable,
   projectTablePoint,
   withSceneDigest,
-  type AnchorConstraint,
   type AnchorState,
   type CalibrationAnchorCommand,
   type CardSceneProjection,
@@ -142,7 +140,6 @@ type MappingGesture = {
   pointerId: number;
   anchorId: string;
   movedCorner: number;
-  constraint: AnchorConstraint;
   dirty: boolean;
   startClientX: number;
   startClientY: number;
@@ -266,8 +263,6 @@ export function VisibleCardReviewWorkbench({
   const [anchorPreview, setAnchorPreview] =
     useState<WorkbenchCalibrationAnchor | null>(null);
   const anchorPreviewRef = useRef<WorkbenchCalibrationAnchor | null>(null);
-  const [anchorConstraint, setAnchorConstraint] =
-    useState<AnchorConstraint>("diagonal");
   const [anchorCornerIndex, setAnchorCornerIndex] = useState(0);
   const [numericAnchor, setNumericAnchor] = useState<{
     anchorId: string;
@@ -394,21 +389,6 @@ export function VisibleCardReviewWorkbench({
   };
 
   const handleSurfaceKeyDown = (event: ReactKeyboardEvent<SVGSVGElement>) => {
-    if (activeState.activeTool === "mapping") {
-      const constraint =
-        event.key.toLowerCase() === "d"
-          ? "diagonal"
-          : event.key.toLowerCase() === "x"
-            ? "card_x"
-            : event.key.toLowerCase() === "y"
-              ? "card_y"
-              : null;
-      if (constraint !== null) {
-        event.preventDefault();
-        setAnchorConstraint(constraint);
-        return;
-      }
-    }
     const shortcut = workbenchViewportShortcut(event, "surface");
     if (shortcut === null) return;
     event.preventDefault();
@@ -566,20 +546,13 @@ export function VisibleCardReviewWorkbench({
       return;
     event.preventDefault();
     event.stopPropagation();
-    const constraint = event.shiftKey
-      ? "card_x"
-      : event.altKey
-        ? "card_y"
-        : anchorConstraint;
     select({ type: "calibration_anchor", id: anchor.anchorId });
-    setAnchorConstraint(constraint);
     setAnchorCornerIndex(movedCorner);
     const preview = { ...anchor, corners: cloneTablePoints(anchor.corners) };
     mappingGestureRef.current = {
       pointerId: event.pointerId,
       anchorId: anchor.anchorId,
       movedCorner,
-      constraint,
       dirty: false,
       startClientX: event.clientX,
       startClientY: event.clientY,
@@ -601,11 +574,10 @@ export function VisibleCardReviewWorkbench({
     );
     if (anchor === undefined) return;
     const sourcePosition = sourcePoint(point, width, height) as TablePoint;
-    const corners = constrainAnchorQuad(
+    const corners = moveAnchorCorner(
       gesture.originalCorners,
       gesture.movedCorner,
       sourcePosition,
-      gesture.constraint,
     );
     gesture.dirty = corners.some(
       (corner, index) =>
@@ -639,12 +611,10 @@ export function VisibleCardReviewWorkbench({
         expected_draft_revision: context.expectedDraftRevision,
         anchor_id: anchor.anchorId,
         moved_corner: anchorCornerIndex,
-        constraint: anchorConstraint,
-        corners: constrainAnchorQuad(
+        corners: moveAnchorCorner(
           anchor.corners,
           anchorCornerIndex,
           numericAnchor.point,
-          anchorConstraint,
         ),
         operator_id: "local-operator",
       }),
@@ -851,7 +821,6 @@ export function VisibleCardReviewWorkbench({
             expected_draft_revision: context.expectedDraftRevision,
             anchor_id: mappingGesture.anchorId,
             moved_corner: mappingGesture.movedCorner,
-            constraint: mappingGesture.constraint,
             corners: preview.corners,
             operator_id: "local-operator",
           }),
@@ -1048,11 +1017,8 @@ export function VisibleCardReviewWorkbench({
       mappingAnchors={mappingAnchors}
       mappingLoading={mappingLoading}
       mappingCanApply={mappingCanApply}
-      anchorConstraint={anchorConstraint}
       anchorCornerIndex={anchorCornerIndex}
       numericAnchor={numericAnchor}
-      onConstraintChange={setAnchorConstraint}
-      onCornerChange={setAnchorCornerIndex}
       onNumericChange={beginMappingNumericEdit}
       onEmitNumeric={emitNumericAnchorCommand}
       onCardDecision={onCardDecision}
@@ -1270,11 +1236,8 @@ type WorkbenchTimelineSelectionActionsProps = {
   mappingAnchors: WorkbenchCalibrationAnchor[];
   mappingLoading: boolean;
   mappingCanApply: boolean;
-  anchorConstraint: AnchorConstraint;
   anchorCornerIndex: number;
   numericAnchor: { anchorId: string; point: TablePoint } | null;
-  onConstraintChange: (constraint: AnchorConstraint) => void;
-  onCornerChange: (cornerIndex: number) => void;
   onNumericChange: (value: number, axis: 0 | 1) => void;
   onEmitNumeric: () => void;
   onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
@@ -1298,11 +1261,8 @@ function WorkbenchTimelineSelectionActions({
   mappingAnchors,
   mappingLoading,
   mappingCanApply,
-  anchorConstraint,
   anchorCornerIndex,
   numericAnchor,
-  onConstraintChange,
-  onCornerChange,
   onNumericChange,
   onEmitNumeric,
   onCardDecision,
@@ -1347,13 +1307,10 @@ function WorkbenchTimelineSelectionActions({
           refinement={calibrationRefinement}
           anchors={mappingAnchors}
           selection={state.selection}
-          anchorConstraint={anchorConstraint}
           anchorCornerIndex={anchorCornerIndex}
           numericAnchor={numericAnchor}
           mappingLoading={mappingLoading}
           mappingCanApply={mappingCanApply}
-          onConstraintChange={onConstraintChange}
-          onCornerChange={onCornerChange}
           onNumericChange={onNumericChange}
           onEmitNumeric={onEmitNumeric}
           onAction={onAction}
@@ -1637,13 +1594,10 @@ function MappingSelectionActions({
   refinement,
   anchors,
   selection,
-  anchorConstraint,
   anchorCornerIndex,
   numericAnchor,
   mappingLoading,
   mappingCanApply,
-  onConstraintChange,
-  onCornerChange,
   onNumericChange,
   onEmitNumeric,
   onAction,
@@ -1652,13 +1606,10 @@ function MappingSelectionActions({
   refinement: CalibrationRefinementResponse | null;
   anchors: WorkbenchCalibrationAnchor[];
   selection: WorkbenchSelection | null;
-  anchorConstraint: AnchorConstraint;
   anchorCornerIndex: number;
   numericAnchor: { anchorId: string; point: TablePoint } | null;
   mappingLoading: boolean;
   mappingCanApply: boolean;
-  onConstraintChange: (constraint: AnchorConstraint) => void;
-  onCornerChange: (cornerIndex: number) => void;
   onNumericChange: (value: number, axis: 0 | 1) => void;
   onEmitNumeric: () => void;
   onAction: (action: VisibleCardReviewWorkbenchAction) => void;
@@ -1745,64 +1696,21 @@ function MappingSelectionActions({
       onClick: () => onAction("apply_mapping"),
     },
   ];
-  const anchorControls =
-    selectedAnchor === null
-      ? []
-      : [
-          ...ANCHOR_CONSTRAINTS.map((constraint) => ({
-            label: `Use ${constraint} anchor constraint`,
-            symbol:
-              constraint === "diagonal"
-                ? "◇"
-                : constraint === "card_x"
-                  ? "↔"
-                  : "↕",
-            shortcut:
-              constraint === "diagonal"
-                ? "D"
-                : constraint === "card_x"
-                  ? "X"
-                  : "Y",
-            ariaShortcut:
-              constraint === "diagonal"
-                ? "D"
-                : constraint === "card_x"
-                  ? "X"
-                  : "Y",
-            ariaPressed: anchorConstraint === constraint,
-            disabled: readOnly,
-            disabledReason: "Mapping controls are read-only.",
-            onClick: () => onConstraintChange(constraint),
-          })),
-          ...[0, 1, 2, 3].map((cornerIndex) => ({
-            label: `Select anchor corner ${cornerIndex + 1}`,
-            symbol: `${cornerIndex + 1}`,
-            shortcut: "Click",
-            ariaPressed: anchorCornerIndex === cornerIndex,
-            onClick: () => onCornerChange(cornerIndex),
-          })),
-        ];
   return (
     <>
       <TimelineRailSeekingControls
-        groups={[
-          { label: "Selection actions", controls },
-          ...(anchorControls.length > 0
-            ? [
-                {
-                  label: `Anchor ${selectedAnchor?.anchorId}`,
-                  controls: anchorControls,
-                },
-              ]
-            : []),
-        ]}
+        groups={[{ label: "Selection actions", controls }]}
       />
+      <p className={styles.workbenchEditorHelp}>
+        Solid outline: current card projection. Dashed outline: calibration
+        anchor. Click or drag an anchor corner to select and move it freely.
+      </p>
       {selectedAnchor !== null ? (
         <div className={styles.workbenchTimelineFields}>
           <label className={styles.workbenchTimelineField}>
-            <span>Anchor X</span>
+            <span>Corner {anchorCornerIndex + 1} X</span>
             <input
-              aria-label="Anchor X"
+              aria-label={`Anchor corner ${anchorCornerIndex + 1} X`}
               type="number"
               step="0.01"
               value={numericPoint[0]}
@@ -1813,9 +1721,9 @@ function MappingSelectionActions({
             />
           </label>
           <label className={styles.workbenchTimelineField}>
-            <span>Anchor Y</span>
+            <span>Corner {anchorCornerIndex + 1} Y</span>
             <input
-              aria-label="Anchor Y"
+              aria-label={`Anchor corner ${anchorCornerIndex + 1} Y`}
               type="number"
               step="0.01"
               value={numericPoint[1]}
@@ -2654,10 +2562,17 @@ function sourcePointFromEvent(
 ): Point | null {
   const rect = event.currentTarget.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
-  const displayX =
-    viewBox.x + ((event.clientX - rect.left) / rect.width) * viewBox.width;
-  const displayY =
-    viewBox.y + ((event.clientY - rect.top) / rect.height) * viewBox.height;
+  const scale = Math.min(
+    rect.width / viewBox.width,
+    rect.height / viewBox.height,
+  );
+  if (!Number.isFinite(scale) || scale <= 0) return null;
+  const contentWidth = viewBox.width * scale;
+  const contentHeight = viewBox.height * scale;
+  const offsetX = (rect.width - contentWidth) / 2;
+  const offsetY = (rect.height - contentHeight) / 2;
+  const displayX = viewBox.x + (event.clientX - rect.left - offsetX) / scale;
+  const displayY = viewBox.y + (event.clientY - rect.top - offsetY) / scale;
   if (viewpoint === "camera" || scene === null) {
     return {
       x: clamp((displayX / width) * 1000, 1000),
@@ -3038,8 +2953,6 @@ function renderMappingLayer({
       width={width}
       stroke="#ff8a65"
       dataProjection="current"
-      selection={selection}
-      onSelect={onSelect}
     />
   ));
   const candidate =
@@ -3054,8 +2967,6 @@ function renderMappingLayer({
             width={width}
             stroke="#ffd166"
             dataProjection="candidate"
-            selection={selection}
-            onSelect={onSelect}
           />
         ));
   return (
@@ -3120,9 +3031,16 @@ function MappingAnchorOverlay({
           points={pointsAttribute(corners)}
           fill="none"
           stroke={selected ? "#ffffff" : "#ff8a65"}
-          strokeDasharray="4 3"
+          strokeDasharray={selected ? undefined : "4 3"}
           strokeWidth={strokeWidth(viewpoint, width)}
-          pointerEvents="none"
+          pointerEvents="stroke"
+          role="button"
+          tabIndex={0}
+          aria-label={`Select calibration anchor ${anchor.anchorId}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect({ type: "calibration_anchor", id: anchor.anchorId });
+          }}
         />
       ) : null}
       {corners.map(([x, y], index) => (
@@ -3156,8 +3074,6 @@ function MappingProjection({
   width,
   stroke,
   dataProjection,
-  selection,
-  onSelect,
 }: {
   pose: PoseCard;
   projection: CardSceneProjection;
@@ -3165,43 +3081,18 @@ function MappingProjection({
   width: number;
   stroke: string;
   dataProjection: "current" | "candidate";
-  selection: WorkbenchSelection | null;
-  onSelect: (selection: WorkbenchSelection) => void;
 }) {
   const polygon = posePolygon(pose, projection, viewpoint);
-  const selected = isSelected(selection, {
-    type: "calibration_anchor",
-    id: pose.card_id,
-  });
   return (
     <g data-projection={dataProjection} data-card-id={pose.card_id}>
       <polygon
         points={pointsAttribute(polygon)}
         fill="none"
         stroke={stroke}
-        strokeDasharray="8 5"
+        strokeDasharray={dataProjection === "candidate" ? "8 5" : undefined}
         strokeWidth={strokeWidth(viewpoint, width)}
         pointerEvents="none"
       />
-      {polygon.map(([x, y], index) => (
-        <circle
-          key={`${pose.card_id}-${dataProjection}-${index}`}
-          cx={x}
-          cy={y}
-          r={viewpoint === "camera" ? Math.max(3, width / 120) : 0.08}
-          fill={selected ? "#ffffff" : stroke}
-          stroke="#18242f"
-          strokeWidth={strokeWidth(viewpoint, width) / 2}
-          data-mapping-anchor={index}
-          role="button"
-          tabIndex={0}
-          aria-label={`Select calibration anchor ${index + 1} for ${pose.card_id}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onSelect({ type: "calibration_anchor", id: pose.card_id });
-          }}
-        />
-      ))}
     </g>
   );
 }

@@ -424,9 +424,12 @@ describe("VisibleCardReviewWorkbench", () => {
       toJSON: () => ({}),
     } as DOMRect);
     const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
+    const scale = Math.min(100 / viewBox[2], 100 / viewBox[3]);
+    const offsetX = (100 - viewBox[2] * scale) / 2;
+    const offsetY = (100 - viewBox[3] * scale) / 2;
     fireEvent.pointerDown(surface, {
-      clientX: ((50 - viewBox[0]) / viewBox[2]) * 100,
-      clientY: ((50 - viewBox[1]) / viewBox[3]) * 100,
+      clientX: offsetX + (50 - viewBox[0]) * scale,
+      clientY: offsetY + (50 - viewBox[1]) * scale,
     });
     expect(onCanvasPointerDown).toHaveBeenCalledWith(
       expect.anything(),
@@ -684,5 +687,96 @@ describe("VisibleCardReviewWorkbench", () => {
       }),
     );
     expect(screen.getByRole("button", { name: "Apply mapping" })).toBeEnabled();
+  });
+
+  it("uses clicked anchor corners for free-form rectified edits", () => {
+    const onAnchorCommand = vi.fn();
+    const rectifiedFrame = structuredClone(frame);
+    rectifiedFrame.outcome.card_scene!.projection.table_to_image_homography = [
+      [1, 0, 10],
+      [0, 1, 5],
+      [0, 0, 1],
+    ];
+    const rectifiedCalibration = structuredClone(calibrationRefinement);
+    rectifiedCalibration.draft.anchors[0].quadrilateral = [
+      [50, 45],
+      [70, 45],
+      [70, 65],
+      [50, 65],
+    ];
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={rectifiedFrame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={rectifiedCalibration}
+        onAnchorCommand={onAnchorCommand}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /Select calibration anchor 1 for/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Select anchor corner/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Use .* anchor constraint/ }),
+    ).not.toBeInTheDocument();
+
+    const surface = screen.getByRole("img", {
+      name: /Rectified visible-card workbench/,
+    });
+    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const handle = screen.getByRole("button", {
+      name: "Adjust calibration anchor 1 for anchor-1",
+    });
+    const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
+    const scale = Math.min(100 / viewBox[2], 100 / viewBox[3]);
+    const offsetX = (100 - viewBox[2] * scale) / 2;
+    const offsetY = (100 - viewBox[3] * scale) / 2;
+    const clientPoint = (x: number, y: number) => ({
+      clientX: offsetX + (x - viewBox[0]) * scale,
+      clientY: offsetY + (y - viewBox[1]) * scale,
+    });
+    fireEvent.pointerDown(handle, {
+      pointerId: 1,
+      ...clientPoint(40, 40),
+    });
+    fireEvent.pointerMove(surface, {
+      pointerId: 1,
+      ...clientPoint(42, 47),
+    });
+    fireEvent.pointerUp(surface, { pointerId: 1 });
+
+    expect(onAnchorCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "set_corners",
+        moved_corner: 0,
+        constraint: null,
+        corners: [
+          [52, 52],
+          [70, 45],
+          [70, 65],
+          [50, 65],
+        ],
+      }),
+    );
   });
 });
