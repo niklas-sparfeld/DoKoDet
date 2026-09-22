@@ -43,7 +43,10 @@ import {
   VisibleCardReviewControls,
 } from "./PipelineVisibleCardPresentation";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
-import { PoseBasedVisibleCardEditor } from "./PoseBasedVisibleCardEditor";
+import {
+  PoseBasedVisibleCardEditor,
+  type VirtualTableViewState,
+} from "./PoseBasedVisibleCardEditor";
 import { readPoseScene } from "./PoseBasedVisibleCardScene";
 import type { CalibrationAnchorCommand } from "./PoseBasedVisibleCardScene";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
@@ -69,6 +72,56 @@ const CONTENT_TYPE = "visible_cards" as const;
 const RETRY_LIMIT = 3;
 const POINT_DRAG_THRESHOLD_PX = 4;
 const POLYGON_SWITCH_CLEARANCE_RATIO = 0.08;
+const virtualTableViewStateByRecording = new Map<
+  string,
+  VirtualTableViewState
+>();
+const VIRTUAL_TABLE_VIEW_STATE_STORAGE_PREFIX =
+  "doko-detector:virtual-table-view:";
+
+function readVirtualTableViewState(recordingId: string) {
+  const cached = virtualTableViewStateByRecording.get(recordingId);
+  if (cached !== undefined) return cached;
+  try {
+    const raw = window.sessionStorage.getItem(
+      `${VIRTUAL_TABLE_VIEW_STATE_STORAGE_PREFIX}${recordingId}`,
+    );
+    if (raw === null) return undefined;
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof (parsed as { zoom?: unknown }).zoom !== "number" ||
+      !Array.isArray((parsed as { pan?: unknown }).pan) ||
+      (parsed as { pan: unknown[] }).pan.length !== 2 ||
+      !(parsed as { pan: unknown[] }).pan.every(
+        (value) => typeof value === "number",
+      )
+    ) {
+      return undefined;
+    }
+    const state = parsed as VirtualTableViewState;
+    virtualTableViewStateByRecording.set(recordingId, state);
+    return state;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeVirtualTableViewState(
+  recordingId: string,
+  state: VirtualTableViewState,
+) {
+  virtualTableViewStateByRecording.set(recordingId, state);
+  try {
+    window.sessionStorage.setItem(
+      `${VIRTUAL_TABLE_VIEW_STATE_STORAGE_PREFIX}${recordingId}`,
+      JSON.stringify(state),
+    );
+  } catch {
+    // Session storage can be unavailable in privacy-restricted contexts.
+  }
+}
 
 export type PipelineVisibleCardEditorProps = {
   recordingId: string;
@@ -164,6 +217,21 @@ export function PipelineVisibleCardEditor({
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [calibrationRefinement, setCalibrationRefinement] =
     useState<CalibrationRefinementResponse | null>(null);
+  const [poseTableViewState, setPoseTableViewState] =
+    useState<VirtualTableViewState>(
+      () =>
+        readVirtualTableViewState(recordingId) ?? {
+          zoom: 1,
+          pan: [0, 0],
+        },
+    );
+  const updatePoseTableViewState = useCallback(
+    (next: VirtualTableViewState) => {
+      writeVirtualTableViewState(recordingId, next);
+      setPoseTableViewState(next);
+    },
+    [recordingId],
+  );
   const [calibrationLoading, setCalibrationLoading] = useState(false);
   const [calibrationError, setCalibrationError] = useState<string | null>(null);
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
@@ -2223,13 +2291,14 @@ export function PipelineVisibleCardEditor({
             <div className={visibleStyles.reviewWorkbench}>
               {activeFrame.outcome.card_scene !== undefined ? (
                 <PoseBasedVisibleCardEditor
-                  key={`${activeFrame.itemId}-${activeFrame.outcome.card_scene.scene.scene_digest}`}
                   recordingId={recordingId}
                   frame={activeFrame}
                   scene={activeFrame.outcome.card_scene}
                   readOnly={!editable}
                   activeView={poseEditorView}
                   onActiveViewChange={setPoseEditorView}
+                  tableViewState={poseTableViewState}
+                  onTableViewStateChange={updatePoseTableViewState}
                   onChange={(nextScene, noticeText) =>
                     updatePoseScene(activeFrame, nextScene, noticeText)
                   }

@@ -37,6 +37,8 @@ type PoseBasedVisibleCardEditorProps = {
   readOnly: boolean;
   activeView?: GestureView;
   onActiveViewChange?: (view: GestureView) => void;
+  tableViewState?: VirtualTableViewState;
+  onTableViewStateChange?: (state: VirtualTableViewState) => void;
   onChange: (scene: PoseSceneEnvelope, notice: string) => void;
   onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
   onResolveRemaining?: () => void;
@@ -46,6 +48,11 @@ type PoseBasedVisibleCardEditorProps = {
     card_short_size: number;
     card_long_size: number;
   } | null;
+};
+
+export type VirtualTableViewState = {
+  zoom: number;
+  pan: TablePoint;
 };
 
 type TableViewBox = { x: number; y: number; width: number; height: number };
@@ -84,6 +91,8 @@ export function PoseBasedVisibleCardEditor({
   readOnly,
   activeView: activeViewProp,
   onActiveViewChange,
+  tableViewState,
+  onTableViewStateChange,
   onChange,
   onCardDecision,
   onResolveRemaining,
@@ -97,13 +106,51 @@ export function PoseBasedVisibleCardEditor({
     identity === null
       ? null
       : pipelineDerivedFramePath(recordingId, identity.requested_time_us);
-  const [draft, setDraft] = useState(scene);
-  const draftRef = useRef(scene);
+  const sceneIdentity = `${frame.itemId}:${scene.scene.scene_digest}`;
+  const [draftOverride, setDraftOverride] = useState<{
+    identity: string;
+    scene: PoseSceneEnvelope;
+  } | null>(null);
+  const draft =
+    draftOverride?.identity === sceneIdentity ? draftOverride.scene : scene;
+  const setDraft = useCallback(
+    (next: PoseSceneEnvelope) =>
+      setDraftOverride({ identity: sceneIdentity, scene: next }),
+    [sceneIdentity],
+  );
+  const draftRef = useRef(draft);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(
     scene.scene.poses[0]?.card_id ?? null,
   );
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState<TablePoint>([0, 0]);
+  const [internalZoom, setInternalZoom] = useState(1);
+  const [internalPan, setInternalPan] = useState<TablePoint>([0, 0]);
+  const zoom = tableViewState?.zoom ?? internalZoom;
+  const pan = tableViewState?.pan ?? internalPan;
+  const updateTableViewState = useCallback(
+    (next: VirtualTableViewState) => {
+      if (tableViewState !== undefined) {
+        onTableViewStateChange?.(next);
+      } else {
+        setInternalZoom(next.zoom);
+        setInternalPan(next.pan);
+      }
+    },
+    [onTableViewStateChange, tableViewState],
+  );
+  const setZoom = useCallback(
+    (next: number | ((value: number) => number)) => {
+      const resolved = typeof next === "function" ? next(zoom) : next;
+      updateTableViewState({ zoom: resolved, pan });
+    },
+    [pan, updateTableViewState, zoom],
+  );
+  const setPan = useCallback(
+    (next: TablePoint | ((value: TablePoint) => TablePoint)) => {
+      const resolved = typeof next === "function" ? next(pan) : next;
+      updateTableViewState({ zoom, pan: resolved });
+    },
+    [pan, updateTableViewState, zoom],
+  );
   const [internalActiveView, setInternalActiveView] =
     useState<GestureView>("rectified");
   const activeView = activeViewProp ?? internalActiveView;
@@ -135,8 +182,8 @@ export function PoseBasedVisibleCardEditor({
   );
 
   useEffect(() => {
-    draftRef.current = scene;
-  }, [scene]);
+    draftRef.current = draft;
+  }, [draft]);
 
   const changeActiveView = useCallback(
     (next: GestureView) => {
@@ -620,15 +667,26 @@ export function PoseBasedVisibleCardEditor({
         pan,
         projectedFrameBounds,
       );
-      setPan([
-        pan[0] + focusedPoint[0] - (nextViewBox.x + focusX * nextViewBox.width),
-        pan[1] +
-          focusedPoint[1] -
-          (nextViewBox.y + focusY * nextViewBox.height),
-      ]);
-      setZoom(nextZoom);
+      updateTableViewState({
+        zoom: nextZoom,
+        pan: [
+          pan[0] +
+            focusedPoint[0] -
+            (nextViewBox.x + focusX * nextViewBox.width),
+          pan[1] +
+            focusedPoint[1] -
+            (nextViewBox.y + focusY * nextViewBox.height),
+        ],
+      });
     },
-    [draft, pan, projectedFrameBounds, tableViewBox, zoom],
+    [
+      draft,
+      pan,
+      projectedFrameBounds,
+      tableViewBox,
+      updateTableViewState,
+      zoom,
+    ],
   );
 
   const getAnchorCorners = useCallback(
@@ -964,8 +1022,7 @@ export function PoseBasedVisibleCardEditor({
           <button
             type="button"
             onClick={() => {
-              setZoom(1);
-              setPan([0, 0]);
+              updateTableViewState({ zoom: 1, pan: [0, 0] });
             }}
             aria-label="Fit virtual table"
           >

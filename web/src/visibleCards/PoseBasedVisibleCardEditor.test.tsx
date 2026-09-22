@@ -72,6 +72,12 @@ function scene(): PoseSceneEnvelope {
   };
 }
 
+function changedScene(): PoseSceneEnvelope {
+  const next = scene();
+  next.scene.scene_digest = "b".repeat(64);
+  return next;
+}
+
 function frame(): EditableFrame {
   return {
     itemId: "event-1",
@@ -398,6 +404,77 @@ describe("PoseBasedVisibleCardEditor", () => {
     fireEvent.pointerUp(table, { pointerId: 9 });
 
     expect(table.getAttribute("viewBox")).toBe("-3.675 -3.5 6.75 5");
+  });
+
+  it("keeps the viewport state when the card scene or mapping changes", () => {
+    const onTableViewStateChange = vi.fn();
+    const { rerender } = render(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+        tableViewState={{ zoom: 1, pan: [0, 0] }}
+        onTableViewStateChange={onTableViewStateChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(onTableViewStateChange).toHaveBeenLastCalledWith({
+      zoom: 1.25,
+      pan: [0, 0],
+    });
+
+    rerender(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={frame()}
+        scene={scene()}
+        readOnly={false}
+        onChange={vi.fn()}
+        tableViewState={{ zoom: 1.25, pan: [0, 0] }}
+        onTableViewStateChange={onTableViewStateChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pan table right" }));
+    expect(onTableViewStateChange).toHaveBeenLastCalledWith({
+      zoom: 1.25,
+      pan: [0.5, 0],
+    });
+
+    rerender(
+      <PoseBasedVisibleCardEditor
+        recordingId="recording-1"
+        frame={{ ...frame(), itemId: "event-2" }}
+        scene={changedScene()}
+        readOnly={false}
+        onChange={vi.fn()}
+        tableViewState={{ zoom: 1.25, pan: [0.5, 0] }}
+        onTableViewStateChange={onTableViewStateChange}
+        candidateCalibration={{
+          table_to_image: [
+            [20, 0, 50],
+            [0, 20, 40],
+            [0, 0, 1],
+          ],
+          card_short_size: 1,
+          card_long_size: 1.5,
+        }}
+      />,
+    );
+
+    const viewBox = screen
+      .getByRole("application", { name: "Rectified virtual table" })
+      .getAttribute("viewBox")
+      ?.split(" ")
+      .map(Number);
+    expect(viewBox).toEqual([
+      expect.closeTo(-1.825, 10),
+      expect.closeTo(-2, 10),
+      expect.closeTo(5.4, 10),
+      expect.closeTo(4, 10),
+    ]);
   });
 
   it("creates one numeric anchor command without changing card pose geometry", () => {
