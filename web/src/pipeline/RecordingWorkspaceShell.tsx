@@ -221,7 +221,7 @@ export function RecordingWorkspaceTaskSurface({
 }: RecordingWorkspaceTaskSurfaceProps) {
   return (
     <section
-      className={`${styles.pipelineTaskSurface} ${shellStyles.taskSurface} ${stage.key === "events" && !compare ? styles.pipelineEventTaskSurface : ""} ${(stage.key === "visible_cards" || stage.key === "visual_identities") && !compare ? styles.pipelineVisibleCardTaskSurface : ""}`}
+      className={`${styles.pipelineTaskSurface} ${shellStyles.taskSurface} ${stage.key === "events" && !compare ? styles.pipelineEventTaskSurface : ""} ${(stage.key === "visible_cards" || stage.key === "visual_identities") && !compare ? styles.pipelineVisibleCardTaskSurface : ""} ${stage.key === "visible_cards" && !compare ? shellStyles.squareTaskSurface : ""}`}
       aria-label={`${STAGE_LABELS[stage.key]} task surface`}
       data-slot="center"
     >

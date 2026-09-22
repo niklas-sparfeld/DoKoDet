@@ -125,6 +125,10 @@
   overflow: hidden;
 }
 
+.taskSurface.squareTaskSurface {
+  border-radius: 0;
+}
+
 .taskSurfaceContent {
   min-width: 0;
   min-height: 0;
