@@ -235,7 +235,7 @@ def list_recordings(request: Request) -> RecordingListResponse:
                 can_start_analysis=entry.can_start_analysis,
                 analysis_blocker=entry.analysis_blocker,
             )
-            for entry in service.recording_catalog()
+            for entry in entries
         ]
     )
 

@@ -501,15 +501,13 @@ class PipelineRevisionStore:
         manifests: list[DataRevision] = []
         for path in enumeration.paths:
             try:
-                members = list(path.rglob("*"))
-                if any(member.is_symlink() for member in members) or any(
-                    member.is_dir() for member in members
-                ):
+                if path.is_symlink() or not path.is_dir():
+                    raise OSError("pipeline revision directory is unavailable")
+                children = list(path.iterdir())
+                if any(member.is_symlink() or member.is_dir() for member in children):
                     raise ValueError("pipeline revision members must be regular files")
-                if {member.relative_to(path).as_posix() for member in members} != {
-                    "manifest.json",
-                    "content.json",
-                }:
+                names = {member.name for member in children if member.is_file()}
+                if names != {"manifest.json", "content.json"}:
                     raise ValueError(
                         "pipeline revision must contain only manifest.json and content.json"
                     )
@@ -526,6 +524,15 @@ class PipelineRevisionStore:
             except (OSError, TypeError, UnicodeError, ValueError) as error:
                 self._log_invalid(path, error)
         return tuple(sorted(manifests, key=lambda item: item.revision_id))
+
+    def has_revision(self, revision_id: str) -> bool:
+        """Return whether a revision directory exists without reading content."""
+
+        try:
+            path = self.revision_path(revision_id)
+        except (TypeError, ValueError):
+            return False
+        return path.is_dir() and not path.is_symlink() and (path / "manifest.json").is_file()
 
     def publish(
         self,
@@ -1031,18 +1038,42 @@ class ProcessorRunStore:
         statuses: list[ProcessorRunStatus] = []
         for path in enumeration.paths:
             try:
-                run = self._read_path(path, validate_output_revisions=False)
-                statuses.append(
-                    ProcessorRunStatus(
-                        run_id=run.request.run_id,
-                        recording_id=run.request.source.recording_id,
-                        processor_type=run.request.processor_type,
-                        status=run.state.status,
-                    )
-                )
+                statuses.append(self._read_status(path))
             except (OSError, TypeError, UnicodeError, ValueError) as error:
                 self._log_invalid(path, error)
         return tuple(sorted(statuses, key=lambda item: item.run_id))
+
+    def _read_status(self, path: Path) -> ProcessorRunStatus:
+        """Read only the fields needed for compact catalog status summaries."""
+
+        if path.is_symlink() or not path.is_dir():
+            raise OSError("processor run directory is unavailable")
+        request_path = path / "request.json"
+        state_path = path / "state.json"
+        if (
+            request_path.is_symlink()
+            or state_path.is_symlink()
+            or not request_path.is_file()
+            or not state_path.is_file()
+        ):
+            raise ValueError("processor run is missing request.json or state.json")
+        request = parse_processor_run_request_bytes(request_path.read_bytes())
+        if request.run_id != path.name:
+            raise ValueError("run ID differs from its directory name")
+        state_bytes = state_path.read_bytes()
+        metadata = _parse_json_object(state_bytes, "processor run state")
+        if "item_ids" in metadata:
+            state, _ = _parse_split_state_bytes(state_bytes)
+        else:
+            state = _parse_processor_run_metadata_bytes(state_bytes)
+        if state.run_id != request.run_id:
+            raise ValueError("processor run request and state IDs differ")
+        return ProcessorRunStatus(
+            run_id=request.run_id,
+            recording_id=request.source.recording_id,
+            processor_type=request.processor_type,
+            status=state.status,
+        )
 
     def create(
         self,

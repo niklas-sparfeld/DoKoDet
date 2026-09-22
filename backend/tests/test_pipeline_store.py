@@ -321,6 +321,42 @@ def test_processor_run_store_can_read_split_metadata_without_items(
     assert loaded.state.progress == RunProgress(completed=1, total=1)
 
 
+def test_list_statuses_does_not_walk_item_files(tmp_path: Path, monkeypatch) -> None:
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    run_store.create(request())
+    run_store.start("run-01")
+    run_store.record_item_progress(
+        "run-01",
+        progress=RunProgress(completed=1, total=1),
+        item=RunItemOutcome(
+            item_id="event-01",
+            status="succeeded",
+            result={"event_type": "card_state_changed"},
+            failure=None,
+        ),
+    )
+
+    def fail_rglob(self, pattern):  # noqa: ANN001
+        del pattern
+        raise AssertionError(f"list_statuses must not rglob {self}")
+
+    monkeypatch.setattr(Path, "rglob", fail_rglob)
+
+    statuses = run_store.list_statuses()
+    assert len(statuses) == 1
+    assert statuses[0].run_id == "run-01"
+    assert statuses[0].status == "running"
+
+
+def test_revision_store_has_revision_without_reading_content(tmp_path: Path) -> None:
+    revision_store = PipelineRevisionStore(tmp_path / "runtime")
+    published = revision(revision_id="revision-input", producer=processor_producer("import-01"))
+    revision_store.publish(published)
+
+    assert revision_store.has_revision("revision-input") is True
+    assert revision_store.has_revision("missing-revision") is False
+
+
 def test_run_store_ignores_removed_atomic_state_temp_files_during_reads(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

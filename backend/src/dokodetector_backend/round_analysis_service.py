@@ -277,10 +277,12 @@ class RoundAnalysisService:
             analyses = self.store.list_by_recording(recording.recording_id)
             try:
                 _, _, round_id = self._analysis_identifiers(recording)
-                pipeline_revision = self._selected_pipeline_revision(recording.recording_id)
+                has_pipeline_revision = self._has_selected_pipeline_revision(
+                    recording.recording_id
+                )
                 blocker = (
                     None
-                    if pipeline_revision is not None or packages
+                    if has_pipeline_revision or packages
                     else "No selected table observations or linked evidence packages are available."
                 )
             except RoundAnalysisValidationError as error:
@@ -362,16 +364,8 @@ class RoundAnalysisService:
     def _selected_pipeline_revision(self, recording_id: str) -> StoredPipelineRevision | None:
         """Return the selected table-observation revision when it belongs to a recording."""
 
-        if self.pipeline_selection_store is None or self.pipeline_revision_store is None:
-            return None
-        selection = self.pipeline_selection_store.get(recording_id, "table_observations")
-        if selection is None:
-            return None
-        revision_id = (
-            selection.selected_generated_revision_id
-            or selection.selected_completed_reference_revision_id
-        )
-        if revision_id is None:
+        revision_id = self._selected_table_observation_revision_id(recording_id)
+        if revision_id is None or self.pipeline_revision_store is None:
             return None
         revision = self.pipeline_revision_store.get(revision_id)
         if revision is None or revision.manifest.recording_id != recording_id:
@@ -379,6 +373,25 @@ class RoundAnalysisService:
         if revision.manifest.content_type != "table_observations":
             return None
         return revision
+
+    def _has_selected_pipeline_revision(self, recording_id: str) -> bool:
+        """Return whether a selected table-observation revision exists without loading content."""
+
+        revision_id = self._selected_table_observation_revision_id(recording_id)
+        if revision_id is None or self.pipeline_revision_store is None:
+            return False
+        return self.pipeline_revision_store.has_revision(revision_id)
+
+    def _selected_table_observation_revision_id(self, recording_id: str) -> str | None:
+        if self.pipeline_selection_store is None:
+            return None
+        selection = self.pipeline_selection_store.get(recording_id, "table_observations")
+        if selection is None:
+            return None
+        return (
+            selection.selected_generated_revision_id
+            or selection.selected_completed_reference_revision_id
+        )
 
     def prepare_inputs(self, request: RoundAnalysisCreateRequest) -> None:
         """Resolve and copy pipeline inputs before analysis work is queued."""
