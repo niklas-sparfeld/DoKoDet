@@ -1728,10 +1728,6 @@ function MappingSelectionActions({
       <TimelineRailSeekingControls
         groups={[{ label: "Selection actions", controls }]}
       />
-      <p className={styles.workbenchEditorHelp}>
-        Solid outline: current card projection. Dashed outline: calibration
-        anchor. Click or drag an anchor corner to select and move it freely.
-      </p>
       {selectedAnchor !== null ? (
         <div className={styles.workbenchTimelineFields}>
           <label className={styles.workbenchTimelineField}>
