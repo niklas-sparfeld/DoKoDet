@@ -8,7 +8,7 @@
 
 - **M0 — Complete.** Froze 24 local RF-DETR revisions, ten known-geometry synthetic cases, a read-only evaluator, and measured acceptance gates. The [baseline report](../../reports/0075-M0_Calibration_Baseline.md) records current results. Real-data outline acceptance remains pending because the frozen frames have no independent full-card outlines.
 - **M1 — Complete.** Added source-frame evidence, uniform boundary samples, image-space quality measures, quality-first selection, and caps for repeated evidence. All ten synthetic cases repeat exactly. The [M1 report](../../reports/0075-M1_Candidate_Evidence.md) records the selection results. Real-data outline acceptance remains pending.
-- **M2 — Not started.**
+- **M2 — Complete.** Automatic calibration and anchor refinement use the same joint boundary fit. Identifiable synthetic geometry and runtime gates pass. The frozen uniform-shrink case remains unidentifiable from its input masks and does not pass the absolute-size gate. The [M2 report](../../reports/0075-M2_Joint_Boundary_Fit.md) records the measurements and limit.
 - **M3 — Not started.**
 - **M4 — Not started.**
 - **M5 — Not started.**
@@ -91,9 +91,10 @@ model in a later milestone and compare it with the homography on held-out data. 
 homography when the extra model does not improve held-out fit. A lens correction changes the mapping
 contract and every projection consumer; it must never be hidden inside a homography matrix.
 
-Uniformly shrunken rectangles are indistinguishable from smaller cards if no complete-card evidence
-exists. The solver must rely on clean complete cards for size, and fail when that evidence is too
-weak. It must not claim to recover hidden corners from uniformly biased polygons.
+Uniformly shrunken rectangles are indistinguishable from smaller cards when every input has the same
+shrink. A mask-only fit cannot know that the hidden extent is missing. Use independent full-card
+outlines or another explicit size reference to assert absolute card size. Use clean complete cards
+when they exist, and never claim to recover hidden corners from uniformly biased polygons.
 
 ## Milestones
 
@@ -142,13 +143,18 @@ states the pass/fail gates for later milestones.
   size, outlier rejection, orientation, deterministic bytes, best valid attempts after quality-gate
   failure, and honest no-candidate cases.
 
-**Done when:** Both automatic calibration and anchor refinement use one tested fit, and the M0
-synthetic gates pass.
+**Done when:** Both automatic calibration and anchor refinement use one tested fit and pass every
+identifiable M0 synthetic gate. The report explains any M0 gate that cannot be inferred from fit
+inputs and states what independent evidence would make it measurable.
 
 ### M3 — Validate, score, and retain the best calibration fit candidate
 
 - Replace corner-only held-out alignment with independent boundary and size-bias validation. Report
   quality weight, residual, and fit decision for each observation, plus regional aggregate metrics.
+- A held-out detector boundary tests shared geometry but does not establish absolute card extent. If
+  every detector mask may share one scale bias, report absolute size and area bias as `unavailable`
+  without independent full-card outlines or another explicit size reference. Do not let a
+  self-consistent fit pass the size gate.
 - Version the processor recipe and run contract. Retain a calibration fit candidate on quality-gate
   failure, with all failed gates, measured distances, and source lineage. Keep immutable old
   revisions readable while new runs produce new digests. Publish only candidates that pass the
@@ -159,7 +165,8 @@ synthetic gates pass.
   calibration fit candidate and distances, while structurally invalid cases explain why none is available.
 
 **Done when:** A failed quality gate preserves an inspectable calibration fit candidate and honest metrics without
-publishing it, and the M0 synthetic gates pass.
+publishing it, and every measurable M0 synthetic gate passes. A gate that needs independent size
+evidence remains unavailable and is not reported as passed.
 
 ### M4 — Show failed fits and verify full recordings
 
@@ -171,8 +178,9 @@ publishing it, and the M0 synthetic gates pass.
   previously failing recordings now publish and how many return a calibration fit candidate. Fix
   measured regressions before accepting the milestone.
 
-**Done when:** The full recording path passes the frozen M0 gates locally, and a failed fit can be
-inspected in the review flow without changing published calibration or reviewed data.
+**Done when:** The full recording path passes every measurable frozen M0 gate locally, unavailable
+size evidence remains a failed gate, and an unsuccessful fit can be inspected without changing
+published calibration or reviewed data.
 
 ### M5 — Decide whether view-edge distortion needs a separate model
 
@@ -186,6 +194,18 @@ inspected in the review flow without changing published calibration or reviewed 
 
 **Done when:** View-edge behavior is measured and the homography either passes or has an explicit
 distortion diagnostic and a specified follow-up epic.
+
+## M2 measurement decision — 2026-09-23
+
+- M2 passes every identifiable frozen synthetic gate and the local runtime limit. The frozen
+  `shrink-10-percent` case scales every observed card mask by 0.90. The same pixels can describe
+  incomplete masks on standard cards or complete smaller cards under a different camera/table scale.
+  The inputs contain no absolute size reference to choose between them. Keep its absolute-size gate
+  pending independent full-card outlines or another explicit size reference. Do not add a fixed
+  scale correction.
+- Use M2 residuals to measure shared-geometry consistency. In M3, mark absolute size bias
+  unavailable when observations do not provide independent full-card size evidence, and prevent that
+  fit from passing a size gate.
 
 ## Verification and boundaries
 

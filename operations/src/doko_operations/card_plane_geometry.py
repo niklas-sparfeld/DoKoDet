@@ -21,7 +21,7 @@ import numpy as np
 from .reviewed_rfdetr_detector_campaign import canonical_json_bytes
 
 CARD_ASPECT_RATIO = 1.5
-GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v1"
+GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v2"
 DERIVATION_RECIPE_VERSION = "card-plane-derived-regions/v1"
 COORDINATE_SYSTEM_VERSION = "source-pixel-boundary/table-short-side-unit/v1"
 CORNER_ORDER_VERSION = "cyclic-short-edge-first/v1"
@@ -320,77 +320,649 @@ def _robust_inliers(points: Sequence[np.ndarray]) -> list[int]:
     return [index for index, residual in enumerate(residuals) if residual <= threshold]
 
 
-def fit_table_plane(card_quads: Sequence[np.ndarray]) -> dict[str, Any]:
-    """Fit one metric table coordinate system from complete card quadrilaterals."""
+_FIT_BOUNDARY_SAMPLE_COUNT = 32
+_FIT_MAX_STARTS = 3
+_FIT_MAX_ITERATIONS = 8
+_FIT_HUBER_DELTA = 0.025
+_FIT_OBSERVATION_GATE = 0.055
 
-    raw_quads = [np.asarray(quad, dtype=np.float64).reshape(4, 2) for quad in card_quads]
-    if len(raw_quads) < 3:
-        raise CardPlaneGeometryError(
-            "at least three complete card quadrilaterals are required for table calibration"
-        )
-    initial = _initial_image_to_table(raw_quads)
-    oriented = [_best_orientation(quad, initial) for quad in raw_quads]
-    affine_quads = [apply_homography(initial, quad) for quad in oriented]
-    upgrade = _metric_upgrade(affine_quads)
-    affine_transform = np.eye(3, dtype=np.float64)
-    affine_transform[:2, :2] = upgrade
-    image_to_table = affine_transform @ initial
-    table_quads = [apply_homography(image_to_table, quad) for quad in oriented]
-    inlier_indices = _robust_inliers(table_quads)
-    if len(inlier_indices) < 3:
-        raise CardPlaneGeometryError("table calibration rejected too many card quadrilaterals")
-    if len(inlier_indices) != len(raw_quads):
-        affine_quads = [affine_quads[index] for index in inlier_indices]
-        upgrade = _metric_upgrade(affine_quads)
+
+def _fit_projection(matrix: np.ndarray, points: np.ndarray) -> np.ndarray:
+    """Project points during optimization, where invalid trial matrices are expected."""
+
+    values = np.asarray(points, dtype=np.float64)
+    homogeneous = np.column_stack((values, np.ones(len(values), dtype=np.float64)))
+    transformed = homogeneous @ matrix.T
+    denominator = transformed[:, 2]
+    if (
+        not np.all(np.isfinite(transformed))
+        or np.any(np.abs(denominator) < 1e-8)
+        or np.any(np.sign(denominator) != np.sign(denominator[0]))
+    ):
+        raise CardPlaneGeometryError("fit trial projects a card across infinity")
+    projected = transformed[:, :2] / denominator[:, None]
+    if not np.all(np.isfinite(projected)):
+        raise CardPlaneGeometryError("fit trial produces non-finite projected points")
+    return projected
+
+
+def _fit_homography(parameters: np.ndarray) -> np.ndarray:
+    return np.asarray(
+        [
+            [parameters[0], parameters[1], parameters[2]],
+            [parameters[3], parameters[4], parameters[5]],
+            [parameters[6], parameters[7], 1.0],
+        ],
+        dtype=np.float64,
+    )
+
+
+def _fit_parameters(homography: np.ndarray) -> np.ndarray:
+    matrix = np.asarray(homography, dtype=np.float64)
+    if matrix.shape != (3, 3) or not np.all(np.isfinite(matrix)):
+        raise CardPlaneGeometryError("fit seed homography is invalid")
+    if abs(float(matrix[2, 2])) < 1e-10:
+        raise CardPlaneGeometryError("fit seed homography cannot be normalized")
+    matrix = matrix / matrix[2, 2]
+    return np.asarray(
+        [
+            matrix[0, 0],
+            matrix[0, 1],
+            matrix[0, 2],
+            matrix[1, 0],
+            matrix[1, 1],
+            matrix[1, 2],
+            matrix[2, 0],
+            matrix[2, 1],
+        ],
+        dtype=np.float64,
+    )
+
+
+def _fit_seed(
+    raw_quads: Sequence[np.ndarray],
+    seed_index: int,
+    reference_index: int,
+    pixel_center: np.ndarray,
+    pixel_scale: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Build one deterministic metric-rectified seed for the joint boundary optimizer."""
+
+    destination = np.asarray(
+        [[0.0, 0.0], [1.0, 0.0], [1.0, CARD_ASPECT_RATIO], [0.0, CARD_ASPECT_RATIO]],
+        dtype=np.float32,
+    )
+    starts: list[tuple[float, np.ndarray, list[np.ndarray]]] = []
+    for seed_quad in quadrilateral_orientations(raw_quads[seed_index]):
+        initial = cv2.getPerspectiveTransform(seed_quad.astype(np.float32), destination)
+        initial = initial.astype(np.float64)
+        oriented = [_best_orientation(quad, initial) for quad in raw_quads]
+        affine_quads = [apply_homography(initial, quad) for quad in oriented]
+        if len(affine_quads) >= 3:
+            try:
+                upgrade = _metric_upgrade(affine_quads)
+            except (CardPlaneGeometryError, np.linalg.LinAlgError):
+                upgrade = np.eye(2, dtype=np.float64)
+        else:
+            upgrade = np.eye(2, dtype=np.float64)
+        affine_transform = np.eye(3, dtype=np.float64)
         affine_transform[:2, :2] = upgrade
         image_to_table = affine_transform @ initial
         table_quads = [apply_homography(image_to_table, quad) for quad in oriented]
-        inlier_indices = _robust_inliers(table_quads)
-    short_lengths = []
+        short_lengths = [float(np.linalg.norm(card_vectors(quad)[0])) for quad in table_quads]
+        short_scale = float(np.median(short_lengths))
+        if not math.isfinite(short_scale) or short_scale <= 1e-8:
+            continue
+        image_to_table = np.diag([1.0 / short_scale, 1.0 / short_scale, 1.0]) @ image_to_table
+
+        reference_quad = _best_orientation(raw_quads[reference_index], image_to_table)
+        reference_table = apply_homography(image_to_table, reference_quad)
+        short_vector, _long_vector = card_vectors(reference_table)
+        angle = math.atan2(float(short_vector[1]), float(short_vector[0]))
+        center = np.mean(reference_table, axis=0)
+        cosine, sine = math.cos(angle), math.sin(angle)
+        gauge = np.asarray(
+            [
+                [cosine, sine, -cosine * center[0] - sine * center[1]],
+                [-sine, cosine, sine * center[0] - cosine * center[1]],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=np.float64,
+        )
+        image_to_table = gauge @ image_to_table
+        table_to_image = np.linalg.inv(image_to_table)
+        pixel_to_normalized = np.asarray(
+            [
+                [1.0 / pixel_scale, 0.0, -pixel_center[0] / pixel_scale],
+                [0.0, 1.0 / pixel_scale, -pixel_center[1] / pixel_scale],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=np.float64,
+        )
+        normalized_projection = pixel_to_normalized @ table_to_image
+        try:
+            parameters = _fit_parameters(normalized_projection)
+        except CardPlaneGeometryError:
+            continue
+        poses = np.zeros((len(raw_quads), 3), dtype=np.float64)
+        for index, quad in enumerate(raw_quads):
+            oriented_quad = _best_orientation(quad, image_to_table)
+            table_quad = apply_homography(image_to_table, oriented_quad)
+            short, _long = card_vectors(table_quad)
+            poses[index] = [
+                float(np.mean(table_quad[:, 0])),
+                float(np.mean(table_quad[:, 1])),
+                math.atan2(float(short[1]), float(short[0])),
+            ]
+        poses[reference_index] = [0.0, 0.0, 0.0]
+        projected_residuals = [
+            card_residual(apply_homography(image_to_table, quad)) for quad in oriented
+        ]
+        score = float(np.median([a / 10.0 + b + c for a, b, c in projected_residuals]))
+        starts.append((score, parameters, poses))
+    if not starts:
+        raise CardPlaneGeometryError("no finite multistart initialization is available")
+    _score, parameters, poses = min(starts, key=lambda item: item[0])
+    other_poses = poses[np.arange(len(poses)) != reference_index].reshape(-1)
+    return np.concatenate((parameters, other_poses)), poses
+
+
+def _decode_fit_poses(
+    parameters: np.ndarray, observation_count: int, reference_index: int
+) -> np.ndarray:
+    poses = np.zeros((observation_count, 3), dtype=np.float64)
+    other = np.delete(np.arange(observation_count), reference_index)
+    if len(other):
+        poses[other] = parameters[8:].reshape(-1, 3)
+    return poses
+
+
+def _point_to_segments(points: np.ndarray, vertices: np.ndarray) -> np.ndarray:
+    starts = vertices
+    ends = np.roll(vertices, -1, axis=0)
+    vectors = ends - starts
+    lengths_squared = np.sum(vectors * vectors, axis=1)
+    offsets = points[:, None, :] - starts[None, :, :]
+    fractions = np.sum(offsets * vectors[None, :, :], axis=2) / np.maximum(
+        lengths_squared[None, :], 1e-12
+    )
+    closest = starts[None, :, :] + np.clip(fractions, 0.0, 1.0)[:, :, None] * vectors[None, :, :]
+    return np.min(np.linalg.norm(points[:, None, :] - closest, axis=2), axis=1)
+
+
+def _fixed_card_boundary(center: np.ndarray, angle: float) -> tuple[np.ndarray, np.ndarray]:
+    quad = card_quad_from_pose(center, math.degrees(angle), 1.0, CARD_ASPECT_RATIO)
+    perimeter = np.asarray([1.0, 1.5, 1.0, 1.5], dtype=np.float64)
+    distances = np.arange(_FIT_BOUNDARY_SAMPLE_COUNT, dtype=np.float64) * (
+        float(np.sum(perimeter)) / _FIT_BOUNDARY_SAMPLE_COUNT
+    )
+    cumulative = np.cumsum(perimeter)
+    edges = np.minimum(np.searchsorted(cumulative, distances, side="right"), 3)
+    starts = np.concatenate(([0.0], cumulative[:-1]))
+    fractions = (distances - starts[edges]) / perimeter[edges]
+    points = quad[edges] + (quad[(edges + 1) % 4] - quad[edges]) * fractions[:, None]
+    return quad, points
+
+
+def _fit_observation_residual(
+    projection: np.ndarray,
+    pose: np.ndarray,
+    samples: np.ndarray,
+) -> np.ndarray:
+    quad, table_boundary = _fixed_card_boundary(pose[:2], float(pose[2]))
+    projected_quad = _fit_projection(projection, quad)
+    projected_boundary = _fit_projection(projection, table_boundary)
+    short_size = float(
+        (
+            np.linalg.norm(projected_quad[1] - projected_quad[0])
+            + np.linalg.norm(projected_quad[2] - projected_quad[3])
+        )
+        / 2.0
+    )
+    if not math.isfinite(short_size) or short_size <= 1e-8:
+        raise CardPlaneGeometryError("fit trial produces a zero-size card")
+    observed_indices = np.linspace(
+        0, len(samples), _FIT_BOUNDARY_SAMPLE_COUNT, endpoint=False, dtype=np.int64
+    )
+    observed = samples[observed_indices]
+    to_projected = _point_to_segments(observed, projected_quad)
+    to_observed = _point_to_segments(projected_boundary, samples)
+    return np.concatenate((to_projected, to_observed)) / short_size
+
+
+def _fit_residuals(
+    parameters: np.ndarray,
+    samples: Sequence[np.ndarray],
+    reference_index: int,
+) -> list[np.ndarray]:
+    projection = _fit_homography(parameters[:8])
+    poses = _decode_fit_poses(parameters, len(samples), reference_index)
+    return [
+        _fit_observation_residual(projection, pose, boundary)
+        for pose, boundary in zip(poses, samples, strict=True)
+    ]
+
+
+def _huber_cost(residuals: Sequence[np.ndarray], weights: np.ndarray) -> float:
+    total = 0.0
+    weight_sum = 0.0
+    for residual, weight in zip(residuals, weights, strict=True):
+        absolute = np.abs(residual)
+        loss = np.where(
+            absolute <= _FIT_HUBER_DELTA,
+            0.5 * absolute**2,
+            _FIT_HUBER_DELTA * (absolute - 0.5 * _FIT_HUBER_DELTA),
+        )
+        total += float(weight) * float(np.sum(loss))
+        weight_sum += float(weight) * len(residual)
+    return total / max(weight_sum, 1e-12)
+
+
+def _optimize_boundary_fit(
+    initial: np.ndarray,
+    samples: Sequence[np.ndarray],
+    weights: np.ndarray,
+    reference_index: int,
+) -> tuple[np.ndarray, list[np.ndarray], float, str]:
+    parameters = initial.copy()
+    damping = 1e-3
+    reason = "iteration_limit"
+    other_indices = [index for index in range(len(samples)) if index != reference_index]
+    pose_starts = {index: 8 + position * 3 for position, index in enumerate(other_indices)}
+    limits = np.asarray(
+        [0.08] * 6 + [0.015] * 2 + [1.0, 1.0, 0.35] * len(other_indices),
+        dtype=np.float64,
+    )
+    for _iteration in range(_FIT_MAX_ITERATIONS):
+        try:
+            residuals = _fit_residuals(parameters, samples, reference_index)
+        except (CardPlaneGeometryError, np.linalg.LinAlgError, FloatingPointError):
+            reason = "invalid_initial_projection"
+            break
+        if _huber_cost(residuals, weights) <= 1e-12:
+            reason = "converged"
+            break
+        robust_factors = [
+            np.sqrt(np.minimum(1.0, _FIT_HUBER_DELTA / np.maximum(np.abs(value), 1e-12)))
+            for value in residuals
+        ]
+        cost = _huber_cost(residuals, weights)
+        poses = _decode_fit_poses(parameters, len(samples), reference_index)
+        shared_normal = np.zeros((8, 8), dtype=np.float64)
+        shared_gradient = np.zeros(8, dtype=np.float64)
+        local_blocks: list[tuple[int, np.ndarray, np.ndarray, np.ndarray]] = []
+        valid_jacobian = True
+        for index, (pose, boundary, residual, robust_factor) in enumerate(
+            zip(poses, samples, residuals, robust_factors, strict=True)
+        ):
+            row_scale = np.sqrt(float(weights[index])) * robust_factor
+            weighted_residual = residual * row_scale
+            shared_jacobian = np.empty((len(residual), 8), dtype=np.float64)
+            for column in range(8):
+                step = max(1e-7, abs(float(parameters[column])) * 1e-5)
+                shifted_shared = parameters[:8].copy()
+                shifted_shared[column] += step
+                try:
+                    shifted = _fit_observation_residual(
+                        _fit_homography(shifted_shared), pose, boundary
+                    )
+                    shared_jacobian[:, column] = (shifted - residual) * row_scale / step
+                except (CardPlaneGeometryError, np.linalg.LinAlgError, FloatingPointError):
+                    valid_jacobian = False
+                    break
+            if not valid_jacobian or not np.all(np.isfinite(shared_jacobian)):
+                valid_jacobian = False
+                break
+            shared_normal += shared_jacobian.T @ shared_jacobian
+            shared_gradient += shared_jacobian.T @ weighted_residual
+            if index == reference_index:
+                continue
+            local_start = pose_starts[index]
+            local_jacobian = np.empty((len(residual), 3), dtype=np.float64)
+            for offset in range(3):
+                step = max(1e-7, abs(float(parameters[local_start + offset])) * 1e-5)
+                shifted_pose = pose.copy()
+                shifted_pose[offset] += step
+                try:
+                    shifted = _fit_observation_residual(
+                        _fit_homography(parameters[:8]), shifted_pose, boundary
+                    )
+                    local_jacobian[:, offset] = (shifted - residual) * row_scale / step
+                except (CardPlaneGeometryError, np.linalg.LinAlgError, FloatingPointError):
+                    valid_jacobian = False
+                    break
+            if not valid_jacobian or not np.all(np.isfinite(local_jacobian)):
+                valid_jacobian = False
+                break
+            local_normal = local_jacobian.T @ local_jacobian
+            local_gradient = local_jacobian.T @ weighted_residual
+            cross_normal = shared_jacobian.T @ local_jacobian
+            local_blocks.append((local_start, local_normal, local_gradient, cross_normal))
+        if not valid_jacobian:
+            reason = "invalid_jacobian"
+            break
+        shared_diagonal = np.maximum(np.diag(shared_normal), 1e-8)
+        accepted = False
+        best_step_norm = float("inf")
+        for _damping_attempt in range(5):
+            try:
+                schur = shared_normal + np.diag(shared_diagonal * damping)
+                right = -shared_gradient.copy()
+                damped_local_blocks = []
+                for local_start, local_normal, local_gradient, cross_normal in local_blocks:
+                    local_diagonal = np.maximum(np.diag(local_normal), 1e-8)
+                    damped_local = local_normal + np.diag(local_diagonal * damping)
+                    inverse_cross = np.linalg.solve(damped_local, cross_normal.T)
+                    inverse_gradient = np.linalg.solve(damped_local, local_gradient)
+                    schur -= cross_normal @ inverse_cross
+                    right += cross_normal @ inverse_gradient
+                    damped_local_blocks.append(
+                        (local_start, damped_local, local_gradient, cross_normal)
+                    )
+                shared_delta = np.linalg.solve(schur, right)
+                delta = np.zeros_like(parameters)
+                delta[:8] = shared_delta
+                for local_start, damped_local, local_gradient, cross_normal in damped_local_blocks:
+                    delta[local_start : local_start + 3] = -np.linalg.solve(
+                        damped_local, local_gradient + cross_normal.T @ shared_delta
+                    )
+            except np.linalg.LinAlgError:
+                damping *= 10.0
+                continue
+            delta = np.clip(delta, -limits, limits)
+            best_step_norm = float(np.linalg.norm(delta))
+            for fraction in (1.0, 0.5, 0.25, 0.125):
+                candidate = parameters + delta * fraction
+                try:
+                    candidate_residuals = _fit_residuals(candidate, samples, reference_index)
+                    candidate_cost = _huber_cost(candidate_residuals, weights)
+                except (CardPlaneGeometryError, np.linalg.LinAlgError, FloatingPointError):
+                    continue
+                if candidate_cost < cost - 1e-12:
+                    parameters = candidate
+                    damping = max(1e-8, damping / 3.0)
+                    accepted = True
+                    if cost - candidate_cost < 1e-10 or best_step_norm * fraction < 1e-6:
+                        reason = "converged"
+                    break
+            if accepted:
+                break
+            damping *= 10.0
+        if reason == "converged":
+            break
+        if not accepted:
+            reason = "no_improving_step"
+            break
+    try:
+        final_residuals = _fit_residuals(parameters, samples, reference_index)
+    except (CardPlaneGeometryError, np.linalg.LinAlgError, FloatingPointError) as error:
+        raise CardPlaneGeometryError("joint boundary fit has no finite candidate") from error
+    return parameters, final_residuals, _huber_cost(final_residuals, weights), reason
+
+
+def _spatial_fit_seeds(quads: Sequence[np.ndarray], weights: np.ndarray) -> list[int]:
+    centers = np.asarray([np.mean(quad, axis=0) for quad in quads], dtype=np.float64)
+    first = min(range(len(quads)), key=lambda index: (-float(weights[index]), index))
+    selected = [first]
+    while len(selected) < min(_FIT_MAX_STARTS, len(quads)):
+        candidate = max(
+            (index for index in range(len(quads)) if index not in selected),
+            key=lambda index: (
+                min(float(np.linalg.norm(centers[index] - centers[other])) for other in selected),
+                float(weights[index]),
+                -index,
+            ),
+        )
+        selected.append(candidate)
+    return selected
+
+
+def fit_table_plane(
+    card_quads: Sequence[np.ndarray],
+    *,
+    boundary_samples: Sequence[np.ndarray] | None = None,
+    observation_weights: Sequence[float] | None = None,
+) -> dict[str, Any]:
+    """Fit one homography and fixed card poses to complete, weighted card boundaries.
+
+    The first weighted observation fixes the arbitrary table origin and rotation. The shared
+    transform and every other card pose then move together under a bounded deterministic robust
+    least-squares fit. One card can yield a finite diagnostic candidate, but it does not pass the
+    multi-card quality gate.
+    """
+
+    if len(card_quads) == 0:
+        raise CardPlaneGeometryError("table calibration has no card boundary observations")
+    raw_quads = [np.asarray(quad, dtype=np.float64) for quad in card_quads]
+    if any(quad.shape != (4, 2) or not np.all(np.isfinite(quad)) for quad in raw_quads):
+        raise CardPlaneGeometryError("card quadrilaterals must be finite 4 by 2 arrays")
+    if any(polygon_area(quad) <= 1e-8 for quad in raw_quads):
+        raise CardPlaneGeometryError("card quadrilaterals must have positive area")
+    if boundary_samples is None:
+        samples = [
+            np.concatenate(
+                [
+                    quad[index]
+                    + (quad[(index + 1) % 4] - quad[index])
+                    * np.arange(_FIT_BOUNDARY_SAMPLE_COUNT, dtype=np.float64)[:, None]
+                    / _FIT_BOUNDARY_SAMPLE_COUNT
+                    for index in range(4)
+                ]
+            )
+            for quad in raw_quads
+        ]
+    else:
+        if len(boundary_samples) != len(raw_quads):
+            raise CardPlaneGeometryError("boundary samples must match the card observation count")
+        samples = [np.asarray(value, dtype=np.float64) for value in boundary_samples]
+    if any(
+        value.ndim != 2 or value.shape[1] != 2 or len(value) < 8 or not np.all(np.isfinite(value))
+        for value in samples
+    ):
+        raise CardPlaneGeometryError(
+            "each card boundary must contain at least eight finite samples"
+        )
+    if observation_weights is None:
+        weights = np.ones(len(raw_quads), dtype=np.float64)
+    else:
+        if any(isinstance(value, (bool, np.bool_)) for value in observation_weights):
+            raise CardPlaneGeometryError("observation weights must be finite numbers, not booleans")
+        weights = np.asarray(observation_weights, dtype=np.float64).copy()
+        if weights.shape != (len(raw_quads),) or not np.all(np.isfinite(weights)):
+            raise CardPlaneGeometryError(
+                "observation weights must match the card observation count"
+            )
+        if np.any(weights < 0.0):
+            raise CardPlaneGeometryError("observation weights must not be negative")
+    if not np.any(weights > 0.0):
+        raise CardPlaneGeometryError("at least one card boundary must have positive weight")
+    weights /= float(np.max(weights))
+
+    all_samples = np.concatenate(samples, axis=0)
+    pixel_min = np.min(all_samples, axis=0)
+    pixel_max = np.max(all_samples, axis=0)
+    pixel_center = (pixel_min + pixel_max) / 2.0
+    pixel_scale = max(float(np.max(pixel_max - pixel_min)), 1.0)
+    samples_normalized = [(value - pixel_center) / pixel_scale for value in samples]
+    reference_index = min(range(len(weights)), key=lambda index: (-float(weights[index]), index))
+
+    attempts: list[tuple[float, int, np.ndarray, list[np.ndarray], str]] = []
+    seed_indices = _spatial_fit_seeds(raw_quads, weights)
+    for seed_index in seed_indices:
+        try:
+            initial, _initial_poses = _fit_seed(
+                raw_quads, seed_index, reference_index, pixel_center, pixel_scale
+            )
+            optimized, residuals, objective, reason = _optimize_boundary_fit(
+                initial, samples_normalized, weights, reference_index
+            )
+            attempts.append((objective, seed_index, optimized, residuals, reason))
+        except (CardPlaneGeometryError, np.linalg.LinAlgError, cv2.error, FloatingPointError):
+            continue
+        if len(attempts) >= 2 and min(item[0] for item in attempts) <= 0.5 * _FIT_HUBER_DELTA**2:
+            break
+    if not attempts:
+        raise CardPlaneGeometryError("joint boundary fit found no finite multistart candidate")
+    attempts.sort(key=lambda item: (item[0], item[1]))
+    _objective, selected_seed, parameters, residuals, convergence_reason = attempts[0]
+
+    def outlier_indices(values: Sequence[np.ndarray], active: Sequence[int]) -> list[int]:
+        scores = np.asarray([float(np.median(values[index])) for index in active])
+        median = float(np.median(scores))
+        mad = float(np.median(np.abs(scores - median)))
+        threshold = max(_FIT_OBSERVATION_GATE, median + max(0.025, 3.0 * mad))
+        return [index for index, score in zip(active, scores, strict=True) if score > threshold]
+
+    active_indices = [index for index, weight in enumerate(weights) if weight > 0.0]
+    rejected = outlier_indices(residuals, active_indices) if len(active_indices) >= 4 else []
+    if rejected and len(active_indices) - len(rejected) >= 3:
+        active_weights = weights.copy()
+        active_weights[rejected] = 0.0
+        refit_candidates = []
+        for seed_index in seed_indices:
+            try:
+                initial, _initial_poses = _fit_seed(
+                    raw_quads, seed_index, reference_index, pixel_center, pixel_scale
+                )
+                optimized, fit_residuals, objective, reason = _optimize_boundary_fit(
+                    initial, samples_normalized, active_weights, reference_index
+                )
+                refit_candidates.append((objective, seed_index, optimized, fit_residuals, reason))
+            except (CardPlaneGeometryError, np.linalg.LinAlgError, cv2.error, FloatingPointError):
+                continue
+            if (
+                len(refit_candidates) >= 2
+                and min(item[0] for item in refit_candidates) <= 0.5 * _FIT_HUBER_DELTA**2
+            ):
+                break
+        if refit_candidates:
+            refit_candidates.sort(key=lambda item: (item[0], item[1]))
+            (
+                _objective,
+                selected_seed,
+                parameters,
+                residuals,
+                convergence_reason,
+            ) = refit_candidates[0]
+            attempts.extend(refit_candidates)
+            active_indices = [index for index in active_indices if index not in rejected]
+            newly_rejected = (
+                outlier_indices(residuals, active_indices) if len(active_indices) >= 4 else []
+            )
+            rejected = sorted(set(rejected) | set(newly_rejected))
+
+    normalized_projection = _fit_homography(parameters[:8])
+    normalization_inverse = np.asarray(
+        [[pixel_scale, 0.0, pixel_center[0]], [0.0, pixel_scale, pixel_center[1]], [0, 0, 1]],
+        dtype=np.float64,
+    )
+    table_to_image = normalization_inverse @ normalized_projection
+    if abs(float(table_to_image[2, 2])) < 1e-10:
+        raise CardPlaneGeometryError("joint boundary fit transform cannot be normalized")
+    table_to_image /= table_to_image[2, 2]
+    image_to_table = np.linalg.inv(table_to_image)
+    if not np.all(np.isfinite(image_to_table)) or abs(float(np.linalg.det(table_to_image))) < 1e-12:
+        raise CardPlaneGeometryError("joint boundary fit transform is degenerate")
+
+    poses = _decode_fit_poses(parameters, len(raw_quads), reference_index)
+    table_quads = [
+        card_quad_from_pose(pose[:2], math.degrees(float(pose[2])), 1.0, CARD_ASPECT_RATIO)
+        for pose in poses
+    ]
+    _fit_projection(normalized_projection, np.concatenate(table_quads, axis=0))
+    oriented_image_quads = [apply_homography(table_to_image, quad) for quad in table_quads]
+    if any(
+        cv2.contourArea(quad.astype(np.float32), oriented=True) <= 1e-6
+        for quad in oriented_image_quads
+    ):
+        raise CardPlaneGeometryError("joint boundary fit is mirrored or degenerate")
+    residual_records = []
+    boundary_errors_px = []
+    for index, residual in enumerate(residuals):
+        projected_quad = oriented_image_quads[index]
+        short_px = float(
+            (
+                np.linalg.norm(projected_quad[1] - projected_quad[0])
+                + np.linalg.norm(projected_quad[2] - projected_quad[3])
+            )
+            / 2.0
+        )
+        normalized_error = float(np.median(residual))
+        error_px = normalized_error * short_px
+        boundary_errors_px.append(error_px)
+        residual_records.append(
+            {
+                "observation_index": index,
+                "median_symmetric_boundary_distance_px": _round(error_px),
+                "median_symmetric_boundary_distance_over_short_side": _round(normalized_error),
+                "accepted": bool(index not in rejected and weights[index] > 0.0),
+            }
+        )
+
     angle_errors = []
     aspect_errors = []
     parallel_errors = []
-    for index in inlier_indices:
-        short, _long = card_vectors(table_quads[index])
-        short_lengths.append(float(np.linalg.norm(short)))
-        angle_error, aspect_error, parallel_error = card_residual(table_quads[index])
+    for index in active_indices:
+        oriented = _best_orientation(raw_quads[index], image_to_table)
+        observed_table_quad = apply_homography(image_to_table, oriented)
+        angle_error, aspect_error, parallel_error = card_residual(observed_table_quad)
         angle_errors.append(angle_error)
         aspect_errors.append(aspect_error)
         parallel_errors.append(parallel_error)
-    short_size = float(np.median(short_lengths))
-    if short_size < 1e-9:
-        raise CardPlaneGeometryError("calibrated card short side is zero")
-    scaling = np.diag([1.0 / short_size, 1.0 / short_size, 1.0])
-    image_to_table = scaling @ image_to_table
-    table_quads = [apply_homography(image_to_table, quad) for quad in oriented]
-    long_lengths = [np.linalg.norm(card_vectors(table_quads[index])[1]) for index in inlier_indices]
-    long_size = float(np.median(long_lengths))
+    accepted_indices = [index for index in active_indices if index not in rejected]
+    accepted_residuals = [float(np.median(residuals[index])) for index in accepted_indices]
+    median_normalized = float(np.median(accepted_residuals)) if accepted_residuals else float("inf")
+    median_error_px = (
+        float(np.median([boundary_errors_px[index] for index in accepted_indices]))
+        if accepted_indices
+        else float("inf")
+    )
+    p90_error_px = (
+        float(np.percentile([boundary_errors_px[index] for index in accepted_indices], 90))
+        if accepted_indices
+        else float("inf")
+    )
+    max_error_px = (
+        max(boundary_errors_px[index] for index in accepted_indices)
+        if accepted_indices
+        else float("inf")
+    )
+    quality_passed = len(accepted_indices) >= 3 and median_normalized <= _FIT_OBSERVATION_GATE
     calibration_core = {
-        "method": "multi-card-planar-metric-rectification-v1",
+        "method": "joint-robust-boundary-fit-v2",
+        "algorithm_version": GEOMETRY_ALGORITHM_VERSION,
         "card_aspect_ratio": CARD_ASPECT_RATIO,
         "input_card_count": len(raw_quads),
-        "accepted_card_count": len(inlier_indices),
-        "rejected_card_indices": [
-            index for index in range(len(raw_quads)) if index not in inlier_indices
-        ],
+        "accepted_card_count": len(accepted_indices),
+        "rejected_card_indices": sorted(set(range(len(raw_quads))) - set(accepted_indices)),
         "image_to_table_homography": [[_round(value) for value in row] for row in image_to_table],
-        "table_to_image_homography": [
-            [_round(value) for value in row] for row in np.linalg.inv(image_to_table)
-        ],
+        "table_to_image_homography": [[_round(value) for value in row] for row in table_to_image],
         "card_short_size": _round(1.0),
-        "card_long_size": _round(long_size),
-        "median_angle_error_degrees": _round(float(np.median(angle_errors))),
-        "median_aspect_error": _round(float(np.median(aspect_errors))),
-        "median_parallel_error": _round(float(np.median(parallel_errors))),
+        "card_long_size": _round(CARD_ASPECT_RATIO),
+        "median_angle_error_degrees": (
+            _round(float(np.median(angle_errors))) if angle_errors else 0.0
+        ),
+        "median_aspect_error": _round(float(np.median(aspect_errors))) if aspect_errors else 0.0,
+        "median_parallel_error": (
+            _round(float(np.median(parallel_errors))) if parallel_errors else 0.0
+        ),
+        "median_boundary_error_px": _round(median_error_px),
+        "p90_boundary_error_px": _round(p90_error_px),
+        "maximum_boundary_error_px": _round(max_error_px),
+        "median_boundary_error_over_short_side": _round(median_normalized),
+        "observation_residuals": residual_records,
+        "quality_gate_passed": quality_passed,
+        "fit_attempt_count": len(attempts),
+        "selected_attempt_seed": selected_seed,
+        "convergence_reason": convergence_reason,
     }
-    inverse = np.linalg.inv(image_to_table)
     return {
         **calibration_core,
         "image_to_table": image_to_table,
-        "table_to_image": inverse,
-        "oriented_image_quads": oriented,
+        "table_to_image": table_to_image,
+        "oriented_image_quads": oriented_image_quads,
         "table_quads": table_quads,
-        "inlier_indices": inlier_indices,
+        "inlier_indices": accepted_indices,
         "calibration_digest": _digest(calibration_core),
     }
 

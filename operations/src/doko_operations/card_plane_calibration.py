@@ -1203,7 +1203,11 @@ def calibrate_recording(
             receipts,
         )
     try:
-        fit = fit_table_plane([item.quadrilateral for item in fit_observations])
+        fit = fit_table_plane(
+            [item.quadrilateral for item in fit_observations],
+            boundary_samples=[item.boundary_samples for item in fit_observations],
+            observation_weights=[max(item.quality_score, 0.01) for item in fit_observations],
+        )
     except (CardPlaneGeometryError, ValueError) as error:
         diagnostics["fit_error"] = str(error)
         return _failure(
@@ -1224,10 +1228,19 @@ def calibrate_recording(
             "median_angle_error_degrees",
             "median_aspect_error",
             "median_parallel_error",
+            "median_boundary_error_px",
+            "p90_boundary_error_px",
+            "maximum_boundary_error_px",
+            "median_boundary_error_over_short_side",
+            "observation_residuals",
+            "fit_attempt_count",
+            "selected_attempt_seed",
+            "convergence_reason",
         )
     }
     fit_quality = bool(
-        fit["median_angle_error_degrees"] <= selected_recipe.maximum_median_angle_error_degrees
+        fit["quality_gate_passed"]
+        and fit["median_angle_error_degrees"] <= selected_recipe.maximum_median_angle_error_degrees
         and fit["median_aspect_error"] <= selected_recipe.maximum_median_aspect_error
         and fit["median_parallel_error"] <= selected_recipe.maximum_median_parallel_error
     )

@@ -142,30 +142,34 @@ def _weighted_fit(
     contributions = anchor_fit_contributions(anchors)
     contribution_by_id = {item.anchor_id: item for item in contributions}
     selected_by_id = {item.anchor_id: item for item in selected}
-    weighted_quads: list[np.ndarray] = []
+    fit_anchors: list[AnchorObservation] = []
+    fit_weights: list[float] = []
     for anchor_id in sorted(selected_by_id):
         contribution = contribution_by_id.get(anchor_id)
         if contribution is None or contribution.weight <= 0:
             continue
-        # Repeating a quad is the deterministic integer approximation of its bounded weight.  A
-        # fixed multiplier keeps candidate (1), accepted (4), and adjusted (12) distinct while
-        # preserving the exact per-frame and per-region caps from the shared contract.
-        repetitions = max(1, int(round(contribution.weight * 4.0)))
-        weighted_quads.extend([_source_quad(selected_by_id[anchor_id])] * repetitions)
-    if len(weighted_quads) < MIN_ELIGIBLE_ANCHORS:
+        fit_anchors.append(selected_by_id[anchor_id])
+        fit_weights.append(contribution.weight)
+    if len(fit_anchors) < MIN_ELIGIBLE_ANCHORS:
         raise CalibrationRefinementError("anchor contribution weights produced an empty fit")
     try:
-        fit = fit_table_plane(weighted_quads)
+        fit = fit_table_plane(
+            [_source_quad(anchor) for anchor in fit_anchors],
+            observation_weights=fit_weights,
+        )
         candidate = TablePlaneCalibration.create(
-            calibration_revision_id="calibration-preview-" + _digest(
-                {
-                    "base": base.calibration_digest,
-                    "anchors": [anchor.observation_digest for anchor in selected],
-                    "weights": [
-                        contribution_by_id[item.anchor_id].weight for item in selected
-                    ],
-                }
-            )[:24],
+            calibration_revision_id=(
+                "calibration-preview-"
+                + _digest(
+                    {
+                        "base": base.calibration_digest,
+                        "anchors": [anchor.observation_digest for anchor in selected],
+                        "weights": [
+                            contribution_by_id[item.anchor_id].weight for item in selected
+                        ],
+                    }
+                )[:24]
+            ),
             recording_id=base.recording_id,
             source_revision=base.source_revision,
             frame_width=base.frame_width,

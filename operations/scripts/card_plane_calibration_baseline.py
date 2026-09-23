@@ -21,6 +21,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "operations" / "src"))
 
 from doko_operations.card_plane_calibration import calibrate_recording  # noqa: E402
 from doko_operations.card_plane_geometry import (  # noqa: E402
+    GEOMETRY_ALGORITHM_VERSION,
     apply_homography,
     card_residual,
     card_vectors,
@@ -581,7 +582,7 @@ def run_baseline(repository_root: Path, manifest_path: Path) -> dict[str, Any]:
         "schema_version": "card-plane-calibration-baseline-report/v1",
         "manifest_path": manifest_path.relative_to(repository_root).as_posix(),
         "manifest_sha256": _sha256(_canonical_bytes(manifest)),
-        "algorithm": "card-plane-geometry/v1",
+        "algorithm": GEOMETRY_ALGORITHM_VERSION,
         "real_outline_reference": manifest["real_outline_reference"],
         "summary": {
             "local_result_count": len(local),

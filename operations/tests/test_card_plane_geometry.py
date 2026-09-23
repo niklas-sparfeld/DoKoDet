@@ -19,6 +19,7 @@ from doko_operations.card_plane_geometry import (
     card_quad_from_pose,
     derive_pose_scene_visible_regions,
     derive_visible_masks,
+    fit_table_plane,
     geometry_contract_manifest,
     invert_homography,
     mask_to_polygons,
@@ -164,6 +165,185 @@ def test_fixed_card_projection_round_trips_through_one_homography() -> None:
     image_quad = project_fixed_card(table_to_image, (1.4, 0.8), 23.0, 1.0, 1.5)
 
     assert np.allclose(apply_homography(invert_homography(table_to_image), image_quad), table_quad)
+
+
+def _sample_quad_boundary(quad: np.ndarray, *, noise_seed: int | None = None) -> np.ndarray:
+    values = np.asarray(quad, dtype=np.float64)
+    samples = np.concatenate(
+        [
+            values[index]
+            + (values[(index + 1) % 4] - values[index])
+            * np.arange(16, dtype=np.float64)[:, None]
+            / 16.0
+            for index in range(4)
+        ]
+    )
+    if noise_seed is not None:
+        samples += np.random.default_rng(noise_seed).normal(0.0, 0.7, samples.shape)
+    return samples
+
+
+def _calibration_observations(
+    table_to_image: np.ndarray,
+    *,
+    shrink_index: int | None = None,
+    noisy: bool = False,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    positions = [
+        (0.0, 0.0),
+        (4.0, 0.0),
+        (8.0, 0.0),
+        (0.0, 3.0),
+        (4.0, 3.0),
+        (8.0, 3.0),
+        (0.0, 6.0),
+        (4.0, 6.0),
+        (8.0, 6.0),
+    ]
+    quads = []
+    boundaries = []
+    for index, center in enumerate(positions):
+        quad = project_fixed_card(table_to_image, center, (index % 4) * 9.0, 1.0, 1.5)
+        if index == shrink_index:
+            quad = np.mean(quad, axis=0) + (quad - np.mean(quad, axis=0)) * 0.72
+        quads.append(quad)
+        boundaries.append(_sample_quad_boundary(quad, noise_seed=index if noisy else None))
+    return quads, boundaries
+
+
+def test_joint_boundary_fit_recovers_known_projection_from_noisy_masks() -> None:
+    truth = np.asarray(
+        [[740.0, 95.0, 810.0], [30.0, 590.0, 240.0], [0.00035, 0.0007, 1.0]],
+        dtype=np.float64,
+    )
+    quads, boundaries = _calibration_observations(truth, noisy=True)
+
+    first = fit_table_plane(quads, boundary_samples=boundaries)
+    second = fit_table_plane(quads, boundary_samples=boundaries)
+
+    assert first["method"] == "joint-robust-boundary-fit-v2"
+    assert first["card_short_size"] == 1.0
+    assert first["card_long_size"] == 1.5
+    assert first["accepted_card_count"] == len(quads)
+    assert np.allclose(first["image_to_table"], second["image_to_table"], atol=1e-12)
+    assert first["calibration_digest"] == second["calibration_digest"]
+    projected = apply_homography(first["table_to_image"], first["table_quads"][0])
+    assert np.max(np.linalg.norm(projected - first["oriented_image_quads"][0], axis=1)) < 1.0
+    assert first["median_boundary_error_px"] < 1.5
+
+
+def test_joint_boundary_fit_rejects_a_shrunken_mask_and_keeps_best_valid_fit() -> None:
+    truth = np.asarray(
+        [[210.0, 18.0, 520.0], [12.0, 172.0, 315.0], [0.0002, 0.0005, 1.0]],
+        dtype=np.float64,
+    )
+    quads, boundaries = _calibration_observations(truth, shrink_index=4)
+
+    fit = fit_table_plane(quads, boundary_samples=boundaries)
+
+    assert fit["rejected_card_indices"] == [4]
+    assert fit["accepted_card_count"] == len(quads) - 1
+    assert fit["fit_attempt_count"] > 1
+    for index in fit["inlier_indices"]:
+        observed_truth = project_fixed_card(
+            truth,
+            [
+                (0.0, 0.0),
+                (4.0, 0.0),
+                (8.0, 0.0),
+                (0.0, 3.0),
+                (4.0, 3.0),
+                (8.0, 3.0),
+                (0.0, 6.0),
+                (4.0, 6.0),
+                (8.0, 6.0),
+            ][index],
+            (index % 4) * 9.0,
+            1.0,
+            1.5,
+        )
+        fitted = fit["oriented_image_quads"][index]
+        errors = [
+            float(np.max(np.linalg.norm(fitted - np.roll(observed_truth, shift, axis=0), axis=1)))
+            for shift in range(4)
+        ]
+        assert min(errors) < 2.0
+
+
+def test_uniform_mask_shrink_is_unidentifiable_without_full_card_evidence() -> None:
+    truth = np.asarray(
+        [[210.0, 18.0, 520.0], [12.0, 172.0, 315.0], [0.0002, 0.0005, 1.0]],
+        dtype=np.float64,
+    )
+    quads, _boundaries = _calibration_observations(truth)
+    shrunk_quads = [np.mean(quad, axis=0) + 0.9 * (quad - np.mean(quad, axis=0)) for quad in quads]
+    boundaries = [_sample_quad_boundary(quad) for quad in shrunk_quads]
+
+    fit = fit_table_plane(shrunk_quads, boundary_samples=boundaries)
+
+    assert fit["quality_gate_passed"] is True
+    assert fit["median_boundary_error_over_short_side"] < 0.01
+    short_side_ratios = []
+    area_ratios = []
+    for fitted, expected in zip(fit["oriented_image_quads"], quads, strict=True):
+        fitted_short = np.mean(
+            [np.linalg.norm(fitted[1] - fitted[0]), np.linalg.norm(fitted[2] - fitted[3])]
+        )
+        expected_short = np.mean(
+            [np.linalg.norm(expected[1] - expected[0]), np.linalg.norm(expected[2] - expected[3])]
+        )
+        short_side_ratios.append(float(fitted_short / expected_short))
+        fitted_area = (
+            abs(
+                float(
+                    np.sum(
+                        fitted[:, 0] * np.roll(fitted[:, 1], -1)
+                        - fitted[:, 1] * np.roll(fitted[:, 0], -1)
+                    )
+                )
+            )
+            / 2.0
+        )
+        expected_area = (
+            abs(
+                float(
+                    np.sum(
+                        expected[:, 0] * np.roll(expected[:, 1], -1)
+                        - expected[:, 1] * np.roll(expected[:, 0], -1)
+                    )
+                )
+            )
+            / 2.0
+        )
+        area_ratios.append(fitted_area / expected_area)
+    assert np.median(short_side_ratios) == pytest.approx(0.9, abs=0.01)
+    assert np.median(area_ratios) == pytest.approx(0.81, abs=0.02)
+
+
+def test_joint_boundary_fit_returns_one_card_candidate_and_rejects_no_geometry() -> None:
+    table_to_image = np.asarray(
+        [[240.0, 15.0, 640.0], [12.0, 190.0, 360.0], [0.0002, 0.0004, 1.0]],
+        dtype=np.float64,
+    )
+    quad = project_fixed_card(table_to_image, (2.0, 3.0), 17.0, 1.0, 1.5)
+
+    fit = fit_table_plane([quad], boundary_samples=[_sample_quad_boundary(quad)])
+
+    assert fit["accepted_card_count"] == 1
+    assert fit["quality_gate_passed"] is False
+    assert fit["convergence_reason"]
+    assert fit["observation_residuals"][0]["accepted"] is True
+    assert np.all(np.isfinite(fit["image_to_table"]))
+    projected = fit["oriented_image_quads"][0]
+    signed_area = np.sum(
+        projected[:, 0] * np.roll(projected[:, 1], -1)
+        - projected[:, 1] * np.roll(projected[:, 0], -1)
+    )
+    assert signed_area > 0.0
+    with pytest.raises(CardPlaneGeometryError, match="no card boundary"):
+        fit_table_plane([])
+    with pytest.raises(CardPlaneGeometryError, match="not booleans"):
+        fit_table_plane([quad], observation_weights=[True])
 
 
 def test_visible_mask_occlusion_preserves_disconnected_back_components() -> None:
