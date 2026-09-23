@@ -583,12 +583,8 @@ function normalizePreferences(
   const viewpoint = availability.viewpoints[preferences.viewpoint].available
     ? preferences.viewpoint
     : fallback.viewpoint;
-  const enabledLayers = uniqueLayers(preferences.enabledLayers).filter(
-    (layer) => availability.layers[layer].available,
-  );
-  const activeTool = availability.tools[preferences.activeTool].available
-    ? preferences.activeTool
-    : fallback.activeTool;
+  const enabledLayers = uniqueLayers(preferences.enabledLayers);
+  const activeTool = preferences.activeTool;
   return { viewpoint, enabledLayers, activeTool };
 }
 
