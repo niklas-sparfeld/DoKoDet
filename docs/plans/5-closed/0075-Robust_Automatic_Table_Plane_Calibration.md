@@ -1,8 +1,10 @@
 # Robust automatic table-plane calibration
 
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** The known-geometry edge-of-view case passes the frozen homography gate. The real detector residuals do not have independent full-card outlines, so they do not establish lens distortion or justify a separate mapping model.
 - **Depends on:** Completed 0072 pose-based visible-card review and 0073 proposed card scenes and calibration refinement.
-- **Outcome:** One complete, stable-camera RF-DETR result produces an automatic table-plane calibration whose projected full cards fit reliable card boundaries across the view. Poor polygons have bounded or zero influence. A fit that misses publication gates remains an inspectable calibration fit candidate with measured error. The same fit serves automatic calibration and operator anchor refinement.
+- **Outcome:** Automatic calibration and anchor refinement use one shared robust boundary fit. Failed runs retain diagnostic candidates for read-only review, and publication requires all quality gates. The frozen known-geometry cases pass every identifiable gate except uniform 10% shrink. Real results remain unpublished until independent full-card outlines exist.
 
 ## Current milestone status
 
@@ -21,7 +23,10 @@
   publication because independent full-card outlines are absent. The ten previously failing
   results still do not publish; all ten now retain a candidate. The known-geometry shrink case
   continues to fail its measured size-bias gate.
-- **M5 — Not started.**
+- **M5 — Complete.** The homography passes the frozen view-edge gate on the known-geometry
+  evaluation. Sparse local detector residuals do not establish coherent lens distortion. The [M5
+  report](../../reports/0075-M5_View_Edge_Distortion_Decision.md) records the measurements and
+  evidence limit.
 
 ## Problem and current behavior
 
@@ -244,6 +249,23 @@ distortion diagnostic and a specified follow-up epic.
   stay below their frozen limits.
 - See the [M4 report](../../reports/0075-M4_Failed_Fit_Review.md) for run counts, gate outcomes,
   timings, and verification results.
+
+## M5 measurement decision — 2026-09-23
+
+- The known-geometry `edge-of-view` case passes the frozen homography gate against independent
+  full-card outlines. Its two held-out edge outlines have a 0.419% p90 boundary distance relative
+  to card short-side length. The clean-case edge result is 0.305%; the difference is 0.114
+  percentage points, below the 1-point limit. Both results are below the 3% maximum. Held-out
+  detector-boundary residuals are a separate measure.
+- Local diagnostics contain 38 held-out edge predictions in 11 result revisions from nine recording
+  IDs. Ten revision summaries exceed 3%, but the samples are sparse and detector polygons have no
+  independent full-card outlines. Their unsigned distances cannot establish a coherent radial
+  error. Real-data edge acceptance remains pending.
+- The homography meets the measurable edge gate. The current evidence does not justify a lens model
+  or a follow-up epic. Create a separate epic only if independent outlines later show coherent
+  regional error that the homography cannot meet on held-out groups.
+- See the [M5 report](../../reports/0075-M5_View_Edge_Distortion_Decision.md) for the reproduced
+  measurements and limits.
 
 ## Verification and boundaries
 
