@@ -256,10 +256,17 @@ export function VisibleCardReviewWorkbench({
   onPointerCancel,
   onDeleteSelectedPoint,
 }: VisibleCardReviewWorkbenchProps) {
-  const displayedCandidates =
+  const allCandidates =
     frame.outcome.candidates.length > 0
       ? frame.outcome.candidates
       : (detectedCandidates ?? []);
+  const displayedCandidates = allCandidates.filter(
+    (candidate) =>
+      !candidateIsCoveredByIgnoreRegions(
+        candidate,
+        frame.outcome.ignored_regions,
+      ),
+  );
   const capabilities = workbenchCapabilitiesFromFrame(
     frame,
     readOnly,
@@ -1147,7 +1154,7 @@ export function VisibleCardReviewWorkbench({
         {proposalSlot !== undefined ? (
           <WorkbenchProposalColumn
             frame={frame}
-            candidates={displayedCandidates}
+            candidates={allCandidates}
             sourceUrl={sourceUrl}
             frameWidth={width}
             frameHeight={height}
@@ -1156,7 +1163,13 @@ export function VisibleCardReviewWorkbench({
             editor={editor}
             editorError={editorError}
             selectedCandidateIds={selectedCandidateIds}
-            onToggleCandidateSelection={onToggleCandidateSelection}
+            onToggleCandidateSelection={(cardId) => {
+              if (activeState.activeTool !== "visible_regions") {
+                dispatch({ type: "select_tool", tool: "visible_regions" });
+                onToolChange?.("visible_regions");
+              }
+              onToggleCandidateSelection?.(cardId);
+            }}
             onSelectCandidate={(candidate, polygonIndex) => {
               select(
                 polygonIndex === undefined
@@ -1332,7 +1345,8 @@ function WorkbenchTimelineSelectionActions({
       className={styles.workbenchTimelineActions}
       aria-label="Selection actions"
     >
-      {state.activeTool === "visible_regions" ? (
+      {state.activeTool === "visible_regions" ||
+      selectedCandidateIds.length > 0 ? (
         <VisibleRegionSelectionActions
           readOnly={readOnly}
           sourceAvailable={
@@ -1347,7 +1361,8 @@ function WorkbenchTimelineSelectionActions({
           onAction={onAction}
         />
       ) : null}
-      {state.activeTool === "virtual_cards" ? (
+      {state.activeTool === "virtual_cards" &&
+      selectedCandidateIds.length === 0 ? (
         <VirtualCardSelectionActions
           readOnly={readOnly}
           scene={scene}
@@ -1358,7 +1373,8 @@ function WorkbenchTimelineSelectionActions({
           onSceneAction={onSceneAction}
         />
       ) : null}
-      {state.activeTool === "mapping" ? (
+      {state.activeTool === "mapping" &&
+      selectedCandidateIds.length === 0 ? (
         <MappingSelectionActions
           readOnly={readOnly}
           refinement={calibrationRefinement}
@@ -2005,36 +2021,54 @@ function WorkbenchProposalColumn({
                 ? editor.polygons.length
                 : (candidate.geometry.visible_region?.polygons.length ?? 1);
             const hasMultiplePolygons = polygonCount > 1;
+            const alreadyIgnored = candidateIsCoveredByIgnoreRegions(
+              candidate,
+              frame.outcome.ignored_regions,
+            );
+            const markedForIgnore =
+              !alreadyIgnored &&
+              selectedCandidateIds.includes(candidate.card_id);
+            const isEditorSelection =
+              (selection?.id === candidate.card_id &&
+                (selection.type === "visible_card" ||
+                  selection.type === "polygon")) ||
+              editor?.cardId === candidate.card_id;
+            const statusLabel = alreadyIgnored
+              ? "Already ignored"
+              : markedForIgnore
+                ? "Marked for ignore"
+                : "Detector suggestion";
             return (
               <li key={candidate.card_id}>
-                <div className={styles.proposalRow}>
+                <div
+                  className={styles.proposalRow}
+                  data-already-ignored={
+                    alreadyIgnored ? "true" : undefined
+                  }
+                  data-marked-for-ignore={
+                    markedForIgnore ? "true" : undefined
+                  }
+                >
                   {!readOnly ? (
                     <label className={styles.proposalCheckbox}>
                       <input
                         type="checkbox"
                         aria-label={`Select proposal ${index + 1} for ignore region`}
-                        checked={selectedCandidateIds.includes(
-                          candidate.card_id,
-                        )}
+                        checked={markedForIgnore || alreadyIgnored}
+                        disabled={alreadyIgnored}
                         onChange={() =>
                           onToggleCandidateSelection?.(candidate.card_id)
                         }
                       />
-                      <span className={styles.visuallyHidden}>
-                        Select for ignore region
-                      </span>
                     </label>
                   ) : null}
                   <button
                     className={styles.proposalSelect}
                     type="button"
                     aria-label={`Select proposal ${index + 1}`}
-                    aria-pressed={
-                      (selection?.id === candidate.card_id &&
-                        (selection.type === "visible_card" ||
-                          selection.type === "polygon")) ||
-                      editor?.cardId === candidate.card_id
-                    }
+                    aria-pressed={isEditorSelection}
+                    data-has-selection={readOnly ? undefined : "true"}
+                    data-selected={isEditorSelection ? "true" : undefined}
                     onClick={() => onSelectCandidate(candidate)}
                   >
                     <CandidatePreview
@@ -2046,7 +2080,7 @@ function WorkbenchProposalColumn({
                     />
                     <span className={styles.proposalDetails}>
                       <strong>Proposal {index + 1}</strong>
-                      <span>Detector suggestion</span>
+                      <span>{statusLabel}</span>
                       <small>{formatIdentifier(candidate.side)}</small>
                       <small>{formatGeometryKind(candidate.geometry)}</small>
                     </span>
@@ -3396,6 +3430,107 @@ function sourceCandidatePolygons(
           sourcePoint({ x: box.x_min, y: box.y_max }, width, height),
         ],
       ];
+}
+
+function candidateNormalizedPolygons(candidate: Candidate): Point[][] {
+  if (candidate.geometry.visible_region !== undefined) {
+    return candidate.geometry.visible_region.polygons.map((polygon) =>
+      polygon.map((point) => ({ x: point.x, y: point.y })),
+    );
+  }
+  const box = candidate.geometry.box_2d;
+  return box === undefined
+    ? []
+    : [
+        [
+          { x: box.x_min, y: box.y_min },
+          { x: box.x_max, y: box.y_min },
+          { x: box.x_max, y: box.y_max },
+          { x: box.x_min, y: box.y_max },
+        ],
+      ];
+}
+
+function candidateIsCoveredByIgnoreRegions(
+  candidate: Candidate,
+  regions: IgnoreRegion[],
+): boolean {
+  if (regions.length === 0) return false;
+  if (
+    regions.some((region) =>
+      region.source_candidates.some(
+        (source) => source.card_id === candidate.card_id,
+      ),
+    )
+  ) {
+    return true;
+  }
+  const containers = regions.flatMap((region) => region.geometry.polygons);
+  const polygons = candidateNormalizedPolygons(candidate);
+  if (polygons.length === 0 || containers.length === 0) return false;
+  return polygons.some((polygon) =>
+    containers.some((container) => polygonsOverlapForIgnore(polygon, container)),
+  );
+}
+
+function polygonsOverlapForIgnore(left: Point[], right: Point[]): boolean {
+  if (left.length < 3 || right.length < 3) return false;
+  if (polygonsMatch(left, right)) return true;
+  const leftCentroid = polygonCentroid(left);
+  const rightCentroid = polygonCentroid(right);
+  if (
+    pointInPolygon(leftCentroid, right) ||
+    pointInPolygon(rightCentroid, left)
+  ) {
+    return true;
+  }
+  return (
+    vertexOverlapRatio(left, right) >= 0.45 ||
+    vertexOverlapRatio(right, left) >= 0.45
+  );
+}
+
+function vertexOverlapRatio(source: Point[], container: Point[]): number {
+  if (source.length === 0) return 0;
+  const hits = source.filter((point) => pointInPolygon(point, container)).length;
+  return hits / source.length;
+}
+
+function polygonCentroid(polygon: Point[]): Point {
+  const total = polygon.reduce(
+    (sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y }),
+    { x: 0, y: 0 },
+  );
+  return { x: total.x / polygon.length, y: total.y / polygon.length };
+}
+
+function polygonsMatch(left: Point[], right: Point[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every(
+    (point, index) =>
+      Math.abs(point.x - right[index].x) < 1e-6 &&
+      Math.abs(point.y - right[index].y) < 1e-6,
+  );
+}
+
+function pointInPolygon(point: Point, polygon: Point[]): boolean {
+  let inside = false;
+  for (
+    let index = 0, previous = polygon.length - 1;
+    index < polygon.length;
+    previous = index, index += 1
+  ) {
+    const current = polygon[index];
+    const prior = polygon[previous];
+    const crosses =
+      current.y > point.y !== prior.y > point.y &&
+      point.x <
+        ((prior.x - current.x) * (point.y - current.y)) /
+          (prior.y - current.y + Number.EPSILON) +
+          current.x;
+    if (crosses) inside = !inside;
+  }
+  return inside;
 }
 
 function transformSourcePolygon(

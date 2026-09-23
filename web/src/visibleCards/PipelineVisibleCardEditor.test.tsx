@@ -263,6 +263,32 @@ function referenceWithSegmentedGeometry() {
   };
 }
 
+function referenceWithEmptyCandidates() {
+  const current = reference();
+  return {
+    ...current,
+    draft: {
+      ...current.draft,
+      items: current.draft.items.map((item) => ({
+        ...item,
+        item: {
+          ...item.item,
+          candidates: [],
+        },
+      })),
+    },
+  };
+}
+
+function generatedResultWithTwoCandidates() {
+  const result = generatedResult();
+  result.revisions[0].content.outcomes[0].candidates = [
+    DETECTOR_CANDIDATE,
+    SECOND_DETECTOR_CANDIDATE,
+  ];
+  return result;
+}
+
 function referenceWithTwoCandidates() {
   const current = reference();
   return {
@@ -1512,7 +1538,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
     await user.click(
       screen.getByRole("button", {
-        name: "Convert selection to ignore region",
+        name: /Convert selection to ignore region/,
       }),
     );
 
@@ -1551,6 +1577,84 @@ describe("PipelineVisibleCardEditor", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Ignore region 1")).toBeInTheDocument();
     expect(screen.getAllByText("Ignore regions")).not.toHaveLength(0);
+  });
+
+  it("creates an ignore region from detector proposals when the draft frame has no candidates", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      const url = String(input);
+      if (init?.method === "PUT") {
+        return Promise.resolve(jsonResponse(referenceWithIgnoreRegion([])));
+      }
+      if (url.includes("/result")) {
+        return Promise.resolve(jsonResponse(generatedResultWithTwoCandidates()));
+      }
+      return Promise.resolve(jsonResponse(referenceWithEmptyCandidates()));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await screen.findByRole("checkbox", {
+      name: "Select proposal 1 for ignore region",
+    });
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Select proposal 1 for ignore region",
+      }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Select proposal 2 for ignore region",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /Convert selection to ignore region/,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const requestBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(requestBody.operations).toEqual([
+      expect.objectContaining({
+        operation: "create_ignore_region",
+        item_id: ITEM_ID,
+        region: expect.objectContaining({
+          reason: "untidy_stack",
+          geometry: expect.objectContaining({
+            kind: "reviewed-ignore-region/v1",
+            polygons: expect.any(Array),
+          }),
+        }),
+      }),
+    ]);
+    expect(requestBody.operations[0].candidate_ids).toBeUndefined();
+    expect(
+      await screen.findByRole("region", {
+        name: "Visible-card ignore regions",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("copies ignore regions from the previous reviewed frame", async () => {

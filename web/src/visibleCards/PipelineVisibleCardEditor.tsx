@@ -1356,25 +1356,68 @@ export function PipelineVisibleCardEditor({
 
   const convertSelectedToIgnoreRegion = useCallback(
     (frame: EditableFrame) => {
-      const selected = frame.outcome.candidates.filter((candidate) =>
+      const detected =
+        generatedFrames.find(
+          (generated) =>
+            generated.itemId === frame.itemId ||
+            generated.itemId === frame.baseItemId,
+        )?.outcome.candidates ?? [];
+      const selectedFromFrame = frame.outcome.candidates.filter((candidate) =>
         selectedCandidateIds.includes(candidate.card_id),
       );
-      if (selected.length === 0) return;
+      const selectedFromDetected = detected.filter(
+        (candidate) =>
+          selectedCandidateIds.includes(candidate.card_id) &&
+          !selectedFromFrame.some(
+            (frameCandidate) => frameCandidate.card_id === candidate.card_id,
+          ),
+      );
+      const selected = [...selectedFromFrame, ...selectedFromDetected];
+      if (selected.length === 0) {
+        setNotice(
+          "Select proposals with the left-side checkboxes before converting to an ignore region.",
+        );
+        return;
+      }
+      const polygons = selected.flatMap((candidate) =>
+        geometryPolygons(candidate.geometry),
+      );
+      if (
+        polygons.length === 0 ||
+        polygons.some((polygon) => polygon.length < 3)
+      ) {
+        setError(
+          "Selected proposals do not have usable polygon geometry for an ignore region.",
+        );
+        return;
+      }
       const region = newIgnoreRegion(frame, nextManualRegionId(frame));
-      const operation: PipelineReferenceOperation = {
-        operation: "convert_to_ignore_region",
-        item_id: frame.itemId,
-        region: ignoreRegionMapping({
-          ...region,
-          geometry: {
-            kind: "reviewed-ignore-region/v1",
-            polygons: selected.flatMap((candidate) =>
-              geometryPolygons(candidate.geometry),
-            ),
-          },
-        }),
-        candidate_ids: selected.map((candidate) => candidate.card_id),
+      const ignoredRegion = {
+        ...region,
+        geometry: {
+          kind: "reviewed-ignore-region/v1" as const,
+          polygons,
+        },
+        source_candidates: selected.map((candidate) => ({
+          revision_id: generatedSourceRevisionId ?? "",
+          card_id: candidate.card_id,
+        })),
       };
+      // Convert only when every selected card is already on the maintained frame.
+      // Otherwise create from detector fallback geometry — those IDs are not on the draft.
+      const operation: PipelineReferenceOperation =
+        selectedFromDetected.length === 0
+          ? {
+              operation: "convert_to_ignore_region",
+              item_id: frame.itemId,
+              region: ignoreRegionMapping(ignoredRegion),
+              candidate_ids: selected.map((candidate) => candidate.card_id),
+            }
+          : {
+              operation: "create_ignore_region",
+              item_id: frame.itemId,
+              region: ignoreRegionMapping(ignoredRegion),
+            };
       endEditMode();
       enqueue(
         operation,
@@ -1387,30 +1430,14 @@ export function PipelineVisibleCardEditor({
                 !selectedCandidateIds.includes(currentCandidate.card_id) &&
                 !candidateIsWithinIgnoreRegions(currentCandidate, [
                   ...candidate.outcome.ignored_regions,
-                  {
-                    ...region,
-                    geometry: {
-                      kind: "reviewed-ignore-region/v1",
-                      polygons: selected.flatMap((currentCandidate) =>
-                        geometryPolygons(currentCandidate.geometry),
-                      ),
-                    },
-                  },
+                  ignoredRegion,
                 ]),
             );
-            const ignoredRegion = {
-              ...region,
-              geometry: {
-                kind: "reviewed-ignore-region/v1" as const,
-                polygons: selected.flatMap((currentCandidate) =>
-                  geometryPolygons(currentCandidate.geometry),
-                ),
-              },
-            };
             return {
               ...candidate,
               reviewState:
-                remainingCandidates.length === 0
+                remainingCandidates.length === 0 &&
+                selectedFromDetected.length === 0
                   ? "accepted"
                   : candidate.reviewState,
               outcome: {
@@ -1427,7 +1454,7 @@ export function PipelineVisibleCardEditor({
           }),
       );
     },
-    [endEditMode, enqueue, selectedCandidateIds],
+    [endEditMode, enqueue, generatedFrames, generatedSourceRevisionId, selectedCandidateIds],
   );
 
   const removeIgnoreRegion = useCallback(

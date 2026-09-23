@@ -397,20 +397,44 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.55rem;
+  padding: 0.2rem 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+}
+
+.proposalRow[data-marked-for-ignore="true"],
+.proposalRow[data-already-ignored="true"] {
+  border-color: #f0a35b;
+  border-style: dashed;
+  background: rgba(255, 170, 96, 0.14);
+}
+
+.proposalRow[data-already-ignored="true"] {
+  opacity: 0.78;
+}
+
+.proposalRow[data-marked-for-ignore="true"] .proposalDetails span,
+.proposalRow[data-already-ignored="true"] .proposalDetails span {
+  color: #f0a35b;
+  font-weight: 700;
 }
 
 .proposalCheckbox {
   display: grid;
   place-items: center;
+  align-self: center;
+  width: 1.1rem;
   min-width: 1.1rem;
-  min-height: 2rem;
+  min-height: 1.1rem;
+  margin: 0;
   cursor: pointer;
 }
 
 .proposalCheckbox input {
   width: 1rem;
   height: 1rem;
-  accent-color: var(--accent);
+  margin: 0;
+  accent-color: #f0a35b;
 }
 
 .proposalSelect {

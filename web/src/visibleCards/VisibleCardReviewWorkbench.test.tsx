@@ -942,6 +942,145 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(screen.queryByRole("button", { name: "Accept frame" })).toBeNull();
   });
 
+  it("shows convert-to-ignore actions after checking a proposal while editing virtual cards", async () => {
+    const onToggleCandidateSelection = vi.fn();
+    const onToolChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        selectedCandidateIds={[]}
+        onToggleCandidateSelection={onToggleCandidateSelection}
+        onToolChange={onToolChange}
+        enabledEditTools={["visible_regions", "virtual_cards", "mapping"]}
+        proposalSlot={null}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Edit Virtual cards" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.queryByRole("button", {
+        name: /Convert selection to ignore region/,
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Select proposal 1 for ignore region",
+      }),
+    );
+
+    expect(onToolChange).toHaveBeenCalledWith("visible_regions");
+    expect(onToggleCandidateSelection).toHaveBeenCalledWith("suggestion-1");
+    expect(
+      screen.getByRole("button", { name: "Edit Visible regions" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps convert-to-ignore visible while proposals stay checked", () => {
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        selectedCandidateIds={["suggestion-1"]}
+        initialPreferences={{
+          activeTool: "virtual_cards",
+          viewpoint: "rectified",
+        }}
+        enabledEditTools={["visible_regions", "virtual_cards", "mapping"]}
+        proposalSlot={null}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: /Convert selection to ignore region/,
+      }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByRole("button", { name: /Add virtual card/ }),
+    ).not.toBeInTheDocument();
+    const markedRow = screen
+      .getByRole("checkbox", {
+        name: "Select proposal 1 for ignore region",
+      })
+      .closest("[data-marked-for-ignore]");
+    expect(markedRow).toHaveAttribute("data-marked-for-ignore", "true");
+    expect(
+      within(markedRow as HTMLElement).getByText("Marked for ignore"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Select for ignore region"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("marks proposals already covered by an ignore region", () => {
+    const coveredFrame: EditableFrame = {
+      ...frame,
+      outcome: {
+        ...frame.outcome,
+        candidates: [
+          {
+            card_id: "covered-1",
+            geometry: {
+              kind: "detector-region/v1",
+              visible_region: {
+                polygons: [
+                  [
+                    { x: 5, y: 5 },
+                    { x: 15, y: 5 },
+                    { x: 15, y: 15 },
+                    { x: 5, y: 15 },
+                  ],
+                ],
+              },
+            },
+            normalization: {},
+            side: "unknown",
+          },
+          {
+            card_id: "open-1",
+            geometry: {
+              kind: "detector-box/v1",
+              box_2d: { x_min: 80, y_min: 80, x_max: 95, y_max: 95 },
+            },
+            normalization: {},
+            side: "unknown",
+          },
+        ],
+      },
+    };
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={coveredFrame}
+        readOnly={false}
+        enabledEditTools={["visible_regions", "virtual_cards", "mapping"]}
+        proposalSlot={null}
+      />,
+    );
+
+    const ignoredRow = screen.getByText("Already ignored").closest(
+      "[data-already-ignored]",
+    );
+    expect(ignoredRow).toHaveAttribute("data-already-ignored", "true");
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Select proposal 1 for ignore region",
+      }),
+    ).toBeDisabled();
+    expect(
+      within(
+        screen.getByRole("button", { name: "Select proposal 2" }),
+      ).getByText("Detector suggestion"),
+    ).toBeInTheDocument();
+  });
+
   it("puts frame decisions in the Timeline Rail", async () => {
     const onAccept = vi.fn();
     const onMarkEmpty = vi.fn();
