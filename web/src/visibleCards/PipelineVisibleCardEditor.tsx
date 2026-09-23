@@ -173,8 +173,25 @@ export function PipelineVisibleCardEditor({
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [calibrationRefinement, setCalibrationRefinement] =
     useState<CalibrationRefinementResponse | null>(null);
+  const calibrationRefinementRef = useRef<
+    CalibrationRefinementResponse | null
+  >(null);
+  const calibrationCommandQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const calibrationCommandsPendingRef = useRef(0);
+  const calibrationPreviewTimerRef = useRef<number | null>(null);
   const [calibrationLoading, setCalibrationLoading] = useState(false);
   const [calibrationError, setCalibrationError] = useState<string | null>(null);
+  useEffect(() => {
+    calibrationRefinementRef.current = calibrationRefinement;
+  }, [calibrationRefinement]);
+  useEffect(
+    () => () => {
+      if (calibrationPreviewTimerRef.current !== null) {
+        window.clearTimeout(calibrationPreviewTimerRef.current);
+      }
+    },
+    [],
+  );
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
   const proposalSlot = useVisibleCardProposalSlot();
   useEffect(
@@ -400,11 +417,13 @@ export function PipelineVisibleCardEditor({
         recordingId,
         proposalRevisionId,
       );
+      calibrationRefinementRef.current = current;
       setCalibrationRefinement(current);
       setCalibrationError(null);
     } catch (reason: unknown) {
       if (reason instanceof ApiError && reason.status === 404) {
         setCalibrationRefinement(null);
+        calibrationRefinementRef.current = null;
         setCalibrationError(null);
       } else {
         setCalibrationError(describeError(reason));
@@ -425,6 +444,7 @@ export function PipelineVisibleCardEditor({
       const started = await client.startCalibrationRefinement(recordingId, {
         proposal_revision_id: proposalRevisionId,
       });
+      calibrationRefinementRef.current = started;
       setCalibrationRefinement(started);
     } catch (reason: unknown) {
       setCalibrationError(describeError(reason));
@@ -434,47 +454,94 @@ export function PipelineVisibleCardEditor({
   }, [client, proposalRevisionId, recordingId]);
 
   const updateCalibrationAnchor = useCallback(
-    async (command: CalibrationAnchorCommand) => {
-      const current = calibrationRefinement;
-      const draftId = current?.draft.draft_id;
-      const revision = current?.draft.revision;
-      if (
-        current === null ||
-        typeof draftId !== "string" ||
-        typeof revision !== "number"
-      ) {
-        setCalibrationError(
-          "Start a mapping preview before changing calibration anchors.",
-        );
-        return;
-      }
+    (command: CalibrationAnchorCommand) => {
+      calibrationCommandsPendingRef.current += 1;
       setCalibrationLoading(true);
       setCalibrationError(null);
-      try {
-        const digested = await withCalibrationAnchorCommandDigest({
-          ...command,
-          expected_draft_revision: revision,
+      calibrationCommandQueueRef.current = calibrationCommandQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          const current = calibrationRefinementRef.current;
+          const draftId = current?.draft.draft_id;
+          const revision = current?.draft.revision;
+          if (
+            current === null ||
+            typeof draftId !== "string" ||
+            typeof revision !== "number"
+          ) {
+            setCalibrationError(
+              "Start a mapping preview before changing calibration anchors.",
+            );
+            calibrationCommandsPendingRef.current -= 1;
+            setCalibrationLoading(calibrationCommandsPendingRef.current > 0);
+            return;
+          }
+          const sequence = Array.isArray(current.draft.commands)
+            ? current.draft.commands.length + 1
+            : 1;
+          const orderedCommand = {
+            ...command,
+            command_id: `${command.command_id}-${sequence}`,
+            sequence,
+            expected_draft_revision: revision,
+          };
+          try {
+            const digested = await withCalibrationAnchorCommandDigest(
+              orderedCommand,
+            );
+            const updated = await client.updateCalibrationRefinement(
+              recordingId,
+              current.proposal_revision_id,
+              {
+                draft_id: draftId,
+                expected_revision: revision,
+                command: digested,
+              },
+            );
+            calibrationRefinementRef.current = updated;
+            setCalibrationRefinement(updated);
+            if (calibrationPreviewTimerRef.current !== null) {
+              window.clearTimeout(calibrationPreviewTimerRef.current);
+            }
+            calibrationPreviewTimerRef.current = window.setTimeout(() => {
+              calibrationPreviewTimerRef.current = null;
+              if (calibrationCommandsPendingRef.current > 0) return;
+              void client
+                .getCalibrationRefinement(
+                  recordingId,
+                  updated.proposal_revision_id,
+                  draftId,
+                )
+                .then((complete) => {
+                  const latest = calibrationRefinementRef.current;
+                  if (
+                    latest?.draft.revision === complete.draft.revision &&
+                    latest.proposal_revision_id === complete.proposal_revision_id
+                  ) {
+                    calibrationRefinementRef.current = complete;
+                    setCalibrationRefinement(complete);
+                  }
+                })
+                .catch((reason: unknown) =>
+                  setCalibrationError(describeError(reason)),
+                );
+            }, 400);
+          } catch (reason: unknown) {
+            setCalibrationError(describeError(reason));
+          } finally {
+            calibrationCommandsPendingRef.current -= 1;
+            setCalibrationLoading(calibrationCommandsPendingRef.current > 0);
+          }
         });
-        const updated = await client.updateCalibrationRefinement(
-          recordingId,
-          current.proposal_revision_id,
-          {
-            draft_id: draftId,
-            expected_revision: revision,
-            command: digested,
-          },
-        );
-        setCalibrationRefinement(updated);
-      } catch (reason: unknown) {
-        setCalibrationError(describeError(reason));
-      } finally {
-        setCalibrationLoading(false);
-      }
     },
-    [calibrationRefinement, client, recordingId],
+    [client, recordingId],
   );
 
   const discardCalibrationRefinement = useCallback(async () => {
+    if (calibrationPreviewTimerRef.current !== null) {
+      window.clearTimeout(calibrationPreviewTimerRef.current);
+      calibrationPreviewTimerRef.current = null;
+    }
     const current = calibrationRefinement;
     if (current === null) return;
     const draftId = current.draft.draft_id;
@@ -486,6 +553,7 @@ export function PipelineVisibleCardEditor({
         proposal_revision_id: current.proposal_revision_id,
         draft_id: draftId,
       });
+      calibrationRefinementRef.current = reset;
       setCalibrationRefinement(reset);
     } catch (reason: unknown) {
       setCalibrationError(describeError(reason));
@@ -528,6 +596,7 @@ export function PipelineVisibleCardEditor({
         setProposalRevisionId(applied.proposal_revision_id);
         hydrateReference(applied.reference);
         setCalibrationRefinement(null);
+        calibrationRefinementRef.current = null;
         setNotice(
           `Applied calibration ${applied.calibration_revision_id}; review affected frames before completion.`,
         );
@@ -2454,6 +2523,7 @@ export function PipelineVisibleCardEditor({
                 mappingLoading={calibrationLoading}
                 mappingCanApply={
                   calibrationRefinement !== null &&
+                  calibrationRefinement.preview_complete !== false &&
                   (calibrationRefinement.preview.status === "pass" ||
                     calibrationRefinement.preview.failure?.code ===
                       "reviewed_displacement_exceeded")

@@ -167,7 +167,13 @@ class CalibrationRefinementService:
         _proposal, source, data = self._proposal(recording_id, proposal_revision_id)
         self._require_current_source(draft, source)
         if any(existing.command_id == command.command_id for existing in draft.commands):
-            return self._response(recording_id, proposal_revision_id, draft, data)
+            return self._response(
+                recording_id,
+                proposal_revision_id,
+                draft,
+                data,
+                include_frame_scenes=False,
+            )
         if draft.revision != expected_revision:
             raise CalibrationRefinementInputError(
                 "calibration draft changed; "
@@ -175,7 +181,15 @@ class CalibrationRefinementService:
             )
         updated = apply_anchor_command_to_draft(draft, command)
         self.store.publish(updated)
-        return self._response(recording_id, proposal_revision_id, updated, data)
+        # Anchor edits need a quick acknowledgement. The full recording-wide impact
+        # preview is refreshed by the client after the operator pauses editing.
+        return self._response(
+            recording_id,
+            proposal_revision_id,
+            updated,
+            data,
+            include_frame_scenes=False,
+        )
 
     def discard(
         self,
@@ -501,8 +515,12 @@ class CalibrationRefinementService:
         proposal_revision_id: str,
         draft: CalibrationDraft,
         data: ProposedCardSceneData,
+        *,
+        include_frame_scenes: bool = True,
     ) -> dict[str, Any]:
-        frame_scenes = self._frame_scenes(recording_id, data)
+        frame_scenes = (
+            self._frame_scenes(recording_id, data) if include_frame_scenes else ()
+        )
         preview = build_calibration_preview(draft, data.calibration, frame_scenes=frame_scenes)
         contributions = []
         from table_evidence_analyzer.card_scene_contract import anchor_fit_contributions
@@ -514,6 +532,7 @@ class CalibrationRefinementService:
             "proposal_revision_id": proposal_revision_id,
             "draft": draft.to_mapping(),
             "preview": preview.to_mapping(),
+            "preview_complete": include_frame_scenes,
             "anchor_contributions": contributions,
         }
 

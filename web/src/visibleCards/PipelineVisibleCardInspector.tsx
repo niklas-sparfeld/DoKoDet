@@ -761,6 +761,18 @@ function CalibrationPreviewPanel({
   onSelectFrame: (frameId: string) => void;
 }) {
   const preview = refinement.preview;
+  if (refinement.preview_complete === false) {
+    return (
+      <section
+        className={visibleStyles.coverageInspector}
+        aria-label="Calibration preview"
+        aria-live="polite"
+      >
+        <strong>Calibration preview: Updating</strong>
+        <p>Calculating the recording-wide scene impact.</p>
+      </section>
+    );
+  }
   return (
     <section
       className={visibleStyles.coverageInspector}

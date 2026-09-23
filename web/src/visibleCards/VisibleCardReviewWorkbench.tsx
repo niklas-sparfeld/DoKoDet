@@ -389,6 +389,24 @@ export function VisibleCardReviewWorkbench({
       ),
     [calibrationRefinement, frame.itemId, frame.outcome.event_id, scene],
   );
+  useEffect(() => {
+    const preview = anchorPreviewRef.current;
+    if (preview === null) return;
+    const persisted = mappingAnchors.find(
+      (anchor) => anchor.anchorId === preview.anchorId,
+    );
+    if (
+      persisted !== undefined &&
+      persisted.corners.every(
+        (corner, index) =>
+          corner[0] === preview.corners[index]?.[0] &&
+          corner[1] === preview.corners[index]?.[1],
+      )
+    ) {
+      anchorPreviewRef.current = null;
+      setAnchorPreview(null);
+    }
+  }, [mappingAnchors]);
 
   const selectedMappingAnchor =
     activeState.selection?.type === "calibration_anchor"
@@ -578,7 +596,14 @@ export function VisibleCardReviewWorkbench({
     event.stopPropagation();
     select({ type: "calibration_anchor", id: anchor.anchorId });
     setAnchorCornerIndex(movedCorner);
-    const preview = { ...anchor, corners: cloneTablePoints(anchor.corners) };
+    const currentAnchor =
+      anchorPreviewRef.current?.anchorId === anchor.anchorId
+        ? anchorPreviewRef.current
+        : anchor;
+    const preview = {
+      ...currentAnchor,
+      corners: cloneTablePoints(currentAnchor.corners),
+    };
     mappingGestureRef.current = {
       pointerId: event.pointerId,
       anchorId: anchor.anchorId,
@@ -586,7 +611,7 @@ export function VisibleCardReviewWorkbench({
       dirty: false,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      originalCorners: cloneTablePoints(anchor.corners),
+      originalCorners: cloneTablePoints(currentAnchor.corners),
     };
     setAnchorPreviewState(preview);
     event.currentTarget.ownerSVGElement?.setPointerCapture?.(event.pointerId);
@@ -599,10 +624,14 @@ export function VisibleCardReviewWorkbench({
   const updateMappingAnchorPreview = (point: Point | null) => {
     const gesture = mappingGestureRef.current;
     if (gesture === null || point === null) return;
-    const anchor = mappingAnchors.find(
+    const persistedAnchor = mappingAnchors.find(
       (candidate) => candidate.anchorId === gesture.anchorId,
     );
-    if (anchor === undefined) return;
+    const anchor =
+      anchorPreviewRef.current?.anchorId === gesture.anchorId
+        ? anchorPreviewRef.current
+        : persistedAnchor;
+    if (anchor === undefined || anchor === null) return;
     const sourcePosition = sourcePoint(point, width, height) as TablePoint;
     const corners = moveAnchorCorner(
       gesture.originalCorners,
@@ -624,19 +653,27 @@ export function VisibleCardReviewWorkbench({
       !Number.isFinite(value)
     )
       return;
-    const corner = selectedMappingAnchor.corners[anchorCornerIndex];
+    const activeAnchor =
+      anchorPreviewRef.current?.anchorId === selectedMappingAnchor.anchorId
+        ? anchorPreviewRef.current
+        : selectedMappingAnchor;
+    const corner = activeAnchor.corners[anchorCornerIndex];
     if (corner === undefined) return;
     setNumericAnchor({
-      anchorId: selectedMappingAnchor.anchorId,
+      anchorId: activeAnchor.anchorId,
       point: [axis === 0 ? value : corner[0], axis === 1 ? value : corner[1]],
     });
   };
 
   const emitNumericAnchorCommand = () => {
     if (numericAnchor === null || onAnchorCommand === undefined) return;
-    const anchor = mappingAnchors.find(
+    const persistedAnchor = mappingAnchors.find(
       (candidate) => candidate.anchorId === numericAnchor.anchorId,
     );
+    const anchor =
+      anchorPreviewRef.current?.anchorId === numericAnchor.anchorId
+        ? anchorPreviewRef.current
+        : persistedAnchor;
     if (anchor === undefined || !anchor.eligible) return;
     const context = anchorCommandContext();
     emitAnchorCommand(
@@ -860,7 +897,6 @@ export function VisibleCardReviewWorkbench({
       event.currentTarget.releasePointerCapture?.(event.pointerId);
       dispatch({ type: "commit_gesture" });
       const preview = anchorPreviewRef.current;
-      setAnchorPreviewState(null);
       if (mappingGesture.dirty && preview !== null) {
         const context = anchorCommandContext();
         emitAnchorCommand(
@@ -1729,8 +1765,9 @@ function MappingSelectionActions({
       ? numericAnchor.point
       : corner;
   const previewReady =
-    refinement?.preview.status === "pass" ||
-    refinement?.preview.failure?.code === "reviewed_displacement_exceeded";
+    refinement?.preview_complete !== false &&
+    (refinement?.preview.status === "pass" ||
+      refinement?.preview.failure?.code === "reviewed_displacement_exceeded");
   const controls = [
     stateButton("accepted", "Accept anchor", "✓"),
     stateButton("adjusted", "Adjust anchor", "✎"),
@@ -1765,11 +1802,13 @@ function MappingSelectionActions({
       disabledReason:
         refinement === null
           ? "Start a mapping preview first."
-          : !previewReady
-            ? "The current mapping preview is blocked."
-            : !mappingCanApply
-              ? "Wait for the calibration preview to load."
-              : "Mapping is busy.",
+          : refinement.preview_complete === false
+            ? "The recording-wide scene impact preview is updating."
+            : !previewReady
+              ? "The current mapping preview is blocked."
+              : !mappingCanApply
+                ? "Wait for the calibration preview to load."
+                : "Mapping is busy.",
       onClick: () => onAction("apply_mapping"),
     },
   ];
