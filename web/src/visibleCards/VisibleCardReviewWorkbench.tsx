@@ -2538,7 +2538,7 @@ function renderCalibrationFitOutlines(
       (item) => item.card_id === outline.candidateId,
     );
     const points =
-      projectedPoints.length === 4
+      projectedPoints.length >= 4
         ? projectedPoints
         : candidate === undefined
           ? []
@@ -2597,7 +2597,7 @@ function renderCalibrationFitOutlines(
           points={pointsAttribute(points)}
           strokeWidth={strokeWidth(viewpoint, width)}
           data-status={outline.status}
-          data-geometry={projectedPoints.length === 4 ? "fitted" : "detected"}
+          data-geometry={projectedPoints.length >= 4 ? "fitted" : "detected"}
         />
         <text
           className={styles.calibrationFitLabel}

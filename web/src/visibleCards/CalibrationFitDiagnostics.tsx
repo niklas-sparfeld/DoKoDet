@@ -20,6 +20,7 @@ type DiagnosticEvidence = CalibrationFitDiagnosticOutline & {
 };
 
 export type CalibrationFitDiagnostics = {
+  published: boolean;
   failureMessage: string | null;
   failureAction: string | null;
   candidateAvailable: boolean;
@@ -27,6 +28,7 @@ export type CalibrationFitDiagnostics = {
   sourceRevision: string | null;
   candidateYield: Record<string, number>;
   failedGates: string[];
+  advisoryWarnings: string[];
   unavailableGates: string[];
   heldOutSummary: {
     count: number;
@@ -53,7 +55,7 @@ type JsonObject = Record<string, unknown>;
 export function readCalibrationFitDiagnostics(
   run: PipelineProposalRunResponse | null,
 ): CalibrationFitDiagnostics | null {
-  if (run?.status !== "failed") return null;
+  if (run?.status !== "failed" && run?.status !== "succeeded") return null;
   const state = asObject(run.state);
   const runMetrics = asObject(state?.metrics);
   const storedCalibrationRun = asObject(runMetrics?.calibration_run);
@@ -119,6 +121,7 @@ export function readCalibrationFitDiagnostics(
 
   const failure = asObject(storedCalibrationRun.failure);
   return {
+    published: asString(storedCalibrationRun.status) === "published",
     failureMessage: asString(failure?.message),
     failureAction: asString(failure?.action),
     candidateAvailable: calibration !== null,
@@ -126,6 +129,11 @@ export function readCalibrationFitDiagnostics(
     sourceRevision: asString(calibration?.source_revision),
     candidateYield,
     failedGates: asStringArray(diagnostics.failed_gates),
+    advisoryWarnings: Object.entries(
+      asObject(diagnostics.advisory_checks) ?? {},
+    )
+      .filter(([, passed]) => passed === false)
+      .map(([name]) => name),
     unavailableGates: asStringArray(diagnostics.unavailable_gates),
     heldOutSummary: {
       count: asNumber(heldOut?.count) ?? 0,
@@ -199,12 +207,20 @@ export function CalibrationFitDiagnosticsPanel({
       aria-label="Calibration fit diagnostic"
       data-diagnostic-only="true"
     >
-      <p className={styles.kicker}>Failed calibration · diagnostic only</p>
-      <h4>Calibration fit candidate</h4>
+      <p className={styles.kicker}>
+        {diagnostics.published
+          ? "Published calibration · review diagnostics"
+          : "Failed calibration · diagnostic only"}
+      </p>
+      <h4>
+        {diagnostics.published
+          ? "Calibration fit"
+          : "Calibration fit candidate"}
+      </h4>
       <p className={styles.description}>
         {outlinesAvailable
-          ? "Read-only card outlines and metrics show which detections contributed to this fit. This candidate is not published and cannot change reviewed data."
-          : "This stored run has no projected outlines. Retry the proposal run to inspect them beside the detector polygons. The candidate is not published and cannot change reviewed data."}
+          ? "Read-only fitted card outlines and metrics show which detections contributed to this calibration."
+          : "This stored run has no projected outlines. Retry the proposal run to inspect them beside the detector polygons."}
       </p>
       <div
         className={styles.overlayFilters}
@@ -267,9 +283,9 @@ export function CalibrationFitDiagnosticsPanel({
         </div>
       </dl>
       <div className={styles.gates}>
-        <strong>Failed gates</strong>
+        <strong>Blocking checks</strong>
         {diagnostics.failedGates.length === 0 ? (
-          <span>Unavailable</span>
+          <span>None</span>
         ) : (
           <ul>
             {diagnostics.failedGates.map((gate) => (
@@ -279,6 +295,16 @@ export function CalibrationFitDiagnosticsPanel({
                   ? " · unavailable"
                   : ""}
               </li>
+            ))}
+          </ul>
+        )}
+        <strong>Review warnings</strong>
+        {diagnostics.advisoryWarnings.length === 0 ? (
+          <span>None</span>
+        ) : (
+          <ul>
+            {diagnostics.advisoryWarnings.map((warning) => (
+              <li key={warning}>{formatGate(warning)}</li>
             ))}
           </ul>
         )}

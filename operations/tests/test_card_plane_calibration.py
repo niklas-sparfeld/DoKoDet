@@ -151,7 +151,7 @@ def test_detector_only_fit_publishes_without_independent_size_reference(tmp_path
     assert run.calibration_fit_candidate is not None
     assert "absolute_size_reference" not in run.diagnostics["gates"]
     assert run.diagnostics["unavailable_gates"] == []
-    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v9"
+    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v10"
     assert run.diagnostics["validation"]["absolute_size"]["status"] == "unavailable"
     assert run.diagnostics["validation"]["absolute_size"]["short_side_bias"] is None
     assert run.diagnostics["fit_candidate_availability"]["available"] is True
@@ -657,7 +657,7 @@ def test_recording_inconsistency_is_an_actionable_failure(
     assert calibration.diagnostics["fit_candidate_availability"]["reason"] == code
 
 
-def test_held_out_boundary_failure_retains_candidate_and_regional_metrics() -> None:
+def test_held_out_boundary_warning_publishes_with_regional_metrics() -> None:
     result = _recording_result(
         positions=[
             (0.0, 0.0),
@@ -675,11 +675,31 @@ def test_held_out_boundary_failure_retains_candidate_and_regional_metrics() -> N
 
     run = _calibrate_with_references(result, recipe=recipe)
 
-    assert run.status == "failed"
-    assert run.failure is not None and run.failure.code == "held_out_boundary_failed"
-    assert run.calibration_fit_candidate is not None
+    assert run.status == "published"
+    assert run.failure is None
     assert run.diagnostics["gates"]["held_out_boundary"] is False
+    assert run.diagnostics["advisory_checks"]["held_out_boundary"] is False
+    assert "held_out_boundary" not in run.diagnostics["failed_gates"]
     assert set(run.diagnostics["validation"]["regional_metrics"]) == {"center", "view_edges"}
+
+
+def test_narrow_image_coverage_is_advisory() -> None:
+    result = _recording_result(
+        positions=[(0.0, 0.0), (4.0, 0.0), (8.0, 0.0), (0.0, 3.0), (4.0, 3.0), (8.0, 3.0)]
+    )
+    run = _calibrate_with_references(
+        result,
+        recipe=CalibrationRecipe(minimum_spatial_coverage_x=0.99),
+    )
+
+    assert run.status == "published"
+    assert run.diagnostics["gates"]["spatial_coverage"] is False
+    assert run.diagnostics["advisory_checks"]["spatial_coverage"] is False
+    assert "spatial_coverage" not in run.diagnostics["failed_gates"]
+
+
+def test_boundary_straightness_cutoff_allows_moderately_noisy_masks() -> None:
+    assert CalibrationRecipe().minimum_boundary_straightness == 0.55
 
 
 def test_inconsistent_fit_keeps_best_finite_candidate() -> None:

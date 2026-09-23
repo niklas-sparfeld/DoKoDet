@@ -2033,9 +2033,7 @@ export function PipelineVisibleCardEditor({
   const detectedCandidates = detectedFrame?.outcome.candidates ?? [];
   const fitDiagnostics = readCalibrationFitDiagnostics(proposalRun);
   const fitDiagnosticOutlines =
-    view === "generated" &&
-    proposalRun?.status === "failed" &&
-    activeFrame !== null
+    view === "generated" && activeFrame !== null
       ? calibrationFitOutlinesForFrame(
           fitDiagnostics,
           activeFrame.outcome.event_id,

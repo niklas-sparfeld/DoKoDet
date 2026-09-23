@@ -188,6 +188,42 @@ const calibrationRefinement = {
 } as CalibrationRefinementResponse;
 
 describe("VisibleCardReviewWorkbench", () => {
+  it("draws the fitted rounded outline instead of the detector polygon", () => {
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly
+        calibrationFitOutlines={[
+          {
+            candidateId: "suggestion-1",
+            points: [
+              { x: 10, y: 10 },
+              { x: 20, y: 10 },
+              { x: 25, y: 15 },
+              { x: 20, y: 20 },
+              { x: 10, y: 20 },
+              { x: 5, y: 15 },
+            ],
+            status: "fit",
+            reason: null,
+            confidence: 0.9,
+            qualityScore: 0.8,
+            medianDistancePx: 1,
+            p90DistancePx: 2,
+            maximumDistancePx: 3,
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      document.querySelector("[data-calibration-fit-outline] polygon"),
+    ).toHaveAttribute("data-geometry", "fitted");
+    expect(
+      document.querySelector("[data-calibration-fit-outline] polygon"),
+    ).toHaveAttribute("points", "10,10 20,10 25,15 20,20 10,20 5,15");
+  });
   it("renders enabled layers in the frozen order and keeps edit controls read-only", () => {
     render(
       <VisibleCardReviewWorkbench
@@ -816,7 +852,9 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(
       screen.getByRole("button", { name: "Accept card card-1 Click" }),
     ).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Add virtual card Click" }));
+    await user.click(
+      screen.getByRole("button", { name: "Add virtual card Click" }),
+    );
 
     await waitFor(() => expect(onSceneChange).toHaveBeenCalledTimes(1));
     expect(onSceneChange.mock.calls[0][0].scene.poses).toHaveLength(2);
@@ -950,8 +988,12 @@ describe("VisibleCardReviewWorkbench", () => {
         name: "Adjust calibration anchor 1 for anchor-1",
       }),
     );
-    expect(screen.getByRole("button", { name: "Accept anchor Click" })).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Accept anchor Click" }));
+    expect(
+      screen.getByRole("button", { name: "Accept anchor Click" }),
+    ).toBeEnabled();
+    await user.click(
+      screen.getByRole("button", { name: "Accept anchor Click" }),
+    );
 
     expect(onAnchorCommand).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -962,7 +1004,9 @@ describe("VisibleCardReviewWorkbench", () => {
         sequence: 1,
       }),
     );
-    expect(screen.getByRole("button", { name: "Apply mapping Click" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Apply mapping Click" }),
+    ).toBeEnabled();
   });
 
   it("starts the current mapping preview when mapping edit mode opens", async () => {

@@ -64,6 +64,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0079 — Review-first calibration gates](5-closed/0079_Review_First_Calibration_Gates.md) | Complete | M0 makes spatial coverage and held-out boundaries review warnings, lowers the boundary straightness cutoff, and draws fitted rounded outlines. All 24 frozen real results now publish for human review. |
 | [0078 — Automatic calibration without a size reference](5-closed/0078-Automatic_Calibration_Without_Size_Reference.md) | Complete | M0 removes the independent size-reference publication gate, retains optional bias diagnostics, and lets four of 24 frozen real results publish. The other gates remain active. |
 | [0077 — Rounded physical card outlines](5-closed/0077-Rounded_Physical_Card_Outlines.md) | Complete | M0 uses a deck-measured corner radius in calibration fits, held-out checks, review overlays, and pose-derived visible regions. One more frozen local result passes the held-out gate; fit P90 and runtime rise slightly. |
 | [0076 — Frame-complete automatic calibration candidates](5-closed/0076-Frame_Complete_Calibration_Candidates.md) | Complete | M0 excludes projected outlines outside the source frame. M1 shows fit, held-out, and discarded cards with metrics. M2 excludes cards with projected edges hidden by another detected card or a deep inward notch. The size-reference publication rule was later removed in 0078. |

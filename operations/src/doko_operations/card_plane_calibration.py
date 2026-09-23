@@ -38,7 +38,7 @@ from .card_plane_geometry import (
 )
 from .pipeline_data import canonical_json_bytes
 
-CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v9"
+CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v10"
 CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v3"
 CALIBRATION_RUN_SCHEMA_V2 = "card-plane-calibration-run/v2"
 CALIBRATION_FIT_CANDIDATE_SCHEMA_VERSION = "card-plane-calibration-fit-candidate/v1"
@@ -113,7 +113,7 @@ class CalibrationRecipe:
 
     confidence_threshold: float = 0.90
     minimum_quad_coverage: float = 0.84
-    minimum_boundary_straightness: float = 0.65
+    minimum_boundary_straightness: float = 0.55
     minimum_corner_support: float = 0.50
     minimum_notch_depth_over_short_side: float = 0.12
     minimum_notch_area_fraction: float = 0.06
@@ -2124,9 +2124,13 @@ def calibrate_recording(
         ),
     }
     diagnostics["gates"] = gates
-    diagnostics["failed_gates"] = sorted(name for name, passed in gates.items() if not passed)
+    advisory_checks = ("spatial_coverage", "held_out_boundary")
+    diagnostics["advisory_checks"] = {name: gates[name] for name in advisory_checks}
+    diagnostics["failed_gates"] = sorted(
+        name for name, passed in gates.items() if not passed and name not in advisory_checks
+    )
     diagnostics["unavailable_gates"] = []
-    if not all(gates.values()):
+    if diagnostics["failed_gates"]:
         if not gates["candidate_count"]:
             code = "insufficient_candidates"
             message = f"only {len(accepted)} isolated-card candidates passed the frozen filter"
@@ -2143,10 +2147,6 @@ def calibrate_recording(
                 "isolated-card candidates do not cover enough time, table position, and orientation"
             )
             action = "use a stable recording with separated card positions and orientations"
-        elif not gates["spatial_coverage"]:
-            code = "insufficient_spatial_coverage"
-            message = "isolated-card candidates do not cover enough of the source table"
-            action = "use a stable recording with isolated cards distributed across the table"
         elif not gates["fit_quality"]:
             code = "inconsistent_card_geometry"
             message = (
@@ -2163,10 +2163,6 @@ def calibrate_recording(
                 "collect more isolated-card observations across independent temporal "
                 "and spatial bins"
             )
-        elif not gates["held_out_boundary"]:
-            code = "held_out_boundary_failed"
-            message = "held-out card boundaries exceed the source-pixel validation limits"
-            action = "inspect camera movement, zoom, stabilization drift, and the worst-fit frames"
         return _failure(
             code,
             message,
