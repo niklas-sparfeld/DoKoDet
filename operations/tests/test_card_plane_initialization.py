@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+import cv2
 import numpy as np
 
 from doko_operations.card_plane_calibration import calibrate_recording
-from doko_operations.card_plane_geometry import project_fixed_card
+from doko_operations.card_plane_geometry import project_fixed_card, rasterize_polygon
 from doko_operations.card_plane_initialization import (
     PoseFitRecipe,
+    _fit_score,
+    _fit_score_projected,
     initialize_card_scene,
 )
 
@@ -15,6 +18,31 @@ TABLE_TO_IMAGE = np.asarray(
     [[120.0, 20.0, 420.0], [15.0, 100.0, 240.0], [0.0002, 0.0004, 1.0]],
     dtype=np.float64,
 )
+
+
+def test_projected_pose_score_matches_full_frame_score() -> None:
+    width, height = 192, 108
+    source = rasterize_polygon(
+        np.asarray([[70.2, 20.4], [110.6, 22.1], [108.3, 70.5], [69.8, 68.9]]),
+        width,
+        height,
+    )
+    source_area = int(np.count_nonzero(source))
+    source_bounds = tuple(int(value) for value in cv2.boundingRect(source))
+    for dx, dy in ((0, 0), (-90, 0), (130, 0), (0, -70), (0, 90), (300, 200)):
+        projected = np.asarray(
+            [
+                [65.4 + dx, 18.6 + dy],
+                [115.7 + dx, 20.2 + dy],
+                [111.8 + dx, 72.3 + dy],
+                [67.1 + dx, 69.8 + dy],
+            ]
+        )
+        expected = _fit_score(rasterize_polygon(projected, width, height), source, source_area)
+        assert (
+            _fit_score_projected(projected, source, source_area, source_bounds, width, height)
+            == expected
+        )
 
 
 def _calibration_result() -> tuple[dict[str, object], object]:

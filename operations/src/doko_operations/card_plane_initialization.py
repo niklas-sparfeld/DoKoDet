@@ -336,6 +336,31 @@ def _fit_score(full_mask: np.ndarray, source_mask: np.ndarray, source_area: int)
     return float(0.55 * iou + 0.30 * target_coverage + 0.15 * full_coverage)
 
 
+def _fit_score_projected(
+    projected: np.ndarray,
+    source_mask: np.ndarray,
+    source_area: int,
+    source_bounds: tuple[int, int, int, int],
+    width: int,
+    height: int,
+) -> float:
+    """Score only the union of the source and projected pixel bounds."""
+
+    rounded = np.rint(projected).astype(np.int32)
+    source_x, source_y, source_width, source_height = source_bounds
+    projected_x0 = max(0, min(width, int(np.min(rounded[:, 0]))))
+    projected_y0 = max(0, min(height, int(np.min(rounded[:, 1]))))
+    projected_x1 = max(0, min(width, int(np.max(rounded[:, 0])) + 1))
+    projected_y1 = max(0, min(height, int(np.max(rounded[:, 1])) + 1))
+    x0 = min(source_x, projected_x0)
+    y0 = min(source_y, projected_y0)
+    x1 = max(source_x + source_width, projected_x1)
+    y1 = max(source_y + source_height, projected_y1)
+    projected_mask = np.zeros((y1 - y0, x1 - x0), dtype=np.uint8)
+    cv2.fillPoly(projected_mask, [rounded - np.asarray([x0, y0], dtype=np.int32)], 255)
+    return _fit_score(projected_mask, source_mask[y0:y1, x0:x1], source_area)
+
+
 def _fit_candidate(
     candidate: _Candidate,
     calibration: TablePlaneCalibration,
@@ -348,6 +373,7 @@ def _fit_candidate(
         source_area = int(np.count_nonzero(candidate.source_mask))
         if source_area == 0:
             raise CardPlaneInitializationError("prediction mask is empty")
+        source_bounds = tuple(int(value) for value in cv2.boundingRect(candidate.source_mask))
         best: tuple[float, np.ndarray, float] | None = None
         center_radius = recipe.center_search_radius
         angle_radius = recipe.angle_search_degrees
@@ -368,8 +394,14 @@ def _fit_candidate(
                             calibration.card_short_size,
                             calibration.card_long_size,
                         )
-                        full_mask = rasterize_polygon(projected, width, height)
-                        score = _fit_score(full_mask, candidate.source_mask, source_area)
+                        score = _fit_score_projected(
+                            projected,
+                            candidate.source_mask,
+                            source_area,
+                            source_bounds,
+                            width,
+                            height,
+                        )
                         tie_break = (
                             score,
                             -float(np.linalg.norm(trial_center - center)),

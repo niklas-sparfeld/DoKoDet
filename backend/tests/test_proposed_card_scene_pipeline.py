@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
-from doko_operations.card_plane_calibration import CalibrationRun
 from doko_operations.card_plane_geometry import project_fixed_card
 from doko_operations.pipeline_data import (
     DataRevision,
@@ -37,6 +38,31 @@ TABLE_TO_IMAGE = np.asarray(
 )
 
 
+def test_start_fails_only_interrupted_proposal_runs(tmp_path: Path) -> None:
+    runs = Mock()
+    runs.list_statuses.return_value = (
+        SimpleNamespace(
+            run_id="proposal-1", processor_type="visible-card-scene-proposal", status="running"
+        ),
+        SimpleNamespace(
+            run_id="detector-1", processor_type="visible-card-detection", status="running"
+        ),
+        SimpleNamespace(
+            run_id="proposal-2", processor_type="visible-card-scene-proposal", status="complete"
+        ),
+    )
+    service = ProposedCardScenePipelineService(
+        _Settings(tmp_path), revision_store=Mock(), run_store=runs, selection_store=Mock()
+    )
+
+    asyncio.run(service.start())
+
+    assert runs.fail.call_count == 1
+    assert runs.fail.call_args.args[0] == "proposal-1"
+    assert runs.fail.call_args.args[1].code == "backend_restarted"
+    asyncio.run(service.stop())
+
+
 class _Settings:
     def __init__(self, root: Path) -> None:
         self.evidence_root = root / "runtime"
@@ -60,9 +86,7 @@ def _visible_data() -> VisibleCardData:
     ]
     outcomes: list[dict[str, object]] = []
     for index, center in enumerate(positions):
-        polygon = project_fixed_card(
-            TABLE_TO_IMAGE, center, (index % 3) * 8.0, 1.0, 1.5
-        )
+        polygon = project_fixed_card(TABLE_TO_IMAGE, center, (index % 3) * 8.0, 1.0, 1.5)
         normalized = [
             {"x": round(float(point[0]) * 1000 / 1920), "y": round(float(point[1]) * 1000 / 1080)}
             for point in polygon
@@ -99,9 +123,7 @@ def _visible_data() -> VisibleCardData:
                             "policy_id": "full-frame-0-1000/v1",
                         },
                         "side": "unknown",
-                        "model_scores": [
-                            {"producer_id": "local-rfdetr-cascade", "score": 0.98}
-                        ],
+                        "model_scores": [{"producer_id": "local-rfdetr-cascade", "score": 0.98}],
                     }
                 ],
                 "ignored_regions": [],
@@ -113,7 +135,7 @@ def _visible_data() -> VisibleCardData:
     )
 
 
-def test_service_retains_failed_fit_candidate_without_changing_detector_input(
+def test_service_publishes_proposal_without_changing_detector_input(
     tmp_path: Path,
 ) -> None:
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
@@ -156,24 +178,20 @@ def test_service_retains_failed_fit_candidate_without_changing_detector_input(
         source.recording_id,
         {"run_id": "proposal-run-001", "visible_card_revision_id": input_revision.revision_id},
     )
+    asyncio.run(service.stop())
     result = service.get_run(source.recording_id, started.run_id)
 
-    assert result.state.status == "failed"
+    assert result.state.status == "complete"
     assert [run.run_id for run in service.list_runs(source.recording_id)] == [started.run_id]
-    assert result.state.output_revision_ids == ()
-    assert result.state.terminal_failure is not None
-    assert result.state.terminal_failure.code == "absolute_size_reference_unavailable"
-    diagnostics = result.state.metrics
-    assert diagnostics["schema_version"] == "proposed-card-scene-failure-diagnostics/v1"
-    calibration_run = CalibrationRun.from_mapping(diagnostics["calibration_run"])
-    assert calibration_run.calibration_fit_candidate is not None
-    assert calibration_run.calibration_fit_candidate.source_revision == input_revision.revision_id
-    assert diagnostics["processor_result_digest"]
+    assert len(result.state.output_revision_ids) == 1
+    assert result.state.terminal_failure is None
+    assert revisions.require(result.state.output_revision_ids[0]).manifest.content_type == (
+        "card_scene_proposals"
+    )
     assert (
         canonical_json_bytes(revisions.require(input_revision.revision_id).content.to_mapping())
         == original_bytes
     )
-    asyncio.run(service.stop())
 
 
 def test_service_rejects_non_cascade_visible_card_revisions(tmp_path: Path) -> None:

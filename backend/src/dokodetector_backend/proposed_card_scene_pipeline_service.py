@@ -86,7 +86,20 @@ class ProposedCardScenePipelineService:
         self._lock = RLock()
 
     async def start(self) -> None:
-        """Keep the service lifecycle compatible with the other pipeline services."""
+        """Make proposal runs interrupted by a restart eligible for retry."""
+
+        for status in self.run_store.list_statuses():
+            if (
+                status.processor_type == PROPOSED_CARD_SCENE_PROCESSOR_TYPE
+                and status.status == "running"
+            ):
+                self.run_store.fail(
+                    status.run_id,
+                    RunFailure(
+                        code="backend_restarted",
+                        message="The proposal processor was interrupted by a backend restart.",
+                    ),
+                )
 
     async def stop(self) -> None:
         self._executor.shutdown(wait=True, cancel_futures=False)
@@ -136,9 +149,7 @@ class ProposedCardScenePipelineService:
             self._futures[run_id] = self._executor.submit(self._execute, run_id)
         return retried
 
-    def _build_request(
-        self, recording_id: str, payload: Mapping[str, Any]
-    ) -> ProcessorRunRequest:
+    def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
         if not isinstance(payload, Mapping):
             raise ProposedCardScenePipelineInputError("the proposal request must be an object")
         unknown = set(payload) - {
@@ -282,9 +293,7 @@ class ProposedCardScenePipelineService:
     def _publish_revision(
         self, run: StoredProcessorRun, data: ProposedCardSceneData
     ) -> StoredPipelineRevision:
-        revision_id = (
-            f"card-scene-proposals-{_safe(run.run_id)}-attempt-{run.state.attempt}"
-        )
+        revision_id = f"card-scene-proposals-{_safe(run.run_id)}-attempt-{run.state.attempt}"
         manifest = DataRevision(
             revision_id=revision_id,
             content_type="card_scene_proposals",
