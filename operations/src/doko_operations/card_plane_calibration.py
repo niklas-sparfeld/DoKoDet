@@ -36,7 +36,7 @@ from .card_plane_geometry import (
 )
 from .pipeline_data import canonical_json_bytes
 
-CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v5"
+CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v6"
 CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v3"
 CALIBRATION_RUN_SCHEMA_V2 = "card-plane-calibration-run/v2"
 CALIBRATION_FIT_CANDIDATE_SCHEMA_VERSION = "card-plane-calibration-fit-candidate/v1"
@@ -113,6 +113,9 @@ class CalibrationRecipe:
     minimum_quad_coverage: float = 0.84
     minimum_boundary_straightness: float = 0.65
     minimum_corner_support: float = 0.50
+    minimum_notch_depth_over_short_side: float = 0.12
+    minimum_notch_area_fraction: float = 0.06
+    maximum_occluded_boundary_fraction: float = 0.18
     maximum_scale_deviation_log: float = 0.30
     maximum_observations_per_frame: int = 4
     maximum_observations_per_temporal_bin: int = 8
@@ -149,11 +152,16 @@ class CalibrationRecipe:
         for field in (
             "minimum_boundary_straightness",
             "minimum_corner_support",
+            "maximum_occluded_boundary_fraction",
         ):
             if not 0.0 <= getattr(self, field) <= 1.0:
                 raise CardPlaneCalibrationError(f"{field} must be between zero and one")
         if self.maximum_scale_deviation_log <= 0:
             raise CardPlaneCalibrationError("maximum_scale_deviation_log must be positive")
+        if self.minimum_notch_depth_over_short_side <= 0:
+            raise CardPlaneCalibrationError("minimum_notch_depth_over_short_side must be positive")
+        if not 0.0 <= self.minimum_notch_area_fraction <= 1.0:
+            raise CardPlaneCalibrationError("minimum_notch_area_fraction must be in [0, 1]")
         for field in (
             "temporal_bin_us",
             "temporal_bin_frames",
@@ -206,6 +214,9 @@ class CalibrationRecipe:
             "minimum_quad_coverage": self.minimum_quad_coverage,
             "minimum_boundary_straightness": self.minimum_boundary_straightness,
             "minimum_corner_support": self.minimum_corner_support,
+            "minimum_notch_depth_over_short_side": self.minimum_notch_depth_over_short_side,
+            "minimum_notch_area_fraction": self.minimum_notch_area_fraction,
+            "maximum_occluded_boundary_fraction": self.maximum_occluded_boundary_fraction,
             "maximum_scale_deviation_log": self.maximum_scale_deviation_log,
             "maximum_observations_per_frame": self.maximum_observations_per_frame,
             "maximum_observations_per_temporal_bin": self.maximum_observations_per_temporal_bin,
@@ -827,6 +838,16 @@ def _candidate_quality(
 
     short, long = card_vectors(quad)
     short_size = max(float(np.linalg.norm(short)), 1.0)
+    inward_reference_size = max(min(float(np.linalg.norm(short)), float(np.linalg.norm(long))), 1.0)
+    hull_indices = cv2.convexHull(contour, returnPoints=False)
+    defects = (
+        None
+        if hull_indices is None or len(hull_indices) < 3
+        else cv2.convexityDefects(contour, hull_indices)
+    )
+    maximum_inward_defect = (
+        0.0 if defects is None else float(np.max(defects.reshape(-1, 4)[:, 3])) / 256.0
+    )
     edge_starts = quad
     edge_vectors = np.roll(quad, -1, axis=0) - edge_starts
     edge_lengths_squared = np.maximum(np.sum(edge_vectors * edge_vectors, axis=1), 1e-9)
@@ -850,6 +871,7 @@ def _candidate_quality(
         "mask_quad_iou": float(iou),
         "quad_mask_coverage": float(coverage),
         "convexity": float(convexity),
+        "maximum_inward_defect_over_short_side": maximum_inward_defect / inward_reference_size,
         "boundary_straightness": straightness,
         "corner_support": corner_support,
         "component_dominance": float(component_dominance),
@@ -882,6 +904,61 @@ def _polygon_overlap_fraction(left: np.ndarray, right: np.ndarray) -> float:
     except cv2.error:
         return 0.0
     return float(overlap_area) / min(left_area, right_area)
+
+
+def _projected_peer_boundary_fraction(
+    outline: np.ndarray,
+    candidate_id: str,
+    peers: Sequence[tuple[str, Sequence[np.ndarray]]],
+    width: int,
+    height: int,
+    sample_count: int,
+) -> float:
+    """Measure how much of a projected card edge is covered by peer detections."""
+    x0 = max(0, int(math.floor(float(np.min(outline[:, 0])))))
+    y0 = max(0, int(math.floor(float(np.min(outline[:, 1])))))
+    x1 = min(width, int(math.ceil(float(np.max(outline[:, 0])))) + 1)
+    y1 = min(height, int(math.ceil(float(np.max(outline[:, 1])))) + 1)
+    if x1 <= x0 or y1 <= y0:
+        return 0.0
+    offset = np.asarray([x0, y0], dtype=np.float64)
+    shape = (y1 - y0, x1 - x0)
+    own_mask = np.zeros(shape, dtype=np.uint8)
+    peer_mask = np.zeros(shape, dtype=np.uint8)
+    for peer_id, polygons in peers:
+        if peer_id == candidate_id:
+            for polygon in polygons:
+                cv2.fillPoly(own_mask, [np.rint(polygon - offset).astype(np.int32)], 1)
+            continue
+        for polygon in polygons:
+            peer_hull = cv2.convexHull(polygon.astype(np.float32)).reshape(-1, 2)
+            try:
+                intersection, _ = cv2.intersectConvexConvex(
+                    outline.astype(np.float32), peer_hull.astype(np.float32)
+                )
+            except cv2.error:
+                intersection = 0.0
+            union = polygon_area(outline) + polygon_area(peer_hull) - float(intersection)
+            if union > 0 and float(intersection) / union > 0.8:
+                # Two detections of the same full card are handled by duplicate selection.
+                continue
+            cv2.fillPoly(peer_mask, [np.rint(polygon - offset).astype(np.int32)], 1)
+    short_size = min(
+        float(np.linalg.norm(outline[1] - outline[0])),
+        float(np.linalg.norm(outline[2] - outline[1])),
+    )
+    radius = max(2, min(8, int(round(0.015 * short_size))))
+    own_support = cv2.dilate(own_mask, np.ones((2 * radius + 1, 2 * radius + 1), np.uint8))
+    boundary = _sample_polygon_boundary(outline, sample_count) - offset
+    indices = np.rint(boundary).astype(np.int64)
+    indices[:, 0] = np.clip(indices[:, 0], 0, shape[1] - 1)
+    indices[:, 1] = np.clip(indices[:, 1], 0, shape[0] - 1)
+    return float(
+        np.mean(
+            (peer_mask[indices[:, 1], indices[:, 0]] > 0)
+            & (own_support[indices[:, 1], indices[:, 0]] == 0)
+        )
+    )
 
 
 def _local_scale_deviations(
@@ -1215,6 +1292,7 @@ def calibrate_recording(
             "accepted_count": 0,
         },
         "rejections": {},
+        "selection_refit_rounds": [],
         "candidate_evidence": [],
         "size_reference_input": {
             "source_revision": validated_reference_revision,
@@ -1225,6 +1303,7 @@ def calibrate_recording(
     }
     receipts: list[CalibrationCandidateReceipt] = []
     observations: list[_Observation] = []
+    frame_prediction_polygons: dict[str, list[tuple[str, list[np.ndarray]]]] = {}
     expected_dimensions: tuple[int, int] | None = None
     expected_transform: str | None = None
 
@@ -1329,6 +1408,10 @@ def calibrate_recording(
             try:
                 polygons = _prediction_polygons(prediction)
                 mask = _mask_for_prediction(polygons, prediction, width, height)
+                if confidence >= selected_recipe.confidence_threshold:
+                    frame_prediction_polygons.setdefault(frame_id, []).append(
+                        (candidate_id, polygons)
+                    )
                 components, labels, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
                 dominant = max(
                     (int(stats[index, cv2.CC_STAT_AREA]) for index in range(1, components)),
@@ -1397,6 +1480,12 @@ def calibrate_recording(
                 or np.any(mask[:, -1])
             ):
                 rejection_reason = "frame_boundary"
+            elif (
+                quality_metrics["maximum_inward_defect_over_short_side"]
+                > selected_recipe.minimum_notch_depth_over_short_side
+                and 1.0 - quality_metrics["convexity"] > selected_recipe.minimum_notch_area_fraction
+            ):
+                rejection_reason = "localized_inward_notch"
             elif (
                 quality_metrics["boundary_straightness"]
                 < selected_recipe.minimum_boundary_straightness
@@ -1637,7 +1726,7 @@ def calibrate_recording(
                 receipts,
             )
 
-        out_of_frame: list[tuple[_Observation, np.ndarray]] = []
+        excluded: list[tuple[_Observation, np.ndarray, str]] = []
         for observation in [*fit_observations, *held_out]:
             outline = _projected_card_for_observation(
                 observation, fit["image_to_table"], fit["table_to_image"]
@@ -1645,24 +1734,51 @@ def calibrate_recording(
             if not _outline_within_frame(
                 outline, observation.frame_width, observation.frame_height
             ):
-                out_of_frame.append((observation, outline))
-        if not out_of_frame:
+                excluded.append((observation, outline, "frame_boundary"))
+                continue
+            peer_fraction = _projected_peer_boundary_fraction(
+                outline,
+                observation.candidate_id,
+                frame_prediction_polygons.get(observation.source_frame_id, []),
+                observation.frame_width,
+                observation.frame_height,
+                selected_recipe.boundary_sample_count,
+            )
+            evidence_by_id[observation.candidate_id].setdefault(
+                "initial_occluded_boundary_fraction", float(round(peer_fraction, 6))
+            )
+            evidence_by_id[observation.candidate_id]["occluded_boundary_fraction"] = float(
+                round(peer_fraction, 6)
+            )
+            if peer_fraction > selected_recipe.maximum_occluded_boundary_fraction:
+                excluded.append((observation, outline, "occluded_by_card"))
+        if not excluded:
             break
+        diagnostics["selection_refit_rounds"].append(
+            {
+                "fit_count": len(fit_observations),
+                "rejections": {
+                    reason: sum(item_reason == reason for _item, _outline, item_reason in excluded)
+                    for reason in sorted({item_reason for _item, _outline, item_reason in excluded})
+                },
+            }
+        )
 
-        out_of_frame_ids = {item.candidate_id for item, _outline in out_of_frame}
-        for observation, outline in out_of_frame:
-            diagnostics["rejections"][observation.candidate_id] = "frame_boundary"
+        excluded_ids = {item.candidate_id for item, _outline, _reason in excluded}
+        excluded_fit_ids = excluded_ids & {item.candidate_id for item in fit_observations}
+        for observation, outline, reason in excluded:
+            diagnostics["rejections"][observation.candidate_id] = reason
             evidence_by_id[observation.candidate_id]["accepted"] = False
-            evidence_by_id[observation.candidate_id]["rejection_reason"] = "frame_boundary"
+            evidence_by_id[observation.candidate_id]["rejection_reason"] = reason
             evidence_by_id[observation.candidate_id]["projected_full_card_outline"] = (
                 outline.tolist()
             )
 
-        accepted = [item for item in accepted if item.candidate_id not in out_of_frame_ids]
+        accepted = [item for item in accepted if item.candidate_id not in excluded_ids]
         fit_observations = [
-            item for item in fit_observations if item.candidate_id not in out_of_frame_ids
+            item for item in fit_observations if item.candidate_id not in excluded_ids
         ]
-        held_out = [item for item in held_out if item.candidate_id not in out_of_frame_ids]
+        held_out = [item for item in held_out if item.candidate_id not in excluded_ids]
         temporal_bins, position_bins, orientation_bins, coverage_x, coverage_y = (
             refresh_population_metrics(accepted)
         )
@@ -1685,17 +1801,20 @@ def calibrate_recording(
         if not fit_observations:
             diagnostics["fit_candidate_availability"] = {
                 "available": False,
-                "reason": "no_in_frame_fit_observations",
+                "reason": "no_eligible_fit_observations",
             }
             return _failure(
                 "insufficient_candidates",
-                "no in-frame calibration candidate remains for the diagnostic fit",
-                "use complete card outlines whose projected full-card boundaries stay in-frame",
+                "no complete calibration candidate remains for the diagnostic fit",
+                "use complete, isolated card outlines inside the source frame",
                 diagnostics,
                 recording_id,
                 source_revision,
                 receipts,
             )
+        if not excluded_fit_ids:
+            # Held-out observations did not influence this fit.
+            break
 
     diagnostics["fit"] = {
         key: fit[key]

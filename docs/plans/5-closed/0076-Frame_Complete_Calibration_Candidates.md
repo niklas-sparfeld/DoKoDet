@@ -2,12 +2,16 @@
 
 ## Plan status
 
-- **Summary:** Keep calibration cards inside the source frame and make each selection decision
-  visible for review.
-- **Status:** In Progress
+- **Summary:** Keep calibration cards inside the source frame, reject incomplete cards, and make
+  each selection decision visible for review.
+- **Status:** Closed
 - **Depends on:** Completed 0075 robust automatic table-plane calibration
 - **Outcome:** Automatic calibration removes candidates whose fitted full-card outline crosses the
-  source-frame boundary. Failed-run review shows fit, held-out, and discarded cards with metrics.
+  source-frame boundary or has strong evidence of occlusion. Failed-run review shows fit,
+  held-out, and discarded cards with metrics.
+- **Closure reason:** Complete
+- **Closure note:** All three milestones are complete. Frozen real results still need independent
+  full-card outlines before publication, and the held-out and coverage gates still fail.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -18,7 +22,9 @@
   [M0 report](../../reports/0076-M0_Frame_Complete_Calibration_Candidates.md).
 - **M1:** Complete — show fit, held-out, and discarded candidates as distinct frame overlays with
   per-card metrics and filters.
-- **M2:** Not started — improve selection of fully visible cards when other cards cover them.
+- **M2:** Complete — reject candidates whose projected edge is hidden by another detected card
+  and masks with a deep inward notch. Record the measurements in the
+  [M2 report](../../reports/0076-M2_Occluded_Calibration_Candidates.md).
 
 ## 1. Purpose
 

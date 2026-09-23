@@ -151,7 +151,7 @@ def test_detector_only_fit_is_retained_but_absolute_size_stays_unavailable() -> 
     assert run.calibration is None
     assert run.calibration_fit_candidate is not None
     assert run.diagnostics["gates"]["absolute_size_reference"] is False
-    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v5"
+    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v6"
     assert run.diagnostics["validation"]["absolute_size"]["status"] == "unavailable"
     assert run.diagnostics["validation"]["absolute_size"]["short_side_bias"] is None
     assert run.diagnostics["fit_candidate_availability"]["available"] is True
@@ -308,6 +308,102 @@ def test_candidate_mining_rejects_overlaps_and_deduplicates_bins() -> None:
     assert receipts["candidate-duplicate"].accepted is False
     assert receipts["candidate-duplicate"].rejection_reason == "overlaps_prediction"
     assert calibration.diagnostics["candidate_yield"]["deduplicated_count"] == 6
+
+
+def test_projected_card_rejects_overlap_with_other_detected_mask() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+        ]
+    )
+    quad = np.asarray(result["frames"][0]["predictions"][0]["polygon"])
+    edge_midpoint = (quad[1] + quad[2]) / 2
+    tangent = (quad[2] - quad[1]) / np.linalg.norm(quad[2] - quad[1])
+    inward = np.mean(quad, axis=0) - edge_midpoint
+    inward /= np.linalg.norm(inward)
+    edge = quad[2] - quad[1]
+    incomplete = [
+        quad[0].tolist(),
+        quad[1].tolist(),
+        (quad[1] + 0.05 * edge).tolist(),
+        (quad[1] + 0.05 * edge + 12 * inward).tolist(),
+        (quad[1] + 0.95 * edge + 12 * inward).tolist(),
+        (quad[1] + 0.95 * edge).tolist(),
+        quad[2].tolist(),
+        quad[3].tolist(),
+    ]
+    neighbor = edge_midpoint + np.asarray(
+        [
+            tangent * along + inward * depth
+            for along, depth in [(-65, -15), (65, -15), (65, 10), (-45, 10), (-45, 25), (-65, 25)]
+        ]
+    )
+    result["frames"][0]["predictions"].append(
+        {"candidate_id": "occluding-neighbor", "confidence": 0.95, "polygon": neighbor.tolist()}
+    )
+
+    ambiguous = calibrate_recording(result)
+    ambiguous_receipts = {item.candidate_id: item for item in ambiguous.candidate_receipts}
+    assert ambiguous_receipts["candidate-000"].accepted is True
+
+    result["frames"][0]["predictions"][0]["polygon"] = incomplete
+
+    run = calibrate_recording(result)
+    receipts = {item.candidate_id: item for item in run.candidate_receipts}
+
+    assert run.diagnostics["rejections"]["occluding-neighbor"]
+    assert receipts["candidate-000"].rejection_reason == "occluded_by_card"
+    assert "candidate-000" not in run.calibration_fit_candidate.fit_observation_ids
+    assert "candidate-000" not in run.calibration_fit_candidate.held_out_observation_ids
+
+
+def test_concave_visible_card_mask_is_not_used_for_calibration() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+        ]
+    )
+    quad = np.asarray(result["frames"][0]["predictions"][0]["polygon"])
+    edge = quad[2] - quad[1]
+    center = np.mean(quad, axis=0)
+    notch = (quad[1] + quad[2]) / 2
+    notch += (center - notch) / np.linalg.norm(center - notch) * 28
+    result["frames"][0]["predictions"][0]["polygon"] = [
+        quad[0].tolist(),
+        quad[1].tolist(),
+        (quad[1] + 0.15 * edge).tolist(),
+        notch.tolist(),
+        (quad[1] + 0.85 * edge).tolist(),
+        quad[2].tolist(),
+        quad[3].tolist(),
+    ]
+
+    run = calibrate_recording(result)
+    receipts = {item.candidate_id: item for item in run.candidate_receipts}
+
+    assert receipts["candidate-000"].rejection_reason == "localized_inward_notch"
+    assert (
+        dict(receipts["candidate-000"].quality_metrics)["maximum_inward_defect_over_short_side"]
+        > 0.12
+    )
+    assert dict(receipts["candidate-000"].quality_metrics)["convexity"] < 0.94
+    assert "candidate-000" not in run.calibration_fit_candidate.fit_observation_ids
 
 
 def test_candidate_evidence_carries_uniform_boundaries_and_quality() -> None:

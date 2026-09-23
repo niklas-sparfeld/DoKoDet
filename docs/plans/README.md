@@ -53,7 +53,6 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M6 complete at the implementation and contract level. M3 remains validated on MPS with threshold `0.65` and `0.984043` crop-containment recall against the `0.98` floor. M4 materializes validated 0072 scene-derived crops and adds 0070 rows to train only. M5 supplies the crop RF-DETR SegMedium child contract. M6 assembles and registers the selectable, non-default `local-rfdetr-cascade`; real M4/M5 runtime artifacts are still required for a real cascade execution. |
-| [0076 — Frame-complete automatic calibration candidates](3-in-progress/0076-Frame_Complete_Calibration_Candidates.md) | Completed 0075 robust automatic table-plane calibration | M0 excludes projected outlines outside the source frame. M1 shows fit, held-out, and discarded cards with metrics and filters in failed-run review. M2 for occlusion selection is not started. |
 
 ### Blocked
 
@@ -65,6 +64,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0076 — Frame-complete automatic calibration candidates](5-closed/0076-Frame_Complete_Calibration_Candidates.md) | Complete | M0 excludes projected outlines outside the source frame. M1 shows fit, held-out, and discarded cards with metrics. M2 excludes cards with projected edges hidden by another detected card or a deep inward notch. Frozen real results still fail held-out and coverage gates and lack independent full-card outlines. |
 | [0075 — Robust automatic table-plane calibration](5-closed/0075-Robust_Automatic_Table_Plane_Calibration.md) | Complete | M0–M5 complete: automatic calibration and anchor refinement share one robust boundary fit; failed runs retain diagnostic candidates for read-only review. Synthetic view-edge behavior passes the homography gate. Uniform 10% shrink fails the size gate, and all 24 real results remain unpublished until independent full-card outlines exist. Current evidence does not justify a lens model. |
 | [0074 — Unified visible-card review workbench](5-closed/0074-Unified_Visible_Card_Review_Workbench.md) | Complete | M0–M5 complete: one shared Camera/Rectified workbench now owns visible-region, ignore-region, virtual-card, mapping, restore, and frame-decision actions; the Timeline Rail keeps navigation only; the split presentations and legacy editor path are removed. |
 | [0073 — Production proposed card scenes and calibration refinement](5-closed/0073-Production_Proposed_Card_Scenes_and_Calibration_Refinement.md) | Complete | M0–M7 complete: production proposals, maintained-reference review, synchronized Source/Rectified card editing, calibration refinement, atomic reflow, preserved lineage, and bounded operator verification are complete. |
