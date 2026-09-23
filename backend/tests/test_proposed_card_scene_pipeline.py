@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from doko_operations.card_plane_calibration import CalibrationRun
 from doko_operations.card_plane_geometry import project_fixed_card
 from doko_operations.pipeline_data import (
     DataRevision,
@@ -112,7 +113,7 @@ def _visible_data() -> VisibleCardData:
     )
 
 
-def test_service_publishes_a_separate_proposal_revision_without_changing_detector_input(
+def test_service_retains_failed_fit_candidate_without_changing_detector_input(
     tmp_path: Path,
 ) -> None:
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
@@ -155,19 +156,23 @@ def test_service_publishes_a_separate_proposal_revision_without_changing_detecto
         source.recording_id,
         {"run_id": "proposal-run-001", "visible_card_revision_id": input_revision.revision_id},
     )
-    result, output_revisions = service.get_result(source.recording_id, started.run_id)
+    result = service.get_run(source.recording_id, started.run_id)
 
-    assert result.state.status == "complete"
-    assert [run.run_id for run in service.list_runs(source.recording_id)] == [
-        started.run_id
-    ]
-    assert len(output_revisions) == 1
-    assert output_revisions[0].manifest.content_type == "card_scene_proposals"
-    assert output_revisions[0].manifest.input_revision_ids == (input_revision.revision_id,)
-    assert output_revisions[0].content.detector_revision_id == input_revision.revision_id
-    assert canonical_json_bytes(
-        revisions.require(input_revision.revision_id).content.to_mapping()
-    ) == original_bytes
+    assert result.state.status == "failed"
+    assert [run.run_id for run in service.list_runs(source.recording_id)] == [started.run_id]
+    assert result.state.output_revision_ids == ()
+    assert result.state.terminal_failure is not None
+    assert result.state.terminal_failure.code == "absolute_size_reference_unavailable"
+    diagnostics = result.state.metrics
+    assert diagnostics["schema_version"] == "proposed-card-scene-failure-diagnostics/v1"
+    calibration_run = CalibrationRun.from_mapping(diagnostics["calibration_run"])
+    assert calibration_run.calibration_fit_candidate is not None
+    assert calibration_run.calibration_fit_candidate.source_revision == input_revision.revision_id
+    assert diagnostics["processor_result_digest"]
+    assert (
+        canonical_json_bytes(revisions.require(input_revision.revision_id).content.to_mapping())
+        == original_bytes
+    )
     asyncio.run(service.stop())
 
 

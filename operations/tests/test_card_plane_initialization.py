@@ -50,6 +50,7 @@ def _calibration_result() -> tuple[dict[str, object], object]:
                         "provider": "local-cascade",
                         "bundle": "bundle-1",
                         "polygon": quad.tolist(),
+                        "full_card_outline_reference": quad.tolist(),
                     }
                 ],
             }
@@ -59,7 +60,15 @@ def _calibration_result() -> tuple[dict[str, object], object]:
         "source_revision": "generated-1",
         "frames": frames,
     }
-    run = calibrate_recording(result)
+    run = calibrate_recording(
+        result,
+        size_reference={
+            prediction["candidate_id"]: prediction["full_card_outline_reference"]
+            for frame in result["frames"]
+            for prediction in frame["predictions"]
+        },
+        size_reference_revision="reviewed-test-outlines/v1",
+    )
     assert run.calibration is not None
     return result, run.calibration
 

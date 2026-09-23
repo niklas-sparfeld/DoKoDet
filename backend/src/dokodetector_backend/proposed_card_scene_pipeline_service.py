@@ -246,6 +246,11 @@ class ProposedCardScenePipelineService:
                 self.run_store.fail(
                     run_id,
                     RunFailure(code=str(failure["code"]), message=str(failure["message"])),
+                    metrics={
+                        "schema_version": "proposed-card-scene-failure-diagnostics/v1",
+                        "processor_result_digest": processor_result.result_digest,
+                        "calibration_run": processor_result.calibration_run.to_mapping(),
+                    },
                 )
                 return
             revision = self._publish_revision(run, processor_result.data)

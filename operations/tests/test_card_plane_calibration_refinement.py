@@ -43,6 +43,7 @@ def _result() -> dict[str, object]:
     ]
     frames = []
     for index, center in enumerate(positions):
+        outline = project_fixed_card(TABLE_TO_IMAGE, center, (index % 3) * 8.0, 1.0, 1.5)
         frames.append(
             {
                 "frame_id": f"frame-{index:03d}",
@@ -55,9 +56,8 @@ def _result() -> dict[str, object]:
                     {
                         "candidate_id": f"anchor-{index:03d}",
                         "confidence": 0.99,
-                        "polygon": project_fixed_card(
-                            TABLE_TO_IMAGE, center, (index % 3) * 8.0, 1.0, 1.5
-                        ).tolist(),
+                        "polygon": outline.tolist(),
+                        "full_card_outline_reference": outline.tolist(),
                     }
                 ],
             }
@@ -67,7 +67,15 @@ def _result() -> dict[str, object]:
 
 def _draft() -> tuple[object, object]:
     result = _result()
-    run = calibrate_recording(result)
+    run = calibrate_recording(
+        result,
+        size_reference={
+            prediction["candidate_id"]: prediction["full_card_outline_reference"]
+            for frame in result["frames"]
+            for prediction in frame["predictions"]
+        },
+        size_reference_revision="reviewed-test-outlines/v1",
+    )
     assert run.calibration is not None
     anchors = tuple(
         AnchorObservation.create(
@@ -179,9 +187,7 @@ def test_pinned_conflict_blocks_preview() -> None:
         source_frame_id=first.source_frame_id,
         source_frame_digest=first.source_frame_digest,
         detector_revision_id=first.detector_revision_id,
-        quadrilateral=[
-            [point[0] + 30.0, point[1] + 30.0] for point in first.quadrilateral
-        ],
+        quadrilateral=[[point[0] + 30.0, point[1] + 30.0] for point in first.quadrilateral],
         confidence=0.99,
         temporal_bin=first.temporal_bin,
         table_region_bin=first.table_region_bin,
@@ -242,7 +248,15 @@ def test_reflow_refits_reviewed_scene_under_new_calibration() -> None:
     result = _result()
     for frame in result["frames"]:
         frame["source_frame_digest"] = "a" * 64
-    run = calibrate_recording(result)
+    run = calibrate_recording(
+        result,
+        size_reference={
+            prediction["candidate_id"]: prediction["full_card_outline_reference"]
+            for frame in result["frames"]
+            for prediction in frame["predictions"]
+        },
+        size_reference_revision="reviewed-test-outlines/v1",
+    )
     assert run.calibration is not None
     data = build_proposed_card_scene_data(
         result,
@@ -322,7 +336,5 @@ def test_reflow_refits_reviewed_scene_under_new_calibration() -> None:
     assert reflowed.draft.proposal.calibration_revision_id == "calibration-target"
     assert reflowed.draft.proposal_revision_id == "proposal-target"
     assert reflowed.draft.reviewed is not None
-    assert (
-        reflowed.draft.reviewed.scene["calibration_revision_id"] == "calibration-target"
-    )
+    assert reflowed.draft.reviewed.scene["calibration_revision_id"] == "calibration-target"
     assert reflowed.draft.completion.state == "complete"

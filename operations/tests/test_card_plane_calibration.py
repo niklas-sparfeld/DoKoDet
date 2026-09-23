@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -8,12 +9,15 @@ import numpy as np
 import pytest
 
 from doko_operations.card_plane_calibration import (
+    CALIBRATION_RUN_SCHEMA_V2,
     CalibrationFailure,
     CalibrationRecipe,
     CalibrationRevisionStore,
+    CalibrationRun,
     calibrate_recording,
 )
 from doko_operations.card_plane_geometry import project_fixed_card
+from doko_operations.pipeline_data import canonical_json_bytes
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from card_plane_calibration_baseline import _synthetic_result  # noqa: E402
@@ -22,6 +26,26 @@ TABLE_TO_IMAGE = np.asarray(
     [[120.0, 20.0, 420.0], [15.0, 100.0, 240.0], [0.0002, 0.0004, 1.0]],
     dtype=np.float64,
 )
+
+
+def _size_reference(result: dict[str, object]) -> dict[str, list[list[float]]]:
+    return {
+        prediction["candidate_id"]: prediction["full_card_outline_reference"]
+        for frame in result["frames"]
+        for prediction in frame["predictions"]
+        if "full_card_outline_reference" in prediction
+    }
+
+
+def _calibrate_with_references(
+    result: dict[str, object], *, recipe: CalibrationRecipe | None = None
+):
+    return calibrate_recording(
+        result,
+        recipe=recipe,
+        size_reference=_size_reference(result),
+        size_reference_revision="independent-test-outlines/v1",
+    )
 
 
 def _recording_result(
@@ -48,6 +72,7 @@ def _recording_result(
                         "candidate_id": f"candidate-{index:03d}",
                         "confidence": 0.98,
                         "polygon": quad.tolist(),
+                        "full_card_outline_reference": quad.tolist(),
                     }
                 ],
             }
@@ -85,16 +110,94 @@ def test_calibration_is_repeatable_and_validates_held_out_candidates() -> None:
         ]
     )
 
-    first = calibrate_recording(result)
-    second = calibrate_recording(result)
+    first = _calibrate_with_references(result)
+    second = _calibrate_with_references(result)
 
     assert first.status == "published"
     assert first.calibration is not None
     assert first.to_mapping() == second.to_mapping()
     assert first.diagnostics["validation"]["held_out_count"] >= 2
-    assert first.diagnostics["gates"]["held_out_alignment"] is True
+    assert first.diagnostics["gates"]["held_out_boundary"] is True
+    assert first.diagnostics["gates"]["absolute_size_reference"] is True
     assert first.calibration.card_short_size == 1.0
     assert first.calibration.card_long_size == 1.5
+    assert first.calibration_fit_candidate is not None
+    assert first.to_mapping()["schema_version"] == "card-plane-calibration-run/v3"
+
+
+def test_detector_only_fit_is_retained_but_absolute_size_stays_unavailable() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+            (2.0, 1.5),
+            (6.0, 4.5),
+            (10.0, 7.0),
+        ]
+    )
+
+    run = calibrate_recording(result)
+
+    assert run.status == "failed"
+    assert run.failure is not None
+    assert run.failure.code == "absolute_size_reference_unavailable"
+    assert run.calibration is None
+    assert run.calibration_fit_candidate is not None
+    assert run.diagnostics["gates"]["absolute_size_reference"] is False
+    assert run.diagnostics["validation"]["absolute_size"]["status"] == "unavailable"
+    assert run.diagnostics["validation"]["absolute_size"]["short_side_bias"] is None
+    assert run.diagnostics["fit_candidate_availability"]["available"] is True
+    for item in run.diagnostics["candidate_evidence"]:
+        assert "quality_weight" in item
+        assert "residual" in item
+        assert "fit_decision" in item
+        assert "boundary_metrics" in item
+    assert CalibrationRun.from_mapping(run.to_mapping()).to_mapping() == run.to_mapping()
+
+
+def test_low_candidate_count_keeps_diagnostic_fit_and_distances() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+        ]
+    )
+
+    run = _calibrate_with_references(result, recipe=CalibrationRecipe(minimum_candidates=20))
+
+    assert run.status == "failed"
+    assert run.failure is not None and run.failure.code == "insufficient_candidates"
+    assert run.calibration_fit_candidate is not None
+    assert run.diagnostics["validation"]["held_out_summary"]["count"] >= 2
+    assert run.diagnostics["failed_gates"]
+
+
+def test_single_card_returns_finite_diagnostic_candidate_without_holdout() -> None:
+    result = _recording_result(positions=[(4.0, 3.0)])
+
+    run = calibrate_recording(result)
+
+    assert run.status == "failed"
+    assert run.failure is not None and run.failure.code == "insufficient_candidates"
+    assert run.calibration_fit_candidate is not None
+    assert run.calibration_fit_candidate.fit_observation_ids == ("candidate-000",)
+    assert run.diagnostics["validation"]["held_out_summary"]["count"] == 0
+    evidence = run.diagnostics["candidate_evidence"][0]
+    assert evidence["residual"]["median_boundary_distance_px"] >= 0
 
 
 def test_calibration_accepts_generated_revision_identifiers() -> None:
@@ -113,7 +216,7 @@ def test_calibration_accepts_generated_revision_identifiers() -> None:
         source_revision="visible-cards-visible_cards-run-5bd52a7b-3ba-attempt-1",
     )
 
-    run = calibrate_recording(result)
+    run = _calibrate_with_references(result)
 
     assert run.status == "published"
 
@@ -142,12 +245,12 @@ def test_calibration_tolerates_one_held_out_crop_quality_region() -> None:
         [100.0, 310.0],
     ]
 
-    calibration = calibrate_recording(result)
+    calibration = _calibrate_with_references(result)
 
     assert calibration.status == "published"
     validation = calibration.diagnostics["validation"]
-    assert validation["held_out_aligned_count"] < validation["held_out_count"]
-    assert validation["held_out_aligned_fraction"] >= 0.60
+    assert validation["held_out_summary"]["pass_count"] < validation["held_out_count"]
+    assert validation["held_out_summary"]["pass_fraction"] >= 0.60
 
 
 def test_candidate_selection_rejects_nonstandard_apparent_card_scale() -> None:
@@ -205,9 +308,13 @@ def test_candidate_mining_rejects_overlaps_and_deduplicates_bins() -> None:
 
 
 def test_candidate_evidence_carries_uniform_boundaries_and_quality() -> None:
-    result, _references, _metadata = _synthetic_result("clean-isolated")
+    result, references, _metadata = _synthetic_result("clean-isolated")
 
-    run = calibrate_recording(result)
+    run = calibrate_recording(
+        result,
+        size_reference={key: value.tolist() for key, value in references.items()},
+        size_reference_revision="synthetic-known-full-card-outlines/v1",
+    )
 
     assert run.status == "published"
     assert len(run.candidate_receipts) == 12
@@ -382,6 +489,8 @@ def test_one_long_lived_card_cannot_satisfy_diversity_gates() -> None:
     assert calibration.status == "failed"
     assert calibration.failure is not None
     assert calibration.failure.code == "insufficient_diversity"
+    assert calibration.calibration_fit_candidate is not None
+    assert calibration.diagnostics["validation"]["held_out_summary"]["count"] >= 2
     assert "table position" in calibration.failure.message
     accepted = [item for item in calibration.candidate_receipts if item.accepted]
     assert len(accepted) <= 8
@@ -412,24 +521,139 @@ def test_recording_inconsistency_is_an_actionable_failure(
     assert calibration.failure is not None
     assert calibration.failure.code == code
     assert calibration.failure.action
+    assert calibration.calibration_fit_candidate is None
+    assert calibration.diagnostics["fit_candidate_availability"]["reason"] == code
+
+
+def test_held_out_boundary_failure_retains_candidate_and_regional_metrics() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+        ]
+    )
+    recipe = CalibrationRecipe(maximum_held_out_median_boundary_error_px=0.000001)
+
+    run = _calibrate_with_references(result, recipe=recipe)
+
+    assert run.status == "failed"
+    assert run.failure is not None and run.failure.code == "held_out_boundary_failed"
+    assert run.calibration_fit_candidate is not None
+    assert run.diagnostics["gates"]["held_out_boundary"] is False
+    assert set(run.diagnostics["validation"]["regional_metrics"]) == {"center", "view_edges"}
+
+
+def test_inconsistent_fit_keeps_best_finite_candidate() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+        ]
+    )
+    recipe = CalibrationRecipe(maximum_median_angle_error_degrees=0.000001)
+
+    run = _calibrate_with_references(result, recipe=recipe)
+
+    assert run.status == "failed"
+    assert run.failure is not None and run.failure.code == "inconsistent_card_geometry"
+    assert run.calibration_fit_candidate is not None
+    assert run.diagnostics["gates"]["fit_quality"] is False
+    assert run.diagnostics["validation"]["held_out_summary"]["count"] >= 2
+
+
+def test_uniform_shrink_fails_independent_size_gate_with_candidate() -> None:
+    result, references, _metadata = _synthetic_result("shrink-10-percent")
+
+    run = calibrate_recording(
+        result,
+        size_reference={key: value.tolist() for key, value in references.items()},
+        size_reference_revision="synthetic-known-full-card-outlines/v1",
+    )
+
+    assert run.status == "failed"
+    assert run.failure is not None
+    assert run.failure.code == "absolute_size_bias_failed"
+    assert run.calibration_fit_candidate is not None
+    size = run.diagnostics["validation"]["absolute_size"]
+    assert size["status"] == "failed"
+    assert size["short_side_bias"] < -0.08
+    assert size["area_bias"] < -0.15
+
+
+def test_legacy_v2_calibration_run_remains_readable(tmp_path: Path) -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+        ]
+    )
+    mapping = _calibrate_with_references(result).to_mapping()
+    legacy = dict(mapping)
+    legacy.pop("calibration_fit_candidate")
+    legacy["schema_version"] = CALIBRATION_RUN_SCHEMA_V2
+    legacy.pop("run_digest")
+    legacy["run_digest"] = hashlib.sha256(canonical_json_bytes(legacy)).hexdigest()
+
+    loaded = CalibrationRun.from_mapping(legacy)
+
+    assert loaded.run_schema_version == CALIBRATION_RUN_SCHEMA_V2
+    assert loaded.calibration_fit_candidate is None
+    assert loaded.to_mapping() == legacy
+    assert loaded.run_digest != mapping["run_digest"]
+    assert loaded.calibration is not None
+    path = (
+        tmp_path
+        / "recording-1"
+        / "table-plane-calibrations"
+        / loaded.calibration.calibration_revision_id
+        / "manifest.json"
+    )
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    restored = CalibrationRevisionStore(tmp_path).load(
+        "recording-1", loaded.calibration.calibration_revision_id
+    )
+
+    assert restored.to_mapping() == legacy
 
 
 def test_revision_store_does_not_overwrite_an_immutable_revision(tmp_path: Path) -> None:
-    run = calibrate_recording(
-        _recording_result(
-            positions=[
-                (0.0, 0.0),
-                (4.0, 0.0),
-                (8.0, 0.0),
-                (0.0, 3.0),
-                (4.0, 3.0),
-                (8.0, 3.0),
-                (0.0, 6.0),
-                (4.0, 6.0),
-                (8.0, 6.0),
-            ]
-        )
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+        ]
     )
+    run = _calibrate_with_references(result)
     store = CalibrationRevisionStore(tmp_path)
 
     path = store.publish(run)

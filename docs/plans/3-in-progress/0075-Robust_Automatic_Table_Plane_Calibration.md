@@ -9,7 +9,12 @@
 - **M0 — Complete.** Froze 24 local RF-DETR revisions, ten known-geometry synthetic cases, a read-only evaluator, and measured acceptance gates. The [baseline report](../../reports/0075-M0_Calibration_Baseline.md) records current results. Real-data outline acceptance remains pending because the frozen frames have no independent full-card outlines.
 - **M1 — Complete.** Added source-frame evidence, uniform boundary samples, image-space quality measures, quality-first selection, and caps for repeated evidence. All ten synthetic cases repeat exactly. The [M1 report](../../reports/0075-M1_Candidate_Evidence.md) records the selection results. Real-data outline acceptance remains pending.
 - **M2 — Complete.** Automatic calibration and anchor refinement use the same joint boundary fit. Identifiable synthetic geometry and runtime gates pass. The frozen uniform-shrink case remains unidentifiable from its input masks and does not pass the absolute-size gate. The [M2 report](../../reports/0075-M2_Joint_Boundary_Fit.md) records the measurements and limit.
-- **M3 — Not started.**
+- **M3 — Complete.** Replaced corner-only validation with held-out symmetric boundary metrics and
+  regional summaries. Runs retain a digest-bound fit candidate when gates fail. Independent
+  held-out full-card outlines are required to pass the absolute-size gate; all 24 frozen local
+  results retain candidates but cannot publish without those outlines. Nine of ten known-geometry
+  synthetic cases pass. The [M3 report](../../reports/0075-M3_Validated_Fit_Candidates.md) records
+  the results.
 - **M4 — Not started.**
 - **M5 — Not started.**
 
@@ -206,6 +211,17 @@ distortion diagnostic and a specified follow-up epic.
 - Use M2 residuals to measure shared-geometry consistency. In M3, mark absolute size bias
   unavailable when observations do not provide independent full-card size evidence, and prevent that
   fit from passing a size gate.
+
+## M3 measurement decision — 2026-09-23
+
+- M3 uses the same explicit size-evidence boundary in the run contract. Held-out detector boundaries
+  measure shared-geometry consistency, not absolute card extent. The frozen local results have no
+  independent full-card outlines, so their absolute-size gate is unavailable and they do not
+  publish. Their best finite transforms, fit lineage, per-observation residuals, and failed gates
+  remain in the run-scoped fit candidate.
+- Synthetic known-geometry cases provide independent held-out outlines. Nine cases pass the
+  identifiable gates. Uniform 10% shrink fails with median short-side bias −9.77% and area bias
+  −18.77%. No fixed shrink correction is applied.
 
 ## Verification and boundaries
 

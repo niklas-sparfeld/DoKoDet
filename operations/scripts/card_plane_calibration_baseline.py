@@ -357,18 +357,7 @@ def _fit_rejected_candidate_ids(run: Any) -> list[str]:
     if not rejected_indices:
         return []
     validation = run.diagnostics.get("validation", {})
-    held_out_ids = set(validation.get("held_out_candidate_ids", []))
-    accepted = [item for item in run.candidate_receipts if item.accepted]
-    ordered = sorted(
-        accepted,
-        key=lambda item: (item.temporal_bin, item.table_position_bin, item.candidate_id),
-    )
-    modulus = int(run.diagnostics.get("recipe", {}).get("holdout_modulus", 4))
-    fit_ids = [
-        item.candidate_id
-        for index, item in enumerate(ordered)
-        if index % modulus != 0 and item.candidate_id not in held_out_ids
-    ]
+    fit_ids = validation.get("fit_candidate_ids", [])
     return [
         fit_ids[index]
         for index in sorted(int(value) for value in rejected_indices)
@@ -380,40 +369,18 @@ def _run_case(
     result: dict[str, Any], references: dict[str, np.ndarray] | None = None
 ) -> dict[str, Any]:
     started = time.perf_counter()
-    run = calibrate_recording(result)
+    run = calibrate_recording(
+        result,
+        size_reference={key: value.tolist() for key, value in references.items()}
+        if references
+        else None,
+        size_reference_revision="synthetic-known-full-card-outlines/v1" if references else None,
+    )
     elapsed_ms = (time.perf_counter() - started) * 1000.0
     diagnostics = run.diagnostics
     held_out = diagnostics.get("validation", {})
-    held_out_ids = held_out.get("held_out_candidate_ids", [])
-    held_out_errors = held_out.get("held_out_alignment_errors_px", [])
-    candidate_map = {item.candidate_id: item for item in run.candidate_receipts}
-    first_frame = (result.get("frames") or [{}])[0]
-    width = int(first_frame.get("width", FRAME_WIDTH))
-    height = int(first_frame.get("height", FRAME_HEIGHT))
-    regions: dict[str, list[float]] = {"center": [], "view_edges": []}
-
-    for candidate_id, error in zip(held_out_ids, held_out_errors, strict=True):
-        item = candidate_map.get(candidate_id)
-        if item is None:
-            continue
-        points = np.asarray(item.quadrilateral, dtype=np.float64)
-        center = np.mean(points, axis=0)
-        region = (
-            "center"
-            if 0.25 * width <= center[0] <= 0.75 * width
-            and 0.25 * height <= center[1] <= 0.75 * height
-            else "view_edges"
-        )
-        regions[region].append(float(error))
-
-    region_summary = {
-        region: {
-            "count": len(values),
-            "median_legacy_alignment_score": None if not values else float(np.median(values)),
-            "max_legacy_alignment_score": None if not values else float(np.max(values)),
-        }
-        for region, values in regions.items()
-    }
+    held_out_rows = held_out.get("held_out_observations", [])
+    held_out_ids = [item["candidate_id"] for item in held_out_rows]
     result_summary: dict[str, Any] = {
         "status": run.status,
         "run_digest": run.run_digest,
@@ -430,14 +397,10 @@ def _run_case(
         "gates": diagnostics.get("gates"),
         "held_out": {
             "count": held_out.get("held_out_count", 0),
-            "median_legacy_alignment_score": held_out.get("held_out_median_alignment_px"),
-            "p90_legacy_alignment_score": None
-            if not held_out_errors
-            else float(np.percentile(held_out_errors, 90)),
-            "max_legacy_alignment_score": held_out.get("held_out_max_alignment_px"),
-            "regions": region_summary,
+            "summary": held_out.get("held_out_summary"),
+            "regions": held_out.get("regional_metrics"),
         },
-        "inspectable_fit_candidate": getattr(run, "calibration_fit_candidate", None) is not None,
+        "inspectable_fit_candidate": run.calibration_fit_candidate is not None,
     }
     if references:
         result_summary["candidate_selection"] = {
@@ -507,6 +470,9 @@ def _run_case(
             "center": {},
             "view_edges": {},
         }
+        first_frame = (result.get("frames") or [{}])[0]
+        width = int(first_frame.get("width", FRAME_WIDTH))
+        height = int(first_frame.get("height", FRAME_HEIGHT))
         for card_id, metrics in candidate_metrics.items():
             center = np.mean(held_out_references[card_id], axis=0)
             region = (
@@ -570,7 +536,11 @@ def run_baseline(repository_root: Path, manifest_path: Path) -> dict[str, Any]:
             "source": {"recipe": case["recipe"], **source_summary},
             **_run_case(result, references),
         }
-        repeat_run = calibrate_recording(result)
+        repeat_run = calibrate_recording(
+            result,
+            size_reference={key: value.tolist() for key, value in references.items()},
+            size_reference_revision="synthetic-known-full-card-outlines/v1",
+        )
         row["repeatable_run_digest"] = repeat_run.run_digest
         row["repeatable"] = repeat_run.run_digest == row["run_digest"]
         results.append(row)

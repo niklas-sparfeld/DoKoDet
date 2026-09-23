@@ -91,8 +91,10 @@ def visible_card_data_to_local_result(
                 continue
             polygons = candidate.geometry.polygons
             source_polygons = [
-                [[float(x) / 1000.0 * identity.width, float(y) / 1000.0 * identity.height]
-                 for x, y in polygon]
+                [
+                    [float(x) / 1000.0 * identity.width, float(y) / 1000.0 * identity.height]
+                    for x, y in polygon
+                ]
                 for polygon in polygons
             ]
             scores = candidate.model_scores or ()
@@ -158,6 +160,8 @@ def build_proposed_card_scenes(
     detector_revision_digest: str,
     calibration_store: CalibrationRevisionStore | None = None,
     calibration_recipe: CalibrationRecipe | None = None,
+    calibration_size_reference: Mapping[str, Any] | None = None,
+    calibration_size_reference_revision: str | None = None,
     pose_recipe: PoseFitRecipe | None = None,
 ) -> ProposedCardSceneProcessorResult:
     """Calibrate one generated result and initialize a proposal for every resolvable frame."""
@@ -167,7 +171,12 @@ def build_proposed_card_scenes(
         raise ProposedCardSceneProcessorError(
             "local result source revision does not match the selected detector revision"
         )
-    run = calibrate_recording(selected, recipe=calibration_recipe)
+    run = calibrate_recording(
+        selected,
+        recipe=calibration_recipe,
+        size_reference=calibration_size_reference,
+        size_reference_revision=calibration_size_reference_revision,
+    )
     if run.status != "published" or run.calibration is None:
         failure = None if run.failure is None else run.failure.to_mapping()
         value = {

@@ -36,6 +36,7 @@ def _local_result(*, include_unresolvable: bool = False) -> dict[str, object]:
     ]
     frames = []
     for index, center in enumerate(positions):
+        outline = project_fixed_card(TABLE_TO_IMAGE, center, (index % 3) * 8.0, 1.0, 1.5)
         frames.append(
             {
                 "frame_id": f"frame-{index:03d}",
@@ -49,9 +50,8 @@ def _local_result(*, include_unresolvable: bool = False) -> dict[str, object]:
                     {
                         "candidate_id": f"candidate-{index:03d}",
                         "confidence": 0.98,
-                        "polygon": project_fixed_card(
-                            TABLE_TO_IMAGE, center, (index % 3) * 8.0, 1.0, 1.5
-                        ).tolist(),
+                        "polygon": outline.tolist(),
+                        "full_card_outline_reference": outline.tolist(),
                     }
                 ],
             }
@@ -68,16 +68,30 @@ def _local_result(*, include_unresolvable: bool = False) -> dict[str, object]:
     return result
 
 
+def _size_reference(result: dict[str, object]) -> dict[str, list[list[float]]]:
+    return {
+        prediction["candidate_id"]: prediction["full_card_outline_reference"]
+        for frame in result["frames"]
+        for prediction in frame["predictions"]
+    }
+
+
 def test_proposals_are_repeatable_and_publish_one_calibration_revision(tmp_path: Path) -> None:
+    local_result = _local_result()
     first = build_proposed_card_scenes(
-        _local_result(),
+        local_result,
         detector_revision_id="visible-cards-001",
         detector_revision_digest=DIGEST,
+        calibration_size_reference=_size_reference(local_result),
+        calibration_size_reference_revision="reviewed-full-card-outlines/v1",
     )
+    repeated_result = _local_result()
     second = build_proposed_card_scenes(
-        _local_result(),
+        repeated_result,
         detector_revision_id="visible-cards-001",
         detector_revision_digest=DIGEST,
+        calibration_size_reference=_size_reference(repeated_result),
+        calibration_size_reference_revision="reviewed-full-card-outlines/v1",
     )
 
     assert first.status == "complete"
@@ -97,11 +111,29 @@ def test_proposals_are_repeatable_and_publish_one_calibration_revision(tmp_path:
     )
 
 
-def test_unresolvable_source_frame_is_explicitly_unsupported() -> None:
+def test_failed_proposal_retains_fit_candidate_without_independent_size_reference() -> None:
     result = build_proposed_card_scenes(
-        _local_result(include_unresolvable=True),
+        _local_result(),
         detector_revision_id="visible-cards-001",
         detector_revision_digest=DIGEST,
+    )
+
+    assert result.status == "failed"
+    assert result.data is None
+    assert result.calibration_run.calibration_fit_candidate is not None
+    assert result.calibration_run.failure is not None
+    assert result.calibration_run.failure.code == "absolute_size_reference_unavailable"
+    assert result.calibration_run.diagnostics["validation"]["held_out_summary"]["count"] >= 2
+
+
+def test_unresolvable_source_frame_is_explicitly_unsupported() -> None:
+    local_result = _local_result(include_unresolvable=True)
+    result = build_proposed_card_scenes(
+        local_result,
+        detector_revision_id="visible-cards-001",
+        detector_revision_digest=DIGEST,
+        calibration_size_reference=_size_reference(local_result),
+        calibration_size_reference_revision="reviewed-full-card-outlines/v1",
     )
 
     assert result.status == "partial"
@@ -124,6 +156,8 @@ def test_generated_revision_and_candidate_identifiers_with_underscores_are_suppo
         result,
         detector_revision_id="visible-cards_visible_cards-run-0073-attempt-1",
         detector_revision_digest=DIGEST,
+        calibration_size_reference=_size_reference(result),
+        calibration_size_reference_revision="reviewed-full-card-outlines/v1",
     )
 
     assert proposal.status == "complete"
@@ -132,15 +166,21 @@ def test_generated_revision_and_candidate_identifiers_with_underscores_are_suppo
 
 
 def test_changed_initializer_recipe_publishes_changed_proposal_with_same_lineage() -> None:
+    local_result = _local_result()
     baseline = build_proposed_card_scenes(
-        _local_result(),
+        local_result,
         detector_revision_id="visible-cards-001",
         detector_revision_digest=DIGEST,
+        calibration_size_reference=_size_reference(local_result),
+        calibration_size_reference_revision="reviewed-full-card-outlines/v1",
     )
+    changed_result = _local_result()
     changed = build_proposed_card_scenes(
-        _local_result(),
+        changed_result,
         detector_revision_id="visible-cards-001",
         detector_revision_digest=DIGEST,
+        calibration_size_reference=_size_reference(changed_result),
+        calibration_size_reference_revision="reviewed-full-card-outlines/v1",
         pose_recipe=PoseFitRecipe(center_search_radius=0.30),
     )
 

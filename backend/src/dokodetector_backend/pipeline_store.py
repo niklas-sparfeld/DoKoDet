@@ -1273,6 +1273,7 @@ class ProcessorRunStore:
         run_id: str,
         failure: RunFailure | Mapping[str, Any],
         *,
+        metrics: Mapping[str, Any] | None = None,
         completed_at: datetime | str | None = None,
     ) -> StoredProcessorRun:
         current = self.require(run_id)
@@ -1290,6 +1291,7 @@ class ProcessorRunStore:
                 completed_at=timestamp,
                 updated_at=timestamp,
                 terminal_failure=parsed_failure,
+                metrics=current.state.metrics if metrics is None else dict(metrics),
             ),
         )
 
