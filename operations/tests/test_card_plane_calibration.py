@@ -151,7 +151,7 @@ def test_detector_only_fit_is_retained_but_absolute_size_stays_unavailable() -> 
     assert run.calibration is None
     assert run.calibration_fit_candidate is not None
     assert run.diagnostics["gates"]["absolute_size_reference"] is False
-    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v4"
+    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v5"
     assert run.diagnostics["validation"]["absolute_size"]["status"] == "unavailable"
     assert run.diagnostics["validation"]["absolute_size"]["short_side_bias"] is None
     assert run.diagnostics["fit_candidate_availability"]["available"] is True
@@ -373,6 +373,31 @@ def test_candidate_selection_keeps_full_edge_and_uniformly_shrunken_cards() -> N
     }
     assert edge_evidence["card-00"]["accepted"] is True
     assert all(item["accepted"] for item in shrink_evidence.values())
+
+
+def test_candidate_is_rejected_when_projected_full_outline_leaves_frame() -> None:
+    result, references, _metadata = _synthetic_result("edge-of-view")
+    complete_outline = references["card-00"].copy()
+    complete_outline[:, 0] -= float(np.min(complete_outline[:, 0])) + 1.0
+    center = np.mean(complete_outline, axis=0)
+    partial_outline = center + 0.75 * (complete_outline - center)
+    assert np.min(partial_outline[:, 0]) > 0.0
+
+    result["frames"][0]["predictions"][0]["polygons"] = [partial_outline.tolist()]
+    run = calibrate_recording(result)
+
+    evidence = {item["candidate_id"]: item for item in run.diagnostics["candidate_evidence"]}[
+        "card-00"
+    ]
+    receipt = {item.candidate_id: item for item in run.candidate_receipts}["card-00"]
+    assert evidence["accepted"] is False
+    assert evidence["rejection_reason"] == "frame_boundary"
+    assert np.min(np.asarray(evidence["projected_full_card_outline"])[:, 0]) < 0.0
+    assert receipt.accepted is False
+    assert receipt.rejection_reason == "frame_boundary"
+    assert run.calibration_fit_candidate is not None
+    assert "card-00" not in run.calibration_fit_candidate.fit_observation_ids
+    assert "card-00" not in run.calibration_fit_candidate.held_out_observation_ids
 
 
 def test_candidate_selection_uses_common_local_geometry_and_rejects_fragments() -> None:

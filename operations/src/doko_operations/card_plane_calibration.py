@@ -36,7 +36,7 @@ from .card_plane_geometry import (
 )
 from .pipeline_data import canonical_json_bytes
 
-CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v4"
+CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v5"
 CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v3"
 CALIBRATION_RUN_SCHEMA_V2 = "card-plane-calibration-run/v2"
 CALIBRATION_FIT_CANDIDATE_SCHEMA_VERSION = "card-plane-calibration-fit-candidate/v1"
@@ -1129,6 +1129,17 @@ def _projected_card_for_observation(
     return project_fixed_card(table_to_image, center, angle, 1.0, 1.5)
 
 
+def _outline_within_frame(outline: np.ndarray, width: int, height: int) -> bool:
+    points = np.asarray(outline, dtype=np.float64).reshape(-1, 2)
+    tolerance = 1e-6
+    return bool(
+        np.all(points[:, 0] >= -tolerance)
+        and np.all(points[:, 0] <= width + tolerance)
+        and np.all(points[:, 1] >= -tolerance)
+        and np.all(points[:, 1] <= height + tolerance)
+    )
+
+
 def _size_reference_metrics(projected: np.ndarray, reference: np.ndarray) -> dict[str, float]:
     predicted_short, predicted_long = card_vectors(projected)
     reference_short, reference_long = card_vectors(reference)
@@ -1522,35 +1533,46 @@ def calibrate_recording(
         key=lambda item: (item["source_frame_id"], item["candidate_id"])
     )
 
-    temporal_bins = sorted({item.temporal_bin for item in accepted})
-    position_bins = sorted({item.table_position_bin for item in accepted})
-    orientation_bins = sorted({item.orientation_bin for item in accepted})
     dimensions = expected_dimensions or (0, 0)
-    coverage_x = (
-        (
-            max(np.mean(item.quadrilateral, axis=0)[0] for item in accepted)
-            - min(np.mean(item.quadrilateral, axis=0)[0] for item in accepted)
+
+    def refresh_population_metrics(
+        current: Sequence[_Observation],
+    ) -> tuple[list[str], list[str], list[str], float, float]:
+        diagnostics["candidate_yield"]["deduplicated_count"] = len(current)
+        diagnostics["candidate_yield"]["accepted_count"] = len(current)
+        temporal = sorted({item.temporal_bin for item in current})
+        positions = sorted({item.table_position_bin for item in current})
+        orientations = sorted({item.orientation_bin for item in current})
+        coverage_x_value = (
+            (
+                max(np.mean(item.quadrilateral, axis=0)[0] for item in current)
+                - min(np.mean(item.quadrilateral, axis=0)[0] for item in current)
+            )
+            / dimensions[0]
+            if current
+            else 0.0
         )
-        / dimensions[0]
-        if accepted
-        else 0.0
-    )
-    coverage_y = (
-        (
-            max(np.mean(item.quadrilateral, axis=0)[1] for item in accepted)
-            - min(np.mean(item.quadrilateral, axis=0)[1] for item in accepted)
+        coverage_y_value = (
+            (
+                max(np.mean(item.quadrilateral, axis=0)[1] for item in current)
+                - min(np.mean(item.quadrilateral, axis=0)[1] for item in current)
+            )
+            / dimensions[1]
+            if current
+            else 0.0
         )
-        / dimensions[1]
-        if accepted
-        else 0.0
+        diagnostics["diversity"] = {
+            "temporal_bin_count": len(temporal),
+            "table_position_bin_count": len(positions),
+            "orientation_bin_count": len(orientations),
+            "spatial_coverage_x": float(round(float(coverage_x_value), 6)),
+            "spatial_coverage_y": float(round(float(coverage_y_value), 6)),
+        }
+        return temporal, positions, orientations, coverage_x_value, coverage_y_value
+
+    temporal_bins, position_bins, orientation_bins, coverage_x, coverage_y = (
+        refresh_population_metrics(accepted)
     )
-    diagnostics["diversity"] = {
-        "temporal_bin_count": len(temporal_bins),
-        "table_position_bin_count": len(position_bins),
-        "orientation_bin_count": len(orientation_bins),
-        "spatial_coverage_x": float(round(float(coverage_x), 6)),
-        "spatial_coverage_y": float(round(float(coverage_y), 6)),
-    }
     ordered = sorted(
         accepted, key=lambda item: (item.temporal_bin, item.table_position_bin, item.candidate_id)
     )
@@ -1590,27 +1612,91 @@ def calibrate_recording(
             source_revision,
             receipts,
         )
-    try:
-        fit = fit_table_plane(
-            [item.quadrilateral for item in fit_observations],
-            boundary_samples=[item.boundary_samples for item in fit_observations],
-            observation_weights=[max(item.quality_score, 0.01) for item in fit_observations],
+
+    evidence_by_id = {item["candidate_id"]: item for item in diagnostics["candidate_evidence"]}
+    while True:
+        try:
+            fit = fit_table_plane(
+                [item.quadrilateral for item in fit_observations],
+                boundary_samples=[item.boundary_samples for item in fit_observations],
+                observation_weights=[max(item.quality_score, 0.01) for item in fit_observations],
+            )
+        except (CardPlaneGeometryError, ValueError) as error:
+            diagnostics["fit_error"] = str(error)
+            diagnostics["fit_candidate_availability"] = {
+                "available": False,
+                "reason": "no_finite_invertible_transform",
+            }
+            return _failure(
+                "calibration_fit_failed",
+                "the shared table-plane fit could not explain the isolated-card population",
+                "check for camera movement, zoom, stabilization drift, or a changed table setup",
+                diagnostics,
+                recording_id,
+                source_revision,
+                receipts,
+            )
+
+        out_of_frame: list[tuple[_Observation, np.ndarray]] = []
+        for observation in [*fit_observations, *held_out]:
+            outline = _projected_card_for_observation(
+                observation, fit["image_to_table"], fit["table_to_image"]
+            )
+            if not _outline_within_frame(
+                outline, observation.frame_width, observation.frame_height
+            ):
+                out_of_frame.append((observation, outline))
+        if not out_of_frame:
+            break
+
+        out_of_frame_ids = {item.candidate_id for item, _outline in out_of_frame}
+        for observation, outline in out_of_frame:
+            diagnostics["rejections"][observation.candidate_id] = "frame_boundary"
+            evidence_by_id[observation.candidate_id]["accepted"] = False
+            evidence_by_id[observation.candidate_id]["rejection_reason"] = "frame_boundary"
+            evidence_by_id[observation.candidate_id]["projected_full_card_outline"] = (
+                outline.tolist()
+            )
+
+        accepted = [item for item in accepted if item.candidate_id not in out_of_frame_ids]
+        fit_observations = [
+            item for item in fit_observations if item.candidate_id not in out_of_frame_ids
+        ]
+        held_out = [item for item in held_out if item.candidate_id not in out_of_frame_ids]
+        temporal_bins, position_bins, orientation_bins, coverage_x, coverage_y = (
+            refresh_population_metrics(accepted)
         )
-    except (CardPlaneGeometryError, ValueError) as error:
-        diagnostics["fit_error"] = str(error)
-        diagnostics["fit_candidate_availability"] = {
-            "available": False,
-            "reason": "no_finite_invertible_transform",
+        diagnostics["validation"] = {
+            **diagnostics["validation"],
+            "fit_count": len(fit_observations),
+            "held_out_count": len(held_out),
+            "fit_candidate_ids": [item.candidate_id for item in fit_observations],
+            "held_out_candidate_ids": [item.candidate_id for item in held_out],
         }
-        return _failure(
-            "calibration_fit_failed",
-            "the shared table-plane fit could not explain the isolated-card population",
-            "check for camera movement, zoom, stabilization drift, or a changed table setup",
-            diagnostics,
-            recording_id,
-            source_revision,
-            receipts,
-        )
+        receipts = [
+            _candidate_receipt(
+                item,
+                item.candidate_id not in diagnostics["rejections"],
+                diagnostics["rejections"].get(item.candidate_id),
+            )
+            for item in observations
+        ]
+        receipts.sort(key=lambda item: item.candidate_id)
+        if not fit_observations:
+            diagnostics["fit_candidate_availability"] = {
+                "available": False,
+                "reason": "no_in_frame_fit_observations",
+            }
+            return _failure(
+                "insufficient_candidates",
+                "no in-frame calibration candidate remains for the diagnostic fit",
+                "use complete card outlines whose projected full-card boundaries stay in-frame",
+                diagnostics,
+                recording_id,
+                source_revision,
+                receipts,
+            )
+
     diagnostics["fit"] = {
         key: fit[key]
         for key in (
