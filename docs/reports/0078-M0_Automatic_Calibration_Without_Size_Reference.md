@@ -4,11 +4,13 @@
 
 Automatic calibration no longer requires independent full-card outlines. The fitted source-image
 scale is the automatic estimate. Candidate count, temporal and spatial diversity, fit quality,
-and held-out boundary checks still decide publication. The processor version is v8.
+and held-out boundary checks still decide publication. The processor version is v9.
 
 When independent outlines are supplied for an evaluation, the processor still reports short-side
 and area bias. Those metrics are optional diagnostics. They are not publication gates. Failed-run
 review labels this check as an optional size comparison.
+The reference input digest is part of the immutable calibration revision ID, so runs with and
+without optional comparison data can both be stored.
 
 ## Frozen comparison
 
@@ -32,7 +34,7 @@ Both runs used frozen manifest digest
 | Results failing spatial coverage first | 14 | 14 |
 | Results failing held-out boundaries first | 5 | 5 |
 | Results blocked only by missing size reference | 4 | 0 |
-| Mean / maximum local call time | 3.776 s / 13.071 s | 3.865 s / 13.177 s |
+| Mean / maximum local call time | 3.776 s / 13.071 s | 3.756 s / 12.791 s |
 
 The inspected `visible-cards-visible_cards-run-f678d010-5a3-attempt-1` still fails spatial
 coverage and held-out boundaries. Removing the size gate does not change its calibration status.

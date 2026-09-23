@@ -125,7 +125,7 @@ def test_calibration_is_repeatable_and_validates_held_out_candidates() -> None:
     assert first.to_mapping()["schema_version"] == "card-plane-calibration-run/v3"
 
 
-def test_detector_only_fit_publishes_without_independent_size_reference() -> None:
+def test_detector_only_fit_publishes_without_independent_size_reference(tmp_path: Path) -> None:
     result = _recording_result(
         positions=[
             (0.0, 0.0),
@@ -151,7 +151,7 @@ def test_detector_only_fit_publishes_without_independent_size_reference() -> Non
     assert run.calibration_fit_candidate is not None
     assert "absolute_size_reference" not in run.diagnostics["gates"]
     assert run.diagnostics["unavailable_gates"] == []
-    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v8"
+    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v9"
     assert run.diagnostics["validation"]["absolute_size"]["status"] == "unavailable"
     assert run.diagnostics["validation"]["absolute_size"]["short_side_bias"] is None
     assert run.diagnostics["fit_candidate_availability"]["available"] is True
@@ -163,6 +163,14 @@ def test_detector_only_fit_publishes_without_independent_size_reference() -> Non
         assert len(item["projected_full_card_outline"]) == 64
         assert all(len(point) == 2 for point in item["projected_full_card_outline"])
     assert CalibrationRun.from_mapping(run.to_mapping()).to_mapping() == run.to_mapping()
+
+    compared = _calibrate_with_references(result)
+    assert compared.status == "published"
+    assert compared.calibration is not None
+    assert compared.calibration.calibration_revision_id != run.calibration.calibration_revision_id
+    store = CalibrationRevisionStore(tmp_path)
+    assert store.publish(run).is_file()
+    assert store.publish(compared).is_file()
 
 
 def test_low_candidate_count_keeps_diagnostic_fit_and_distances() -> None:

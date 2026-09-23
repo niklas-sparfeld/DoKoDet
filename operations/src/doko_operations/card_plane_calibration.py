@@ -38,7 +38,7 @@ from .card_plane_geometry import (
 )
 from .pipeline_data import canonical_json_bytes
 
-CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v8"
+CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v9"
 CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v3"
 CALIBRATION_RUN_SCHEMA_V2 = "card-plane-calibration-run/v2"
 CALIBRATION_FIT_CANDIDATE_SCHEMA_VERSION = "card-plane-calibration-fit-candidate/v1"
@@ -2186,6 +2186,7 @@ def calibrate_recording(
                 "source_revision": source_revision,
                 "recipe_digest": selected_recipe.digest,
                 "candidate_receipt_digests": accepted_receipt_digests,
+                "size_reference_input_digest": size_reference_input_digest,
             }
         )[:24]
     )
