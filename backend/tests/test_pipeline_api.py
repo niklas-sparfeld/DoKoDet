@@ -511,6 +511,29 @@ def test_recording_pipeline_workspace_reads_each_selection_once(
     ]
 
 
+def test_stage_workspace_skips_inactive_reference_drafts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+    reference_store = app.state.pipeline_reference_store
+    draft_reads: list[str] = []
+    original_get = reference_store.get
+
+    def traced_get(recording_id: str, content_type: str):
+        draft_reads.append(content_type)
+        return original_get(recording_id, content_type)
+
+    monkeypatch.setattr(reference_store, "get", traced_get)
+
+    workspace = app.state.pipeline_workspace_service.get_workspace(
+        RECORDING_ID, stage_key="events"
+    )
+
+    assert workspace["schema_version"] == "pipeline-workspace/v1"
+    assert draft_reads == []
+
+
 def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
     tmp_path: Path,
 ) -> None:

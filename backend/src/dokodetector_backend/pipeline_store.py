@@ -1455,23 +1455,19 @@ class ProcessorRunStore:
     ) -> StoredProcessorRun:
         if path.is_symlink() or not path.is_dir():
             raise OSError("processor run directory is unavailable")
-        members = [member for member in path.rglob("*") if not _is_atomic_json_temp(member)]
-        if any(member.is_symlink() for member in members):
+        # Catalog loads (`include_items=False`) must not walk `items/`. Visual-identity
+        # runs store hundreds of item files; a recursive scan dominates pipeline workspace
+        # latency. Validate only the top-level run layout, then load items by ID when asked.
+        top_members = [
+            member for member in path.iterdir() if not _is_atomic_json_temp(member)
+        ]
+        if any(member.is_symlink() for member in top_members):
             raise ValueError("processor run members must not be symlinks")
-        relative_files = {
-            member.relative_to(path).as_posix() for member in members if member.is_file()
-        }
-        relative_dirs = {
-            member.relative_to(path).as_posix() for member in members if member.is_dir()
-        }
-        legacy_layout = not relative_dirs and relative_files == {"request.json", "state.json"}
+        top_files = {member.name for member in top_members if member.is_file()}
+        top_dirs = {member.name for member in top_members if member.is_dir()}
+        legacy_layout = not top_dirs and top_files == {"request.json", "state.json"}
         split_layout = (
-            relative_dirs == {"items"}
-            and {"request.json", "state.json"}.issubset(relative_files)
-            and all(
-                relative_path.startswith("items/") and relative_path.endswith(".json")
-                for relative_path in relative_files - {"request.json", "state.json"}
-            )
+            top_dirs == {"items"} and top_files == {"request.json", "state.json"}
         )
         if not legacy_layout and not split_layout:
             raise ValueError("processor run has an unsupported file layout")
@@ -1491,18 +1487,28 @@ class ProcessorRunStore:
             )
         else:
             metadata_state, item_ids = _parse_split_state_bytes(state_bytes)
-            item_files = {
-                relative_path[6:]
-                for relative_path in relative_files
-                if relative_path.startswith("items/")
-            }
-            if not {
-                f"{item_id}.json" for item_id in item_ids
-            }.issubset(item_files):
-                raise ValueError("processor run is missing a referenced item file")
             if include_items:
+                items_dir = path / "items"
+                item_members = [
+                    member
+                    for member in items_dir.iterdir()
+                    if not _is_atomic_json_temp(member)
+                ]
+                if any(member.is_symlink() for member in item_members):
+                    raise ValueError("processor run members must not be symlinks")
+                if any(member.is_dir() for member in item_members):
+                    raise ValueError("processor run has an unsupported file layout")
+                item_files = {
+                    member.name for member in item_members if member.is_file()
+                }
+                if not all(name.endswith(".json") for name in item_files):
+                    raise ValueError("processor run has an unsupported file layout")
+                if not {
+                    f"{item_id}.json" for item_id in item_ids
+                }.issubset(item_files):
+                    raise ValueError("processor run is missing a referenced item file")
                 items = tuple(
-                    self._read_item_file(path / "items" / f"{item_id}.json", item_id)
+                    self._read_item_file(items_dir / f"{item_id}.json", item_id)
                     for item_id in item_ids
                 )
                 state = replace(metadata_state, items=items)

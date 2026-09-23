@@ -348,6 +348,37 @@ def test_list_statuses_does_not_walk_item_files(tmp_path: Path, monkeypatch) -> 
     assert statuses[0].status == "running"
 
 
+def test_catalog_read_does_not_walk_item_files(tmp_path: Path, monkeypatch) -> None:
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    run_store.create(request())
+    run_store.start("run-01")
+    for index in range(50):
+        run_store.record_item_progress(
+            "run-01",
+            progress=RunProgress(completed=index + 1, total=50),
+            item=RunItemOutcome(
+                item_id=f"event-{index:02d}",
+                status="succeeded",
+                result={"event_type": "card_state_changed"},
+                failure=None,
+            ),
+        )
+
+    def fail_rglob(self, pattern):  # noqa: ANN001
+        del pattern
+        raise AssertionError(f"catalog read must not rglob {self}")
+
+    monkeypatch.setattr(Path, "rglob", fail_rglob)
+
+    loaded = run_store.require("run-01", include_items=False)
+    listed = run_store.list_for_recording("recording-01", include_items=False)
+
+    assert loaded.state.items == ()
+    assert loaded.state.progress == RunProgress(completed=50, total=50)
+    assert [run.run_id for run in listed] == ["run-01"]
+    assert listed[0].state.items == ()
+
+
 def test_revision_store_has_revision_without_reading_content(tmp_path: Path) -> None:
     revision_store = PipelineRevisionStore(tmp_path / "runtime")
     published = revision(revision_id="revision-input", producer=processor_producer("import-01"))

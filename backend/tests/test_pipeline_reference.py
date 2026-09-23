@@ -475,6 +475,32 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
     )
 
 
+def test_reference_store_get_state_skips_draft(tmp_path: Path, monkeypatch) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _source_revision(revision_store)
+    service.create_reference(
+        "recording-01",
+        "events",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    store = service.reference_store
+    reads: list[str] = []
+    real_read = Path.read_bytes
+
+    def tracked_read(self: Path) -> bytes:
+        reads.append(self.name)
+        return real_read(self)
+
+    monkeypatch.setattr(Path, "read_bytes", tracked_read)
+
+    state = store.get_state("recording-01", "events")
+    assert state is not None
+    assert state.draft_state == "draft"
+    assert state.source_revision_id == source_revision_id
+    assert "draft.json" not in reads
+    assert "state.json" in reads
+
+
 def test_event_reference_completion_orders_added_events_by_time(tmp_path: Path) -> None:
     service, revision_store = _service(tmp_path)
     source_revision_id = _source_revision(revision_store)
@@ -1136,6 +1162,102 @@ def test_proposal_seed_keeps_immutable_scene_and_supports_card_decisions(
     stored_item = completed_revision.content.to_mapping()["outcomes"][0]
     assert stored_item["card_scene"]["proposal_revision_id"] == proposal_revision_id
     assert stored_item["card_scene"]["projection"]["table_to_image_homography"]
+
+
+def test_convert_to_ignore_rejects_proposal_cards_and_survive_rederive(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(
+        revision_store,
+        "visible_cards",
+        visible_candidate_ids=("card-01", "card-02"),
+    )
+    proposal_revision_id = _proposal_revision(
+        revision_store,
+        source_revision_id,
+        card_ids=("card-01", "card-02"),
+    )
+    seeded = service.create_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {"operator_id": "operator-01", "proposal_revision_id": proposal_revision_id},
+    )
+    accepted = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": seeded.draft.revision,
+            "operations": [
+                {"operation": "accept_card", "item_id": "event-01", "card_id": "card-01"},
+                {"operation": "accept_card", "item_id": "event-01", "card_id": "card-02"},
+            ],
+        },
+    )
+    assert {candidate["card_id"] for candidate in accepted.draft.items[0].item["candidates"]} == {
+        "card-01",
+        "card-02",
+    }
+
+    region = {
+        "region_id": "ignore-stack-01",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 0, "y": 0},
+                    {"x": 500, "y": 0},
+                    {"x": 500, "y": 1000},
+                    {"x": 0, "y": 1000},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "reason": "untidy_stack",
+        "source_candidates": [],
+    }
+    converted = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": accepted.draft.revision,
+            "operations": [
+                {
+                    "operation": "convert_to_ignore_region",
+                    "item_id": "event-01",
+                    "candidate_ids": ["card-01"],
+                    "region": region,
+                }
+            ],
+        },
+    )
+    item = converted.draft.items[0].item
+    assert [candidate["card_id"] for candidate in item["candidates"]] == ["card-02"]
+    assert item["ignored_regions"][0]["source_candidates"][0]["card_id"] == "card-01"
+    states = {state["card_id"]: state["state"] for state in item["card_scene"]["card_states"]}
+    assert states == {"card-01": "rejected", "card-02": "accepted"}
+    assert [pose["card_id"] for pose in item["card_scene"]["reviewed"]["scene"]["poses"]] == [
+        "card-02"
+    ]
+
+    refreshed = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": converted.draft.revision,
+            "operations": [{"operation": "accept_frame_suggestions", "item_id": "event-01"}],
+        },
+    )
+    refreshed_item = refreshed.draft.items[0].item
+    assert [candidate["card_id"] for candidate in refreshed_item["candidates"]] == ["card-02"]
+    assert refreshed_item["ignored_regions"][0]["source_candidates"][0]["card_id"] == "card-01"
+    refreshed_states = {
+        state["card_id"]: state["state"] for state in refreshed_item["card_scene"]["card_states"]
+    }
+    assert refreshed_states["card-01"] == "rejected"
 
 
 def test_proposal_scene_angle_correction_updates_reviewed_scene(tmp_path: Path) -> None:

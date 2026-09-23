@@ -672,6 +672,99 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             projection=draft.projection,
             derived_region_receipt=derivation.receipt.to_mapping(),
         ).to_mapping()
+        return cls._drop_ignored_candidates_from_item(updated)
+
+    @classmethod
+    def _reject_cards_in_typed_scene(
+        cls, item: Mapping[str, Any], card_ids: set[str]
+    ) -> dict[str, Any]:
+        """Reject proposal cards that were consumed into ignore regions."""
+
+        updated = dict(item)
+        draft = cls._typed_scene_draft(updated)
+        if draft is None or not card_ids:
+            return updated
+        rejectable = {state.card_id for state in draft.card_states} & card_ids
+        if not rejectable:
+            return updated
+        already_rejected = {
+            state.card_id
+            for state in draft.card_states
+            if state.card_id in rejectable and state.state == "rejected"
+        }
+        candidate_ids = {
+            candidate.get("card_id")
+            for candidate in updated.get("candidates", [])
+            if isinstance(candidate, Mapping)
+        }
+        if already_rejected == rejectable and candidate_ids.isdisjoint(rejectable):
+            return updated
+        states = tuple(
+            CardReviewState.create(
+                card_id=state.card_id,
+                source=state.source,
+                proposal_id=state.proposal_id,
+                state="rejected" if state.card_id in rejectable else state.state,
+            )
+            for state in draft.card_states
+        )
+        pending = tuple(state.card_id for state in states if state.state == "pending")
+        resolved_ids = {
+            state.card_id for state in states if state.state in {"accepted", "adjusted"}
+        }
+        reviewed_scene = cls._reviewed_scene_for(draft, resolved_ids)
+        reviewed = (
+            None
+            if reviewed_scene is None
+            else ReviewedCardSceneRecord.create(
+                proposal_id=draft.proposal.proposal_id,
+                scene=reviewed_scene.to_mapping(),
+                decision="adjusted",
+            )
+        )
+        updated_draft = CardSceneDraft.create(
+            proposal=draft.proposal,
+            reviewed=reviewed,
+            card_states=states,
+            completion=FrameReviewCompletion.create(
+                state="pending" if pending else "complete",
+                unresolved_card_ids=pending,
+            ),
+            draft_revision=draft.draft_revision + 1,
+            proposal_revision_id=draft.proposal_revision_id,
+            proposal_data_digest=draft.proposal_data_digest,
+            projection=draft.projection,
+        )
+        updated["card_scene"] = updated_draft.to_mapping()
+        return cls._derive_typed_pose_scene_item(updated, updated_draft)
+
+    @classmethod
+    def _drop_ignored_candidates_from_item(cls, item: Mapping[str, Any]) -> dict[str, Any]:
+        """Keep ignore-consumed cards out of the derived candidate view."""
+
+        updated = dict(item)
+        raw_regions = updated.get("ignored_regions", [])
+        if not isinstance(raw_regions, list) or not raw_regions:
+            return updated
+        try:
+            regions = [
+                VisibleCardIgnoreRegion.from_mapping(region, f"ignored_regions[{index}]")
+                for index, region in enumerate(raw_regions)
+            ]
+        except (PipelineDataError, TypeError, ValueError):
+            return updated
+        ignored_ids = {source.card_id for region in regions for source in region.source_candidates}
+        raw_candidates = updated.get("candidates", [])
+        if not isinstance(raw_candidates, list):
+            return updated
+        candidates = [
+            dict(candidate)
+            for candidate in raw_candidates
+            if isinstance(candidate, Mapping) and candidate.get("card_id") not in ignored_ids
+        ]
+        candidates, regions = cls._consume_candidates_in_regions(candidates, regions, None)
+        updated["candidates"] = candidates
+        updated["ignored_regions"] = [region.to_mapping() for region in regions]
         return updated
 
     @classmethod
@@ -838,6 +931,10 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             updated = dict(item.item)
             updated["ignored_regions"] = [region.to_mapping() for region in regions]
             updated["candidates"] = candidates
+            ignored_card_ids = {
+                source.card_id for region in regions for source in region.source_candidates
+            }
+            updated = self._reject_cards_in_typed_scene(updated, ignored_card_ids)
             self.validate_item(updated, source_revision_id, recording_id)
             preserved.append(self._replace(item, item=updated))
         return preserved
@@ -853,13 +950,17 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             index = self.find_item(items, operation.item_id)
             if index is None:
                 raise PipelineReferenceInputError(f"item was not found: {operation.item_id}")
-            return items[:index] + [
-                self._apply_typed_card_decision(
-                    items[index],
-                    operation.card_id,
-                    "accepted" if operation.operation == "accept_card" else "rejected",
-                )
-            ] + items[index + 1 :]
+            return (
+                items[:index]
+                + [
+                    self._apply_typed_card_decision(
+                        items[index],
+                        operation.card_id,
+                        "accepted" if operation.operation == "accept_card" else "rejected",
+                    )
+                ]
+                + items[index + 1 :]
+            )
 
         if operation.operation in {"accept", "reject"}:
             assert operation.item_id is not None
@@ -879,9 +980,11 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             assert operation.item_id is not None and operation.item is not None
             index = self.find_item(items, operation.item_id)
             if index is not None and self._typed_scene_draft(items[index].item) is not None:
-                return items[:index] + [
-                    self._typed_review_item(items[index], operation.item)
-                ] + items[index + 1 :]
+                return (
+                    items[:index]
+                    + [self._typed_review_item(items[index], operation.item)]
+                    + items[index + 1 :]
+                )
 
         if operation.operation in {
             "create_ignore_region",
@@ -986,12 +1089,16 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             existing_typed = self._typed_scene_draft(existing.item)
             if typed is not None or existing_typed is not None:
                 if typed is None or existing_typed is None:
-                    return items[:index] + [
-                        self._typed_review_item(existing, operation.item)
-                    ] + items[index + 1 :]
-                return items[:index] + [
-                    self._typed_review_item(existing, operation.item)
-                ] + items[index + 1 :]
+                    return (
+                        items[:index]
+                        + [self._typed_review_item(existing, operation.item)]
+                        + items[index + 1 :]
+                    )
+                return (
+                    items[:index]
+                    + [self._typed_review_item(existing, operation.item)]
+                    + items[index + 1 :]
+                )
             reviewed_item = self._derive_pose_scene_item(operation.item)
             updated = ReferenceDraftItem(
                 item_id=self.item_id(reviewed_item),
@@ -1005,12 +1112,18 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if operation.operation == "accept_frame_suggestions":
             typed = self._typed_scene_draft(existing.item)
             if typed is not None:
+                ignored_card_ids = {
+                    source.get("card_id")
+                    for region in existing.item.get("ignored_regions", [])
+                    if isinstance(region, Mapping)
+                    for source in region.get("source_candidates", [])
+                    if isinstance(source, Mapping)
+                }
+                pending = any(state.state == "pending" for state in typed.card_states)
                 if (
                     typed.completion.state == "complete"
                     and typed.reviewed is not None
-                    and all(
-                        state.state in {"accepted", "adjusted"} for state in typed.card_states
-                    )
+                    and not pending
                 ):
                     # Refresh derived visible-region candidates from the reviewed scene.
                     # Accepts can leave candidates stale when the scene was completed earlier.
@@ -1028,6 +1141,12 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                     )
                 updated = existing
                 for card_id in typed.proposal.card_ids:
+                    current_state = next(
+                        (state.state for state in typed.card_states if state.card_id == card_id),
+                        "pending",
+                    )
+                    if current_state == "rejected" or card_id in ignored_card_ids:
+                        continue
                     updated = self._apply_typed_card_decision(updated, card_id, "accepted")
                 return items[:index] + [updated] + items[index + 1 :]
             if existing.item.get("status") == "empty":
@@ -1252,9 +1371,16 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         updated = dict(existing.item)
         updated["ignored_regions"] = [region.to_mapping() for region in updated_regions]
         updated["candidates"] = candidates
+        ignored_card_ids = {
+            source.card_id for region in updated_regions for source in region.source_candidates
+        }
+        updated = self._reject_cards_in_typed_scene(updated, ignored_card_ids)
         self.validate_item(updated, source_revision_id)
         state = existing.review_state
-        if operation.operation == "convert_to_ignore_region" and not updated["candidates"]:
+        typed = self._typed_scene_draft(updated)
+        if (typed is not None and typed.completion.state == "complete") or (
+            operation.operation == "convert_to_ignore_region" and not updated["candidates"]
+        ):
             state = "accepted"
         return (
             items[:index]

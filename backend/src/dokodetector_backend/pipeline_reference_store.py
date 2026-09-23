@@ -135,6 +135,34 @@ class PipelineReferenceStore:
                 self._log_invalid(state_path, error)
                 return None
 
+    def get_state(self, recording_id: str, content_type: str) -> PipelineReferenceState | None:
+        """Return the reference state without reading a potentially large draft."""
+
+        try:
+            state_path = self.state_path(recording_id, content_type)
+        except (TypeError, ValueError):
+            return None
+        if not state_path.is_file():
+            return None
+        if state_path.is_symlink():
+            self._log_invalid(state_path, OSError("pipeline reference state is unavailable"))
+            return None
+        try:
+            raw = state_path.read_bytes()
+            state = parse_reference_state_bytes(raw)
+            if raw != canonical_reference_state_bytes(state):
+                raise PipelineReferenceContractError(
+                    "pipeline reference state is not canonical JSON"
+                )
+            if state.recording_id != recording_id or state.content_type != content_type:
+                raise PipelineReferenceContractError(
+                    "pipeline reference state identity differs from its path"
+                )
+            return state
+        except (OSError, TypeError, UnicodeError, ValueError) as error:
+            self._log_invalid(state_path, error)
+            return None
+
     def list_states(self) -> tuple[PipelineReferenceState, ...]:
         """Return reference state documents without reading potentially large drafts."""
 

@@ -73,6 +73,14 @@ _WORKSPACE_STAGES = (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class _WorkspaceReference:
+    """Reference state for workspace summaries, with an optional loaded draft."""
+
+    state: Any
+    draft: Any | None
+
+
 class RecordingPipelineWorkspaceService:
     """Aggregate persisted recording-pipeline state for the recording workspace."""
 
@@ -132,8 +140,25 @@ class RecordingPipelineWorkspaceService:
                 "table_observations",
             )
         }
+        active_content_type = next(
+            (
+                definition.content_type
+                for definition in _WORKSPACE_STAGES
+                if definition.key == stage_key and definition.reviewable
+            ),
+            None,
+        )
         references = {
-            content_type: self._reference(recording_id, content_type, diagnostics)
+            content_type: self._reference(
+                recording_id,
+                content_type,
+                diagnostics,
+                include_draft=self._should_load_reference_draft(
+                    content_type,
+                    stage_key=stage_key,
+                    active_content_type=active_content_type,
+                ),
+            )
             for content_type in ("events", "visible_cards", "visual_identities")
         }
         full_revisions = (
@@ -403,10 +428,21 @@ class RecordingPipelineWorkspaceService:
         recording_id: str,
         content_type: str,
         diagnostics: list[dict[str, Any]],
-    ) -> Any:
+        *,
+        include_draft: bool,
+    ) -> _WorkspaceReference | None:
         root = self.reference_store.reference_root(recording_id, content_type)
         if not (root / "state.json").exists() and not (root / "draft.json").exists():
             return None
+
+        state = self.reference_store.get_state(recording_id, content_type)
+        # Completed references only need state.json for workspace badges. Active drafts for
+        # the requested stage still load draft.json for affected_count and coverage.
+        if state is not None and (
+            not include_draft or getattr(state, "draft_state", None) == "completed"
+        ):
+            return _WorkspaceReference(state=state, draft=None)
+
         reference = self.reference_store.get(recording_id, content_type)
         if reference is None:
             diagnostics.append(
@@ -417,11 +453,25 @@ class RecordingPipelineWorkspaceService:
                     "revision_id": None,
                 }
             )
-        return reference
+            return None
+        return _WorkspaceReference(state=reference.state, draft=reference.draft)
+
+    @staticmethod
+    def _should_load_reference_draft(
+        content_type: str,
+        *,
+        stage_key: str | None,
+        active_content_type: str | None,
+    ) -> bool:
+        """Load large drafts only when the workspace needs item-level summary fields."""
+
+        if stage_key is None:
+            return True
+        return active_content_type is not None and content_type == active_content_type
 
     def _reference_summary(
         self,
-        reference: Any,
+        reference: _WorkspaceReference | None,
         content_type: str,
         revision_by_id: Mapping[str, Any],
         diagnostics: list[dict[str, Any]],
@@ -460,9 +510,25 @@ class RecordingPipelineWorkspaceService:
                     "revision_id": selected_completion,
                 }
             )
+        state = "complete" if reference.state.draft_state == "completed" else "draft"
+        if reference.draft is None:
+            coverage = None if selected_manifest is None else selected_manifest.coverage
+            return {
+                "state": state,
+                "draft_revision": reference.state.draft_revision,
+                "selected_completion": selected_completion,
+                "source_revision_id": reference.state.source_revision_id,
+                "coverage": coverage,
+                "coverage_state": "complete"
+                if state == "complete"
+                else "incomplete"
+                if coverage is not None
+                else "none",
+                "affected_count": 0,
+                "updated_at": reference.state.updated_at,
+            }
         affected_count = sum(item.review_state == "affected" for item in reference.draft.items)
         coverage = reference.draft.coverage
-        state = "complete" if reference.state.draft_state == "completed" else "draft"
         return {
             "state": state,
             "draft_revision": reference.state.draft_revision,
