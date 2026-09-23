@@ -1543,6 +1543,32 @@ describe("VisibleCardReviewWorkbench", () => {
     );
   });
 
+  it("keeps mapped corner handles smaller than a card on a unit-scale table", () => {
+    const unitFrame = structuredClone(frame);
+    unitFrame.outcome.card_scene!.projection.card_short_size = 1;
+    unitFrame.outcome.card_scene!.projection.card_long_size = 1.5;
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={unitFrame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+          viewpoint: "rectified",
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={calibrationRefinement}
+      />,
+    );
+
+    const handles = screen.getAllByRole("button", {
+      name: /Adjust mapped card corner/i,
+    });
+    expect(handles).toHaveLength(4);
+    expect(Number(handles[0].getAttribute("r"))).toBeLessThan(0.1);
+  });
+
   it("shows numbered stack badges and lets the sidebar reorder cards", async () => {
     const multiCardFrame = structuredClone(frame);
     const cardScene = multiCardFrame.outcome.card_scene!;

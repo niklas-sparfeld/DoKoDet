@@ -211,6 +211,9 @@ export function PipelineVisibleCardEditor({
     generatedSourceRevisionId !== null;
   const usesMaintainedFrames =
     view === "reviewed" && reference !== null && !referenceNeedsSeed;
+  const calibrationProposalRevisionId = usesMaintainedFrames
+    ? (reference?.draft.proposal_revision_id ?? null)
+    : proposalRevisionId;
 
   const setLocalFrames = useCallback((nextFrames: EditableFrame[]) => {
     framesRef.current = nextFrames;
@@ -415,14 +418,15 @@ export function PipelineVisibleCardEditor({
   }, [client, proposalRun, recordingId, settleProposalRun]);
 
   const loadCalibrationRefinement = useCallback(async () => {
-    if (proposalRevisionId === null) {
+    if (calibrationProposalRevisionId === null) {
       setCalibrationRefinement(null);
+      calibrationRefinementRef.current = null;
       return;
     }
     try {
       const current = await client.getCalibrationRefinement(
         recordingId,
-        proposalRevisionId,
+        calibrationProposalRevisionId,
       );
       calibrationRefinementRef.current = current;
       setCalibrationRefinement(current);
@@ -436,7 +440,7 @@ export function PipelineVisibleCardEditor({
         setCalibrationError(describeError(reason));
       }
     }
-  }, [client, proposalRevisionId, recordingId]);
+  }, [calibrationProposalRevisionId, client, recordingId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadCalibrationRefinement(), 0);
@@ -444,12 +448,12 @@ export function PipelineVisibleCardEditor({
   }, [loadCalibrationRefinement]);
 
   const startCalibrationRefinement = useCallback(async () => {
-    if (proposalRevisionId === null) return;
+    if (calibrationProposalRevisionId === null) return;
     setCalibrationLoading(true);
     setCalibrationError(null);
     try {
       const started = await client.startCalibrationRefinement(recordingId, {
-        proposal_revision_id: proposalRevisionId,
+        proposal_revision_id: calibrationProposalRevisionId,
       });
       calibrationRefinementRef.current = started;
       setCalibrationRefinement(started);
@@ -458,7 +462,7 @@ export function PipelineVisibleCardEditor({
     } finally {
       setCalibrationLoading(false);
     }
-  }, [client, proposalRevisionId, recordingId]);
+  }, [calibrationProposalRevisionId, client, recordingId]);
 
   const updateCalibrationAnchor = useCallback(
     (command: CalibrationAnchorCommand) => {

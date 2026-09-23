@@ -3618,7 +3618,7 @@ function MappingAnchorOverlay({
             viewpoint,
             width,
             zoom,
-            Math.max(0.4, (projection?.card_short_size ?? 10) * 0.04),
+            Math.max(0.05, (projection?.card_short_size ?? 1) * 0.08),
           )}
           fill={selected ? "#ffffff" : "#ff8a65"}
           stroke="#18242f"
@@ -3702,7 +3702,7 @@ function MappingProjection({
                   viewpoint,
                   width,
                   zoom,
-                  Math.max(1, projection.card_short_size * 0.1),
+                  Math.max(0.05, projection.card_short_size * 0.08),
                 )}
                 fill={stroke}
                 stroke="#18242f"

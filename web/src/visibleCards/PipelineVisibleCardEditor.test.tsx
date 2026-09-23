@@ -1243,6 +1243,50 @@ describe("PipelineVisibleCardEditor", () => {
     expect(toast.parentElement).toBe(document.body);
   });
 
+  it("loads mapping anchors from the proposal used by the reviewed reference", async () => {
+    const baseReference = reference();
+    const currentReference = {
+      ...baseReference,
+      draft: {
+        ...baseReference.draft,
+        proposal_revision_id: PROPOSAL_REVISION_ID,
+      },
+    };
+    const fetchImplementation = vi.fn<typeof fetch>((input) => {
+      const url = String(input);
+      if (url.includes("/pipeline/proposed-card-scenes")) {
+        return Promise.resolve(
+          jsonResponse({ recording_id: RECORDING_ID, runs: [] }),
+        );
+      }
+      if (url.includes("/pipeline/calibration-refinement")) {
+        return Promise.resolve(new Response(null, { status: 404 }));
+      }
+      return Promise.resolve(jsonResponse(currentReference));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId="different-visible-revision"
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(([input]) =>
+          String(input).includes(
+            `/pipeline/calibration-refinement?proposal_revision_id=${PROPOSAL_REVISION_ID}`,
+          ),
+        ),
+      ).toBe(true),
+    );
+  });
+
   it("loads maintained frames when an older reference omits ignore regions", async () => {
     const legacyReference = structuredClone(reference()) as unknown as {
       draft: { items: Array<{ item: Record<string, unknown> }> };
