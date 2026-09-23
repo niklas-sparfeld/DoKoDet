@@ -1176,6 +1176,8 @@ export function VisibleCardReviewWorkbench({
           <WorkbenchProposalColumn
             frame={frame}
             candidates={allCandidates}
+            scene={scene}
+            activeTool={activeState.activeTool}
             sourceUrl={sourceUrl}
             frameWidth={width}
             frameHeight={height}
@@ -1203,6 +1205,10 @@ export function VisibleCardReviewWorkbench({
               );
               onOpenEditor?.(candidate, polygonIndex);
             }}
+            onSelectVirtualCard={(cardId) =>
+              select({ type: "virtual_card", id: cardId })
+            }
+            onSceneAction={applySceneAction}
             onSelectIgnoreRegion={(region) => {
               select({ type: "ignore_region", id: region.region_id });
               onOpenIgnoreRegion?.(region);
@@ -1394,8 +1400,7 @@ function WorkbenchTimelineSelectionActions({
           onSceneAction={onSceneAction}
         />
       ) : null}
-      {state.activeTool === "mapping" &&
-      selectedCandidateIds.length === 0 ? (
+      {state.activeTool === "mapping" && selectedCandidateIds.length === 0 ? (
         <MappingSelectionActions
           readOnly={readOnly}
           refinement={calibrationRefinement}
@@ -1993,6 +1998,8 @@ function VisibleRegionSelectionActions({
 function WorkbenchProposalColumn({
   frame,
   candidates,
+  scene,
+  activeTool,
   sourceUrl,
   frameWidth,
   frameHeight,
@@ -2005,10 +2012,14 @@ function WorkbenchProposalColumn({
   onSelectCandidate,
   onSelectIgnoreRegion,
   onSelectEditorPolygon,
+  onSelectVirtualCard,
+  onSceneAction,
   proposalSlot,
 }: {
   frame: EditableFrame;
   candidates: Candidate[];
+  scene: PoseSceneEnvelope | null;
+  activeTool: WorkbenchPreferences["activeTool"];
   sourceUrl: string | null;
   frameWidth: number;
   frameHeight: number;
@@ -2021,17 +2032,178 @@ function WorkbenchProposalColumn({
   onSelectCandidate: (candidate: Candidate, polygonIndex?: number) => void;
   onSelectIgnoreRegion?: (region: IgnoreRegion) => void;
   onSelectEditorPolygon?: (polygonIndex: number) => void;
+  onSelectVirtualCard: (cardId: string) => void;
+  onSceneAction: (
+    action: Parameters<typeof applyPoseSceneAction>[1],
+    notice: string,
+  ) => void;
   proposalSlot: HTMLElement | null;
 }) {
+  const stackingOrder =
+    scene === null
+      ? []
+      : [
+          ...scene.scene.stacking_order.card_ids,
+          ...scene.scene.poses
+            .map((pose) => pose.card_id)
+            .filter(
+              (cardId) => !scene.scene.stacking_order.card_ids.includes(cardId),
+            ),
+        ].filter((cardId) =>
+          scene.scene.poses.some((pose) => pose.card_id === cardId),
+        );
+  const poseById = new Map(
+    (scene?.scene.poses ?? []).map((pose) => [pose.card_id, pose]),
+  );
+  const candidateById = new Map(candidates.map((item) => [item.card_id, item]));
+  const isStackOrderMode = activeTool === "virtual_cards" && scene !== null;
   const content = (
     <section
       className={styles.proposalColumn}
-      aria-label="Visible-card proposals"
+      aria-label={
+        isStackOrderMode ? "Card stack order" : "Visible-card proposals"
+      }
     >
       {editorError !== null ? (
         <p className={styles.inlineFormError} role="alert">
           {editorError}
         </p>
+      ) : null}
+      {isStackOrderMode ? (
+        <section className={styles.stackOrderSection} aria-label="Stack order">
+          <ol className={styles.proposalItems}>
+            {stackingOrder.map((cardId, index) => {
+              const pose = poseById.get(cardId);
+              if (pose === undefined) return null;
+              const candidate =
+                (typeof pose.source_suggestion_id !== "string"
+                  ? undefined
+                  : candidateById.get(pose.source_suggestion_id)) ??
+                candidateById.get(cardId);
+              const previewCandidate =
+                candidate ??
+                (scene === null
+                  ? null
+                  : virtualCardPreviewCandidate(
+                      pose,
+                      scene,
+                      frameWidth,
+                      frameHeight,
+                    ));
+              const selected =
+                selection?.type === "virtual_card" && selection.id === cardId;
+              return (
+                <li
+                  key={cardId}
+                  className={styles.stackOrderRow}
+                  draggable={!readOnly}
+                  data-card-id={cardId}
+                  data-stacking-index={index}
+                  data-selected={selected ? "true" : undefined}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData("text/plain", cardId);
+                    event.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(event) => {
+                    if (!readOnly) {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                    }
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const draggedCardId =
+                      event.dataTransfer.getData("text/plain");
+                    const currentIndex = stackingOrder.indexOf(draggedCardId);
+                    if (
+                      readOnly ||
+                      currentIndex < 0 ||
+                      draggedCardId === cardId ||
+                      currentIndex === index
+                    ) {
+                      return;
+                    }
+                    onSceneAction(
+                      { type: "place", cardId: draggedCardId, index },
+                      `Card moved to stack position ${index + 1}.`,
+                    );
+                  }}
+                >
+                  <span className={styles.stackOrderRank} aria-hidden="true">
+                    {index + 1}
+                  </span>
+                  <button
+                    className={styles.stackOrderSelect}
+                    type="button"
+                    aria-label={`Select virtual card at stack position ${index + 1}`}
+                    aria-pressed={selected}
+                    onClick={() => onSelectVirtualCard(cardId)}
+                  >
+                    {previewCandidate !== null ? (
+                      <CandidatePreview
+                        candidate={previewCandidate}
+                        sourceUrl={sourceUrl}
+                        frameWidth={frameWidth}
+                        frameHeight={frameHeight}
+                        label={`Card at stack position ${index + 1} preview`}
+                      />
+                    ) : (
+                      <span
+                        className={styles.stackOrderPlaceholder}
+                        aria-hidden="true"
+                      >
+                        ◇
+                      </span>
+                    )}
+                    <span className={styles.proposalDetails}>
+                      <strong>{candidate?.side ?? "Virtual card"}</strong>
+                      <span>
+                        {index === 0
+                          ? "Front"
+                          : index === stackingOrder.length - 1
+                            ? "Back"
+                            : `Layer ${index + 1}`}
+                      </span>
+                    </span>
+                  </button>
+                  <span className={styles.stackOrderActions}>
+                    <button
+                      type="button"
+                      aria-label={`Move card at stack position ${index + 1} toward front`}
+                      disabled={readOnly || index === 0}
+                      onClick={() =>
+                        onSceneAction(
+                          { type: "place", cardId, index: index - 1 },
+                          `Card moved to stack position ${index}.`,
+                        )
+                      }
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Move card at stack position ${index + 1} toward back`}
+                      disabled={readOnly || index === stackingOrder.length - 1}
+                      onClick={() =>
+                        onSceneAction(
+                          { type: "place", cardId, index: index + 1 },
+                          `Card moved to stack position ${index + 2}.`,
+                        )
+                      }
+                    >
+                      ↓
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          {!readOnly && stackingOrder.length > 1 ? (
+            <p className={styles.stackOrderHint}>
+              Drag a card to change its stack position.
+            </p>
+          ) : null}
+        </section>
       ) : null}
       {candidates.length === 0 ? (
         <p className={styles.detailEmptyState}>
@@ -2066,12 +2238,8 @@ function WorkbenchProposalColumn({
               <li key={candidate.card_id}>
                 <div
                   className={styles.proposalRow}
-                  data-already-ignored={
-                    alreadyIgnored ? "true" : undefined
-                  }
-                  data-marked-for-ignore={
-                    markedForIgnore ? "true" : undefined
-                  }
+                  data-already-ignored={alreadyIgnored ? "true" : undefined}
+                  data-marked-for-ignore={markedForIgnore ? "true" : undefined}
                 >
                   {!readOnly ? (
                     <label className={styles.proposalCheckbox}>
@@ -2254,6 +2422,32 @@ function candidateBounds(
   const x = (xMin * frameWidth) / 1000;
   const y = (yMin * frameHeight) / 1000;
   return { x, y, width, height };
+}
+
+function virtualCardPreviewCandidate(
+  pose: PoseCard,
+  scene: PoseSceneEnvelope,
+  frameWidth: number,
+  frameHeight: number,
+): Candidate | null {
+  const polygon = posePolygon(pose, scene.projection, "camera");
+  if (polygon.length !== 4 || frameWidth <= 0 || frameHeight <= 0) return null;
+  return {
+    card_id: pose.card_id,
+    geometry: {
+      kind: "virtual-card-preview/v1",
+      visible_region: {
+        polygons: [
+          polygon.map(([x, y]) => ({
+            x: clamp((x / frameWidth) * 1000, 1000),
+            y: clamp((y / frameHeight) * 1000, 1000),
+          })),
+        ],
+      },
+    },
+    normalization: {},
+    side: "unknown",
+  };
 }
 
 function formatGeometryKind(geometry: Candidate["geometry"]): string {
@@ -3137,62 +3331,123 @@ function renderVirtualCardLayer({
   scene,
   viewpoint,
   width,
+  zoom,
   selection,
   onSelect,
   onVirtualCardPointerDown,
   onVirtualCardKeyDown,
 }: LayerRenderContext) {
   if (scene === null) return null;
-  return renderOrder(scene.scene, selection).map((pose) => {
+  const orderedPoses = renderOrder(scene.scene, selection);
+  const badges = orderedPoses.map((pose) => {
+    const index = scene.scene.stacking_order.card_ids.indexOf(pose.card_id);
     const polygon = posePolygon(pose, scene.projection, viewpoint);
-    const selected = isSelected(selection, {
-      type: "virtual_card",
-      id: pose.card_id,
-    });
-    const handle = rotationHandle(pose, scene.projection, viewpoint);
-    return (
-      <g key={pose.card_id}>
-        <polygon
-          points={pointsAttribute(polygon)}
-          fill="rgba(55, 96, 106, 0.55)"
-          stroke={selected ? "#d9fff7" : "#80b6b7"}
-          strokeWidth={strokeWidth(viewpoint, width, selected)}
-          data-card-id={pose.card_id}
-          data-stacking-index={scene.scene.stacking_order.card_ids.indexOf(
-            pose.card_id,
-          )}
-          role="button"
-          tabIndex={0}
-          aria-label={`Select virtual card ${pose.card_id}`}
-          onKeyDown={(event) => onVirtualCardKeyDown?.(event, pose.card_id)}
-          onPointerDown={(event) =>
-            onVirtualCardPointerDown?.(event, pose.card_id, "move")
-          }
-          onClick={(event) => {
-            event.stopPropagation();
-            onSelect({ type: "virtual_card", id: pose.card_id });
-          }}
-        />
-        {selected ? (
-          <circle
-            cx={handle[0]}
-            cy={handle[1]}
-            r={viewpoint === "camera" ? Math.max(3, width / 120) : 0.11}
-            fill="#ffd24f"
-            stroke="#18242f"
-            strokeWidth={strokeWidth(viewpoint, width) / 2}
-            role="button"
-            tabIndex={0}
-            aria-label={`Rotate card ${pose.card_id}`}
-            onPointerDown={(event) =>
-              onVirtualCardPointerDown?.(event, pose.card_id, "rotate")
-            }
-            onClick={(event) => event.stopPropagation()}
-          />
-        ) : null}
-      </g>
-    );
+    if (index < 0 || polygon.length === 0) return null;
+    const [start, edgeEnd, inwardEnd] = polygon;
+    const edge = [edgeEnd[0] - start[0], edgeEnd[1] - start[1]];
+    const inward = [inwardEnd[0] - edgeEnd[0], inwardEnd[1] - edgeEnd[1]];
+    const x = start[0] + edge[0] * 0.12 + inward[0] * 0.1;
+    const y = start[1] + edge[1] * 0.12 + inward[1] * 0.1;
+    const radius =
+      viewpoint === "camera"
+        ? Math.max(12, width / 55) / Math.max(zoom, 0.01)
+        : Math.max(0.08, scene.projection.card_short_size * 0.12) /
+          Math.max(zoom, 0.01);
+    return { cardId: pose.card_id, index, x, y, radius };
   });
+  return (
+    <>
+      {orderedPoses.map((pose) => {
+        const polygon = posePolygon(pose, scene.projection, viewpoint);
+        const selected = isSelected(selection, {
+          type: "virtual_card",
+          id: pose.card_id,
+        });
+        const handle = rotationHandle(pose, scene.projection, viewpoint);
+        return (
+          <g key={pose.card_id}>
+            <polygon
+              points={pointsAttribute(polygon)}
+              fill="rgba(55, 96, 106, 0.55)"
+              stroke={selected ? "#d9fff7" : "#80b6b7"}
+              strokeWidth={strokeWidth(viewpoint, width, selected)}
+              data-card-id={pose.card_id}
+              data-stacking-index={scene.scene.stacking_order.card_ids.indexOf(
+                pose.card_id,
+              )}
+              role="button"
+              tabIndex={0}
+              aria-label={`Select virtual card ${pose.card_id}`}
+              onKeyDown={(event) => onVirtualCardKeyDown?.(event, pose.card_id)}
+              onPointerDown={(event) =>
+                onVirtualCardPointerDown?.(event, pose.card_id, "move")
+              }
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect({ type: "virtual_card", id: pose.card_id });
+              }}
+            />
+            {selected ? (
+              <circle
+                cx={handle[0]}
+                cy={handle[1]}
+                r={viewpoint === "camera" ? Math.max(3, width / 120) : 0.11}
+                fill="#ffd24f"
+                stroke="#18242f"
+                strokeWidth={strokeWidth(viewpoint, width) / 2}
+                role="button"
+                tabIndex={0}
+                aria-label={`Rotate card ${pose.card_id}`}
+                onPointerDown={(event) =>
+                  onVirtualCardPointerDown?.(event, pose.card_id, "rotate")
+                }
+                onClick={(event) => event.stopPropagation()}
+              />
+            ) : null}
+          </g>
+        );
+      })}
+      <g
+        data-card-stacking-badges="true"
+        pointerEvents="none"
+        aria-hidden="true"
+      >
+        {badges.map((badge) =>
+          badge === null ? null : (
+            <g
+              key={badge.cardId}
+              data-stacking-badge-id={badge.cardId}
+              data-stacking-index={badge.index}
+            >
+              <circle
+                cx={badge.x}
+                cy={badge.y}
+                r={badge.radius}
+                fill="#14252b"
+                stroke="#ffffff"
+                strokeWidth={
+                  (viewpoint === "camera"
+                    ? Math.max(1, width / 500)
+                    : 0.08) / Math.max(zoom, 0.01)
+                }
+              />
+              <text
+                x={badge.x}
+                y={badge.y}
+                fill="#ffffff"
+                fontSize={badge.radius * 1.15}
+                fontWeight="800"
+                textAnchor="middle"
+                dominantBaseline="central"
+              >
+                {badge.index + 1}
+              </text>
+            </g>
+          ),
+        )}
+      </g>
+    </>
+  );
 }
 
 function renderMappingLayer({
@@ -3493,7 +3748,9 @@ function candidateIsCoveredByIgnoreRegions(
   const polygons = candidateNormalizedPolygons(candidate);
   if (polygons.length === 0 || containers.length === 0) return false;
   return polygons.some((polygon) =>
-    containers.some((container) => polygonsOverlapForIgnore(polygon, container)),
+    containers.some((container) =>
+      polygonsOverlapForIgnore(polygon, container),
+    ),
   );
 }
 
@@ -3516,7 +3773,9 @@ function polygonsOverlapForIgnore(left: Point[], right: Point[]): boolean {
 
 function vertexOverlapRatio(source: Point[], container: Point[]): number {
   if (source.length === 0) return 0;
-  const hits = source.filter((point) => pointInPolygon(point, container)).length;
+  const hits = source.filter((point) =>
+    pointInPolygon(point, container),
+  ).length;
   return hits / source.length;
 }
 

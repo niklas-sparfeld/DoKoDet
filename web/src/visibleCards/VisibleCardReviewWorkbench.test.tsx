@@ -309,6 +309,62 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toBeInTheDocument();
   });
 
+  it("clears a selected virtual card with Escape", async () => {
+    const onSelectionChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Select virtual card card-1" }),
+    );
+    expect(
+      screen.getByRole("spinbutton", { name: "Rotation (degrees)" }),
+    ).toBeEnabled();
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Select virtual card card-1" }),
+      { key: "Escape" },
+    );
+
+    expect(onSelectionChange).toHaveBeenLastCalledWith(null);
+    expect(
+      screen.getByRole("spinbutton", { name: "Rotation (degrees)" }),
+    ).toBeDisabled();
+  });
+
+  it("clears a selected virtual card when the frame background is clicked", async () => {
+    const onSelectionChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Select virtual card card-1" }),
+    );
+    const surface = screen.getByRole("img", {
+      name: /Rectified visible-card workbench/,
+    });
+    await user.click(surface);
+
+    expect(onSelectionChange).toHaveBeenLastCalledWith(null);
+    expect(
+      screen.getByRole("spinbutton", { name: "Rotation (degrees)" }),
+    ).toBeDisabled();
+  });
+
   it("renders the camera source inside the SVG so overlays share frame coordinates", () => {
     render(
       <VisibleCardReviewWorkbench
@@ -1065,9 +1121,9 @@ describe("VisibleCardReviewWorkbench", () => {
       />,
     );
 
-    const ignoredRow = screen.getByText("Already ignored").closest(
-      "[data-already-ignored]",
-    );
+    const ignoredRow = screen
+      .getByText("Already ignored")
+      .closest("[data-already-ignored]");
     expect(ignoredRow).toHaveAttribute("data-already-ignored", "true");
     expect(
       screen.getByRole("checkbox", {
@@ -1446,5 +1502,92 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(Number(projection?.getAttribute("stroke-width"))).toBe(
       initialStrokeWidth / 2,
     );
+  });
+
+  it("shows numbered stack badges and lets the sidebar reorder cards", async () => {
+    const multiCardFrame = structuredClone(frame);
+    const cardScene = multiCardFrame.outcome.card_scene!;
+    const secondCard = {
+      ...cardScene.scene.poses[0],
+      card_id: "card-2",
+      center: [60, 60] as [number, number],
+    };
+    cardScene.scene.poses[0].center = [15, 15];
+    cardScene.projection.table_to_image_homography = [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0.01, 1],
+    ];
+    cardScene.scene.poses.push(secondCard);
+    cardScene.scene.stacking_order.card_ids.push(secondCard.card_id);
+    cardScene.initialized_scene.poses.push(secondCard);
+    cardScene.initialized_scene.stacking_order.card_ids.push(
+      secondCard.card_id,
+    );
+    const onSceneChange = vi.fn();
+
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={multiCardFrame}
+        readOnly={false}
+        onSceneChange={onSceneChange}
+        proposalSlot={null}
+      />,
+    );
+
+    await userEvent.setup().click(
+      screen.getByRole("button", { name: "Edit Virtual cards" }),
+    );
+    expect(
+      screen.queryByText("Stack order · Front to back"),
+    ).not.toBeInTheDocument();
+    const surface = screen.getByRole("img", {
+      name: /Rectified visible-card workbench/,
+    });
+    expect(
+      surface.querySelector('[data-stacking-badge-id="card-1"]'),
+    ).toHaveAttribute("data-stacking-index", "0");
+    expect(
+      surface.querySelector('[data-stacking-badge-id="card-2"]'),
+    ).toHaveAttribute("data-stacking-index", "1");
+
+    await userEvent.setup().click(
+      screen.getByRole("button", {
+        name: "Viewpoint: Rectified. Switch to Camera",
+      }),
+    );
+    const cameraSurface = screen.getByRole("img", {
+      name: /1 visible-card proposal/,
+    });
+    const badgeRadii = Array.from(
+      cameraSurface.querySelectorAll("[data-card-stacking-badges] circle"),
+      (badge) => Number(badge.getAttribute("r")),
+    );
+    expect(badgeRadii).toHaveLength(2);
+    expect(badgeRadii[0]).toBeGreaterThan(4);
+    expect(badgeRadii[0]).toBe(badgeRadii[1]);
+
+    const stackOrder = screen.getByRole("region", { name: "Stack order" });
+    const firstRow = stackOrder.querySelector(
+      '[data-card-id="card-1"][data-stacking-index="0"]',
+    );
+    const secondRow = stackOrder.querySelector(
+      '[data-card-id="card-2"][data-stacking-index="1"]',
+    );
+    const values = new Map<string, string>();
+    const dataTransfer = {
+      effectAllowed: "",
+      dropEffect: "",
+      getData: (type: string) => values.get(type) ?? "",
+      setData: (type: string, value: string) => values.set(type, value),
+    };
+    fireEvent.dragStart(firstRow!, { dataTransfer });
+    fireEvent.drop(secondRow!, { dataTransfer });
+
+    await waitFor(() => expect(onSceneChange).toHaveBeenCalled());
+    expect(
+      onSceneChange.mock.calls.at(-1)?.[0].scene.stacking_order.card_ids,
+    ).toEqual(["card-2", "card-1"]);
   });
 });
