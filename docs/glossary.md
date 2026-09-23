@@ -252,6 +252,12 @@ The versioned projective transform used by a table-plane calibration to map coor
 stable source image plane and the rectified table coordinate system. It is recording-scoped, with an
 inverse transform for the reverse projection. It is not a camera model or a per-frame homography.
 
+### Calibration fit candidate
+
+One run-scoped, processor-derived table mapping kept for inspection when automatic calibration
+does not pass its publication gates. It records the best valid fit and measured errors. It is not
+a published table-plane calibration and cannot authorize reviewed geometry or dataset targets.
+
 ### Calibration anchor
 
 One operator-confirmed complete-card geometry observation that can constrain a table-plane
