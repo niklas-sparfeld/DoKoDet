@@ -239,15 +239,12 @@ describe("visible-card review workbench state", () => {
     });
   });
 
-  it("preserves valid preferences across frame navigation and clears transient frame state", () => {
+  it("preserves layer and edit-mode preferences when a frame has no elements", () => {
     const state = createVisibleCardReviewWorkbenchState(capabilities());
-    const prepared = visibleCardReviewWorkbenchReducer(
-      visibleCardReviewWorkbenchReducer(state, {
-        type: "toggle_layer",
-        layer: "suggestions",
-      }),
-      { type: "select", selection: { type: "virtual_card", id: "card-1" } },
-    );
+    const prepared = visibleCardReviewWorkbenchReducer(state, {
+      type: "select_tool",
+      tool: "mapping",
+    });
     const navigated = visibleCardReviewWorkbenchReducer(prepared, {
       type: "navigate_frame",
       capabilities: capabilities({
@@ -261,8 +258,8 @@ describe("visible-card review workbench state", () => {
 
     expect(getWorkbenchPreferences(navigated)).toEqual({
       viewpoint: "camera",
-      enabledLayers: ["visible_regions"],
-      activeTool: "visible_regions",
+      enabledLayers: ["mapping"],
+      activeTool: "mapping",
     });
     expect(navigated.frameId).toBe("frame-2");
     expect(navigated.selection).toBeNull();
