@@ -1,8 +1,17 @@
 # Robust automatic table-plane calibration
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0072 pose-based visible-card review and 0073 proposed card scenes and calibration refinement.
 - **Outcome:** One complete, stable-camera RF-DETR result produces an automatic table-plane calibration whose projected full cards fit reliable card boundaries across the view. Poor polygons have bounded or zero influence. A fit that misses publication gates remains an inspectable calibration fit candidate with measured error. The same fit serves automatic calibration and operator anchor refinement.
+
+## Current milestone status
+
+- **M0 — Complete.** Froze 24 local RF-DETR revisions, ten known-geometry synthetic cases, a read-only evaluator, and measured acceptance gates. The [baseline report](../../reports/0075-M0_Calibration_Baseline.md) records current results. Real-data outline acceptance remains pending because the frozen frames have no independent full-card outlines.
+- **M1 — Not started.**
+- **M2 — Not started.**
+- **M3 — Not started.**
+- **M4 — Not started.**
+- **M5 — Not started.**
 
 ## Problem and current behavior
 

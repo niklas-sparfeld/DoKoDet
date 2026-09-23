@@ -46,13 +46,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0075 — Robust automatic table-plane calibration](2-ready/0075-Robust_Automatic_Table_Plane_Calibration.md) | Completed 0072 and 0073 | M0–M5 planned: measure RF-DETR failures, fit reliable card boundaries, retain scored diagnostic candidates when quality gates fail, show failed fits in review, and resolve view-edge distortion from evidence. |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0075 — Robust automatic table-plane calibration](3-in-progress/0075-Robust_Automatic_Table_Plane_Calibration.md) | Completed 0072 and 0073 | M0 complete: froze 24 local RF-DETR revisions, ten synthetic cases, a reproducible evaluator, and measured gates. Real-data outline acceptance is pending. M1–M5 not started. |
 | [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M6 complete at the implementation and contract level. M3 remains validated on MPS with threshold `0.65` and `0.984043` crop-containment recall against the `0.98` floor. M4 materializes validated 0072 scene-derived crops and adds 0070 rows to train only. M5 supplies the crop RF-DETR SegMedium child contract. M6 assembles and registers the selectable, non-default `local-rfdetr-cascade`; real M4/M5 runtime artifacts are still required for a real cascade execution. |
 
 ### Blocked

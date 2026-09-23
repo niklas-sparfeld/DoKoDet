@@ -1,0 +1,310 @@
+{
+  "acceptance_gates": {
+    "clean_isolated": {
+      "absolute_median_area_bias_max": 0.02,
+      "median_boundary_px_max": 1.0,
+      "p90_boundary_over_short_side_max": 0.02
+    },
+    "determinism": {
+      "repeat_run_digest": "exact match"
+    },
+    "known_outliers": {
+      "clipped_card": "reject card-00 at the frame boundary",
+      "outlier": "reject or assign zero fit weight to outlier-card-04 and outlier-card-09",
+      "overlapping_pile": "reject or assign zero fit weight to pile-card-04b",
+      "partial_card": "reject or assign zero fit weight to card-04",
+      "weak_mask": "reject card-05 below the confidence gate"
+    },
+    "boundary_noise_2px": {
+      "absolute_median_area_bias_max": 0.10,
+      "median_boundary_px_max": 2.0,
+      "p90_boundary_over_short_side_max": 0.08
+    },
+    "real_data": {
+      "requirement": "independent full-card outlines for real frozen source frames",
+      "status": "pending"
+    },
+    "runtime": {
+      "local_result_seconds_max": 10,
+      "synthetic_case_seconds_max": 2
+    },
+    "size_underestimate": {
+      "absolute_median_area_bias_max": 0.02,
+      "absolute_median_short_extent_bias_max": 0.02,
+      "baseline_bias_reduction_min": 0.8,
+      "baseline_median_short_extent_bias": -0.10037884437345801
+    },
+    "view_edge": {
+      "additional_p90_over_clean_max": 0.01,
+      "p90_boundary_over_short_side_max": 0.03
+    }
+  },
+  "freeze_state": "frozen",
+  "frozen_on": "2026-09-23",
+  "local_results": [
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-1dddb5bf-6ba-attempt-1/content.json",
+      "content_sha256": "b071a4d436827aa2c526be446f8dcd879266bd523bef7ade242d80e249024ea0",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-1dddb5bf-6ba-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0650",
+      "revision_id": "visible-cards-visible_cards-run-1dddb5bf-6ba-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-27060560-229-attempt-1/content.json",
+      "content_sha256": "d52b796eb81cd6d481cd4e1379ac91755cef570574069a8e13afae86a98c9f6e",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-27060560-229-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "recording_id": "game-2026-09-18-01-001",
+      "revision_id": "visible-cards-visible_cards-run-27060560-229-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-28eb5188-145-attempt-1/content.json",
+      "content_sha256": "968d8350b589d1ad9543531360280fd3f1c0052707280680ecb428bbadca8c5e",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-28eb5188-145-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "recording_id": "cardeventnet-IMG_0652",
+      "revision_id": "visible-cards-visible_cards-run-28eb5188-145-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-2af2f63e-cdb-attempt-1/content.json",
+      "content_sha256": "f587f1b89032cde47791d69c91f5e8a8c1c334f06a2f833214d65e4284088c8a",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-2af2f63e-cdb-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "recording_id": "5a1f4037-d8ad-48da-9950-2ed2272811a5",
+      "revision_id": "visible-cards-visible_cards-run-2af2f63e-cdb-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-35cf69dd-525-attempt-1/content.json",
+      "content_sha256": "93ff9b32569e40002e6e3d79c11a2540876efa0a3fb38fddc00a707afed7c8d1",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-35cf69dd-525-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "recording_id": "game-2026-09-18-01-001",
+      "revision_id": "visible-cards-visible_cards-run-35cf69dd-525-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-588e9a26-75c-attempt-1/content.json",
+      "content_sha256": "81405b1952e70db5e1175936f6e96c92891b0e8ba00192655e75d4249291afe7",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-588e9a26-75c-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "recording_id": "game-2026-09-18-01-003",
+      "revision_id": "visible-cards-visible_cards-run-588e9a26-75c-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-5bd52a7b-3ba-attempt-1/content.json",
+      "content_sha256": "0dfeed0e1a49b056ce994874b90f045032cfaa4c0a681ab65e5caf66e35a7a53",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-5bd52a7b-3ba-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "game-2026-09-18-01-001",
+      "revision_id": "visible-cards-visible_cards-run-5bd52a7b-3ba-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-6e3c895f-a46-attempt-1/content.json",
+      "content_sha256": "3787afc2c598a3190fc3122a2d78ac3e9b62675ec211fda23a48150b6f7c4ed2",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-6e3c895f-a46-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0650",
+      "revision_id": "visible-cards-visible_cards-run-6e3c895f-a46-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-6e44ce5b-753-attempt-1/content.json",
+      "content_sha256": "324c6cc85a9c257541404d34de295fcb1b59f088c1734376899e563a2ef4482c",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-6e44ce5b-753-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0655",
+      "revision_id": "visible-cards-visible_cards-run-6e44ce5b-753-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-71630e52-d48-attempt-1/content.json",
+      "content_sha256": "9eaeb852823165202bffbdb2310848e9555693c71b85e7244775fe83535705e2",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-71630e52-d48-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "recording_id": "game-2026-09-18-01-002",
+      "revision_id": "visible-cards-visible_cards-run-71630e52-d48-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-7b9b84c7-2ab-attempt-1/content.json",
+      "content_sha256": "0559ec62f4897b2abaacf5c6fc4cac41664b6e7fc63c703e09a62d44086aeb1e",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-7b9b84c7-2ab-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0661",
+      "revision_id": "visible-cards-visible_cards-run-7b9b84c7-2ab-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-7cdf2fae-eae-attempt-1/content.json",
+      "content_sha256": "c1478e71ba4f7ef7fcba5c17e2bab7a32c1c90a89073745ec03fdb32e5e3363b",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-7cdf2fae-eae-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "game-2026-09-18-01-003",
+      "revision_id": "visible-cards-visible_cards-run-7cdf2fae-eae-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-850d55f6-925-attempt-1/content.json",
+      "content_sha256": "19240f918146072d31a37f5b738e197324c1324be63430ae783955c49b8349f9",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-850d55f6-925-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0650",
+      "revision_id": "visible-cards-visible_cards-run-850d55f6-925-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-c341e308-722-attempt-1/content.json",
+      "content_sha256": "0586054526120cdb64124a4ad5359cab1ca2bdb09ed3e6fd413bff9c9641a18f",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-c341e308-722-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "game-2026-09-18-01-001",
+      "revision_id": "visible-cards-visible_cards-run-c341e308-722-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-c3eb3a19-d42-attempt-1/content.json",
+      "content_sha256": "216f2bd92dcb72c5ac4f78fcadb8d7f7e0a3f97cf634dde5d1fedbe5ceff633b",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-c3eb3a19-d42-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0650",
+      "revision_id": "visible-cards-visible_cards-run-c3eb3a19-d42-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-c70927c4-e49-attempt-1/content.json",
+      "content_sha256": "c53505689e93e5984765859052b7646c083dedd069c32f4f443fc91811ae7e2e",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-c70927c4-e49-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0656",
+      "revision_id": "visible-cards-visible_cards-run-c70927c4-e49-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-cdf105b9-7b2-attempt-1/content.json",
+      "content_sha256": "ca99c09181f6ada184777fc1aa24b4e706e6de1816033e4802a4f647e64cd9fb",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-cdf105b9-7b2-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "game-2026-09-18-01-001",
+      "revision_id": "visible-cards-visible_cards-run-cdf105b9-7b2-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-da5c860a-42a-attempt-1/content.json",
+      "content_sha256": "8a945bc06b09d7638e2458c0c18125e23e980cbe75428c00af58ba25345458b7",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-da5c860a-42a-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0650",
+      "revision_id": "visible-cards-visible_cards-run-da5c860a-42a-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-eef8737c-1f8-attempt-1/content.json",
+      "content_sha256": "98ed9450978693c4859a3984e0ea9e67a401cf631a4fefa7085496385c73209b",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-eef8737c-1f8-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0648",
+      "revision_id": "visible-cards-visible_cards-run-eef8737c-1f8-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-f678d010-5a3-attempt-1/content.json",
+      "content_sha256": "9b83691b4e76df28984775aaec2d03992d61297c7581a880ff1f0447f90e4b6a",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-f678d010-5a3-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0650",
+      "revision_id": "visible-cards-visible_cards-run-f678d010-5a3-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-f95a2f96-e89-attempt-1/content.json",
+      "content_sha256": "2cd459304a8a18cd1a0b72b607ff06a5e641a8fd94bebf917ae479cf2e8c4480",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-f95a2f96-e89-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "recording_id": "game-2026-09-18-01-001",
+      "revision_id": "visible-cards-visible_cards-run-f95a2f96-e89-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-fa13cf76-df3-attempt-1/content.json",
+      "content_sha256": "85c3d76dc6a915abf6ab36841780a12f843a4b5793b408c4497954d38a1f974d",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-fa13cf76-df3-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "recording_id": "game-2026-09-18-01-003",
+      "revision_id": "visible-cards-visible_cards-run-fa13cf76-df3-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-mpsfix5-20260922-attempt-1/content.json",
+      "content_sha256": "644b548501004f125f9d1c0f762172a77ef8f688a85c5b789ef7070ad5722555",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-mpsfix5-20260922-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0650",
+      "revision_id": "visible-cards-visible_cards-run-mpsfix5-20260922-attempt-1"
+    },
+    {
+      "content_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-mpsfix6-20260922-attempt-1/content.json",
+      "content_sha256": "e0b42dcd00261ebf88f98d394cabd00eb206541a93e92f97fb01553797800ec9",
+      "coverage_kind": "requested-event-frames",
+      "manifest_path": "data/operations/pipeline/revisions/visible-cards-visible_cards-run-mpsfix6-20260922-attempt-1/manifest.json",
+      "model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "recording_id": "cardeventnet-IMG_0650",
+      "revision_id": "visible-cards-visible_cards-run-mpsfix6-20260922-attempt-1"
+    }
+  ],
+  "real_outline_reference": {
+    "real_data_acceptance_gate": "pending independent full-card outlines for the frozen source frames",
+    "reason": "The retained local RF-DETR revisions contain model polygons and source-frame digests. No independent full-card outline annotations are stored for these exact frames.",
+    "status": "unavailable"
+  },
+  "schema_version": "card-plane-calibration-evaluation/v1",
+  "synthetic_cases": [
+    {
+      "case_id": "clean-isolated",
+      "recipe": "Known projective table plane; 12 complete, isolated cards with exact corners across time, position, and orientation."
+    },
+    {
+      "case_id": "repeated-stationary",
+      "recipe": "The clean set plus one unchanged card pose repeated over 12 time bins."
+    },
+    {
+      "case_id": "edge-of-view",
+      "recipe": "Known projective table plane with complete cards near the left image edge."
+    },
+    {
+      "case_id": "overlapping-pile",
+      "recipe": "Two overlapping complete-card predictions in one frame; both full outlines are known."
+    },
+    {
+      "case_id": "partial-card",
+      "recipe": "One detector polygon is uniformly reduced to 55 percent of the known complete outline."
+    },
+    {
+      "case_id": "weak-mask",
+      "recipe": "One otherwise complete polygon has confidence 0.72, below the current 0.90 gate."
+    },
+    {
+      "case_id": "shrink-10-percent",
+      "recipe": "All detected polygons are reduced to 90 percent about their centers; independent full outlines stay unchanged."
+    },
+    {
+      "case_id": "boundary-noise-2px",
+      "recipe": "Each observed corner has deterministic Gaussian noise with 2.0 pixel standard deviation."
+    },
+    {
+      "case_id": "outlier",
+      "recipe": "Two high-confidence, oversized false predictions are added to the clean set."
+    },
+    {
+      "case_id": "clipped-card",
+      "recipe": "One complete known outline crosses the source-frame boundary and the detector polygon is clipped to the frame."
+    }
+  ]
+}
