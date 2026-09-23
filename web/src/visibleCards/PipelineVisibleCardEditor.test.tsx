@@ -2196,7 +2196,7 @@ describe("PipelineVisibleCardEditor", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("ends edit mode when navigating to another frame", async () => {
+  it("keeps edit mode active and selects a card per frame", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>((_input, init) =>
@@ -2222,6 +2222,10 @@ describe("PipelineVisibleCardEditor", () => {
     await user.click(
       await screen.findByRole("button", { name: "Select proposal 1" }),
     );
+    const visibleRegionTool = screen.getByRole("button", {
+      name: "Edit Visible regions",
+    });
+    expect(visibleRegionTool).toHaveAttribute("aria-pressed", "true");
     expect(
       screen.queryByRole("button", { name: "Close editor Esc" }),
     ).not.toBeInTheDocument();
@@ -2235,6 +2239,16 @@ describe("PipelineVisibleCardEditor", () => {
         }),
       ).not.toBeInTheDocument(),
     );
+    expect(visibleRegionTool).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(
+      await screen.findByRole("button", { name: "Select proposal 1" }),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Polygon 1, point 1 at 100, 100",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("ends edit mode when changing the frame state", async () => {

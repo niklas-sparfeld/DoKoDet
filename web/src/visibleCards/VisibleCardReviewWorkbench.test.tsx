@@ -1180,6 +1180,55 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toBeEnabled();
   });
 
+  it("keeps mapping anchors visible when navigating to a frame without a card scene", async () => {
+    const noSceneFrame = structuredClone(frame);
+    noSceneFrame.itemId = "event-2";
+    noSceneFrame.outcome.event_id = "event-2";
+    noSceneFrame.outcome.card_scene = undefined;
+    const nextFrameRefinement = structuredClone(
+      calibrationRefinement,
+    ) as CalibrationRefinementResponse & {
+      draft: { anchors: Array<{ source_frame_id: string }> };
+    };
+    nextFrameRefinement.draft.anchors[0].source_frame_id = "event-2";
+    const { rerender } = render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={calibrationRefinement}
+      />,
+    );
+
+    rerender(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={noSceneFrame}
+        readOnly={false}
+        initialPreferences={{ activeTool: "visible_regions" }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={nextFrameRefinement}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Adjust calibration anchor 1 for anchor-1",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Mapping diagnostics" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Edit Mapping diagnostics" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("starts the current mapping preview when mapping edit mode opens", async () => {
     const onStartMappingPreview = vi.fn();
     const user = userEvent.setup();
