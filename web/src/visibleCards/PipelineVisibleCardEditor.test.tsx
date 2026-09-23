@@ -551,8 +551,8 @@ describe("PipelineVisibleCardEditor", () => {
           schema_version: "proposed-card-scene-failure-diagnostics/v1",
           calibration_run: {
             failure: {
-              code: "absolute_size_reference_unavailable",
-              message: "Independent full-card outlines are required.",
+              code: "held_out_boundary_failed",
+              message: "Held-out card boundaries exceed the limit.",
               action: "Inspect the worst-fit frames.",
             },
             calibration_fit_candidate: {
@@ -568,8 +568,8 @@ describe("PipelineVisibleCardEditor", () => {
                 geometry_count: 2,
                 quality_count: 2,
               },
-              failed_gates: ["absolute_size_reference", "held_out_boundary"],
-              unavailable_gates: ["absolute_size_reference"],
+              failed_gates: ["held_out_boundary"],
+              unavailable_gates: [],
               candidate_evidence: [
                 {
                   candidate_id: "candidate-1",
@@ -674,9 +674,9 @@ describe("PipelineVisibleCardEditor", () => {
     expect(within(diagnostic).getByLabelText(/Used for fit/)).toBeChecked();
     expect(within(diagnostic).getByLabelText(/Held out/)).toBeChecked();
     expect(within(diagnostic).getByLabelText(/Discarded/)).toBeChecked();
-    expect(diagnostic).toHaveTextContent("unavailable · gate failed");
+    expect(diagnostic).toHaveTextContent("Optional size comparison");
     expect(diagnostic).toHaveTextContent(
-      "Independent full-card outlines are required.",
+      "Held-out card boundaries exceed the limit.",
     );
     expect(
       container.querySelector(

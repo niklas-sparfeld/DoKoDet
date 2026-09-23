@@ -185,18 +185,13 @@ export function CalibrationFitDiagnosticsPanel({
   if (diagnostics === null) return null;
   const heldOut = diagnostics.heldOutSummary;
   const outlinesAvailable = diagnostics.evidence.some(
-    (item) => item.points.length === 4,
+    (item) => item.points.length >= 4,
   );
   const yieldLabel =
     diagnostics.candidateYield.raw_count === undefined ||
     diagnostics.candidateYield.accepted_count === undefined
       ? "unavailable"
       : `${diagnostics.candidateYield.accepted_count} accepted of ${diagnostics.candidateYield.raw_count} predictions`;
-  const sizeStatus = diagnostics.unavailableGates.includes(
-    "absolute_size_reference",
-  )
-    ? "unavailable · gate failed"
-    : diagnostics.absoluteSize.status;
 
   return (
     <section
@@ -259,8 +254,8 @@ export function CalibrationFitDiagnosticsPanel({
           </dd>
         </div>
         <div>
-          <dt>Absolute size gate</dt>
-          <dd>{sizeStatus}</dd>
+          <dt>Optional size comparison</dt>
+          <dd>{diagnostics.absoluteSize.status}</dd>
         </div>
         <div>
           <dt>Short-side bias</dt>

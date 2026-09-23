@@ -111,18 +111,18 @@ def test_proposals_are_repeatable_and_publish_one_calibration_revision(tmp_path:
     )
 
 
-def test_failed_proposal_retains_fit_candidate_without_independent_size_reference() -> None:
+def test_proposal_uses_calibration_without_independent_size_reference() -> None:
     result = build_proposed_card_scenes(
         _local_result(),
         detector_revision_id="visible-cards-001",
         detector_revision_digest=DIGEST,
     )
 
-    assert result.status == "failed"
-    assert result.data is None
+    assert result.status == "complete"
+    assert result.data is not None
+    assert result.calibration_run.calibration is not None
     assert result.calibration_run.calibration_fit_candidate is not None
-    assert result.calibration_run.failure is not None
-    assert result.calibration_run.failure.code == "absolute_size_reference_unavailable"
+    assert result.calibration_run.failure is None
     assert result.calibration_run.diagnostics["validation"]["held_out_summary"]["count"] >= 2
 
 

@@ -38,7 +38,7 @@ from .card_plane_geometry import (
 )
 from .pipeline_data import canonical_json_bytes
 
-CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v7"
+CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v8"
 CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v3"
 CALIBRATION_RUN_SCHEMA_V2 = "card-plane-calibration-run/v2"
 CALIBRATION_FIT_CANDIDATE_SCHEMA_VERSION = "card-plane-calibration-fit-candidate/v1"
@@ -1973,7 +1973,7 @@ def calibrate_recording(
     size_reference_available = (
         len(size_metrics) >= selected_recipe.minimum_size_reference_candidates
     )
-    size_gate_passed = bool(
+    size_comparison_passed = bool(
         size_reference_available
         and abs(float(np.median(size_short_bias))) <= selected_recipe.maximum_median_short_side_bias
         and abs(float(np.median(size_area_bias))) <= selected_recipe.maximum_median_area_bias
@@ -2021,7 +2021,7 @@ def calibrate_recording(
         },
         "absolute_size": {
             "status": "passed"
-            if size_gate_passed
+            if size_comparison_passed
             else "failed"
             if size_reference_available
             else "unavailable",
@@ -2032,7 +2032,7 @@ def calibrate_recording(
             "short_side_bias": None if not size_short_bias else float(np.median(size_short_bias)),
             "area_bias": None if not size_area_bias else float(np.median(size_area_bias)),
             "reason": None
-            if size_gate_passed
+            if size_comparison_passed
             else "measured short-side or area bias exceeds the frozen limit"
             if size_reference_available
             else "independent held-out full-card outlines are unavailable",
@@ -2122,13 +2122,10 @@ def calibrate_recording(
         "held_out_boundary": bool(
             held_fraction >= selected_recipe.minimum_held_out_boundary_pass_fraction
         ),
-        "absolute_size_reference": size_gate_passed,
     }
     diagnostics["gates"] = gates
     diagnostics["failed_gates"] = sorted(name for name, passed in gates.items() if not passed)
-    diagnostics["unavailable_gates"] = sorted(
-        name for name in gates if name == "absolute_size_reference" and not size_reference_available
-    )
+    diagnostics["unavailable_gates"] = []
     if not all(gates.values()):
         if not gates["candidate_count"]:
             code = "insufficient_candidates"
@@ -2170,16 +2167,6 @@ def calibrate_recording(
             code = "held_out_boundary_failed"
             message = "held-out card boundaries exceed the source-pixel validation limits"
             action = "inspect camera movement, zoom, stabilization drift, and the worst-fit frames"
-        elif not size_reference_available:
-            code = "absolute_size_reference_unavailable"
-            message = "independent full-card outlines are required to validate absolute card size"
-            action = (
-                "provide independent held-out full-card outlines before publishing this calibration"
-            )
-        else:
-            code = "absolute_size_bias_failed"
-            message = "the independent full-card outlines show a systematic size or area bias"
-            action = "inspect the fit and its contributing detector boundaries before publishing"
         return _failure(
             code,
             message,

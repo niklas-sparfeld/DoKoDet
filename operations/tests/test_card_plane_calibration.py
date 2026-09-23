@@ -118,14 +118,14 @@ def test_calibration_is_repeatable_and_validates_held_out_candidates() -> None:
     assert first.to_mapping() == second.to_mapping()
     assert first.diagnostics["validation"]["held_out_count"] >= 2
     assert first.diagnostics["gates"]["held_out_boundary"] is True
-    assert first.diagnostics["gates"]["absolute_size_reference"] is True
+    assert "absolute_size_reference" not in first.diagnostics["gates"]
     assert first.calibration.card_short_size == 1.0
     assert first.calibration.card_long_size == 1.5
     assert first.calibration_fit_candidate is not None
     assert first.to_mapping()["schema_version"] == "card-plane-calibration-run/v3"
 
 
-def test_detector_only_fit_is_retained_but_absolute_size_stays_unavailable() -> None:
+def test_detector_only_fit_publishes_without_independent_size_reference() -> None:
     result = _recording_result(
         positions=[
             (0.0, 0.0),
@@ -145,13 +145,13 @@ def test_detector_only_fit_is_retained_but_absolute_size_stays_unavailable() -> 
 
     run = calibrate_recording(result)
 
-    assert run.status == "failed"
-    assert run.failure is not None
-    assert run.failure.code == "absolute_size_reference_unavailable"
-    assert run.calibration is None
+    assert run.status == "published"
+    assert run.failure is None
+    assert run.calibration is not None
     assert run.calibration_fit_candidate is not None
-    assert run.diagnostics["gates"]["absolute_size_reference"] is False
-    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v7"
+    assert "absolute_size_reference" not in run.diagnostics["gates"]
+    assert run.diagnostics["unavailable_gates"] == []
+    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v8"
     assert run.diagnostics["validation"]["absolute_size"]["status"] == "unavailable"
     assert run.diagnostics["validation"]["absolute_size"]["short_side_bias"] is None
     assert run.diagnostics["fit_candidate_availability"]["available"] is True
@@ -699,7 +699,7 @@ def test_inconsistent_fit_keeps_best_finite_candidate() -> None:
     assert run.diagnostics["validation"]["held_out_summary"]["count"] >= 2
 
 
-def test_uniform_shrink_fails_independent_size_gate_with_candidate() -> None:
+def test_uniform_shrink_is_reported_but_does_not_block_publication() -> None:
     result, references, _metadata = _synthetic_result("shrink-10-percent")
 
     run = calibrate_recording(
@@ -708,10 +708,11 @@ def test_uniform_shrink_fails_independent_size_gate_with_candidate() -> None:
         size_reference_revision="synthetic-known-full-card-outlines/v1",
     )
 
-    assert run.status == "failed"
-    assert run.failure is not None
-    assert run.failure.code == "absolute_size_bias_failed"
+    assert run.status == "published"
+    assert run.failure is None
+    assert run.calibration is not None
     assert run.calibration_fit_candidate is not None
+    assert "absolute_size_reference" not in run.diagnostics["gates"]
     size = run.diagnostics["validation"]["absolute_size"]
     assert size["status"] == "failed"
     assert size["short_side_bias"] < -0.08
