@@ -309,6 +309,38 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders the camera source inside the SVG so overlays share frame coordinates", () => {
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly
+        initialPreferences={{
+          viewpoint: "camera",
+          activeTool: "visible_regions",
+        }}
+      />,
+    );
+
+    const surface = screen.getByRole("img", {
+      name: "1 visible-card proposal",
+    });
+    expect(surface).toHaveAttribute("preserveAspectRatio", "xMidYMid meet");
+    expect(surface.parentElement).toHaveStyle({
+      "--workbench-frame-aspect-ratio": "100 / 100",
+    });
+    const background = surface.querySelector(
+      '[data-workbench-background="camera"]',
+    );
+    expect(background).not.toBeNull();
+    expect(background).toHaveAttribute("width", "100");
+    expect(background).toHaveAttribute("height", "100");
+    expect(background).toHaveAttribute("x", "0");
+    expect(background).toHaveAttribute("y", "0");
+    expect(background).toHaveAttribute("preserveAspectRatio", "none");
+    expect(surface.parentElement?.querySelector("img")).toBeNull();
+  });
+
   it("keeps unavailable layers visible with a reason", () => {
     const noCalibrationFrame = structuredClone(frame);
     noCalibrationFrame.outcome.card_scene = undefined;

@@ -508,7 +508,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     expect(
-      await screen.findByAltText("Selected visible-card source frame"),
+      await screen.findByRole("img", { name: /visible-card proposal/ }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("video")).not.toBeInTheDocument();
     expect(
@@ -745,12 +745,20 @@ describe("PipelineVisibleCardEditor", () => {
       />,
     );
 
-    const image = await screen.findByAltText(
-      "Selected visible-card source frame",
-    );
-    expect(image.parentElement).toHaveStyle({
+    const surface = await screen.findByRole("img", {
+      name: /visible-card proposal/,
+    });
+    expect(surface.parentElement).toHaveStyle({
       "--workbench-frame-aspect-ratio": "1080 / 1920",
     });
+    expect(surface).toHaveAttribute("preserveAspectRatio", "xMidYMid meet");
+    const background = surface.querySelector(
+      '[data-workbench-background="camera"]',
+    );
+    expect(background).not.toBeNull();
+    expect(background).toHaveAttribute("width", "1080");
+    expect(background).toHaveAttribute("height", "1920");
+    expect(background).toHaveAttribute("preserveAspectRatio", "none");
   });
 
   it("keeps frame navigation and selection actions in separate Timeline Rail slots", async () => {
@@ -824,11 +832,13 @@ describe("PipelineVisibleCardEditor", () => {
       />,
     );
 
-    await screen.findByAltText("Selected visible-card source frame");
+    await screen.findByRole("img", { name: /visible-card proposal/ });
     await waitFor(() =>
       expect(
-        screen.getByAltText("Selected visible-card source frame"),
-      ).toHaveAttribute("src", expect.stringContaining("exact-event/600000")),
+        screen
+          .getByRole("img", { name: /visible-card proposal/ })
+          .querySelector('[data-workbench-background="camera"]'),
+      ).toHaveAttribute("href", expect.stringContaining("exact-event/600000")),
     );
     await waitFor(() =>
       expect(
@@ -865,7 +875,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     expect(
-      await screen.findByAltText("Selected visible-card source frame"),
+      await screen.findByRole("img", { name: /visible-card proposal/ }),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${ITEM_ID}`),
@@ -875,8 +885,10 @@ describe("PipelineVisibleCardEditor", () => {
       expect(window.location.search).toContain(`item=${SECOND_ITEM_ID}`),
     );
     expect(
-      screen.getByAltText("Selected visible-card source frame"),
-    ).toHaveAttribute("src", expect.stringContaining("exact-event/800000"));
+      screen
+        .getByRole("img", { name: /visible-card proposal/ })
+        .querySelector('[data-workbench-background="camera"]'),
+    ).toHaveAttribute("href", expect.stringContaining("exact-event/800000"));
     expect(screen.queryByText("derived frame failed")).not.toBeInTheDocument();
   });
 
@@ -902,7 +914,7 @@ describe("PipelineVisibleCardEditor", () => {
       />,
     );
 
-    await screen.findByAltText("Selected visible-card source frame");
+    await screen.findByRole("img", { name: /visible-card proposal/ });
     await waitFor(() =>
       expect(window.location.search).toContain(`item=${ITEM_ID}`),
     );
@@ -994,7 +1006,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     expect(
-      await screen.findByAltText("Selected visible-card source frame"),
+      await screen.findByRole("img", { name: /visible-card proposal/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Start visible-card review" }),
@@ -1030,7 +1042,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     expect(
-      await screen.findByAltText("Selected visible-card source frame"),
+      await screen.findByRole("img", { name: /visible-card proposal/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Start visible-card review" }),
@@ -1233,7 +1245,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     expect(
-      await screen.findByAltText("Selected visible-card source frame"),
+      await screen.findByRole("img", { name: /visible-card proposal/ }),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(railItems).toHaveBeenLastCalledWith([
@@ -1487,7 +1499,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     const user = userEvent.setup();
-    await screen.findByAltText("Selected visible-card source frame");
+    await screen.findByRole("img", { name: /visible-card proposal/ });
     await user.click(
       screen.getByRole("checkbox", {
         name: "Select proposal 1 for ignore region",
@@ -1635,7 +1647,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     const user = userEvent.setup();
-    await screen.findByAltText("Selected visible-card source frame");
+    await screen.findByRole("img", { name: /visible-card proposal/ });
     await user.click(
       screen.getByRole("button", {
         name: "Draw ignore region in shared workbench",
@@ -1763,7 +1775,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     const user = userEvent.setup();
-    await screen.findByAltText("Selected visible-card source frame");
+    await screen.findByRole("img", { name: /visible-card proposal/ });
     await user.click(
       screen.getByRole("button", {
         name: "Draw ignore region in shared workbench",
@@ -1914,7 +1926,7 @@ describe("PipelineVisibleCardEditor", () => {
       />,
     );
 
-    await screen.findByAltText("Selected visible-card source frame");
+    await screen.findByRole("img", { name: /visible-card proposal/ });
     const controls = screen.getByRole("group", {
       name: "Frame navigation",
     });
@@ -2216,7 +2228,7 @@ describe("PipelineVisibleCardEditor", () => {
       />,
     );
 
-    await screen.findByAltText("Selected visible-card source frame");
+    await screen.findByRole("img", { name: /visible-card proposal/ });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Select proposal 1" }));
     const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
@@ -2286,7 +2298,7 @@ describe("PipelineVisibleCardEditor", () => {
         />,
       );
 
-      await screen.findByAltText("Selected visible-card source frame");
+      await screen.findByRole("img", { name: /visible-card proposal/ });
       const user = userEvent.setup();
       await user.click(
         screen.getByRole("button", { name: "Select proposal 1" }),
@@ -2345,7 +2357,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     expect(
-      await screen.findByAltText("Selected visible-card source frame"),
+      await screen.findByRole("img", { name: /visible-card proposal/ }),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(railItems).toHaveBeenLastCalledWith([
@@ -2476,7 +2488,7 @@ describe("PipelineVisibleCardEditor", () => {
         view="reviewed"
       />,
     );
-    await screen.findByAltText("Selected visible-card source frame");
+    await screen.findByRole("img", { name: /visible-card proposal/ });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Mark empty" }));
 
@@ -2511,7 +2523,7 @@ describe("PipelineVisibleCardEditor", () => {
         view="reviewed"
       />,
     );
-    await screen.findByAltText("Selected visible-card source frame");
+    await screen.findByRole("img", { name: /visible-card proposal/ });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Mark empty" }));
     await waitFor(() =>

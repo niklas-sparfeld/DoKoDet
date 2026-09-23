@@ -2404,28 +2404,10 @@ function WorkbenchSurface({
         } as CSSProperties
       }
     >
-      {sourceUrl !== null ? (
-        <img
-          className={styles.workbenchCameraImage}
-          src={sourceUrl}
-          width={width}
-          height={height}
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            left: `${(viewBox.x / width) * -viewport.zoom * 100}%`,
-            top: `${(viewBox.y / height) * -viewport.zoom * 100}%`,
-            width: `${viewport.zoom * 100}%`,
-            height: `${viewport.zoom * 100}%`,
-            objectFit: "fill",
-            pointerEvents: "none",
-          }}
-        />
-      ) : null}
       <svg
         className={styles.workbenchCameraSurface}
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={proposalLabel}
         tabIndex={0}
@@ -2476,6 +2458,19 @@ function WorkbenchSurface({
         onPointerCancel={onPointerCancel}
         onWheel={onWheel}
       >
+        {sourceUrl !== null ? (
+          <image
+            href={sourceUrl}
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            preserveAspectRatio="none"
+            pointerEvents="none"
+            data-workbench-background="camera"
+            aria-hidden="true"
+          />
+        ) : null}
         {renderLayers({
           frame,
           candidates,
