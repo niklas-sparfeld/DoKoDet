@@ -522,7 +522,8 @@ export function PipelineVisibleCardEditor({
                 .then((complete) => {
                   const latest = calibrationRefinementRef.current;
                   if (
-                    latest?.draft.revision === complete.draft.revision &&
+                    latest !== null &&
+                    latest.draft.revision === complete.draft.revision &&
                     latest.proposal_revision_id === complete.proposal_revision_id
                   ) {
                     calibrationRefinementRef.current = complete;

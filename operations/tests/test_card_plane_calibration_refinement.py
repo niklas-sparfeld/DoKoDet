@@ -178,6 +178,59 @@ def test_duplicate_anchor_command_is_idempotent() -> None:
     assert apply_anchor_command_to_draft(updated, command) == updated
 
 
+def test_editing_rejected_anchor_makes_manual_geometry_eligible() -> None:
+    draft, calibration = _draft()
+    original = draft.anchors[0]
+    rejected = AnchorObservation.create(
+        anchor_id=original.anchor_id,
+        card_id=original.card_id,
+        source_frame_id=original.source_frame_id,
+        source_frame_digest=original.source_frame_digest,
+        detector_revision_id=original.detector_revision_id,
+        quadrilateral=original.quadrilateral,
+        confidence=original.confidence,
+        temporal_bin=original.temporal_bin,
+        table_region_bin=original.table_region_bin,
+        scale_bin=original.scale_bin,
+        orientation_bin=original.orientation_bin,
+        eligible=False,
+        eligibility_reason="detector candidate rejected",
+        state="excluded",
+    )
+    draft = build_calibration_draft(
+        draft_id=draft.draft_id,
+        recording_id=draft.recording_id,
+        detector_revision_id=draft.detector_revision_id,
+        detector_revision_digest=draft.detector_revision_digest,
+        base_calibration=calibration,
+        anchors=(rejected, *draft.anchors[1:]),
+        source_frame_digests={
+            anchor.source_frame_id: anchor.source_frame_digest
+            for anchor in (rejected, *draft.anchors[1:])
+        },
+    )
+    corners = list(rejected.quadrilateral)
+    corners[0] = (corners[0][0] + 1, corners[0][1] + 1)
+    command = AnchorCommand.create(
+        command_id="command-1",
+        sequence=1,
+        expected_draft_revision=0,
+        anchor_id=rejected.anchor_id,
+        operation="set_corners",
+        state="adjusted",
+        moved_corner=0,
+        corners=corners,
+        operator_id="operator-1",
+    )
+
+    updated = apply_anchor_command_to_draft(draft, command).anchors[0]
+
+    assert updated.eligible
+    assert updated.eligibility_reason is None
+    assert updated.state == "adjusted"
+    assert updated.quadrilateral[0] == corners[0]
+
+
 def test_pinned_conflict_blocks_preview() -> None:
     draft, calibration = _draft()
     first = draft.anchors[0]

@@ -586,7 +586,6 @@ export function VisibleCardReviewWorkbench({
   ) => {
     if (
       readOnly ||
-      !anchor.eligible ||
       activeState.activeTool !== "mapping" ||
       onAnchorCommand === undefined
     )
@@ -640,12 +639,7 @@ export function VisibleCardReviewWorkbench({
   };
 
   const beginMappingNumericEdit = (value: number, axis: 0 | 1) => {
-    if (
-      selectedMappingAnchor === null ||
-      !selectedMappingAnchor.eligible ||
-      !Number.isFinite(value)
-    )
-      return;
+    if (selectedMappingAnchor === null || !Number.isFinite(value)) return;
     const corner = selectedMappingAnchor.corners[anchorCornerIndex];
     if (corner === undefined) return;
     setNumericAnchor({
@@ -659,7 +653,7 @@ export function VisibleCardReviewWorkbench({
     const anchor = mappingAnchors.find(
       (candidate) => candidate.anchorId === numericAnchor.anchorId,
     );
-    if (anchor === undefined || !anchor.eligible) return;
+    if (anchor === undefined) return;
     const context = anchorCommandContext();
     emitAnchorCommand(
       createCalibrationAnchorCommand({
@@ -3615,35 +3609,33 @@ function MappingAnchorOverlay({
           }}
         />
       ) : null}
-      {anchor.eligible
-        ? corners.map(([x, y], index) => (
-            <circle
-              key={`${anchor.anchorId}-${index}`}
-              cx={x}
-              cy={y}
-              r={mappingCornerRadius(
-                viewpoint,
-                width,
-                zoom,
-                Math.max(0.4, (projection?.card_short_size ?? 10) * 0.04),
-              )}
-              fill={selected ? "#ffffff" : "#ff8a65"}
-              stroke="#18242f"
-              strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
-              opacity={0.5}
-              data-mapping-anchor={index}
-              role="button"
-              tabIndex={0}
-              aria-label={`Adjust calibration anchor ${index + 1} for ${anchor.anchorId}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelect({ type: "calibration_anchor", id: anchor.anchorId });
-                onSelectCorner(index);
-              }}
-              onPointerDown={(event) => onPointerDown?.(event, anchor, index)}
-            />
-          ))
-        : null}
+      {corners.map(([x, y], index) => (
+        <circle
+          key={`${anchor.anchorId}-${index}`}
+          cx={x}
+          cy={y}
+          r={mappingCornerRadius(
+            viewpoint,
+            width,
+            zoom,
+            Math.max(0.4, (projection?.card_short_size ?? 10) * 0.04),
+          )}
+          fill={selected ? "#ffffff" : "#ff8a65"}
+          stroke="#18242f"
+          strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
+          opacity={0.5}
+          data-mapping-anchor={index}
+          role="button"
+          tabIndex={0}
+          aria-label={`Adjust calibration anchor ${index + 1} for ${anchor.anchorId}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect({ type: "calibration_anchor", id: anchor.anchorId });
+            onSelectCorner(index);
+          }}
+          onPointerDown={(event) => onPointerDown?.(event, anchor, index)}
+        />
+      ))}
     </g>
   );
 }
@@ -3690,7 +3682,7 @@ function MappingProjection({
         opacity={0.5}
         pointerEvents="none"
       />
-      {dataProjection === "current" && anchor?.eligible
+      {dataProjection === "current"
         ? polygon.map(([x, y], index) => {
             const imagePoint =
               viewpoint === "camera"
@@ -3699,8 +3691,8 @@ function MappingProjection({
                     [x, y],
                     projection.table_to_image_homography,
                   );
-            const anchorCorner = anchor.corners[index];
-            if (imagePoint === null || anchorCorner === undefined) return null;
+            const anchorCorner = anchor?.corners[index];
+            if (imagePoint === null) return null;
             return (
               <circle
                 key={index}
@@ -3715,23 +3707,31 @@ function MappingProjection({
                 fill={stroke}
                 stroke="#18242f"
                 strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
-                role="button"
-                tabIndex={0}
-                aria-label={`Adjust mapped card corner ${index + 1} for ${pose.card_id}`}
+                pointerEvents={anchorCorner === undefined ? "none" : undefined}
+                role={anchorCorner === undefined ? undefined : "button"}
+                tabIndex={anchorCorner === undefined ? undefined : 0}
+                aria-label={
+                  anchorCorner === undefined
+                    ? undefined
+                    : `Adjust mapped card corner ${index + 1} for ${pose.card_id}`
+                }
                 onClick={(event) => {
                   event.stopPropagation();
-                  onSelect?.({
-                    type: "calibration_anchor",
-                    id: anchor.anchorId,
-                  });
-                  onSelectCorner?.(index);
+                  if (anchor !== undefined) {
+                    onSelect?.({
+                      type: "calibration_anchor",
+                      id: anchor.anchorId,
+                    });
+                    onSelectCorner?.(index);
+                  }
                 }}
-                onPointerDown={(event) =>
-                  onPointerDown?.(event, anchor, index, [
-                    anchorCorner[0] - imagePoint[0],
-                    anchorCorner[1] - imagePoint[1],
-                  ])
-                }
+                onPointerDown={(event) => {
+                  if (anchor !== undefined && anchorCorner !== undefined)
+                    onPointerDown?.(event, anchor, index, [
+                      anchorCorner[0] - imagePoint[0],
+                      anchorCorner[1] - imagePoint[1],
+                    ]);
+                }}
               />
             );
           })

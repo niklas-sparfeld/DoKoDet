@@ -1304,6 +1304,9 @@ describe("VisibleCardReviewWorkbench", () => {
 
     expect(onStartMappingPreview).toHaveBeenCalledOnce();
     expect(
+      document.querySelectorAll('[data-projection="current"] circle'),
+    ).toHaveLength(4);
+    expect(
       screen.queryByRole("button", { name: /mapped card corner/i }),
     ).toBeNull();
     expect(
@@ -1311,7 +1314,8 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toBeNull();
   });
 
-  it("does not offer corner edits for ineligible calibration anchors", () => {
+  it("offers corner edits for rejected calibration candidates", () => {
+    const onAnchorCommand = vi.fn();
     const ineligibleRefinement = structuredClone(
       calibrationRefinement,
     ) as CalibrationRefinementResponse & {
@@ -1329,15 +1333,30 @@ describe("VisibleCardReviewWorkbench", () => {
         }}
         enabledEditTools={["mapping"]}
         calibrationRefinement={ineligibleRefinement}
+        onAnchorCommand={onAnchorCommand}
       />,
     );
 
     expect(
-      screen.queryByRole("button", { name: /Adjust calibration anchor/i }),
-    ).toBeNull();
+      screen.getAllByRole("button", { name: /Adjust calibration anchor/i }),
+    ).toHaveLength(4);
     expect(
-      screen.queryByRole("button", { name: /Adjust mapped card corner/i }),
-    ).toBeNull();
+      screen.getAllByRole("button", { name: /Adjust mapped card corner/i }),
+    ).toHaveLength(4);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Adjust mapped card corner 1 for card-1",
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("Anchor corner 1 X"), {
+      target: { value: "41" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("Anchor corner 1 Y"), {
+      key: "Enter",
+    });
+    expect(onAnchorCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "set_corners", moved_corner: 0 }),
+    );
   });
 
   it("moves the actual calibration anchor corner in the rectified view", () => {

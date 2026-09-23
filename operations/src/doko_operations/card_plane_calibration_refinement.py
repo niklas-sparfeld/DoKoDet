@@ -546,8 +546,8 @@ def apply_anchor_command_to_draft(
             table_region_bin=current.table_region_bin,
             scale_bin=current.scale_bin,
             orientation_bin=current.orientation_bin,
-            eligible=current.eligible,
-            eligibility_reason=current.eligibility_reason,
+            eligible=True,
+            eligibility_reason=None,
             state="adjusted",
             weight_class="adjusted",
         )
