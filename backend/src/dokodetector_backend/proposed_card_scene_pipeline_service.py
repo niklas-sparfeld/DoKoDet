@@ -117,13 +117,6 @@ class ProposedCardScenePipelineService:
     def get_run(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         run = self.run_store.require(run_id)
         self._require_recording(run.request.source, recording_id)
-        with self._lock:
-            future = self._futures.get(run_id)
-        if run.state.status in {"complete", "partial", "failed"}:
-            return run
-        if future is not None:
-            future.result()
-            return self.run_store.require(run_id)
         return run
 
     def get_result(

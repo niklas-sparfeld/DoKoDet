@@ -295,12 +295,9 @@ export function PipelineVisibleCardEditor({
 
   const settleProposalRun = useCallback(
     async (run: PipelineProposalRunResponse) => {
-      if (run.status === "queued" || run.status === "running") {
-        return client.getProposedCardSceneRun(recordingId, run.run_id);
-      }
       return run;
     },
-    [client, recordingId],
+    [],
   );
 
   const loadProposalRun = useCallback(
@@ -603,6 +600,21 @@ export function PipelineVisibleCardEditor({
       controller.abort();
     };
   }, [loadProposalRun]);
+
+  useEffect(() => {
+    if (proposalRun?.status !== "queued" && proposalRun?.status !== "running")
+      return;
+    const timer = window.setTimeout(() => {
+      void client.getProposedCardSceneRun(recordingId, proposalRun.run_id).then(
+        (run) => {
+          setProposalRun(run);
+          setProposalRevisionId(readProposalRevisionId(run));
+        },
+        (reason: unknown) => setProposalError(describeError(reason)),
+      );
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [client, proposalRun, recordingId]);
 
   useEffect(() => {
     const candidates = usesMaintainedFrames ? frames : generatedFrames;
