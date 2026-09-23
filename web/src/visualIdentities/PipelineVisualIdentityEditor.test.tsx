@@ -198,6 +198,7 @@ describe("PipelineVisualIdentityEditor", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     window.history.pushState({}, "", "/");
+    window.localStorage.removeItem("dokodetector.profile.name");
   });
 
   it("keeps generated identity output immutable and exposes derived source context", async () => {
@@ -701,6 +702,7 @@ describe("PipelineVisualIdentityEditor", () => {
       return Promise.resolve(jsonResponse(reference("pending", [], 1)));
     });
     vi.stubGlobal("fetch", fetchImplementation);
+    window.localStorage.setItem("dokodetector.profile.name", "operator-01");
 
     render(
       <PipelineVisualIdentityEditor
@@ -713,15 +715,6 @@ describe("PipelineVisualIdentityEditor", () => {
     );
 
     await screen.findByRole("heading", { name: /Visual identity review/ });
-    const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
-    expect(
-      screen.getByRole("button", { name: "Auto-approve matching identities" }),
-    ).toBeDisabled();
-    await user.click(
-      screen.getByRole("button", { name: "Switch review to selected result" }),
-    );
-
     await waitFor(() => expect(putBody).not.toBeNull());
     expect(putBody).toMatchObject({
       expected_revision: 1,
@@ -741,6 +734,38 @@ describe("PipelineVisualIdentityEditor", () => {
         name: "Switch review to selected result",
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps the manual switch when Operator ID is missing", async () => {
+    const nextRevisionId = "identity-revision-2";
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT") {
+        throw new Error("auto-rebase must not run without an operator");
+      }
+      return Promise.resolve(jsonResponse(reference("pending", [], 1)));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+    window.localStorage.removeItem("dokodetector.profile.name");
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={nextRevisionId}
+        generatedRunId={null}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    expect(
+      await screen.findByRole("button", {
+        name: "Switch review to selected result",
+      }),
+    ).toBeDisabled();
+    expect(fetchImplementation.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(
+      false,
+    );
   });
 
   it("reports generated rail items and honors explicit item selection", async () => {
@@ -902,7 +927,7 @@ describe("PipelineVisualIdentityEditor", () => {
       name: "Visual identity review controls",
     });
     expect(
-      within(controls).getByRole("button", { name: "Previous card" }),
+      screen.getByRole("button", { name: /Previous card/ }),
     ).toHaveAttribute("aria-keyshortcuts", "ArrowLeft");
     expect(
       within(controls).getByRole("button", { name: "Accept A" }),

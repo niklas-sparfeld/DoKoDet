@@ -771,6 +771,29 @@ export function PipelineVisualIdentityEditor({
     selectedGeneratedSourceRevisionId,
   ]);
 
+  useEffect(() => {
+    if (
+      reference === null ||
+      selectedGeneratedSourceRevisionId === null ||
+      reference.draft.source_revision_id === selectedGeneratedSourceRevisionId ||
+      operatorId.trim() === "" ||
+      queueLength > 0 ||
+      rebasingReference ||
+      saveState !== "saved"
+    ) {
+      return;
+    }
+    void rebaseReference();
+  }, [
+    operatorId,
+    queueLength,
+    rebaseReference,
+    rebasingReference,
+    reference,
+    saveState,
+    selectedGeneratedSourceRevisionId,
+  ]);
+
   const reloadWinningDraft = useCallback(async () => {
     try {
       const winning = await client.getPipelineReference(
