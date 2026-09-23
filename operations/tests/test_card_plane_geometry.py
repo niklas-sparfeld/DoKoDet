@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from doko_operations.card_plane_geometry import (
+    CARD_CORNER_RADIUS_OVER_SHORT_SIDE,
     DERIVATION_RECIPE_VERSION,
     CalibrationCandidateReceipt,
     CardPlaneGeometryError,
@@ -24,6 +25,9 @@ from doko_operations.card_plane_geometry import (
     invert_homography,
     mask_to_polygons,
     project_fixed_card,
+    project_rounded_card,
+    rasterize_polygon,
+    rounded_card_outline,
     validate_derived_region_receipt,
     validate_pose_scene_candidate_view,
 )
@@ -40,6 +44,7 @@ def test_geometry_contract_manifest_freezes_the_numeric_boundary() -> None:
     assert contract["numeric_precision_decimals"] == 6
     assert contract["mask_threshold"] == 128
     assert contract["derivation_recipe_version"] == DERIVATION_RECIPE_VERSION
+    assert contract["card_corner_radius_over_short_side"] == CARD_CORNER_RADIUS_OVER_SHORT_SIDE
     assert contract["card_aspect_ratio"] == 1.5
 
 
@@ -167,6 +172,16 @@ def test_fixed_card_projection_round_trips_through_one_homography() -> None:
     assert np.allclose(apply_homography(invert_homography(table_to_image), image_quad), table_quad)
 
 
+def test_rounded_card_outline_keeps_straight_sides_and_cuts_virtual_corners() -> None:
+    quad = card_quad_from_pose((0.0, 0.0), 0.0, 1.0, 1.5)
+    outline = rounded_card_outline(quad, 64)
+
+    assert outline.shape == (64, 2)
+    assert np.min(np.linalg.norm(outline - quad[0], axis=1)) > 0.03
+    assert np.min(outline[:, 1]) == pytest.approx(-0.75)
+    assert np.max(outline[:, 0]) == pytest.approx(0.5)
+
+
 def _sample_quad_boundary(quad: np.ndarray, *, noise_seed: int | None = None) -> np.ndarray:
     values = np.asarray(quad, dtype=np.float64)
     samples = np.concatenate(
@@ -207,7 +222,13 @@ def _calibration_observations(
         if index == shrink_index:
             quad = np.mean(quad, axis=0) + (quad - np.mean(quad, axis=0)) * 0.72
         quads.append(quad)
-        boundaries.append(_sample_quad_boundary(quad, noise_seed=index if noisy else None))
+        if index == shrink_index:
+            boundary = rounded_card_outline(quad, 64)
+        else:
+            boundary = project_rounded_card(table_to_image, center, (index % 4) * 9.0, 1.0, 1.5)
+        if noisy:
+            boundary += np.random.default_rng(index).normal(0.0, 0.7, boundary.shape)
+        boundaries.append(boundary)
     return quads, boundaries
 
 
@@ -221,7 +242,7 @@ def test_joint_boundary_fit_recovers_known_projection_from_noisy_masks() -> None
     first = fit_table_plane(quads, boundary_samples=boundaries)
     second = fit_table_plane(quads, boundary_samples=boundaries)
 
-    assert first["method"] == "joint-robust-boundary-fit-v2"
+    assert first["method"] == "joint-robust-boundary-fit-v3"
     assert first["card_short_size"] == 1.0
     assert first["card_long_size"] == 1.5
     assert first["accepted_card_count"] == len(quads)
@@ -409,6 +430,33 @@ def test_pose_scene_derivation_clips_cards_and_keeps_ordered_regions_determinist
     assert first.receipt.region_digests == tuple(
         hashlib.sha256(canonical_json_bytes(region)).hexdigest() for region in first.regions
     )
+
+
+def test_pose_scene_region_uses_rounded_physical_corners() -> None:
+    scene = ReviewedCardScene.create(
+        source_frame_id="frame-1",
+        source_frame_width=160,
+        source_frame_height=180,
+        calibration_revision_id="calibration-1",
+        calibration_digest=_digest("a"),
+        poses=(CardPose("card-1", (80.0, 90.0), 0.0, None, None),),
+        stacking_order=CardStackingOrder(
+            card_ids=("card-1",), uncertain_edges=(), contradictions=()
+        ),
+    )
+    projection = {
+        "table_to_image_homography": np.eye(3).tolist(),
+        "card_short_size": 100.0,
+        "card_long_size": 150.0,
+    }
+    mask = rasterize_polygon(
+        project_rounded_card(np.eye(3), (80.0, 90.0), 0.0, 100.0, 150.0), 160, 180
+    )
+    derived = derive_pose_scene_visible_regions(scene, projection)
+
+    assert mask[15, 30] == 0  # Virtual corner intersection.
+    assert mask[15, 80] == 255  # Straight top edge.
+    assert derived.regions[0]["pixel_count"] == int(np.count_nonzero(mask))
 
 
 def test_pose_scene_candidate_view_rejects_hidden_cards_and_stale_geometry() -> None:

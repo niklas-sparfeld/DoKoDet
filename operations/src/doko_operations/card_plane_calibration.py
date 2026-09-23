@@ -31,12 +31,14 @@ from .card_plane_geometry import (
     fit_table_plane,
     polygon_area,
     project_fixed_card,
+    project_rounded_card,
     quadrilateral_orientations,
     rasterize_polygon,
+    rounded_card_outline,
 )
 from .pipeline_data import canonical_json_bytes
 
-CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v6"
+CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v7"
 CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v3"
 CALIBRATION_RUN_SCHEMA_V2 = "card-plane-calibration-run/v2"
 CALIBRATION_FIT_CANDIDATE_SCHEMA_VERSION = "card-plane-calibration-fit-candidate/v1"
@@ -1150,16 +1152,17 @@ def _point_segment_distances(points: np.ndarray, polygon: np.ndarray) -> np.ndar
 def _boundary_metrics(
     observed_boundary: np.ndarray,
     projected_quad: np.ndarray,
+    projected_outline: np.ndarray,
     *,
     sample_count: int,
 ) -> dict[str, float]:
-    projected_boundary = _sample_polygon_boundary(projected_quad, sample_count)
+    projected_boundary = _sample_polygon_boundary(projected_outline, sample_count)
     observed_points = observed_boundary[
         np.linspace(0, len(observed_boundary), sample_count, endpoint=False, dtype=np.int64)
     ]
     distances = np.concatenate(
         [
-            _point_segment_distances(observed_points, projected_quad),
+            _point_segment_distances(observed_points, projected_outline),
             _point_segment_distances(projected_boundary, observed_boundary),
         ]
     )
@@ -1189,7 +1192,11 @@ def _boundary_metrics(
 
 
 def _projected_card_for_observation(
-    observation: _Observation, image_to_table: np.ndarray, table_to_image: np.ndarray
+    observation: _Observation,
+    image_to_table: np.ndarray,
+    table_to_image: np.ndarray,
+    *,
+    rounded: bool = False,
 ) -> np.ndarray:
     possibilities: list[tuple[float, np.ndarray]] = []
     for orientation in quadrilateral_orientations(observation.quadrilateral):
@@ -1203,7 +1210,8 @@ def _projected_card_for_observation(
     short, _long = card_vectors(table_quad)
     center = np.mean(table_quad, axis=0)
     angle = math.degrees(math.atan2(float(short[1]), float(short[0])))
-    return project_fixed_card(table_to_image, center, angle, 1.0, 1.5)
+    projection = project_rounded_card if rounded else project_fixed_card
+    return projection(table_to_image, center, angle, 1.0, 1.5)
 
 
 def _outline_within_frame(outline: np.ndarray, width: int, height: int) -> bool:
@@ -1729,7 +1737,7 @@ def calibrate_recording(
         excluded: list[tuple[_Observation, np.ndarray, str]] = []
         for observation in [*fit_observations, *held_out]:
             outline = _projected_card_for_observation(
-                observation, fit["image_to_table"], fit["table_to_image"]
+                observation, fit["image_to_table"], fit["table_to_image"], rounded=True
             )
             if not _outline_within_frame(
                 outline, observation.frame_width, observation.frame_height
@@ -1854,15 +1862,19 @@ def calibrate_recording(
     held_out_projected: dict[str, np.ndarray] = {}
     for item in held_out:
         projected = _projected_card_for_observation(item, image_to_table, table_to_image)
+        projected_outline = _projected_card_for_observation(
+            item, image_to_table, table_to_image, rounded=True
+        )
         held_out_projected[item.candidate_id] = projected
         metrics = _boundary_metrics(
             item.boundary_samples,
             projected,
+            projected_outline,
             sample_count=selected_recipe.boundary_sample_count,
         )
         held_out_metrics[item.candidate_id] = metrics
         evidence = evidence_by_id[item.candidate_id]
-        evidence["projected_full_card_outline"] = projected.tolist()
+        evidence["projected_full_card_outline"] = projected_outline.tolist()
         evidence["quality_weight"] = float(round(item.quality_score, 6))
         evidence["residual"] = metrics
         evidence["boundary_metrics"] = metrics
@@ -1871,13 +1883,17 @@ def calibrate_recording(
     for item in fit_observations:
         index = fit_indices[item.candidate_id]
         projected = fit["oriented_image_quads"][index]
+        projected_outline = apply_homography(
+            table_to_image, rounded_card_outline(fit["table_quads"][index])
+        )
         metrics = _boundary_metrics(
             item.boundary_samples,
             projected,
+            projected_outline,
             sample_count=selected_recipe.boundary_sample_count,
         )
         evidence = evidence_by_id[item.candidate_id]
-        evidence["projected_full_card_outline"] = projected.tolist()
+        evidence["projected_full_card_outline"] = projected_outline.tolist()
         evidence["quality_weight"] = float(round(item.quality_score, 6))
         evidence["residual"] = metrics
         evidence["boundary_metrics"] = metrics
@@ -2076,10 +2092,14 @@ def calibrate_recording(
             reason = diagnostics["rejections"].get(item.candidate_id)
             evidence["fit_decision"] = f"selector_rejected:{reason or 'not_selected'}"
             projected = _projected_card_for_observation(item, image_to_table, table_to_image)
-            evidence["projected_full_card_outline"] = projected.tolist()
+            projected_outline = _projected_card_for_observation(
+                item, image_to_table, table_to_image, rounded=True
+            )
+            evidence["projected_full_card_outline"] = projected_outline.tolist()
             evidence["boundary_metrics"] = _boundary_metrics(
                 item.boundary_samples,
                 projected,
+                projected_outline,
                 sample_count=selected_recipe.boundary_sample_count,
             )
             evidence["residual"] = evidence["boundary_metrics"]

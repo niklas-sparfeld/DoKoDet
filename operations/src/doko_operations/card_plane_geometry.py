@@ -13,6 +13,7 @@ import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 import cv2
@@ -21,8 +22,9 @@ import numpy as np
 from .reviewed_rfdetr_detector_campaign import canonical_json_bytes
 
 CARD_ASPECT_RATIO = 1.5
-GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v2"
-DERIVATION_RECIPE_VERSION = "card-plane-derived-regions/v1"
+CARD_CORNER_RADIUS_OVER_SHORT_SIDE = 0.087
+GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v3"
+DERIVATION_RECIPE_VERSION = "card-plane-derived-regions/v2"
 COORDINATE_SYSTEM_VERSION = "source-pixel-boundary/table-short-side-unit/v1"
 CORNER_ORDER_VERSION = "cyclic-short-edge-first/v1"
 ANGLE_CONVENTION_VERSION = "positive-toward-positive-y-degrees/v1"
@@ -492,16 +494,7 @@ def _point_to_segments(points: np.ndarray, vertices: np.ndarray) -> np.ndarray:
 
 def _fixed_card_boundary(center: np.ndarray, angle: float) -> tuple[np.ndarray, np.ndarray]:
     quad = card_quad_from_pose(center, math.degrees(angle), 1.0, CARD_ASPECT_RATIO)
-    perimeter = np.asarray([1.0, 1.5, 1.0, 1.5], dtype=np.float64)
-    distances = np.arange(_FIT_BOUNDARY_SAMPLE_COUNT, dtype=np.float64) * (
-        float(np.sum(perimeter)) / _FIT_BOUNDARY_SAMPLE_COUNT
-    )
-    cumulative = np.cumsum(perimeter)
-    edges = np.minimum(np.searchsorted(cumulative, distances, side="right"), 3)
-    starts = np.concatenate(([0.0], cumulative[:-1]))
-    fractions = (distances - starts[edges]) / perimeter[edges]
-    points = quad[edges] + (quad[(edges + 1) % 4] - quad[edges]) * fractions[:, None]
-    return quad, points
+    return quad, rounded_card_outline(quad, _FIT_BOUNDARY_SAMPLE_COUNT)
 
 
 def _fit_observation_residual(
@@ -525,7 +518,7 @@ def _fit_observation_residual(
         0, len(samples), _FIT_BOUNDARY_SAMPLE_COUNT, endpoint=False, dtype=np.int64
     )
     observed = samples[observed_indices]
-    to_projected = _point_to_segments(observed, projected_quad)
+    to_projected = _point_to_segments(observed, projected_boundary)
     to_observed = _point_to_segments(projected_boundary, samples)
     return np.concatenate((to_projected, to_observed)) / short_size
 
@@ -739,18 +732,7 @@ def fit_table_plane(
     if any(polygon_area(quad) <= 1e-8 for quad in raw_quads):
         raise CardPlaneGeometryError("card quadrilaterals must have positive area")
     if boundary_samples is None:
-        samples = [
-            np.concatenate(
-                [
-                    quad[index]
-                    + (quad[(index + 1) % 4] - quad[index])
-                    * np.arange(_FIT_BOUNDARY_SAMPLE_COUNT, dtype=np.float64)[:, None]
-                    / _FIT_BOUNDARY_SAMPLE_COUNT
-                    for index in range(4)
-                ]
-            )
-            for quad in raw_quads
-        ]
+        samples = [rounded_card_outline(quad, 128) for quad in raw_quads]
     else:
         if len(boundary_samples) != len(raw_quads):
             raise CardPlaneGeometryError("boundary samples must match the card observation count")
@@ -929,7 +911,7 @@ def fit_table_plane(
     )
     quality_passed = len(accepted_indices) >= 3 and median_normalized <= _FIT_OBSERVATION_GATE
     calibration_core = {
-        "method": "joint-robust-boundary-fit-v2",
+        "method": "joint-robust-boundary-fit-v3",
         "algorithm_version": GEOMETRY_ALGORITHM_VERSION,
         "card_aspect_ratio": CARD_ASPECT_RATIO,
         "input_card_count": len(raw_quads),
@@ -1007,6 +989,54 @@ def card_quad_from_pose(
     )
 
 
+@lru_cache(maxsize=32)
+def _rounded_outline_coordinates(sample_count: int, long_over_short: float) -> np.ndarray:
+    radius_u = CARD_CORNER_RADIUS_OVER_SHORT_SIDE
+    radius_v = radius_u / long_over_short
+    if radius_v >= 0.5:
+        raise CardPlaneGeometryError("card corner radius exceeds half the long side")
+    centers = (
+        (radius_u, radius_v),
+        (1 - radius_u, radius_v),
+        (1 - radius_u, 1 - radius_v),
+        (radius_u, 1 - radius_v),
+    )
+    arcs = []
+    for (u, v), start in zip(centers, (math.pi, 1.5 * math.pi, 0.0, 0.5 * math.pi), strict=True):
+        angles = np.linspace(start, start + 0.5 * math.pi, 9)
+        arcs.extend(np.column_stack((u + radius_u * np.cos(angles), v + radius_v * np.sin(angles))))
+    contour = np.asarray(arcs, dtype=np.float64)
+    # Sample uniformly around the whole edge so straight sides retain their weight in the fit.
+    points = contour * np.asarray([1.0, long_over_short])
+    closed = np.vstack((points, points[0]))
+    lengths = np.linalg.norm(np.diff(closed, axis=0), axis=1)
+    cumulative = np.concatenate(([0.0], np.cumsum(lengths)))
+    targets = np.arange(sample_count, dtype=np.float64) * cumulative[-1] / sample_count
+    edges = np.minimum(np.searchsorted(cumulative, targets, side="right") - 1, len(lengths) - 1)
+    fractions = (targets - cumulative[edges]) / lengths[edges]
+    sampled = closed[edges] + fractions[:, None] * (closed[edges + 1] - closed[edges])
+    sampled[:, 1] /= long_over_short
+    return sampled
+
+
+def rounded_card_outline(quad: np.ndarray, sample_count: int = 64) -> np.ndarray:
+    """Sample the physical card edge inside four virtual corner intersections."""
+
+    corners = np.asarray(quad, dtype=np.float64)
+    if corners.shape != (4, 2) or not np.all(np.isfinite(corners)):
+        raise CardPlaneGeometryError("card outline needs four finite virtual corners")
+    if sample_count < 16:
+        raise CardPlaneGeometryError("card outline needs at least 16 samples")
+    short_edge = corners[1] - corners[0]
+    long_edge = corners[3] - corners[0]
+    short_length = float(np.linalg.norm(short_edge))
+    long_length = float(np.linalg.norm(long_edge))
+    if short_length <= 1e-9 or long_length <= 1e-9:
+        raise CardPlaneGeometryError("card outline has a zero-length edge")
+    coordinates = _rounded_outline_coordinates(sample_count, round(long_length / short_length, 9))
+    return corners[0] + coordinates[:, :1] * short_edge + coordinates[:, 1:] * long_edge
+
+
 def project_fixed_card(
     table_to_image: np.ndarray,
     center: np.ndarray | Sequence[float],
@@ -1020,6 +1050,20 @@ def project_fixed_card(
         table_to_image,
         card_quad_from_pose(center, rotation_degrees, short_size, long_size),
     )
+
+
+def project_rounded_card(
+    table_to_image: np.ndarray,
+    center: np.ndarray | Sequence[float],
+    rotation_degrees: float,
+    short_size: float,
+    long_size: float,
+    sample_count: int = 64,
+) -> np.ndarray:
+    """Project the shared rounded card outline into the source image."""
+
+    quad = card_quad_from_pose(center, rotation_degrees, short_size, long_size)
+    return apply_homography(table_to_image, rounded_card_outline(quad, sample_count))
 
 
 def polygon_area(points: Sequence[tuple[float, float]] | np.ndarray) -> float:
@@ -1928,7 +1972,7 @@ def derive_pose_scene_visible_regions(
     height = selected_scene.source_frame_height
     full_masks = [
         rasterize_polygon(
-            project_fixed_card(
+            project_rounded_card(
                 table_to_image,
                 pose.center,
                 pose.rotation_degrees,
@@ -2044,6 +2088,7 @@ def geometry_contract_manifest() -> dict[str, Any]:
         "pose_scene_derived_view_schema_version": POSE_SCENE_DERIVED_VIEW_SCHEMA_VERSION,
         "pose_scene_normalization_policy": POSE_SCENE_NORMALIZATION_POLICY,
         "card_aspect_ratio": CARD_ASPECT_RATIO,
+        "card_corner_radius_over_short_side": CARD_CORNER_RADIUS_OVER_SHORT_SIDE,
     }
 
 
@@ -2051,6 +2096,7 @@ __all__ = [
     "ANGLE_CONVENTION_VERSION",
     "CALIBRATION_CANDIDATE_SCHEMA_VERSION",
     "CARD_ASPECT_RATIO",
+    "CARD_CORNER_RADIUS_OVER_SHORT_SIDE",
     "CARD_POSE_SCHEMA_VERSION",
     "CARD_STACKING_ORDER_SCHEMA_VERSION",
     "COORDINATE_SYSTEM_VERSION",
@@ -2088,8 +2134,10 @@ __all__ = [
     "mask_to_polygons",
     "polygon_area",
     "project_fixed_card",
+    "project_rounded_card",
     "quadrilateral_orientations",
     "rasterize_polygon",
+    "rounded_card_outline",
     "remove_small_components",
     "rotate_vector",
     "validate_derived_region_receipt",

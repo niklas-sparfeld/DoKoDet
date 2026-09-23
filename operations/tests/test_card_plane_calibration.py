@@ -151,7 +151,7 @@ def test_detector_only_fit_is_retained_but_absolute_size_stays_unavailable() -> 
     assert run.calibration is None
     assert run.calibration_fit_candidate is not None
     assert run.diagnostics["gates"]["absolute_size_reference"] is False
-    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v6"
+    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v7"
     assert run.diagnostics["validation"]["absolute_size"]["status"] == "unavailable"
     assert run.diagnostics["validation"]["absolute_size"]["short_side_bias"] is None
     assert run.diagnostics["fit_candidate_availability"]["available"] is True
@@ -160,7 +160,7 @@ def test_detector_only_fit_is_retained_but_absolute_size_stays_unavailable() -> 
         assert "residual" in item
         assert "fit_decision" in item
         assert "boundary_metrics" in item
-        assert len(item["projected_full_card_outline"]) == 4
+        assert len(item["projected_full_card_outline"]) == 64
         assert all(len(point) == 2 for point in item["projected_full_card_outline"])
     assert CalibrationRun.from_mapping(run.to_mapping()).to_mapping() == run.to_mapping()
 

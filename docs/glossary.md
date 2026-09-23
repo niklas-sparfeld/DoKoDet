@@ -277,6 +277,12 @@ The full rectangular placement of one card on a calibrated table plane. It conta
 center and rotation and uses the card dimensions from the table-plane calibration. A card pose is
 geometric evidence. It does not assert a visual card identity, card play, pile, or trick.
 
+### Full-card outline
+
+The modeled outer edge of one physical card at a card pose, including parts hidden by an occluder.
+Its corners are rounded. The four virtual corner intersections still define the card pose and its
+table-plane projection. A full-card outline is not a reviewed visible region.
+
 ### Card stacking order
 
 The frame-local front-to-back order used to calculate card-card occlusion between card poses. It
