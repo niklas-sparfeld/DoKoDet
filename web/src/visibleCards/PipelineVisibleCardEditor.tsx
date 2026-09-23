@@ -274,6 +274,13 @@ export function PipelineVisibleCardEditor({
           frameCoverageKeyFromIdentity(entry.frame_identity, entry.item_id),
         );
       }
+      // Decided frames already required an operator look; keep them inspected across
+      // reloads so completion is not blocked by session-only coverage state.
+      for (const frame of nextFrames) {
+        if (frameDecision(frame) !== null) {
+          inspectedFrameKeysRef.current.add(frameCoverageKey(frame));
+        }
+      }
       setInspectedFrameKeys(new Set(inspectedFrameKeysRef.current));
       const current = preserveSelection ? selectedFrameIdRef.current : null;
       const selected =
@@ -1467,13 +1474,10 @@ export function PipelineVisibleCardEditor({
           kind: "reviewed-ignore-region/v1" as const,
           polygons,
         },
-        source_candidates: selected.map((candidate) => ({
-          revision_id: generatedSourceRevisionId ?? "",
-          card_id: candidate.card_id,
-        })),
       };
       // Convert only when every selected card is already on the maintained frame.
       // Otherwise create from detector fallback geometry — those IDs are not on the draft.
+      // Do not send source_candidates: the backend assigns them from candidate_ids.
       const operation: PipelineReferenceOperation =
         selectedFromDetected.length === 0
           ? {
@@ -1523,7 +1527,7 @@ export function PipelineVisibleCardEditor({
           }),
       );
     },
-    [endEditMode, enqueue, generatedFrames, generatedSourceRevisionId, selectedCandidateIds],
+    [endEditMode, enqueue, generatedFrames, selectedCandidateIds],
   );
 
   const removeIgnoreRegion = useCallback(
@@ -1862,6 +1866,33 @@ export function PipelineVisibleCardEditor({
     setCompletionBusy(true);
     setSaveState("saving");
     try {
+      // Refresh stale pose-scene candidates before coverage validation.
+      const stalePoseFrames = currentFrames.filter((frame) => {
+        const scene = frame.outcome.card_scene;
+        return (
+          scene?.completion_state === "complete" &&
+          scene.scene.poses.length !== frame.outcome.candidates.length
+        );
+      });
+      for (const frame of stalePoseFrames) {
+        const refreshed = await client.updatePipelineReferenceDraft(
+          recordingId,
+          CONTENT_TYPE,
+          {
+            expected_revision: serverRevisionRef.current,
+            operator_id: reviewerId.trim() || operatorId.trim(),
+            command_id: nextCommandId(),
+            operations: [
+              {
+                operation: "accept_frame_suggestions",
+                item_id: frame.itemId,
+              },
+            ],
+          },
+        );
+        hydrateReference(refreshed);
+      }
+      const framesForCoverage = framesRef.current;
       const completed = await client.completePipelineReference(
         recordingId,
         CONTENT_TYPE,
@@ -1870,7 +1901,7 @@ export function PipelineVisibleCardEditor({
           operator_id: reviewerId.trim(),
           coverage: {
             kind: "visible_frames",
-            frames: currentFrames.map((frame) => ({
+            frames: framesForCoverage.map((frame) => ({
               item_id: frame.itemId,
               frame_identity: frame.outcome.frame_identity,
               decision: frameDecision(frame) as
@@ -1898,7 +1929,15 @@ export function PipelineVisibleCardEditor({
     } finally {
       setCompletionBusy(false);
     }
-  }, [client, hydrateReference, recordingId, reviewerId, saveState]);
+  }, [
+    client,
+    hydrateReference,
+    nextCommandId,
+    operatorId,
+    recordingId,
+    reviewerId,
+    saveState,
+  ]);
 
   const createReference = useCallback(async () => {
     if (operatorId.trim() === "") return;
@@ -3201,8 +3240,16 @@ function frameDecision(
   if (frame.outcome.status === "detected" && frame.reviewState === "accepted") {
     const hasCards = frame.outcome.candidates.length > 0;
     const hasIgnoredRegions = frame.outcome.ignored_regions.length > 0;
-    if (hasCards && hasIgnoredRegions) return "cards_and_ignored";
-    if (hasCards) return "cards";
+    const hasAcceptedScene =
+      frame.outcome.card_scene?.completion_state === "complete" &&
+      (frame.outcome.card_scene.scene.poses.length > 0 ||
+        (frame.outcome.card_scene.card_review_states?.some(
+          (state) => state.state === "accepted" || state.state === "adjusted",
+        ) ??
+          false));
+    if ((hasCards || hasAcceptedScene) && hasIgnoredRegions)
+      return "cards_and_ignored";
+    if (hasCards || hasAcceptedScene) return "cards";
     if (hasIgnoredRegions) return "ignored";
   }
   if (frame.outcome.status === "empty" && frame.reviewState === "empty")

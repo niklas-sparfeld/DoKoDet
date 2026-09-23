@@ -1005,6 +1005,27 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if operation.operation == "accept_frame_suggestions":
             typed = self._typed_scene_draft(existing.item)
             if typed is not None:
+                if (
+                    typed.completion.state == "complete"
+                    and typed.reviewed is not None
+                    and all(
+                        state.state in {"accepted", "adjusted"} for state in typed.card_states
+                    )
+                ):
+                    # Refresh derived visible-region candidates from the reviewed scene.
+                    # Accepts can leave candidates stale when the scene was completed earlier.
+                    refreshed = self._derive_typed_pose_scene_item(dict(existing.item), typed)
+                    return (
+                        items[:index]
+                        + [
+                            self._replace(
+                                existing,
+                                review_state="accepted",
+                                item=refreshed,
+                            )
+                        ]
+                        + items[index + 1 :]
+                    )
                 updated = existing
                 for card_id in typed.proposal.card_ids:
                     updated = self._apply_typed_card_decision(updated, card_id, "accepted")
