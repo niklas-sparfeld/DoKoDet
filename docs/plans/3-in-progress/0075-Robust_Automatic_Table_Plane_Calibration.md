@@ -15,7 +15,12 @@
   results retain candidates but cannot publish without those outlines. Nine of ten known-geometry
   synthetic cases pass. The [M3 report](../../reports/0075-M3_Validated_Fit_Candidates.md) records
   the results.
-- **M4 — Not started.**
+- **M4 — Complete.** Failed proposal runs expose read-only calibration fit diagnostics and
+  projected card outlines in generated-result review. The [M4 report](../../reports/0075-M4_Failed_Fit_Review.md)
+  records the frozen full-result comparison. All 24 local results retain candidates and fail
+  publication because independent full-card outlines are absent. The ten previously failing
+  results still do not publish; all ten now retain a candidate. The known-geometry shrink case
+  continues to fail its measured size-bias gate.
 - **M5 — Not started.**
 
 ## Problem and current behavior
@@ -222,6 +227,23 @@ distortion diagnostic and a specified follow-up epic.
 - Synthetic known-geometry cases provide independent held-out outlines. Nine cases pass the
   identifiable gates. Uniform 10% shrink fails with median short-side bias −9.77% and area bias
   −18.77%. No fixed shrink correction is applied.
+
+## M4 measurement decision — 2026-09-23
+
+- M4 adds projected full-card outlines to usable candidate diagnostics. Failed proposal runs retain
+  these outlines with residuals and fit receipts. Generated-result review shows dashed, read-only
+  overlays and links to the worst held-out frames. The panel appears only in generated-result
+  review and has no maintained-reference or dataset action.
+- The frozen manifest contains 24 complete local result revisions, but they cover requested-event
+  frames rather than full-video scans. All 24 runs retain a finite candidate and fail publication.
+  The ten runs that failed at M0 still do not publish; all ten now return a candidate. The 14 runs
+  that published at M0 are now withheld because their exact frames have no independent full-card
+  outlines. Do not use detector polygons as the missing absolute-size reference.
+- Nine of ten synthetic cases pass. Uniform 10% shrink fails with −9.77% median short-side bias and
+  −18.77% median area bias. It remains unpublished. All measured local and synthetic call times
+  stay below their frozen limits.
+- See the [M4 report](../../reports/0075-M4_Failed_Fit_Review.md) for run counts, gate outcomes,
+  timings, and verification results.
 
 ## Verification and boundaries
 

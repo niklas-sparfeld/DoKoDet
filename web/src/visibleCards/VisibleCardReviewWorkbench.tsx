@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 
 import type { CalibrationRefinementResponse } from "../api/client";
 import { pipelineDerivedFramePath } from "../api/client";
+import type { CalibrationFitDiagnosticOutline } from "./CalibrationFitDiagnostics";
 import {
   TimelineRailSeekingControls,
   useTimelineRailReviewControlsSlot,
@@ -154,6 +155,7 @@ export type VisibleCardReviewWorkbenchProps = {
   frame: EditableFrame;
   readOnly: boolean;
   candidateCalibration?: CandidateCalibration | null;
+  calibrationFitOutlines?: CalibrationFitDiagnosticOutline[];
   calibrationRefinement?: CalibrationRefinementResponse | null;
   detectedCandidates?: Candidate[];
   initialPreferences?: Partial<WorkbenchPreferences>;
@@ -218,6 +220,7 @@ export function VisibleCardReviewWorkbench({
   frame,
   readOnly,
   candidateCalibration = null,
+  calibrationFitOutlines = [],
   calibrationRefinement = null,
   detectedCandidates,
   initialPreferences,
@@ -1123,6 +1126,7 @@ export function VisibleCardReviewWorkbench({
           viewport={viewport}
           gestureViewBox={gestureViewBox}
           candidateProjection={candidateProjection}
+          calibrationFitOutlines={calibrationFitOutlines}
           mappingAnchors={renderMappingAnchors}
           editor={editor}
           includeIgnoreRegionCount={proposalSlot !== undefined}
@@ -2215,6 +2219,7 @@ function WorkbenchSurface({
   viewport,
   gestureViewBox,
   candidateProjection,
+  calibrationFitOutlines,
   mappingAnchors,
   editor,
   includeIgnoreRegionCount,
@@ -2250,6 +2255,7 @@ function WorkbenchSurface({
     height: number;
   };
   candidateProjection: CardSceneProjection | null;
+  calibrationFitOutlines: CalibrationFitDiagnosticOutline[];
   mappingAnchors: WorkbenchCalibrationAnchor[];
   editor: EditorState | null;
   includeIgnoreRegionCount: boolean;
@@ -2368,6 +2374,12 @@ function WorkbenchSurface({
           onVirtualCardKeyDown,
           onMappingAnchorPointerDown,
         })}
+        {renderCalibrationFitOutlines(
+          calibrationFitOutlines,
+          viewpoint,
+          width,
+          scene,
+        )}
         {renderEditorOverlay({
           editor,
           activeTool,
@@ -2480,6 +2492,12 @@ function WorkbenchSurface({
           onVirtualCardKeyDown,
           onMappingAnchorPointerDown,
         })}
+        {renderCalibrationFitOutlines(
+          calibrationFitOutlines,
+          "camera",
+          width,
+          scene,
+        )}
         {renderEditorOverlay({
           editor,
           activeTool,
@@ -2492,6 +2510,38 @@ function WorkbenchSurface({
       </svg>
     </div>
   );
+}
+
+function renderCalibrationFitOutlines(
+  outlines: CalibrationFitDiagnosticOutline[],
+  viewpoint: WorkbenchViewpoint,
+  width: number,
+  scene: PoseSceneEnvelope | null,
+) {
+  return outlines.map((outline) => {
+    const points = outline.points
+      .map((point): [number, number] | null => {
+        if (viewpoint === "camera" || scene === null) return [point.x, point.y];
+        return projectImagePointToTable(
+          [point.x, point.y],
+          scene.projection.table_to_image_homography,
+        );
+      })
+      .filter((point): point is [number, number] => point !== null);
+    if (points.length !== 4) return null;
+    return (
+      <polygon
+        key={outline.candidateId}
+        className={styles.calibrationFitOutline}
+        points={pointsAttribute(points)}
+        strokeWidth={strokeWidth(viewpoint, width)}
+        data-calibration-fit-outline="true"
+        data-candidate-id={outline.candidateId}
+        role="img"
+        aria-label={`Diagnostic fit outline for ${outline.candidateId}`}
+      />
+    );
+  });
 }
 
 type LayerRenderContext = {

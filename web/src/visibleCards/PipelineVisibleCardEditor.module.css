@@ -177,6 +177,14 @@
   height: 100%;
 }
 
+.calibrationFitOutline {
+  fill: rgba(240, 139, 60, 0.08);
+  stroke: #f08b3c;
+  stroke-dasharray: 8 5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
 .workbenchCameraImage {
   object-fit: contain;
 }
@@ -243,7 +251,6 @@
     height: 100%;
     min-height: 0;
   }
-
 }
 
 .controlGroup {

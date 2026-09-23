@@ -7,6 +7,10 @@ import type {
   PipelineReferenceResource,
 } from "../api/client";
 import styles from "../App.module.css";
+import {
+  CalibrationFitDiagnosticsPanel,
+  readCalibrationFitDiagnostics,
+} from "./CalibrationFitDiagnostics";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
   formatFrameState,
@@ -116,6 +120,7 @@ export type VisibleCardInspectorProps = {
   discardCalibrationRefinement: () => void;
   applyCalibrationRefinement: (confirmAffected: boolean) => void;
   onSelectCalibrationFrame: (frameId: string) => void;
+  onSelectFitDiagnosticFrame: (frameId: string) => void;
 };
 
 export function VisibleCardInspectorPortals(props: VisibleCardInspectorProps) {
@@ -185,6 +190,7 @@ function VisibleCardInspectorAction({
   startCalibrationRefinement,
   discardCalibrationRefinement,
   applyCalibrationRefinement,
+  onSelectFitDiagnosticFrame,
 }: VisibleCardInspectorProps) {
   if (view === "generated") {
     return (
@@ -200,6 +206,7 @@ function VisibleCardInspectorAction({
           onCreate={startProposal}
           onRetry={retryProposal}
           onStartReview={startReviewFromProposal}
+          onSelectFitDiagnosticFrame={onSelectFitDiagnosticFrame}
         />
         <p className={styles.pipelineInspectorEmpty}>
           {generatedLoading
@@ -507,6 +514,7 @@ function ProposalControls({
   onCreate,
   onRetry,
   onStartReview,
+  onSelectFitDiagnosticFrame,
 }: {
   generatedRevisionId: string | null;
   proposalRun: PipelineProposalRunResponse | null;
@@ -516,8 +524,10 @@ function ProposalControls({
   onCreate: () => void;
   onRetry: () => void;
   onStartReview: () => void;
+  onSelectFitDiagnosticFrame: (frameId: string) => void;
 }) {
   const status = proposalRun?.status ?? null;
+  const fitDiagnostics = readCalibrationFitDiagnostics(proposalRun);
   return (
     <section
       className={visibleStyles.proposalControls}
@@ -570,6 +580,10 @@ function ProposalControls({
           Start review from proposed scenes
         </button>
       ) : null}
+      <CalibrationFitDiagnosticsPanel
+        diagnostics={fitDiagnostics}
+        onSelectFrame={onSelectFitDiagnosticFrame}
+      />
     </section>
   );
 }

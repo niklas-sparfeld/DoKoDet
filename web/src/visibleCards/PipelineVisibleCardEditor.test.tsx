@@ -538,6 +538,145 @@ describe("PipelineVisibleCardEditor", () => {
     ).toHaveLength(1);
   });
 
+  it("shows failed fit diagnostics and opens the worst held-out frame", async () => {
+    const diagnosticsRun = {
+      run_id: "proposal-run-failed",
+      recording_id: RECORDING_ID,
+      processor_type: "visible-card-scene-proposal",
+      status: "failed",
+      attempt: 1,
+      request: { visible_card_revision_id: REVISION_ID },
+      state: {
+        metrics: {
+          schema_version: "proposed-card-scene-failure-diagnostics/v1",
+          calibration_run: {
+            failure: {
+              code: "absolute_size_reference_unavailable",
+              message: "Independent full-card outlines are required.",
+              action: "Inspect the worst-fit frames.",
+            },
+            calibration_fit_candidate: {
+              candidate_digest: "candidate-digest",
+              source_revision: REVISION_ID,
+              held_out_observation_ids: ["candidate-1", "candidate-2"],
+            },
+            diagnostics: {
+              candidate_yield: {
+                raw_count: 2,
+                accepted_count: 2,
+                geometry_count: 2,
+                quality_count: 2,
+              },
+              failed_gates: ["absolute_size_reference", "held_out_boundary"],
+              unavailable_gates: ["absolute_size_reference"],
+              candidate_evidence: [
+                {
+                  candidate_id: "candidate-1",
+                  source_frame_id: ITEM_ID,
+                  fit_decision: "held_out",
+                  projected_full_card_outline: [
+                    [10, 10],
+                    [60, 10],
+                    [60, 70],
+                    [10, 70],
+                  ],
+                  residual: {
+                    median_boundary_distance_px: 2,
+                    p90_boundary_distance_px: 4,
+                    maximum_boundary_distance_px: 5,
+                    p90_boundary_distance_over_short_side: 0.08,
+                  },
+                },
+                {
+                  candidate_id: "candidate-2",
+                  source_frame_id: SECOND_ITEM_ID,
+                  fit_decision: "held_out",
+                  projected_full_card_outline: [
+                    [20, 20],
+                    [80, 20],
+                    [80, 75],
+                    [20, 75],
+                  ],
+                  residual: {
+                    median_boundary_distance_px: 6,
+                    p90_boundary_distance_px: 11,
+                    maximum_boundary_distance_px: 14,
+                    p90_boundary_distance_over_short_side: 0.22,
+                  },
+                },
+              ],
+              validation: {
+                held_out_summary: {
+                  count: 2,
+                  median_boundary_distance_px: 4,
+                  p90_boundary_distance_px: 10,
+                  worst_boundary_distance_px: 14,
+                  p90_boundary_distance_over_short_side: 0.22,
+                },
+                absolute_size: {
+                  status: "unavailable",
+                  short_side_bias: null,
+                  area_bias: null,
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+    const fetchImplementation = vi.fn<typeof fetch>((input) => {
+      const url = String(input);
+      if (url.includes("/pipeline/proposed-card-scenes")) {
+        return Promise.resolve(
+          jsonResponse({ recording_id: RECORDING_ID, runs: [diagnosticsRun] }),
+        );
+      }
+      return Promise.resolve(
+        jsonResponse(
+          url.includes("/result")
+            ? generatedResultWithTwoFrames()
+            : { recording_id: RECORDING_ID, runs: [] },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    const user = userEvent.setup();
+    const { container } = render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="generated"
+      />,
+    );
+
+    const diagnostic = await screen.findByRole("region", {
+      name: "Calibration fit diagnostic",
+    });
+    expect(diagnostic).toHaveAttribute("data-diagnostic-only", "true");
+    expect(diagnostic).toHaveTextContent(
+      "Failed calibration · diagnostic only",
+    );
+    expect(diagnostic).toHaveTextContent("2 accepted of 2 predictions");
+    expect(diagnostic).toHaveTextContent("unavailable · gate failed");
+    expect(diagnostic).toHaveTextContent(
+      "Independent full-card outlines are required.",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Open worst fit 1 · event-2 · 14\.00 px max/,
+      }),
+    );
+    expect(
+      container.querySelector(
+        '[data-calibration-fit-outline="true"][data-candidate-id="candidate-2"]',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("keeps a portrait frame aspect ratio before the fullscreen surface layout", async () => {
     const result = generatedResult();
     result.revisions[0].content.outcomes[0].frame_identity = {

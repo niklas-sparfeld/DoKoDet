@@ -36,7 +36,7 @@ from .card_plane_geometry import (
 )
 from .pipeline_data import canonical_json_bytes
 
-CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v3"
+CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v4"
 CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v3"
 CALIBRATION_RUN_SCHEMA_V2 = "card-plane-calibration-run/v2"
 CALIBRATION_FIT_CANDIDATE_SCHEMA_VERSION = "card-plane-calibration-fit-candidate/v1"
@@ -1301,6 +1301,7 @@ def calibrate_recording(
                     "invalid_confidence" if confidence_error else "geometry_not_usable"
                 ),
                 "boundary_samples": [],
+                "projected_full_card_outline": None,
                 "quality_metrics": {},
                 "quality_weight": None,
                 "residual": None,
@@ -1656,6 +1657,7 @@ def calibrate_recording(
         )
         held_out_metrics[item.candidate_id] = metrics
         evidence = evidence_by_id[item.candidate_id]
+        evidence["projected_full_card_outline"] = projected.tolist()
         evidence["quality_weight"] = float(round(item.quality_score, 6))
         evidence["residual"] = metrics
         evidence["boundary_metrics"] = metrics
@@ -1670,6 +1672,7 @@ def calibrate_recording(
             sample_count=selected_recipe.boundary_sample_count,
         )
         evidence = evidence_by_id[item.candidate_id]
+        evidence["projected_full_card_outline"] = projected.tolist()
         evidence["quality_weight"] = float(round(item.quality_score, 6))
         evidence["residual"] = metrics
         evidence["boundary_metrics"] = metrics
@@ -1868,6 +1871,7 @@ def calibrate_recording(
             reason = diagnostics["rejections"].get(item.candidate_id)
             evidence["fit_decision"] = f"selector_rejected:{reason or 'not_selected'}"
             projected = _projected_card_for_observation(item, image_to_table, table_to_image)
+            evidence["projected_full_card_outline"] = projected.tolist()
             evidence["boundary_metrics"] = _boundary_metrics(
                 item.boundary_samples,
                 projected,

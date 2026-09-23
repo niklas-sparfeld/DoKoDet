@@ -44,6 +44,10 @@ import {
 } from "./PipelineVisibleCardPresentation";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
+  calibrationFitOutlinesForFrame,
+  readCalibrationFitDiagnostics,
+} from "./CalibrationFitDiagnostics";
+import {
   VisibleCardReviewWorkbench,
   type VisibleCardReviewWorkbenchAction,
   type VisibleCardFrameDecision,
@@ -2023,6 +2027,16 @@ export function PipelineVisibleCardEditor({
             frame.itemId === activeFrame.baseItemId,
         ) ?? null);
   const detectedCandidates = detectedFrame?.outcome.candidates ?? [];
+  const fitDiagnostics = readCalibrationFitDiagnostics(proposalRun);
+  const fitDiagnosticOutlines =
+    view === "generated" &&
+    proposalRun?.status === "failed" &&
+    activeFrame !== null
+      ? calibrationFitOutlinesForFrame(
+          fitDiagnostics,
+          activeFrame.outcome.event_id,
+        )
+      : [];
   const requestedFrameId =
     selectionItemId === undefined
       ? readPipelineEditorUrlState().item
@@ -2245,6 +2259,12 @@ export function PipelineVisibleCardEditor({
         );
         if (target !== undefined) selectFrame(target);
       }}
+      onSelectFitDiagnosticFrame={(frameId) => {
+        const target = generatedFrames.find(
+          (frame) => frame.outcome.event_id === frameId,
+        );
+        if (target !== undefined) selectFrame(target);
+      }}
     />
   );
 
@@ -2356,6 +2376,7 @@ export function PipelineVisibleCardEditor({
                 editorError={editorError}
                 selectedCandidateIds={selectedCandidateIds}
                 detectedCandidates={detectedCandidates}
+                calibrationFitOutlines={fitDiagnosticOutlines}
                 proposalSlot={proposalSlot}
                 canCopyIgnoreRegions={canCopyIgnoreRegions}
                 canRestoreSuggestion={

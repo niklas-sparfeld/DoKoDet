@@ -1,0 +1,103 @@
+.panel {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  padding: 0.7rem;
+  border: 1px solid color-mix(in srgb, #f08b3c 48%, var(--line));
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, #f08b3c 7%, var(--panel));
+  color: var(--ink);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.kicker,
+.description,
+.failure,
+.action,
+.digest {
+  margin: 0;
+}
+
+.kicker {
+  color: #c96d20;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.panel h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.description,
+.action,
+.digest {
+  color: var(--muted-ink);
+}
+
+.digest {
+  overflow-wrap: anywhere;
+}
+
+.failure {
+  font-weight: 700;
+}
+
+.facts {
+  display: grid;
+  gap: 0.32rem;
+  margin: 0;
+}
+
+.facts > div {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 0.8fr) minmax(0, 1.2fr);
+  gap: 0.4rem;
+}
+
+.facts dt {
+  color: var(--muted-ink);
+}
+
+.facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.gates,
+.worstFrames {
+  display: grid;
+  gap: 0.3rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--line);
+}
+
+.gates ul {
+  display: grid;
+  gap: 0.16rem;
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.frameButton {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.frameButton:hover,
+.frameButton:focus-visible {
+  border-color: #f08b3c;
+  outline: 2px solid color-mix(in srgb, #f08b3c 35%, transparent);
+  outline-offset: 1px;
+}
