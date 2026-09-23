@@ -1335,6 +1335,9 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(
       screen.queryByRole("button", { name: /Adjust calibration anchor/i }),
     ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Adjust mapped card corner/i }),
+    ).toBeNull();
   });
 
   it("moves the actual calibration anchor corner in the rectified view", () => {
@@ -1380,8 +1383,14 @@ describe("VisibleCardReviewWorkbench", () => {
       }),
     ).toHaveLength(4);
     expect(
-      screen.queryByRole("button", { name: /mapped card corner/i }),
-    ).toBeNull();
+      screen.getAllByRole("button", { name: /Adjust mapped card corner/i }),
+    ).toHaveLength(4);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Adjust mapped card corner 4 for card-1",
+      }),
+    );
+    expect(screen.getByLabelText("Anchor corner 4 X")).toHaveValue(50);
     expect(
       screen.queryByRole("button", { name: /Select anchor corner/ }),
     ).not.toBeInTheDocument();
@@ -1435,14 +1444,17 @@ describe("VisibleCardReviewWorkbench", () => {
       clientX: offsetX + (x - viewBox[0]) * scale,
       clientY: offsetY + (y - viewBox[1]) * scale,
     });
-    fireEvent.pointerDown(handle, {
+    const mappedHandle = screen.getByRole("button", {
+      name: "Adjust mapped card corner 1 for card-1",
+    });
+    fireEvent.pointerDown(mappedHandle, {
       pointerId: 1,
-      ...clientPoint(40, 40),
+      ...clientPoint(45, 40),
     });
     expect(screen.getByLabelText("Anchor corner 1 X")).toBeInTheDocument();
     fireEvent.pointerMove(surface, {
       pointerId: 1,
-      ...clientPoint(42, 47),
+      ...clientPoint(47, 47),
     });
     fireEvent.pointerUp(surface, { pointerId: 1 });
 
