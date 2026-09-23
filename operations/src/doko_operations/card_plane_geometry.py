@@ -31,7 +31,7 @@ MASK_THRESHOLD = 128
 MASK_RASTER_POLICY = "pixel-center-even-odd/v1"
 
 TABLE_PLANE_CALIBRATION_SCHEMA_VERSION = "table-plane-calibration/v1"
-CALIBRATION_CANDIDATE_SCHEMA_VERSION = "table-plane-calibration-candidate/v1"
+CALIBRATION_CANDIDATE_SCHEMA_VERSION = "table-plane-calibration-candidate/v2"
 CARD_POSE_SCHEMA_VERSION = "card-pose/v1"
 CARD_STACKING_ORDER_SCHEMA_VERSION = "card-stacking-order/v1"
 POSE_FIT_DIAGNOSTICS_SCHEMA_VERSION = "card-pose-fit-diagnostics/v1"
@@ -558,6 +558,8 @@ class CalibrationCandidateReceipt:
     source_frame_id: str
     confidence: float
     quadrilateral: tuple[tuple[float, float], ...]
+    boundary_samples: tuple[tuple[float, float], ...]
+    quality_metrics: tuple[tuple[str, float], ...]
     temporal_bin: str
     table_position_bin: str
     scale_bin: str
@@ -575,6 +577,8 @@ class CalibrationCandidateReceipt:
         source_frame_id: str,
         confidence: float,
         quadrilateral: Sequence[Sequence[float]],
+        boundary_samples: Sequence[Sequence[float]] = (),
+        quality_metrics: Mapping[str, float] | None = None,
         temporal_bin: str,
         table_position_bin: str,
         scale_bin: str,
@@ -589,6 +593,21 @@ class CalibrationCandidateReceipt:
             tuple(_round(value) for value in point)
             for point in _quad(quadrilateral, "quadrilateral")
         )
+        boundary_samples_value = tuple(
+            tuple(_round(_finite(value, "boundary sample coordinate")) for value in point)
+            for point in boundary_samples
+        )
+        if any(len(point) != 2 for point in boundary_samples_value):
+            raise CardPlaneGeometryError("boundary samples must contain coordinate pairs")
+        quality_metrics_value = tuple(
+            sorted(
+                (
+                    _identifier(key, "quality metric name"),
+                    _round(_finite(value, f"quality_metrics.{key}")),
+                )
+                for key, value in (quality_metrics or {}).items()
+            )
+        )
         core = {
             "schema_version": CALIBRATION_CANDIDATE_SCHEMA_VERSION,
             "candidate_id": _identifier(candidate_id, "candidate_id"),
@@ -596,6 +615,8 @@ class CalibrationCandidateReceipt:
             "source_frame_id": _identifier(source_frame_id, "source_frame_id"),
             "confidence": confidence_value,
             "quadrilateral": [list(point) for point in quadrilateral_value],
+            "boundary_samples": [list(point) for point in boundary_samples_value],
+            "quality_metrics": dict(quality_metrics_value),
             "temporal_bin": _identifier(temporal_bin, "temporal_bin"),
             "table_position_bin": _identifier(table_position_bin, "table_position_bin"),
             "scale_bin": _identifier(scale_bin, "scale_bin"),
@@ -617,6 +638,8 @@ class CalibrationCandidateReceipt:
             source_frame_id=core["source_frame_id"],
             confidence=core["confidence"],
             quadrilateral=tuple(tuple(point) for point in core["quadrilateral"]),
+            boundary_samples=tuple(tuple(point) for point in core["boundary_samples"]),
+            quality_metrics=quality_metrics_value,
             temporal_bin=core["temporal_bin"],
             table_position_bin=core["table_position_bin"],
             scale_bin=core["scale_bin"],
@@ -634,6 +657,8 @@ class CalibrationCandidateReceipt:
             "source_frame_id": self.source_frame_id,
             "confidence": _round(self.confidence),
             "quadrilateral": [list(point) for point in self.quadrilateral],
+            "boundary_samples": [list(point) for point in self.boundary_samples],
+            "quality_metrics": dict(self.quality_metrics),
             "temporal_bin": self.temporal_bin,
             "table_position_bin": self.table_position_bin,
             "scale_bin": self.scale_bin,
@@ -653,6 +678,8 @@ class CalibrationCandidateReceipt:
             "source_frame_id",
             "confidence",
             "quadrilateral",
+            "boundary_samples",
+            "quality_metrics",
             "temporal_bin",
             "table_position_bin",
             "scale_bin",
@@ -670,6 +697,8 @@ class CalibrationCandidateReceipt:
             source_frame_id=data["source_frame_id"],
             confidence=data["confidence"],
             quadrilateral=data["quadrilateral"],
+            boundary_samples=data["boundary_samples"],
+            quality_metrics=data["quality_metrics"],
             temporal_bin=data["temporal_bin"],
             table_position_bin=data["table_position_bin"],
             scale_bin=data["scale_bin"],

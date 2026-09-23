@@ -35,8 +35,8 @@ from .card_plane_geometry import (
 )
 from .pipeline_data import canonical_json_bytes
 
-CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v1"
-CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v1"
+CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v2"
+CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v2"
 CALIBRATION_STORE_DIRECTORY = "table-plane-calibrations"
 
 
@@ -107,9 +107,14 @@ class CalibrationRecipe:
     """Frozen candidate and validation policy for one calibration processor revision."""
 
     confidence_threshold: float = 0.90
-    frame_boundary_margin_px: int = 2
-    expanded_box_margin_px: int = 6
     minimum_quad_coverage: float = 0.84
+    minimum_boundary_straightness: float = 0.65
+    minimum_corner_support: float = 0.50
+    maximum_scale_deviation_log: float = 0.30
+    maximum_observations_per_frame: int = 4
+    maximum_observations_per_temporal_bin: int = 8
+    maximum_observations_per_position_bin: int = 8
+    boundary_sample_count: int = 64
     temporal_bin_us: int = 1_000_000
     temporal_bin_frames: int = 30
     table_position_grid: int = 8
@@ -132,10 +137,16 @@ class CalibrationRecipe:
     def __post_init__(self) -> None:
         if not 0.0 <= self.confidence_threshold <= 1.0:
             raise CardPlaneCalibrationError("confidence_threshold must be between zero and one")
-        if not self.frame_boundary_margin_px >= 0 or not self.expanded_box_margin_px >= 0:
-            raise CardPlaneCalibrationError("pixel margins must be non-negative")
         if not 0.0 < self.minimum_quad_coverage <= 1.0:
             raise CardPlaneCalibrationError("minimum_quad_coverage must be in (0, 1]")
+        for field in (
+            "minimum_boundary_straightness",
+            "minimum_corner_support",
+        ):
+            if not 0.0 <= getattr(self, field) <= 1.0:
+                raise CardPlaneCalibrationError(f"{field} must be between zero and one")
+        if self.maximum_scale_deviation_log <= 0:
+            raise CardPlaneCalibrationError("maximum_scale_deviation_log must be positive")
         for field in (
             "temporal_bin_us",
             "temporal_bin_frames",
@@ -146,6 +157,10 @@ class CalibrationRecipe:
             "minimum_orientation_bins",
             "minimum_held_out_candidates",
             "holdout_modulus",
+            "maximum_observations_per_frame",
+            "maximum_observations_per_temporal_bin",
+            "maximum_observations_per_position_bin",
+            "boundary_sample_count",
         ):
             _positive_int(getattr(self, field), field)
         if self.scale_bin_octaves <= 0 or self.orientation_bin_degrees <= 0:
@@ -172,9 +187,14 @@ class CalibrationRecipe:
         return {
             "schema_version": CALIBRATION_PROCESSOR_SCHEMA_VERSION,
             "confidence_threshold": self.confidence_threshold,
-            "frame_boundary_margin_px": self.frame_boundary_margin_px,
-            "expanded_box_margin_px": self.expanded_box_margin_px,
             "minimum_quad_coverage": self.minimum_quad_coverage,
+            "minimum_boundary_straightness": self.minimum_boundary_straightness,
+            "minimum_corner_support": self.minimum_corner_support,
+            "maximum_scale_deviation_log": self.maximum_scale_deviation_log,
+            "maximum_observations_per_frame": self.maximum_observations_per_frame,
+            "maximum_observations_per_temporal_bin": self.maximum_observations_per_temporal_bin,
+            "maximum_observations_per_position_bin": self.maximum_observations_per_position_bin,
+            "boundary_sample_count": self.boundary_sample_count,
             "temporal_bin_us": self.temporal_bin_us,
             "temporal_bin_frames": self.temporal_bin_frames,
             "table_position_grid": self.table_position_grid,
@@ -207,13 +227,16 @@ class _Observation:
     source_frame_id: str
     confidence: float
     quadrilateral: np.ndarray
+    boundary_samples: np.ndarray
+    quality_metrics: Mapping[str, float]
+    quality_score: float
+    record_index: int
     frame_width: int
     frame_height: int
     temporal_bin: str
     table_position_bin: str
     scale_bin: str
     orientation_bin: str
-    expanded_box: tuple[float, float, float, float]
 
 
 @dataclass(frozen=True, slots=True)
@@ -458,8 +481,10 @@ def _prediction_polygons(prediction: Mapping[str, Any]) -> list[np.ndarray]:
 
 
 def _prediction_confidence(prediction: Mapping[str, Any]) -> float:
-    value = prediction.get("confidence", prediction.get("score"))
-    return _finite(value, "prediction.confidence")
+    value = _finite(prediction.get("confidence", prediction.get("score")), "prediction.confidence")
+    if not 0.0 <= value <= 1.0:
+        raise CardPlaneCalibrationError("prediction.confidence must be between zero and one")
+    return value
 
 
 def _mask_for_prediction(
@@ -507,6 +532,178 @@ def _fit_quad(
     return quad, 1.0 - iou
 
 
+def _uniform_boundary_samples(mask: np.ndarray, count: int) -> np.ndarray:
+    contours, _hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if not contours:
+        raise CardPlaneCalibrationError("mask has no supported boundary")
+    contour = max(contours, key=lambda item: (cv2.arcLength(item, True), len(item)))
+    points = contour.reshape(-1, 2).astype(np.float64)
+    if len(points) < 3:
+        raise CardPlaneCalibrationError("mask boundary has too few samples")
+    closed = np.vstack((points, points[0]))
+    lengths = np.linalg.norm(np.diff(closed, axis=0), axis=1)
+    total = float(np.sum(lengths))
+    if total <= 0:
+        raise CardPlaneCalibrationError("mask boundary has zero length")
+    cumulative = np.concatenate(([0.0], np.cumsum(lengths)))
+    targets = np.arange(count, dtype=np.float64) * total / count
+    indices = np.minimum(np.searchsorted(cumulative, targets, side="right") - 1, len(points) - 1)
+    fractions = (targets - cumulative[indices]) / np.maximum(lengths[indices], 1e-9)
+    return closed[indices] + fractions[:, None] * (closed[indices + 1] - closed[indices])
+
+
+def _candidate_quality(
+    mask: np.ndarray,
+    quad: np.ndarray,
+    *,
+    component_dominance: float,
+    recipe: CalibrationRecipe,
+) -> tuple[np.ndarray, dict[str, float], float]:
+    quad_mask = rasterize_polygon(quad, mask.shape[1], mask.shape[0])
+    mask_values = mask > 0
+    quad_values = quad_mask > 0
+    intersection = int(np.count_nonzero(mask_values & quad_values))
+    union = int(np.count_nonzero(mask_values | quad_values))
+    mask_area = max(int(np.count_nonzero(mask_values)), 1)
+    iou = intersection / max(union, 1)
+    coverage = intersection / mask_area
+
+    contours, _hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if not contours:
+        raise CardPlaneCalibrationError("mask has no supported boundary")
+    contour = max(contours, key=lambda item: (cv2.arcLength(item, True), len(item)))
+    contour_points = contour.reshape(-1, 2).astype(np.float64)
+    hull = cv2.convexHull(contour).reshape(-1, 2).astype(np.float64)
+    convex_hull_area = max(polygon_area(hull), 1.0)
+    convexity = min(1.0, polygon_area(contour_points) / convex_hull_area)
+
+    short, long = card_vectors(quad)
+    short_size = max(float(np.linalg.norm(short)), 1.0)
+    edge_starts = quad
+    edge_vectors = np.roll(quad, -1, axis=0) - edge_starts
+    edge_lengths_squared = np.maximum(np.sum(edge_vectors * edge_vectors, axis=1), 1e-9)
+    offsets = contour_points[:, None, :] - edge_starts[None, :, :]
+    fractions = np.clip(
+        np.sum(offsets * edge_vectors[None, :, :], axis=2) / edge_lengths_squared[None, :],
+        0.0,
+        1.0,
+    )
+    nearest_edges = edge_starts[None, :, :] + fractions[:, :, None] * edge_vectors[None, :, :]
+    boundary_distances = np.min(
+        np.linalg.norm(contour_points[:, None, :] - nearest_edges, axis=2), axis=1
+    )
+    straightness = float(np.mean(boundary_distances <= max(1.5, 0.025 * short_size)))
+    corner_distances = np.min(
+        np.linalg.norm(quad[:, None, :] - contour_points[None, :, :], axis=2), axis=1
+    )
+    corner_support = float(np.mean(np.exp(-corner_distances / max(0.05 * short_size, 1.0))))
+    samples = _uniform_boundary_samples(mask, recipe.boundary_sample_count)
+    metrics = {
+        "mask_quad_iou": float(iou),
+        "quad_mask_coverage": float(coverage),
+        "convexity": float(convexity),
+        "boundary_straightness": straightness,
+        "corner_support": corner_support,
+        "component_dominance": float(component_dominance),
+        "overlap_fraction": 0.0,
+        "nearest_card_center_distance_over_size": 0.0,
+        "separation_reference_available": 0.0,
+        "local_scale_log_deviation": 0.0,
+        "local_scale_reference_available": 0.0,
+    }
+    geometry_score = (
+        0.30 * iou
+        + 0.15 * coverage
+        + 0.15 * convexity
+        + 0.20 * straightness
+        + 0.10 * corner_support
+        + 0.10 * component_dominance
+    )
+    return samples, metrics, float(geometry_score)
+
+
+def _polygon_overlap_fraction(left: np.ndarray, right: np.ndarray) -> float:
+    left_area = polygon_area(left)
+    right_area = polygon_area(right)
+    if min(left_area, right_area) <= 0:
+        return 0.0
+    try:
+        overlap_area, _intersection = cv2.intersectConvexConvex(
+            left.astype(np.float32), right.astype(np.float32)
+        )
+    except cv2.error:
+        return 0.0
+    return float(overlap_area) / min(left_area, right_area)
+
+
+def _local_scale_deviations(
+    observations: Sequence[_Observation], confidence_threshold: float
+) -> dict[int, float]:
+    confident = [item for item in observations if item.confidence >= confidence_threshold]
+    centers = [np.mean(item.quadrilateral, axis=0) for item in confident]
+    scales = [math.log(max(polygon_area(item.quadrilateral), 1.0)) / 2.0 for item in confident]
+    deviations: dict[int, float] = {}
+    for index, item in enumerate(confident):
+        center = centers[index]
+        nearby = sorted(
+            (
+                (
+                    float(
+                        np.linalg.norm(
+                            (other - center) / np.asarray([item.frame_width, item.frame_height])
+                        )
+                    ),
+                    j,
+                )
+                for j, other in enumerate(centers)
+                if j != index
+            ),
+            key=lambda pair: (pair[0], confident[pair[1]].candidate_id),
+        )
+        neighbours = [j for distance, j in nearby if distance <= 0.30][:5]
+        if len(neighbours) >= 3:
+            deviations[item.record_index] = scales[index] - float(
+                np.median([scales[j] for j in neighbours])
+            )
+    return deviations
+
+
+def _cap_grouped_observations(
+    observations: Sequence[_Observation],
+    *,
+    group_key: str,
+    maximum_count: int,
+) -> tuple[list[_Observation], list[_Observation]]:
+    grouped: dict[str, list[_Observation]] = {}
+    for observation in observations:
+        key = observation.source_frame_id if group_key == "frame" else observation.temporal_bin
+        grouped.setdefault(key, []).append(observation)
+
+    kept: list[_Observation] = []
+    rejected: list[_Observation] = []
+
+    def rank(item: _Observation) -> tuple[float, float, str]:
+        return (-item.quality_score, -item.confidence, item.candidate_id)
+
+    for key in sorted(grouped):
+        group = sorted(grouped[key], key=rank)
+        best_by_region: dict[str, _Observation] = {}
+        for observation in group:
+            best_by_region.setdefault(observation.table_position_bin, observation)
+        selected = sorted(best_by_region.values(), key=rank)[:maximum_count]
+        selected_ids = {item.record_index for item in selected}
+        if len(selected) < maximum_count:
+            selected.extend(
+                item
+                for item in group
+                if item.record_index not in selected_ids and len(selected) < maximum_count
+            )
+        selected_ids = {item.record_index for item in selected}
+        kept.extend(selected)
+        rejected.extend(item for item in group if item.record_index not in selected_ids)
+    return kept, rejected
+
+
 def _bin_observation(
     quad: np.ndarray,
     width: int,
@@ -536,23 +733,6 @@ def _bin_observation(
     return temporal_bin, position, scale_bin, orientation_bin
 
 
-def _expanded_box(quad: np.ndarray, margin: int) -> tuple[float, float, float, float]:
-    x_min, y_min = np.min(quad, axis=0)
-    x_max, y_max = np.max(quad, axis=0)
-    return (
-        float(x_min - margin),
-        float(y_min - margin),
-        float(x_max + margin),
-        float(y_max + margin),
-    )
-
-
-def _boxes_overlap(
-    left: tuple[float, float, float, float], right: tuple[float, float, float, float]
-) -> bool:
-    return left[0] < right[2] and right[0] < left[2] and left[1] < right[3] and right[1] < left[3]
-
-
 def _candidate_receipt(
     observation: _Observation, accepted: bool, reason: str | None
 ) -> CalibrationCandidateReceipt:
@@ -562,6 +742,8 @@ def _candidate_receipt(
         source_frame_id=observation.source_frame_id,
         confidence=observation.confidence,
         quadrilateral=observation.quadrilateral.tolist(),
+        boundary_samples=observation.boundary_samples.tolist(),
+        quality_metrics=observation.quality_metrics,
         temporal_bin=observation.temporal_bin,
         table_position_bin=observation.table_position_bin,
         scale_bin=observation.scale_bin,
@@ -632,10 +814,12 @@ def calibrate_recording(
             "raw_count": 0,
             "confidence_count": 0,
             "geometry_count": 0,
+            "quality_count": 0,
             "deduplicated_count": 0,
             "accepted_count": 0,
         },
         "rejections": {},
+        "candidate_evidence": [],
     }
     receipts: list[CalibrationCandidateReceipt] = []
     observations: list[_Observation] = []
@@ -694,7 +878,30 @@ def calibrate_recording(
                 ),
                 "candidate_id",
             )
-            confidence = _prediction_confidence(prediction)
+            frame_id = _identifier(frame.get("frame_id", f"frame-{frame_index:06d}"), "frame_id")
+            try:
+                confidence = _prediction_confidence(prediction)
+                confidence_error = False
+            except CardPlaneCalibrationError:
+                confidence = None
+                confidence_error = True
+            evidence: dict[str, Any] = {
+                "candidate_id": candidate_id,
+                "source_revision": source_revision,
+                "source_frame_id": frame_id,
+                "confidence": confidence,
+                "accepted": False,
+                "rejection_reason": (
+                    "invalid_confidence" if confidence_error else "geometry_not_usable"
+                ),
+                "boundary_samples": [],
+                "quality_metrics": {},
+            }
+            record_index = len(diagnostics["candidate_evidence"])
+            diagnostics["candidate_evidence"].append(evidence)
+            if confidence_error:
+                diagnostics["rejections"][candidate_id] = "invalid_confidence"
+                continue
             try:
                 polygons = _prediction_polygons(prediction)
                 mask = _mask_for_prediction(polygons, prediction, width, height)
@@ -704,7 +911,8 @@ def calibrate_recording(
                     default=0,
                 )
                 total = int(np.count_nonzero(mask))
-                if components > 2 and dominant < total * 0.95:
+                component_dominance = dominant / max(total, 1)
+                if components > 2:
                     raise CardPlaneCalibrationError("multiple disconnected components")
                 fitted = _fit_quad(polygons, mask, selected_recipe.minimum_quad_coverage)
                 if fitted is None:
@@ -712,75 +920,149 @@ def calibrate_recording(
                         "quadrilateral fit coverage is below the frozen limit"
                     )
                 quad, _fit_error = fitted
-            except (CardPlaneCalibrationError, CardPlaneGeometryError, ValueError):
-                diagnostics["rejections"][candidate_id] = "quadrilateral_fit"
+                samples, quality_metrics, geometry_score = _candidate_quality(
+                    mask,
+                    quad,
+                    component_dominance=component_dominance,
+                    recipe=selected_recipe,
+                )
+            except (CardPlaneCalibrationError, CardPlaneGeometryError, ValueError) as error:
+                reason = (
+                    "disconnected_components"
+                    if "disconnected components" in str(error)
+                    else "weak_quadrilateral_support"
+                    if "coverage is below" in str(error)
+                    else "invalid_geometry"
+                )
+                evidence["rejection_reason"] = reason
+                diagnostics["rejections"][candidate_id] = reason
                 continue
             diagnostics["candidate_yield"]["geometry_count"] += 1
-            if confidence < selected_recipe.confidence_threshold:
-                diagnostics["rejections"][candidate_id] = "confidence_below_threshold"
-                observations.append(
-                    _Observation(
-                        candidate_id,
-                        source_revision,
-                        _identifier(frame.get("frame_id", f"frame-{frame_index:06d}"), "frame_id"),
-                        confidence,
-                        quad,
-                        width,
-                        height,
-                        *_bin_observation(quad, width, height, frame, selected_recipe),
-                        _expanded_box(quad, selected_recipe.expanded_box_margin_px),
-                    )
-                )
-                continue
-            if (
-                np.min(quad[:, 0]) < selected_recipe.frame_boundary_margin_px
-                or np.min(quad[:, 1]) < selected_recipe.frame_boundary_margin_px
-                or np.max(quad[:, 0]) > width - selected_recipe.frame_boundary_margin_px
-                or np.max(quad[:, 1]) > height - selected_recipe.frame_boundary_margin_px
-            ):
-                diagnostics["rejections"][candidate_id] = "frame_boundary"
-                observations.append(
-                    _Observation(
-                        candidate_id,
-                        source_revision,
-                        _identifier(frame.get("frame_id", f"frame-{frame_index:06d}"), "frame_id"),
-                        confidence,
-                        quad,
-                        width,
-                        height,
-                        *_bin_observation(quad, width, height, frame, selected_recipe),
-                        _expanded_box(quad, selected_recipe.expanded_box_margin_px),
-                    )
-                )
-                continue
+            diagnostics["candidate_yield"]["quality_count"] += 1
+            evidence["boundary_samples"] = samples.tolist()
+            evidence["quality_metrics"] = quality_metrics
+            quality_score = 0.85 * geometry_score + 0.15 * confidence
+            quality_metrics["quality_score"] = quality_score
             observation = _Observation(
-                candidate_id,
-                source_revision,
-                _identifier(frame.get("frame_id", f"frame-{frame_index:06d}"), "frame_id"),
-                confidence,
-                quad,
-                width,
-                height,
-                *_bin_observation(quad, width, height, frame, selected_recipe),
-                _expanded_box(quad, selected_recipe.expanded_box_margin_px),
+                candidate_id=candidate_id,
+                source_revision=source_revision,
+                source_frame_id=frame_id,
+                confidence=confidence,
+                quadrilateral=quad,
+                boundary_samples=samples,
+                quality_metrics=quality_metrics,
+                quality_score=quality_score,
+                record_index=record_index,
+                frame_width=width,
+                frame_height=height,
+                temporal_bin=_bin_observation(quad, width, height, frame, selected_recipe)[0],
+                table_position_bin=_bin_observation(quad, width, height, frame, selected_recipe)[1],
+                scale_bin=_bin_observation(quad, width, height, frame, selected_recipe)[2],
+                orientation_bin=_bin_observation(quad, width, height, frame, selected_recipe)[3],
             )
-            valid_in_frame.append(observation)
             observations.append(observation)
-            diagnostics["candidate_yield"]["confidence_count"] += 1
+            rejection_reason: str | None = None
+            if confidence < selected_recipe.confidence_threshold:
+                rejection_reason = "confidence_below_threshold"
+            elif (
+                any(np.any(mask[edge]) for edge in (0, -1))
+                or np.any(mask[:, 0])
+                or np.any(mask[:, -1])
+            ):
+                rejection_reason = "frame_boundary"
+            elif (
+                quality_metrics["boundary_straightness"]
+                < selected_recipe.minimum_boundary_straightness
+            ):
+                rejection_reason = "unstable_boundary"
+            elif quality_metrics["corner_support"] < selected_recipe.minimum_corner_support:
+                rejection_reason = "weak_corner_support"
+            else:
+                diagnostics["candidate_yield"]["confidence_count"] += 1
+
+            if rejection_reason is None:
+                valid_in_frame.append(observation)
+            else:
+                diagnostics["rejections"][candidate_id] = rejection_reason
+                evidence["rejection_reason"] = rejection_reason
+
+        for observation in valid_in_frame:
+            peers = [item for item in valid_in_frame if item is not observation]
+            if peers:
+                center = np.mean(observation.quadrilateral, axis=0)
+                size = max(math.sqrt(polygon_area(observation.quadrilateral)), 1.0)
+                observation.quality_metrics["nearest_card_center_distance_over_size"] = min(
+                    float(np.linalg.norm(np.mean(peer.quadrilateral, axis=0) - center) / size)
+                    for peer in peers
+                )
+                observation.quality_metrics["separation_reference_available"] = 1.0
+                observation.quality_metrics["overlap_fraction"] = max(
+                    _polygon_overlap_fraction(observation.quadrilateral, peer.quadrilateral)
+                    for peer in peers
+                )
+                diagnostics["candidate_evidence"][observation.record_index]["quality_metrics"] = (
+                    dict(observation.quality_metrics)
+                )
+
         retained: list[_Observation] = []
         for observation in sorted(
-            valid_in_frame, key=lambda item: (-item.confidence, item.candidate_id)
+            valid_in_frame,
+            key=lambda item: (-item.quality_score, -item.confidence, item.candidate_id),
         ):
-            if any(
-                _boxes_overlap(observation.expanded_box, item.expanded_box) for item in retained
-            ):
+            overlaps = [
+                _polygon_overlap_fraction(observation.quadrilateral, item.quadrilateral)
+                for item in retained
+            ]
+            overlap_fraction = max(overlaps, default=0.0)
+            evidence = diagnostics["candidate_evidence"][observation.record_index]
+            evidence["quality_metrics"] = dict(observation.quality_metrics)
+            if overlap_fraction > 0.12:
                 diagnostics["rejections"][observation.candidate_id] = "overlaps_prediction"
+                evidence["rejection_reason"] = "overlaps_prediction"
             else:
                 retained.append(observation)
 
-    accepted = [item for item in observations if item.candidate_id not in diagnostics["rejections"]]
+    scale_deviations = _local_scale_deviations(observations, selected_recipe.confidence_threshold)
+    for observation in observations:
+        deviation = scale_deviations.get(observation.record_index)
+        if deviation is None:
+            continue
+        observation.quality_metrics["local_scale_log_deviation"] = float(deviation)
+        observation.quality_metrics["local_scale_reference_available"] = 1.0
+        evidence = diagnostics["candidate_evidence"][observation.record_index]
+        evidence["quality_metrics"] = dict(observation.quality_metrics)
+        if (
+            observation.candidate_id not in diagnostics["rejections"]
+            and abs(deviation) > selected_recipe.maximum_scale_deviation_log
+        ):
+            diagnostics["rejections"][observation.candidate_id] = "inconsistent_apparent_card_scale"
+            evidence["rejection_reason"] = "inconsistent_apparent_card_scale"
+
+    eligible = [item for item in observations if item.candidate_id not in diagnostics["rejections"]]
+    eligible, frame_capped = _cap_grouped_observations(
+        eligible,
+        group_key="frame",
+        maximum_count=selected_recipe.maximum_observations_per_frame,
+    )
+    eligible, time_capped = _cap_grouped_observations(
+        eligible,
+        group_key="time",
+        maximum_count=selected_recipe.maximum_observations_per_temporal_bin,
+    )
+    for capped, reason in (
+        (frame_capped, "frame_observation_cap"),
+        (time_capped, "temporal_bin_observation_cap"),
+    ):
+        for observation in capped:
+            diagnostics["rejections"][observation.candidate_id] = reason
+            evidence = diagnostics["candidate_evidence"][observation.record_index]
+            evidence["accepted"] = False
+            evidence["rejection_reason"] = reason
+
     by_bin: dict[tuple[str, str, str, str], _Observation] = {}
-    for observation in sorted(accepted, key=lambda item: (-item.confidence, item.candidate_id)):
+    for observation in sorted(
+        eligible, key=lambda item: (-item.quality_score, -item.confidence, item.candidate_id)
+    ):
         key = (
             observation.temporal_bin,
             observation.table_position_bin,
@@ -788,16 +1070,40 @@ def calibrate_recording(
             observation.orientation_bin,
         )
         if key in by_bin:
-            diagnostics["rejections"][observation.candidate_id] = "duplicate_bin_lower_confidence"
+            diagnostics["rejections"][observation.candidate_id] = "duplicate_bin_lower_quality"
+            diagnostics["candidate_evidence"][observation.record_index]["rejection_reason"] = (
+                "duplicate_bin_lower_quality"
+            )
         else:
             by_bin[key] = observation
-    accepted = sorted(by_bin.values(), key=lambda item: item.candidate_id)
+    region_counts: dict[str, int] = {}
+    accepted: list[_Observation] = []
+    for observation in sorted(
+        by_bin.values(), key=lambda item: (-item.quality_score, -item.confidence, item.candidate_id)
+    ):
+        count = region_counts.get(observation.table_position_bin, 0)
+        if count >= selected_recipe.maximum_observations_per_position_bin:
+            diagnostics["rejections"][observation.candidate_id] = "position_bin_observation_cap"
+            diagnostics["candidate_evidence"][observation.record_index]["rejection_reason"] = (
+                "position_bin_observation_cap"
+            )
+            continue
+        region_counts[observation.table_position_bin] = count + 1
+        accepted.append(observation)
+    accepted.sort(key=lambda item: item.candidate_id)
     diagnostics["candidate_yield"]["deduplicated_count"] = len(accepted)
     diagnostics["candidate_yield"]["accepted_count"] = len(accepted)
     for observation in observations:
         reason = diagnostics["rejections"].get(observation.candidate_id)
+        evidence = diagnostics["candidate_evidence"][observation.record_index]
+        evidence["accepted"] = reason is None
+        evidence["rejection_reason"] = reason
+        evidence["quality_metrics"] = dict(observation.quality_metrics)
         receipts.append(_candidate_receipt(observation, reason is None, reason))
     receipts.sort(key=lambda item: item.candidate_id)
+    diagnostics["candidate_evidence"].sort(
+        key=lambda item: (item["source_frame_id"], item["candidate_id"])
+    )
 
     temporal_bins = sorted({item.temporal_bin for item in accepted})
     position_bins = sorted({item.table_position_bin for item in accepted})

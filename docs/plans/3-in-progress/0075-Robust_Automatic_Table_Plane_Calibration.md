@@ -7,7 +7,7 @@
 ## Current milestone status
 
 - **M0 — Complete.** Froze 24 local RF-DETR revisions, ten known-geometry synthetic cases, a read-only evaluator, and measured acceptance gates. The [baseline report](../../reports/0075-M0_Calibration_Baseline.md) records current results. Real-data outline acceptance remains pending because the frozen frames have no independent full-card outlines.
-- **M1 — Not started.**
+- **M1 — Complete.** Added source-frame evidence, uniform boundary samples, image-space quality measures, quality-first selection, and caps for repeated evidence. All ten synthetic cases repeat exactly. The [M1 report](../../reports/0075-M1_Candidate_Evidence.md) records the selection results. Real-data outline acceptance remains pending.
 - **M2 — Not started.**
 - **M3 — Not started.**
 - **M4 — Not started.**
