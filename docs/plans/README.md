@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0075 — Robust automatic table-plane calibration](2-ready/0075-Robust_Automatic_Table_Plane_Calibration.md) | Completed 0072 and 0073 | M0–M4 planned: measure RF-DETR calibration failures, rank complete-card evidence, fit one robust shared mapping to card boundaries, validate held-out size and alignment, and resolve view-edge distortion from measured evidence. |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
 
 ### In Progress
