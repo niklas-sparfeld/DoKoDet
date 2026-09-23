@@ -1407,6 +1407,7 @@ describe("VisibleCardReviewWorkbench", () => {
     const handle = screen.getByRole("button", {
       name: "Adjust calibration anchor 1 for anchor-1",
     });
+    expect(Number(handle.getAttribute("r"))).toBeGreaterThanOrEqual(0.4);
     const layerGroups = Array.from(
       surface.querySelectorAll("[data-workbench-layer]"),
     );
@@ -1419,6 +1420,13 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toHaveAttribute("pointer-events", "none");
     fireEvent.click(handle);
     expect(screen.getByLabelText("Anchor corner 1 X")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Adjust calibration anchor 4 for anchor-1",
+      }),
+    );
+    expect(screen.getByLabelText("Anchor corner 4 X")).toHaveValue(50);
+    fireEvent.click(handle);
     const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
     const scale = Math.min(100 / viewBox[2], 100 / viewBox[3]);
     const offsetX = (100 - viewBox[2] * scale) / 2;

@@ -1171,6 +1171,7 @@ export function VisibleCardReviewWorkbench({
           onVirtualCardPointerDown={beginVirtualCardGesture}
           onVirtualCardKeyDown={handleVirtualCardKeyDown}
           onMappingAnchorPointerDown={beginMappingAnchorGesture}
+          onMappingAnchorCornerSelect={setAnchorCornerIndex}
         />
         {proposalSlot !== undefined ? (
           <WorkbenchProposalColumn
@@ -2488,6 +2489,7 @@ function WorkbenchSurface({
   onVirtualCardPointerDown,
   onVirtualCardKeyDown,
   onMappingAnchorPointerDown,
+  onMappingAnchorCornerSelect,
 }: {
   frame: EditableFrame;
   candidates: Candidate[];
@@ -2539,6 +2541,7 @@ function WorkbenchSurface({
     anchor: WorkbenchCalibrationAnchor,
     cornerIndex: number,
   ) => void;
+  onMappingAnchorCornerSelect: (cornerIndex: number) => void;
 }) {
   const count = frame.outcome.candidates.length;
   const proposalLabel = `${count} visible-card proposal${count === 1 ? "" : "s"}${includeIgnoreRegionCount && frame.outcome.ignored_regions.length > 0 ? ` and ${frame.outcome.ignored_regions.length} ignore region${frame.outcome.ignored_regions.length === 1 ? "" : "s"}` : ""}`;
@@ -2625,6 +2628,7 @@ function WorkbenchSurface({
           onVirtualCardPointerDown,
           onVirtualCardKeyDown,
           onMappingAnchorPointerDown,
+          onMappingAnchorCornerSelect,
         })}
         {renderCalibrationFitOutlines(
           calibrationFitOutlines,
@@ -2740,6 +2744,7 @@ function WorkbenchSurface({
           onVirtualCardPointerDown,
           onVirtualCardKeyDown,
           onMappingAnchorPointerDown,
+          onMappingAnchorCornerSelect,
         })}
         {renderCalibrationFitOutlines(
           calibrationFitOutlines,
@@ -2894,6 +2899,7 @@ type LayerRenderContext = {
     anchor: WorkbenchCalibrationAnchor,
     cornerIndex: number,
   ) => void;
+  onMappingAnchorCornerSelect: (cornerIndex: number) => void;
 };
 
 function renderEditorOverlay({
@@ -3460,6 +3466,7 @@ function renderMappingLayer({
   selection,
   onSelect,
   onMappingAnchorPointerDown,
+  onMappingAnchorCornerSelect,
 }: LayerRenderContext) {
   if (scene === null && mappingAnchors.length === 0) return null;
   if (scene === null) {
@@ -3477,6 +3484,7 @@ function renderMappingLayer({
         })}
         onSelect={onSelect}
         onPointerDown={onMappingAnchorPointerDown}
+        onSelectCorner={onMappingAnchorCornerSelect}
       />
     ));
   }
@@ -3526,6 +3534,7 @@ function renderMappingLayer({
           })}
           onSelect={onSelect}
           onPointerDown={onMappingAnchorPointerDown}
+          onSelectCorner={onMappingAnchorCornerSelect}
         />
       ))}
     </>
@@ -3540,6 +3549,7 @@ function MappingAnchorOverlay({
   zoom,
   selected,
   onSelect,
+  onSelectCorner,
   onPointerDown,
 }: {
   anchor: WorkbenchCalibrationAnchor;
@@ -3549,6 +3559,7 @@ function MappingAnchorOverlay({
   zoom: number;
   selected: boolean;
   onSelect: (selection: WorkbenchSelection) => void;
+  onSelectCorner: (cornerIndex: number) => void;
   onPointerDown?: (
     event: ReactPointerEvent<SVGCircleElement>,
     anchor: WorkbenchCalibrationAnchor,
@@ -3592,7 +3603,12 @@ function MappingAnchorOverlay({
               key={`${anchor.anchorId}-${index}`}
               cx={x}
               cy={y}
-              r={mappingCornerRadius(viewpoint, width, zoom, 0.1)}
+              r={mappingCornerRadius(
+                viewpoint,
+                width,
+                zoom,
+                Math.max(0.4, (projection?.card_short_size ?? 10) * 0.04),
+              )}
               fill={selected ? "#ffffff" : "#ff8a65"}
               stroke="#18242f"
               strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
@@ -3604,6 +3620,7 @@ function MappingAnchorOverlay({
               onClick={(event) => {
                 event.stopPropagation();
                 onSelect({ type: "calibration_anchor", id: anchor.anchorId });
+                onSelectCorner(index);
               }}
               onPointerDown={(event) => onPointerDown?.(event, anchor, index)}
             />
