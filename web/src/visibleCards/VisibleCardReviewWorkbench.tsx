@@ -389,25 +389,6 @@ export function VisibleCardReviewWorkbench({
       ),
     [calibrationRefinement, frame.itemId, frame.outcome.event_id, scene],
   );
-  useEffect(() => {
-    const preview = anchorPreviewRef.current;
-    if (preview === null) return;
-    const persisted = mappingAnchors.find(
-      (anchor) => anchor.anchorId === preview.anchorId,
-    );
-    if (
-      persisted !== undefined &&
-      persisted.corners.every(
-        (corner, index) =>
-          corner[0] === preview.corners[index]?.[0] &&
-          corner[1] === preview.corners[index]?.[1],
-      )
-    ) {
-      anchorPreviewRef.current = null;
-      setAnchorPreview(null);
-    }
-  }, [mappingAnchors]);
-
   const selectedMappingAnchor =
     activeState.selection?.type === "calibration_anchor"
       ? (mappingAnchors.find(
@@ -431,7 +412,23 @@ export function VisibleCardReviewWorkbench({
     onSelectionChange?.(selection);
   };
 
+  const clearSelection = () => {
+    if (activeState.selection === null) return;
+    dispatch({ type: "clear_selection" });
+    onSelectionChange?.(null);
+  };
+
   const handleSurfaceKeyDown = (event: ReactKeyboardEvent<SVGSVGElement>) => {
+    if (
+      event.key === "Escape" &&
+      activeState.activeTool === "virtual_cards" &&
+      activeState.selection?.type === "virtual_card"
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      clearSelection();
+      return;
+    }
     const shortcut = workbenchViewportShortcut(event, "surface");
     if (shortcut === null) return;
     event.preventDefault();
@@ -596,14 +593,7 @@ export function VisibleCardReviewWorkbench({
     event.stopPropagation();
     select({ type: "calibration_anchor", id: anchor.anchorId });
     setAnchorCornerIndex(movedCorner);
-    const currentAnchor =
-      anchorPreviewRef.current?.anchorId === anchor.anchorId
-        ? anchorPreviewRef.current
-        : anchor;
-    const preview = {
-      ...currentAnchor,
-      corners: cloneTablePoints(currentAnchor.corners),
-    };
+    const preview = { ...anchor, corners: cloneTablePoints(anchor.corners) };
     mappingGestureRef.current = {
       pointerId: event.pointerId,
       anchorId: anchor.anchorId,
@@ -611,7 +601,7 @@ export function VisibleCardReviewWorkbench({
       dirty: false,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      originalCorners: cloneTablePoints(currentAnchor.corners),
+      originalCorners: cloneTablePoints(anchor.corners),
     };
     setAnchorPreviewState(preview);
     event.currentTarget.ownerSVGElement?.setPointerCapture?.(event.pointerId);
@@ -624,14 +614,10 @@ export function VisibleCardReviewWorkbench({
   const updateMappingAnchorPreview = (point: Point | null) => {
     const gesture = mappingGestureRef.current;
     if (gesture === null || point === null) return;
-    const persistedAnchor = mappingAnchors.find(
+    const anchor = mappingAnchors.find(
       (candidate) => candidate.anchorId === gesture.anchorId,
     );
-    const anchor =
-      anchorPreviewRef.current?.anchorId === gesture.anchorId
-        ? anchorPreviewRef.current
-        : persistedAnchor;
-    if (anchor === undefined || anchor === null) return;
+    if (anchor === undefined) return;
     const sourcePosition = sourcePoint(point, width, height) as TablePoint;
     const corners = moveAnchorCorner(
       gesture.originalCorners,
@@ -653,27 +639,19 @@ export function VisibleCardReviewWorkbench({
       !Number.isFinite(value)
     )
       return;
-    const activeAnchor =
-      anchorPreviewRef.current?.anchorId === selectedMappingAnchor.anchorId
-        ? anchorPreviewRef.current
-        : selectedMappingAnchor;
-    const corner = activeAnchor.corners[anchorCornerIndex];
+    const corner = selectedMappingAnchor.corners[anchorCornerIndex];
     if (corner === undefined) return;
     setNumericAnchor({
-      anchorId: activeAnchor.anchorId,
+      anchorId: selectedMappingAnchor.anchorId,
       point: [axis === 0 ? value : corner[0], axis === 1 ? value : corner[1]],
     });
   };
 
   const emitNumericAnchorCommand = () => {
     if (numericAnchor === null || onAnchorCommand === undefined) return;
-    const persistedAnchor = mappingAnchors.find(
+    const anchor = mappingAnchors.find(
       (candidate) => candidate.anchorId === numericAnchor.anchorId,
     );
-    const anchor =
-      anchorPreviewRef.current?.anchorId === numericAnchor.anchorId
-        ? anchorPreviewRef.current
-        : persistedAnchor;
     if (anchor === undefined || !anchor.eligible) return;
     const context = anchorCommandContext();
     emitAnchorCommand(
@@ -783,6 +761,12 @@ export function VisibleCardReviewWorkbench({
     event: ReactPointerEvent<SVGSVGElement>,
     point: Point | null,
   ) => {
+    if (
+      event.target === event.currentTarget &&
+      activeState.activeTool === "virtual_cards" &&
+      activeState.selection?.type === "virtual_card"
+    )
+      clearSelection();
     if (beginTablePan(event, point)) return;
     if (
       activeState.activeTool === "virtual_cards" ||
@@ -897,6 +881,7 @@ export function VisibleCardReviewWorkbench({
       event.currentTarget.releasePointerCapture?.(event.pointerId);
       dispatch({ type: "commit_gesture" });
       const preview = anchorPreviewRef.current;
+      setAnchorPreviewState(null);
       if (mappingGesture.dirty && preview !== null) {
         const context = anchorCommandContext();
         emitAnchorCommand(
