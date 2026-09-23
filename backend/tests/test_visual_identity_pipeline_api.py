@@ -41,7 +41,10 @@ from test_visible_card_pipeline_api import (
 from dokodetector_backend import (
     visual_identity_pipeline_service as visual_identity_pipeline_service_module,
 )
-from dokodetector_backend.visual_identity_pipeline_service import VisualIdentityPipelineService
+from dokodetector_backend.visual_identity_pipeline_service import (
+    VisualIdentityPipelineError,
+    VisualIdentityPipelineService,
+)
 
 
 class _IdentityProvider:
@@ -789,6 +792,140 @@ def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> No
         "card-failed",
     ]
     assert result["state"]["progress"] == {"completed": 4, "total": 4}
+
+
+def test_visual_identity_accepts_typed_card_scene_draft_views() -> None:
+    import pytest
+    from doko_operations.card_plane_geometry import (
+        CardPose,
+        CardStackingOrder,
+        ReviewedCardScene,
+        derive_pose_scene_visible_regions,
+    )
+    from table_evidence_analyzer.card_scene_contract import (
+        CardReviewState,
+        CardSceneDraft,
+        FrameReviewCompletion,
+        ProposedCardScene,
+        ReviewedCardSceneRecord,
+    )
+
+    digest = "a" * 64
+    scene = ReviewedCardScene.create(
+        source_frame_id="frame-01",
+        source_frame_width=100,
+        source_frame_height=100,
+        calibration_revision_id="calibration-01",
+        calibration_digest=digest,
+        poses=[CardPose("card-01", (50.0, 50.0), 0.0, "suggestion-01", None)],
+        stacking_order=CardStackingOrder(
+            card_ids=("card-01",), uncertain_edges=(), contradictions=()
+        ),
+    )
+    projection = {
+        "table_to_image_homography": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        "card_short_size": 20.0,
+        "card_long_size": 30.0,
+    }
+    derivation = derive_pose_scene_visible_regions(scene, projection)
+    proposal = ProposedCardScene.create(
+        proposal_id="proposal-01",
+        source_frame_id="frame-01",
+        source_frame_digest=digest,
+        detector_revision_id="detector-01",
+        detector_revision_digest=digest,
+        calibration_revision_id="calibration-01",
+        calibration_digest=digest,
+        initializer_recipe_version="initializer/v1",
+        status="supported",
+        initialized_scene=scene.to_mapping(),
+        fit_diagnostics={"accepted": ["card-01"]},
+    )
+    draft = CardSceneDraft.create(
+        proposal=proposal,
+        reviewed=ReviewedCardSceneRecord.create(
+            proposal_id=proposal.proposal_id,
+            scene=scene.to_mapping(),
+            decision="accepted",
+        ),
+        card_states=[
+            CardReviewState.create(
+                card_id="card-01",
+                source="proposal",
+                proposal_id=proposal.proposal_id,
+                state="accepted",
+            )
+        ],
+        completion=FrameReviewCompletion.create(state="complete", unresolved_card_ids=()),
+        projection=projection,
+        derived_region_receipt=derivation.receipt.to_mapping(),
+    )
+    region = derivation.regions[0]
+    content = VisibleCardData(
+        outcomes=(
+            VisibleCardOutcome(
+                event_id="event-01",
+                frame_identity=VisibleCardFrameIdentity.from_mapping(
+                    {
+                        "schema_version": "exact-event/v1",
+                        "policy": "exact-event/v1",
+                        "source_video_sha256": digest,
+                        "requested_time_us": 1_000_000,
+                        "presentation_timestamp_us": 1_000_000,
+                        "frame_index": 0,
+                        "width": 100,
+                        "height": 100,
+                        "image_sha256": digest,
+                        "content_type": "image/jpeg",
+                        "decoder_version": "ffmpeg/test",
+                        "transform_version": "ffmpeg-mjpeg/test",
+                        "output_encoding": "jpeg",
+                    }
+                ),
+                status="detected",
+                candidates=(
+                    VisibleCardCandidate.from_mapping(
+                        {
+                            "card_id": region["card_id"],
+                            "geometry": region["geometry"],
+                            "normalization": region["normalization"],
+                            "side": "unknown",
+                        }
+                    ),
+                ),
+                ignored_regions=(),
+                error=None,
+                card_scene=draft,
+            ),
+        )
+    )
+
+    VisualIdentityPipelineService._validate_scene_derived_views(content)
+
+    assert draft.derived_region_receipt is not None
+    stale_receipt = {**draft.derived_region_receipt, "scene_digest": "b" * 64}
+    stale = VisibleCardData(
+        outcomes=(
+            VisibleCardOutcome(
+                event_id="event-01",
+                frame_identity=content.outcomes[0].frame_identity,
+                status="detected",
+                candidates=content.outcomes[0].candidates,
+                ignored_regions=(),
+                error=None,
+                card_scene=CardSceneDraft.create(
+                    proposal=draft.proposal,
+                    reviewed=draft.reviewed,
+                    card_states=draft.card_states,
+                    completion=draft.completion,
+                    projection=draft.projection,
+                    derived_region_receipt=stale_receipt,
+                ),
+            ),
+        )
+    )
+    with pytest.raises(VisualIdentityPipelineError, match="stale or invalid"):
+        VisualIdentityPipelineService._validate_scene_derived_views(stale)
 
 
 def _wait_identity(client: TestClient, run_id: str) -> dict[str, Any]:

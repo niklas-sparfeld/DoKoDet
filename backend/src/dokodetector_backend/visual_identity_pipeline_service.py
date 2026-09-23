@@ -16,6 +16,7 @@ from typing import Any
 
 from doko_operations.card_plane_geometry import (
     CardPlaneGeometryError,
+    ReviewedCardScene,
     validate_pose_scene_candidate_view,
 )
 from doko_operations.derived_view import (
@@ -42,12 +43,14 @@ from doko_operations.pipeline_data import (
     RunProgress,
     sha256_bytes,
 )
+from table_evidence_analyzer.card_scene_contract import CardSceneDraft
 from table_evidence_analyzer.pipeline_data import (
     DetectorBoxGeometry,
     PipelineGeometry,
     PredictedVisibleRegionGeometry,
     ReviewedVisibleRegionGeometry,
     VisibleCardData,
+    VisibleCardOutcome,
     VisualIdentityCandidate,
     VisualIdentityClassifierIdentity,
     VisualIdentityCropIdentity,
@@ -636,6 +639,60 @@ class VisualIdentityPipelineService:
             or _raise_input("No selected visible-card revision is available.")
         )
 
+    @classmethod
+    def _validate_scene_derived_views(cls, content: VisibleCardData) -> None:
+        """Reject candidate geometry that is not the current scene derivation."""
+
+        for outcome in content.outcomes:
+            cls._validate_outcome_scene_derived_view(outcome)
+
+    @classmethod
+    def _validate_outcome_scene_derived_view(cls, outcome: VisibleCardOutcome) -> None:
+        envelope = outcome.card_scene
+        if envelope is None:
+            return
+        candidate_mappings = [candidate.to_mapping() for candidate in outcome.candidates]
+        if isinstance(envelope, CardSceneDraft):
+            if envelope.reviewed is None:
+                if candidate_mappings:
+                    raise VisualIdentityPipelineError(
+                        "The visible-card scene-derived view is incomplete."
+                    )
+                return
+            if envelope.projection is None:
+                raise VisualIdentityPipelineError(
+                    "The visible-card scene-derived view is incomplete."
+                )
+            try:
+                validate_pose_scene_candidate_view(
+                    ReviewedCardScene.from_mapping(envelope.reviewed.scene),
+                    envelope.projection,
+                    candidate_mappings,
+                    receipt=envelope.derived_region_receipt,
+                )
+            except (CardPlaneGeometryError, TypeError, ValueError) as error:
+                raise VisualIdentityPipelineError(
+                    "The visible-card scene-derived view is stale or invalid."
+                ) from error
+            return
+        if not isinstance(envelope, Mapping):
+            raise VisualIdentityPipelineError("The visible-card scene-derived view is invalid.")
+        raw_scene = envelope.get("scene")
+        projection = envelope.get("projection")
+        if not isinstance(raw_scene, Mapping) or not isinstance(projection, Mapping):
+            raise VisualIdentityPipelineError("The visible-card scene-derived view is incomplete.")
+        try:
+            validate_pose_scene_candidate_view(
+                raw_scene,
+                projection,
+                candidate_mappings,
+                receipt=envelope.get("derived_region_receipt"),
+            )
+        except (CardPlaneGeometryError, TypeError, ValueError) as error:
+            raise VisualIdentityPipelineError(
+                "The visible-card scene-derived view is stale or invalid."
+            ) from error
+
     def _execute(self, run_id: str) -> None:
         try:
             run = self.run_store.require(run_id)
@@ -648,31 +705,7 @@ class VisualIdentityPipelineService:
                 if outcome.status == "detected"
                 for candidate in outcome.candidates
             ]
-            for outcome in visible_revision.content.outcomes:
-                raw_envelope = outcome.card_scene
-                if raw_envelope is None:
-                    continue
-                if not isinstance(raw_envelope, Mapping):
-                    raise VisualIdentityPipelineError(
-                        "The visible-card scene-derived view is invalid."
-                    )
-                raw_scene = raw_envelope.get("scene")
-                projection = raw_envelope.get("projection")
-                if not isinstance(raw_scene, Mapping) or not isinstance(projection, Mapping):
-                    raise VisualIdentityPipelineError(
-                        "The visible-card scene-derived view is incomplete."
-                    )
-                try:
-                    validate_pose_scene_candidate_view(
-                        raw_scene,
-                        projection,
-                        [candidate.to_mapping() for candidate in outcome.candidates],
-                        receipt=raw_envelope.get("derived_region_receipt"),
-                    )
-                except (CardPlaneGeometryError, TypeError, ValueError) as error:
-                    raise VisualIdentityPipelineError(
-                        "The visible-card scene-derived view is stale or invalid."
-                    ) from error
+            self._validate_scene_derived_views(visible_revision.content)
             outcomes_by_index: list[VisualIdentityOutcome | None] = [None] * len(candidates)
             prior_items = {item.item_id: item for item in run.state.items}
             candidate_ids = {candidate.card_id for _, candidate in candidates}
