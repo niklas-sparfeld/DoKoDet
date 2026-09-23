@@ -10,6 +10,7 @@ import styles from "../App.module.css";
 import {
   CalibrationFitDiagnosticsPanel,
   readCalibrationFitDiagnostics,
+  type CalibrationFitDiagnosticOutline,
 } from "./CalibrationFitDiagnostics";
 import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
@@ -121,6 +122,12 @@ export type VisibleCardInspectorProps = {
   applyCalibrationRefinement: (confirmAffected: boolean) => void;
   onSelectCalibrationFrame: (frameId: string) => void;
   onSelectFitDiagnosticFrame: (frameId: string) => void;
+  visibleCalibrationStatuses: ReadonlySet<
+    CalibrationFitDiagnosticOutline["status"]
+  >;
+  onToggleCalibrationStatus: (
+    status: CalibrationFitDiagnosticOutline["status"],
+  ) => void;
 };
 
 export function VisibleCardInspectorPortals(props: VisibleCardInspectorProps) {
@@ -191,6 +198,8 @@ function VisibleCardInspectorAction({
   discardCalibrationRefinement,
   applyCalibrationRefinement,
   onSelectFitDiagnosticFrame,
+  visibleCalibrationStatuses,
+  onToggleCalibrationStatus,
 }: VisibleCardInspectorProps) {
   if (view === "generated") {
     return (
@@ -207,6 +216,8 @@ function VisibleCardInspectorAction({
           onRetry={retryProposal}
           onStartReview={startReviewFromProposal}
           onSelectFitDiagnosticFrame={onSelectFitDiagnosticFrame}
+          visibleCalibrationStatuses={visibleCalibrationStatuses}
+          onToggleCalibrationStatus={onToggleCalibrationStatus}
         />
         <p className={styles.pipelineInspectorEmpty}>
           {generatedLoading
@@ -515,6 +526,8 @@ function ProposalControls({
   onRetry,
   onStartReview,
   onSelectFitDiagnosticFrame,
+  visibleCalibrationStatuses,
+  onToggleCalibrationStatus,
 }: {
   generatedRevisionId: string | null;
   proposalRun: PipelineProposalRunResponse | null;
@@ -525,6 +538,12 @@ function ProposalControls({
   onRetry: () => void;
   onStartReview: () => void;
   onSelectFitDiagnosticFrame: (frameId: string) => void;
+  visibleCalibrationStatuses: ReadonlySet<
+    CalibrationFitDiagnosticOutline["status"]
+  >;
+  onToggleCalibrationStatus: (
+    status: CalibrationFitDiagnosticOutline["status"],
+  ) => void;
 }) {
   const status = proposalRun?.status ?? null;
   const fitDiagnostics = readCalibrationFitDiagnostics(proposalRun);
@@ -583,6 +602,8 @@ function ProposalControls({
       <CalibrationFitDiagnosticsPanel
         diagnostics={fitDiagnostics}
         onSelectFrame={onSelectFitDiagnosticFrame}
+        visibleStatuses={visibleCalibrationStatuses}
+        onToggleStatus={onToggleCalibrationStatus}
       />
     </section>
   );

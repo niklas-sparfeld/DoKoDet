@@ -558,11 +558,12 @@ describe("PipelineVisibleCardEditor", () => {
             calibration_fit_candidate: {
               candidate_digest: "candidate-digest",
               source_revision: REVISION_ID,
-              held_out_observation_ids: ["candidate-1", "candidate-2"],
+              fit_observation_ids: ["candidate-1"],
+              held_out_observation_ids: ["candidate-2"],
             },
             diagnostics: {
               candidate_yield: {
-                raw_count: 2,
+                raw_count: 3,
                 accepted_count: 2,
                 geometry_count: 2,
                 quality_count: 2,
@@ -603,6 +604,16 @@ describe("PipelineVisibleCardEditor", () => {
                     maximum_boundary_distance_px: 14,
                     p90_boundary_distance_over_short_side: 0.22,
                   },
+                },
+                {
+                  candidate_id: "run-card-2",
+                  source_frame_id: SECOND_ITEM_ID,
+                  fit_decision: "selector_rejected:frame_boundary",
+                  rejection_reason: "frame_boundary",
+                  confidence: 0.94,
+                  quality_metrics: { quality_score: 0.81 },
+                  projected_full_card_outline: null,
+                  residual: null,
                 },
               ],
               validation: {
@@ -659,11 +670,19 @@ describe("PipelineVisibleCardEditor", () => {
     expect(diagnostic).toHaveTextContent(
       "Failed calibration · diagnostic only",
     );
-    expect(diagnostic).toHaveTextContent("2 accepted of 2 predictions");
+    expect(diagnostic).toHaveTextContent("2 accepted of 3 predictions");
+    expect(within(diagnostic).getByLabelText(/Used for fit/)).toBeChecked();
+    expect(within(diagnostic).getByLabelText(/Held out/)).toBeChecked();
+    expect(within(diagnostic).getByLabelText(/Discarded/)).toBeChecked();
     expect(diagnostic).toHaveTextContent("unavailable · gate failed");
     expect(diagnostic).toHaveTextContent(
       "Independent full-card outlines are required.",
     );
+    expect(
+      container.querySelector(
+        '[data-candidate-id="candidate-1"][data-calibration-status="fit"]',
+      ),
+    ).toHaveTextContent("M/P90/MAX 2.0/4.0/5.0 px");
 
     await user.click(
       screen.getByRole("button", {
@@ -675,6 +694,33 @@ describe("PipelineVisibleCardEditor", () => {
         '[data-calibration-fit-outline="true"][data-candidate-id="candidate-2"]',
       ),
     ).toBeInTheDocument();
+    expect(
+      container.querySelector(
+        '[data-candidate-id="candidate-2"][data-calibration-status="held_out"]',
+      ),
+    ).toHaveTextContent("M/P90/MAX 6.0/11.0/14.0 px");
+    expect(
+      container.querySelector(
+        '[data-candidate-id="run-card-2"][data-calibration-status="discarded"]',
+      ),
+    ).toHaveTextContent("frame boundary");
+    expect(
+      container.querySelector(
+        '[data-candidate-id="run-card-2"] [data-geometry="detected"]',
+      ),
+    ).toBeInTheDocument();
+    await user.click(within(diagnostic).getByLabelText(/Discarded/));
+    expect(
+      container.querySelector('[data-calibration-status="discarded"]'),
+    ).not.toBeInTheDocument();
+    await user.click(within(diagnostic).getByLabelText(/Held out/));
+    expect(
+      container.querySelector('[data-calibration-status="held_out"]'),
+    ).not.toBeInTheDocument();
+    await user.click(within(diagnostic).getByLabelText(/Used for fit/));
+    expect(
+      container.querySelector('[data-calibration-status="fit"]'),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps a portrait frame aspect ratio before the fullscreen surface layout", async () => {

@@ -46,6 +46,36 @@
   font-weight: 700;
 }
 
+.overlayFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+}
+
+.overlayFilters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.overlayFilters input {
+  accent-color: currentColor;
+}
+
+.fit {
+  color: #148673;
+}
+
+.held_out {
+  color: #547de4;
+}
+
+.discarded {
+  color: #c96d20;
+}
+
 .facts {
   display: grid;
   gap: 0.32rem;

@@ -2,12 +2,12 @@
 
 ## Plan status
 
-- **Summary:** Keep cards whose projected full-card outline stays inside the source frame in the
-  automatic calibration population.
+- **Summary:** Keep calibration cards inside the source frame and make each selection decision
+  visible for review.
 - **Status:** In Progress
 - **Depends on:** Completed 0075 robust automatic table-plane calibration
 - **Outcome:** Automatic calibration removes candidates whose fitted full-card outline crosses the
-  source-frame boundary, records the rejection, and measures the effect on retained results.
+  source-frame boundary. Failed-run review shows fit, held-out, and discarded cards with metrics.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -16,8 +16,9 @@
 - **M0:** Complete — reject candidates whose projected full-card outline leaves the source frame,
   refit without them, and record the before-and-after measurements in the
   [M0 report](../../reports/0076-M0_Frame_Complete_Calibration_Candidates.md).
-- **M1:** Not started — improve selection of fully visible cards when other cards cover them. Start
-  this milestone only after explicit user confirmation.
+- **M1:** Complete — show fit, held-out, and discarded candidates as distinct frame overlays with
+  per-card metrics and filters.
+- **M2:** Not started — improve selection of fully visible cards when other cards cover them.
 
 ## 1. Purpose
 
@@ -30,8 +31,8 @@ any projected corner is outside its source frame. Repeat the fit and this check 
 full-card outline stays inside its frame. Keep the rejection in the candidate receipt and exclude
 the observation from fit and held-out metrics.
 
-This milestone handles frame containment. It does not change how the processor judges occluded
-card boundaries. M1 covers that work after the user confirms it.
+M0 handles frame containment. M1 makes the selection evidence visible. M2 covers occluded card
+boundaries.
 
 ## 2. M0 — Filter outlines outside the source frame
 
@@ -46,8 +47,17 @@ projected full-card outline leaves the frame, the selected fit no longer contain
 and the frozen comparison records changes in candidate selection, fit quality, coverage, and
 runtime.
 
-## 3. M1 — Stabilize complete-card selection under occlusion
+## 3. M1 — Show candidate decisions in failed-run review
+
+- Mark fit, held-out, and discarded cards with distinct colors and labels.
+- Show each card's boundary distances and selection evidence on the frame.
+- Let the operator filter the three roles. Use detected geometry when a discarded card has no
+  projected outline.
+
+**Done when:** A failed-run review can distinguish all three roles and inspect each card's metrics
+without treating a rejected projected outline as a selected card.
+
+## 4. M2 — Stabilize complete-card selection under occlusion
 
 Improve the `is this card fully visible` decision for cards covered by other cards. Measure it on
-retained examples before choosing a detection change. This milestone requires explicit user
-confirmation before work starts.
+retained examples before choosing a detection change.

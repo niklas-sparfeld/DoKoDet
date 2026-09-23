@@ -2378,7 +2378,9 @@ function WorkbenchSurface({
           calibrationFitOutlines,
           viewpoint,
           width,
+          height,
           scene,
+          candidates,
         )}
         {renderEditorOverlay({
           editor,
@@ -2496,7 +2498,9 @@ function WorkbenchSurface({
           calibrationFitOutlines,
           "camera",
           width,
+          height,
           scene,
+          candidates,
         )}
         {renderEditorOverlay({
           editor,
@@ -2516,10 +2520,12 @@ function renderCalibrationFitOutlines(
   outlines: CalibrationFitDiagnosticOutline[],
   viewpoint: WorkbenchViewpoint,
   width: number,
+  height: number,
   scene: PoseSceneEnvelope | null,
+  candidates: Candidate[],
 ) {
   return outlines.map((outline) => {
-    const points = outline.points
+    const projectedPoints = outline.points
       .map((point): [number, number] | null => {
         if (viewpoint === "camera" || scene === null) return [point.x, point.y];
         return projectImagePointToTable(
@@ -2528,18 +2534,87 @@ function renderCalibrationFitOutlines(
         );
       })
       .filter((point): point is [number, number] => point !== null);
-    if (points.length !== 4) return null;
+    const candidate = candidates.find(
+      (item) => item.card_id === outline.candidateId,
+    );
+    const points =
+      projectedPoints.length === 4
+        ? projectedPoints
+        : candidate === undefined
+          ? []
+          : (candidatePolygons(candidate, width, height, viewpoint, scene)[0] ??
+            []);
+    if (points.length < 3) return null;
+    const minX = Math.min(...points.map(([x]) => x));
+    const minY = Math.min(...points.map(([, y]) => y));
+    const fontSize = viewpoint === "camera" ? Math.max(13, width / 110) : 0.14;
+    const labelX = Math.max(0, minX);
+    const labelY = Math.max(fontSize * 2, minY);
+    const statusLabel =
+      outline.status === "fit"
+        ? "FIT"
+        : outline.status === "held_out"
+          ? "HELD OUT"
+          : "DISCARDED";
+    const metricLabel =
+      outline.medianDistancePx === null
+        ? "boundary metric unavailable"
+        : `M/P90/MAX ${outline.medianDistancePx.toFixed(1)}/${outline.p90DistancePx?.toFixed(1) ?? "–"}/${outline.maximumDistancePx?.toFixed(1) ?? "–"} px`;
+    const detailLabel =
+      outline.status === "discarded" && outline.reason !== null
+        ? outline.reason.replaceAll("_", " ")
+        : `confidence ${outline.confidence?.toFixed(2) ?? "–"} · quality ${outline.qualityScore?.toFixed(2) ?? "–"}`;
+    const title = [
+      outline.candidateId,
+      statusLabel,
+      outline.reason === null
+        ? null
+        : `Reason: ${outline.reason.replaceAll("_", " ")}`,
+      outline.confidence === null
+        ? null
+        : `Confidence: ${outline.confidence.toFixed(3)}`,
+      outline.qualityScore === null
+        ? null
+        : `Quality score: ${outline.qualityScore.toFixed(3)}`,
+      outline.medianDistancePx === null
+        ? null
+        : `Boundary distance: median ${outline.medianDistancePx.toFixed(2)} px, P90 ${outline.p90DistancePx?.toFixed(2) ?? "unavailable"} px, max ${outline.maximumDistancePx?.toFixed(2) ?? "unavailable"} px`,
+    ]
+      .filter((item) => item !== null)
+      .join("\n");
     return (
-      <polygon
+      <g
         key={outline.candidateId}
-        className={styles.calibrationFitOutline}
-        points={pointsAttribute(points)}
-        strokeWidth={strokeWidth(viewpoint, width)}
         data-calibration-fit-outline="true"
         data-candidate-id={outline.candidateId}
+        data-calibration-status={outline.status}
         role="img"
-        aria-label={`Diagnostic fit outline for ${outline.candidateId}`}
-      />
+        aria-label={`${statusLabel.toLowerCase()} calibration card ${outline.candidateId}: ${metricLabel}`}
+      >
+        <title>{title}</title>
+        <polygon
+          className={styles.calibrationFitOutline}
+          points={pointsAttribute(points)}
+          strokeWidth={strokeWidth(viewpoint, width)}
+          data-status={outline.status}
+          data-geometry={projectedPoints.length === 4 ? "fitted" : "detected"}
+        />
+        <text
+          className={styles.calibrationFitLabel}
+          x={labelX}
+          y={labelY}
+          fontSize={fontSize}
+          data-status={outline.status}
+        >
+          <tspan x={labelX}>{statusLabel}</tspan>
+          <tspan x={labelX} dy="1.15em">
+            {metricLabel}
+          </tspan>
+          <tspan x={labelX} dy="1.15em">
+            {detailLabel}
+          </tspan>
+        </text>
+      </g>
     );
   });
 }

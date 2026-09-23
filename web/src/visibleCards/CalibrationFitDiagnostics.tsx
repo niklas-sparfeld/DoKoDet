@@ -5,13 +5,18 @@ import styles from "./CalibrationFitDiagnostics.module.css";
 export type CalibrationFitDiagnosticOutline = {
   candidateId: string;
   points: Point[];
+  status: "fit" | "held_out" | "discarded";
+  reason: string | null;
+  confidence: number | null;
+  qualityScore: number | null;
+  medianDistancePx: number | null;
+  p90DistancePx: number | null;
+  maximumDistancePx: number | null;
 };
 
-type DiagnosticEvidence = {
+type DiagnosticEvidence = CalibrationFitDiagnosticOutline & {
   candidateId: string;
   sourceFrameId: string;
-  points: Point[];
-  maximumDistancePx: number | null;
 };
 
 export type CalibrationFitDiagnostics = {
@@ -76,9 +81,17 @@ export function readCalibrationFitDiagnostics(
         .map(readEvidence)
         .filter((item): item is DiagnosticEvidence => item !== null)
     : [];
+  const fitIds = new Set(asStringArray(calibration?.fit_observation_ids));
   const heldOutIds = new Set(
     asStringArray(calibration?.held_out_observation_ids),
   );
+  for (const item of evidence) {
+    item.status = fitIds.has(item.candidateId)
+      ? "fit"
+      : heldOutIds.has(item.candidateId)
+        ? "held_out"
+        : "discarded";
+  }
   const heldEvidence =
     calibration === null
       ? []
@@ -136,25 +149,38 @@ export function readCalibrationFitDiagnostics(
 export function calibrationFitOutlinesForFrame(
   diagnostics: CalibrationFitDiagnostics | null,
   sourceFrameId: string,
+  visibleStatuses: ReadonlySet<CalibrationFitDiagnosticOutline["status"]>,
 ): CalibrationFitDiagnosticOutline[] {
-  if (diagnostics === null || !diagnostics.candidateAvailable) return [];
+  if (diagnostics === null) return [];
   return diagnostics.evidence
     .filter(
       (item) =>
-        item.sourceFrameId === sourceFrameId && item.points.length === 4,
+        item.sourceFrameId === sourceFrameId &&
+        visibleStatuses.has(item.status),
     )
     .map((item) => ({
       candidateId: item.candidateId,
       points: item.points,
+      status: item.status,
+      reason: item.reason,
+      confidence: item.confidence,
+      qualityScore: item.qualityScore,
+      medianDistancePx: item.medianDistancePx,
+      p90DistancePx: item.p90DistancePx,
+      maximumDistancePx: item.maximumDistancePx,
     }));
 }
 
 export function CalibrationFitDiagnosticsPanel({
   diagnostics,
   onSelectFrame,
+  visibleStatuses,
+  onToggleStatus,
 }: {
   diagnostics: CalibrationFitDiagnostics | null;
   onSelectFrame: (sourceFrameId: string) => void;
+  visibleStatuses: ReadonlySet<CalibrationFitDiagnosticOutline["status"]>;
+  onToggleStatus: (status: CalibrationFitDiagnosticOutline["status"]) => void;
 }) {
   if (diagnostics === null) return null;
   const heldOut = diagnostics.heldOutSummary;
@@ -182,9 +208,29 @@ export function CalibrationFitDiagnosticsPanel({
       <h4>Calibration fit candidate</h4>
       <p className={styles.description}>
         {outlinesAvailable
-          ? "Read-only fit outlines appear as dashed orange lines beside the detector polygons. This candidate is not published and cannot change reviewed data."
+          ? "Read-only card outlines and metrics show which detections contributed to this fit. This candidate is not published and cannot change reviewed data."
           : "This stored run has no projected outlines. Retry the proposal run to inspect them beside the detector polygons. The candidate is not published and cannot change reviewed data."}
       </p>
+      <div
+        className={styles.overlayFilters}
+        aria-label="Calibration card overlays"
+      >
+        {(["fit", "held_out", "discarded"] as const).map((status) => (
+          <label key={status} className={styles[status]}>
+            <input
+              type="checkbox"
+              checked={visibleStatuses.has(status)}
+              onChange={() => onToggleStatus(status)}
+            />
+            {status === "fit"
+              ? "Used for fit"
+              : status === "held_out"
+                ? "Held out"
+                : "Discarded"}
+            {` (${diagnostics.evidence.filter((item) => item.status === status).length})`}
+          </label>
+        ))}
+      </div>
       {diagnostics.failureMessage !== null ? (
         <p className={styles.failure}>{diagnostics.failureMessage}</p>
       ) : null}
@@ -282,10 +328,17 @@ function readEvidence(value: unknown): DiagnosticEvidence | null {
   if (item === null || candidateId === null || sourceFrameId === null)
     return null;
   const residual = asObject(item.residual);
+  const quality = asObject(item.quality_metrics);
   return {
     candidateId,
     sourceFrameId,
     points: readPoints(item.projected_full_card_outline),
+    status: "discarded",
+    reason: asString(item.rejection_reason),
+    confidence: asNumber(item.confidence),
+    qualityScore: asNumber(quality?.quality_score),
+    medianDistancePx: asNumber(residual?.median_boundary_distance_px),
+    p90DistancePx: asNumber(residual?.p90_boundary_distance_px),
     maximumDistancePx: asNumber(residual?.maximum_boundary_distance_px),
   };
 }

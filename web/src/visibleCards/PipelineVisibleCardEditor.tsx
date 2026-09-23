@@ -46,6 +46,7 @@ import visibleStyles from "./PipelineVisibleCardEditor.module.css";
 import {
   calibrationFitOutlinesForFrame,
   readCalibrationFitDiagnostics,
+  type CalibrationFitDiagnosticOutline,
 } from "./CalibrationFitDiagnostics";
 import {
   VisibleCardReviewWorkbench,
@@ -166,6 +167,9 @@ export function PipelineVisibleCardEditor({
     null,
   );
   const [proposalLoading, setProposalLoading] = useState(false);
+  const [visibleCalibrationStatuses, setVisibleCalibrationStatuses] = useState<
+    CalibrationFitDiagnosticOutline["status"][]
+  >(["fit", "held_out", "discarded"]);
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [calibrationRefinement, setCalibrationRefinement] =
     useState<CalibrationRefinementResponse | null>(null);
@@ -2035,6 +2039,7 @@ export function PipelineVisibleCardEditor({
       ? calibrationFitOutlinesForFrame(
           fitDiagnostics,
           activeFrame.outcome.event_id,
+          new Set(visibleCalibrationStatuses),
         )
       : [];
   const requestedFrameId =
@@ -2265,6 +2270,14 @@ export function PipelineVisibleCardEditor({
         );
         if (target !== undefined) selectFrame(target);
       }}
+      visibleCalibrationStatuses={new Set(visibleCalibrationStatuses)}
+      onToggleCalibrationStatus={(status) =>
+        setVisibleCalibrationStatuses((current) =>
+          current.includes(status)
+            ? current.filter((item) => item !== status)
+            : [...current, status],
+        )
+      }
     />
   );
 

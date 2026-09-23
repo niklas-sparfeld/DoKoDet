@@ -178,11 +178,40 @@
 }
 
 .calibrationFitOutline {
-  fill: rgba(240, 139, 60, 0.08);
-  stroke: #f08b3c;
+  fill: color-mix(in srgb, #30c9ac 8%, transparent);
+  stroke: #30c9ac;
   stroke-dasharray: 8 5;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
+}
+
+.calibrationFitOutline[data-status="held_out"] {
+  fill: color-mix(in srgb, #749dff 8%, transparent);
+  stroke: #749dff;
+}
+
+.calibrationFitOutline[data-status="discarded"] {
+  fill: color-mix(in srgb, #f08b3c 8%, transparent);
+  stroke: #f08b3c;
+  stroke-dasharray: 3 6;
+}
+
+.calibrationFitLabel {
+  fill: #30c9ac;
+  paint-order: stroke;
+  stroke: #101822;
+  stroke-width: 0.25em;
+  stroke-linejoin: round;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.calibrationFitLabel[data-status="held_out"] {
+  fill: #91b2ff;
+}
+
+.calibrationFitLabel[data-status="discarded"] {
+  fill: #ffa656;
 }
 
 .workbenchCameraImage {
