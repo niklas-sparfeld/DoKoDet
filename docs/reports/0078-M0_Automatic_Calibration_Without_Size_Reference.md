@@ -52,3 +52,6 @@ held-out detector evidence, not a confirmed physical-size measurement.
 - Focused calibration, proposal, and failed-run review checks pass.
 - Ruff and web static checks pass for changed files.
 - The frozen comparison completed for 24 local revisions and ten synthetic cases.
+- The full `PipelineVisibleCardEditor.test.tsx` file still has 24 failures in frame-loading and
+  editing cases (for example, a missing source-frame image). Its focused calibration diagnostic
+  case passes. Those failures do not exercise the size gate.
