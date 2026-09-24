@@ -17,7 +17,8 @@
     "generate:openapi": "mise exec -- uv run --project ../backend python ../backend/scripts/export_openapi.py --output .generated/openapi.json",
     "generate:api": "npm run generate:openapi && openapi-typescript .generated/openapi.json --output src/api/openapi.ts",
     "verify:api": "npm run generate:openapi && openapi-typescript .generated/openapi.json --output .generated/openapi.ts && diff -u .generated/openapi.ts src/api/openapi.ts",
-    "check": "npm run typecheck && npm run lint && npm run format && npm run verify:api && npm test"
+    "check": "npm run typecheck && npm run check:visible-card-boundaries && npm run lint && npm run format && npm run verify:api && npm test",
+    "check:visible-card-boundaries": "node scripts/check-visible-card-boundaries.mjs"
   },
   "dependencies": {
     "react": "19.3.0",

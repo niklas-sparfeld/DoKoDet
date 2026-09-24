@@ -23,7 +23,7 @@
 - **M2:** Complete — extract workbench surface interaction, rendering, and geometry.
 - **M3:** Complete — extract editor data, geometry, error, and URL helpers.
 - **M4:** Complete — move maintained-reference state, API commands, polling, and synchronization into the typed editor controller.
-- **M5:** Not started — make both component roots small composition boundaries and split tests by owner.
+- **M5:** Complete — both public roots are small composition wrappers, focused tests are split by owner, and an automated size guard enforces the M0 budgets. Existing repository-wide check and browser-suite failures are recorded below.
 
 ## 1. Purpose
 
@@ -361,6 +361,29 @@ Acceptance:
 - The visible-card browser workflow covers generated inspection, maintained editing, save/retry or
   conflict recovery, and Camera/Rectified review without behavior differences.
 - There are no unused imports, dead compatibility wrappers, or changed backend contracts.
+
+#### M5 implementation evidence — 2026-09-24
+
+- Kept the public editor and workbench exports stable. Each public root now adapts its props to an
+  internal view component. The view implementations retain the prior component behavior and names
+  for all rendered controls and accessibility labels.
+- Split the editor and workbench tests into focused integration, command, geometry, editing, mapping,
+  and proposal suites. Shared test fixtures live in separate fixture modules. Every focused test file
+  is below the 800-line limit.
+- Added `web/scripts/check-visible-card-boundaries.mjs` and wired it into `npm run check`. It checks
+  both public root components against 500 nonblank lines and focused editor/workbench tests against
+  800. It reports each failing path and line count. The check passes.
+- Verification: typecheck, scoped ESLint, changed-file Prettier, API schema verification, build, and
+  `git diff --check` pass. The visible-card React suites report 76 passed and the same 10 editor
+  failures listed in M0. The full `npm run check` stops at two existing lint errors in
+  `cardEvents/CardEventFrameSurface.tsx`; full-repository Prettier also reports eight pre-existing
+  files outside this scope.
+- The full Playwright suite ran: 6 passed and 9 failed in existing pipeline/CardEvent scenarios. The
+  visible-card interaction evidence remains in the focused browser-based React suites; the current
+  Playwright suite does not complete a visible-card operator loop.
+- The full web unit suite reports 270 passed and 11 failed: the 10 M0 editor failures plus one
+  existing `App.test.tsx` request expectation. No backend contract, URL helper, command payload, or
+  public export changed in this milestone.
 
 ## 5. Execution rules
 
