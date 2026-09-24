@@ -281,9 +281,15 @@ def test_duplicate_predictions_are_stable_and_overlapping_evidence_is_uncertain(
     assert run.scene.stacking_order.contradictions == ()
     assert run.diagnostics["order"]["edges"][0]["decision"] == "uncertain"
     assert run.diagnostics["occlusion_refit"]["margin_pixels"] == 4
+    assert run.diagnostics["occlusion_refit"]["minimum_boundary_fraction"] == 0.05
     assert run.diagnostics["occlusion_refit"]["provisional_order"] == list(
         run.scene.stacking_order.card_ids
     )
+    assert run.diagnostics["occlusion_refit"]["refitted_suggestion_ids"] == []
+    assert run.diagnostics["occlusion_refit"]["removed_boundary_fractions"] == {
+        "candidate-000": 0.0,
+        "candidate-duplicate": 1.0,
+    }
 
 
 def test_all_failed_candidates_return_actionable_failure_without_a_scene() -> None:

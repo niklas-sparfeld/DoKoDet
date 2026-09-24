@@ -236,6 +236,7 @@ class PoseFitRecipe:
     edge_width_pixels: int = 3
     occlusion_margin_pixels: int = 4
     edge_distance_tolerance_pixels: float = 8.0
+    occlusion_refit_min_boundary_fraction: float = 0.05
 
     def __post_init__(self) -> None:
         if self.center_search_radius <= 0.0 or self.angle_search_degrees <= 0.0:
@@ -260,6 +261,10 @@ class PoseFitRecipe:
             raise CardPlaneInitializationError("occlusion_margin_pixels must not be negative")
         if self.edge_distance_tolerance_pixels <= 0.0:
             raise CardPlaneInitializationError("edge_distance_tolerance_pixels must be positive")
+        if not 0.0 <= self.occlusion_refit_min_boundary_fraction <= 1.0:
+            raise CardPlaneInitializationError(
+                "occlusion_refit_min_boundary_fraction must be in [0, 1]"
+            )
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -277,6 +282,9 @@ class PoseFitRecipe:
             "edge_width_pixels": self.edge_width_pixels,
             "occlusion_margin_pixels": self.occlusion_margin_pixels,
             "edge_distance_tolerance_pixels": _round(self.edge_distance_tolerance_pixels),
+            "occlusion_refit_min_boundary_fraction": _round(
+                self.occlusion_refit_min_boundary_fraction
+            ),
         }
 
     @property
@@ -480,6 +488,7 @@ def _fit_candidate(
     width: int,
     height: int,
     occluder_mask: np.ndarray | None = None,
+    initial_pose: tuple[np.ndarray, float] | None = None,
 ) -> _FittedCandidate | None:
     try:
         occlusion_aware = occluder_mask is not None
@@ -498,7 +507,15 @@ def _fit_candidate(
             raise CardPlaneInitializationError(
                 "prediction has no non-occluded boundary evidence"
             )
-        center, angle = _initial_pose(candidate.table_points)
+        if initial_pose is None:
+            center, angle = _initial_pose(candidate.table_points)
+        else:
+            center = np.asarray(initial_pose[0], dtype=np.float64).copy()
+            if center.shape != (2,) or not np.all(np.isfinite(center)):
+                raise CardPlaneInitializationError(
+                    "initial pose center must contain two finite values"
+                )
+            angle = _normalized_angle(float(initial_pose[1]))
         source_bounds = tuple(int(value) for value in cv2.boundingRect(fit_evidence))
         best: tuple[float, np.ndarray, float] | None = None
         center_radius = recipe.center_search_radius
@@ -821,13 +838,25 @@ def initialize_card_scene(
     occluder = np.zeros((height, width), dtype=np.uint8)
     refitted: list[_FittedCandidate] = []
     occlusion_refit_count = 0
+    occlusion_refitted_ids: list[str] = []
+    occlusion_removed_boundary_fractions: dict[str, float] = {}
     for card_id in provisional_order:
         provisional = provisional_by_id[card_id]
-        occlusion_overlap = int(
-            np.count_nonzero(
-                (provisional.candidate.source_mask > 0)
-                & (_dilate_mask(occluder, selected_recipe.occlusion_margin_pixels) > 0)
-            )
+        original_boundary = _boundary_mask(
+            provisional.candidate.source_mask, selected_recipe.edge_width_pixels
+        )
+        grown_occluder = _dilate_mask(occluder, selected_recipe.occlusion_margin_pixels)
+        removed_boundary_pixels = int(
+            np.count_nonzero((original_boundary > 0) & (grown_occluder > 0))
+        )
+        original_boundary_pixels = int(np.count_nonzero(original_boundary))
+        removed_boundary_fraction = removed_boundary_pixels / max(original_boundary_pixels, 1)
+        suggestion_id = provisional.candidate.suggestion_id
+        occlusion_removed_boundary_fractions[suggestion_id] = _round(removed_boundary_fraction)
+        should_refit = (
+            removed_boundary_pixels > 0
+            and removed_boundary_fraction
+            >= selected_recipe.occlusion_refit_min_boundary_fraction
         )
         refined = (
             _fit_candidate(
@@ -837,8 +866,12 @@ def initialize_card_scene(
                 width,
                 height,
                 occluder_mask=occluder,
+                initial_pose=(
+                    np.asarray(provisional.pose.center, dtype=np.float64),
+                    provisional.pose.rotation_degrees,
+                ),
             )
-            if occlusion_overlap > 0
+            if should_refit
             else None
         )
         selected = (
@@ -848,6 +881,7 @@ def initialize_card_scene(
         )
         if refined is not None and refined.diagnostic.accepted:
             occlusion_refit_count += 1
+            occlusion_refitted_ids.append(suggestion_id)
         refitted.append(selected)
         occluder = np.maximum(occluder, selected.full_mask)
     fitted = sorted(refitted, key=lambda item: item.pose.card_id)
@@ -899,8 +933,14 @@ def initialize_card_scene(
         "low_confidence_suggestion_ids": sorted(low_confidence),
         "occlusion_refit": {
             "margin_pixels": selected_recipe.occlusion_margin_pixels,
+            "minimum_boundary_fraction": selected_recipe.occlusion_refit_min_boundary_fraction,
             "provisional_order": list(provisional_order),
             "refitted_count": occlusion_refit_count,
+            "refitted_suggestion_ids": sorted(occlusion_refitted_ids),
+            "removed_boundary_fractions": {
+                key: occlusion_removed_boundary_fractions[key]
+                for key in sorted(occlusion_removed_boundary_fractions)
+            },
         },
         "order": {
             "edges": edge_diagnostics,
