@@ -17,6 +17,7 @@ from doko_operations.card_plane_calibration import calibrate_recording
 from doko_operations.card_plane_calibration_refinement import (
     CalibrationDraftStore,
     _scene_displacement,
+    anchor_observations_from_local_result,
     apply_anchor_command_to_draft,
     build_calibration_draft,
     build_calibration_preview,
@@ -173,6 +174,22 @@ def test_preview_is_repeatable_and_reports_recording_impact() -> None:
     assert first.accepted_anchor_count == 0
     assert first.changed_frame_ids == ("frame-000",)
     assert first.most_affected_frame_ids == ("frame-000",)
+
+
+def test_frame_boundary_candidates_are_discarded_from_mapping_anchors() -> None:
+    result = _result()
+    for index, frame in enumerate(result["frames"]):
+        frame["source_frame_digest"] = f"{index + 1:064x}"
+    polygon = np.asarray(result["frames"][0]["predictions"][0]["polygon"], dtype=np.float64)
+    polygon[:, 1] += 1078.5 - float(np.max(polygon[:, 1]))
+    result["frames"][0]["predictions"][0]["polygon"] = polygon.tolist()
+
+    anchors, _frame_digests = anchor_observations_from_local_result(
+        result, detector_revision_id="detector-1"
+    )
+
+    assert "anchor-000" not in {anchor.anchor_id for anchor in anchors}
+    assert "anchor-001" in {anchor.anchor_id for anchor in anchors}
 
 
 def test_ignore_regions_exclude_existing_calibration_anchors_retroactively() -> None:

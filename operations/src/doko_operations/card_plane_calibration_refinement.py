@@ -1084,7 +1084,7 @@ def anchor_observations_from_local_result(
     *,
     detector_revision_id: str,
 ) -> tuple[tuple[AnchorObservation, ...], dict[str, str]]:
-    """Turn immutable local detector evidence into explicit candidate and excluded anchors."""
+    """Turn immutable local detector evidence into candidate and repairable anchors."""
 
     try:
         run = calibrate_recording(local_result)
@@ -1106,6 +1106,10 @@ def anchor_observations_from_local_result(
     for receipt in run.candidate_receipts:
         source_digest = frame_digests.get(receipt.source_frame_id)
         if source_digest is None:
+            continue
+        if receipt.rejection_reason == "frame_boundary":
+            # A partially visible card has no valid full-card mapping anchor. Keep it out of
+            # the draft so it cannot be displayed or become calibration input later.
             continue
         accepted = receipt.accepted
         anchors.append(

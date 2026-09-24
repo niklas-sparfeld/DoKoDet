@@ -38,7 +38,7 @@ from .card_plane_geometry import (
 )
 from .pipeline_data import canonical_json_bytes
 
-CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v10"
+CALIBRATION_PROCESSOR_SCHEMA_VERSION = "card-plane-calibration-processor/v11"
 CALIBRATION_RUN_SCHEMA_VERSION = "card-plane-calibration-run/v3"
 CALIBRATION_RUN_SCHEMA_V2 = "card-plane-calibration-run/v2"
 CALIBRATION_FIT_CANDIDATE_SCHEMA_VERSION = "card-plane-calibration-fit-candidate/v1"
@@ -112,6 +112,7 @@ class CalibrationRecipe:
     """Frozen candidate and validation policy for one calibration processor revision."""
 
     confidence_threshold: float = 0.90
+    frame_boundary_tolerance_px: float = 2.0
     minimum_quad_coverage: float = 0.84
     minimum_boundary_straightness: float = 0.55
     minimum_corner_support: float = 0.50
@@ -149,6 +150,8 @@ class CalibrationRecipe:
     def __post_init__(self) -> None:
         if not 0.0 <= self.confidence_threshold <= 1.0:
             raise CardPlaneCalibrationError("confidence_threshold must be between zero and one")
+        if self.frame_boundary_tolerance_px <= 0:
+            raise CardPlaneCalibrationError("frame_boundary_tolerance_px must be positive")
         if not 0.0 < self.minimum_quad_coverage <= 1.0:
             raise CardPlaneCalibrationError("minimum_quad_coverage must be in (0, 1]")
         for field in (
@@ -213,6 +216,7 @@ class CalibrationRecipe:
         return {
             "schema_version": CALIBRATION_PROCESSOR_SCHEMA_VERSION,
             "confidence_threshold": self.confidence_threshold,
+            "frame_boundary_tolerance_px": self.frame_boundary_tolerance_px,
             "minimum_quad_coverage": self.minimum_quad_coverage,
             "minimum_boundary_straightness": self.minimum_boundary_straightness,
             "minimum_corner_support": self.minimum_corner_support,
@@ -739,6 +743,20 @@ def _prediction_polygons(prediction: Mapping[str, Any]) -> list[np.ndarray]:
         if isinstance(visible, Mapping) and "polygons" in visible:
             return _prediction_polygons({"polygons": visible["polygons"]})
     raise CardPlaneCalibrationError("prediction has no polygon geometry")
+
+
+def _polygon_touches_frame_boundary(
+    polygons: Sequence[np.ndarray], width: int, height: int, tolerance: float
+) -> bool:
+    """Return whether observed geometry reaches the source-frame boundary."""
+
+    points = np.concatenate(polygons, axis=0)
+    return bool(
+        np.any(points[:, 0] <= tolerance)
+        or np.any(points[:, 0] >= width - tolerance)
+        or np.any(points[:, 1] <= tolerance)
+        or np.any(points[:, 1] >= height - tolerance)
+    )
 
 
 def _prediction_confidence(prediction: Mapping[str, Any]) -> float:
@@ -1413,8 +1431,15 @@ def calibrate_recording(
             if confidence_error:
                 diagnostics["rejections"][candidate_id] = "invalid_confidence"
                 continue
+            touches_frame_boundary = False
             try:
                 polygons = _prediction_polygons(prediction)
+                touches_frame_boundary = _polygon_touches_frame_boundary(
+                    polygons,
+                    width,
+                    height,
+                    selected_recipe.frame_boundary_tolerance_px,
+                )
                 mask = _mask_for_prediction(polygons, prediction, width, height)
                 if confidence >= selected_recipe.confidence_threshold:
                     frame_prediction_polygons.setdefault(frame_id, []).append(
@@ -1443,7 +1468,9 @@ def calibrate_recording(
                 )
             except (CardPlaneCalibrationError, CardPlaneGeometryError, ValueError) as error:
                 reason = (
-                    "disconnected_components"
+                    "frame_boundary"
+                    if touches_frame_boundary
+                    else "disconnected_components"
                     if "disconnected components" in str(error)
                     else "weak_quadrilateral_support"
                     if "coverage is below" in str(error)
@@ -1483,7 +1510,8 @@ def calibrate_recording(
             if confidence < selected_recipe.confidence_threshold:
                 rejection_reason = "confidence_below_threshold"
             elif (
-                any(np.any(mask[edge]) for edge in (0, -1))
+                touches_frame_boundary
+                or any(np.any(mask[edge]) for edge in (0, -1))
                 or np.any(mask[:, 0])
                 or np.any(mask[:, -1])
             ):

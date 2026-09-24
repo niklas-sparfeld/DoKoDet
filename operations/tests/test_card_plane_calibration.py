@@ -151,7 +151,7 @@ def test_detector_only_fit_publishes_without_independent_size_reference(tmp_path
     assert run.calibration_fit_candidate is not None
     assert "absolute_size_reference" not in run.diagnostics["gates"]
     assert run.diagnostics["unavailable_gates"] == []
-    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v10"
+    assert run.diagnostics["processor_schema_version"] == "card-plane-calibration-processor/v11"
     assert run.diagnostics["validation"]["absolute_size"]["status"] == "unavailable"
     assert run.diagnostics["validation"]["absolute_size"]["short_side_bias"] is None
     assert run.diagnostics["fit_candidate_availability"]["available"] is True
@@ -502,6 +502,31 @@ def test_candidate_is_rejected_when_projected_full_outline_leaves_frame() -> Non
     assert run.calibration_fit_candidate is not None
     assert "card-00" not in run.calibration_fit_candidate.fit_observation_ids
     assert "card-00" not in run.calibration_fit_candidate.held_out_observation_ids
+
+
+def test_candidate_near_frame_boundary_is_rejected_before_geometry_quality() -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+        ]
+    )
+    polygon = np.asarray(result["frames"][0]["predictions"][0]["polygon"], dtype=np.float64)
+    polygon[:, 1] += 1078.5 - float(np.max(polygon[:, 1]))
+    result["frames"][0]["predictions"][0]["polygon"] = polygon.tolist()
+
+    run = calibrate_recording(result)
+
+    receipt = {item.candidate_id: item for item in run.candidate_receipts}["candidate-000"]
+    assert receipt.accepted is False
+    assert receipt.rejection_reason == "frame_boundary"
 
 
 def test_candidate_selection_uses_common_local_geometry_and_rejects_fragments() -> None:
