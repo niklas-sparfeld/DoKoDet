@@ -1798,6 +1798,7 @@ export function PipelineVisibleCardEditorView({
                 }
                 calibrationRefinement={calibrationRefinement}
                 onAnchorCommand={updateCalibrationAnchor}
+                onStartProposal={() => void startProposal()}
                 onStartMappingPreview={() => void startCalibrationRefinement()}
                 onDiscardMappingPreview={() =>
                   void discardCalibrationRefinement()

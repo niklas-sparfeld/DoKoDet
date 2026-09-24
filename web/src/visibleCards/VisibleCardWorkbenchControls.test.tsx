@@ -112,7 +112,8 @@ function selectionCallbacks(): WorkbenchTimelineSelectionCallbacks {
 }
 
 describe("visible-card workbench controls", () => {
-  it("keeps the command labels, disabled reason, and selected layers", () => {
+  it("keeps missing-prerequisite controls clickable and explains the next steps", async () => {
+    const user = userEvent.setup();
     render(
       <WorkbenchCommandBar
         viewModel={commandBarViewModel()}
@@ -139,7 +140,7 @@ describe("visible-card workbench controls", () => {
       within(commandBar).getByRole("button", {
         name: "Edit Mapping diagnostics",
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     expect(
       within(commandBar).getByRole("button", {
         name: "Edit Mapping diagnostics",
@@ -148,6 +149,55 @@ describe("visible-card workbench controls", () => {
       "title",
       "A valid table-plane calibration is required for this control.",
     );
+
+    await user.click(
+      within(commandBar).getByRole("button", {
+        name: "Edit Mapping diagnostics",
+      }),
+    );
+    expect(
+      screen.getByRole("dialog", {
+        name: "Mapping diagnostics needs a table-plane calibration",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+  });
+
+  it("runs guidance actions and advances its prerequisite wizard", async () => {
+    const onStartProposal = vi.fn();
+    const onStartMappingPreview = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WorkbenchCommandBar
+        viewModel={commandBarViewModel()}
+        callbacks={{
+          onToggleViewpoint: vi.fn(),
+          onToggleLayer: vi.fn(),
+          onSelectTool: vi.fn(),
+          onStartProposal,
+          onStartMappingPreview,
+        }}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit Mapping diagnostics" }),
+    );
+    expect(
+      screen.getByRole("dialog", {
+        name: "Mapping diagnostics needs a table-plane calibration",
+      }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Create proposed card scenes" }),
+    );
+    expect(onStartProposal).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Start calibration preview" }),
+    );
+    expect(onStartMappingPreview).toHaveBeenCalledOnce();
   });
 
   it("dispatches selection actions through named callbacks", async () => {

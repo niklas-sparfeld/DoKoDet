@@ -1,3 +1,6 @@
+import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
 import { TimelineRailSeekingControls } from "../pipeline/TimelineRailSeekingControls";
 import styles from "./PipelineVisibleCardEditor.module.css";
 import {
@@ -14,6 +17,12 @@ import {
   type WorkbenchSelection,
   type WorkbenchViewpoint,
 } from "./VisibleCardReviewWorkbenchState";
+import {
+  createWorkbenchGuidance,
+  type WorkbenchGuidance,
+  type WorkbenchGuidanceStep,
+  type WorkbenchGuidanceTarget,
+} from "./VisibleCardWorkbenchGuidance";
 import { selectedPoseForSelection } from "./VisibleCardWorkbenchGeometry";
 import type {
   VisibleCardReviewWorkbenchAction,
@@ -65,6 +74,8 @@ export type WorkbenchCommandBarCallbacks = {
   onToggleViewpoint: () => void;
   onToggleLayer: (layer: WorkbenchLayer) => void;
   onSelectTool: (tool: WorkbenchPreferences["activeTool"]) => void;
+  onStartProposal?: () => void;
+  onStartMappingPreview?: () => void;
 };
 
 export function WorkbenchCommandBar({
@@ -82,25 +93,149 @@ export function WorkbenchCommandBar({
     readOnly,
     enabledEditTools,
   } = viewModel;
-  const { onToggleViewpoint, onToggleLayer, onSelectTool } = callbacks;
-  const nextViewpoint = viewpoint === "camera" ? "rectified" : "camera";
+  const {
+    onToggleViewpoint,
+    onToggleLayer,
+    onSelectTool,
+    onStartProposal,
+    onStartMappingPreview,
+  } = callbacks;
+  const nextViewpoint: WorkbenchViewpoint =
+    viewpoint === "camera" ? "rectified" : "camera";
   const viewpointAvailability = availability.viewpoints[nextViewpoint];
   const viewpointLabel = `Viewpoint: ${VIEWPOINT_LABELS[viewpoint]}. Switch to ${VIEWPOINT_LABELS[nextViewpoint]}`;
+  const [guidance, setGuidance] = useState<{
+    target: WorkbenchGuidanceTarget;
+    content: WorkbenchGuidance;
+    stepIndex: number;
+  } | null>(null);
+  const commandBarRef = useRef<HTMLDivElement | null>(null);
+  const guidanceButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [guidancePosition, setGuidancePosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+
+  const targetKey = (target: WorkbenchGuidanceTarget) =>
+    `${target.kind}:${target.id}`;
+  const guidanceTargetKey =
+    guidance === null ? null : targetKey(guidance.target);
+
+  useLayoutEffect(() => {
+    if (guidance === null || guidanceButtonRef.current === null) {
+      setGuidancePosition(null);
+      return;
+    }
+    const updatePosition = () => {
+      const button = guidanceButtonRef.current;
+      if (button === null) return;
+      const rect = button.getBoundingClientRect();
+      const width = Math.min(22 * 16, window.innerWidth - 16);
+      setGuidancePosition({
+        top: rect.bottom + 8,
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+      });
+    };
+    const commandBar = commandBarRef.current;
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    commandBar?.addEventListener("scroll", updatePosition);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      commandBar?.removeEventListener("scroll", updatePosition);
+    };
+  }, [guidance]);
+
+  const closeGuidance = () => setGuidance(null);
+  const openGuidance = (
+    target: WorkbenchGuidanceTarget,
+    button: HTMLButtonElement,
+  ) => {
+    guidanceButtonRef.current = button;
+    setGuidance({
+      target,
+      content: createWorkbenchGuidance(target, {
+        onStartProposal,
+        onStartMappingPreview,
+        onSelectTool,
+      }),
+      stepIndex: 0,
+    });
+  };
+  const currentStep =
+    guidance === null ? null : guidance.content.steps[guidance.stepIndex];
+  const isGuidanceTarget = (target: WorkbenchGuidanceTarget) =>
+    guidanceTargetKey === targetKey(target);
+  const targetClassName = (target: WorkbenchGuidanceTarget) =>
+    `${styles.workbenchToggle}${
+      isGuidanceTarget(target) ? ` ${styles.workbenchToggleGuidanceTarget}` : ""
+    }`;
+  const handleUnavailableClick = (
+    target: WorkbenchGuidanceTarget,
+    available: boolean,
+    button: HTMLButtonElement,
+  ) => {
+    if (!available) openGuidance(target, button);
+  };
+
   return (
     <div
+      ref={commandBarRef}
       className={styles.workbenchCommandBar}
       aria-label="Workbench command bar"
       role="toolbar"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && guidance !== null) {
+          event.preventDefault();
+          closeGuidance();
+        }
+      }}
     >
       <div className={styles.workbenchCommandGroup} aria-label="View">
         <span className={styles.workbenchCommandLabel}>View</span>
         <button
           type="button"
-          className={styles.workbenchToggle}
+          className={targetClassName({
+            kind: "viewpoint",
+            id: nextViewpoint,
+            label: VIEWPOINT_LABELS[nextViewpoint],
+            reason: viewpointAvailability.disabledReason ?? "",
+          })}
           aria-label={viewpointLabel}
           title={viewpointAvailability.disabledReason ?? undefined}
-          disabled={!viewpointAvailability.available}
-          onClick={onToggleViewpoint}
+          aria-expanded={isGuidanceTarget({
+            kind: "viewpoint",
+            id: nextViewpoint,
+            label: VIEWPOINT_LABELS[nextViewpoint],
+            reason: viewpointAvailability.disabledReason ?? "",
+          })}
+          aria-describedby={
+            isGuidanceTarget({
+              kind: "viewpoint",
+              id: nextViewpoint,
+              label: VIEWPOINT_LABELS[nextViewpoint],
+              reason: viewpointAvailability.disabledReason ?? "",
+            })
+              ? "workbench-guidance"
+              : undefined
+          }
+          onClick={(event) => {
+            const target = {
+              kind: "viewpoint" as const,
+              id: nextViewpoint,
+              label: VIEWPOINT_LABELS[nextViewpoint],
+              reason: viewpointAvailability.disabledReason ?? "",
+            };
+            handleUnavailableClick(
+              target,
+              viewpointAvailability.available,
+              event.currentTarget,
+            );
+            if (viewpointAvailability.available) {
+              closeGuidance();
+              onToggleViewpoint();
+            }
+          }}
         >
           {VIEWPOINT_LABELS[viewpoint]}
         </button>
@@ -113,12 +248,48 @@ export function WorkbenchCommandBar({
             <button
               key={layer}
               type="button"
-              className={styles.workbenchToggle}
+              className={targetClassName({
+                kind: "layer",
+                id: layer,
+                label: LAYER_LABELS[layer],
+                reason: layerAvailability.disabledReason ?? "",
+              })}
               aria-label={LAYER_LABELS[layer]}
               aria-pressed={enabledLayers.includes(layer)}
               title={layerAvailability.disabledReason ?? undefined}
-              disabled={!layerAvailability.available}
-              onClick={() => onToggleLayer(layer)}
+              aria-expanded={isGuidanceTarget({
+                kind: "layer",
+                id: layer,
+                label: LAYER_LABELS[layer],
+                reason: layerAvailability.disabledReason ?? "",
+              })}
+              aria-describedby={
+                isGuidanceTarget({
+                  kind: "layer",
+                  id: layer,
+                  label: LAYER_LABELS[layer],
+                  reason: layerAvailability.disabledReason ?? "",
+                })
+                  ? "workbench-guidance"
+                  : undefined
+              }
+              onClick={(event) => {
+                const target = {
+                  kind: "layer" as const,
+                  id: layer,
+                  label: LAYER_LABELS[layer],
+                  reason: layerAvailability.disabledReason ?? "",
+                };
+                handleUnavailableClick(
+                  target,
+                  layerAvailability.available,
+                  event.currentTarget,
+                );
+                if (layerAvailability.available) {
+                  closeGuidance();
+                  onToggleLayer(layer);
+                }
+              }}
             >
               {LAYER_LABELS[layer]}
             </button>
@@ -140,7 +311,12 @@ export function WorkbenchCommandBar({
               <button
                 key={tool}
                 type="button"
-                className={styles.workbenchToggle}
+                className={targetClassName({
+                  kind: "tool",
+                  id: tool,
+                  label: LAYER_LABELS[tool],
+                  reason: toolAvailability.disabledReason ?? "",
+                })}
                 aria-pressed={activeTool === tool}
                 aria-label={`Edit ${LAYER_LABELS[tool]}`}
                 title={
@@ -148,10 +324,40 @@ export function WorkbenchCommandBar({
                     ? disabledReason
                     : toolAvailability.disabledReason) ?? undefined
                 }
-                disabled={
-                  !toolAvailability.available || disabledReason !== null
+                disabled={toolAvailability.available && disabledReason !== null}
+                aria-expanded={isGuidanceTarget({
+                  kind: "tool",
+                  id: tool,
+                  label: LAYER_LABELS[tool],
+                  reason: toolAvailability.disabledReason ?? "",
+                })}
+                aria-describedby={
+                  isGuidanceTarget({
+                    kind: "tool",
+                    id: tool,
+                    label: LAYER_LABELS[tool],
+                    reason: toolAvailability.disabledReason ?? "",
+                  })
+                    ? "workbench-guidance"
+                    : undefined
                 }
-                onClick={() => onSelectTool(tool)}
+                onClick={(event) => {
+                  const target = {
+                    kind: "tool" as const,
+                    id: tool,
+                    label: LAYER_LABELS[tool],
+                    reason: toolAvailability.disabledReason ?? "",
+                  };
+                  handleUnavailableClick(
+                    target,
+                    toolAvailability.available,
+                    event.currentTarget,
+                  );
+                  if (toolAvailability.available) {
+                    closeGuidance();
+                    onSelectTool(tool);
+                  }
+                }}
               >
                 {tool === "mapping" ? "Mapping" : LAYER_LABELS[tool]}
               </button>
@@ -159,7 +365,120 @@ export function WorkbenchCommandBar({
           },
         )}
       </div>
+      {guidance !== null && currentStep !== null && guidancePosition !== null
+        ? createPortal(
+            <WorkbenchGuidanceBubble
+              guidance={guidance.content}
+              step={currentStep}
+              stepIndex={guidance.stepIndex}
+              position={guidancePosition}
+              onClose={closeGuidance}
+              onPrevious={() =>
+                setGuidance((current) =>
+                  current === null
+                    ? current
+                    : { ...current, stepIndex: current.stepIndex - 1 },
+                )
+              }
+              onNext={() =>
+                setGuidance((current) =>
+                  current === null ||
+                  current.stepIndex >= current.content.steps.length - 1
+                    ? current
+                    : { ...current, stepIndex: current.stepIndex + 1 },
+                )
+              }
+              onAction={() => {
+                currentStep.action?.();
+                if (currentStep.dismissOnAction) closeGuidance();
+              }}
+            />,
+            document.body,
+          )
+        : null}
     </div>
+  );
+}
+
+function WorkbenchGuidanceBubble({
+  guidance,
+  step,
+  stepIndex,
+  position,
+  onClose,
+  onPrevious,
+  onNext,
+  onAction,
+}: {
+  guidance: WorkbenchGuidance;
+  step: WorkbenchGuidanceStep;
+  stepIndex: number;
+  position: { top: number; left: number };
+  onClose: () => void;
+  onPrevious: () => void;
+  onNext: () => void;
+  onAction: () => void;
+}) {
+  const isLastStep = stepIndex === guidance.steps.length - 1;
+  return (
+    <aside
+      id="workbench-guidance"
+      className={styles.workbenchGuidanceBubble}
+      role="dialog"
+      aria-label={guidance.title}
+      style={{ top: position.top, left: position.left }}
+      data-workbench-guidance
+    >
+      <div className={styles.workbenchGuidanceHeader}>
+        <div>
+          <span className={styles.workbenchGuidanceEyebrow}>
+            Step {stepIndex + 1} of {guidance.steps.length}
+          </span>
+          <h3>{guidance.title}</h3>
+        </div>
+        <button
+          type="button"
+          className={styles.workbenchGuidanceClose}
+          aria-label="Close guidance"
+          onClick={onClose}
+        >
+          ×
+        </button>
+      </div>
+      <p className={styles.workbenchGuidanceDescription}>
+        {guidance.description}
+      </p>
+      <section className={styles.workbenchGuidanceStep} aria-label={step.title}>
+        <h4>{step.title}</h4>
+        <p>{step.description}</p>
+        {step.action !== undefined && step.actionLabel !== undefined ? (
+          <button
+            type="button"
+            className={styles.workbenchGuidanceAction}
+            onClick={onAction}
+          >
+            {step.actionLabel}
+          </button>
+        ) : null}
+      </section>
+      <div className={styles.workbenchGuidanceNavigation}>
+        <button
+          type="button"
+          className={styles.workbenchGuidanceSecondary}
+          onClick={onPrevious}
+          disabled={stepIndex === 0}
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          className={styles.workbenchGuidancePrimary}
+          onClick={isLastStep ? onClose : onNext}
+        >
+          {isLastStep ? "Done" : "Next"}
+        </button>
+      </div>
+    </aside>
   );
 }
 

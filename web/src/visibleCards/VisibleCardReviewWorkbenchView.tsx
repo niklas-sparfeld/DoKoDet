@@ -124,6 +124,7 @@ export type VisibleCardReviewWorkbenchProps = {
   canCopyIgnoreRegions?: boolean;
   canRestoreSuggestion?: boolean;
   onToolChange?: (tool: WorkbenchPreferences["activeTool"]) => void;
+  onStartProposal?: () => void;
   onAction?: (
     action: VisibleCardReviewWorkbenchAction,
     selection: WorkbenchSelection | null,
@@ -173,6 +174,7 @@ export function VisibleCardReviewWorkbenchView({
   canCopyIgnoreRegions = false,
   canRestoreSuggestion = false,
   onToolChange,
+  onStartProposal,
   onAction,
   onSceneChange,
   onAnchorCommand,
@@ -518,6 +520,8 @@ export function VisibleCardReviewWorkbenchView({
             dispatch({ type: "select_tool", tool });
             onToolChange?.(tool);
           },
+          onStartProposal,
+          onStartMappingPreview,
         }}
       />
       {timelineReviewControlsSlot === null

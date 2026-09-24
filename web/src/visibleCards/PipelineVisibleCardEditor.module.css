@@ -88,6 +88,140 @@
   cursor: not-allowed;
 }
 
+.workbenchToggleGuidanceTarget {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.workbenchGuidanceBubble {
+  position: fixed;
+  z-index: 20;
+  width: min(22rem, calc(100vw - 1rem));
+  max-height: min(70vh, 30rem);
+  overflow: auto;
+  padding: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--line));
+  border-radius: 0.7rem;
+  background: var(--panel-raised);
+  box-shadow: 0 1rem 2.5rem var(--shadow);
+  color: var(--ink);
+}
+
+.workbenchGuidanceBubble::before {
+  position: absolute;
+  top: -0.45rem;
+  left: 1.25rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 62%, var(--line));
+  border-left: 1px solid color-mix(in srgb, var(--accent) 62%, var(--line));
+  background: var(--panel-raised);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.workbenchGuidanceHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.workbenchGuidanceHeader h3,
+.workbenchGuidanceStep h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.workbenchGuidanceEyebrow {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--accent);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workbenchGuidanceClose {
+  width: 1.8rem;
+  min-width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-ink);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.workbenchGuidanceDescription,
+.workbenchGuidanceStep p {
+  margin: 0.65rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.workbenchGuidanceStep {
+  margin-top: 0.8rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.workbenchGuidanceAction,
+.workbenchGuidancePrimary,
+.workbenchGuidanceSecondary {
+  min-height: 1.9rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  font-size: 0.72rem;
+}
+
+.workbenchGuidanceAction,
+.workbenchGuidancePrimary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.workbenchGuidanceAction {
+  margin-top: 0.7rem;
+}
+
+.workbenchGuidanceSecondary {
+  background: transparent;
+  color: var(--muted-ink);
+}
+
+.workbenchGuidanceNavigation {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+
+.workbenchGuidanceClose:hover,
+.workbenchGuidanceClose:focus-visible,
+.workbenchGuidanceSecondary:hover:not(:disabled),
+.workbenchGuidanceSecondary:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 2px;
+}
+
+.workbenchGuidanceAction:hover,
+.workbenchGuidanceAction:focus-visible,
+.workbenchGuidancePrimary:hover,
+.workbenchGuidancePrimary:focus-visible {
+  background: var(--accent-bright);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 2px;
+}
+
 .workbenchNumericField {
   display: inline-flex;
   align-items: center;

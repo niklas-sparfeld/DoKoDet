@@ -208,9 +208,10 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(surface.parentElement?.querySelector("img")).toBeNull();
   });
 
-  it("keeps unavailable layers visible with a reason", () => {
+  it("keeps unavailable layers clickable and opens prerequisite guidance", async () => {
     const noCalibrationFrame = structuredClone(frame);
     noCalibrationFrame.outcome.card_scene = undefined;
+    const user = userEvent.setup();
     render(
       <VisibleCardReviewWorkbench
         recordingId="recording-1"
@@ -222,14 +223,29 @@ describe("VisibleCardReviewWorkbench", () => {
     const virtualCards = screen.getByRole("button", {
       name: "Virtual cards",
     });
-    expect(virtualCards).toBeDisabled();
+    expect(virtualCards).toBeEnabled();
     expect(virtualCards).toHaveAttribute(
       "title",
       "A valid table-plane calibration is required for this control.",
     );
+    const rectified = screen.getByRole("button", {
+      name: "Viewpoint: Camera. Switch to Rectified",
+    });
+    expect(rectified).toBeEnabled();
+    await user.click(rectified);
     expect(
-      screen.getByRole("button", { name: "Mapping diagnostics" }),
-    ).toBeDisabled();
+      screen.getByRole("dialog", {
+        name: "Rectified needs a table-plane calibration",
+      }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close guidance" }));
+    await user.click(virtualCards);
+    expect(
+      screen.getByRole("dialog", {
+        name: "Virtual cards needs a table-plane calibration",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
   });
 
   it("focuses the matching view layer when switching editor modes", async () => {
