@@ -581,19 +581,26 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     }
   }, []);
 
-  const refreshProposalRun = useCallback(async (runId: string) => {
-    const current = inputRef.current;
-    try {
-      const run = await current.client.getProposedCardSceneRun(
-        current.recordingId,
-        runId,
-      );
-      current.setProposalRun(run);
-      current.setProposalRevisionId(readProposalRevisionId(run));
-    } catch (reason: unknown) {
-      current.setProposalError(describeError(reason));
-    }
-  }, []);
+  const refreshProposalRun = useCallback(
+    async (runId: string, signal?: AbortSignal) => {
+      const current = inputRef.current;
+      try {
+        const run = await current.client.getProposedCardSceneRun(
+          current.recordingId,
+          runId,
+          { signal },
+        );
+        if (signal?.aborted) return null;
+        current.setProposalRun(run);
+        current.setProposalRevisionId(readProposalRevisionId(run));
+        return run;
+      } catch (reason: unknown) {
+        if (!signal?.aborted) current.setProposalError(describeError(reason));
+        return null;
+      }
+    },
+    [],
+  );
 
   const startProposal = useCallback(async () => {
     const current = inputRef.current;

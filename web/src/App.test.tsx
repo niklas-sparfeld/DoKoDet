@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, it, afterEach, describe, vi } from "vitest";
 
 import { App } from "./App";
@@ -273,6 +273,59 @@ describe("App", () => {
         name: "Analysis: Processor failed",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("serializes catalog refreshes while a pipeline is active", async () => {
+    vi.useFakeTimers();
+    let resolveRefresh: ((value: Response) => void) | null = null;
+    const activeRecording = {
+      recording_id: recordingId,
+      source_asset_id: "source-fixture",
+      video_id: "video-fixture",
+      session_id: "session-fixture",
+      state: "accepted",
+      source_sha256: "a".repeat(64),
+      received_at: "2026-09-06T12:00:00Z",
+      round_id: "round-7",
+      evidence_package_ids: [],
+      analyses: [],
+      pipeline_status: pipelineStatus("active-run"),
+      can_start_analysis: false,
+      analysis_blocker: "The pipeline is running.",
+    };
+    const fetchMock = vi.fn<typeof fetch>((input) => {
+      expect(String(input)).toBe("/v1/recordings");
+      if (fetchMock.mock.calls.length === 1) {
+        return Promise.resolve(response({ recordings: [activeRecording] }));
+      }
+      return new Promise<Response>((resolve) => {
+        resolveRefresh = resolve;
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      render(<App />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      const finishRefresh = resolveRefresh as
+        ((value: Response) => void) | null;
+      finishRefresh?.(response({ recordings: [] }));
+      vi.useRealTimers();
+    }
   });
 
   it("enters the recording pipeline without loading retired review routes", async () => {

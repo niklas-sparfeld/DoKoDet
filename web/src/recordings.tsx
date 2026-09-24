@@ -12,6 +12,7 @@ import {
 } from "./pipeline/RecordingPipelineWorkspace";
 import { ProfileControl } from "./profile/ProfileControl";
 import { formatPipelineStageState } from "./pipeline/recordingWorkspaceFormatting";
+import { usePageVisibility } from "./pipeline/usePageVisibility";
 import styles from "./App.module.css";
 
 export function RecordingListView() {
@@ -19,6 +20,7 @@ export function RecordingListView() {
   const [recordings, setRecordings] = useState<RecordingSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pageVisible = usePageVisibility();
 
   const loadRecordings = useCallback(
     async (signal?: AbortSignal) => {
@@ -49,18 +51,35 @@ export function RecordingListView() {
     };
   }, [loadRecordings]);
 
+  const hasActiveWork = recordings.some(
+    (recording) =>
+      recording.analyses.some(isActiveAnalysis) || isActivePipeline(recording),
+  );
+
   useEffect(() => {
-    if (
-      !recordings.some(
-        (recording) =>
-          recording.analyses.some(isActiveAnalysis) ||
-          isActivePipeline(recording),
-      )
-    )
-      return;
-    const timer = window.setInterval(() => void loadRecordings(), 2000);
-    return () => window.clearInterval(timer);
-  }, [loadRecordings, recordings]);
+    if (!hasActiveWork || !pageVisible) return;
+    let cancelled = false;
+    let timer: number | null = null;
+    let controller: AbortController | null = null;
+
+    const poll = async () => {
+      if (cancelled) return;
+      controller = new AbortController();
+      try {
+        await loadRecordings(controller.signal);
+      } finally {
+        controller = null;
+        if (!cancelled) timer = window.setTimeout(() => void poll(), 2000);
+      }
+    };
+
+    timer = window.setTimeout(() => void poll(), 2000);
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+      controller?.abort();
+    };
+  }, [hasActiveWork, loadRecordings, pageVisible]);
 
   return (
     <main className={`${styles.shell} ${styles.recordingsPage}`}>

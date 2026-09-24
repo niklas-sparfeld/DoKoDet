@@ -15,6 +15,7 @@ import {
   readProbabilityMetrics,
 } from "./ProbabilityOverlay";
 import { readRunActivity } from "./ObservationRunFormatting";
+import { usePageVisibility } from "./usePageVisibility";
 
 type RunStageKey = Extract<
   PipelineStageKey,
@@ -97,6 +98,7 @@ export function RunControls({
   compact = false,
 }: RunControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
+  const pageVisible = usePageVisibility();
   const isRunStage = RUN_STAGE_KEYS.includes(stage.key as RunStageKey);
   const runStage = isRunStage ? (stage.key as RunStageKey) : null;
   const upstreamStage =
@@ -154,15 +156,20 @@ export function RunControls({
   );
 
   useEffect(() => {
-    if (runStage === null || trackedRunId === null) {
+    if (runStage === null || trackedRunId === null || !pageVisible) {
       return;
     }
     let cancelled = false;
     let timer: number | null = null;
+    let controller: AbortController | null = null;
 
     const poll = async () => {
+      if (cancelled) return;
+      controller = new AbortController();
       try {
-        const response = await getRun(trackedRunId);
+        const response = await getRun(trackedRunId, {
+          signal: controller.signal,
+        });
         if (cancelled) {
           return;
         }
@@ -177,6 +184,8 @@ export function RunControls({
           setMessage(describeRunError(reason));
           timer = window.setTimeout(() => void poll(), 1000);
         }
+      } finally {
+        controller = null;
       }
     };
 
@@ -186,8 +195,9 @@ export function RunControls({
       if (timer !== null) {
         window.clearTimeout(timer);
       }
+      controller?.abort();
     };
-  }, [getRun, onRefresh, runStage, trackedRunId]);
+  }, [getRun, onRefresh, pageVisible, runStage, trackedRunId]);
 
   const setOrigin = (origin: InputOrigin) => {
     setInputOrigin(origin);

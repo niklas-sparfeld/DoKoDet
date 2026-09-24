@@ -14,6 +14,7 @@ import {
 } from "./ObservationRunFormatting";
 import { PipelineRunStatus, RunHistory } from "./ObservationRunPresentation";
 import { PipelineControlStatusBadge } from "./PipelineControlStatusBadge";
+import { usePageVisibility } from "./usePageVisibility";
 
 export type ObservationRunControlsProps = {
   recordingId: string;
@@ -31,6 +32,7 @@ export function ObservationRunControls({
   compact = false,
 }: ObservationRunControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
+  const pageVisible = usePageVisibility();
   const compatibleSets = useMemo(
     () => stage.compatible_input_sets ?? [],
     [stage.compatible_input_sets],
@@ -92,14 +94,19 @@ export function ObservationRunControls({
   );
 
   useEffect(() => {
-    if (trackedRunId === null) {
+    if (trackedRunId === null || !pageVisible) {
       return;
     }
     let cancelled = false;
     let timer: number | null = null;
+    let controller: AbortController | null = null;
     const poll = async () => {
+      if (cancelled) return;
+      controller = new AbortController();
       try {
-        const response = await getRun(trackedRunId);
+        const response = await getRun(trackedRunId, {
+          signal: controller.signal,
+        });
         if (cancelled) {
           return;
         }
@@ -114,6 +121,8 @@ export function ObservationRunControls({
           setMessage(describePipelineError(reason));
           timer = window.setTimeout(() => void poll(), 1000);
         }
+      } finally {
+        controller = null;
       }
     };
     void poll();
@@ -122,8 +131,9 @@ export function ObservationRunControls({
       if (timer !== null) {
         window.clearTimeout(timer);
       }
+      controller?.abort();
     };
-  }, [getRun, onRefresh, trackedRunId]);
+  }, [getRun, onRefresh, pageVisible, trackedRunId]);
 
   async function startRun() {
     if (selectedSet === null) {

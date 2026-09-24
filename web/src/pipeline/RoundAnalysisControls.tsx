@@ -21,6 +21,7 @@ import {
   RoundAnalysisStatusPanel,
 } from "./RoundAnalysisPresentation";
 import { PipelineControlStatusBadge } from "./PipelineControlStatusBadge";
+import { usePageVisibility } from "./usePageVisibility";
 
 export type RoundAnalysisControlsProps = {
   recordingId: string;
@@ -40,6 +41,7 @@ export function RoundAnalysisControls({
   compact = false,
 }: RoundAnalysisControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
+  const pageVisible = usePageVisibility();
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
   const [observationRevisionId, setObservationRevisionId] = useState(
     () =>
@@ -96,14 +98,19 @@ export function RoundAnalysisControls({
   const activeAnalysisId = selectedAnalysisId ?? trackedAnalysisId;
 
   useEffect(() => {
-    if (activeAnalysisId === null) {
+    if (activeAnalysisId === null || !pageVisible) {
       return;
     }
     let cancelled = false;
     let timer: number | null = null;
+    let controller: AbortController | null = null;
     const poll = async () => {
+      if (cancelled) return;
+      controller = new AbortController();
       try {
-        const response = await client.getRoundAnalysisStatus(activeAnalysisId);
+        const response = await client.getRoundAnalysisStatus(activeAnalysisId, {
+          signal: controller.signal,
+        });
         if (cancelled) {
           return;
         }
@@ -118,6 +125,8 @@ export function RoundAnalysisControls({
           setMessage(describePipelineError(reason));
           timer = window.setTimeout(() => void poll(), 1000);
         }
+      } finally {
+        controller = null;
       }
     };
     void poll();
@@ -126,8 +135,9 @@ export function RoundAnalysisControls({
       if (timer !== null) {
         window.clearTimeout(timer);
       }
+      controller?.abort();
     };
-  }, [activeAnalysisId, client, onRefresh]);
+  }, [activeAnalysisId, client, onRefresh, pageVisible]);
 
   function validateContext(): RoundAnalysisCreateRequest | null {
     const activePlayers = players

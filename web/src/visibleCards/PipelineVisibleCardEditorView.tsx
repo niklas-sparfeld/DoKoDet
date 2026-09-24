@@ -68,6 +68,7 @@ import {
 } from "./VisibleCardReviewWorkbench";
 import type { WorkbenchSelection } from "./VisibleCardReviewWorkbenchState";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
+import { usePageVisibility } from "../pipeline/usePageVisibility";
 import type {
   Candidate,
   CalibrationRefinementResponse,
@@ -114,6 +115,7 @@ export function PipelineVisibleCardEditorView({
   inspectorEnabled = true,
 }: PipelineVisibleCardEditorProps) {
   const profileName = useProfileName();
+  const pageVisible = usePageVisibility();
   const referenceRef = useRef<PipelineReferenceResource | null>(null);
   const framesRef = useRef<EditableFrame[]>([]);
   const selectedFrameIdRef = useRef<string | null>(null);
@@ -341,14 +343,34 @@ export function PipelineVisibleCardEditorView({
   }, [loadProposalRun]);
 
   useEffect(() => {
-    if (proposalRun?.status !== "queued" && proposalRun?.status !== "running")
+    if (
+      !pageVisible ||
+      (proposalRun?.status !== "queued" && proposalRun?.status !== "running")
+    )
       return;
-    const timer = window.setTimeout(
-      () => void refreshProposalRun(proposalRun.run_id),
-      2000,
-    );
-    return () => window.clearTimeout(timer);
-  }, [proposalRun, refreshProposalRun]);
+    let cancelled = false;
+    let timer: number | null = null;
+    const controller = new AbortController();
+    const poll = async () => {
+      const run = await refreshProposalRun(
+        proposalRun.run_id,
+        controller.signal,
+      );
+      if (
+        !cancelled &&
+        !controller.signal.aborted &&
+        (run === null || run.status === "queued" || run.status === "running")
+      ) {
+        timer = window.setTimeout(() => void poll(), 2000);
+      }
+    };
+    timer = window.setTimeout(() => void poll(), 2000);
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [pageVisible, proposalRun, refreshProposalRun]);
 
   useEffect(() => {
     const candidates = usesMaintainedFrames ? frames : generatedFrames;
