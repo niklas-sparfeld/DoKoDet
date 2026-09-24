@@ -100,6 +100,47 @@ def test_occlusion_mask_removes_hidden_projected_edge_from_fit_score() -> None:
     assert with_occlusion_geometry > without_occlusion_geometry
 
 
+def test_edge_fit_prefers_boundary_alignment_over_enclosing_segment_pixels() -> None:
+    width, height = 128, 96
+    source = np.zeros((height, width), dtype=np.uint8)
+    cv2.line(source, (25, 35), (95, 35), 255, thickness=3)
+    aligned = np.asarray(
+        [[25.0, 35.0], [95.0, 35.0], [95.0, 85.0], [25.0, 85.0]], dtype=np.float64
+    )
+    shifted = np.asarray(
+        [[25.0, 20.0], [95.0, 20.0], [95.0, 70.0], [25.0, 70.0]], dtype=np.float64
+    )
+    evidence = source
+    source_area = int(np.count_nonzero(evidence))
+    source_bounds = tuple(int(value) for value in cv2.boundingRect(evidence))
+    occlusion_mask = np.zeros_like(source)
+
+    aligned_score = _fit_score_projected(
+        aligned,
+        evidence,
+        source_area,
+        source_bounds,
+        width,
+        height,
+        edge_only=True,
+        edge_width_pixels=3,
+        occlusion_mask=occlusion_mask,
+    )
+    shifted_score = _fit_score_projected(
+        shifted,
+        evidence,
+        source_area,
+        source_bounds,
+        width,
+        height,
+        edge_only=True,
+        edge_width_pixels=3,
+        occlusion_mask=occlusion_mask,
+    )
+
+    assert aligned_score > shifted_score
+
+
 def _calibration_result() -> tuple[dict[str, object], object]:
     positions = [
         (0.0, 0.0),

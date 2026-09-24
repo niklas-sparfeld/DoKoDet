@@ -235,6 +235,7 @@ class PoseFitRecipe:
     minimum_overlap_pixels: int = 4
     edge_width_pixels: int = 3
     occlusion_margin_pixels: int = 4
+    edge_distance_tolerance_pixels: float = 8.0
 
     def __post_init__(self) -> None:
         if self.center_search_radius <= 0.0 or self.angle_search_degrees <= 0.0:
@@ -257,6 +258,8 @@ class PoseFitRecipe:
             raise CardPlaneInitializationError("edge_width_pixels must be positive")
         if self.occlusion_margin_pixels < 0:
             raise CardPlaneInitializationError("occlusion_margin_pixels must not be negative")
+        if self.edge_distance_tolerance_pixels <= 0.0:
+            raise CardPlaneInitializationError("edge_distance_tolerance_pixels must be positive")
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -273,6 +276,7 @@ class PoseFitRecipe:
             "minimum_overlap_pixels": self.minimum_overlap_pixels,
             "edge_width_pixels": self.edge_width_pixels,
             "occlusion_margin_pixels": self.occlusion_margin_pixels,
+            "edge_distance_tolerance_pixels": _round(self.edge_distance_tolerance_pixels),
         }
 
     @property
@@ -400,6 +404,7 @@ def _fit_score_projected(
     *,
     edge_only: bool = False,
     edge_width_pixels: int = 1,
+    edge_distance_tolerance_pixels: float = 8.0,
     occlusion_mask: np.ndarray | None = None,
 ) -> float:
     """Score only the union of the source and projected pixel bounds."""
@@ -419,29 +424,51 @@ def _fit_score_projected(
     if edge_only:
         projected_boundary = _boundary_mask(projected_mask, edge_width_pixels)
         if occlusion_mask is not None:
-            visible_projected = np.where(
-                (projected_mask > 0) & (occlusion_mask[y0:y1, x0:x1] == 0), 255, 0
+            if np.asarray(occlusion_mask).shape != (height, width):
+                raise CardPlaneInitializationError("occlusion mask shape must match the frame")
+            visible = occlusion_mask[y0:y1, x0:x1] == 0
+            projected_mask = np.where((projected_mask > 0) & visible, 255, 0).astype(np.uint8)
+            projected_boundary = np.where(
+                (projected_boundary > 0) & visible, 255, 0
             ).astype(np.uint8)
-            visible_boundary = np.where(
-                (projected_boundary > 0) & (occlusion_mask[y0:y1, x0:x1] == 0),
-                255,
-                0,
-            ).astype(np.uint8)
-            source_evidence = source_mask[y0:y1, x0:x1]
-            target_overlap = int(
-                np.count_nonzero((visible_projected > 0) & (source_evidence > 0))
-            )
-            boundary_overlap = int(
-                np.count_nonzero((visible_boundary > 0) & (source_evidence > 0))
-            )
-            boundary_union = int(
-                np.count_nonzero((visible_boundary > 0) | (source_evidence > 0))
-            )
-            return float(
-                0.60 * target_overlap / max(source_area, 1)
-                + 0.25 * boundary_overlap / max(boundary_union, 1)
-                + 0.15 * boundary_overlap / max(int(np.count_nonzero(visible_boundary)), 1)
-            )
+        source_evidence = np.where(source_mask[y0:y1, x0:x1] > 0, 255, 0).astype(np.uint8)
+        source_points = np.count_nonzero(source_evidence)
+        projected_points = np.count_nonzero(projected_boundary)
+        if source_points == 0 or projected_points == 0:
+            return 0.0
+
+        # Use both directions. This rewards edge alignment and penalizes a card that merely
+        # encloses the segment. Clip large gaps so a small amount of missing segmentation does
+        # not dominate the score.
+        tolerance = max(float(edge_distance_tolerance_pixels), 1e-6)
+        source_distance = cv2.distanceTransform(
+            np.where(projected_boundary > 0, 0, 255).astype(np.uint8),
+            cv2.DIST_L2,
+            3,
+        )
+        projected_distance = cv2.distanceTransform(
+            np.where(source_evidence > 0, 0, 255).astype(np.uint8),
+            cv2.DIST_L2,
+            3,
+        )
+        source_to_projected = float(
+            np.mean(np.minimum(source_distance[source_evidence > 0], tolerance))
+        )
+        projected_to_source = float(
+            np.mean(np.minimum(projected_distance[projected_boundary > 0], tolerance))
+        )
+        source_edge_score = 1.0 - source_to_projected / tolerance
+        projected_edge_score = 1.0 - projected_to_source / tolerance
+        source_coverage = float(
+            np.count_nonzero((projected_mask > 0) & (source_evidence > 0))
+            / max(source_area, 1)
+        )
+        return float(
+            0.55 * source_edge_score
+            + 0.30 * projected_edge_score
+            + 0.15 * source_coverage
+        )
+    if edge_only:
         projected_mask = projected_boundary
     return _fit_score(projected_mask, source_mask[y0:y1, x0:x1], source_area)
 
@@ -502,6 +529,7 @@ def _fit_candidate(
                             height,
                             edge_only=occlusion_aware,
                             edge_width_pixels=recipe.edge_width_pixels,
+                            edge_distance_tolerance_pixels=recipe.edge_distance_tolerance_pixels,
                             occlusion_mask=occluder_mask,
                         )
                         tie_break = (
