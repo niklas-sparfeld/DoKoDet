@@ -82,24 +82,16 @@ describe("VisibleCardReviewWorkbench", () => {
     const handle = screen.getByRole("button", {
       name: "Adjust calibration anchor 1 for anchor-1",
     });
-    const projection = surface.querySelector(
-      '[data-projection="current"] polygon',
-    );
-    expect(projection).not.toBeNull();
     const initialRadius = Number(handle.getAttribute("r"));
-    const initialStrokeWidth = Number(projection?.getAttribute("stroke-width"));
     expect(handle).toHaveAttribute("opacity", "0.5");
-    expect(projection).toHaveAttribute("opacity", "0.5");
+    expect(surface.querySelector('[data-projection="current"]')).toBeNull();
 
     fireEvent.wheel(surface, { deltaY: -240 });
 
     expect(Number(handle.getAttribute("r"))).toBe(initialRadius / 2);
-    expect(Number(projection?.getAttribute("stroke-width"))).toBe(
-      initialStrokeWidth / 2,
-    );
   });
 
-  it("pairs a mapped handle with the nearest anchor corner when corner order differs", () => {
+  it("keeps editable calibration anchor corners when their order differs", () => {
     const reordered = structuredClone(
       calibrationRefinement,
     ) as CalibrationRefinementResponse & {
@@ -125,12 +117,14 @@ describe("VisibleCardReviewWorkbench", () => {
         onAnchorCommand={vi.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Adjust mapped card corner 1 for card-1",
+    expect(
+      screen.getAllByRole("button", {
+        name: /^Adjust calibration anchor \d for anchor-1$/,
       }),
-    );
-    expect(screen.getByLabelText("Anchor corner 4 X")).toBeInTheDocument();
+    ).toHaveLength(4);
+    expect(
+      screen.queryByRole("button", { name: /Adjust mapped card corner/i }),
+    ).not.toBeInTheDocument();
   });
 
   it.each(["camera", "rectified"] as const)(
@@ -143,7 +137,7 @@ describe("VisibleCardReviewWorkbench", () => {
           readOnly={false}
           initialPreferences={{
             activeTool: "mapping",
-            enabledLayers: ["mapping"],
+            enabledLayers: ["mapping", "virtual_cards"],
             viewpoint,
           }}
           enabledEditTools={["mapping"]}
@@ -159,7 +153,7 @@ describe("VisibleCardReviewWorkbench", () => {
         />,
       );
       const current = document.querySelector(
-        '[data-projection="current"] polygon',
+        '[data-workbench-layer="virtual_cards"] polygon[data-card-id="card-1"]',
       );
       const candidate = document.querySelector(
         '[data-projection="candidate"] polygon',
@@ -171,7 +165,7 @@ describe("VisibleCardReviewWorkbench", () => {
     },
   );
 
-  it("keeps mapped corner handles smaller than a card on a unit-scale table", () => {
+  it("keeps calibration anchor handles smaller than a card on a unit-scale table", () => {
     const unitFrame = structuredClone(frame);
     unitFrame.outcome.card_scene!.projection.card_short_size = 1;
     unitFrame.outcome.card_scene!.projection.card_long_size = 1.5;
@@ -191,7 +185,7 @@ describe("VisibleCardReviewWorkbench", () => {
     );
 
     const handles = screen.getAllByRole("button", {
-      name: /Adjust mapped card corner/i,
+      name: /Adjust calibration anchor/i,
     });
     expect(handles).toHaveLength(4);
     expect(Number(handles[0].getAttribute("r"))).toBeLessThan(0.1);

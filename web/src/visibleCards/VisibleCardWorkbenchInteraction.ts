@@ -56,7 +56,6 @@ type MappingGesture = {
   startClientX: number;
   startClientY: number;
   originalCorners: TablePoint[];
-  sourceOffset: TablePoint;
 };
 
 export type MappingWorkbenchAction =
@@ -297,7 +296,6 @@ export function useVisibleCardWorkbenchInteraction({
     event: ReactPointerEvent<SVGCircleElement>,
     anchor: WorkbenchCalibrationAnchor,
     movedCorner: number,
-    sourceOffset: TablePoint = [0, 0],
   ) => {
     if (
       readOnly ||
@@ -318,7 +316,6 @@ export function useVisibleCardWorkbenchInteraction({
       startClientX: event.clientX,
       startClientY: event.clientY,
       originalCorners: cloneTablePoints(anchor.corners),
-      sourceOffset,
     };
     setAnchorPreviewState(preview);
     event.currentTarget.ownerSVGElement?.setPointerCapture?.(event.pointerId);
@@ -335,15 +332,10 @@ export function useVisibleCardWorkbenchInteraction({
       (candidate) => candidate.anchorId === gesture.anchorId,
     );
     if (anchor === undefined) return;
-    const pointerPosition = sourcePoint(point, width, height);
-    const sourcePosition: TablePoint = [
-      pointerPosition[0] + gesture.sourceOffset[0],
-      pointerPosition[1] + gesture.sourceOffset[1],
-    ];
     const corners = moveAnchorCorner(
       gesture.originalCorners,
       gesture.movedCorner,
-      sourcePosition,
+      sourcePoint(point, width, height),
     );
     gesture.dirty = corners.some(
       (corner, index) =>

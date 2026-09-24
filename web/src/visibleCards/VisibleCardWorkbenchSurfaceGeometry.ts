@@ -45,41 +45,6 @@ export function sourcePointToTablePoint(
   );
 }
 
-export function matchProjectionCornersToAnchor(
-  polygon: TablePoint[],
-  anchorCorners: TablePoint[],
-  projection: CardSceneProjection,
-  viewpoint: WorkbenchViewpoint,
-): number[] | null {
-  if (polygon.length !== 4 || anchorCorners.length !== 4) return null;
-  const projected =
-    viewpoint === "camera"
-      ? polygon
-      : polygon.map((point) =>
-          projectTablePoint(point, projection.table_to_image_homography),
-        );
-  if (projected.some((point) => point === null)) return null;
-  let best: number[] | null = null;
-  let bestDistance = Infinity;
-  for (let a = 0; a < 4; a++)
-    for (let b = 0; b < 4; b++)
-      for (let c = 0; c < 4; c++)
-        for (let d = 0; d < 4; d++) {
-          const order = [a, b, c, d];
-          if (new Set(order).size !== 4) continue;
-          const distance = order.reduce((sum, anchorIndex, index) => {
-            const point = projected[index]!;
-            const corner = anchorCorners[anchorIndex];
-            return sum + Math.hypot(point[0] - corner[0], point[1] - corner[1]);
-          }, 0);
-          if (distance < bestDistance) {
-            bestDistance = distance;
-            best = order;
-          }
-        }
-  return best;
-}
-
 export function mappingStrokeWidth(
   viewpoint: WorkbenchViewpoint,
   width: number,

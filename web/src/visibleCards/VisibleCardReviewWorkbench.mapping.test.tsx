@@ -516,9 +516,7 @@ describe("VisibleCardReviewWorkbench", () => {
     );
 
     expect(onStartMappingPreview).toHaveBeenCalledOnce();
-    expect(
-      document.querySelectorAll('[data-projection="current"] circle'),
-    ).toHaveLength(4);
+    expect(document.querySelector('[data-projection="current"]')).toBeNull();
     expect(
       screen.queryByRole("button", { name: /mapped card corner/i }),
     ).toBeNull();
@@ -554,11 +552,11 @@ describe("VisibleCardReviewWorkbench", () => {
       screen.getAllByRole("button", { name: /Adjust calibration anchor/i }),
     ).toHaveLength(4);
     expect(
-      screen.getAllByRole("button", { name: /Adjust mapped card corner/i }),
-    ).toHaveLength(4);
+      screen.queryByRole("button", { name: /Adjust mapped card corner/i }),
+    ).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Adjust mapped card corner 1 for card-1",
+        name: "Adjust calibration anchor 1 for anchor-1",
       }),
     );
     fireEvent.change(screen.getByLabelText("Anchor corner 1 X"), {
@@ -572,7 +570,7 @@ describe("VisibleCardReviewWorkbench", () => {
     );
   });
 
-  it("moves the actual calibration anchor corner in the rectified view", () => {
+  it("keeps calibration anchor controls in the rectified view without duplicate card corners", () => {
     const onAnchorCommand = vi.fn();
     const rectifiedFrame = structuredClone(frame);
     rectifiedFrame.outcome.card_scene!.projection.table_to_image_homography = [
@@ -615,14 +613,8 @@ describe("VisibleCardReviewWorkbench", () => {
       }),
     ).toHaveLength(4);
     expect(
-      screen.getAllByRole("button", { name: /Adjust mapped card corner/i }),
-    ).toHaveLength(4);
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Adjust mapped card corner 4 for card-1",
-      }),
-    );
-    expect(screen.getByLabelText("Anchor corner 4 X")).toHaveValue(50);
+      screen.queryByRole("button", { name: /Adjust mapped card corner/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Select anchor corner/ }),
     ).not.toBeInTheDocument();
@@ -665,47 +657,5 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toHaveAttribute("pointer-events", "none");
     fireEvent.click(handle);
     expect(screen.getByLabelText("Anchor corner 1 X")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Adjust calibration anchor 4 for anchor-1",
-      }),
-    );
-    expect(screen.getByLabelText("Anchor corner 4 X")).toHaveValue(50);
-    fireEvent.click(handle);
-    const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
-    const scale = Math.min(100 / viewBox[2], 100 / viewBox[3]);
-    const offsetX = (100 - viewBox[2] * scale) / 2;
-    const offsetY = (100 - viewBox[3] * scale) / 2;
-    const clientPoint = (x: number, y: number) => ({
-      clientX: offsetX + (x - viewBox[0]) * scale,
-      clientY: offsetY + (y - viewBox[1]) * scale,
-    });
-    const mappedHandle = screen.getByRole("button", {
-      name: "Adjust mapped card corner 1 for card-1",
-    });
-    fireEvent.pointerDown(mappedHandle, {
-      pointerId: 1,
-      ...clientPoint(45, 40),
-    });
-    expect(screen.getByLabelText("Anchor corner 1 X")).toBeInTheDocument();
-    fireEvent.pointerMove(surface, {
-      pointerId: 1,
-      ...clientPoint(47, 47),
-    });
-    fireEvent.pointerUp(surface, { pointerId: 1 });
-
-    expect(onAnchorCommand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        operation: "set_corners",
-        moved_corner: 0,
-        constraint: null,
-        corners: [
-          [52, 52],
-          [70, 45],
-          [70, 65],
-          [50, 65],
-        ],
-      }),
-    );
   });
 });

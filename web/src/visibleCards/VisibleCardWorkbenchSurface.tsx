@@ -11,7 +11,6 @@ import {
   cameraViewBox,
   editorPoint,
   isSelected,
-  matchProjectionCornersToAnchor,
   mappingCornerRadius,
   mappingStrokeWidth,
   pathAttribute,
@@ -138,7 +137,6 @@ export function WorkbenchSurface({
     event: ReactPointerEvent<SVGCircleElement>,
     anchor: WorkbenchCalibrationAnchor,
     cornerIndex: number,
-    sourceOffset?: TablePoint,
   ) => void;
   onMappingAnchorCornerSelect: (cornerIndex: number) => void;
 }) {
@@ -497,7 +495,6 @@ type LayerRenderContext = {
     event: ReactPointerEvent<SVGCircleElement>,
     anchor: WorkbenchCalibrationAnchor,
     cornerIndex: number,
-    sourceOffset?: TablePoint,
   ) => void;
   onMappingAnchorCornerSelect: (cornerIndex: number) => void;
 };
@@ -1072,51 +1069,25 @@ function renderMappingLayer({
     ));
   }
   const currentProjection = scene.projection;
-  const current = scene.scene.poses.map((pose) => (
-    <MappingProjection
-      key={`${pose.card_id}-current`}
-      pose={pose}
-      projection={currentProjection}
-      viewpoint={viewpoint}
-      width={width}
-      zoom={zoom}
-      stroke="#ff8a65"
-      dataProjection="current"
-      anchor={mappingAnchors.find(
-        (item) =>
-          item.cardId === pose.card_id ||
-          (pose.source_suggestion_id !== null &&
-            item.cardId === pose.source_suggestion_id),
-      )}
-      onSelect={onSelect}
-      onSelectCorner={onMappingAnchorCornerSelect}
-      onPointerDown={onMappingAnchorPointerDown}
-    />
-  ));
   const candidate =
     candidateProjection === null
       ? null
       : scene.scene.poses.map((pose) => (
-          <MappingProjection
+          <CandidateMappingProjection
             key={`${pose.card_id}-candidate`}
-            pose={pose}
-            projection={candidateProjection}
-            viewpoint={viewpoint}
-            width={width}
-            zoom={zoom}
-            stroke="#ffd166"
-            dataProjection="candidate"
-            polygonOverride={candidatePosePolygon(
+            polygon={candidatePosePolygon(
               pose,
               currentProjection,
               candidateProjection,
               viewpoint,
             )}
+            viewpoint={viewpoint}
+            width={width}
+            zoom={zoom}
           />
         ));
   return (
     <>
-      {current}
       {candidate}
       {orderedAnchors.map((anchor) => (
         <MappingAnchorOverlay
@@ -1226,121 +1197,28 @@ function MappingAnchorOverlay({
   );
 }
 
-function MappingProjection({
-  pose,
-  projection,
+function CandidateMappingProjection({
+  polygon,
   viewpoint,
   width,
   zoom,
-  stroke,
-  dataProjection,
-  polygonOverride,
-  anchor,
-  onSelect,
-  onSelectCorner,
-  onPointerDown,
 }: {
-  pose: PoseCard;
-  projection: CardSceneProjection;
+  polygon: TablePoint[];
   viewpoint: WorkbenchViewpoint;
   width: number;
   zoom: number;
-  stroke: string;
-  dataProjection: "current" | "candidate";
-  polygonOverride?: TablePoint[];
-  anchor?: WorkbenchCalibrationAnchor;
-  onSelect?: (selection: WorkbenchSelection) => void;
-  onSelectCorner?: (cornerIndex: number) => void;
-  onPointerDown?: (
-    event: ReactPointerEvent<SVGCircleElement>,
-    anchor: WorkbenchCalibrationAnchor,
-    cornerIndex: number,
-    sourceOffset?: TablePoint,
-  ) => void;
 }) {
-  const polygon = polygonOverride ?? posePolygon(pose, projection, viewpoint);
-  const anchorCornerIndices =
-    anchor === undefined
-      ? null
-      : matchProjectionCornersToAnchor(
-          polygon,
-          anchor.corners,
-          projection,
-          viewpoint,
-        );
   return (
-    <g data-projection={dataProjection} data-card-id={pose.card_id}>
+    <g data-projection="candidate">
       <polygon
         points={pointsAttribute(polygon)}
         fill="none"
-        stroke={stroke}
-        strokeDasharray={dataProjection === "candidate" ? "8 5" : undefined}
+        stroke="#ffd166"
+        strokeDasharray="8 5"
         strokeWidth={mappingStrokeWidth(viewpoint, width, zoom)}
         opacity={0.5}
         pointerEvents="none"
       />
-      {dataProjection === "current"
-        ? polygon.map(([x, y], index) => {
-            const imagePoint =
-              viewpoint === "camera"
-                ? ([x, y] as TablePoint)
-                : projectTablePoint(
-                    [x, y],
-                    projection.table_to_image_homography,
-                  );
-            const anchorCornerIndex = anchorCornerIndices?.[index];
-            const anchorCorner =
-              anchorCornerIndex === undefined
-                ? undefined
-                : anchor?.corners[anchorCornerIndex];
-            if (imagePoint === null) return null;
-            return (
-              <circle
-                key={index}
-                cx={x}
-                cy={y}
-                r={mappingCornerRadius(
-                  viewpoint,
-                  width,
-                  zoom,
-                  Math.max(0.05, projection.card_short_size * 0.08),
-                )}
-                fill={stroke}
-                stroke="#18242f"
-                strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
-                pointerEvents={anchorCorner === undefined ? "none" : undefined}
-                role={anchorCorner === undefined ? undefined : "button"}
-                tabIndex={anchorCorner === undefined ? undefined : 0}
-                aria-label={
-                  anchorCorner === undefined
-                    ? undefined
-                    : `Adjust mapped card corner ${index + 1} for ${pose.card_id}`
-                }
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (anchor !== undefined && anchorCornerIndex !== undefined) {
-                    onSelect?.({
-                      type: "calibration_anchor",
-                      id: anchor.anchorId,
-                    });
-                    onSelectCorner?.(anchorCornerIndex);
-                  }
-                }}
-                onPointerDown={(event) => {
-                  if (
-                    anchor !== undefined &&
-                    anchorCornerIndex !== undefined &&
-                    anchorCorner !== undefined
-                  )
-                    onPointerDown?.(event, anchor, anchorCornerIndex, [
-                      anchorCorner[0] - imagePoint[0],
-                      anchorCorner[1] - imagePoint[1],
-                    ]);
-                }}
-              />
-            );
-          })
-        : null}
     </g>
   );
 }
