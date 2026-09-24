@@ -158,6 +158,47 @@ def test_local_identity_settings_require_bundle_and_explicit_device(tmp_path: Pa
         )
 
 
+def test_local_processors_are_deferred_until_analyzer_use(tmp_path: Path, monkeypatch) -> None:
+    detector_bundle = tmp_path / "detector-bundle"
+    detector_bundle.mkdir()
+    identity_bundle = tmp_path / "identity-bundle"
+    identity_bundle.mkdir()
+    constructed: list[str] = []
+
+    def create_detector(*args, **kwargs):
+        constructed.append("detector")
+        return FakeLocalVisibleCardProvider(*args, **kwargs)
+
+    def create_classifier(*args, **kwargs):
+        constructed.append("identity")
+        return FakeLocalIdentityClassifier(*args, **kwargs)
+
+    monkeypatch.setattr(gemini_analyzer, "LocalVisibleCardProvider", create_detector)
+    monkeypatch.setattr(gemini_analyzer, "DinoV3IdentityClassifier", create_classifier)
+
+    app = create_app(
+        _settings(
+            tmp_path,
+            gemini_api_key=None,
+            visible_card_provider="local",
+            visible_card_bundle_path=detector_bundle,
+            visible_card_device="cpu",
+            visible_card_identity_classifier="local",
+            visible_card_identity_bundle_path=identity_bundle,
+            visible_card_identity_device="cpu",
+        )
+    )
+
+    assert constructed == []
+    assert app.state.analyzer.name == "visible-card-table-analyzer"
+    assert constructed == []
+
+    provider = app.state.analyzer.provider
+
+    assert constructed == ["detector", "identity"]
+    assert provider is app.state.visible_card_pipeline_service.detector_providers["local"]
+
+
 def test_local_backend_selection_keeps_gemini_identity_and_does_not_construct_gemini_provider(
     tmp_path: Path, monkeypatch
 ) -> None:

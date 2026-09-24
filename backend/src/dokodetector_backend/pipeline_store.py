@@ -1409,14 +1409,21 @@ class ProcessorRunStore:
         """Fail queued or running runs left behind by a stopped backend."""
 
         failed = 0
-        for item in self.list():
-            if item.state.status == "queued":
-                self.start(item.run_id, started_at=updated_at)
-            current = self.get(item.run_id)
-            if current is None or current.state.status != "running":
-                continue
-            self.fail(item.run_id, failure, completed_at=updated_at)
-            failed += 1
+        # Recovery only needs request/state metadata. Loading every terminal run and validating
+        # its output revisions makes startup scale with the size of retained processor results.
+        for status in self.list_statuses():
+            try:
+                if status.status == "queued":
+                    self.start(status.run_id, started_at=updated_at)
+                if status.status not in {"queued", "running"}:
+                    continue
+                current = self.get(status.run_id)
+                if current is None or current.state.status != "running":
+                    continue
+                self.fail(status.run_id, failure, completed_at=updated_at)
+                failed += 1
+            except (OSError, TypeError, UnicodeError, ValueError, PipelineStoreError) as error:
+                self._log_invalid(self.run_path(status.run_id), error)
         return failed
 
     def state_path(self, run_id: str) -> Path:

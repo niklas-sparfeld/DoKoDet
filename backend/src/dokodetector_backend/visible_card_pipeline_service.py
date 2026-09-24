@@ -565,7 +565,11 @@ class VisibleCardPipelineService:
         self, requested_provider: str | None
     ) -> VisibleCardPipelineProvider | None:
         if requested_provider is None:
-            return self.detector_provider
+            if self.detector_provider is not None:
+                return self.detector_provider
+            requested_provider = getattr(self.settings, "visible_card_provider", None)
+            if requested_provider is None:
+                return None
         candidates = (
             ("gemini", "cloud")
             if requested_provider == "cloud"

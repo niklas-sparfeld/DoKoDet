@@ -1,10 +1,11 @@
-"""Construct the always-on Gemini table-evidence analyzer."""
+"""Construct the configured table-evidence analyzer."""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from table_evidence_analyzer import (
@@ -40,18 +41,26 @@ class LazyProcessorRegistry(Mapping[str, Any]):
     def __init__(self, factories: Mapping[str, Callable[[], Any]]) -> None:
         self._factories = dict(factories)
         self._instances: dict[str, Any] = {}
+        self._lock = Lock()
 
     def __getitem__(self, key: str) -> Any:
         if key not in self._factories:
             raise KeyError(key)
-        if key not in self._instances:
-            try:
-                self._instances[key] = self._factories[key]()
-            except ConfigurationError:
-                raise
-            except Exception as error:
-                raise ConfigurationError(f"The {key} processor could not start: {error}") from error
-        return self._instances[key]
+        instance = self._instances.get(key)
+        if instance is None:
+            with self._lock:
+                instance = self._instances.get(key)
+                if instance is None:
+                    try:
+                        instance = self._factories[key]()
+                    except ConfigurationError:
+                        raise
+                    except Exception as error:
+                        raise ConfigurationError(
+                            f"The {key} processor could not start: {error}"
+                        ) from error
+                    self._instances[key] = instance
+        return instance
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._factories)
@@ -62,8 +71,92 @@ class LazyProcessorRegistry(Mapping[str, Any]):
     def register(self, key: str, processor: Any) -> None:
         """Override one lazy option with an explicitly injected processor."""
 
-        self._factories[key] = lambda: processor
-        self._instances[key] = processor
+        with self._lock:
+            self._factories[key] = lambda: processor
+            self._instances[key] = processor
+
+
+class LazyConfiguredAnalyzer:
+    """Build the configured analyzer only when an analysis needs it."""
+
+    name = VisibleCardTableAnalyzer.name
+    version = VisibleCardTableAnalyzer.version
+
+    def __init__(
+        self,
+        settings: Settings,
+        visible_card_providers: LazyProcessorRegistry,
+        visible_card_identity_classifiers: LazyProcessorRegistry,
+    ) -> None:
+        self._settings = settings
+        self._visible_card_providers = visible_card_providers
+        self._visible_card_identity_classifiers = visible_card_identity_classifiers
+        self._analyzer: TableEvidenceAnalyzer | None = None
+        self._lock = Lock()
+
+    def _get(self) -> TableEvidenceAnalyzer:
+        analyzer = self._analyzer
+        if analyzer is None:
+            with self._lock:
+                analyzer = self._analyzer
+                if analyzer is None:
+                    provider = self._visible_card_providers[self._settings.visible_card_provider]
+                    classifier = self._visible_card_identity_classifiers[
+                        self._settings.visible_card_identity_classifier
+                    ]
+                    analyzer = VisibleCardTableAnalyzer(
+                        provider,
+                        classifier,
+                        model=self._settings.gemini_model,
+                        max_concurrent_requests=self._settings.gemini_max_concurrent_requests,
+                    )
+                    self._analyzer = analyzer
+        return analyzer
+
+    @property
+    def provider(self) -> Any:
+        """Return the configured detector, loading the analyzer on first access."""
+
+        return self._get().provider
+
+    @property
+    def classifier(self) -> Any:
+        """Return the configured identity classifier, loading it on first access."""
+
+        return self._get().classifier
+
+    def analyze(self, evidence: Any) -> Any:
+        """Analyze evidence with the shared, on-demand analyzer instance."""
+
+        return self._get().analyze(evidence)
+
+
+def validate_configured_processor_settings(settings: Settings) -> None:
+    """Validate cheap local processor settings without loading model weights."""
+
+    if settings.visible_card_provider != "gemini":
+        if _bundle_path_for_provider(settings, settings.visible_card_provider) is None:
+            raise ConfigurationError(
+                f"{_bundle_setting_name(settings.visible_card_provider)} is required when the "
+                f"{settings.visible_card_provider} visible-card processor is selected."
+            )
+        if settings.visible_card_device is None:
+            raise ConfigurationError(
+                "VISIBLE_CARD_DEVICE must be set to cpu or mps when the Local visible-card "
+                "processor is selected."
+            )
+
+    if settings.visible_card_identity_classifier == "local":
+        if settings.visible_card_identity_bundle_path is None:
+            raise ConfigurationError(
+                "VISIBLE_CARD_IDENTITY_BUNDLE_PATH is required when the Local identity "
+                "processor is selected."
+            )
+        if settings.visible_card_identity_device is None:
+            raise ConfigurationError(
+                "VISIBLE_CARD_IDENTITY_DEVICE must be set to cpu or mps when the Local "
+                "identity processor is selected."
+            )
 
 
 class _UnconfiguredGeminiVisibleCardProvider:
@@ -363,6 +456,20 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
     )
 
 
+def create_lazy_configured_analyzer(
+    settings: Settings,
+    visible_card_providers: LazyProcessorRegistry,
+    visible_card_identity_classifiers: LazyProcessorRegistry,
+) -> LazyConfiguredAnalyzer:
+    """Create an analyzer facade that shares the processor registries."""
+
+    return LazyConfiguredAnalyzer(
+        settings,
+        visible_card_providers,
+        visible_card_identity_classifiers,
+    )
+
+
 def create_gemini_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
     """Create the legacy Gemini-only analyzer entry point."""
 
@@ -370,8 +477,11 @@ def create_gemini_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
 
 
 __all__ = [
+    "LazyConfiguredAnalyzer",
     "LazyProcessorRegistry",
     "create_configured_analyzer",
     "create_configured_processor_registries",
     "create_gemini_analyzer",
+    "create_lazy_configured_analyzer",
+    "validate_configured_processor_settings",
 ]

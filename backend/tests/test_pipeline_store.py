@@ -348,6 +348,24 @@ def test_list_statuses_does_not_walk_item_files(tmp_path: Path, monkeypatch) -> 
     assert statuses[0].status == "running"
 
 
+def test_restart_recovery_uses_compact_status_catalog(tmp_path: Path, monkeypatch) -> None:
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    run_store.create(request())
+    run_store.start("run-01")
+
+    def fail_full_catalog():
+        raise AssertionError("restart recovery must not load every retained run")
+
+    monkeypatch.setattr(run_store, "list", fail_full_catalog)
+
+    converted = run_store.fail_non_terminal(
+        failure=RunFailure(code="backend_restarted", message="backend restarted")
+    )
+
+    assert converted == 1
+    assert run_store.require("run-01").state.status == "failed"
+
+
 def test_catalog_read_does_not_walk_item_files(tmp_path: Path, monkeypatch) -> None:
     run_store = ProcessorRunStore(tmp_path / "runtime")
     run_store.create(request())

@@ -23,8 +23,9 @@ from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.gemini_analyzer import (
-    create_configured_analyzer,
     create_configured_processor_registries,
+    create_lazy_configured_analyzer,
+    validate_configured_processor_settings,
 )
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.pending_video_api import router as pending_video_router
@@ -109,19 +110,25 @@ def create_app(
     )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
     app.state.readiness_state = "unknown"
-    app.state.analyzer = analyzer or create_configured_analyzer(app_settings)
+    if analyzer is None:
+        validate_configured_processor_settings(app_settings)
     visible_card_providers, visible_card_identity_classifiers = (
         create_configured_processor_registries(app_settings)
+    )
+    app.state.analyzer = analyzer or create_lazy_configured_analyzer(
+        app_settings,
+        visible_card_providers,
+        visible_card_identity_classifiers,
     )
     app.state.visible_card_provider = (
         visible_card_provider
         if visible_card_provider is not None
-        else getattr(app.state.analyzer, "provider", None)
+        else getattr(analyzer, "provider", None) if analyzer is not None else None
     )
     app.state.visible_card_identity_classifier = (
         visible_card_identity_classifier
         if visible_card_identity_classifier is not None
-        else getattr(app.state.analyzer, "classifier", None)
+        else getattr(analyzer, "classifier", None) if analyzer is not None else None
     )
     if visible_card_provider is not None:
         visible_card_providers.register("cloud", visible_card_provider)
@@ -129,12 +136,12 @@ def create_app(
         provider_name = getattr(visible_card_provider, "name", None)
         if isinstance(provider_name, str) and provider_name:
             visible_card_providers.register(provider_name, visible_card_provider)
-    elif app_settings.visible_card_provider != "gemini":
+    elif analyzer is not None and app_settings.visible_card_provider != "gemini":
         visible_card_providers.register("local", app.state.visible_card_provider)
         visible_card_providers.register(
             app_settings.visible_card_provider, app.state.visible_card_provider
         )
-    else:
+    elif analyzer is not None:
         visible_card_providers.register("cloud", app.state.visible_card_provider)
         visible_card_providers.register("gemini", app.state.visible_card_provider)
     if visible_card_identity_classifier is not None:
@@ -145,11 +152,11 @@ def create_app(
             visible_card_identity_classifiers.register(
                 classifier_name, visible_card_identity_classifier
             )
-    elif app_settings.visible_card_identity_classifier == "local":
+    elif analyzer is not None and app_settings.visible_card_identity_classifier == "local":
         visible_card_identity_classifiers.register(
             "local", app.state.visible_card_identity_classifier
         )
-    else:
+    elif analyzer is not None:
         visible_card_identity_classifiers.register(
             "cloud", app.state.visible_card_identity_classifier
         )

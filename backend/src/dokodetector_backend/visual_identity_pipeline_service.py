@@ -1042,7 +1042,11 @@ class VisualIdentityPipelineService:
 
     def _classifier_for_selection(self, requested_provider: str | None) -> Any | None:
         if requested_provider is None:
-            return self.classifier
+            if self.classifier is not None:
+                return self.classifier
+            requested_provider = getattr(self.settings, "visible_card_identity_classifier", None)
+            if requested_provider is None:
+                return None
         if requested_provider == "cloud":
             candidates = ("gemini", "cloud")
         elif requested_provider == "local":
