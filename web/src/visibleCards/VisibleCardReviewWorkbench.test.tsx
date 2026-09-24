@@ -1497,10 +1497,11 @@ describe("VisibleCardReviewWorkbench", () => {
   });
 
   it("draws the selected anchor above overlapping mapping anchors", () => {
-    const overlapping = structuredClone(calibrationRefinement) as
-      CalibrationRefinementResponse & {
-        draft: { anchors: Array<{ anchor_id: string; card_id: string }> };
-      };
+    const overlapping = structuredClone(
+      calibrationRefinement,
+    ) as CalibrationRefinementResponse & {
+      draft: { anchors: Array<{ anchor_id: string; card_id: string }> };
+    };
     overlapping.draft.anchors.push({
       ...overlapping.draft.anchors[0],
       anchor_id: "anchor-2",
@@ -1526,7 +1527,10 @@ describe("VisibleCardReviewWorkbench", () => {
       }),
     );
     const layer = document.querySelector('[data-workbench-layer="mapping"]');
-    expect(layer?.lastElementChild).toHaveAttribute("data-anchor-id", "anchor-1");
+    expect(layer?.lastElementChild).toHaveAttribute(
+      "data-anchor-id",
+      "anchor-1",
+    );
   });
 
   it("shrinks mapping strokes and corner handles with zoom", () => {
@@ -1578,6 +1582,40 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(Number(projection?.getAttribute("stroke-width"))).toBe(
       initialStrokeWidth / 2,
     );
+  });
+
+  it("pairs a mapped handle with the nearest anchor corner when corner order differs", () => {
+    const reordered = structuredClone(
+      calibrationRefinement,
+    ) as CalibrationRefinementResponse & {
+      draft: { anchors: Array<{ quadrilateral: number[][] }> };
+    };
+    reordered.draft.anchors[0].quadrilateral = [
+      [60, 40],
+      [60, 60],
+      [40, 60],
+      [40, 40],
+    ];
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={reordered}
+        onAnchorCommand={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Adjust mapped card corner 1 for card-1",
+      }),
+    );
+    expect(screen.getByLabelText("Anchor corner 4 X")).toBeInTheDocument();
   });
 
   it("keeps mapped corner handles smaller than a card on a unit-scale table", () => {
@@ -1638,9 +1676,9 @@ describe("VisibleCardReviewWorkbench", () => {
       />,
     );
 
-    await userEvent.setup().click(
-      screen.getByRole("button", { name: "Edit Virtual cards" }),
-    );
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Edit Virtual cards" }));
     expect(
       screen.queryByText("Stack order · Front to back"),
     ).not.toBeInTheDocument();

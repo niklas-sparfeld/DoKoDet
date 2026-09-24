@@ -3435,9 +3435,8 @@ function renderVirtualCardLayer({
                 fill="#14252b"
                 stroke="#ffffff"
                 strokeWidth={
-                  (viewpoint === "camera"
-                    ? Math.max(1, width / 500)
-                    : 0.08) / Math.max(zoom, 0.01)
+                  (viewpoint === "camera" ? Math.max(1, width / 500) : 0.08) /
+                  Math.max(zoom, 0.01)
                 }
               />
               <text
@@ -3686,6 +3685,15 @@ function MappingProjection({
   ) => void;
 }) {
   const polygon = posePolygon(pose, projection, viewpoint);
+  const anchorCornerIndices =
+    anchor === undefined
+      ? null
+      : matchProjectionCornersToAnchor(
+          polygon,
+          anchor.corners,
+          projection,
+          viewpoint,
+        );
   return (
     <g data-projection={dataProjection} data-card-id={pose.card_id}>
       <polygon
@@ -3706,7 +3714,11 @@ function MappingProjection({
                     [x, y],
                     projection.table_to_image_homography,
                   );
-            const anchorCorner = anchor?.corners[index];
+            const anchorCornerIndex = anchorCornerIndices?.[index];
+            const anchorCorner =
+              anchorCornerIndex === undefined
+                ? undefined
+                : anchor?.corners[anchorCornerIndex];
             if (imagePoint === null) return null;
             return (
               <circle
@@ -3732,17 +3744,21 @@ function MappingProjection({
                 }
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (anchor !== undefined) {
+                  if (anchor !== undefined && anchorCornerIndex !== undefined) {
                     onSelect?.({
                       type: "calibration_anchor",
                       id: anchor.anchorId,
                     });
-                    onSelectCorner?.(index);
+                    onSelectCorner?.(anchorCornerIndex);
                   }
                 }}
                 onPointerDown={(event) => {
-                  if (anchor !== undefined && anchorCorner !== undefined)
-                    onPointerDown?.(event, anchor, index, [
+                  if (
+                    anchor !== undefined &&
+                    anchorCornerIndex !== undefined &&
+                    anchorCorner !== undefined
+                  )
+                    onPointerDown?.(event, anchor, anchorCornerIndex, [
                       anchorCorner[0] - imagePoint[0],
                       anchorCorner[1] - imagePoint[1],
                     ]);
@@ -3753,6 +3769,41 @@ function MappingProjection({
         : null}
     </g>
   );
+}
+
+function matchProjectionCornersToAnchor(
+  polygon: TablePoint[],
+  anchorCorners: TablePoint[],
+  projection: CardSceneProjection,
+  viewpoint: WorkbenchViewpoint,
+): number[] | null {
+  if (polygon.length !== 4 || anchorCorners.length !== 4) return null;
+  const projected =
+    viewpoint === "camera"
+      ? polygon
+      : polygon.map((point) =>
+          projectTablePoint(point, projection.table_to_image_homography),
+        );
+  if (projected.some((point) => point === null)) return null;
+  let best: number[] | null = null;
+  let bestDistance = Infinity;
+  for (let a = 0; a < 4; a++)
+    for (let b = 0; b < 4; b++)
+      for (let c = 0; c < 4; c++)
+        for (let d = 0; d < 4; d++) {
+          const order = [a, b, c, d];
+          if (new Set(order).size !== 4) continue;
+          const distance = order.reduce((sum, anchorIndex, index) => {
+            const point = projected[index]!;
+            const corner = anchorCorners[anchorIndex];
+            return sum + Math.hypot(point[0] - corner[0], point[1] - corner[1]);
+          }, 0);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            best = order;
+          }
+        }
+  return best;
 }
 
 function mappingStrokeWidth(
