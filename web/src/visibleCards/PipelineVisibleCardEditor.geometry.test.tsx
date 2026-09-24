@@ -670,6 +670,10 @@ describe("PipelineVisibleCardEditor", () => {
     );
     expect(copyButton).toBeEnabled();
     await user.click(copyButton);
+    fireEvent.keyDown(copyButton, { key: "ArrowLeft" });
+    await waitFor(() =>
+      expect(window.location.search).toContain(`item=${ITEM_ID}`),
+    );
 
     await waitFor(() =>
       expect(

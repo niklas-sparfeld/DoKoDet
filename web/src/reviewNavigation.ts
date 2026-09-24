@@ -33,7 +33,6 @@ export function ignoresReviewNavigationShortcut(
 ): boolean {
   if (!(target instanceof Element)) return false;
   return (
-    target.closest("input, textarea, select, [contenteditable='true']") !==
-      null || target.closest('[data-timeline-seeking-controls="true"]') !== null
+    target.closest("input, textarea, select, [contenteditable='true']") !== null
   );
 }
