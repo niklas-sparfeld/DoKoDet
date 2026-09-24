@@ -46,6 +46,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0080 — Agent-scale visible-card review modules](2-ready/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | Split the visible-card workbench and pipeline editor into small, tested controller, presentation, surface, layer, data, and command modules without changing review behavior or contracts. |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
 
 ### In Progress
