@@ -4,7 +4,7 @@
 
 - **Summary:** Split the visible-card workbench and its pipeline editor into small, cohesive modules
   with focused tests. Preserve all operator behavior and review contracts.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0059 web workspace module boundaries and completed 0074 unified
   visible-card review workbench
 - **Builds on:** The existing `PipelineVisibleCardTypes`, `VisibleCardReviewWorkbenchState`,
@@ -18,7 +18,7 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze behavior and the module ownership map.
+- **M0:** Complete — freeze behavior, public boundaries, characterization coverage, and module ownership.
 - **M1:** Not started — extract workbench controls and presentation helpers.
 - **M2:** Not started — extract workbench surface interaction and layers.
 - **M3:** Not started — extract editor data, geometry, and URL helpers.
@@ -113,10 +113,96 @@ This epic excludes:
 
 Acceptance:
 
-- Existing focused tests pass before and after the milestone.
+- Run the existing focused tests before and after the milestone. Record current baseline failures;
+  do not change behavior to make a characterization pass.
 - The added characterization tests fail for a meaningful change to the listed behavior.
 - The plan identifies one destination module for every function currently local to either root.
 - No production behavior changes.
+
+#### M0 implementation evidence — 2026-09-24
+
+- Recorded the public exports and consumer paths, the current behavior coverage, the destination
+  for every named top-level helper, and the internal contracts for each planned module.
+- Added characterization for queued proposal polling, stale-revision conflict recovery, and
+  calibration apply. Existing cases characterize generated read-only output, maintained-reference
+  loading and rebase, transient command retry, proposal-scene loading, calibration preview data,
+  Camera and Rectified switching, layer order, selection, pointer gestures, keyboard actions, and
+  frame decisions.
+- The two focused files report 70 passing and 10 failing existing tests. The failures are in
+  timeline-slot rendering, polygon selection and editing, ignore-region editing, and generated
+  suggestion restore. They reproduce without production changes in this milestone. Keep them as
+  recorded baseline; do not alter behavior during extraction to hide them.
+- No production code or review behavior changed.
+
+#### Public boundary and consumers
+
+`VisibleCardReviewWorkbench.tsx` exports `VisibleCardReviewWorkbench`, its props, action unions,
+and `VisibleCardFrameDecision`. `PipelineVisibleCardEditor.tsx` exports
+`PipelineVisibleCardEditor`, its props, and the `PipelineVisibleCardRailItem` type re-export.
+`RecordingWorkspaceShell.tsx` renders the editor. `RecordingWorkspaceRail.tsx` and its test import
+the rail-item type. The editor imports and renders the workbench. Keep these exports stable through
+the epic.
+
+#### Named module contracts
+
+| Module | Inputs and outputs | Owner | Can issue a review command? |
+| --- | --- | --- | --- |
+| `VisibleCardReviewWorkbench.tsx` | Public props in; composed workbench view out | Public composition root and workbench coordinator | No; it emits typed callbacks to the editor |
+| `VisibleCardReviewWorkbenchController.ts` | Typed frame capabilities, preferences, callbacks, and pointer events in; transient selection, viewport, gesture, and local scene view model out | Workbench controller | No; it emits typed workbench actions and scene or anchor callbacks |
+| `VisibleCardWorkbenchControls.tsx` | Narrow typed action and selection view models in; command bar and selection controls out | Workbench presentation | No |
+| `VisibleCardWorkbenchProposalPresentation.tsx` | Candidate and proposal view models in; proposal column and candidate previews out | Workbench presentation | No |
+| `VisibleCardWorkbenchSurface.tsx` | Frame, viewport, selection, layers, and typed pointer callbacks in; accessible SVG surface out | Surface presentation | No |
+| `VisibleCardWorkbenchLayers.tsx` | Layer render context in; SVG layer nodes in fixed registry order | Evidence layer presentation | No |
+| `VisibleCardWorkbenchGeometry.ts` | Points, polygons, poses, projections, and dimensions in; deterministic coordinates and SVG attributes out | Pure workbench geometry | No |
+| `PipelineVisibleCardEditor.tsx` | Public editor props in; editor, inspector, rail, and workbench composition out | Public composition root | No; it delegates commands to its controller |
+| `PipelineVisibleCardEditorController.ts` | Editor props and API client in; named async operations and editor view model out | Authoritative editor state and command controller | Yes; this is the sole API and command-queue owner |
+| `PipelineVisibleCardData.ts` | Unknown API payloads and typed frames in; parsed frames, coverage, decisions, IDs, and mappings out | Pure editor data parsing | No |
+| `PipelineVisibleCardGeometry.ts` | Points, candidate geometry, and pointer coordinates in; validated or edited geometry and hit-test results out | Pure editor geometry | No |
+| `PipelineVisibleCardUrl.ts` | Current URL state and selected values in; parsed state and updated URL out | URL helpers | No |
+
+#### Destination map for current named helpers
+
+All workbench helpers below move to the named destination in their row. Inline callbacks and
+handlers move with the module that owns their state. Types and constants that describe one owner
+move with that owner. `VisibleCardReviewWorkbenchState.ts` remains the pure preference and
+availability reducer.
+
+| Current local helpers | Destination |
+| --- | --- |
+| `WorkbenchCommandBar`, `WorkbenchTimelineSelectionActions`, `FrameDecisionActions`, `VirtualCardSelectionActions`, `MappingSelectionActions`, `VisibleRegionSelectionActions`, and their local selection-action props | `VisibleCardWorkbenchControls.tsx` |
+| `WorkbenchProposalColumn`, `CandidatePreview`, `candidateBounds`, `virtualCardPreviewCandidate`, `formatGeometryKind` | `VisibleCardWorkbenchProposalPresentation.tsx` |
+| `WorkbenchSurface`, `RectifiedSourceFrame`, `MappingAnchorOverlay`, `MappingProjection`, `renderCalibrationFitOutlines`, `renderEditorOverlay`, `renderLayers`, `renderVisibleRegionLayer`, `renderSuggestionLayer`, `renderIgnoreLayer`, `renderVirtualCardLayer`, `renderMappingLayer` | `VisibleCardWorkbenchSurface.tsx` and `VisibleCardWorkbenchLayers.tsx`; surface and SVG composition go to Surface, ordered evidence rendering goes to Layers |
+| `editorPoint`, `sourcePointFromEvent`, `sourcePointToTablePoint`, `readCalibrationAnchors`, `calibrationDraftRevision`, `calibrationCommandCount`, `readAnchorState`, `readString`, `isRecord`, `readTablePoints`, `cloneTablePoints`, `matchProjectionCornersToAnchor`, `mappingStrokeWidth`, `mappingCornerRadius` | `VisibleCardReviewWorkbenchController.ts` for calibration draft state and parsing; `VisibleCardWorkbenchGeometry.ts` for coordinate and projection calculations |
+| `candidatePolygons`, `sourceCandidatePolygons`, `candidateNormalizedPolygons`, `candidateIsCoveredByIgnoreRegions`, `polygonsOverlapForIgnore`, `vertexOverlapRatio`, `polygonCentroid`, `polygonsMatch`, `pointInPolygon`, `transformSourcePolygon`, `posePolygon`, `candidatePosePolygon`, `sourcePoint`, `isSelected`, `renderOrder`, `rotationHandle`, `strokeWidth`, `pointsAttribute`, `pathAttribute`, `tableViewBox`, `cameraViewBox`, `surfaceViewBox`, `rectifiedBackgroundPatches`, `affineTriangleTransform`, `selectedPoseForSelection`, `clamp` | `VisibleCardWorkbenchGeometry.ts` |
+| Remaining workbench-local transient state, viewport callbacks, keyboard handling, selection transitions, and gesture handlers | `VisibleCardReviewWorkbenchController.ts` |
+| `readProposalInputRevisionId`, `readProposalRevisionId`, `toEditableFrame`, `readFramesFromResult`, `readOutcome`, `readFrameIdentity`, `readCandidate`, `readIgnoreRegion`, `isVisibleCardSide`, `readGeometry`, `frameCoverageKey`, `frameCoverageKeyFromIdentity`, `coverageEntries`, `frameDecision`, `nextManualCardId`, `nextManualRegionId`, `copiedIgnoreRegionId`, `newIgnoreRegion`, `ignoreRegionMapping`, `isFrameReviewState`, `isRecord`, `isInteger`, `clamp` | `PipelineVisibleCardData.ts` |
+| `geometryPolygons`, `candidateIsWithinIgnoreRegions`, `polygonIsWithin`, `segmentIsWithin`, `segmentIntersectionParameters`, `pointInPolygonUnion`, `findClearlySelectedCandidate`, `findClearlySelectedPolygon`, `isClearlyOutsidePolygons`, `polygonClearanceRatio`, `polygonScale`, `pointInPolygon`, `pointOnSegment`, `reviewedGeometry`, `validatePolygons`, `polygonArea`, `insertPointOnNearestEdge`, `squaredDistanceToSegment`, `pointFromEvent` | `PipelineVisibleCardGeometry.ts` |
+| `describeError`, `isRetryableError` | `PipelineVisibleCardEditorController.ts` |
+| `readPipelineEditorUrlState`, `updatePipelineUrl` | `PipelineVisibleCardUrl.ts` |
+| All editor-local API loading, proposal polling, calibration commands, maintained-reference queue, retry, rebase, optimistic state, and cleanup handlers | `PipelineVisibleCardEditorController.ts` |
+
+`VisibleCardReviewWorkbenchController.ts` returns named callbacks and view-model fields. It does
+not receive or return an API client, raw mutable refs, or a generic dispatch function.
+`PipelineVisibleCardEditorController.ts` owns all API calls and mutable queue refs. Presentation
+modules receive data and named callbacks only. Pure data, URL, and geometry modules do not import
+React. The editor composition root keeps inspector portals, review navigation, status surfaces, and
+the public exports.
+
+#### Characterization coverage frozen before extraction
+
+| Behavior | Existing test evidence |
+| --- | --- |
+| Generated output is read-only; maintained references can be loaded or rebased | `PipelineVisibleCardEditor.test.tsx`: generated read-only; empty-reference start; existing-review switch; proposal-scene load |
+| Ordered save retry and conflict recovery | `PipelineVisibleCardEditor.test.tsx`: transient draft retry and new stale-revision recovery case |
+| Proposal polling reaches a terminal state | `PipelineVisibleCardEditor.test.tsx`: new queued-to-complete polling case |
+| Calibration preview and apply | Existing incomplete preview and workbench anchor-preview cases; new apply payload and completion case |
+| Camera and Rectified switching; layer order | `VisibleCardReviewWorkbench.test.tsx`: viewpoint switching and ordered enabled layers |
+| Selection, pointer gestures, and keyboard actions | Workbench tests: selection clearing, polygon pointer conversion, pan/zoom, card and anchor drags, keyboard nudge |
+| Frame decisions | Workbench and editor tests: distinct Accept frame action, accepted/unreviewed and empty coverage |
+
+The final budget remains at most 500 nonblank lines per root component and at most 800 nonblank
+lines per focused test file. A cohesive geometry or layer algorithm can exceed a budget only with
+a short reason in its module header.
 
 ### M1 — Extract workbench controls and presentation helpers
 
