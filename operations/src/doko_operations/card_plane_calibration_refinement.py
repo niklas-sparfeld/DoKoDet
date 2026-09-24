@@ -232,31 +232,28 @@ def _scene_displacement(
     maximum = 0.0
     card_ids: list[str] = []
     for raw_pose in poses:
-        pose = _mapping(raw_pose, "scene pose")
-        card_id = pose.get("card_id")
-        center = pose.get("center")
-        rotation = pose.get("rotation_degrees")
-        if not isinstance(card_id, str) or not isinstance(center, (list, tuple)):
+        if not isinstance(raw_pose, Mapping):
             continue
-        base_quad = project_fixed_card(
-            np.asarray(base.table_to_image, dtype=np.float64),
-            center,
-            _finite(rotation, "scene rotation"),
-            base.card_short_size,
-            base.card_long_size,
+        card_id = raw_pose.get("card_id")
+        center = raw_pose.get("center")
+        if (
+            not isinstance(card_id, str)
+            or not isinstance(center, (list, tuple))
+            or len(center) != 2
+        ):
+            continue
+        pose = CardPose(
+            card_id=card_id,
+            center=tuple(_finite(value, "scene center") for value in center),
+            rotation_degrees=_finite(raw_pose.get("rotation_degrees"), "scene rotation"),
+            source_suggestion_id=None,
+            fit_diagnostics_digest=None,
         )
-        candidate_quad = project_fixed_card(
-            np.asarray(candidate.table_to_image, dtype=np.float64),
-            center,
-            _finite(rotation, "scene rotation"),
-            candidate.card_short_size,
-            candidate.card_long_size,
-        )
-        displacement = float(np.max(np.linalg.norm(candidate_quad - base_quad, axis=1)))
+        _refit, displacement = _refit_scene_pose(pose, base, candidate)
         if displacement > maximum:
             maximum = displacement
         if displacement > 0.0:
-            card_ids.append(card_id)
+            card_ids.append(pose.card_id)
     return maximum, tuple(sorted(set(card_ids)))
 
 

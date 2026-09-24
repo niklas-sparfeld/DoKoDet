@@ -1694,6 +1694,44 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(screen.getByLabelText("Anchor corner 4 X")).toBeInTheDocument();
   });
 
+  it.each(["camera", "rectified"] as const)(
+    "keeps a candidate projection in place when only table coordinates change in %s view",
+    (viewpoint) => {
+      render(
+        <VisibleCardReviewWorkbench
+          recordingId="recording-1"
+          frame={frame}
+          readOnly={false}
+          initialPreferences={{
+            activeTool: "mapping",
+            enabledLayers: ["mapping"],
+            viewpoint,
+          }}
+          enabledEditTools={["mapping"]}
+          candidateCalibration={{
+            table_to_image: [
+              [1, 0, -100],
+              [0, 1, -100],
+              [0, 0, 1],
+            ],
+            card_short_size: 10,
+            card_long_size: 20,
+          }}
+        />,
+      );
+      const current = document.querySelector(
+        '[data-projection="current"] polygon',
+      );
+      const candidate = document.querySelector(
+        '[data-projection="candidate"] polygon',
+      );
+      expect(candidate).toHaveAttribute(
+        "points",
+        current?.getAttribute("points"),
+      );
+    },
+  );
+
   it("keeps mapped corner handles smaller than a card on a unit-scale table", () => {
     const unitFrame = structuredClone(frame);
     unitFrame.outcome.card_scene!.projection.card_short_size = 1;

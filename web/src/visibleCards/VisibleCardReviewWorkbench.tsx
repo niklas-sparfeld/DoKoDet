@@ -3494,6 +3494,12 @@ function renderMappingLayer({
             zoom={zoom}
             stroke="#ffd166"
             dataProjection="candidate"
+            polygonOverride={candidatePosePolygon(
+              pose,
+              currentProjection,
+              candidateProjection,
+              viewpoint,
+            )}
           />
         ));
   return (
@@ -3616,6 +3622,7 @@ function MappingProjection({
   zoom,
   stroke,
   dataProjection,
+  polygonOverride,
   anchor,
   onSelect,
   onSelectCorner,
@@ -3628,6 +3635,7 @@ function MappingProjection({
   zoom: number;
   stroke: string;
   dataProjection: "current" | "candidate";
+  polygonOverride?: TablePoint[];
   anchor?: WorkbenchCalibrationAnchor;
   onSelect?: (selection: WorkbenchSelection) => void;
   onSelectCorner?: (cornerIndex: number) => void;
@@ -3638,7 +3646,7 @@ function MappingProjection({
     sourceOffset?: TablePoint,
   ) => void;
 }) {
-  const polygon = posePolygon(pose, projection, viewpoint);
+  const polygon = polygonOverride ?? posePolygon(pose, projection, viewpoint);
   const anchorCornerIndices =
     anchor === undefined
       ? null
@@ -3962,6 +3970,50 @@ function posePolygon(
     )
     .filter((point): point is TablePoint => point !== null)
     .map(([x, y]) => [x, y] as [number, number]);
+}
+
+function candidatePosePolygon(
+  pose: PoseCard,
+  currentProjection: CardSceneProjection,
+  candidateProjection: CardSceneProjection,
+  viewpoint: WorkbenchViewpoint,
+): TablePoint[] {
+  const sourceCorners = posePolygon(pose, currentProjection, "camera");
+  const candidateCorners = sourceCorners.map((point) =>
+    projectImagePointToTable(
+      point,
+      candidateProjection.table_to_image_homography,
+    ),
+  );
+  if (candidateCorners.some((point) => point === null)) return [];
+  const corners = candidateCorners as TablePoint[];
+  const center: TablePoint = [
+    corners.reduce((sum, point) => sum + point[0], 0) / 4,
+    corners.reduce((sum, point) => sum + point[1], 0) / 4,
+  ];
+  const shortAxis: TablePoint = [
+    corners[1][0] - corners[0][0] + corners[2][0] - corners[3][0],
+    corners[1][1] - corners[0][1] + corners[2][1] - corners[3][1],
+  ];
+  const candidatePose = {
+    ...pose,
+    center,
+    rotation_degrees: (Math.atan2(shortAxis[1], shortAxis[0]) * 180) / Math.PI,
+  };
+  const candidateImage = posePolygon(
+    candidatePose,
+    candidateProjection,
+    "camera",
+  );
+  if (viewpoint === "camera") return candidateImage;
+  return candidateImage
+    .map((point) =>
+      projectImagePointToTable(
+        point,
+        currentProjection.table_to_image_homography,
+      ),
+    )
+    .filter((point): point is TablePoint => point !== null);
 }
 
 function sourcePoint(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +16,7 @@ from table_evidence_analyzer.card_scene_contract import (
 from doko_operations.card_plane_calibration import calibrate_recording
 from doko_operations.card_plane_calibration_refinement import (
     CalibrationDraftStore,
+    _scene_displacement,
     apply_anchor_command_to_draft,
     build_calibration_draft,
     build_calibration_preview,
@@ -107,6 +109,38 @@ def _draft() -> tuple[object, object]:
         },
     )
     return draft, run.calibration
+
+
+def test_preview_displacement_rebases_pose_coordinates_before_comparison() -> None:
+    _draft_value, base = _draft()
+    table_to_image = np.asarray(base.table_to_image, dtype=np.float64)
+    shifted_coordinates = np.asarray(
+        [[1.0, 0.0, -10.0], [0.0, 1.0, -10.0], [0.0, 0.0, 1.0]],
+        dtype=np.float64,
+    )
+    target_matrix = table_to_image @ shifted_coordinates
+    target = replace(
+        base,
+        table_to_image=tuple(tuple(row) for row in target_matrix),
+        image_to_table=tuple(tuple(row) for row in np.linalg.inv(target_matrix)),
+    )
+    scene = {
+        "poses": [
+            {
+                "schema_version": "card-pose/v1",
+                "card_id": "card-1",
+                "center": [4.0, 3.0],
+                "rotation_degrees": 0.0,
+                "source_suggestion_id": None,
+                "fit_diagnostics_digest": None,
+            }
+        ]
+    }
+
+    displacement, card_ids = _scene_displacement(scene, base, target)
+
+    assert displacement < 10.0
+    assert card_ids == ("card-1",)
 
 
 def test_preview_is_repeatable_and_reports_recording_impact() -> None:
