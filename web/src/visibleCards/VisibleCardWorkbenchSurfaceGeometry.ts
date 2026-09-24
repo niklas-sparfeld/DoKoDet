@@ -289,7 +289,19 @@ export function cameraViewBox(
   const height = frameHeight / zoom;
   const centerX = frameWidth / 2 + viewport.pan.x;
   const centerY = frameHeight / 2 + viewport.pan.y;
-  return { x: centerX - width / 2, y: centerY - height / 2, width, height };
+  const x = centerX - width / 2;
+  const y = centerY - height / 2;
+  if (zoom <= 1) return { x, y, width, height };
+  return {
+    x: clampToRange(x, 0, frameWidth - width),
+    y: clampToRange(y, 0, frameHeight - height),
+    width,
+    height,
+  };
+}
+
+function clampToRange(value: number, minimum: number, maximum: number): number {
+  return Math.min(Math.max(value, minimum), maximum);
 }
 
 export function surfaceViewBox(

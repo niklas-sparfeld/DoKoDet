@@ -972,10 +972,6 @@ function MappingSelectionActions({
   ];
   return (
     <>
-      <p>
-        Drag corners to save corrected anchors. Apply the calibration to the
-        table in Recording-wide mapping.
-      </p>
       <TimelineRailSeekingControls
         groups={[{ label: "Anchor decisions", controls }]}
       />

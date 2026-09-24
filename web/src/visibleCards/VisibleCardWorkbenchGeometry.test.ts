@@ -100,4 +100,13 @@ describe("visible-card workbench geometry", () => {
       }),
     ).toEqual({ x: 35, y: 7.5, width: 50, height: 25 });
   });
+
+  it("keeps a zoomed camera crop inside the source frame", () => {
+    expect(
+      surfaceViewBox("camera", 100, 50, null, {
+        zoom: 2,
+        pan: { x: 100, y: 100 },
+      }),
+    ).toEqual({ x: 50, y: 25, width: 50, height: 25 });
+  });
 });

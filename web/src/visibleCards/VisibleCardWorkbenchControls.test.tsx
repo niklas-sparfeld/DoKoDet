@@ -239,6 +239,21 @@ describe("visible-card workbench controls", () => {
     expect(callbacks.onAction).toHaveBeenCalledWith("copy_ignore_regions");
   });
 
+  it("does not render the removed mapping instruction label", () => {
+    render(
+      <WorkbenchTimelineSelectionActions
+        viewModel={selectionViewModel({ activeTool: "mapping" })}
+        callbacks={selectionCallbacks()}
+      />,
+    );
+
+    expect(
+      screen.queryByText(
+        "Drag corners to save corrected anchors. Apply the calibration to the table in Recording-wide mapping.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders frame decisions with the same enabled state and callbacks", async () => {
     const onAccept = vi.fn();
     const onMarkEmpty = vi.fn();
