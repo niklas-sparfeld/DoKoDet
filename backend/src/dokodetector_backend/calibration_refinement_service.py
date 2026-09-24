@@ -33,6 +33,8 @@ from doko_operations.proposed_card_scene_processor import (
 from table_evidence_analyzer.card_scene_contract import (
     AnchorCommand,
     CalibrationDraft,
+    CalibrationFailure,
+    CalibrationPreview,
     CalibrationReflowReceipt,
 )
 from table_evidence_analyzer.pipeline_data import (
@@ -139,7 +141,13 @@ class CalibrationRefinementService:
             raise CalibrationRefinementNotFound(str(error)) from error
         _proposal, source, data = self._proposal(recording_id, proposal_revision_id)
         self._require_current_source(draft, source)
-        return self._response(recording_id, proposal_revision_id, draft, data)
+        return self._response(
+            recording_id,
+            proposal_revision_id,
+            draft,
+            data,
+            include_frame_scenes=False,
+        )
 
     def update(
         self,
@@ -208,7 +216,13 @@ class CalibrationRefinementService:
             draft = self.store.reset(recording_id, draft_id)
         except CalibrationRefinementError as error:
             raise CalibrationRefinementNotFound(str(error)) from error
-        return self._response(recording_id, proposal_revision_id, draft, data)
+        return self._response(
+            recording_id,
+            proposal_revision_id,
+            draft,
+            data,
+            include_frame_scenes=False,
+        )
 
     @staticmethod
     def _require_current_source(draft: CalibrationDraft, source: DataRevision) -> None:
@@ -521,6 +535,8 @@ class CalibrationRefinementService:
         *,
         include_frame_scenes: bool = True,
     ) -> dict[str, Any]:
+        if not include_frame_scenes:
+            return self._pending_response(recording_id, proposal_revision_id, draft)
         frame_scenes = (
             self._frame_scenes(recording_id, data)
         )
@@ -544,6 +560,53 @@ class CalibrationRefinementService:
             "preview": preview.to_mapping(),
             "preview_complete": include_frame_scenes,
             "anchor_contributions": contributions,
+        }
+
+    @staticmethod
+    def _pending_response(
+        recording_id: str,
+        proposal_revision_id: str,
+        draft: CalibrationDraft,
+    ) -> dict[str, Any]:
+        """Return draft state without fitting a calibration candidate."""
+
+        pending = CalibrationPreview.create(
+            preview_id="preview-pending-" + draft.draft_digest[:24],
+            draft_id=draft.draft_id,
+            base_calibration_revision_id=draft.base_calibration_revision_id,
+            base_calibration_digest=draft.base_calibration_digest,
+            candidate_calibration=None,
+            gates=(),
+            status="blocked",
+            failure=CalibrationFailure.create(
+                code="preview_not_run",
+                message="The recording-wide calibration preview has not been run.",
+                action=(
+                    "Update the recording-wide preview when you are ready to "
+                    "calculate recalibration impact."
+                ),
+            ),
+            fit_residual=0.0,
+            accepted_anchor_count=sum(
+                1
+                for anchor in draft.anchors
+                if anchor.state in {"accepted", "adjusted", "pinned"}
+            ),
+            rejected_candidate_count=0,
+            held_out_alignment_change_px=0.0,
+            changed_frame_ids=(),
+            changed_card_ids=(),
+            max_source_pixel_displacement=0.0,
+            most_affected_frame_ids=(),
+        )
+        return {
+            "schema_version": "table-plane-calibration-refinement/v1",
+            "recording_id": recording_id,
+            "proposal_revision_id": proposal_revision_id,
+            "draft": draft.to_mapping(),
+            "preview": pending.to_mapping(),
+            "preview_complete": False,
+            "anchor_contributions": [],
         }
 
     def _frame_scenes(

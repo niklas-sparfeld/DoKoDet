@@ -41,7 +41,7 @@ def start_calibration_refinement(
 def get_calibration_refinement(
     recording_id: str, proposal_revision_id: str, request: Request, draft_id: str | None = None
 ) -> dict[str, Any]:
-    """Return the current draft and its deterministic preview."""
+    """Return the current draft without starting a calibration preview."""
 
     validate_recording_id(recording_id)
     try:
@@ -63,7 +63,7 @@ def update_calibration_refinement(
     payload: dict[str, Any],
     request: Request,
 ) -> dict[str, Any]:
-    """Apply one ordered anchor command and return the new preview."""
+    """Apply one ordered anchor command without starting a calibration preview."""
 
     validate_recording_id(recording_id)
     try:

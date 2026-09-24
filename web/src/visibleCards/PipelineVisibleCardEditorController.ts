@@ -204,10 +204,12 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     current.setCalibrationLoading(true);
     current.setCalibrationError(null);
     try {
-      const refreshed = await current.client.getCalibrationRefinement(
+      const refreshed = await current.client.startCalibrationRefinement(
         current.recordingId,
-        proposalRevisionId,
-        draftId,
+        {
+          proposal_revision_id: proposalRevisionId,
+          draft_id: draftId,
+        },
       );
       current.calibrationRefinementRef.current = refreshed;
       current.setCalibrationRefinement(refreshed);
@@ -671,14 +673,6 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     }
     const command = queueRef.current[0];
     if (current.referenceRef.current === null) return;
-    const changesIgnoreRegion = command.operations.some((operation) =>
-      [
-        "create_ignore_region",
-        "replace_ignore_region",
-        "delete_ignore_region",
-        "convert_to_ignore_region",
-      ].includes(operation.operation),
-    );
     processingRef.current = true;
     try {
       const nextReference = await current.client.updatePipelineReferenceDraft(
@@ -692,7 +686,6 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
         },
       );
       hydrateReference(nextReference);
-      if (changesIgnoreRegion) await loadCalibrationRefinement();
       queueRef.current.shift();
       setQueueLength(queueRef.current.length);
       setFirstUnappliedCommand(
@@ -736,7 +729,7 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     } else {
       inputRef.current.setSaveState("saved");
     }
-  }, [hydrateReference, loadCalibrationRefinement]);
+  }, [hydrateReference]);
 
   useEffect(() => {
     processQueueRef.current = () => void processQueue();

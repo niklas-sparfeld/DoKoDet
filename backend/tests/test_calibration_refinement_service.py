@@ -35,7 +35,7 @@ def _service(drafts: dict[str, SimpleNamespace]) -> CalibrationRefinementService
         manifest=SimpleNamespace(revision_id="detector-new", content_sha256="b" * 64)
     )
     service._proposal = lambda recording_id, proposal_revision_id: (None, source, None)
-    service._response = lambda recording_id, proposal_revision_id, draft, data: {
+    service._response = lambda recording_id, proposal_revision_id, draft, data, **kwargs: {
         "draft_id": draft.draft_id
     }
     return service
@@ -83,3 +83,29 @@ def test_discard_does_not_reset_a_stale_draft() -> None:
         service.discard("recording-1", "proposal-new", old_id)
 
     assert service.store.reset_ids == []
+
+
+def test_pending_response_does_not_calculate_calibration_preview() -> None:
+    service = CalibrationRefinementService.__new__(CalibrationRefinementService)
+    service._frame_scenes = Mock(side_effect=AssertionError("preview was calculated"))
+    draft = SimpleNamespace(
+        draft_id="draft-1",
+        draft_digest="a" * 64,
+        base_calibration_revision_id="calibration-1",
+        base_calibration_digest="b" * 64,
+        anchors=(),
+        to_mapping=lambda: {"draft_id": "draft-1"},
+    )
+
+    response = service._response(
+        "recording-1",
+        "proposal-1",
+        draft,
+        None,
+        include_frame_scenes=False,
+    )
+
+    assert response["preview_complete"] is False
+    assert response["preview"]["candidate_calibration"] is None
+    assert response["preview"]["failure"]["code"] == "preview_not_run"
+    service._frame_scenes.assert_not_called()

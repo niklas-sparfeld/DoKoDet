@@ -39,6 +39,7 @@ FRAME_REVIEW_STATES = ("pending", "complete", "unusable")
 CALIBRATION_DRAFT_STATES = ("clean", "dirty", "blocked")
 CALIBRATION_PREVIEW_STATES = ("pass", "blocked")
 CALIBRATION_FAILURE_CODES = (
+    "preview_not_run",
     "stale_detector_revision",
     "stale_calibration_revision",
     "stale_source_frame",

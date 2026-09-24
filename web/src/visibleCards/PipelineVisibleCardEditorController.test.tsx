@@ -20,12 +20,14 @@ function setup(
   getPipelineReference = vi.fn(async () => reference),
   proposalRevisionId: string | null = null,
   getCalibrationRefinement = vi.fn(async () => ({})),
+  startCalibrationRefinement = vi.fn(async () => ({})),
 ) {
   const input = {
     client: {
       updatePipelineReferenceDraft,
       getPipelineReference,
       getCalibrationRefinement,
+      startCalibrationRefinement,
     } as never,
     recordingId: "recording-1",
     operatorId: "operator-1",
@@ -129,7 +131,7 @@ describe("usePipelineVisibleCardEditorController", () => {
     );
   });
 
-  it("refreshes calibration after an ignore-region command", async () => {
+  it("does not refresh calibration after an ignore-region command", async () => {
     const update = vi.fn().mockResolvedValue(reference);
     const getCalibrationRefinement = vi.fn().mockResolvedValue({});
     const { result } = setup(
@@ -152,12 +154,33 @@ describe("usePipelineVisibleCardEditorController", () => {
     });
 
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
-    await waitFor(() =>
-      expect(getCalibrationRefinement).toHaveBeenCalledWith(
-        "recording-1",
-        "proposal-1",
-      ),
+    expect(getCalibrationRefinement).not.toHaveBeenCalled();
+  });
+
+  it("uses the explicit start action to refresh calibration", async () => {
+    const update = vi.fn().mockResolvedValue(reference);
+    const getCalibrationRefinement = vi.fn().mockResolvedValue({});
+    const startCalibrationRefinement = vi.fn().mockResolvedValue({
+      preview: { status: "pass" },
+    });
+    const { result, input } = setup(
+      update,
+      undefined,
+      "proposal-1",
+      getCalibrationRefinement,
+      startCalibrationRefinement,
     );
+    input.calibrationRefinementRef.current = {
+      draft: { draft_id: "draft-1" },
+    } as never;
+
+    await act(async () => result.current.refreshCalibrationPreview());
+
+    expect(startCalibrationRefinement).toHaveBeenCalledWith("recording-1", {
+      proposal_revision_id: "proposal-1",
+      draft_id: "draft-1",
+    });
+    expect(getCalibrationRefinement).not.toHaveBeenCalled();
   });
 
   it("retries a temporary command failure and then drains the queue", async () => {
