@@ -1249,6 +1249,7 @@ class ProcessorRunStore:
         progress: RunProgress,
         items: tuple[RunItemOutcome, ...],
         output_revision_ids: tuple[str, ...] | list[str] = (),
+        metrics: Mapping[str, Any] | None = None,
         completed_at: datetime | str | None = None,
     ) -> StoredProcessorRun:
         current = self.require(run_id)
@@ -1265,6 +1266,7 @@ class ProcessorRunStore:
                 progress=progress,
                 items=items,
                 output_revision_ids=tuple(output_revision_ids),
+                metrics=current.state.metrics if metrics is None else dict(metrics),
             ),
         )
 
@@ -1321,6 +1323,7 @@ class ProcessorRunStore:
         *,
         progress: RunProgress,
         items: tuple[RunItemOutcome, ...] | None = None,
+        metrics: Mapping[str, Any] | None = None,
         updated_at: datetime | str | None = None,
     ) -> StoredProcessorRun:
         current = self.require(run_id)
@@ -1333,6 +1336,7 @@ class ProcessorRunStore:
                 current.state,
                 progress=progress,
                 items=current.state.items if items is None else items,
+                metrics=current.state.metrics if metrics is None else dict(metrics),
                 updated_at=timestamp,
             ),
         )

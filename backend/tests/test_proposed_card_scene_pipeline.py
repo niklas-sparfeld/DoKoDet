@@ -185,6 +185,17 @@ def test_service_publishes_proposal_without_changing_detector_input(
     assert [run.run_id for run in service.list_runs(source.recording_id)] == [started.run_id]
     assert len(result.state.output_revision_ids) == 1
     assert result.state.terminal_failure is None
+    assert result.state.progress.completed == result.state.progress.total == len(content.outcomes)
+    assert result.state.metrics["activity"] == {
+        "phase": "complete",
+        "message": "Proposed card scenes are ready",
+        "step": 3,
+        "steps": 3,
+    }
+    assert any(
+        entry["message"] == "Calibrating virtual cards"
+        for entry in result.state.metrics["logs"]
+    )
     assert revisions.require(result.state.output_revision_ids[0]).manifest.content_type == (
         "card_scene_proposals"
     )

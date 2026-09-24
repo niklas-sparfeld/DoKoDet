@@ -517,13 +517,6 @@ export function VisibleCardReviewWorkbenchView({
           onSelectTool: (tool) => {
             dispatch({ type: "select_tool", tool });
             onToolChange?.(tool);
-            if (
-              tool === "mapping" &&
-              calibrationRefinement === null &&
-              !mappingLoading
-            ) {
-              onStartMappingPreview?.();
-            }
           },
         }}
       />

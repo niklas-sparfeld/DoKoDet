@@ -111,6 +111,31 @@ def test_proposals_are_repeatable_and_publish_one_calibration_revision(tmp_path:
     )
 
 
+def test_proposal_progress_reports_calibration_steps_and_each_frame() -> None:
+    local_result = _local_result(include_unresolvable=True)
+    updates: list[tuple[str, int, int, str, int, int]] = []
+
+    result = build_proposed_card_scenes(
+        local_result,
+        detector_revision_id="visible-cards-001",
+        detector_revision_digest=DIGEST,
+        progress_callback=lambda *update: updates.append(update),
+    )
+
+    assert result.status == "partial"
+    assert updates[0] == ("calibration", 0, 3, "Calibrating virtual cards", 1, 3)
+    assert updates[1] == ("initialization", 0, 13, "Initializing virtual cards", 2, 3)
+    assert updates[-2] == (
+        "initialization",
+        13,
+        13,
+        "Initializing virtual card frame event-without-frame",
+        2,
+        3,
+    )
+    assert updates[-1] == ("publishing", 2, 3, "Publishing proposed card scenes", 3, 3)
+
+
 def test_proposal_uses_calibration_without_independent_size_reference() -> None:
     result = build_proposed_card_scenes(
         _local_result(),

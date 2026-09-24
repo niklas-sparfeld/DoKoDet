@@ -139,6 +139,76 @@ describe("RunControls", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("shows processor progress, activity steps, and log messages", () => {
+    const activityResponse = runResponse(
+      "activity-run-1",
+      "running",
+      {},
+      {
+        progress: { completed: 3, total: 123 },
+        metrics: {
+          schema_version: "processor-run-activity/v1",
+          activity: {
+            phase: "calibration",
+            message: "Calibrating virtual cards",
+            step: 1,
+            steps: 3,
+          },
+          logs: [
+            {
+              at: "2026-09-24T10:00:00Z",
+              level: "info",
+              message: "Calibrating virtual cards",
+            },
+          ],
+        },
+      },
+    );
+    const activityRun = {
+      ...activityResponse,
+      input_revision_ids: [],
+      implementation: { name: "fixture", version: "v1" },
+      model: null,
+      configuration: {},
+      extraction_policy: { policy_id: "exact-event/v1" },
+      crop_policy: null,
+      output_revision_ids: [],
+      created_at: "2026-09-24T10:00:00Z",
+      started_at: "2026-09-24T10:00:00Z",
+      completed_at: null,
+      updated_at: "2026-09-24T10:00:00Z",
+      progress: { completed: 3, total: 123 },
+      failure: null,
+      failed_item_count: 0,
+    } as unknown as PipelineWorkspaceStage["runs"][number];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(activityRun), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
+
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={stage("events", { runs: [activityRun] })}
+        stages={[stage("events", { runs: [activityRun] })]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    expect(screen.getByText("Progress: 3 / 123 items")).toBeInTheDocument();
+    expect(
+      screen.getByText("Calibrating virtual cards (step 1/3)"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Processor log (1 messages)")).toBeInTheDocument();
+  });
+
   it("shows the checkpoint configuration error when a run cannot start", async () => {
     const message =
       "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH.";

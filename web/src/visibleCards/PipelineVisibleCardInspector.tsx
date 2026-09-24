@@ -18,6 +18,11 @@ import {
   formatFrameTime,
   formatIdentifier,
 } from "./PipelineVisibleCardFormatting";
+import {
+  readNumber,
+  readObject,
+  readRunActivity,
+} from "../pipeline/ObservationRunFormatting";
 import type { EditableFrame, SaveState } from "./PipelineVisibleCardTypes";
 
 export type VisibleCardInspectorSlots = {
@@ -118,6 +123,7 @@ export type VisibleCardInspectorProps = {
   calibrationLoading: boolean;
   calibrationError: string | null;
   startCalibrationRefinement: () => void;
+  refreshCalibrationPreview: () => void;
   discardCalibrationRefinement: () => void;
   applyCalibrationRefinement: (confirmAffected: boolean) => void;
   onSelectCalibrationFrame: (frameId: string) => void;
@@ -195,6 +201,7 @@ function VisibleCardInspectorAction({
   calibrationLoading,
   calibrationError,
   startCalibrationRefinement,
+  refreshCalibrationPreview,
   discardCalibrationRefinement,
   applyCalibrationRefinement,
   onSelectFitDiagnosticFrame,
@@ -422,6 +429,7 @@ function VisibleCardInspectorAction({
         loading={calibrationLoading}
         error={calibrationError}
         onStart={startCalibrationRefinement}
+        onRefresh={refreshCalibrationPreview}
         onDiscard={discardCalibrationRefinement}
         onApply={applyCalibrationRefinement}
         canApply={saveState === "saved" && queueLength === 0}
@@ -436,6 +444,7 @@ function CalibrationRefinementControls({
   loading,
   error,
   onStart,
+  onRefresh,
   onDiscard,
   onApply,
   canApply,
@@ -445,6 +454,7 @@ function CalibrationRefinementControls({
   loading: boolean;
   error: string | null;
   onStart: () => void;
+  onRefresh: () => void;
   onDiscard: () => void;
   onApply: (confirmAffected: boolean) => void;
   canApply: boolean;
@@ -505,6 +515,16 @@ function CalibrationRefinementControls({
             {refinement.preview.accepted_anchor_count} confirmed anchors ·{" "}
             {refinement.preview.changed_frame_ids.length} changed frames
           </p>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            {loading
+              ? "Updating recording-wide preview…"
+              : "Update recording-wide preview"}
+          </button>
           <button
             className={styles.secondaryButton}
             type="button"
@@ -571,6 +591,10 @@ function ProposalControls({
 }) {
   const status = proposalRun?.status ?? null;
   const fitDiagnostics = readCalibrationFitDiagnostics(proposalRun);
+  const activity = readRunActivity(proposalRun?.state);
+  const progress = readObject(proposalRun?.state.progress);
+  const completed = readNumber(progress?.completed);
+  const total = readNumber(progress?.total);
   return (
     <section
       className={visibleStyles.proposalControls}
@@ -585,6 +609,29 @@ function ProposalControls({
             ? "Preserve the virtual cards and table homography for review and failure analysis."
             : `Run status: ${formatIdentifier(status)}${proposalRevisionId === null ? "" : ` · ${proposalRevisionId}`}`}
       </p>
+      {activity?.message !== null && activity?.message !== undefined ? (
+        <p className={styles.pipelineInspectorEmpty}>
+          {activity.message}
+          {activity.step !== null && activity.steps !== null
+            ? ` (step ${activity.step}/${activity.steps})`
+            : ""}
+        </p>
+      ) : null}
+      {completed !== null && total !== null && total > 0 ? (
+        <p className={styles.pipelineInspectorEmpty}>
+          Progress: {completed} / {total} frames
+        </p>
+      ) : null}
+      {activity !== null && activity.logs.length > 0 ? (
+        <details className={styles.pipelineRunHistory}>
+          <summary>Processor log ({activity.logs.length} messages)</summary>
+          <ol>
+            {activity.logs.slice(-50).map((entry, index) => (
+              <li key={`${entry.at ?? "log"}-${index}`}>{entry.message}</li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
       {proposalError !== null ? (
         <p className={visibleStyles.error} role="alert">
           {proposalError}
@@ -805,8 +852,11 @@ function CalibrationPreviewPanel({
         aria-label="Calibration preview"
         aria-live="polite"
       >
-        <strong>Calibration preview: Updating</strong>
-        <p>Calculating the recording-wide scene impact.</p>
+        <strong>Recording-wide preview not updated</strong>
+        <p>
+          Anchor changes are saved. Update the preview when you are ready to
+          calculate scene impact.
+        </p>
       </section>
     );
   }

@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from table_evidence_analyzer.card_scene_contract import ProposedCardScene
 from table_evidence_analyzer.pipeline_data import (
@@ -39,6 +39,9 @@ PROPOSED_CARD_SCENE_PROCESSOR_TYPE = "visible-card-scene-proposal"
 
 class ProposedCardSceneProcessorError(ValueError):
     """Raised when a generated visible-card result cannot be used for proposals."""
+
+
+ProgressCallback = Callable[[str, int, int, str, int, int], None]
 
 
 def _digest(value: Any) -> str:
@@ -163,6 +166,7 @@ def build_proposed_card_scenes(
     calibration_size_reference: Mapping[str, Any] | None = None,
     calibration_size_reference_revision: str | None = None,
     pose_recipe: PoseFitRecipe | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> ProposedCardSceneProcessorResult:
     """Calibrate one generated result and initialize a proposal for every resolvable frame."""
 
@@ -171,6 +175,15 @@ def build_proposed_card_scenes(
         raise ProposedCardSceneProcessorError(
             "local result source revision does not match the selected detector revision"
         )
+    if progress_callback is not None:
+        progress_callback(
+            "calibration",
+            0,
+            3,
+            "Calibrating virtual cards",
+            1,
+            3,
+        )
     run = calibrate_recording(
         selected,
         recipe=calibration_recipe,
@@ -178,6 +191,15 @@ def build_proposed_card_scenes(
         size_reference_revision=calibration_size_reference_revision,
     )
     if run.status != "published" or run.calibration is None:
+        if progress_callback is not None:
+            progress_callback(
+                "calibration",
+                1,
+                3,
+                "Calibration failed",
+                1,
+                3,
+            )
         failure = None if run.failure is None else run.failure.to_mapping()
         value = {
             "schema_version": PROPOSED_CARD_SCENE_PROCESSOR_SCHEMA_VERSION,
@@ -198,6 +220,20 @@ def build_proposed_card_scenes(
         calibration_store.publish(run)
     calibration = run.calibration
     assert calibration is not None
+    if progress_callback is not None:
+        raw_frames = selected.get("frames", [])
+        unresolved = selected.get("unresolvable_frames", [])
+        total_frames = (
+            len(raw_frames) if isinstance(raw_frames, list) else 0
+        ) + (len(unresolved) if isinstance(unresolved, list) else 0)
+        progress_callback(
+            "initialization",
+            0,
+            total_frames,
+            "Initializing virtual cards",
+            2,
+            3,
+        )
     data = build_proposed_card_scene_data(
         selected,
         detector_revision_id=detector_revision_id,
@@ -205,7 +241,17 @@ def build_proposed_card_scenes(
         calibration=calibration,
         calibration_diagnostics=run.diagnostics,
         pose_recipe=pose_recipe,
+        progress_callback=progress_callback,
     )
+    if progress_callback is not None:
+        progress_callback(
+            "publishing",
+            2,
+            3,
+            "Publishing proposed card scenes",
+            3,
+            3,
+        )
     status = "complete" if all(item.status == "supported" for item in data.frames) else "partial"
     value = {
         "schema_version": PROPOSED_CARD_SCENE_PROCESSOR_SCHEMA_VERSION,
@@ -231,6 +277,7 @@ def build_proposed_card_scene_data(
     calibration: Any,
     calibration_diagnostics: Mapping[str, Any],
     pose_recipe: PoseFitRecipe | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> ProposedCardSceneData:
     """Initialize proposal scenes from a supplied immutable calibration."""
 
@@ -240,6 +287,11 @@ def build_proposed_card_scene_data(
         raise ProposedCardSceneProcessorError("local result.frames must be a list")
     frames: list[ProposedCardSceneFrame] = []
     seen_frame_ids: set[str] = set()
+    raw_unresolvable_frames = selected.get("unresolvable_frames", [])
+    total_frames = len(raw_frames) + (
+        len(raw_unresolvable_frames) if isinstance(raw_unresolvable_frames, list) else 0
+    )
+    completed_frames = 0
     for raw_frame in raw_frames:
         frame = _mapping(raw_frame, "local result frame")
         frame_id = frame.get("frame_id")
@@ -257,6 +309,16 @@ def build_proposed_card_scene_data(
                     unsupported_reason="source_frame_digest_unavailable",
                 )
             )
+            completed_frames += 1
+            if progress_callback is not None:
+                progress_callback(
+                    "initialization",
+                    completed_frames,
+                    total_frames,
+                    f"Initializing virtual card frame {frame_id}",
+                    2,
+                    3,
+                )
             continue
         initialized = initialize_card_scene(
             {
@@ -308,6 +370,16 @@ def build_proposed_card_scene_data(
                     unsupported_reason=reason,
                 )
             )
+            completed_frames += 1
+            if progress_callback is not None:
+                progress_callback(
+                    "initialization",
+                    completed_frames,
+                    total_frames,
+                    f"Initializing virtual card frame {frame_id}",
+                    2,
+                    3,
+                )
             continue
         proposal = ProposedCardScene.create(
             proposal_id=f"proposal-{frame_id}",
@@ -343,8 +415,18 @@ def build_proposed_card_scene_data(
                 unsupported_reason=None,
             )
         )
+        completed_frames += 1
+        if progress_callback is not None:
+            progress_callback(
+                "initialization",
+                completed_frames,
+                total_frames,
+                f"Initializing virtual card frame {frame_id}",
+                2,
+                3,
+            )
 
-    unresolvable_frames = selected.get("unresolvable_frames", [])
+    unresolvable_frames = raw_unresolvable_frames
     if not isinstance(unresolvable_frames, list):
         raise ProposedCardSceneProcessorError("local result.unresolvable_frames must be a list")
     for raw_frame in unresolvable_frames:
@@ -369,6 +451,16 @@ def build_proposed_card_scene_data(
                 unsupported_reason=reason,
             )
         )
+        completed_frames += 1
+        if progress_callback is not None:
+            progress_callback(
+                "initialization",
+                completed_frames,
+                total_frames,
+                f"Initializing virtual card frame {frame_id}",
+                2,
+                3,
+            )
 
     return ProposedCardSceneData.create(
         detector_revision_id=detector_revision_id,

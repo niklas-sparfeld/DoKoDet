@@ -141,15 +141,6 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
   >(null);
   const calibrationCommandQueueRef = useRef<Promise<void>>(Promise.resolve());
   const calibrationCommandsPendingRef = useRef(0);
-  const calibrationPreviewTimerRef = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (calibrationPreviewTimerRef.current !== null) {
-        window.clearTimeout(calibrationPreviewTimerRef.current);
-      }
-    },
-    [],
-  );
 
   const loadCalibrationRefinement = useCallback(async () => {
     const current = inputRef.current;
@@ -197,6 +188,29 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
       );
       current.calibrationRefinementRef.current = started;
       current.setCalibrationRefinement(started);
+    } catch (reason: unknown) {
+      current.setCalibrationError(describeError(reason));
+    } finally {
+      current.setCalibrationLoading(false);
+    }
+  }, []);
+
+  const refreshCalibrationPreview = useCallback(async () => {
+    const current = inputRef.current;
+    const refinement = current.calibrationRefinementRef.current;
+    const proposalRevisionId = current.calibrationProposalRevisionId;
+    const draftId = refinement?.draft.draft_id;
+    if (proposalRevisionId === null || typeof draftId !== "string") return;
+    current.setCalibrationLoading(true);
+    current.setCalibrationError(null);
+    try {
+      const refreshed = await current.client.getCalibrationRefinement(
+        current.recordingId,
+        proposalRevisionId,
+        draftId,
+      );
+      current.calibrationRefinementRef.current = refreshed;
+      current.setCalibrationRefinement(refreshed);
     } catch (reason: unknown) {
       current.setCalibrationError(describeError(reason));
     } finally {
@@ -253,33 +267,6 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
             );
             current.calibrationRefinementRef.current = updated;
             current.setCalibrationRefinement(updated);
-            if (calibrationPreviewTimerRef.current !== null)
-              window.clearTimeout(calibrationPreviewTimerRef.current);
-            calibrationPreviewTimerRef.current = window.setTimeout(() => {
-              calibrationPreviewTimerRef.current = null;
-              if (calibrationCommandsPendingRef.current > 0) return;
-              void current.client
-                .getCalibrationRefinement(
-                  current.recordingId,
-                  updated.proposal_revision_id,
-                  draftId,
-                )
-                .then((complete) => {
-                  const latest = current.calibrationRefinementRef.current;
-                  if (
-                    latest !== null &&
-                    latest.draft.revision === complete.draft.revision &&
-                    latest.proposal_revision_id ===
-                      complete.proposal_revision_id
-                  ) {
-                    current.calibrationRefinementRef.current = complete;
-                    current.setCalibrationRefinement(complete);
-                  }
-                })
-                .catch((reason: unknown) =>
-                  current.setCalibrationError(describeError(reason)),
-                );
-            }, 400);
             return true;
           } catch (reason: unknown) {
             current.setCalibrationError(describeError(reason));
@@ -298,10 +285,6 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
   );
 
   const discardCalibrationRefinement = useCallback(async () => {
-    if (calibrationPreviewTimerRef.current !== null) {
-      window.clearTimeout(calibrationPreviewTimerRef.current);
-      calibrationPreviewTimerRef.current = null;
-    }
     const current = inputRef.current;
     const refinement = current.calibrationRefinementRef.current;
     const draftId = refinement?.draft.draft_id;
@@ -952,6 +935,7 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     retryProposal,
     loadCalibrationRefinement,
     startCalibrationRefinement,
+    refreshCalibrationPreview,
     updateCalibrationAnchor,
     discardCalibrationRefinement,
     applyCalibrationRefinement,

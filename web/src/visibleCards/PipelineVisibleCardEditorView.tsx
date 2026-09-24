@@ -302,6 +302,7 @@ export function PipelineVisibleCardEditorView({
     retryProposal,
     loadCalibrationRefinement,
     startCalibrationRefinement,
+    refreshCalibrationPreview,
     updateCalibrationAnchor,
     discardCalibrationRefinement,
     applyCalibrationRefinement,
@@ -1648,6 +1649,7 @@ export function PipelineVisibleCardEditorView({
       calibrationLoading={calibrationLoading}
       calibrationError={calibrationError}
       startCalibrationRefinement={() => void startCalibrationRefinement()}
+      refreshCalibrationPreview={() => void refreshCalibrationPreview()}
       discardCalibrationRefinement={() => void discardCalibrationRefinement()}
       applyCalibrationRefinement={(confirmAffected) =>
         void applyCalibrationRefinement(confirmAffected)

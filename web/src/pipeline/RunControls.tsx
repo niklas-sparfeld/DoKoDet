@@ -14,6 +14,7 @@ import {
   ProbabilityOverlay,
   readProbabilityMetrics,
 } from "./ProbabilityOverlay";
+import { readRunActivity } from "./ObservationRunFormatting";
 
 type RunStageKey = Extract<
   PipelineStageKey,
@@ -520,6 +521,7 @@ function RunStatus({
   const total = readNumber(progress?.total);
   const failure = readObject(state.terminal_failure);
   const failureMessage = readString(failure?.message);
+  const activity = readRunActivity(state);
   const probabilityMetrics = showProbabilities
     ? readProbabilityMetrics(state)
     : null;
@@ -542,7 +544,25 @@ function RunStatus({
           Progress: {completed} / {total} items
         </p>
       ) : null}
+      {activity?.message !== null && activity?.message !== undefined ? (
+        <p>
+          {activity.message}
+          {activity.step !== null && activity.steps !== null
+            ? ` (step ${activity.step}/${activity.steps})`
+            : ""}
+        </p>
+      ) : null}
       {failureMessage !== null ? <p>{failureMessage}</p> : null}
+      {activity !== null && activity.logs.length > 0 ? (
+        <details className={styles.pipelineRunHistory}>
+          <summary>Processor log ({activity.logs.length} messages)</summary>
+          <ol>
+            {activity.logs.slice(-50).map((entry, index) => (
+              <li key={`${entry.at ?? "log"}-${index}`}>{entry.message}</li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
       <dl className={styles.pipelineRunFacts}>
         <div>
           <dt>Run</dt>

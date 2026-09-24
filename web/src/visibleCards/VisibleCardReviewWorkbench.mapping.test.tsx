@@ -498,7 +498,7 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("starts the current mapping preview when mapping edit mode opens", async () => {
+  it("starts the current mapping preview only from the explicit mapping action", async () => {
     const onStartMappingPreview = vi.fn();
     const user = userEvent.setup();
     render(
@@ -513,6 +513,11 @@ describe("VisibleCardReviewWorkbench", () => {
 
     await user.click(
       screen.getByRole("button", { name: "Edit Mapping diagnostics" }),
+    );
+
+    expect(onStartMappingPreview).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Start mapping preview Click" }),
     );
 
     expect(onStartMappingPreview).toHaveBeenCalledOnce();

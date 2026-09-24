@@ -4,6 +4,7 @@ import {
   formatValue,
   readNumber,
   readObject,
+  readRunActivity,
   readString,
   runStatusMessage,
   type RunFacts,
@@ -72,6 +73,7 @@ export function PipelineRunStatus({
   const completed = readNumber(progress?.completed);
   const total = readNumber(progress?.total);
   const failure = readObject(run.state.terminal_failure);
+  const activity = readRunActivity(run.state);
   return (
     <div className={styles.pipelineRunStatus} role="status">
       <p>{runStatusMessage(run.status)}</p>
@@ -80,8 +82,26 @@ export function PipelineRunStatus({
           Progress: {completed} / {total} items
         </p>
       ) : null}
+      {activity?.message !== null && activity?.message !== undefined ? (
+        <p>
+          {activity.message}
+          {activity.step !== null && activity.steps !== null
+            ? ` (step ${activity.step}/${activity.steps})`
+            : ""}
+        </p>
+      ) : null}
       {readString(failure?.message) !== null ? (
         <p>{readString(failure?.message)}</p>
+      ) : null}
+      {activity !== null && activity.logs.length > 0 ? (
+        <details className={styles.pipelineRunHistory}>
+          <summary>Processor log ({activity.logs.length} messages)</summary>
+          <ol>
+            {activity.logs.slice(-50).map((entry, index) => (
+              <li key={`${entry.at ?? "log"}-${index}`}>{entry.message}</li>
+            ))}
+          </ol>
+        </details>
       ) : null}
       <dl className={styles.pipelineRunFacts}>
         <div>

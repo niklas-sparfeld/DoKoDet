@@ -235,11 +235,31 @@ class ProposedCardScenePipelineService:
                 recording_id=run.request.source.recording_id,
                 source_revision=source_revision.manifest.revision_id,
             )
+
+            def report_progress(
+                phase: str,
+                completed: int,
+                total: int,
+                message: str,
+                step: int,
+                steps: int,
+            ) -> None:
+                self._report_progress(
+                    run_id,
+                    phase=phase,
+                    completed=completed,
+                    total=total,
+                    message=message,
+                    step=step,
+                    steps=steps,
+                )
+
             processor_result = build_proposed_card_scenes(
                 local_result,
                 detector_revision_id=source_revision.manifest.revision_id,
                 detector_revision_digest=source_revision.manifest.content_sha256,
                 calibration_store=CalibrationRevisionStore(self.settings.operations_root),
+                progress_callback=report_progress,
             )
             if processor_result.data is None:
                 failure = processor_result.failure or {
@@ -251,6 +271,7 @@ class ProposedCardScenePipelineService:
                     run_id,
                     RunFailure(code=str(failure["code"]), message=str(failure["message"])),
                     metrics={
+                        **self._current_metrics(run_id),
                         "schema_version": "proposed-card-scene-failure-diagnostics/v1",
                         "processor_result_digest": processor_result.result_digest,
                         "calibration_run": processor_result.calibration_run.to_mapping(),
@@ -268,12 +289,23 @@ class ProposedCardScenePipelineService:
                 for frame in processor_result.data.frames
             )
             progress = RunProgress(completed=len(items), total=len(items))
+            self._report_progress(
+                run_id,
+                phase="complete",
+                completed=len(items),
+                total=len(items),
+                message="Proposed card scenes are ready",
+                step=3,
+                steps=3,
+            )
+            metrics = self._current_metrics(run_id)
             if processor_result.status == "partial":
                 self.run_store.partial(
                     run_id,
                     progress=progress,
                     items=items,
                     output_revision_ids=[revision.manifest.revision_id],
+                    metrics=metrics,
                 )
             else:
                 self.run_store.complete(
@@ -281,6 +313,7 @@ class ProposedCardScenePipelineService:
                     [revision.manifest.revision_id],
                     progress=progress,
                     items=items,
+                    metrics=metrics,
                 )
         except (ProposedCardSceneProcessorError, PipelineNotFound, PipelineConflict) as error:
             self._fail_safely(run_id, "proposal_failed", str(error))
@@ -329,9 +362,96 @@ class ProposedCardScenePipelineService:
         try:
             current = self.run_store.get(run_id)
             if current is not None and current.state.status == "running":
-                self.run_store.fail(run_id, RunFailure(code=code, message=message))
+                metrics = self._current_metrics(run_id, current=current)
+                logs = metrics.get("logs")
+                activity_logs = list(logs) if isinstance(logs, list) else []
+                activity_logs.append({"at": _now(), "level": "error", "message": message})
+                metrics.update(
+                    {
+                        "schema_version": "processor-run-activity/v1",
+                        "activity": {
+                            "phase": "failed",
+                            "message": message,
+                            "step": None,
+                            "steps": None,
+                        },
+                        "logs": activity_logs,
+                    }
+                )
+                self.run_store.fail(
+                    run_id,
+                    RunFailure(code=code, message=message),
+                    metrics=metrics,
+                )
+                LOGGER.error(
+                    "proposed_card_scene_pipeline_failed run_id=%s code=%s message=%s",
+                    run_id,
+                    code,
+                    message,
+                )
         except Exception:
             LOGGER.exception("proposed_card_scene_pipeline_failure_persist_failed")
+
+    def _report_progress(
+        self,
+        run_id: str,
+        *,
+        phase: str,
+        completed: int,
+        total: int,
+        message: str,
+        step: int,
+        steps: int,
+    ) -> None:
+        current = self.run_store.require(
+            run_id,
+            include_items=False,
+            validate_output_revisions=False,
+        )
+        metrics = self._current_metrics(run_id, current=current)
+        raw_logs = metrics.get("logs")
+        logs = list(raw_logs) if isinstance(raw_logs, list) else []
+        logs.append({"at": _now(), "level": "info", "message": message})
+        activity = {
+            "phase": phase,
+            "message": message,
+            "step": step,
+            "steps": steps,
+        }
+        next_metrics = {
+            **metrics,
+            "schema_version": "processor-run-activity/v1",
+            "activity": activity,
+            "logs": logs,
+        }
+        self.run_store.update_progress(
+            run_id,
+            progress=RunProgress(completed=completed, total=total),
+            metrics=next_metrics,
+        )
+        LOGGER.info(
+            "proposed_card_scene_progress run_id=%s phase=%s step=%s/%s progress=%s/%s message=%s",
+            run_id,
+            phase,
+            step,
+            steps,
+            completed,
+            total,
+            message,
+        )
+
+    def _current_metrics(
+        self,
+        run_id: str,
+        *,
+        current: StoredProcessorRun | None = None,
+    ) -> dict[str, Any]:
+        run = current or self.run_store.require(
+            run_id,
+            include_items=False,
+            validate_output_revisions=False,
+        )
+        return dict(run.state.metrics)
 
     @staticmethod
     def _require_recording(source: RecordingVideoSource, recording_id: str) -> None:

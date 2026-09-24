@@ -99,6 +99,35 @@ export function readString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+export type RunActivity = {
+  phase: string | null;
+  message: string | null;
+  step: number | null;
+  steps: number | null;
+  logs: Array<{ at: string | null; message: string }>;
+};
+
+export function readRunActivity(
+  state: Record<string, unknown> | null | undefined,
+): RunActivity | null {
+  const metrics = readObject(state?.metrics);
+  const activity = readObject(metrics?.activity);
+  const rawLogs = Array.isArray(metrics?.logs) ? metrics.logs : [];
+  const logs = rawLogs.flatMap((entry) => {
+    const log = readObject(entry);
+    const message = readString(log?.message);
+    return message === null ? [] : [{ at: readString(log?.at), message }];
+  });
+  if (activity === null && logs.length === 0) return null;
+  return {
+    phase: readString(activity?.phase),
+    message: readString(activity?.message),
+    step: readNumber(activity?.step),
+    steps: readNumber(activity?.steps),
+    logs,
+  };
+}
+
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string")
     ? value

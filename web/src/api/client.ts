@@ -77,7 +77,7 @@ export type CalibrationRefinementResponse = {
   schema_version: "table-plane-calibration-refinement/v1";
   recording_id: string;
   proposal_revision_id: string;
-  /** False while an anchor edit has a quick fit but the scene impact is refreshing. */
+  /** False when the draft has quick anchor-fit data but no recording-wide preview. */
   preview_complete?: boolean;
   draft: Record<string, unknown>;
   preview: {
