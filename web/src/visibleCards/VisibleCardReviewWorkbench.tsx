@@ -15,12 +15,20 @@ import { createPortal } from "react-dom";
 import type { CalibrationRefinementResponse } from "../api/client";
 import { pipelineDerivedFramePath } from "../api/client";
 import type { CalibrationFitDiagnosticOutline } from "./CalibrationFitDiagnostics";
-import {
-  TimelineRailSeekingControls,
-  useTimelineRailReviewControlsSlot,
-} from "../pipeline/TimelineRailSeekingControls";
+import { useTimelineRailReviewControlsSlot } from "../pipeline/TimelineRailSeekingControls";
 import styles from "./PipelineVisibleCardEditor.module.css";
-import { formatIdentifier } from "./PipelineVisibleCardFormatting";
+import {
+  WorkbenchCommandBar,
+  WorkbenchTimelineSelectionActions,
+  type WorkbenchCalibrationAnchor,
+} from "./VisibleCardWorkbenchControls";
+import { WorkbenchProposalColumn } from "./VisibleCardWorkbenchProposalPresentation";
+import {
+  candidateIsCoveredByIgnoreRegions,
+  clamp,
+  posePolygon,
+  selectedPoseForSelection,
+} from "./VisibleCardWorkbenchGeometry";
 import {
   applyPoseSceneAction,
   ANCHOR_STATES,
@@ -56,12 +64,10 @@ import {
   workbenchCapabilitiesFromFrame,
   workbenchViewportShortcut,
   WORKBENCH_LAYER_DRAW_ORDER,
-  WORKBENCH_LAYERS,
   type WorkbenchLayer,
   type WorkbenchPreferences,
   type WorkbenchSelection,
   type WorkbenchViewpoint,
-  type VisibleCardReviewWorkbenchState,
 } from "./VisibleCardReviewWorkbenchState";
 
 type CandidateCalibration = {
@@ -100,15 +106,6 @@ export type MappingWorkbenchAction =
   | "exclude_anchor"
   | "start_mapping_preview"
   | "discard_mapping_preview";
-
-type WorkbenchCalibrationAnchor = {
-  anchorId: string;
-  cardId: string;
-  sourceFrameId: string;
-  eligible: boolean;
-  state: AnchorState;
-  corners: TablePoint[];
-};
 
 type WorkbenchPointHandler = (
   event: ReactPointerEvent<SVGSVGElement>,
@@ -196,22 +193,6 @@ export type VisibleCardReviewWorkbenchProps = {
   onPointerCancel?: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onDeleteSelectedPoint?: (event: ReactKeyboardEvent<SVGSVGElement>) => void;
 };
-
-const VIEWPOINT_LABELS: Record<WorkbenchViewpoint, string> = {
-  camera: "Camera",
-  rectified: "Rectified",
-};
-
-const LAYER_LABELS: Record<WorkbenchLayer, string> = {
-  visible_regions: "Visible regions",
-  virtual_cards: "Virtual cards",
-  ignore_regions: "Ignore regions",
-  suggestions: "Detector suggestions",
-  mapping: "Mapping diagnostics",
-};
-
-const LATER_EDIT_REASON =
-  "This edit tool is planned for a later workbench phase.";
 
 export function VisibleCardReviewWorkbench({
   recordingId,
@@ -1074,25 +1055,38 @@ export function VisibleCardReviewWorkbench({
 
   const timelineSelectionActions = (
     <WorkbenchTimelineSelectionActions
-      state={activeState}
-      readOnly={readOnly}
-      selectedCandidateIds={selectedCandidateIds}
-      editor={editor}
-      canCopyIgnoreRegions={canCopyIgnoreRegions}
-      canRestoreSuggestion={canRestoreSuggestion}
-      frameDecision={frameDecision}
-      scene={scene}
-      calibrationRefinement={calibrationRefinement}
-      mappingAnchors={mappingAnchors}
-      mappingLoading={mappingLoading}
-      anchorCornerIndex={anchorCornerIndex}
-      numericAnchor={numericAnchor}
-      onNumericChange={beginMappingNumericEdit}
-      onEmitNumeric={emitNumericAnchorCommand}
-      onCardDecision={onCardDecision}
-      onResolveRemaining={onResolveRemaining}
-      onSceneAction={applySceneAction}
-      onAction={handleWorkbenchAction}
+      viewModel={{
+        activeTool: activeState.activeTool,
+        selection: activeState.selection,
+        readOnly,
+        selectedCandidateIds,
+        editor:
+          editor === null
+            ? null
+            : {
+                cardId: editor.cardId,
+                polygonCount: editor.polygons.length,
+                polygonIndex: editor.polygonIndex,
+              },
+        sourceAvailable: availability.viewpoints.camera.available,
+        canCopyIgnoreRegions,
+        canRestoreSuggestion,
+        frameDecision,
+        scene,
+        calibrationRefinement,
+        mappingAnchors,
+        mappingLoading,
+        anchorCornerIndex,
+        numericAnchor,
+      }}
+      callbacks={{
+        onNumericChange: beginMappingNumericEdit,
+        onEmitNumeric: emitNumericAnchorCommand,
+        onCardDecision,
+        onResolveRemaining,
+        onSceneAction: applySceneAction,
+        onAction: handleWorkbenchAction,
+      }}
     />
   );
 
@@ -1104,24 +1098,32 @@ export function VisibleCardReviewWorkbench({
       data-read-only={readOnly}
     >
       <WorkbenchCommandBar
-        state={activeState}
-        availability={availability}
-        readOnly={readOnly}
-        enabledEditTools={
-          enabledEditTools ?? ["visible_regions", "virtual_cards", "mapping"]
-        }
-        onToggleViewpoint={() => dispatch({ type: "toggle_viewpoint" })}
-        onToggleLayer={(layer) => dispatch({ type: "toggle_layer", layer })}
-        onSelectTool={(tool) => {
-          dispatch({ type: "select_tool", tool });
-          onToolChange?.(tool);
-          if (
-            tool === "mapping" &&
-            calibrationRefinement === null &&
-            !mappingLoading
-          ) {
-            onStartMappingPreview?.();
-          }
+        viewModel={{
+          viewpoint: activeState.viewpoint,
+          enabledLayers: activeState.enabledLayers,
+          activeTool: activeState.activeTool,
+          availability,
+          readOnly,
+          enabledEditTools: enabledEditTools ?? [
+            "visible_regions",
+            "virtual_cards",
+            "mapping",
+          ],
+        }}
+        callbacks={{
+          onToggleViewpoint: () => dispatch({ type: "toggle_viewpoint" }),
+          onToggleLayer: (layer) => dispatch({ type: "toggle_layer", layer }),
+          onSelectTool: (tool) => {
+            dispatch({ type: "select_tool", tool });
+            onToolChange?.(tool);
+            if (
+              tool === "mapping" &&
+              calibrationRefinement === null &&
+              !mappingLoading
+            ) {
+              onStartMappingPreview?.();
+            }
+          },
         }}
       />
       {timelineReviewControlsSlot === null
@@ -1172,7 +1174,15 @@ export function VisibleCardReviewWorkbench({
             frameHeight={height}
             readOnly={readOnly}
             selection={activeState.selection}
-            editor={editor}
+            editor={
+              editor === null
+                ? null
+                : {
+                    cardId: editor.cardId,
+                    polygonCount: editor.polygons.length,
+                    polygonIndex: editor.polygonIndex,
+                  }
+            }
             editorError={editorError}
             selectedCandidateIds={selectedCandidateIds}
             onToggleCandidateSelection={(cardId) => {
@@ -1209,1208 +1219,6 @@ export function VisibleCardReviewWorkbench({
       </div>
     </section>
   );
-}
-
-function WorkbenchCommandBar({
-  state,
-  availability,
-  readOnly,
-  enabledEditTools,
-  onToggleViewpoint,
-  onToggleLayer,
-  onSelectTool,
-}: {
-  state: VisibleCardReviewWorkbenchState;
-  availability: ReturnType<typeof getWorkbenchAvailability>;
-  readOnly: boolean;
-  enabledEditTools: readonly WorkbenchPreferences["activeTool"][];
-  onToggleViewpoint: () => void;
-  onToggleLayer: (layer: WorkbenchLayer) => void;
-  onSelectTool: (tool: WorkbenchPreferences["activeTool"]) => void;
-}) {
-  const nextViewpoint = state.viewpoint === "camera" ? "rectified" : "camera";
-  const viewpointAvailability = availability.viewpoints[nextViewpoint];
-  const viewpointLabel = `Viewpoint: ${VIEWPOINT_LABELS[state.viewpoint]}. Switch to ${VIEWPOINT_LABELS[nextViewpoint]}`;
-  return (
-    <div
-      className={styles.workbenchCommandBar}
-      aria-label="Workbench command bar"
-      role="toolbar"
-    >
-      <div className={styles.workbenchCommandGroup} aria-label="View">
-        <span className={styles.workbenchCommandLabel}>View</span>
-        <button
-          type="button"
-          className={styles.workbenchToggle}
-          aria-label={viewpointLabel}
-          title={viewpointAvailability.disabledReason ?? undefined}
-          disabled={!viewpointAvailability.available}
-          onClick={onToggleViewpoint}
-        >
-          {VIEWPOINT_LABELS[state.viewpoint]}
-        </button>
-      </div>
-      <div className={styles.workbenchCommandGroup} aria-label="Show">
-        <span className={styles.workbenchCommandLabel}>Show</span>
-        {WORKBENCH_LAYERS.map((layer) => {
-          const layerAvailability = availability.layers[layer];
-          return (
-            <button
-              key={layer}
-              type="button"
-              className={styles.workbenchToggle}
-              aria-label={LAYER_LABELS[layer]}
-              aria-pressed={state.enabledLayers.includes(layer)}
-              title={layerAvailability.disabledReason ?? undefined}
-              disabled={!layerAvailability.available}
-              onClick={() => onToggleLayer(layer)}
-            >
-              {LAYER_LABELS[layer]}
-            </button>
-          );
-        })}
-      </div>
-      <div className={styles.workbenchCommandGroup} aria-label="Edit">
-        <span className={styles.workbenchCommandLabel}>Edit</span>
-        {(["visible_regions", "virtual_cards", "mapping"] as const).map(
-          (tool) => {
-            const toolAvailability = availability.tools[tool];
-            const enabledInPhase = enabledEditTools.includes(tool);
-            const disabledReason = readOnly
-              ? toolAvailability.mutationDisabledReason
-              : enabledInPhase
-                ? null
-                : LATER_EDIT_REASON;
-            return (
-              <button
-                key={tool}
-                type="button"
-                className={styles.workbenchToggle}
-                aria-pressed={state.activeTool === tool}
-                aria-label={`Edit ${LAYER_LABELS[tool]}`}
-                title={
-                  (toolAvailability.available
-                    ? disabledReason
-                    : toolAvailability.disabledReason) ?? undefined
-                }
-                disabled={
-                  !toolAvailability.available || disabledReason !== null
-                }
-                onClick={() => onSelectTool(tool)}
-              >
-                {tool === "mapping" ? "Mapping" : LAYER_LABELS[tool]}
-              </button>
-            );
-          },
-        )}
-      </div>
-    </div>
-  );
-}
-
-type WorkbenchTimelineSelectionActionsProps = {
-  state: VisibleCardReviewWorkbenchState;
-  readOnly: boolean;
-  selectedCandidateIds: string[];
-  editor: EditorState | null;
-  canCopyIgnoreRegions: boolean;
-  canRestoreSuggestion: boolean;
-  frameDecision?: VisibleCardFrameDecision;
-  scene: PoseSceneEnvelope | null;
-  calibrationRefinement: CalibrationRefinementResponse | null;
-  mappingAnchors: WorkbenchCalibrationAnchor[];
-  mappingLoading: boolean;
-  anchorCornerIndex: number;
-  numericAnchor: { anchorId: string; point: TablePoint } | null;
-  onNumericChange: (value: number, axis: 0 | 1) => void;
-  onEmitNumeric: () => void;
-  onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
-  onResolveRemaining?: () => void;
-  onSceneAction: (
-    action: Parameters<typeof applyPoseSceneAction>[1],
-    notice: string,
-  ) => void;
-  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
-};
-
-function WorkbenchTimelineSelectionActions({
-  state,
-  readOnly,
-  selectedCandidateIds,
-  editor,
-  canCopyIgnoreRegions,
-  canRestoreSuggestion,
-  frameDecision,
-  scene,
-  calibrationRefinement,
-  mappingAnchors,
-  mappingLoading,
-  anchorCornerIndex,
-  numericAnchor,
-  onNumericChange,
-  onEmitNumeric,
-  onCardDecision,
-  onResolveRemaining,
-  onSceneAction,
-  onAction,
-}: WorkbenchTimelineSelectionActionsProps) {
-  const content = (
-    <div
-      className={styles.workbenchTimelineActions}
-      aria-label="Selection actions"
-    >
-      {state.activeTool === "visible_regions" ||
-      selectedCandidateIds.length > 0 ? (
-        <VisibleRegionSelectionActions
-          readOnly={readOnly}
-          sourceAvailable={
-            getWorkbenchAvailability(state.capabilities).viewpoints.camera
-              .available
-          }
-          selectedCandidateCount={selectedCandidateIds.length}
-          editor={editor}
-          selection={state.selection}
-          canCopyIgnoreRegions={canCopyIgnoreRegions}
-          canRestoreSuggestion={canRestoreSuggestion}
-          onAction={onAction}
-        />
-      ) : null}
-      {state.activeTool === "virtual_cards" &&
-      selectedCandidateIds.length === 0 ? (
-        <VirtualCardSelectionActions
-          readOnly={readOnly}
-          scene={scene}
-          selection={state.selection}
-          onAction={onAction}
-          onCardDecision={onCardDecision}
-          onResolveRemaining={onResolveRemaining}
-          onSceneAction={onSceneAction}
-        />
-      ) : null}
-      {state.activeTool === "mapping" && selectedCandidateIds.length === 0 ? (
-        <MappingSelectionActions
-          readOnly={readOnly}
-          refinement={calibrationRefinement}
-          anchors={mappingAnchors}
-          selection={state.selection}
-          anchorCornerIndex={anchorCornerIndex}
-          numericAnchor={numericAnchor}
-          mappingLoading={mappingLoading}
-          onNumericChange={onNumericChange}
-          onEmitNumeric={onEmitNumeric}
-          onAction={onAction}
-        />
-      ) : null}
-      {frameDecision !== undefined ? (
-        <FrameDecisionActions decision={frameDecision} />
-      ) : null}
-    </div>
-  );
-  return content;
-}
-
-function FrameDecisionActions({
-  decision,
-}: {
-  decision: VisibleCardFrameDecision;
-}) {
-  return (
-    <div
-      className={styles.workbenchCommandGroup}
-      aria-label="Frame decision"
-      role="group"
-    >
-      <span className={styles.workbenchCommandLabel}>Frame decision</span>
-      <button
-        type="button"
-        className={styles.workbenchToggle}
-        aria-keyshortcuts="A"
-        disabled={!decision.canAccept}
-        title={
-          decision.canAccept
-            ? "Accept frame · A"
-            : decision.acceptDisabledReason
-        }
-        onClick={decision.onAccept}
-      >
-        {decision.accepted ? "Mark frame unreviewed" : "Accept frame"}
-      </button>
-      <button
-        type="button"
-        className={styles.workbenchToggle}
-        aria-keyshortcuts="E"
-        title="Mark empty frame · E"
-        onClick={decision.onMarkEmpty}
-      >
-        Mark empty
-      </button>
-      <button
-        type="button"
-        className={styles.workbenchToggle}
-        aria-keyshortcuts="U"
-        title="Mark unusable frame · U"
-        onClick={decision.onMarkUnusable}
-      >
-        Mark unusable
-      </button>
-    </div>
-  );
-}
-
-function VirtualCardSelectionActions({
-  readOnly,
-  scene,
-  selection,
-  onAction,
-  onCardDecision,
-  onResolveRemaining,
-  onSceneAction,
-}: {
-  readOnly: boolean;
-  scene: PoseSceneEnvelope | null;
-  selection: WorkbenchSelection | null;
-  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
-  onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
-  onResolveRemaining?: () => void;
-  onSceneAction: (
-    action: Parameters<typeof applyPoseSceneAction>[1],
-    notice: string,
-  ) => void;
-}) {
-  const selectedPose =
-    scene === null ? null : selectedPoseForSelection(scene, selection);
-  const selectedReviewState =
-    scene?.card_review_states?.find(
-      (state) => state.card_id === selectedPose?.card_id,
-    ) ?? null;
-  const pendingCount =
-    scene?.card_review_states?.filter((state) => state.state === "pending")
-      .length ?? 0;
-  const selectedCardId = selectedPose?.card_id ?? null;
-  const sceneAvailable = scene !== null;
-  const cardTarget = selectedCardId ?? "selected card";
-  const actionControl = (
-    action: VirtualCardWorkbenchAction,
-    label: string,
-    symbol: string,
-    shortcut: string,
-    disabled: boolean,
-    reason: string,
-  ) => ({
-    label,
-    symbol,
-    shortcut,
-    ariaShortcut: shortcut === "Click" ? undefined : shortcut,
-    disabled,
-    disabledReason: reason,
-    onClick: () => {
-      if (
-        (action === "accept_card" || action === "reject_card") &&
-        selectedCardId !== null &&
-        onCardDecision !== undefined
-      ) {
-        onCardDecision(
-          selectedCardId,
-          action === "accept_card" ? "accept" : "reject",
-        );
-      } else if (
-        action === "accept_remaining_cards" &&
-        onResolveRemaining !== undefined
-      ) {
-        onResolveRemaining();
-      } else {
-        onAction(action);
-      }
-    },
-  });
-  const controls = [
-    actionControl(
-      "add_virtual_card",
-      "Add virtual card",
-      "＋",
-      "Click",
-      readOnly || !sceneAvailable,
-      readOnly
-        ? "Generated visible-card results are read-only."
-        : "A proposed card scene is required to add a virtual card.",
-    ),
-    actionControl(
-      "accept_card",
-      selectedCardId === null ? "Accept card" : `Accept card ${cardTarget}`,
-      "✓",
-      "Click",
-      readOnly ||
-        selectedCardId === null ||
-        selectedReviewState === null ||
-        selectedReviewState.state === "accepted",
-      selectedCardId === null
-        ? "Select a virtual card first."
-        : selectedReviewState === null
-          ? "This card has no review decision state."
-          : "The selected card is already accepted.",
-    ),
-    actionControl(
-      "reject_card",
-      selectedCardId === null ? "Reject card" : `Reject card ${cardTarget}`,
-      "×",
-      "Click",
-      readOnly ||
-        selectedCardId === null ||
-        selectedReviewState === null ||
-        selectedReviewState.state === "rejected",
-      selectedCardId === null
-        ? "Select a virtual card first."
-        : selectedReviewState === null
-          ? "This card has no review decision state."
-          : "The selected card is already rejected.",
-    ),
-    actionControl(
-      "accept_remaining_cards",
-      "Accept remaining cards",
-      "✓✓",
-      "Click",
-      readOnly || pendingCount === 0 || onResolveRemaining === undefined,
-      pendingCount === 0
-        ? "No pending card decisions remain."
-        : "All pending cards must be resolved through the maintained reference.",
-    ),
-    actionControl(
-      "remove_card",
-      selectedCardId === null ? "Remove card" : `Remove card ${cardTarget}`,
-      "−",
-      "Click",
-      readOnly || selectedPose === null || scene?.scene.poses.length === 1,
-      selectedPose === null
-        ? "Select a virtual card first."
-        : scene?.scene.poses.length === 1
-          ? "A card scene must keep one virtual card."
-          : "",
-    ),
-    actionControl(
-      "bring_forward",
-      selectedCardId === null
-        ? "Bring card forward"
-        : `Bring card ${cardTarget} forward`,
-      "↑",
-      "Click",
-      readOnly || selectedPose === null,
-      "Select a virtual card first.",
-    ),
-    actionControl(
-      "send_backward",
-      selectedCardId === null
-        ? "Send card backward"
-        : `Send card ${cardTarget} backward`,
-      "↓",
-      "Click",
-      readOnly || selectedPose === null,
-      "Select a virtual card first.",
-    ),
-    actionControl(
-      "restore_proposed_scene",
-      "Restore proposed scene",
-      "↺",
-      "Click",
-      readOnly || !sceneAvailable,
-      readOnly
-        ? "Generated visible-card results are read-only."
-        : "A proposed card scene is required to restore the scene.",
-    ),
-  ];
-  return (
-    <>
-      <TimelineRailSeekingControls
-        groups={[{ label: "Selection actions", controls }]}
-      />
-      <label
-        key={selectedPose?.card_id ?? "no-selected-card"}
-        className={styles.workbenchTimelineField}
-      >
-        <span>Rotation</span>
-        <input
-          aria-label="Rotation (degrees)"
-          type="number"
-          step="1"
-          defaultValue={selectedPose?.rotation_degrees ?? ""}
-          disabled={readOnly || selectedPose === null}
-          title={
-            selectedPose === null
-              ? "Select a virtual card to set its rotation."
-              : "Set rotation in degrees."
-          }
-          onBlur={(event) => {
-            const value = Number(event.target.value);
-            if (
-              !Number.isFinite(value) ||
-              scene === null ||
-              selectedPose === null
-            )
-              return;
-            onSceneAction(
-              {
-                type: "rotate",
-                cardId: selectedPose.card_id,
-                rotationDegrees: value,
-              },
-              "Card angle saved.",
-            );
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              event.currentTarget.blur();
-            }
-          }}
-        />
-      </label>
-    </>
-  );
-}
-
-function selectedPoseForSelection(
-  scene: PoseSceneEnvelope,
-  selection: WorkbenchSelection | null,
-): PoseCard | null {
-  if (selection?.type !== "virtual_card") return null;
-  return (
-    scene.scene.poses.find((pose) => pose.card_id === selection.id) ?? null
-  );
-}
-
-function MappingSelectionActions({
-  readOnly,
-  refinement,
-  anchors,
-  selection,
-  anchorCornerIndex,
-  numericAnchor,
-  mappingLoading,
-  onNumericChange,
-  onEmitNumeric,
-  onAction,
-}: {
-  readOnly: boolean;
-  refinement: CalibrationRefinementResponse | null;
-  anchors: WorkbenchCalibrationAnchor[];
-  selection: WorkbenchSelection | null;
-  anchorCornerIndex: number;
-  numericAnchor: { anchorId: string; point: TablePoint } | null;
-  mappingLoading: boolean;
-  onNumericChange: (value: number, axis: 0 | 1) => void;
-  onEmitNumeric: () => void;
-  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
-}) {
-  const selectedAnchor =
-    selection?.type === "calibration_anchor"
-      ? (anchors.find((anchor) => anchor.anchorId === selection.id) ?? null)
-      : null;
-  const stateButton = (
-    state: "accepted" | "excluded",
-    label: string,
-    symbol: string,
-  ) => ({
-    label,
-    symbol,
-    shortcut: "Click",
-    disabled:
-      readOnly ||
-      selectedAnchor === null ||
-      (!selectedAnchor.eligible && state !== "excluded") ||
-      selectedAnchor.state === state ||
-      refinement === null,
-    disabledReason:
-      selectedAnchor === null
-        ? "Select a calibration anchor first."
-        : refinement === null
-          ? "Start a mapping preview before changing anchor decisions."
-          : "The selected anchor already has this state.",
-    onClick: () =>
-      onAction(state === "accepted" ? "accept_anchor" : "exclude_anchor"),
-  });
-  const corner =
-    selectedAnchor?.corners[anchorCornerIndex] ?? ([0, 0] as TablePoint);
-  const numericPoint =
-    numericAnchor !== null &&
-    numericAnchor.anchorId === selectedAnchor?.anchorId
-      ? numericAnchor.point
-      : corner;
-  const controls = [
-    stateButton("accepted", "Accept anchor", "✓"),
-    stateButton("excluded", "Exclude anchor", "⊘"),
-    {
-      label: "Start mapping preview",
-      symbol: "▶",
-      shortcut: "Click",
-      disabled: readOnly || refinement !== null || mappingLoading,
-      disabledReason: "A mapping preview is already active.",
-      onClick: () => onAction("start_mapping_preview"),
-    },
-    {
-      label: "Discard mapping preview",
-      symbol: "↶",
-      shortcut: "Click",
-      disabled: readOnly || refinement === null || mappingLoading,
-      disabledReason: "Start a mapping preview first.",
-      onClick: () => onAction("discard_mapping_preview"),
-    },
-  ];
-  return (
-    <>
-      <p>
-        Drag corners to save corrected anchors. Apply the calibration to the
-        table in Recording-wide mapping.
-      </p>
-      <TimelineRailSeekingControls
-        groups={[{ label: "Anchor decisions", controls }]}
-      />
-      {selectedAnchor !== null ? (
-        <div className={styles.workbenchTimelineFields}>
-          <label className={styles.workbenchTimelineField}>
-            <span>Corner {anchorCornerIndex + 1} X</span>
-            <input
-              aria-label={`Anchor corner ${anchorCornerIndex + 1} X`}
-              type="number"
-              step="0.01"
-              value={numericPoint[0]}
-              disabled={readOnly}
-              onChange={(event) =>
-                onNumericChange(Number(event.target.value), 0)
-              }
-            />
-          </label>
-          <label className={styles.workbenchTimelineField}>
-            <span>Corner {anchorCornerIndex + 1} Y</span>
-            <input
-              aria-label={`Anchor corner ${anchorCornerIndex + 1} Y`}
-              type="number"
-              step="0.01"
-              value={numericPoint[1]}
-              disabled={readOnly}
-              onChange={(event) =>
-                onNumericChange(Number(event.target.value), 1)
-              }
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  onEmitNumeric();
-                }
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            className={styles.workbenchTimelineFieldButton}
-            aria-label="Save corner coordinates"
-            disabled={readOnly || numericAnchor === null}
-            title="Save corner coordinates · Enter"
-            onClick={onEmitNumeric}
-          >
-            <span aria-hidden="true">✓</span>
-          </button>
-        </div>
-      ) : null}
-    </>
-  );
-}
-
-function VisibleRegionSelectionActions({
-  readOnly,
-  sourceAvailable,
-  selectedCandidateCount,
-  editor,
-  selection,
-  canCopyIgnoreRegions,
-  canRestoreSuggestion,
-  onAction,
-}: {
-  readOnly: boolean;
-  sourceAvailable: boolean;
-  selectedCandidateCount: number;
-  editor: EditorState | null;
-  selection: WorkbenchSelection | null;
-  canCopyIgnoreRegions: boolean;
-  canRestoreSuggestion: boolean;
-  onAction: (action: VisibleRegionWorkbenchAction) => void;
-}) {
-  const actions: Array<{
-    action: VisibleRegionWorkbenchAction;
-    label: string;
-    ariaLabel?: string;
-    symbol: string;
-    shortcut: string;
-    ariaShortcut?: string;
-    disabled: boolean;
-    reason: string;
-  }> = [
-    {
-      action: "add_visible_card",
-      label: "Add visible card",
-      symbol: "＋",
-      shortcut: "N",
-      ariaShortcut: "N",
-      disabled: readOnly || !sourceAvailable,
-      reason: readOnly
-        ? "Generated visible-card results are read-only."
-        : "A resolved source frame is required to add a visible card.",
-    },
-    {
-      action: "add_polygon",
-      label: "Add polygon",
-      symbol: "◇+",
-      shortcut: "Click",
-      disabled: readOnly || editor === null || editor.cardId === null,
-      reason: "Select a visible card before adding a polygon.",
-    },
-    {
-      action: "remove_polygon",
-      label: "Remove polygon",
-      symbol: "◇−",
-      shortcut: "Click",
-      disabled: readOnly || editor === null || editor.polygons.length <= 1,
-      reason: "A visible card must keep one polygon.",
-    },
-    {
-      action: "draw_ignore_region",
-      label: "Draw ignore region",
-      ariaLabel: "Draw ignore region in shared workbench",
-      symbol: "⊘",
-      shortcut: "Click",
-      disabled: readOnly || !sourceAvailable,
-      reason: "A resolved source frame is required to draw an ignore region.",
-    },
-    {
-      action: "convert_to_ignore_region",
-      label: "Convert selection to ignore region",
-      symbol: "⇢",
-      shortcut: "I",
-      ariaShortcut: "I",
-      disabled: readOnly || selectedCandidateCount === 0,
-      reason:
-        "Select one or more proposals to convert them to an ignore region.",
-    },
-    {
-      action: "copy_ignore_regions",
-      label: "Copy ignore regions",
-      symbol: "⧉",
-      shortcut: "Click",
-      disabled: readOnly || !canCopyIgnoreRegions,
-      reason: "Review an earlier frame with ignore regions first.",
-    },
-    {
-      action: "delete_selection",
-      label: "Delete selection",
-      symbol: "⌫",
-      shortcut: "Delete",
-      ariaShortcut: "Delete",
-      disabled:
-        readOnly ||
-        selection === null ||
-        (selection.type !== "visible_card" &&
-          selection.type !== "polygon" &&
-          selection.type !== "ignore_region"),
-      reason: "Select a visible card or ignore region first.",
-    },
-    {
-      action: "restore_suggestion",
-      label: "Restore suggestion",
-      symbol: "↺",
-      shortcut: "Click",
-      disabled: readOnly || !canRestoreSuggestion,
-      reason: "A generated suggestion is required to restore this frame.",
-    },
-  ];
-  return (
-    <TimelineRailSeekingControls
-      groups={[
-        {
-          label: "Selection actions",
-          controls: actions.map(
-            ({
-              action,
-              label,
-              ariaLabel,
-              symbol,
-              shortcut,
-              ariaShortcut,
-              disabled,
-              reason,
-            }) => ({
-              label,
-              ariaLabel,
-              symbol,
-              shortcut,
-              ariaShortcut,
-              disabled,
-              disabledReason: reason,
-              onClick: () => onAction(action),
-            }),
-          ),
-        },
-      ]}
-    />
-  );
-}
-
-function WorkbenchProposalColumn({
-  frame,
-  candidates,
-  scene,
-  activeTool,
-  sourceUrl,
-  frameWidth,
-  frameHeight,
-  readOnly,
-  selection,
-  editor,
-  editorError,
-  selectedCandidateIds,
-  onToggleCandidateSelection,
-  onSelectCandidate,
-  onSelectIgnoreRegion,
-  onSelectEditorPolygon,
-  onSelectVirtualCard,
-  onSceneAction,
-  proposalSlot,
-}: {
-  frame: EditableFrame;
-  candidates: Candidate[];
-  scene: PoseSceneEnvelope | null;
-  activeTool: WorkbenchPreferences["activeTool"];
-  sourceUrl: string | null;
-  frameWidth: number;
-  frameHeight: number;
-  readOnly: boolean;
-  selection: WorkbenchSelection | null;
-  editor: EditorState | null;
-  editorError: string | null;
-  selectedCandidateIds: string[];
-  onToggleCandidateSelection?: (cardId: string) => void;
-  onSelectCandidate: (candidate: Candidate, polygonIndex?: number) => void;
-  onSelectIgnoreRegion?: (region: IgnoreRegion) => void;
-  onSelectEditorPolygon?: (polygonIndex: number) => void;
-  onSelectVirtualCard: (cardId: string) => void;
-  onSceneAction: (
-    action: Parameters<typeof applyPoseSceneAction>[1],
-    notice: string,
-  ) => void;
-  proposalSlot: HTMLElement | null;
-}) {
-  const stackingOrder =
-    scene === null
-      ? []
-      : [
-          ...scene.scene.stacking_order.card_ids,
-          ...scene.scene.poses
-            .map((pose) => pose.card_id)
-            .filter(
-              (cardId) => !scene.scene.stacking_order.card_ids.includes(cardId),
-            ),
-        ].filter((cardId) =>
-          scene.scene.poses.some((pose) => pose.card_id === cardId),
-        );
-  const poseById = new Map(
-    (scene?.scene.poses ?? []).map((pose) => [pose.card_id, pose]),
-  );
-  const candidateById = new Map(candidates.map((item) => [item.card_id, item]));
-  const isStackOrderMode = activeTool === "virtual_cards" && scene !== null;
-  const content = (
-    <section
-      className={styles.proposalColumn}
-      aria-label={
-        isStackOrderMode ? "Card stack order" : "Visible-card proposals"
-      }
-    >
-      {editorError !== null ? (
-        <p className={styles.inlineFormError} role="alert">
-          {editorError}
-        </p>
-      ) : null}
-      {isStackOrderMode ? (
-        <section className={styles.stackOrderSection} aria-label="Stack order">
-          <ol className={styles.proposalItems}>
-            {stackingOrder.map((cardId, index) => {
-              const pose = poseById.get(cardId);
-              if (pose === undefined) return null;
-              const candidate =
-                (typeof pose.source_suggestion_id !== "string"
-                  ? undefined
-                  : candidateById.get(pose.source_suggestion_id)) ??
-                candidateById.get(cardId);
-              const previewCandidate =
-                candidate ??
-                (scene === null
-                  ? null
-                  : virtualCardPreviewCandidate(
-                      pose,
-                      scene,
-                      frameWidth,
-                      frameHeight,
-                    ));
-              const selected =
-                selection?.type === "virtual_card" && selection.id === cardId;
-              return (
-                <li
-                  key={cardId}
-                  className={styles.stackOrderRow}
-                  draggable={!readOnly}
-                  data-card-id={cardId}
-                  data-stacking-index={index}
-                  data-selected={selected ? "true" : undefined}
-                  onDragStart={(event) => {
-                    event.dataTransfer.setData("text/plain", cardId);
-                    event.dataTransfer.effectAllowed = "move";
-                  }}
-                  onDragOver={(event) => {
-                    if (!readOnly) {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                    }
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    const draggedCardId =
-                      event.dataTransfer.getData("text/plain");
-                    const currentIndex = stackingOrder.indexOf(draggedCardId);
-                    if (
-                      readOnly ||
-                      currentIndex < 0 ||
-                      draggedCardId === cardId ||
-                      currentIndex === index
-                    ) {
-                      return;
-                    }
-                    onSceneAction(
-                      { type: "place", cardId: draggedCardId, index },
-                      `Card moved to stack position ${index + 1}.`,
-                    );
-                  }}
-                >
-                  <span className={styles.stackOrderRank} aria-hidden="true">
-                    {index + 1}
-                  </span>
-                  <button
-                    className={styles.stackOrderSelect}
-                    type="button"
-                    aria-label={`Select virtual card at stack position ${index + 1}`}
-                    aria-pressed={selected}
-                    onClick={() => onSelectVirtualCard(cardId)}
-                  >
-                    {previewCandidate !== null ? (
-                      <CandidatePreview
-                        candidate={previewCandidate}
-                        sourceUrl={sourceUrl}
-                        frameWidth={frameWidth}
-                        frameHeight={frameHeight}
-                        label={`Card at stack position ${index + 1} preview`}
-                      />
-                    ) : (
-                      <span
-                        className={styles.stackOrderPlaceholder}
-                        aria-hidden="true"
-                      >
-                        ◇
-                      </span>
-                    )}
-                    <span className={styles.proposalDetails}>
-                      <strong>{candidate?.side ?? "Virtual card"}</strong>
-                      <span>
-                        {index === 0
-                          ? "Front"
-                          : index === stackingOrder.length - 1
-                            ? "Back"
-                            : `Layer ${index + 1}`}
-                      </span>
-                    </span>
-                  </button>
-                  <span className={styles.stackOrderActions}>
-                    <button
-                      type="button"
-                      aria-label={`Move card at stack position ${index + 1} toward front`}
-                      disabled={readOnly || index === 0}
-                      onClick={() =>
-                        onSceneAction(
-                          { type: "place", cardId, index: index - 1 },
-                          `Card moved to stack position ${index}.`,
-                        )
-                      }
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Move card at stack position ${index + 1} toward back`}
-                      disabled={readOnly || index === stackingOrder.length - 1}
-                      onClick={() =>
-                        onSceneAction(
-                          { type: "place", cardId, index: index + 1 },
-                          `Card moved to stack position ${index + 2}.`,
-                        )
-                      }
-                    >
-                      ↓
-                    </button>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-          {!readOnly && stackingOrder.length > 1 ? (
-            <p className={styles.stackOrderHint}>
-              Drag a card to change its stack position.
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-      {candidates.length === 0 ? (
-        <p className={styles.detailEmptyState}>
-          No proposals. Add a visible card or review this frame as empty.
-        </p>
-      ) : (
-        <ol className={styles.proposalItems}>
-          {candidates.map((candidate, index) => {
-            const polygonCount =
-              editor?.cardId === candidate.card_id
-                ? editor.polygons.length
-                : (candidate.geometry.visible_region?.polygons.length ?? 1);
-            const hasMultiplePolygons = polygonCount > 1;
-            const alreadyIgnored = candidateIsCoveredByIgnoreRegions(
-              candidate,
-              frame.outcome.ignored_regions,
-            );
-            const markedForIgnore =
-              !alreadyIgnored &&
-              selectedCandidateIds.includes(candidate.card_id);
-            const isEditorSelection =
-              (selection?.id === candidate.card_id &&
-                (selection.type === "visible_card" ||
-                  selection.type === "polygon")) ||
-              editor?.cardId === candidate.card_id;
-            const statusLabel = alreadyIgnored
-              ? "Already ignored"
-              : markedForIgnore
-                ? "Marked for ignore"
-                : "Detector suggestion";
-            return (
-              <li key={candidate.card_id}>
-                <div
-                  className={styles.proposalRow}
-                  data-already-ignored={alreadyIgnored ? "true" : undefined}
-                  data-marked-for-ignore={markedForIgnore ? "true" : undefined}
-                >
-                  {!readOnly ? (
-                    <label className={styles.proposalCheckbox}>
-                      <input
-                        type="checkbox"
-                        aria-label={`Select proposal ${index + 1} for ignore region`}
-                        checked={markedForIgnore || alreadyIgnored}
-                        disabled={alreadyIgnored}
-                        onChange={() =>
-                          onToggleCandidateSelection?.(candidate.card_id)
-                        }
-                      />
-                    </label>
-                  ) : null}
-                  <button
-                    className={styles.proposalSelect}
-                    type="button"
-                    aria-label={`Select proposal ${index + 1}`}
-                    aria-pressed={isEditorSelection}
-                    data-has-selection={readOnly ? undefined : "true"}
-                    data-selected={isEditorSelection ? "true" : undefined}
-                    onClick={() => onSelectCandidate(candidate)}
-                  >
-                    <CandidatePreview
-                      candidate={candidate}
-                      sourceUrl={sourceUrl}
-                      frameWidth={frameWidth}
-                      frameHeight={frameHeight}
-                      label={`Proposal ${index + 1} crop preview`}
-                    />
-                    <span className={styles.proposalDetails}>
-                      <strong>Proposal {index + 1}</strong>
-                      <span>{statusLabel}</span>
-                      <small>{formatIdentifier(candidate.side)}</small>
-                      <small>{formatGeometryKind(candidate.geometry)}</small>
-                    </span>
-                  </button>
-                  {hasMultiplePolygons ? (
-                    <div
-                      className={styles.proposalPolygonSelectors}
-                      aria-label={`Polygons for proposal ${index + 1}`}
-                    >
-                      {Array.from(
-                        { length: polygonCount },
-                        (_, polygonIndex) => (
-                          <button
-                            className={styles.proposalPolygonSelector}
-                            type="button"
-                            key={`polygon-${polygonIndex}`}
-                            aria-label={`Select polygon ${polygonIndex + 1} for proposal ${index + 1}`}
-                            aria-pressed={
-                              editor?.cardId === candidate.card_id
-                                ? editor.polygonIndex === polygonIndex
-                                : selection?.type === "polygon" &&
-                                  selection.id === candidate.card_id &&
-                                  selection.polygonIndex === polygonIndex
-                            }
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (editor?.cardId === candidate.card_id) {
-                                onSelectEditorPolygon?.(polygonIndex);
-                              } else {
-                                onSelectCandidate(candidate, polygonIndex);
-                              }
-                            }}
-                          >
-                            {polygonIndex + 1}
-                          </button>
-                        ),
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-      {frame.outcome.ignored_regions.length > 0 ? (
-        <section
-          className={styles.ignoreRegionList}
-          aria-label="Visible-card ignore regions"
-        >
-          <p className={styles.statusLabel}>Ignore regions</p>
-          <ol className={styles.proposalItems}>
-            {frame.outcome.ignored_regions.map((region, index) => (
-              <li key={region.region_id}>
-                <div className={styles.ignoreRegionRow}>
-                  <span
-                    className={styles.ignoreRegionSwatch}
-                    aria-hidden="true"
-                  />
-                  <button
-                    className={styles.proposalSelect}
-                    type="button"
-                    aria-label={`Select ignore region ${index + 1}`}
-                    aria-pressed={selection?.id === region.region_id}
-                    onClick={() => onSelectIgnoreRegion?.(region)}
-                  >
-                    <span className={styles.proposalDetails}>
-                      <strong>Ignore region {index + 1}</strong>
-                      <span>Untidy stack</span>
-                      <small>
-                        {region.geometry.polygons.length} polygon
-                        {region.geometry.polygons.length === 1 ? "" : "s"}
-                      </small>
-                    </span>
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
-    </section>
-  );
-  return proposalSlot === null ? content : createPortal(content, proposalSlot);
-}
-
-function CandidatePreview({
-  candidate,
-  sourceUrl,
-  frameWidth,
-  frameHeight,
-  label,
-}: {
-  candidate: Candidate;
-  sourceUrl: string | null;
-  frameWidth: number;
-  frameHeight: number;
-  label: string;
-}) {
-  const bounds = candidateBounds(candidate, frameWidth, frameHeight);
-  if (sourceUrl === null || bounds === null) {
-    return (
-      <div className={styles.proposalPreviewPlaceholder} aria-hidden="true" />
-    );
-  }
-  return (
-    <svg
-      className={styles.proposalPreview}
-      viewBox={`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`}
-      role="img"
-      aria-label={label}
-      preserveAspectRatio="xMidYMid slice"
-    >
-      <image
-        href={sourceUrl}
-        x="0"
-        y="0"
-        width={frameWidth}
-        height={frameHeight}
-        preserveAspectRatio="none"
-      />
-    </svg>
-  );
-}
-
-function candidateBounds(
-  candidate: Candidate,
-  frameWidth: number,
-  frameHeight: number,
-) {
-  const geometry = candidate.geometry;
-  const points =
-    geometry.visible_region?.polygons.flat() ??
-    (geometry.box_2d === undefined
-      ? []
-      : [
-          { x: geometry.box_2d.x_min, y: geometry.box_2d.y_min },
-          { x: geometry.box_2d.x_max, y: geometry.box_2d.y_max },
-        ]);
-  if (points.length === 0) return null;
-  const xMin = Math.max(0, Math.min(...points.map((point) => point.x)));
-  const yMin = Math.max(0, Math.min(...points.map((point) => point.y)));
-  const xMax = Math.min(1000, Math.max(...points.map((point) => point.x)));
-  const yMax = Math.min(1000, Math.max(...points.map((point) => point.y)));
-  const width = Math.max(1, ((xMax - xMin) * frameWidth) / 1000);
-  const height = Math.max(1, ((yMax - yMin) * frameHeight) / 1000);
-  const x = (xMin * frameWidth) / 1000;
-  const y = (yMin * frameHeight) / 1000;
-  return { x, y, width, height };
-}
-
-function virtualCardPreviewCandidate(
-  pose: PoseCard,
-  scene: PoseSceneEnvelope,
-  frameWidth: number,
-  frameHeight: number,
-): Candidate | null {
-  const polygon = posePolygon(pose, scene.projection, "camera");
-  if (polygon.length !== 4 || frameWidth <= 0 || frameHeight <= 0) return null;
-  return {
-    card_id: pose.card_id,
-    geometry: {
-      kind: "virtual-card-preview/v1",
-      visible_region: {
-        polygons: [
-          polygon.map(([x, y]) => ({
-            x: clamp((x / frameWidth) * 1000, 1000),
-            y: clamp((y / frameHeight) * 1000, 1000),
-          })),
-        ],
-      },
-    },
-    normalization: {},
-    side: "unknown",
-  };
-}
-
-function formatGeometryKind(geometry: Candidate["geometry"]): string {
-  if (geometry.visible_region !== undefined) return "Polygon";
-  const { kind } = geometry;
-  if (kind === "detector-box/v1" || kind === "reviewed-box/v1") return "Box";
-  return formatIdentifier(kind);
 }
 
 function WorkbenchSurface({
@@ -3108,10 +1916,6 @@ function readTablePoints(value: unknown): TablePoint[] | null {
 
 function cloneTablePoints(points: TablePoint[]): TablePoint[] {
   return points.map(([x, y]) => [x, y]);
-}
-
-function clamp(value: number, maximum: number): number {
-  return Math.min(Math.max(value, 0), maximum);
 }
 
 type LayerRenderer = {
@@ -3833,111 +2637,6 @@ function sourceCandidatePolygons(
       ];
 }
 
-function candidateNormalizedPolygons(candidate: Candidate): Point[][] {
-  if (candidate.geometry.visible_region !== undefined) {
-    return candidate.geometry.visible_region.polygons.map((polygon) =>
-      polygon.map((point) => ({ x: point.x, y: point.y })),
-    );
-  }
-  const box = candidate.geometry.box_2d;
-  return box === undefined
-    ? []
-    : [
-        [
-          { x: box.x_min, y: box.y_min },
-          { x: box.x_max, y: box.y_min },
-          { x: box.x_max, y: box.y_max },
-          { x: box.x_min, y: box.y_max },
-        ],
-      ];
-}
-
-function candidateIsCoveredByIgnoreRegions(
-  candidate: Candidate,
-  regions: IgnoreRegion[],
-): boolean {
-  if (regions.length === 0) return false;
-  if (
-    regions.some((region) =>
-      region.source_candidates.some(
-        (source) => source.card_id === candidate.card_id,
-      ),
-    )
-  ) {
-    return true;
-  }
-  const containers = regions.flatMap((region) => region.geometry.polygons);
-  const polygons = candidateNormalizedPolygons(candidate);
-  if (polygons.length === 0 || containers.length === 0) return false;
-  return polygons.some((polygon) =>
-    containers.some((container) =>
-      polygonsOverlapForIgnore(polygon, container),
-    ),
-  );
-}
-
-function polygonsOverlapForIgnore(left: Point[], right: Point[]): boolean {
-  if (left.length < 3 || right.length < 3) return false;
-  if (polygonsMatch(left, right)) return true;
-  const leftCentroid = polygonCentroid(left);
-  const rightCentroid = polygonCentroid(right);
-  if (
-    pointInPolygon(leftCentroid, right) ||
-    pointInPolygon(rightCentroid, left)
-  ) {
-    return true;
-  }
-  return (
-    vertexOverlapRatio(left, right) >= 0.45 ||
-    vertexOverlapRatio(right, left) >= 0.45
-  );
-}
-
-function vertexOverlapRatio(source: Point[], container: Point[]): number {
-  if (source.length === 0) return 0;
-  const hits = source.filter((point) =>
-    pointInPolygon(point, container),
-  ).length;
-  return hits / source.length;
-}
-
-function polygonCentroid(polygon: Point[]): Point {
-  const total = polygon.reduce(
-    (sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y }),
-    { x: 0, y: 0 },
-  );
-  return { x: total.x / polygon.length, y: total.y / polygon.length };
-}
-
-function polygonsMatch(left: Point[], right: Point[]): boolean {
-  if (left.length !== right.length) return false;
-  return left.every(
-    (point, index) =>
-      Math.abs(point.x - right[index].x) < 1e-6 &&
-      Math.abs(point.y - right[index].y) < 1e-6,
-  );
-}
-
-function pointInPolygon(point: Point, polygon: Point[]): boolean {
-  let inside = false;
-  for (
-    let index = 0, previous = polygon.length - 1;
-    index < polygon.length;
-    previous = index, index += 1
-  ) {
-    const current = polygon[index];
-    const prior = polygon[previous];
-    const crosses =
-      current.y > point.y !== prior.y > point.y &&
-      point.x <
-        ((prior.x - current.x) * (point.y - current.y)) /
-          (prior.y - current.y + Number.EPSILON) +
-          current.x;
-    if (crosses) inside = !inside;
-  }
-  return inside;
-}
-
 function transformSourcePolygon(
   polygon: Point[],
   width: number,
@@ -3955,21 +2654,6 @@ function transformSourcePolygon(
       ),
     )
     .filter((point): point is TablePoint => point !== null);
-}
-
-function posePolygon(
-  pose: PoseCard,
-  projection: CardSceneProjection,
-  viewpoint: WorkbenchViewpoint,
-): Array<[number, number]> {
-  const polygon = cardPolygon(pose, projection);
-  if (viewpoint === "rectified") return polygon;
-  return polygon
-    .map((point) =>
-      projectTablePoint(point, projection.table_to_image_homography),
-    )
-    .filter((point): point is TablePoint => point !== null)
-    .map(([x, y]) => [x, y] as [number, number]);
 }
 
 function candidatePosePolygon(

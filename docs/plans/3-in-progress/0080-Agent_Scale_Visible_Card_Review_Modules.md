@@ -19,7 +19,7 @@
 ## Milestone status
 
 - **M0:** Complete — freeze behavior, public boundaries, characterization coverage, and module ownership.
-- **M1:** Not started — extract workbench controls and presentation helpers.
+- **M1:** Complete — extract workbench controls, proposal presentation, and focused assertions.
 - **M2:** Not started — extract workbench surface interaction and layers.
 - **M3:** Not started — extract editor data, geometry, and URL helpers.
 - **M4:** Not started — extract the maintained-reference command controller.
@@ -221,6 +221,27 @@ Acceptance:
 - Control modules have no API-client imports and emit only typed callbacks.
 - Command-bar, selection-action, and frame-decision behavior passes focused tests.
 - The workbench still renders one stable command bar for generated and maintained frames.
+
+#### M1 implementation evidence — 2026-09-24
+
+- Moved command-bar and selection-action presentation to
+  `VisibleCardWorkbenchControls.tsx`. The root passes a typed control view model and named
+  callbacks. The editor state is reduced to the card ID, polygon count, and selected polygon index.
+- Moved proposal-column rendering, candidate previews, stack-order previews, and geometry labels to
+  `VisibleCardWorkbenchProposalPresentation.tsx`. Moved the pure candidate-coverage, pose-polygon,
+  selection, and clamp helpers to `VisibleCardWorkbenchGeometry.ts`.
+- Moved proposal layout and frame-decision assertions out of the root workbench test. Added focused
+  tests for command labels and disabled reasons, selection-action dispatch, frame-decision callbacks,
+  and proposal previews. Existing workbench interaction tests still cover command selection and
+  operator dispatch through the root.
+- The control and proposal modules do not import the API client. They emit typed callbacks and do
+  not issue review commands.
+- Verification: typecheck, Prettier, scoped ESLint, and `git diff --check` pass. The workbench and
+  control tests pass. The combined workbench/editor run reports 73 passing and the same 10 editor
+  baseline failures recorded in M0. Full ESLint also reports two existing errors in
+  `cardEvents/CardEventFrameSurface.tsx`; scoped ESLint reports no errors and the existing
+  `capabilities` dependency warning in the workbench root.
+- No review behavior, command payload, or public component export changed.
 
 ### M2 — Extract workbench interaction and evidence layers
 

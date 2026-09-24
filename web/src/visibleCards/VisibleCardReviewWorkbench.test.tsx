@@ -189,6 +189,22 @@ const calibrationRefinement = {
 } as CalibrationRefinementResponse;
 
 describe("VisibleCardReviewWorkbench", () => {
+  it("renders one stable command bar for generated and maintained frames", () => {
+    for (const readOnly of [true, false]) {
+      const { unmount } = render(
+        <VisibleCardReviewWorkbench
+          recordingId="recording-1"
+          frame={frame}
+          readOnly={readOnly}
+        />,
+      );
+      expect(
+        screen.getAllByRole("toolbar", { name: "Workbench command bar" }),
+      ).toHaveLength(1);
+      unmount();
+    }
+  });
+
   it("draws the fitted rounded outline instead of the detector polygon", () => {
     render(
       <VisibleCardReviewWorkbench
@@ -245,34 +261,6 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(
       screen.getByRole("button", { name: "Edit Virtual cards" }),
     ).toBeDisabled();
-  });
-
-  it("keeps proposal sidebar previews and details in their separate grid columns", () => {
-    render(
-      <VisibleCardReviewWorkbench
-        recordingId="recording-1"
-        frame={frame}
-        readOnly
-        proposalSlot={null}
-      />,
-    );
-
-    expect(
-      screen.getByRole("img", { name: "Proposal 1 crop preview" }),
-    ).toBeInTheDocument();
-    const proposal = screen.getByRole("button", { name: "Select proposal 1" });
-    expect(proposal.querySelector("svg")).toBeInTheDocument();
-    expect(
-      within(proposal).getByText("Detector suggestion"),
-    ).toBeInTheDocument();
-    expect(within(proposal).getByText("Unknown")).toBeInTheDocument();
-    expect(within(proposal).getByText("Box")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Select ignore region 1" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Select polygon/ }),
-    ).not.toBeInTheDocument();
   });
 
   it("switches to Camera with one viewpoint button and preserves selection", async () => {
@@ -1136,60 +1124,6 @@ describe("VisibleCardReviewWorkbench", () => {
         screen.getByRole("button", { name: "Select proposal 2" }),
       ).getByText("Detector suggestion"),
     ).toBeInTheDocument();
-  });
-
-  it("puts frame decisions in the Timeline Rail", async () => {
-    const onAccept = vi.fn();
-    const onMarkEmpty = vi.fn();
-    const onMarkUnusable = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <VisibleCardReviewWorkbench
-        recordingId="recording-1"
-        frame={frame}
-        readOnly={false}
-        frameDecision={{
-          accepted: false,
-          canAccept: true,
-          acceptDisabledReason: "Frame changes must be saved first.",
-          onAccept,
-          onMarkEmpty,
-          onMarkUnusable,
-        }}
-      />,
-    );
-
-    const frameDecision = screen.getByRole("group", {
-      name: "Frame decision",
-    });
-    expect(
-      within(
-        screen.getByRole("toolbar", { name: "Workbench command bar" }),
-      ).queryByRole("group", { name: "Frame decision" }),
-    ).toBeNull();
-    expect(
-      within(frameDecision).getByRole("button", { name: "Accept frame" }),
-    ).toBeEnabled();
-    expect(
-      within(frameDecision).getByRole("button", { name: "Mark empty" }),
-    ).toBeEnabled();
-    expect(
-      within(frameDecision).getByRole("button", { name: "Mark unusable" }),
-    ).toBeEnabled();
-
-    await user.click(
-      within(frameDecision).getByRole("button", { name: "Accept frame" }),
-    );
-    await user.click(
-      within(frameDecision).getByRole("button", { name: "Mark empty" }),
-    );
-    await user.click(
-      within(frameDecision).getByRole("button", { name: "Mark unusable" }),
-    );
-
-    expect(onAccept).toHaveBeenCalledTimes(1);
-    expect(onMarkEmpty).toHaveBeenCalledTimes(1);
-    expect(onMarkUnusable).toHaveBeenCalledTimes(1);
   });
 
   it("keeps mapping anchor actions and gestures on the shared surface", async () => {
