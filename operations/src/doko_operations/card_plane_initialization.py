@@ -233,6 +233,8 @@ class PoseFitRecipe:
     weak_order_margin: float = 0.12
     minimum_order_support: float = 0.08
     minimum_overlap_pixels: int = 4
+    edge_width_pixels: int = 3
+    occlusion_margin_pixels: int = 4
 
     def __post_init__(self) -> None:
         if self.center_search_radius <= 0.0 or self.angle_search_degrees <= 0.0:
@@ -251,6 +253,10 @@ class PoseFitRecipe:
             raise CardPlaneInitializationError("minimum_order_support must be in [0, 1]")
         if self.minimum_overlap_pixels < 1:
             raise CardPlaneInitializationError("minimum_overlap_pixels must be positive")
+        if self.edge_width_pixels < 1:
+            raise CardPlaneInitializationError("edge_width_pixels must be positive")
+        if self.occlusion_margin_pixels < 0:
+            raise CardPlaneInitializationError("occlusion_margin_pixels must not be negative")
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -265,6 +271,8 @@ class PoseFitRecipe:
             "weak_order_margin": _round(self.weak_order_margin),
             "minimum_order_support": _round(self.minimum_order_support),
             "minimum_overlap_pixels": self.minimum_overlap_pixels,
+            "edge_width_pixels": self.edge_width_pixels,
+            "occlusion_margin_pixels": self.occlusion_margin_pixels,
         }
 
     @property
@@ -307,6 +315,52 @@ def _mask_for_prediction(
     return mask
 
 
+def _boundary_mask(mask: np.ndarray, width: int = 1) -> np.ndarray:
+    """Return a bounded inner boundary band of a binary source mask."""
+
+    values = np.where(np.asarray(mask) > 0, 255, 0).astype(np.uint8)
+    if values.ndim != 2:
+        raise CardPlaneInitializationError("source mask must be two-dimensional")
+    if width < 1:
+        raise CardPlaneInitializationError("boundary width must be positive")
+    eroded = cv2.erode(
+        values,
+        np.ones((width * 2 + 1, width * 2 + 1), dtype=np.uint8),
+        borderType=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+    return np.where((values > 0) & (eroded == 0), 255, 0).astype(np.uint8)
+
+
+def _dilate_mask(mask: np.ndarray, radius: int) -> np.ndarray:
+    """Grow an occluder mask by a bounded source-pixel margin."""
+
+    values = np.where(np.asarray(mask) > 0, 255, 0).astype(np.uint8)
+    if values.ndim != 2:
+        raise CardPlaneInitializationError("occlusion mask must be two-dimensional")
+    if radius == 0:
+        return values
+    size = radius * 2 + 1
+    return cv2.dilate(values, np.ones((size, size), dtype=np.uint8))
+
+
+def _fit_evidence_mask(
+    source_mask: np.ndarray,
+    occluder_mask: np.ndarray | None,
+    edge_width_pixels: int,
+    occlusion_margin_pixels: int,
+) -> np.ndarray:
+    """Keep only original source-boundary pixels outside fitted-card occlusion."""
+
+    boundary = _boundary_mask(source_mask, edge_width_pixels)
+    if occluder_mask is None:
+        return boundary
+    if np.asarray(occluder_mask).shape != boundary.shape:
+        raise CardPlaneInitializationError("occlusion mask shape must match the source mask")
+    ignored = _dilate_mask(occluder_mask, occlusion_margin_pixels)
+    return np.where((boundary > 0) & (ignored == 0), 255, 0).astype(np.uint8)
+
+
 def _initial_pose(table_points: np.ndarray) -> tuple[np.ndarray, float]:
     hull = cv2.convexHull(table_points.astype(np.float32)).reshape(-1, 2)
     if len(hull) < 3:
@@ -343,6 +397,10 @@ def _fit_score_projected(
     source_bounds: tuple[int, int, int, int],
     width: int,
     height: int,
+    *,
+    edge_only: bool = False,
+    edge_width_pixels: int = 1,
+    occlusion_mask: np.ndarray | None = None,
 ) -> float:
     """Score only the union of the source and projected pixel bounds."""
 
@@ -358,6 +416,33 @@ def _fit_score_projected(
     y1 = max(source_y + source_height, projected_y1)
     projected_mask = np.zeros((y1 - y0, x1 - x0), dtype=np.uint8)
     cv2.fillPoly(projected_mask, [rounded - np.asarray([x0, y0], dtype=np.int32)], 255)
+    if edge_only:
+        projected_boundary = _boundary_mask(projected_mask, edge_width_pixels)
+        if occlusion_mask is not None:
+            visible_projected = np.where(
+                (projected_mask > 0) & (occlusion_mask[y0:y1, x0:x1] == 0), 255, 0
+            ).astype(np.uint8)
+            visible_boundary = np.where(
+                (projected_boundary > 0) & (occlusion_mask[y0:y1, x0:x1] == 0),
+                255,
+                0,
+            ).astype(np.uint8)
+            source_evidence = source_mask[y0:y1, x0:x1]
+            target_overlap = int(
+                np.count_nonzero((visible_projected > 0) & (source_evidence > 0))
+            )
+            boundary_overlap = int(
+                np.count_nonzero((visible_boundary > 0) & (source_evidence > 0))
+            )
+            boundary_union = int(
+                np.count_nonzero((visible_boundary > 0) | (source_evidence > 0))
+            )
+            return float(
+                0.60 * target_overlap / max(source_area, 1)
+                + 0.25 * boundary_overlap / max(boundary_union, 1)
+                + 0.15 * boundary_overlap / max(int(np.count_nonzero(visible_boundary)), 1)
+            )
+        projected_mask = projected_boundary
     return _fit_score(projected_mask, source_mask[y0:y1, x0:x1], source_area)
 
 
@@ -367,13 +452,27 @@ def _fit_candidate(
     recipe: PoseFitRecipe,
     width: int,
     height: int,
+    occluder_mask: np.ndarray | None = None,
 ) -> _FittedCandidate | None:
     try:
-        center, angle = _initial_pose(candidate.table_points)
-        source_area = int(np.count_nonzero(candidate.source_mask))
+        occlusion_aware = occluder_mask is not None
+        fit_evidence = (
+            _fit_evidence_mask(
+                candidate.source_mask,
+                occluder_mask,
+                recipe.edge_width_pixels,
+                recipe.occlusion_margin_pixels,
+            )
+            if occlusion_aware
+            else candidate.source_mask
+        )
+        source_area = int(np.count_nonzero(fit_evidence))
         if source_area == 0:
-            raise CardPlaneInitializationError("prediction mask is empty")
-        source_bounds = tuple(int(value) for value in cv2.boundingRect(candidate.source_mask))
+            raise CardPlaneInitializationError(
+                "prediction has no non-occluded boundary evidence"
+            )
+        center, angle = _initial_pose(candidate.table_points)
+        source_bounds = tuple(int(value) for value in cv2.boundingRect(fit_evidence))
         best: tuple[float, np.ndarray, float] | None = None
         center_radius = recipe.center_search_radius
         angle_radius = recipe.angle_search_degrees
@@ -396,11 +495,14 @@ def _fit_candidate(
                         )
                         score = _fit_score_projected(
                             projected,
-                            candidate.source_mask,
+                            fit_evidence,
                             source_area,
                             source_bounds,
                             width,
                             height,
+                            edge_only=occlusion_aware,
+                            edge_width_pixels=recipe.edge_width_pixels,
+                            occlusion_mask=occluder_mask,
                         )
                         tie_break = (
                             score,
@@ -666,9 +768,6 @@ def initialize_card_scene(
                 fit_diagnostics.append(fit_result.diagnostic)
             else:
                 fitted.append(fit_result)
-                fit_diagnostics.append(fit_result.diagnostic)
-                if fit_result.low_confidence:
-                    low_confidence.append(suggestion_id)
         except (CardPlaneInitializationError, CardPlaneGeometryError, ValueError) as error:
             failures[suggestion_id] = str(error)
         suggestions.append(base_suggestion)
@@ -686,8 +785,49 @@ def initialize_card_scene(
             )
             if not any(item.source_suggestion_id == suggestion_id for item in fit_diagnostics):
                 fit_diagnostics.append(diagnostic)
-    fit_diagnostics.sort(key=lambda item: item.source_suggestion_id)
     fitted.sort(key=lambda item: item.pose.card_id)
+    provisional_order, _provisional_uncertain, _provisional_contradictions, _ = (
+        _order_candidates(fitted, selected_recipe) if fitted else ((), (), (), [])
+    )
+    provisional_by_id = {item.pose.card_id: item for item in fitted}
+    occluder = np.zeros((height, width), dtype=np.uint8)
+    refitted: list[_FittedCandidate] = []
+    occlusion_refit_count = 0
+    for card_id in provisional_order:
+        provisional = provisional_by_id[card_id]
+        occlusion_overlap = int(
+            np.count_nonzero(
+                (provisional.candidate.source_mask > 0)
+                & (_dilate_mask(occluder, selected_recipe.occlusion_margin_pixels) > 0)
+            )
+        )
+        refined = (
+            _fit_candidate(
+                provisional.candidate,
+                selected_calibration,
+                selected_recipe,
+                width,
+                height,
+                occluder_mask=occluder,
+            )
+            if occlusion_overlap > 0
+            else None
+        )
+        selected = (
+            refined
+            if refined is not None and refined.diagnostic.accepted
+            else provisional
+        )
+        if refined is not None and refined.diagnostic.accepted:
+            occlusion_refit_count += 1
+        refitted.append(selected)
+        occluder = np.maximum(occluder, selected.full_mask)
+    fitted = sorted(refitted, key=lambda item: item.pose.card_id)
+    fit_diagnostics.extend(item.diagnostic for item in fitted)
+    fit_diagnostics.sort(key=lambda item: item.source_suggestion_id)
+    low_confidence = [
+        item.candidate.suggestion_id for item in fitted if item.low_confidence
+    ]
     order, uncertain_edges, contradictions, edge_diagnostics = (
         _order_candidates(fitted, selected_recipe) if fitted else ((), (), (), [])
     )
@@ -729,6 +869,11 @@ def initialize_card_scene(
         "failed_suggestion_ids": sorted(failures),
         "failure_reasons": {key: failures[key] for key in sorted(failures)},
         "low_confidence_suggestion_ids": sorted(low_confidence),
+        "occlusion_refit": {
+            "margin_pixels": selected_recipe.occlusion_margin_pixels,
+            "provisional_order": list(provisional_order),
+            "refitted_count": occlusion_refit_count,
+        },
         "order": {
             "edges": edge_diagnostics,
             "uncertain_edges": [list(edge) for edge in uncertain_edges],

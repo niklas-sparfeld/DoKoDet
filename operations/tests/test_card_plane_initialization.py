@@ -9,6 +9,8 @@ from doko_operations.card_plane_calibration import calibrate_recording
 from doko_operations.card_plane_geometry import project_fixed_card, rasterize_polygon
 from doko_operations.card_plane_initialization import (
     PoseFitRecipe,
+    _boundary_mask,
+    _fit_evidence_mask,
     _fit_score,
     _fit_score_projected,
     initialize_card_scene,
@@ -43,6 +45,59 @@ def test_projected_pose_score_matches_full_frame_score() -> None:
             _fit_score_projected(projected, source, source_area, source_bounds, width, height)
             == expected
         )
+
+
+def test_occlusion_evidence_removes_existing_edges_without_inventing_cut_edges() -> None:
+    source = np.zeros((64, 64), dtype=np.uint8)
+    cv2.rectangle(source, (10, 10), (54, 54), 255, thickness=-1)
+    occluder = np.zeros_like(source)
+    cv2.rectangle(occluder, (28, 8), (40, 56), 255, thickness=-1)
+
+    original_boundary = _boundary_mask(source, width=3)
+    evidence = _fit_evidence_mask(source, occluder, edge_width_pixels=3, occlusion_margin_pixels=0)
+
+    assert np.all((evidence > 0) <= (original_boundary > 0))
+    assert not np.any((evidence > 0) & (occluder > 0))
+    assert np.count_nonzero(evidence) > 0
+    assert not np.any(evidence[:, 28:41] > 0)
+
+
+def test_occlusion_mask_removes_hidden_projected_edge_from_fit_score() -> None:
+    width, height = 96, 72
+    source = np.zeros((height, width), dtype=np.uint8)
+    cv2.rectangle(source, (16, 12), (80, 60), 255, thickness=-1)
+    projected = np.asarray(
+        [[16.0, 12.0], [80.0, 12.0], [80.0, 60.0], [16.0, 60.0]], dtype=np.float64
+    )
+    occluder = np.zeros_like(source)
+    cv2.rectangle(occluder, (48, 8), (88, 64), 255, thickness=-1)
+    evidence = _fit_evidence_mask(source, occluder, edge_width_pixels=3, occlusion_margin_pixels=0)
+    source_area = int(np.count_nonzero(evidence))
+    source_bounds = tuple(int(value) for value in cv2.boundingRect(evidence))
+
+    without_occlusion_geometry = _fit_score_projected(
+        projected,
+        evidence,
+        source_area,
+        source_bounds,
+        width,
+        height,
+        edge_only=True,
+        edge_width_pixels=3,
+    )
+    with_occlusion_geometry = _fit_score_projected(
+        projected,
+        evidence,
+        source_area,
+        source_bounds,
+        width,
+        height,
+        edge_only=True,
+        edge_width_pixels=3,
+        occlusion_mask=occluder,
+    )
+
+    assert with_occlusion_geometry > without_occlusion_geometry
 
 
 def _calibration_result() -> tuple[dict[str, object], object]:
@@ -184,6 +239,10 @@ def test_duplicate_predictions_are_stable_and_overlapping_evidence_is_uncertain(
     )
     assert run.scene.stacking_order.contradictions == ()
     assert run.diagnostics["order"]["edges"][0]["decision"] == "uncertain"
+    assert run.diagnostics["occlusion_refit"]["margin_pixels"] == 4
+    assert run.diagnostics["occlusion_refit"]["provisional_order"] == list(
+        run.scene.stacking_order.card_ids
+    )
 
 
 def test_all_failed_candidates_return_actionable_failure_without_a_scene() -> None:
