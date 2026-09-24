@@ -175,7 +175,9 @@ export type VisibleCardReviewWorkbenchProps = {
     selection: WorkbenchSelection | null,
   ) => void;
   onSceneChange?: (scene: PoseSceneEnvelope, notice: string) => void;
-  onAnchorCommand?: (command: CalibrationAnchorCommand) => void;
+  onAnchorCommand?: (
+    command: CalibrationAnchorCommand,
+  ) => Promise<boolean> | void;
   onStartMappingPreview?: () => void;
   onDiscardMappingPreview?: () => void;
   onApplyMapping?: () => void;
@@ -523,7 +525,7 @@ export function VisibleCardReviewWorkbench({
 
   const emitAnchorCommand = (command: CalibrationAnchorCommand) => {
     if (readOnly || onAnchorCommand === undefined) return;
-    onAnchorCommand(command);
+    return onAnchorCommand(command);
   };
 
   const anchorCommandContext = () => ({
@@ -882,10 +884,9 @@ export function VisibleCardReviewWorkbench({
       event.currentTarget.releasePointerCapture?.(event.pointerId);
       dispatch({ type: "commit_gesture" });
       const preview = anchorPreviewRef.current;
-      setAnchorPreviewState(null);
       if (mappingGesture.dirty && preview !== null) {
         const context = anchorCommandContext();
-        emitAnchorCommand(
+        const result = emitAnchorCommand(
           createCalibrationAnchorCommand({
             command_id: `anchor-command-${frame.itemId}-${context.sequence}`,
             sequence: context.sequence,
@@ -896,6 +897,12 @@ export function VisibleCardReviewWorkbench({
             operator_id: "local-operator",
           }),
         );
+        const clearSavedPreview = () => {
+          if (anchorPreviewRef.current === preview) setAnchorPreviewState(null);
+        };
+        void Promise.resolve(result).then(clearSavedPreview, clearSavedPreview);
+      } else {
+        setAnchorPreviewState(null);
       }
       return;
     }

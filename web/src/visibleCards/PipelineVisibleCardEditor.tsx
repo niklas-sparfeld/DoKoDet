@@ -173,9 +173,9 @@ export function PipelineVisibleCardEditor({
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [calibrationRefinement, setCalibrationRefinement] =
     useState<CalibrationRefinementResponse | null>(null);
-  const calibrationRefinementRef = useRef<
-    CalibrationRefinementResponse | null
-  >(null);
+  const calibrationRefinementRef = useRef<CalibrationRefinementResponse | null>(
+    null,
+  );
   const calibrationCommandQueueRef = useRef<Promise<void>>(Promise.resolve());
   const calibrationCommandsPendingRef = useRef(0);
   const calibrationPreviewTimerRef = useRef<number | null>(null);
@@ -428,6 +428,16 @@ export function PipelineVisibleCardEditor({
         recordingId,
         calibrationProposalRevisionId,
       );
+      const latest = calibrationRefinementRef.current;
+      if (
+        latest !== null &&
+        latest.proposal_revision_id === current.proposal_revision_id &&
+        latest.draft.draft_id === current.draft.draft_id &&
+        typeof latest.draft.revision === "number" &&
+        typeof current.draft.revision === "number" &&
+        latest.draft.revision > current.draft.revision
+      )
+        return;
       calibrationRefinementRef.current = current;
       setCalibrationRefinement(current);
       setCalibrationError(null);
@@ -469,9 +479,9 @@ export function PipelineVisibleCardEditor({
       calibrationCommandsPendingRef.current += 1;
       setCalibrationLoading(true);
       setCalibrationError(null);
-      calibrationCommandQueueRef.current = calibrationCommandQueueRef.current
+      const operation = calibrationCommandQueueRef.current
         .catch(() => undefined)
-        .then(async () => {
+        .then(async (): Promise<boolean> => {
           const current = calibrationRefinementRef.current;
           const draftId = current?.draft.draft_id;
           const revision = current?.draft.revision;
@@ -485,7 +495,7 @@ export function PipelineVisibleCardEditor({
             );
             calibrationCommandsPendingRef.current -= 1;
             setCalibrationLoading(calibrationCommandsPendingRef.current > 0);
-            return;
+            return false;
           }
           const sequence = Array.isArray(current.draft.commands)
             ? current.draft.commands.length + 1
@@ -497,9 +507,8 @@ export function PipelineVisibleCardEditor({
             expected_draft_revision: revision,
           };
           try {
-            const digested = await withCalibrationAnchorCommandDigest(
-              orderedCommand,
-            );
+            const digested =
+              await withCalibrationAnchorCommandDigest(orderedCommand);
             const updated = await client.updateCalibrationRefinement(
               recordingId,
               current.proposal_revision_id,
@@ -528,7 +537,8 @@ export function PipelineVisibleCardEditor({
                   if (
                     latest !== null &&
                     latest.draft.revision === complete.draft.revision &&
-                    latest.proposal_revision_id === complete.proposal_revision_id
+                    latest.proposal_revision_id ===
+                      complete.proposal_revision_id
                   ) {
                     calibrationRefinementRef.current = complete;
                     setCalibrationRefinement(complete);
@@ -538,13 +548,17 @@ export function PipelineVisibleCardEditor({
                   setCalibrationError(describeError(reason)),
                 );
             }, 400);
+            return true;
           } catch (reason: unknown) {
             setCalibrationError(describeError(reason));
+            return false;
           } finally {
             calibrationCommandsPendingRef.current -= 1;
             setCalibrationLoading(calibrationCommandsPendingRef.current > 0);
           }
         });
+      calibrationCommandQueueRef.current = operation.then(() => undefined);
+      return operation;
     },
     [client, recordingId],
   );
@@ -2551,9 +2565,7 @@ export function PipelineVisibleCardEditor({
                   calibrationRefinement?.preview.candidate_calibration ?? null
                 }
                 calibrationRefinement={calibrationRefinement}
-                onAnchorCommand={(command) =>
-                  void updateCalibrationAnchor(command)
-                }
+                onAnchorCommand={updateCalibrationAnchor}
                 onStartMappingPreview={() => void startCalibrationRefinement()}
                 onDiscardMappingPreview={() =>
                   void discardCalibrationRefinement()

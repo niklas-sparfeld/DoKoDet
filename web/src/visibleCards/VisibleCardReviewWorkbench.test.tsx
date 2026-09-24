@@ -1,5 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -1234,6 +1235,82 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(
       screen.getByRole("button", { name: "Apply mapping Click" }),
     ).toBeEnabled();
+  });
+
+  it("keeps a dragged anchor in place while its save is pending", async () => {
+    let finishSave!: (saved: boolean) => void;
+    const onAnchorCommand = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    const { rerender } = render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={calibrationRefinement}
+        onAnchorCommand={onAnchorCommand}
+      />,
+    );
+    const surface = screen.getByRole("img", {
+      name: /visible-card workbench/i,
+    });
+    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 100,
+      width: 100,
+      height: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const handle = screen.getByRole("button", {
+      name: "Adjust calibration anchor 1 for anchor-1",
+    });
+    const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
+    const scale = Math.min(100 / viewBox[2], 100 / viewBox[3]);
+    const offsetX = (100 - viewBox[2] * scale) / 2;
+    const offsetY = (100 - viewBox[3] * scale) / 2;
+    const clientPoint = (x: number, y: number) => ({
+      clientX: offsetX + (x - viewBox[0]) * scale,
+      clientY: offsetY + (y - viewBox[1]) * scale,
+    });
+    fireEvent.pointerDown(handle, { pointerId: 1, ...clientPoint(40, 40) });
+    fireEvent.pointerMove(surface, { pointerId: 1, ...clientPoint(45, 45) });
+    fireEvent.pointerUp(surface, { pointerId: 1 });
+    expect(onAnchorCommand).toHaveBeenCalledTimes(1);
+    expect(handle).toHaveAttribute("cx", "45");
+    const savedRefinement = structuredClone(
+      calibrationRefinement,
+    ) as CalibrationRefinementResponse & {
+      draft: { anchors: Array<{ quadrilateral: number[][] }> };
+    };
+    savedRefinement.draft.anchors[0].quadrilateral[0] = [45, 45];
+    rerender(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={savedRefinement}
+        onAnchorCommand={onAnchorCommand}
+      />,
+    );
+    await act(async () => finishSave(true));
+    expect(handle).toHaveAttribute("cx", "45");
   });
 
   it("keeps mapping anchors visible when navigating to a frame without a card scene", async () => {
