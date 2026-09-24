@@ -736,6 +736,29 @@
   white-space: nowrap;
 }
 
+.proposalReviewBadge {
+  width: fit-content;
+  padding: 0.08rem 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  border-radius: 999px;
+  color: var(--accent-bright) !important;
+  font-size: 0.62rem !important;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.proposalReviewBadge[data-review-state="corrected"] {
+  border-color: #d5a832;
+  background: color-mix(in srgb, #ffd166 18%, transparent);
+  color: #ffd166 !important;
+}
+
+.proposalReviewBadge[data-review-state="pending"] {
+  border-color: color-mix(in srgb, var(--accent) 80%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
 .proposalDetails small {
   color: var(--accent-bright);
 }

@@ -663,4 +663,37 @@ describe("VisibleCardReviewWorkbench", () => {
     fireEvent.click(handle);
     expect(screen.getByLabelText("Anchor corner 1 X")).toBeInTheDocument();
   });
+
+  it("makes a human-corrected calibration anchor visually distinct", () => {
+    const adjusted = structuredClone(
+      calibrationRefinement,
+    ) as CalibrationRefinementResponse & {
+      draft: { anchors: Array<{ state: string; weight_class?: string }> };
+    };
+    adjusted.draft.anchors[0].state = "adjusted";
+    adjusted.draft.anchors[0].weight_class = "adjusted";
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={adjusted}
+      />,
+    );
+
+    const anchor = document.querySelector('[data-anchor-id="anchor-1"]');
+    expect(anchor).toHaveAttribute("data-anchor-state", "adjusted");
+    expect(anchor).toHaveAttribute("data-anchor-weight-class", "adjusted");
+    expect(anchor).toHaveAttribute("data-anchor-human-corrected", "true");
+    expect(
+      screen.getByRole("button", {
+        name: "Adjust human-corrected calibration anchor 1 for anchor-1",
+      }),
+    ).toBeInTheDocument();
+  });
 });

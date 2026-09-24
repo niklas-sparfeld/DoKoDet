@@ -48,6 +48,55 @@ describe("VisibleCardReviewWorkbench", () => {
     );
   });
 
+  it("marks corrected cards and points the operator to the next pending card", () => {
+    const adjusted = structuredClone(
+      calibrationRefinement,
+    ) as CalibrationRefinementResponse & {
+      draft: {
+        anchors: Array<{
+          anchor_id: string;
+          card_id: string;
+          state: string;
+          weight_class?: string;
+        }>;
+      };
+    };
+    adjusted.draft.anchors[0].state = "adjusted";
+    adjusted.draft.anchors[0].weight_class = "adjusted";
+
+    const { unmount } = render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{ activeTool: "mapping" }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={adjusted}
+        proposalSlot={document.body}
+      />,
+    );
+
+    expect(screen.getByText("Human corrected")).toBeInTheDocument();
+    expect(
+      document.querySelector(
+        '[aria-label="Visible-card proposals"] li[data-human-corrected="true"]',
+      ),
+    ).toBeInTheDocument();
+
+    unmount();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{ activeTool: "visible_regions" }}
+        enabledEditTools={["visible_regions"]}
+        proposalSlot={document.body}
+      />,
+    );
+    expect(screen.getByText("Next to review")).toBeInTheDocument();
+  });
+
   it("shrinks mapping strokes and corner handles with zoom", () => {
     render(
       <VisibleCardReviewWorkbench

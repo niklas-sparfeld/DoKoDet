@@ -16,6 +16,7 @@ import type {
   WorkbenchPreferences,
   WorkbenchSelection,
 } from "./VisibleCardReviewWorkbenchState";
+import type { WorkbenchCalibrationAnchor } from "./VisibleCardWorkbenchControls";
 import {
   candidateIsCoveredByIgnoreRegions,
   clamp,
@@ -36,6 +37,7 @@ export function WorkbenchProposalColumn({
   editor,
   editorError,
   selectedCandidateIds,
+  mappingAnchors = [],
   onToggleCandidateSelection,
   onSelectCandidate,
   onSelectIgnoreRegion,
@@ -56,6 +58,7 @@ export function WorkbenchProposalColumn({
   editor: VisibleCardEditorSummary | null;
   editorError: string | null;
   selectedCandidateIds: string[];
+  mappingAnchors?: WorkbenchCalibrationAnchor[];
   onToggleCandidateSelection?: (cardId: string) => void;
   onSelectCandidate: (candidate: Candidate, polygonIndex?: number) => void;
   onSelectIgnoreRegion?: (region: IgnoreRegion) => void;
@@ -84,6 +87,10 @@ export function WorkbenchProposalColumn({
     (scene?.scene.poses ?? []).map((pose) => [pose.card_id, pose]),
   );
   const candidateById = new Map(candidates.map((item) => [item.card_id, item]));
+  const nextReviewCandidateId = candidates.find((candidate) => {
+    const status = cardReviewPresentation(candidate, scene, mappingAnchors);
+    return status.kind === "pending";
+  })?.card_id;
   const isStackOrderMode = activeTool === "virtual_cards" && scene !== null;
   const content = (
     <section
@@ -120,6 +127,17 @@ export function WorkbenchProposalColumn({
                     ));
               const selected =
                 selection?.type === "virtual_card" && selection.id === cardId;
+              const review = cardReviewPresentation(
+                candidate ?? {
+                  card_id: cardId,
+                  geometry: { kind: "virtual-card" },
+                  normalization: {},
+                  side: "unknown",
+                },
+                scene,
+                mappingAnchors,
+                pose,
+              );
               return (
                 <li
                   key={cardId}
@@ -185,13 +203,21 @@ export function WorkbenchProposalColumn({
                     )}
                     <span className={styles.proposalDetails}>
                       <strong>{candidate?.side ?? "Virtual card"}</strong>
-                      <span>
+                      <span data-review-state={review.kind}>
                         {index === 0
                           ? "Front"
                           : index === stackingOrder.length - 1
                             ? "Back"
                             : `Layer ${index + 1}`}
                       </span>
+                      {review.label !== null ? (
+                        <span
+                          className={styles.proposalReviewBadge}
+                          data-review-state={review.kind}
+                        >
+                          {review.label}
+                        </span>
+                      ) : null}
                     </span>
                   </button>
                   <span className={styles.stackOrderActions}>
@@ -257,13 +283,28 @@ export function WorkbenchProposalColumn({
                 (selection.type === "visible_card" ||
                   selection.type === "polygon")) ||
               editor?.cardId === candidate.card_id;
+            const review = cardReviewPresentation(
+              candidate,
+              scene,
+              mappingAnchors,
+            );
             const statusLabel = alreadyIgnored
               ? "Already ignored"
               : markedForIgnore
                 ? "Marked for ignore"
-                : "Detector suggestion";
+                : (review.label ?? "Detector suggestion");
+            const nextToReview =
+              review.kind === "pending" &&
+              candidate.card_id === nextReviewCandidateId;
             return (
-              <li key={candidate.card_id}>
+              <li
+                key={candidate.card_id}
+                data-review-state={review.kind}
+                data-human-corrected={
+                  review.kind === "corrected" ? "true" : undefined
+                }
+                data-next-to-review={nextToReview ? "true" : undefined}
+              >
                 <div
                   className={styles.proposalRow}
                   data-already-ignored={alreadyIgnored ? "true" : undefined}
@@ -301,6 +342,14 @@ export function WorkbenchProposalColumn({
                     <span className={styles.proposalDetails}>
                       <strong>Proposal {index + 1}</strong>
                       <span>{statusLabel}</span>
+                      {nextToReview ? (
+                        <span
+                          className={styles.proposalReviewBadge}
+                          data-review-state="pending"
+                        >
+                          Next to review
+                        </span>
+                      ) : null}
                       <small>{formatIdentifier(candidate.side)}</small>
                       <small>{formatGeometryKind(candidate.geometry)}</small>
                     </span>
@@ -483,4 +532,46 @@ function formatGeometryKind(geometry: Candidate["geometry"]): string {
   const { kind } = geometry;
   if (kind === "detector-box/v1" || kind === "reviewed-box/v1") return "Box";
   return formatIdentifier(kind);
+}
+
+type CardReviewPresentation = {
+  kind: "corrected" | "accepted" | "pending" | "rejected" | "suggestion";
+  label: string | null;
+};
+
+function cardReviewPresentation(
+  candidate: Candidate,
+  scene: PoseSceneEnvelope | null,
+  mappingAnchors: WorkbenchCalibrationAnchor[],
+  poseOverride?: PoseCard,
+): CardReviewPresentation {
+  const pose =
+    poseOverride ??
+    scene?.scene.poses.find(
+      (item) =>
+        item.card_id === candidate.card_id ||
+        item.source_suggestion_id === candidate.card_id,
+    );
+  const cardIds = new Set(
+    [candidate.card_id, pose?.card_id, pose?.source_suggestion_id].filter(
+      (value): value is string => typeof value === "string",
+    ),
+  );
+  const state = scene?.card_review_states?.find((item) =>
+    cardIds.has(item.card_id),
+  );
+  const hasAdjustedAnchor = mappingAnchors.some(
+    (anchor) =>
+      (anchor.state === "adjusted" || anchor.weightClass === "adjusted") &&
+      cardIds.has(anchor.cardId),
+  );
+  if (hasAdjustedAnchor || state?.state === "adjusted") {
+    return { kind: "corrected", label: "Human corrected" };
+  }
+  if (state?.state === "accepted")
+    return { kind: "accepted", label: "Accepted" };
+  if (state?.state === "rejected")
+    return { kind: "rejected", label: "Rejected" };
+  if (state?.state === "pending") return { kind: "pending", label: null };
+  return { kind: "suggestion", label: null };
 }

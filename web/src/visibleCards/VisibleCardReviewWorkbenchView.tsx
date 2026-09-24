@@ -583,6 +583,7 @@ export function VisibleCardReviewWorkbenchView({
             }
             editorError={editorError}
             selectedCandidateIds={selectedCandidateIds}
+            mappingAnchors={mappingAnchors}
             onToggleCandidateSelection={(cardId) => {
               if (activeState.activeTool !== "visible_regions") {
                 dispatch({ type: "select_tool", tool: "visible_regions" });

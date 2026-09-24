@@ -42,6 +42,7 @@ export type WorkbenchCalibrationAnchor = {
   sourceFrameId: string;
   eligible: boolean;
   state: AnchorState;
+  weightClass: "candidate" | "accepted" | "adjusted";
   corners: TablePoint[];
 };
 

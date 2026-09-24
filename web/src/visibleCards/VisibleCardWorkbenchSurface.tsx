@@ -33,7 +33,6 @@ import {
   projectTablePoint,
   type AnchorState,
   type CardSceneProjection,
-  type PoseCard,
   type PoseSceneEnvelope,
   type TablePoint,
 } from "./PoseBasedVisibleCardScene";
@@ -660,6 +659,14 @@ export function readCalibrationAnchors(
         sourceFrameId,
         eligible: raw.eligible === true,
         state,
+        weightClass:
+          raw.weight_class === "adjusted" || state === "adjusted"
+            ? "adjusted"
+            : raw.weight_class === "accepted" ||
+                state === "accepted" ||
+                state === "pinned"
+              ? "accepted"
+              : "candidate",
         corners,
       },
     ];
@@ -1135,6 +1142,13 @@ function MappingAnchorOverlay({
     cornerIndex: number,
   ) => void;
 }) {
+  const humanCorrected =
+    anchor.state === "adjusted" || anchor.weightClass === "adjusted";
+  const anchorColor = humanCorrected
+    ? "#ffd166"
+    : anchor.state === "accepted" || anchor.state === "pinned"
+      ? "#62d7a7"
+      : "#ff8a65";
   const corners =
     projection === null || viewpoint === "camera"
       ? anchor.corners
@@ -1147,19 +1161,29 @@ function MappingAnchorOverlay({
           )
           .filter((point): point is TablePoint => point !== null);
   return (
-    <g data-anchor-id={anchor.anchorId} data-anchor-state={anchor.state}>
+    <g
+      data-anchor-id={anchor.anchorId}
+      data-anchor-state={anchor.state}
+      data-anchor-weight-class={anchor.weightClass}
+      data-anchor-human-corrected={humanCorrected ? "true" : undefined}
+    >
+      <title>
+        {humanCorrected
+          ? `Human-corrected calibration anchor ${anchor.anchorId}; weighted calibration input`
+          : `Calibration anchor ${anchor.anchorId}`}
+      </title>
       {corners.length === 4 ? (
         <polygon
           points={pointsAttribute(corners)}
           fill="none"
-          stroke={selected ? "#ffffff" : "#ff8a65"}
+          stroke={selected ? "#ffffff" : anchorColor}
           strokeDasharray={selected ? undefined : "4 3"}
           strokeWidth={mappingStrokeWidth(viewpoint, width, zoom)}
-          opacity={0.5}
+          opacity={humanCorrected ? 0.9 : 0.5}
           pointerEvents="stroke"
           role="button"
           tabIndex={0}
-          aria-label={`Select calibration anchor ${anchor.anchorId}`}
+          aria-label={`${humanCorrected ? "Select human-corrected calibration anchor" : "Select calibration anchor"} ${anchor.anchorId}`}
           onClick={(event) => {
             event.stopPropagation();
             onSelect({ type: "calibration_anchor", id: anchor.anchorId });
@@ -1177,14 +1201,14 @@ function MappingAnchorOverlay({
             zoom,
             Math.max(0.05, (projection?.card_short_size ?? 1) * 0.08),
           )}
-          fill={selected ? "#ffffff" : "#ff8a65"}
+          fill={selected ? "#ffffff" : anchorColor}
           stroke="#18242f"
           strokeWidth={mappingStrokeWidth(viewpoint, width, zoom) / 2}
-          opacity={0.5}
+          opacity={humanCorrected ? 0.95 : 0.5}
           data-mapping-anchor={index}
           role="button"
           tabIndex={0}
-          aria-label={`Adjust calibration anchor ${index + 1} for ${anchor.anchorId}`}
+          aria-label={`${humanCorrected ? "Adjust human-corrected calibration anchor" : "Adjust calibration anchor"} ${index + 1} for ${anchor.anchorId}`}
           onClick={(event) => {
             event.stopPropagation();
             onSelect({ type: "calibration_anchor", id: anchor.anchorId });
