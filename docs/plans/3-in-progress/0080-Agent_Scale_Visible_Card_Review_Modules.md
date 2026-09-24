@@ -22,7 +22,7 @@
 - **M1:** Complete — extract workbench controls, proposal presentation, and focused assertions.
 - **M2:** Complete — extract workbench surface interaction, rendering, and geometry.
 - **M3:** Complete — extract editor data, geometry, error, and URL helpers.
-- **M4:** Not started — extract the maintained-reference command controller.
+- **M4:** Complete — move maintained-reference state, API commands, polling, and synchronization into the typed editor controller.
 - **M5:** Not started — make both component roots small composition boundaries and split tests by owner.
 
 ## 1. Purpose
@@ -328,6 +328,20 @@ Acceptance:
 - Command sequence and retry behavior are unchanged and controller tests prove the ordering.
 - Proposal polling never blocks the UI and stops at the same terminal states.
 - No presentation module imports the API client.
+
+#### M4 implementation evidence — 2026-09-24
+
+- Moved reference hydration, generated-result loading, proposal history and polling, calibration
+  refinement, reference creation and completion, ordered draft commands, retries, conflict
+  recovery, reference rebases, and local draft synchronization into
+  `PipelineVisibleCardEditorController.ts`.
+- The editor root has no API-client import or API calls. It composes named controller operations
+  with presentation state and workbench actions.
+- Added controller tests for ordered success, retry, terminal failure, stale-revision conflict,
+  proposal rebase, and retry-timer cleanup. All 6 controller tests pass. The editor integration
+  suite also covers proposal polling through a terminal result.
+- Verification: typecheck, scoped ESLint, Prettier, and `git diff --check` pass. The editor suite
+  has the same 10 baseline failures recorded in M0 (31 passing, 10 failing).
 
 ### M5 — Finish composition roots and enforce the agent-scale boundary
 

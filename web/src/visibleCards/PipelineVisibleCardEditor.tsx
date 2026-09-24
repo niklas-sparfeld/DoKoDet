@@ -1,20 +1,11 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import {
-  ApiError,
-  createDokoDetectorClient,
-  type CalibrationRefinementResponse,
-  type PipelineReferenceOperation,
-  type PipelineReferenceResource,
-  type PipelineProposalRunResponse,
-} from "../api/client";
 import styles from "../App.module.css";
 import {
   findAdjacentUnfinishedItem,
@@ -22,25 +13,18 @@ import {
 } from "../reviewNavigation";
 import { Toast } from "../Toast";
 import {
-  describeCommand,
-  describeError,
   frameReviewStatus,
   formatFrameTime,
 } from "./PipelineVisibleCardFormatting";
+import { usePipelineVisibleCardEditorController } from "./PipelineVisibleCardEditorController";
 import {
   copiedIgnoreRegionId,
-  coverageEntries,
   frameCoverageKey,
-  frameCoverageKeyFromIdentity,
   frameDecision,
   ignoreRegionMapping,
   newIgnoreRegion,
   nextManualCardId,
   nextManualRegionId,
-  readFramesFromResult,
-  readProposalInputRevisionId,
-  readProposalRevisionId,
-  toEditableFrame,
 } from "./PipelineVisibleCardData";
 import {
   candidateIsWithinIgnoreRegions,
@@ -83,27 +67,24 @@ import {
   type VisibleCardFrameDecision,
 } from "./VisibleCardReviewWorkbench";
 import type { WorkbenchSelection } from "./VisibleCardReviewWorkbenchState";
-import {
-  withCalibrationAnchorCommandDigest,
-  type CalibrationAnchorCommand,
-} from "./PoseBasedVisibleCardScene";
 import { usePipelineReviewPrewarm } from "../pipeline/pipelineReviewPrewarm";
 import type {
   Candidate,
+  CalibrationRefinementResponse,
   EditableFrame,
   IgnoreRegion,
   EditorState,
   Outcome,
-  PendingCommand,
   PipelineVisibleCardRailItem,
+  PipelineProposalRunResponse,
+  PipelineReferenceOperation,
+  PipelineReferenceResource,
   Point,
   SaveState,
 } from "./PipelineVisibleCardTypes";
 
 export type { PipelineVisibleCardRailItem } from "./PipelineVisibleCardTypes";
 
-const CONTENT_TYPE = "visible_cards" as const;
-const RETRY_LIMIT = 3;
 const POINT_DRAG_THRESHOLD_PX = 4;
 export type PipelineVisibleCardEditorProps = {
   recordingId: string;
@@ -132,17 +113,11 @@ export function PipelineVisibleCardEditor({
   onReviewRequested,
   inspectorEnabled = true,
 }: PipelineVisibleCardEditorProps) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
   const profileName = useProfileName();
   const referenceRef = useRef<PipelineReferenceResource | null>(null);
   const framesRef = useRef<EditableFrame[]>([]);
   const selectedFrameIdRef = useRef<string | null>(null);
   const serverRevisionRef = useRef(0);
-  const queueRef = useRef<PendingCommand[]>([]);
-  const processingRef = useRef(false);
-  const processQueueRef = useRef<(() => void) | null>(null);
-  const retryTimerRef = useRef<number | null>(null);
-  const commandSequenceRef = useRef(0);
   const inspectedFrameKeysRef = useRef(new Set<string>());
   const editorRef = useRef<EditorState | null>(null);
   const saveEditorRef = useRef<((closeEditor?: boolean) => void) | null>(null);
@@ -169,10 +144,6 @@ export function PipelineVisibleCardEditor({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("saved");
-  const [queueLength, setQueueLength] = useState(0);
-  const [firstUnappliedCommand, setFirstUnappliedCommand] = useState<
-    string | null
-  >(null);
   const [operatorId, setOperatorId] = useState(profileName);
   const [reviewerId, setReviewerId] = useState(profileName);
   const [inspectedFrameKeys, setInspectedFrameKeys] = useState<Set<string>>(
@@ -199,22 +170,11 @@ export function PipelineVisibleCardEditor({
   const calibrationRefinementRef = useRef<CalibrationRefinementResponse | null>(
     null,
   );
-  const calibrationCommandQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const calibrationCommandsPendingRef = useRef(0);
-  const calibrationPreviewTimerRef = useRef<number | null>(null);
   const [calibrationLoading, setCalibrationLoading] = useState(false);
   const [calibrationError, setCalibrationError] = useState<string | null>(null);
   useEffect(() => {
     calibrationRefinementRef.current = calibrationRefinement;
   }, [calibrationRefinement]);
-  useEffect(
-    () => () => {
-      if (calibrationPreviewTimerRef.current !== null) {
-        window.clearTimeout(calibrationPreviewTimerRef.current);
-      }
-    },
-    [],
-  );
   const inspectorSlots = useVisibleCardInspectorSlots(inspectorEnabled, view);
   const proposalSlot = useVisibleCardProposalSlot();
   useEffect(
@@ -282,414 +242,77 @@ export function PipelineVisibleCardEditor({
     [endEditMode, markInspected, setCurrentTime, setSelected, view],
   );
 
-  const hydrateReference = useCallback(
-    (nextReference: PipelineReferenceResource, preserveSelection = true) => {
-      const nextFrames = nextReference.draft.items
-        .map(toEditableFrame)
-        .filter((frame): frame is EditableFrame => frame !== null);
-      referenceRef.current = nextReference;
-      serverRevisionRef.current = nextReference.draft.revision;
-      setReference(nextReference);
-      setLocalFrames(nextFrames);
-      if (!preserveSelection) {
-        inspectedFrameKeysRef.current = new Set();
-        setInspectedFrameKeys(new Set());
-      }
-      for (const entry of coverageEntries(nextReference.draft.coverage)) {
-        inspectedFrameKeysRef.current.add(
-          frameCoverageKeyFromIdentity(entry.frame_identity, entry.item_id),
-        );
-      }
-      // Decided frames already required an operator look; keep them inspected across
-      // reloads so completion is not blocked by session-only coverage state.
-      for (const frame of nextFrames) {
-        if (frameDecision(frame) !== null) {
-          inspectedFrameKeysRef.current.add(frameCoverageKey(frame));
-        }
-      }
-      setInspectedFrameKeys(new Set(inspectedFrameKeysRef.current));
-      const current = preserveSelection ? selectedFrameIdRef.current : null;
-      const selected =
-        nextFrames.find((frame) => frame.itemId === current) ?? nextFrames[0];
-      setSelected(selected?.itemId ?? null);
-    },
-    [setLocalFrames, setSelected],
-  );
-
-  const loadGenerated = useCallback(
-    async (signal?: AbortSignal) => {
-      const revisionId = generatedSourceRevisionId;
-      if (generatedRunId === null || revisionId === null) {
-        setGeneratedFrames([]);
-        setGeneratedLoading(false);
-        return;
-      }
-      setGeneratedLoading(true);
-      try {
-        const result = await client.getVisibleCardResult(
-          recordingId,
-          generatedRunId,
-          { signal },
-        );
-        if (!signal?.aborted) {
-          setGeneratedFrames(readFramesFromResult(result, revisionId));
-        }
-      } catch (reason: unknown) {
-        if (!signal?.aborted) setError(describeError(reason));
-      } finally {
-        if (!signal?.aborted) setGeneratedLoading(false);
-      }
-    },
-    [client, generatedSourceRevisionId, generatedRunId, recordingId],
-  );
-
-  const settleProposalRun = useCallback(
-    async (run: PipelineProposalRunResponse) => {
-      return run;
-    },
-    [],
-  );
-
-  const loadProposalRun = useCallback(
-    async (signal?: AbortSignal) => {
-      if (generatedSourceRevisionId === null) {
-        setProposalRun(null);
-        setProposalRevisionId(null);
-        return;
-      }
-      setProposalLoading(true);
-      setProposalError(null);
-      try {
-        const response = await client.listProposedCardSceneRuns(recordingId, {
-          signal,
-        });
-        const matching = (Array.isArray(response.runs) ? response.runs : [])
-          .filter(
-            (run) =>
-              readProposalInputRevisionId(run) === generatedSourceRevisionId,
-          )
-          .at(-1);
-        if (matching === undefined) {
-          if (!signal?.aborted) {
-            setProposalRun(null);
-            setProposalRevisionId(null);
-          }
-          return;
-        }
-        const settled = await settleProposalRun(matching);
-        if (!signal?.aborted) {
-          setProposalRun(settled);
-          setProposalRevisionId(readProposalRevisionId(settled));
-        }
-      } catch (reason: unknown) {
-        // Proposal history is optional for older recordings. Keep a failed
-        // history lookup from masking the selected detector result.
-        void reason;
-      } finally {
-        if (!signal?.aborted) setProposalLoading(false);
-      }
-    },
-    [client, generatedSourceRevisionId, recordingId, settleProposalRun],
-  );
-
-  const startProposal = useCallback(async () => {
-    if (generatedSourceRevisionId === null) return;
-    setProposalLoading(true);
-    setProposalError(null);
-    try {
-      const started = await client.startProposedCardSceneRun(recordingId, {
-        run_id: `card-scene-proposal-${Date.now()}`,
-        visible_card_revision_id: generatedSourceRevisionId,
-      });
-      const settled = await settleProposalRun(started);
-      setProposalRun(settled);
-      setProposalRevisionId(readProposalRevisionId(settled));
-      setNotice(
-        settled.status === "complete"
-          ? "Proposed card scenes are ready to inspect."
-          : `Proposal run ${settled.status}.`,
-      );
-    } catch (reason: unknown) {
-      setProposalError(describeError(reason));
-    } finally {
-      setProposalLoading(false);
-    }
-  }, [client, generatedSourceRevisionId, recordingId, settleProposalRun]);
-
-  const retryProposal = useCallback(async () => {
-    if (
-      proposalRun === null ||
-      (proposalRun.status !== "failed" && proposalRun.status !== "partial")
-    )
-      return;
-    setProposalLoading(true);
-    setProposalError(null);
-    try {
-      const retried = await client.retryProposedCardSceneRun(
-        recordingId,
-        proposalRun.run_id,
-      );
-      const settled = await settleProposalRun(retried);
-      setProposalRun(settled);
-      setProposalRevisionId(readProposalRevisionId(settled));
-      setNotice("Proposal run retried.");
-    } catch (reason: unknown) {
-      setProposalError(describeError(reason));
-    } finally {
-      setProposalLoading(false);
-    }
-  }, [client, proposalRun, recordingId, settleProposalRun]);
-
-  const loadCalibrationRefinement = useCallback(async () => {
-    if (calibrationProposalRevisionId === null) {
-      setCalibrationRefinement(null);
-      calibrationRefinementRef.current = null;
-      return;
-    }
-    try {
-      const current = await client.getCalibrationRefinement(
-        recordingId,
-        calibrationProposalRevisionId,
-      );
-      const latest = calibrationRefinementRef.current;
-      if (
-        latest !== null &&
-        latest.proposal_revision_id === current.proposal_revision_id &&
-        latest.draft.draft_id === current.draft.draft_id &&
-        typeof latest.draft.revision === "number" &&
-        typeof current.draft.revision === "number" &&
-        latest.draft.revision > current.draft.revision
-      )
-        return;
-      calibrationRefinementRef.current = current;
-      setCalibrationRefinement(current);
-      setCalibrationError(null);
-    } catch (reason: unknown) {
-      if (reason instanceof ApiError && reason.status === 404) {
-        setCalibrationRefinement(null);
-        calibrationRefinementRef.current = null;
-        setCalibrationError(null);
-      } else {
-        setCalibrationError(describeError(reason));
-      }
-    }
-  }, [calibrationProposalRevisionId, client, recordingId]);
+  const commandController = usePipelineVisibleCardEditorController({
+    recordingId,
+    operatorId,
+    generatedRevisionId,
+    generatedSourceRevisionId,
+    proposalRevisionId,
+    proposalRun,
+    referenceRef,
+    serverRevisionRef,
+    selectedFrameIdRef,
+    inspectedFrameKeysRef,
+    setInspectedFrameKeys,
+    getFrames: () => framesRef.current,
+    setLocalFrames,
+    completionBusy,
+    saveState,
+    setSaveState,
+    setError,
+    setNotice,
+    setRebasingReference,
+    setRebasingProposal,
+    generatedRunId,
+    setGeneratedFrames,
+    setGeneratedLoading,
+    setLoading,
+    setReference,
+    setSelected,
+    setProposalRun,
+    setProposalRevisionId,
+    setProposalLoading,
+    setProposalError,
+    setCalibrationRefinement,
+    calibrationRefinementRef,
+    setCalibrationLoading,
+    setCalibrationError,
+    setCreatingReference,
+    setCompletionBusy,
+    setReviewerId,
+    calibrationProposalRevisionId,
+  });
+  const {
+    enqueue,
+    enqueueOperations,
+    queueLength,
+    firstUnappliedCommand,
+    retryQueuedCommands,
+    reloadWinningDraft,
+    startReference,
+    rebaseReference,
+    rebaseReferenceToProposal,
+    hasPendingCommands,
+    isProcessing,
+    loadGenerated,
+    loadReference,
+    loadProposalRun,
+    refreshProposalRun,
+    startProposal,
+    retryProposal,
+    loadCalibrationRefinement,
+    startCalibrationRefinement,
+    updateCalibrationAnchor,
+    discardCalibrationRefinement,
+    applyCalibrationRefinement,
+    createReference: createReferenceInController,
+    completeReference: completeReferenceInController,
+  } = commandController;
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadCalibrationRefinement(), 0);
     return () => window.clearTimeout(timer);
-  }, [loadCalibrationRefinement]);
-
-  const startCalibrationRefinement = useCallback(async () => {
-    if (calibrationProposalRevisionId === null) return;
-    setCalibrationLoading(true);
-    setCalibrationError(null);
-    try {
-      const started = await client.startCalibrationRefinement(recordingId, {
-        proposal_revision_id: calibrationProposalRevisionId,
-      });
-      calibrationRefinementRef.current = started;
-      setCalibrationRefinement(started);
-    } catch (reason: unknown) {
-      setCalibrationError(describeError(reason));
-    } finally {
-      setCalibrationLoading(false);
-    }
-  }, [calibrationProposalRevisionId, client, recordingId]);
-
-  const updateCalibrationAnchor = useCallback(
-    (command: CalibrationAnchorCommand) => {
-      calibrationCommandsPendingRef.current += 1;
-      setCalibrationLoading(true);
-      setCalibrationError(null);
-      const operation = calibrationCommandQueueRef.current
-        .catch(() => undefined)
-        .then(async (): Promise<boolean> => {
-          const current = calibrationRefinementRef.current;
-          const draftId = current?.draft.draft_id;
-          const revision = current?.draft.revision;
-          if (
-            current === null ||
-            typeof draftId !== "string" ||
-            typeof revision !== "number"
-          ) {
-            setCalibrationError(
-              "Start a mapping preview before changing calibration anchors.",
-            );
-            calibrationCommandsPendingRef.current -= 1;
-            setCalibrationLoading(calibrationCommandsPendingRef.current > 0);
-            return false;
-          }
-          const sequence = Array.isArray(current.draft.commands)
-            ? current.draft.commands.length + 1
-            : 1;
-          const orderedCommand = {
-            ...command,
-            command_id: `${command.command_id}-${sequence}`,
-            sequence,
-            expected_draft_revision: revision,
-          };
-          try {
-            const digested =
-              await withCalibrationAnchorCommandDigest(orderedCommand);
-            const updated = await client.updateCalibrationRefinement(
-              recordingId,
-              current.proposal_revision_id,
-              {
-                draft_id: draftId,
-                expected_revision: revision,
-                command: digested,
-              },
-            );
-            calibrationRefinementRef.current = updated;
-            setCalibrationRefinement(updated);
-            if (calibrationPreviewTimerRef.current !== null) {
-              window.clearTimeout(calibrationPreviewTimerRef.current);
-            }
-            calibrationPreviewTimerRef.current = window.setTimeout(() => {
-              calibrationPreviewTimerRef.current = null;
-              if (calibrationCommandsPendingRef.current > 0) return;
-              void client
-                .getCalibrationRefinement(
-                  recordingId,
-                  updated.proposal_revision_id,
-                  draftId,
-                )
-                .then((complete) => {
-                  const latest = calibrationRefinementRef.current;
-                  if (
-                    latest !== null &&
-                    latest.draft.revision === complete.draft.revision &&
-                    latest.proposal_revision_id ===
-                      complete.proposal_revision_id
-                  ) {
-                    calibrationRefinementRef.current = complete;
-                    setCalibrationRefinement(complete);
-                  }
-                })
-                .catch((reason: unknown) =>
-                  setCalibrationError(describeError(reason)),
-                );
-            }, 400);
-            return true;
-          } catch (reason: unknown) {
-            setCalibrationError(describeError(reason));
-            return false;
-          } finally {
-            calibrationCommandsPendingRef.current -= 1;
-            setCalibrationLoading(calibrationCommandsPendingRef.current > 0);
-          }
-        });
-      calibrationCommandQueueRef.current = operation.then(() => undefined);
-      return operation;
-    },
-    [client, recordingId],
-  );
-
-  const discardCalibrationRefinement = useCallback(async () => {
-    if (calibrationPreviewTimerRef.current !== null) {
-      window.clearTimeout(calibrationPreviewTimerRef.current);
-      calibrationPreviewTimerRef.current = null;
-    }
-    const current = calibrationRefinement;
-    if (current === null) return;
-    const draftId = current.draft.draft_id;
-    if (typeof draftId !== "string") return;
-    setCalibrationLoading(true);
-    setCalibrationError(null);
-    try {
-      const reset = await client.discardCalibrationRefinement(recordingId, {
-        proposal_revision_id: current.proposal_revision_id,
-        draft_id: draftId,
-      });
-      calibrationRefinementRef.current = reset;
-      setCalibrationRefinement(reset);
-    } catch (reason: unknown) {
-      setCalibrationError(describeError(reason));
-    } finally {
-      setCalibrationLoading(false);
-    }
-  }, [calibrationRefinement, client, recordingId]);
-
-  const applyCalibrationRefinement = useCallback(
-    async (confirmAffected: boolean) => {
-      const current = calibrationRefinement;
-      if (current === null) return;
-      const draftId = current.draft.draft_id;
-      const revision = current.draft.revision;
-      const previewDigest = current.preview.preview_digest;
-      if (
-        typeof draftId !== "string" ||
-        typeof revision !== "number" ||
-        typeof previewDigest !== "string"
-      ) {
-        setCalibrationError(
-          "The calibration preview is incomplete. Reload it and try again.",
-        );
-        return;
-      }
-      setCalibrationLoading(true);
-      setCalibrationError(null);
-      try {
-        const applied = await client.applyCalibrationRefinement(
-          recordingId,
-          current.proposal_revision_id,
-          {
-            draft_id: draftId,
-            expected_revision: revision,
-            preview_digest: previewDigest,
-            operator_id: operatorId.trim() || "operator",
-            confirm_affected: confirmAffected,
-          },
-        );
-        setProposalRevisionId(applied.proposal_revision_id);
-        hydrateReference(applied.reference);
-        setCalibrationRefinement(null);
-        calibrationRefinementRef.current = null;
-        setNotice(
-          `Applied calibration ${applied.calibration_revision_id}; review affected frames before completion.`,
-        );
-      } catch (reason: unknown) {
-        setCalibrationError(describeError(reason));
-      } finally {
-        setCalibrationLoading(false);
-      }
-    },
-    [calibrationRefinement, client, hydrateReference, operatorId, recordingId],
-  );
-
-  const loadReference = useCallback(
-    async (signal?: AbortSignal) => {
-      setLoading(true);
-      try {
-        const loaded = await client.getPipelineReference(
-          recordingId,
-          CONTENT_TYPE,
-          { signal },
-        );
-        if (!signal?.aborted) {
-          hydrateReference(loaded);
-          setSaveState("saved");
-          setError(null);
-        }
-      } catch (reason: unknown) {
-        if (!signal?.aborted) {
-          if (reason instanceof ApiError && reason.status === 404) {
-            referenceRef.current = null;
-            setReference(null);
-            setLocalFrames([]);
-            setSelected(null);
-            setError(null);
-          } else {
-            setError(describeError(reason));
-          }
-        }
-      } finally {
-        if (!signal?.aborted) setLoading(false);
-      }
-    },
-    [client, hydrateReference, recordingId, setLocalFrames, setSelected],
-  );
+  }, [calibrationProposalRevisionId, loadCalibrationRefinement]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -701,9 +324,6 @@ export function PipelineVisibleCardEditor({
     return () => {
       window.clearTimeout(timer);
       controller.abort();
-      if (retryTimerRef.current !== null) {
-        window.clearTimeout(retryTimerRef.current);
-      }
     };
   }, [loadGenerated, loadReference, view]);
 
@@ -722,17 +342,12 @@ export function PipelineVisibleCardEditor({
   useEffect(() => {
     if (proposalRun?.status !== "queued" && proposalRun?.status !== "running")
       return;
-    const timer = window.setTimeout(() => {
-      void client.getProposedCardSceneRun(recordingId, proposalRun.run_id).then(
-        (run) => {
-          setProposalRun(run);
-          setProposalRevisionId(readProposalRevisionId(run));
-        },
-        (reason: unknown) => setProposalError(describeError(reason)),
-      );
-    }, 2000);
+    const timer = window.setTimeout(
+      () => void refreshProposalRun(proposalRun.run_id),
+      2000,
+    );
     return () => window.clearTimeout(timer);
-  }, [client, proposalRun, recordingId]);
+  }, [proposalRun, refreshProposalRun]);
 
   useEffect(() => {
     const candidates = usesMaintainedFrames ? frames : generatedFrames;
@@ -778,274 +393,6 @@ export function PipelineVisibleCardEditor({
       })),
     );
   }, [frames, generatedFrames, onRailItemsChange, usesMaintainedFrames, view]);
-
-  const nextCommandId = useCallback(() => {
-    commandSequenceRef.current += 1;
-    return `pipeline-visible-card-${Date.now()}-${commandSequenceRef.current}`;
-  }, []);
-
-  const processQueue = useCallback(async () => {
-    if (processingRef.current || queueRef.current.length === 0) {
-      if (queueRef.current.length === 0 && saveState !== "conflict") {
-        setQueueLength(0);
-        setFirstUnappliedCommand(null);
-        if (!completionBusy) setSaveState("saved");
-      }
-      return;
-    }
-    const command = queueRef.current[0];
-    if (referenceRef.current === null) return;
-    processingRef.current = true;
-    try {
-      const nextReference = await client.updatePipelineReferenceDraft(
-        recordingId,
-        CONTENT_TYPE,
-        {
-          expected_revision: serverRevisionRef.current,
-          operator_id: operatorId.trim(),
-          command_id: command.commandId,
-          operations: command.operations,
-        },
-      );
-      hydrateReference(nextReference);
-      queueRef.current.shift();
-      setQueueLength(queueRef.current.length);
-      setFirstUnappliedCommand(
-        queueRef.current.length === 0
-          ? null
-          : describeCommand(queueRef.current[0]),
-      );
-      setNotice(command.notice);
-      setError(null);
-      command.attempts = 0;
-    } catch (reason: unknown) {
-      command.attempts += 1;
-      processingRef.current = false;
-      if (reason instanceof ApiError && reason.status === 409) {
-        setSaveState("conflict");
-        setFirstUnappliedCommand(describeCommand(command));
-        setError(describeError(reason));
-        return;
-      }
-      if (isRetryableError(reason) && command.attempts <= RETRY_LIMIT) {
-        setSaveState("retrying");
-        setError(describeError(reason));
-        retryTimerRef.current = window.setTimeout(
-          () => {
-            retryTimerRef.current = null;
-            void processQueueRef.current?.();
-          },
-          Math.min(500, 100 * command.attempts),
-        );
-        return;
-      }
-      setSaveState("error");
-      setFirstUnappliedCommand(describeCommand(command));
-      setError(describeError(reason));
-      return;
-    }
-    processingRef.current = false;
-    if (queueRef.current.length > 0) {
-      setSaveState("saving");
-      void processQueueRef.current?.();
-    } else {
-      setSaveState("saved");
-    }
-  }, [
-    client,
-    completionBusy,
-    hydrateReference,
-    operatorId,
-    recordingId,
-    saveState,
-  ]);
-
-  useEffect(() => {
-    processQueueRef.current = processQueue;
-    return () => {
-      if (processQueueRef.current === processQueue) {
-        processQueueRef.current = null;
-      }
-    };
-  }, [processQueue]);
-
-  const enqueueOperations = useCallback(
-    (
-      operations: PipelineReferenceOperation[],
-      noticeText: string,
-      optimistic: (current: EditableFrame[]) => EditableFrame[],
-    ) => {
-      if (referenceRef.current === null) return;
-      setLocalFrames(optimistic(framesRef.current));
-      queueRef.current.push({
-        commandId: nextCommandId(),
-        operations,
-        notice: noticeText,
-        attempts: 0,
-      });
-      setQueueLength(queueRef.current.length);
-      setFirstUnappliedCommand(describeCommand(queueRef.current[0]));
-      setSaveState("saving");
-      setError(null);
-      void processQueueRef.current?.();
-    },
-    [nextCommandId, setLocalFrames],
-  );
-
-  const enqueue = useCallback(
-    (
-      operation: PipelineReferenceOperation,
-      noticeText: string,
-      optimistic: (current: EditableFrame[]) => EditableFrame[],
-    ) => {
-      enqueueOperations([operation], noticeText, optimistic);
-    },
-    [enqueueOperations],
-  );
-
-  const startReference = useCallback(() => {
-    const current = referenceRef.current;
-    if (
-      current === null ||
-      current.draft.source_revision_id !== null ||
-      current.draft.items.length > 0 ||
-      generatedSourceRevisionId === null ||
-      operatorId.trim() === ""
-    ) {
-      return;
-    }
-    setReviewerId((currentReviewer) => currentReviewer || operatorId.trim());
-    enqueue(
-      {
-        operation: "rebase",
-        source_revision_id: generatedSourceRevisionId,
-        ...(proposalRevisionId === null
-          ? {}
-          : { proposal_revision_id: proposalRevisionId }),
-      },
-      "Maintained visible-card reference seeded from the selected generated result.",
-      (currentFrames) => currentFrames,
-    );
-  }, [enqueue, generatedSourceRevisionId, operatorId, proposalRevisionId]);
-
-  const rebaseReference = useCallback(async () => {
-    const current = referenceRef.current;
-    const sourceRevisionId = generatedRevisionId;
-    if (
-      current === null ||
-      sourceRevisionId === null ||
-      current.draft.source_revision_id === sourceRevisionId ||
-      operatorId.trim() === "" ||
-      queueRef.current.length > 0 ||
-      processingRef.current ||
-      saveState !== "saved"
-    ) {
-      return;
-    }
-    setRebasingReference(true);
-    setSaveState("saving");
-    setError(null);
-    setNotice(null);
-    try {
-      const rebased = await client.updatePipelineReferenceDraft(
-        recordingId,
-        CONTENT_TYPE,
-        {
-          expected_revision: serverRevisionRef.current,
-          operator_id: operatorId.trim(),
-          command_id: nextCommandId(),
-          operations: [
-            { operation: "rebase", source_revision_id: sourceRevisionId },
-          ],
-        },
-      );
-      hydrateReference(rebased, false);
-      setSaveState("saved");
-      setNotice(
-        "Review switched to the selected generated result. Inspect the visible cards before completing the review.",
-      );
-    } catch (reason: unknown) {
-      setSaveState(
-        reason instanceof ApiError && reason.status === 409
-          ? "conflict"
-          : "error",
-      );
-      setError(describeError(reason));
-    } finally {
-      setRebasingReference(false);
-    }
-  }, [
-    client,
-    generatedRevisionId,
-    hydrateReference,
-    nextCommandId,
-    operatorId,
-    recordingId,
-    saveState,
-  ]);
-
-  const rebaseReferenceToProposal = useCallback(async () => {
-    const current = referenceRef.current;
-    const sourceRevisionId = generatedSourceRevisionId;
-    const targetProposalRevisionId = proposalRevisionId;
-    if (
-      current === null ||
-      sourceRevisionId === null ||
-      targetProposalRevisionId === null ||
-      current.draft.proposal_revision_id === targetProposalRevisionId ||
-      operatorId.trim() === "" ||
-      queueRef.current.length > 0 ||
-      processingRef.current ||
-      saveState !== "saved"
-    ) {
-      return;
-    }
-    setRebasingProposal(true);
-    setSaveState("saving");
-    setError(null);
-    setNotice(null);
-    try {
-      const rebased = await client.updatePipelineReferenceDraft(
-        recordingId,
-        CONTENT_TYPE,
-        {
-          expected_revision: serverRevisionRef.current,
-          operator_id: operatorId.trim(),
-          command_id: nextCommandId(),
-          operations: [
-            {
-              operation: "rebase",
-              source_revision_id: sourceRevisionId,
-              proposal_revision_id: targetProposalRevisionId,
-            },
-          ],
-        },
-      );
-      hydrateReference(rebased, false);
-      setSaveState("saved");
-      setNotice(
-        "Proposed card scenes loaded. Inspect the poses and homography before completing the review.",
-      );
-    } catch (reason: unknown) {
-      setSaveState(
-        reason instanceof ApiError && reason.status === 409
-          ? "conflict"
-          : "error",
-      );
-      setError(describeError(reason));
-    } finally {
-      setRebasingProposal(false);
-    }
-  }, [
-    client,
-    generatedSourceRevisionId,
-    hydrateReference,
-    nextCommandId,
-    operatorId,
-    proposalRevisionId,
-    recordingId,
-    saveState,
-  ]);
 
   const setFrameReview = useCallback(
     (frame: EditableFrame, outcome: Outcome, noticeText: string) => {
@@ -1899,136 +1246,23 @@ export function PipelineVisibleCardEditor({
       reviewerId.trim() === "" ||
       pending.length > 0 ||
       missingCoverage.length > 0 ||
-      queueRef.current.length > 0 ||
-      processingRef.current ||
+      hasPendingCommands() ||
+      isProcessing() ||
       saveState !== "saved"
-    ) {
+    )
       return;
-    }
-    setCompletionBusy(true);
-    setSaveState("saving");
-    try {
-      // Refresh stale pose-scene candidates before coverage validation.
-      const stalePoseFrames = currentFrames.filter((frame) => {
-        const scene = frame.outcome.card_scene;
-        return (
-          scene?.completion_state === "complete" &&
-          scene.scene.poses.length !== frame.outcome.candidates.length
-        );
-      });
-      for (const frame of stalePoseFrames) {
-        const refreshed = await client.updatePipelineReferenceDraft(
-          recordingId,
-          CONTENT_TYPE,
-          {
-            expected_revision: serverRevisionRef.current,
-            operator_id: reviewerId.trim() || operatorId.trim(),
-            command_id: nextCommandId(),
-            operations: [
-              {
-                operation: "accept_frame_suggestions",
-                item_id: frame.itemId,
-              },
-            ],
-          },
-        );
-        hydrateReference(refreshed);
-      }
-      const framesForCoverage = framesRef.current;
-      const completed = await client.completePipelineReference(
-        recordingId,
-        CONTENT_TYPE,
-        {
-          expected_revision: serverRevisionRef.current,
-          operator_id: reviewerId.trim(),
-          coverage: {
-            kind: "visible_frames",
-            frames: framesForCoverage.map((frame) => ({
-              item_id: frame.itemId,
-              frame_identity: frame.outcome.frame_identity,
-              decision: frameDecision(frame) as
-                | "cards"
-                | "ignored"
-                | "cards_and_ignored"
-                | "empty"
-                | "unusable",
-            })),
-          },
-        },
-      );
-      hydrateReference(completed, false);
-      setSaveState("saved");
-      setNotice(
-        `Completed reference ${completed.state.selected_completed_revision_id ?? "published"} is immutable.`,
-      );
-    } catch (reason: unknown) {
-      setSaveState(
-        reason instanceof ApiError && reason.status === 409
-          ? "conflict"
-          : "error",
-      );
-      setError(describeError(reason));
-    } finally {
-      setCompletionBusy(false);
-    }
+    await completeReferenceInController(reviewerId);
   }, [
-    client,
-    hydrateReference,
-    nextCommandId,
-    operatorId,
-    recordingId,
+    completeReferenceInController,
+    hasPendingCommands,
+    isProcessing,
     reviewerId,
     saveState,
   ]);
 
   const createReference = useCallback(async () => {
-    if (operatorId.trim() === "") return;
-    setCreatingReference(true);
-    setError(null);
-    try {
-      const created = await client.createPipelineReference(
-        recordingId,
-        CONTENT_TYPE,
-        {
-          operator_id: operatorId.trim(),
-          seed:
-            proposalRevisionId !== null
-              ? "proposal"
-              : generatedSourceRevisionId === null
-                ? "empty"
-                : "selected_generated",
-          ...(proposalRevisionId !== null
-            ? { proposal_revision_id: proposalRevisionId }
-            : generatedSourceRevisionId === null
-              ? {}
-              : { source_revision_id: generatedSourceRevisionId }),
-        },
-      );
-      hydrateReference(created, false);
-      setReviewerId((current) => current || operatorId.trim());
-      setNotice(
-        proposalRevisionId !== null
-          ? "Maintained visible-card review started from the preserved proposal."
-          : "Maintained visible-card reference created from the selected generated result.",
-      );
-    } catch (reason: unknown) {
-      if (reason instanceof ApiError && reason.status === 409) {
-        await loadReference();
-      } else {
-        setError(describeError(reason));
-      }
-    } finally {
-      setCreatingReference(false);
-    }
-  }, [
-    client,
-    generatedSourceRevisionId,
-    hydrateReference,
-    loadReference,
-    operatorId,
-    proposalRevisionId,
-    recordingId,
-  ]);
+    await createReferenceInController();
+  }, [createReferenceInController]);
 
   const startReviewFromProposal = useCallback(async () => {
     if (proposalRevisionId === null) return;
@@ -2037,33 +1271,6 @@ export function PipelineVisibleCardEditor({
     }
     onReviewRequested?.();
   }, [createReference, onReviewRequested, proposalRevisionId]);
-
-  const reloadWinningDraft = useCallback(async () => {
-    try {
-      const winning = await client.getPipelineReference(
-        recordingId,
-        CONTENT_TYPE,
-      );
-      hydrateReference(winning);
-      setSaveState("saving");
-      setError(null);
-      setNotice(
-        "Winning draft loaded. The queued visible-card commands will be retried in order.",
-      );
-      window.setTimeout(() => void processQueueRef.current?.(), 0);
-    } catch (reason: unknown) {
-      setSaveState("error");
-      setError(describeError(reason));
-    }
-  }, [client, hydrateReference, recordingId]);
-
-  const retryQueuedCommands = useCallback(() => {
-    if (queueRef.current.length === 0) return;
-    queueRef.current[0].attempts = 0;
-    setSaveState("saving");
-    setError(null);
-    void processQueueRef.current?.();
-  }, []);
 
   const selectEditorPolygon = useCallback((polygonIndex: number) => {
     setEditor((current) =>
@@ -2644,13 +1851,5 @@ export function PipelineVisibleCardEditor({
         ) : null}
       </section>
     </>
-  );
-}
-
-function isRetryableError(reason: unknown): boolean {
-  return !(
-    reason instanceof ApiError &&
-    reason.status >= 400 &&
-    reason.status < 500
   );
 }

@@ -1,4 +1,15 @@
-import type { PipelineReferenceOperation } from "../api/client";
+import type {
+  CalibrationRefinementResponse,
+  PipelineProposalRunResponse,
+  PipelineReferenceOperation,
+  PipelineReferenceResource,
+} from "../api/client";
+export type {
+  CalibrationRefinementResponse,
+  PipelineProposalRunResponse,
+  PipelineReferenceOperation,
+  PipelineReferenceResource,
+};
 import type { PoseSceneEnvelope } from "./PoseBasedVisibleCardScene";
 
 export type Point = { x: number; y: number };
