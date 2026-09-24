@@ -3472,8 +3472,23 @@ function renderMappingLayer({
   onMappingAnchorCornerSelect,
 }: LayerRenderContext) {
   if (scene === null && mappingAnchors.length === 0) return null;
+  const orderedAnchors = [
+    ...mappingAnchors.filter(
+      (anchor) =>
+        !isSelected(selection, {
+          type: "calibration_anchor",
+          id: anchor.anchorId,
+        }),
+    ),
+    ...mappingAnchors.filter((anchor) =>
+      isSelected(selection, {
+        type: "calibration_anchor",
+        id: anchor.anchorId,
+      }),
+    ),
+  ];
   if (scene === null) {
-    return mappingAnchors.map((anchor) => (
+    return orderedAnchors.map((anchor) => (
       <MappingAnchorOverlay
         key={anchor.anchorId}
         anchor={anchor}
@@ -3530,7 +3545,9 @@ function renderMappingLayer({
         ));
   return (
     <>
-      {mappingAnchors.map((anchor) => (
+      {current}
+      {candidate}
+      {orderedAnchors.map((anchor) => (
         <MappingAnchorOverlay
           key={anchor.anchorId}
           anchor={anchor}
@@ -3547,8 +3564,6 @@ function renderMappingLayer({
           onSelectCorner={onMappingAnchorCornerSelect}
         />
       ))}
-      {current}
-      {candidate}
     </>
   );
 }

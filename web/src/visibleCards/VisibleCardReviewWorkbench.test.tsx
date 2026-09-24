@@ -1443,6 +1443,10 @@ describe("VisibleCardReviewWorkbench", () => {
       "data-workbench-layer",
       "mapping",
     );
+    expect(layerGroups.at(-1)?.lastElementChild).toHaveAttribute(
+      "data-anchor-id",
+      "anchor-1",
+    );
     expect(
       surface.querySelector('[data-workbench-layer="virtual_cards"]'),
     ).toHaveAttribute("pointer-events", "none");
@@ -1490,6 +1494,39 @@ describe("VisibleCardReviewWorkbench", () => {
         ],
       }),
     );
+  });
+
+  it("draws the selected anchor above overlapping mapping anchors", () => {
+    const overlapping = structuredClone(calibrationRefinement) as
+      CalibrationRefinementResponse & {
+        draft: { anchors: Array<{ anchor_id: string; card_id: string }> };
+      };
+    overlapping.draft.anchors.push({
+      ...overlapping.draft.anchors[0],
+      anchor_id: "anchor-2",
+      card_id: "other-card",
+    });
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        initialPreferences={{
+          activeTool: "mapping",
+          enabledLayers: ["mapping"],
+        }}
+        enabledEditTools={["mapping"]}
+        calibrationRefinement={overlapping}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Adjust calibration anchor 1 for anchor-1",
+      }),
+    );
+    const layer = document.querySelector('[data-workbench-layer="mapping"]');
+    expect(layer?.lastElementChild).toHaveAttribute("data-anchor-id", "anchor-1");
   });
 
   it("shrinks mapping strokes and corner handles with zoom", () => {
