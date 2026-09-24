@@ -518,6 +518,7 @@ def test_candidate_near_frame_boundary_is_rejected_before_geometry_quality() -> 
             (8.0, 6.0),
         ]
     )
+    result["frames"][0]["predictions"][0]["confidence"] = 0.85
     polygon = np.asarray(result["frames"][0]["predictions"][0]["polygon"], dtype=np.float64)
     polygon[:, 1] += 1078.5 - float(np.max(polygon[:, 1]))
     result["frames"][0]["predictions"][0]["polygon"] = polygon.tolist()

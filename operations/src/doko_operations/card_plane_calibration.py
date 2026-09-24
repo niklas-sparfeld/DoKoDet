@@ -1507,15 +1507,15 @@ def calibrate_recording(
             )
             observations.append(observation)
             rejection_reason: str | None = None
-            if confidence < selected_recipe.confidence_threshold:
-                rejection_reason = "confidence_below_threshold"
-            elif (
+            if (
                 touches_frame_boundary
                 or any(np.any(mask[edge]) for edge in (0, -1))
                 or np.any(mask[:, 0])
                 or np.any(mask[:, -1])
             ):
                 rejection_reason = "frame_boundary"
+            elif confidence < selected_recipe.confidence_threshold:
+                rejection_reason = "confidence_below_threshold"
             elif (
                 quality_metrics["maximum_inward_defect_over_short_side"]
                 > selected_recipe.minimum_notch_depth_over_short_side
