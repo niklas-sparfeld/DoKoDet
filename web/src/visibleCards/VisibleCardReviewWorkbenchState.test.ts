@@ -4,7 +4,6 @@ import {
   WORKBENCH_COMMAND_GROUPS,
   WORKBENCH_DISABLED_REASONS,
   WORKBENCH_HIT_TEST_PRIORITY,
-  WORKBENCH_LAYER_DRAW_ORDER,
   WORKBENCH_SELECTION_ACTIONS,
   commandBarLayoutForWidth,
   createVisibleCardReviewWorkbenchState,
@@ -33,14 +32,7 @@ function capabilities(
 }
 
 describe("visible-card review workbench state", () => {
-  it("freezes the layer, hit-test, and command-bar contracts", () => {
-    expect(WORKBENCH_LAYER_DRAW_ORDER).toEqual([
-      "mapping",
-      "ignore_regions",
-      "suggestions",
-      "virtual_cards",
-      "visible_regions",
-    ]);
+  it("freezes the hit-test and command-bar contracts", () => {
     expect(WORKBENCH_HIT_TEST_PRIORITY).toEqual([
       "visible_regions",
       "virtual_cards",

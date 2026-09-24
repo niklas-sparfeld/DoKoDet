@@ -964,6 +964,29 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toBeDisabled();
   });
 
+  it("rotates a selected virtual card with the keyboard shortcut", async () => {
+    const onSceneChange = vi.fn();
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frame}
+        readOnly={false}
+        onSceneChange={onSceneChange}
+      />,
+    );
+
+    const card = screen.getByRole("button", {
+      name: "Select virtual card card-1",
+    });
+    fireEvent.click(card);
+    fireEvent.keyDown(card, { key: "r" });
+
+    await waitFor(() => expect(onSceneChange).toHaveBeenCalledTimes(1));
+    expect(onSceneChange.mock.calls[0][0].scene.poses[0].rotation_degrees).toBe(
+      5,
+    );
+  });
+
   it("keeps card acceptance separate from frame actions", async () => {
     const onCardDecision = vi.fn();
     const user = userEvent.setup();

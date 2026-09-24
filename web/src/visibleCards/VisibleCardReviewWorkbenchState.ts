@@ -103,14 +103,6 @@ export type WorkbenchAvailability = {
   tools: Record<WorkbenchEditTool, WorkbenchToolAvailability>;
 };
 
-export const WORKBENCH_LAYER_DRAW_ORDER = [
-  "mapping",
-  "ignore_regions",
-  "suggestions",
-  "virtual_cards",
-  "visible_regions",
-] as const satisfies readonly WorkbenchLayer[];
-
 export const WORKBENCH_HIT_TEST_PRIORITY = [
   "visible_regions",
   "virtual_cards",

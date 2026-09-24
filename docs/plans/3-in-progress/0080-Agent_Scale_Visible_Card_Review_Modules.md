@@ -20,7 +20,7 @@
 
 - **M0:** Complete — freeze behavior, public boundaries, characterization coverage, and module ownership.
 - **M1:** Complete — extract workbench controls, proposal presentation, and focused assertions.
-- **M2:** Not started — extract workbench surface interaction and layers.
+- **M2:** Complete — extract workbench surface interaction, rendering, and geometry.
 - **M3:** Not started — extract editor data, geometry, and URL helpers.
 - **M4:** Not started — extract the maintained-reference command controller.
 - **M5:** Not started — make both component roots small composition boundaries and split tests by owner.
@@ -260,6 +260,21 @@ Acceptance:
   editing have focused regression coverage.
 - Pure geometry tests do not mount React.
 - The root workbench has no local SVG-layer renderer or low-level polygon helper.
+
+#### M2 implementation evidence — 2026-09-24
+
+- Moved viewport, pointer, wheel, pan, card gesture, and mapping-anchor gesture handling to
+  `VisibleCardWorkbenchInteraction.ts`. The root composes the hook with the reducer and surface.
+- Moved `WorkbenchSurface`, the SVG layer renderers, hit testing, and rectified background drawing
+  to `VisibleCardWorkbenchSurface.tsx`. `WORKBENCH_LAYER_REGISTRY` now supplies both layer order
+  and renderer behavior; mapping edits preserve the existing top-layer behavior.
+- Moved coordinate conversion, projection, view-box, polygon, and SVG geometry helpers to the
+  non-React `VisibleCardWorkbenchSurfaceGeometry.ts` module. Added direct geometry tests without
+  mounting React, plus a keyboard card-rotation regression test.
+- Verification: typecheck and Prettier pass; 60 focused workbench, state, control, and geometry
+  tests pass. Scoped ESLint reports no errors and the existing `capabilities` dependency warning
+  in the workbench root. `git diff --check` passes.
+- No public workbench props or review command payloads changed.
 
 ### M3 — Extract editor data, geometry, and URL helpers
 
