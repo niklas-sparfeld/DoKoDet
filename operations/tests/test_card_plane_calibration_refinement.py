@@ -20,6 +20,7 @@ from doko_operations.card_plane_calibration_refinement import (
     apply_anchor_command_to_draft,
     build_calibration_draft,
     build_calibration_preview,
+    exclude_anchors_in_reviewed_ignore_regions,
     reflow_card_scene_draft,
 )
 from doko_operations.card_plane_geometry import project_fixed_card
@@ -172,6 +173,48 @@ def test_preview_is_repeatable_and_reports_recording_impact() -> None:
     assert first.accepted_anchor_count == 0
     assert first.changed_frame_ids == ("frame-000",)
     assert first.most_affected_frame_ids == ("frame-000",)
+
+
+def test_ignore_regions_exclude_existing_calibration_anchors_retroactively() -> None:
+    draft, _calibration = _draft()
+    effective = exclude_anchors_in_reviewed_ignore_regions(
+        draft,
+        [
+            {
+                "item_id": "frame-000",
+                "frame_identity": {"frame_id": "frame-000", "width": 1920, "height": 1080},
+                "ignored_regions": [
+                    {
+                        "region_id": "ignore-frame-000",
+                        "geometry": {
+                            "kind": "reviewed-ignore-region/v1",
+                            "polygons": [
+                                [
+                                    {"x": 0, "y": 0},
+                                    {"x": 1000, "y": 0},
+                                    {"x": 1000, "y": 1000},
+                                    {"x": 0, "y": 1000},
+                                ]
+                            ],
+                        },
+                        "normalization": {
+                            "width": 1920,
+                            "height": 1080,
+                            "policy_id": "full-frame-0-1000/v1",
+                        },
+                        "reason": "untidy_stack",
+                        "source_candidates": [],
+                    }
+                ],
+            }
+        ],
+    )
+
+    states = {anchor.anchor_id: anchor.state for anchor in effective.anchors}
+    assert states["anchor-000"] == "excluded"
+    assert states["anchor-001"] == "candidate"
+    assert effective.anchors[0].eligibility_reason == "reviewed ignore region"
+    assert effective.draft_digest != draft.draft_digest
 
 
 def test_anchor_decision_changes_fit_influence_and_draft_digest() -> None:

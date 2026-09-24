@@ -642,6 +642,7 @@ export function readCalibrationAnchors(
     const cardId = readString(raw.card_id);
     const sourceFrameId = readString(raw.source_frame_id);
     const state = readAnchorState(raw.state);
+    const eligibilityReason = readString(raw.eligibility_reason);
     const corners = readTablePoints(raw.quadrilateral);
     if (
       anchorId === null ||
@@ -649,6 +650,8 @@ export function readCalibrationAnchors(
       sourceFrameId === null ||
       state === null ||
       corners === null ||
+      (state === "excluded" &&
+        eligibilityReason === "reviewed ignore region") ||
       !frameIds.has(sourceFrameId)
     )
       return [];

@@ -19,9 +19,14 @@ function setup(
   updatePipelineReferenceDraft: ReturnType<typeof vi.fn>,
   getPipelineReference = vi.fn(async () => reference),
   proposalRevisionId: string | null = null,
+  getCalibrationRefinement = vi.fn(async () => ({})),
 ) {
   const input = {
-    client: { updatePipelineReferenceDraft, getPipelineReference } as never,
+    client: {
+      updatePipelineReferenceDraft,
+      getPipelineReference,
+      getCalibrationRefinement,
+    } as never,
     recordingId: "recording-1",
     operatorId: "operator-1",
     generatedRevisionId: "generated-1",
@@ -56,7 +61,7 @@ function setup(
     setCreatingReference: vi.fn(),
     setCompletionBusy: vi.fn(),
     setReviewerId: vi.fn(),
-    calibrationProposalRevisionId: null,
+    calibrationProposalRevisionId: proposalRevisionId,
     selectedFrameIdRef: { current: null },
     inspectedFrameKeysRef: { current: new Set<string>() },
     setInspectedFrameKeys: vi.fn(),
@@ -121,6 +126,37 @@ describe("usePipelineVisibleCardEditorController", () => {
     expect(result.current.isProcessing()).toBe(false);
     expect(result.current.firstUnappliedCommand).toBe(
       "Set Frame Review frame-1",
+    );
+  });
+
+  it("refreshes calibration after an ignore-region command", async () => {
+    const update = vi.fn().mockResolvedValue(reference);
+    const getCalibrationRefinement = vi.fn().mockResolvedValue({});
+    const { result } = setup(
+      update,
+      undefined,
+      "proposal-1",
+      getCalibrationRefinement,
+    );
+
+    act(() => {
+      result.current.enqueue(
+        {
+          operation: "create_ignore_region",
+          item_id: "frame-1",
+          region: {} as never,
+        },
+        "ignore",
+        (frames) => frames,
+      );
+    });
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(getCalibrationRefinement).toHaveBeenCalledWith(
+        "recording-1",
+        "proposal-1",
+      ),
     );
   });
 

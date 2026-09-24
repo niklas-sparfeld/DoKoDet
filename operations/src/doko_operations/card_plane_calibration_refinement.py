@@ -40,6 +40,10 @@ from table_evidence_analyzer.card_scene_contract import (
     deduplicate_anchor_observations,
     validate_pinned_anchor_conflicts,
 )
+from table_evidence_analyzer.pipeline_data import (
+    ReviewedIgnoreRegionGeometry,
+    ReviewedVisibleRegionGeometry,
+)
 
 from .card_plane_calibration import CalibrationRun, calibrate_recording
 from .card_plane_geometry import (
@@ -57,6 +61,7 @@ from .card_plane_geometry import (
 )
 from .pipeline_data import canonical_json_bytes
 from .pipeline_reference import ReferenceDraftItem
+from .visible_card_ignore import geometry_is_within
 
 CALIBRATION_DRAFT_STORE_DIRECTORY = "table-plane-calibration-drafts"
 CALIBRATION_REFLOW_STORE_DIRECTORY = "table-plane-calibration-reflows"
@@ -645,6 +650,129 @@ def build_calibration_draft(
     )
 
 
+def exclude_anchors_in_reviewed_ignore_regions(
+    draft: CalibrationDraft,
+    frame_items: Sequence[Mapping[str, Any]],
+) -> CalibrationDraft:
+    """Return a preview draft with anchors covered by reviewed ignore regions excluded.
+
+    Ignore regions are added to the maintained reference after the calibration draft can
+    already exist. Keep the draft revision and commands stable, but derive the effective anchor
+    state from the current reviewed frame data so a later ignore decision is applied
+    retrospectively.
+    """
+
+    regions_by_frame: dict[str, list[tuple[ReviewedIgnoreRegionGeometry, int, int]]] = {}
+    for item in frame_items:
+        if not isinstance(item, Mapping):
+            continue
+        raw_regions = item.get("ignored_regions")
+        if not isinstance(raw_regions, list):
+            continue
+        frame_identity = item.get("frame_identity")
+        width = frame_identity.get("width") if isinstance(frame_identity, Mapping) else None
+        height = frame_identity.get("height") if isinstance(frame_identity, Mapping) else None
+        frame_ids = {
+            value
+            for value in (
+                item.get("item_id"),
+                item.get("event_id"),
+                frame_identity.get("frame_id") if isinstance(frame_identity, Mapping) else None,
+            )
+            if isinstance(value, str) and value
+        }
+        raw_scene = item.get("card_scene")
+        if isinstance(raw_scene, Mapping):
+            reviewed = raw_scene.get("reviewed")
+            scene = reviewed.get("scene") if isinstance(reviewed, Mapping) else None
+            source_frame_id = scene.get("source_frame_id") if isinstance(scene, Mapping) else None
+            if isinstance(source_frame_id, str) and source_frame_id:
+                frame_ids.add(source_frame_id)
+        for raw_region in raw_regions:
+            if not isinstance(raw_region, Mapping):
+                continue
+            raw_geometry = raw_region.get("geometry")
+            raw_normalization = raw_region.get("normalization")
+            try:
+                geometry = ReviewedIgnoreRegionGeometry.from_mapping(raw_geometry)
+                if not isinstance(raw_normalization, Mapping):
+                    continue
+                region_width = int(raw_normalization["width"])
+                region_height = int(raw_normalization["height"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            resolved_width = width if isinstance(width, int) and width > 0 else region_width
+            resolved_height = height if isinstance(height, int) and height > 0 else region_height
+            for frame_id in frame_ids:
+                regions_by_frame.setdefault(frame_id, []).append(
+                    (geometry, resolved_width, resolved_height)
+                )
+
+    if not regions_by_frame:
+        return draft
+
+    updated_anchors: list[AnchorObservation] = []
+    changed = False
+    for anchor in draft.anchors:
+        regions = regions_by_frame.get(anchor.source_frame_id, ())
+        excluded = False
+        for region, width, height in regions:
+            candidate = ReviewedVisibleRegionGeometry(
+                polygons=(
+                    tuple(
+                        (
+                            max(0, min(1000, int(round(point[0] * 1000 / width)))),
+                            max(0, min(1000, int(round(point[1] * 1000 / height)))),
+                        )
+                        for point in anchor.quadrilateral
+                    ),
+                )
+            )
+            if geometry_is_within(region, candidate):
+                excluded = True
+                break
+        if excluded and anchor.state != "excluded":
+            updated_anchors.append(
+                AnchorObservation.create(
+                    anchor_id=anchor.anchor_id,
+                    card_id=anchor.card_id,
+                    source_frame_id=anchor.source_frame_id,
+                    source_frame_digest=anchor.source_frame_digest,
+                    detector_revision_id=anchor.detector_revision_id,
+                    quadrilateral=anchor.quadrilateral,
+                    confidence=anchor.confidence,
+                    temporal_bin=anchor.temporal_bin,
+                    table_region_bin=anchor.table_region_bin,
+                    scale_bin=anchor.scale_bin,
+                    orientation_bin=anchor.orientation_bin,
+                    eligible=False,
+                    eligibility_reason="reviewed ignore region",
+                    state="excluded",
+                    weight_class=anchor.weight_class,
+                )
+            )
+            changed = True
+        else:
+            updated_anchors.append(anchor)
+
+    if not changed:
+        return draft
+    return CalibrationDraft.create(
+        draft_id=draft.draft_id,
+        recording_id=draft.recording_id,
+        detector_revision_id=draft.detector_revision_id,
+        detector_revision_digest=draft.detector_revision_digest,
+        base_calibration_revision_id=draft.base_calibration_revision_id,
+        base_calibration_digest=draft.base_calibration_digest,
+        source_frame_digests=draft.source_frame_digests,
+        anchors=updated_anchors,
+        commands=draft.commands,
+        revision=draft.revision,
+        state=draft.state,
+        invalidation_reason=draft.invalidation_reason,
+    )
+
+
 def build_published_calibration_run(
     calibration: TablePlaneCalibration,
     *,
@@ -1136,6 +1264,7 @@ __all__ = [
     "build_calibration_draft",
     "build_calibration_preview",
     "build_published_calibration_run",
+    "exclude_anchors_in_reviewed_ignore_regions",
     "reflow_card_scene_draft",
     "reflow_reference_items",
 ]

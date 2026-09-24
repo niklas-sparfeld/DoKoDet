@@ -1034,6 +1034,64 @@ def test_pose_scene_updates_derive_candidates_and_completion_rejects_stale_views
     assert "pose scene derivation" in stale_error.value.details[0]["message"]
 
 
+def test_ignore_region_added_after_virtual_card_review_removes_covered_pose(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    proposal_revision_id = _proposal_revision(revision_store, source_revision_id)
+    seeded = service.create_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {"operator_id": "operator-01", "proposal_revision_id": proposal_revision_id},
+    )
+    accepted = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": seeded.draft.revision,
+            "operations": [
+                {"operation": "accept_card", "item_id": "event-01", "card_id": "card-01"}
+            ],
+        },
+    )
+    region = {
+        "region_id": "ignore-all-01",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 0, "y": 0},
+                    {"x": 1000, "y": 0},
+                    {"x": 1000, "y": 1000},
+                    {"x": 0, "y": 1000},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "reason": "untidy_stack",
+        "source_candidates": [],
+    }
+
+    updated = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": accepted.draft.revision,
+            "operations": [
+                {"operation": "create_ignore_region", "item_id": "event-01", "region": region}
+            ],
+        },
+    )
+
+    item = updated.draft.items[0].item
+    assert item["candidates"] == []
+    assert item["card_scene"]["reviewed"] is None
+    assert item["card_scene"]["card_states"][0]["state"] == "rejected"
+
+
 def test_proposal_seed_keeps_immutable_scene_and_supports_card_decisions(
     tmp_path: Path,
 ) -> None:

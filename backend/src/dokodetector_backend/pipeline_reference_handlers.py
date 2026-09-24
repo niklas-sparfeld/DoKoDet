@@ -739,6 +739,35 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         return cls._derive_typed_pose_scene_item(updated, updated_draft)
 
     @classmethod
+    def _scene_cards_within_ignore_regions(
+        cls,
+        item: Mapping[str, Any],
+        regions: list[VisibleCardIgnoreRegion],
+    ) -> set[str]:
+        """Find reviewed pose cards whose derived visible region is fully ignored."""
+
+        draft = cls._typed_scene_draft(item)
+        if draft is None or draft.reviewed is None or draft.projection is None:
+            return set()
+        try:
+            derivation = derive_pose_scene_visible_regions(
+                draft.reviewed.scene, draft.projection
+            )
+        except (CardPlaneGeometryError, TypeError, ValueError):
+            return set()
+        covered: set[str] = set()
+        for derived in derivation.regions:
+            try:
+                candidate_geometry = parse_pipeline_geometry(
+                    derived["geometry"], f"candidate.{derived['card_id']}.geometry"
+                )
+            except (KeyError, PipelineDataError, TypeError, ValueError):
+                continue
+            if any(geometry_is_within(region.geometry, candidate_geometry) for region in regions):
+                covered.add(derived["card_id"])
+        return covered
+
+    @classmethod
     def _drop_ignored_candidates_from_item(cls, item: Mapping[str, Any]) -> dict[str, Any]:
         """Keep ignore-consumed cards out of the derived candidate view."""
 
@@ -1374,6 +1403,9 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         ignored_card_ids = {
             source.card_id for region in updated_regions for source in region.source_candidates
         }
+        ignored_card_ids.update(
+            self._scene_cards_within_ignore_regions(existing.item, updated_regions)
+        )
         updated = self._reject_cards_in_typed_scene(updated, ignored_card_ids)
         self.validate_item(updated, source_revision_id)
         state = existing.review_state

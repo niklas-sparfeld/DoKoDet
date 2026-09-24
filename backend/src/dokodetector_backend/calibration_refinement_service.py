@@ -17,6 +17,7 @@ from doko_operations.card_plane_calibration_refinement import (
     build_calibration_draft,
     build_calibration_preview,
     build_published_calibration_run,
+    exclude_anchors_in_reviewed_ignore_regions,
 )
 from doko_operations.card_plane_geometry import TablePlaneCalibration
 from doko_operations.pipeline_data import (
@@ -264,11 +265,13 @@ class CalibrationRefinementService:
             raise CalibrationRefinementInputError(
                 "the calibration draft uses a stale detector revision; reload the refinement"
             )
+        frame_scenes = self._frame_scenes(recording_id, data)
+        effective_draft = exclude_anchors_in_reviewed_ignore_regions(draft, frame_scenes)
         receipt_id = "reflow-" + hashlib.sha256(
             canonical_json_bytes(
                 {
-                    "draft_id": draft.draft_id,
-                    "draft_digest": draft.draft_digest,
+                    "draft_id": effective_draft.draft_id,
+                    "draft_digest": effective_draft.draft_digest,
                     "preview_digest": preview_digest,
                 }
             )
@@ -296,9 +299,9 @@ class CalibrationRefinementService:
                     "reference": reference.to_mapping(),
                 }
         preview = build_calibration_preview(
-            draft,
+            effective_draft,
             data.calibration,
-            frame_scenes=self._frame_scenes(recording_id, data),
+            frame_scenes=frame_scenes,
         )
         if preview.preview_digest != preview_digest:
             raise CalibrationRefinementInputError(
@@ -334,7 +337,7 @@ class CalibrationRefinementService:
 
         target = self._target_calibration(
             data.calibration,
-            draft,
+            effective_draft,
             preview_digest,
         )
         target_data = build_proposed_card_scene_data(
@@ -519,18 +522,25 @@ class CalibrationRefinementService:
         include_frame_scenes: bool = True,
     ) -> dict[str, Any]:
         frame_scenes = (
-            self._frame_scenes(recording_id, data) if include_frame_scenes else ()
+            self._frame_scenes(recording_id, data)
         )
-        preview = build_calibration_preview(draft, data.calibration, frame_scenes=frame_scenes)
+        effective_draft = exclude_anchors_in_reviewed_ignore_regions(draft, frame_scenes)
+        preview = build_calibration_preview(
+            effective_draft,
+            data.calibration,
+            frame_scenes=frame_scenes if include_frame_scenes else (),
+        )
         contributions = []
         from table_evidence_analyzer.card_scene_contract import anchor_fit_contributions
 
-        contributions.extend(item.to_mapping() for item in anchor_fit_contributions(draft.anchors))
+        contributions.extend(
+            item.to_mapping() for item in anchor_fit_contributions(effective_draft.anchors)
+        )
         return {
             "schema_version": "table-plane-calibration-refinement/v1",
             "recording_id": recording_id,
             "proposal_revision_id": proposal_revision_id,
-            "draft": draft.to_mapping(),
+            "draft": effective_draft.to_mapping(),
             "preview": preview.to_mapping(),
             "preview_complete": include_frame_scenes,
             "anchor_contributions": contributions,
