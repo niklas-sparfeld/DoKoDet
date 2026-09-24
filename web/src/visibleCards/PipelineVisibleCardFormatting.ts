@@ -1,8 +1,22 @@
+import { ApiError } from "../api/client";
 import type {
   EditableFrame,
   FrameReviewStatus,
   PendingCommand,
 } from "./PipelineVisibleCardTypes";
+
+export function describeError(reason: unknown): string {
+  if (
+    reason instanceof ApiError &&
+    isRecord(reason.body) &&
+    isRecord(reason.body.error) &&
+    typeof reason.body.error.message === "string"
+  )
+    return reason.body.error.message;
+  return reason instanceof Error
+    ? reason.message
+    : "The visible-card reference could not be saved.";
+}
 
 export function formatFrameTime(frame: EditableFrame): string {
   return formatMicroseconds(
@@ -38,4 +52,8 @@ export function describeCommand(command: PendingCommand | undefined): string {
   return command === undefined
     ? "none"
     : `${formatIdentifier(operation?.operation ?? "operation")} ${operation?.item_id ?? "frame"}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

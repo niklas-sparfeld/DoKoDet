@@ -21,7 +21,7 @@
 - **M0:** Complete — freeze behavior, public boundaries, characterization coverage, and module ownership.
 - **M1:** Complete — extract workbench controls, proposal presentation, and focused assertions.
 - **M2:** Complete — extract workbench surface interaction, rendering, and geometry.
-- **M3:** Not started — extract editor data, geometry, and URL helpers.
+- **M3:** Complete — extract editor data, geometry, error, and URL helpers.
 - **M4:** Not started — extract the maintained-reference command controller.
 - **M5:** Not started — make both component roots small composition boundaries and split tests by owner.
 
@@ -159,6 +159,7 @@ the epic.
 | `PipelineVisibleCardData.ts` | Unknown API payloads and typed frames in; parsed frames, coverage, decisions, IDs, and mappings out | Pure editor data parsing | No |
 | `PipelineVisibleCardGeometry.ts` | Points, candidate geometry, and pointer coordinates in; validated or edited geometry and hit-test results out | Pure editor geometry | No |
 | `PipelineVisibleCardUrl.ts` | Current URL state and selected values in; parsed state and updated URL out | URL helpers | No |
+| `PipelineVisibleCardFormatting.ts` | Typed frames, commands, and errors in; short display strings out | Editor formatting | No |
 
 #### Destination map for current named helpers
 
@@ -177,7 +178,8 @@ availability reducer.
 | Remaining workbench-local transient state, viewport callbacks, keyboard handling, selection transitions, and gesture handlers | `VisibleCardReviewWorkbenchController.ts` |
 | `readProposalInputRevisionId`, `readProposalRevisionId`, `toEditableFrame`, `readFramesFromResult`, `readOutcome`, `readFrameIdentity`, `readCandidate`, `readIgnoreRegion`, `isVisibleCardSide`, `readGeometry`, `frameCoverageKey`, `frameCoverageKeyFromIdentity`, `coverageEntries`, `frameDecision`, `nextManualCardId`, `nextManualRegionId`, `copiedIgnoreRegionId`, `newIgnoreRegion`, `ignoreRegionMapping`, `isFrameReviewState`, `isRecord`, `isInteger`, `clamp` | `PipelineVisibleCardData.ts` |
 | `geometryPolygons`, `candidateIsWithinIgnoreRegions`, `polygonIsWithin`, `segmentIsWithin`, `segmentIntersectionParameters`, `pointInPolygonUnion`, `findClearlySelectedCandidate`, `findClearlySelectedPolygon`, `isClearlyOutsidePolygons`, `polygonClearanceRatio`, `polygonScale`, `pointInPolygon`, `pointOnSegment`, `reviewedGeometry`, `validatePolygons`, `polygonArea`, `insertPointOnNearestEdge`, `squaredDistanceToSegment`, `pointFromEvent` | `PipelineVisibleCardGeometry.ts` |
-| `describeError`, `isRetryableError` | `PipelineVisibleCardEditorController.ts` |
+| `describeError` | `PipelineVisibleCardFormatting.ts` |
+| `isRetryableError` | `PipelineVisibleCardEditorController.ts` |
 | `readPipelineEditorUrlState`, `updatePipelineUrl` | `PipelineVisibleCardUrl.ts` |
 | All editor-local API loading, proposal polling, calibration commands, maintained-reference queue, retry, rebase, optimistic state, and cleanup handlers | `PipelineVisibleCardEditorController.ts` |
 
@@ -294,6 +296,20 @@ Acceptance:
   or boundary inputs.
 - The editor no longer defines response parsing, polygon intersection, or URL serialization helpers.
 - Generated and maintained frame selection produces the same rail items and review decisions.
+
+#### M3 implementation evidence — 2026-09-24
+
+- Moved payload readers, frame conversion, coverage keys and entries, frame decisions, and
+  ignore-region identifiers and mappings to `PipelineVisibleCardData.ts`.
+- Moved polygon containment, candidate and polygon selection, point insertion, validation, and
+  pointer-to-frame conversion to the non-React `PipelineVisibleCardGeometry.ts` module. It reuses
+  the existing candidate, point, geometry, and ignore-region types.
+- Moved URL read and update helpers to `PipelineVisibleCardUrl.ts`, and error descriptions to the
+  existing non-React `PipelineVisibleCardFormatting.ts` module. The editor remains the caller.
+- Added direct tests for data parsing and coverage, polygon geometry, URL updates, and error text.
+  Verification: typecheck, Prettier, scoped ESLint, and `git diff --check` pass; all 9 new module
+  tests pass. The editor suite reports the same 10 baseline failures recorded in M0.
+- No API calls, command order, public editor exports, or review behavior changed.
 
 ### M4 — Extract the maintained-reference command controller
 
