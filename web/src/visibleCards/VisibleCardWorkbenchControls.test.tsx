@@ -218,6 +218,27 @@ describe("visible-card workbench controls", () => {
     expect(callbacks.onAction).toHaveBeenCalledWith("add_visible_card");
   });
 
+  it("keeps copying ignore regions available while another tool is active", async () => {
+    const callbacks = selectionCallbacks();
+    const user = userEvent.setup();
+    render(
+      <WorkbenchTimelineSelectionActions
+        viewModel={selectionViewModel({
+          activeTool: "virtual_cards",
+          canCopyIgnoreRegions: true,
+        })}
+        callbacks={callbacks}
+      />,
+    );
+
+    const copyButton = screen.getByRole("button", {
+      name: "Copy ignore regions Click",
+    });
+    expect(copyButton).toBeEnabled();
+    await user.click(copyButton);
+    expect(callbacks.onAction).toHaveBeenCalledWith("copy_ignore_regions");
+  });
+
   it("renders frame decisions with the same enabled state and callbacks", async () => {
     const onAccept = vi.fn();
     const onMarkEmpty = vi.fn();

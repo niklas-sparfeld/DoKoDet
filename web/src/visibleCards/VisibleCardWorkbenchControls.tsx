@@ -555,6 +555,11 @@ export function WorkbenchTimelineSelectionActions({
       className={styles.workbenchTimelineActions}
       aria-label="Selection actions"
     >
+      <CopyIgnoreRegionsAction
+        readOnly={readOnly}
+        canCopyIgnoreRegions={canCopyIgnoreRegions}
+        onAction={onAction}
+      />
       {activeTool === "visible_regions" || selectedCandidateIds.length > 0 ? (
         <VisibleRegionSelectionActions
           readOnly={readOnly}
@@ -562,7 +567,6 @@ export function WorkbenchTimelineSelectionActions({
           selectedCandidateCount={selectedCandidateIds.length}
           editor={editor}
           selection={selection}
-          canCopyIgnoreRegions={canCopyIgnoreRegions}
           canRestoreSuggestion={canRestoreSuggestion}
           onAction={onAction}
         />
@@ -598,6 +602,37 @@ export function WorkbenchTimelineSelectionActions({
     </div>
   );
   return content;
+}
+
+function CopyIgnoreRegionsAction({
+  readOnly,
+  canCopyIgnoreRegions,
+  onAction,
+}: {
+  readOnly: boolean;
+  canCopyIgnoreRegions: boolean;
+  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
+}) {
+  return (
+    <TimelineRailSeekingControls
+      groups={[
+        {
+          label: "Ignore regions",
+          controls: [
+            {
+              label: "Copy ignore regions",
+              symbol: "⧉",
+              shortcut: "Click",
+              disabled: readOnly || !canCopyIgnoreRegions,
+              disabledReason:
+                "Review an earlier frame with ignore regions first.",
+              onClick: () => onAction("copy_ignore_regions"),
+            },
+          ],
+        },
+      ]}
+    />
+  );
 }
 
 function FrameDecisionActions({
@@ -1000,7 +1035,6 @@ function VisibleRegionSelectionActions({
   selectedCandidateCount,
   editor,
   selection,
-  canCopyIgnoreRegions,
   canRestoreSuggestion,
   onAction,
 }: {
@@ -1009,7 +1043,6 @@ function VisibleRegionSelectionActions({
   selectedCandidateCount: number;
   editor: VisibleCardEditorSummary | null;
   selection: WorkbenchSelection | null;
-  canCopyIgnoreRegions: boolean;
   canRestoreSuggestion: boolean;
   onAction: (action: VisibleRegionWorkbenchAction) => void;
 }) {
@@ -1068,14 +1101,6 @@ function VisibleRegionSelectionActions({
       disabled: readOnly || selectedCandidateCount === 0,
       reason:
         "Select one or more proposals to convert them to an ignore region.",
-    },
-    {
-      action: "copy_ignore_regions",
-      label: "Copy ignore regions",
-      symbol: "⧉",
-      shortcut: "Click",
-      disabled: readOnly || !canCopyIgnoreRegions,
-      reason: "Review an earlier frame with ignore regions first.",
     },
     {
       action: "delete_selection",
