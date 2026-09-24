@@ -701,6 +701,7 @@ function canonicalAnchorCommandStringify(
       if (key !== "corners") {
         return `${JSON.stringify(key)}:${stableStringify(value)}`;
       }
+      if (value === null) return '"corners":null';
       const corners = (value as TablePoint[])
         .map(
           (point) =>

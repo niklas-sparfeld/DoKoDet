@@ -150,12 +150,9 @@ export const WORKBENCH_SELECTION_ACTIONS = {
   ],
   mapping: [
     "accept_anchor",
-    "adjust_anchor",
-    "pin_anchor",
     "exclude_anchor",
     "start_mapping_preview",
     "discard_mapping_preview",
-    "apply_mapping",
   ],
 } as const satisfies Record<WorkbenchEditTool, readonly string[]>;
 

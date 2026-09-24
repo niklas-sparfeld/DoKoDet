@@ -2570,20 +2570,7 @@ export function PipelineVisibleCardEditor({
                 onDiscardMappingPreview={() =>
                   void discardCalibrationRefinement()
                 }
-                onApplyMapping={() =>
-                  void applyCalibrationRefinement(
-                    calibrationRefinement?.preview.failure?.code ===
-                      "reviewed_displacement_exceeded",
-                  )
-                }
                 mappingLoading={calibrationLoading}
-                mappingCanApply={
-                  calibrationRefinement !== null &&
-                  calibrationRefinement.preview_complete !== false &&
-                  (calibrationRefinement.preview.status === "pass" ||
-                    calibrationRefinement.preview.failure?.code ===
-                      "reviewed_displacement_exceeded")
-                }
                 onSelectionChange={handleWorkbenchSelection}
                 onAction={handleWorkbenchAction}
                 onSceneChange={

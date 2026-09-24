@@ -59,7 +59,7 @@ describe("visible-card review workbench state", () => {
       "draw_ignore_region",
     );
     expect(WORKBENCH_SELECTION_ACTIONS.virtual_cards).toContain("accept_card");
-    expect(WORKBENCH_SELECTION_ACTIONS.mapping).toContain("apply_mapping");
+    expect(WORKBENCH_SELECTION_ACTIONS.mapping).toContain("accept_anchor");
   });
 
   it("defaults a calibrated card scene to Rectified and virtual-card review", () => {

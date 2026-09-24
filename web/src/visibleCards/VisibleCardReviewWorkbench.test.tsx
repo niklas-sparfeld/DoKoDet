@@ -1206,7 +1206,6 @@ describe("VisibleCardReviewWorkbench", () => {
         }}
         enabledEditTools={["mapping"]}
         calibrationRefinement={calibrationRefinement}
-        mappingCanApply
         onAnchorCommand={onAnchorCommand}
       />,
     );
@@ -1233,8 +1232,8 @@ describe("VisibleCardReviewWorkbench", () => {
       }),
     );
     expect(
-      screen.getByRole("button", { name: "Apply mapping Click" }),
-    ).toBeEnabled();
+      screen.queryByRole("button", { name: "Apply mapping Click" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps a dragged anchor in place while its save is pending", async () => {

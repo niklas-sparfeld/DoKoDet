@@ -450,6 +450,22 @@ function CalibrationRefinementControls({
   canApply: boolean;
 }) {
   if (proposalRevisionId === null) return null;
+  const previewValid =
+    refinement === null ||
+    (refinement.preview !== null &&
+      Array.isArray(refinement.preview.changed_frame_ids) &&
+      Array.isArray(refinement.preview.gates) &&
+      Array.isArray(refinement.preview.most_affected_frame_ids));
+  const canApplyPreview =
+    refinement !== null &&
+    refinement.preview !== null &&
+    refinement.preview_complete !== false &&
+    (refinement.preview.status === "pass" ||
+      refinement.preview.failure?.code === "reviewed_displacement_exceeded");
+  const firstFailedGate =
+    previewValid && refinement !== null
+      ? refinement.preview.gates.find((gate) => !gate.passed)
+      : undefined;
   return (
     <section
       className={visibleStyles.proposalControls}
@@ -457,12 +473,21 @@ function CalibrationRefinementControls({
     >
       <p className={styles.statusLabel}>Recording-wide mapping</p>
       <h3>Refine calibration</h3>
+      <p className={styles.pipelineInspectorEmpty}>
+        Drag card corners to save corrected anchors. When the preview passes,
+        apply the calibration to the table here.
+      </p>
       {error !== null ? (
         <p className={visibleStyles.error} role="alert">
           {error}
         </p>
       ) : null}
-      {refinement === null ? (
+      {!previewValid ? (
+        <p className={visibleStyles.error} role="alert">
+          The calibration preview is incomplete. Reload it before applying the
+          calibration.
+        </p>
+      ) : refinement === null ? (
         <button
           className={styles.secondaryButton}
           type="button"
@@ -488,27 +513,26 @@ function CalibrationRefinementControls({
           >
             Discard calibration preview
           </button>
-          {refinement.preview.status === "pass" ||
-          refinement.preview.failure?.code ===
-            "reviewed_displacement_exceeded" ? (
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={() =>
-                onApply(
-                  refinement.preview.failure?.code ===
-                    "reviewed_displacement_exceeded",
-                )
-              }
-              disabled={loading || !canApply}
-            >
-              {loading
-                ? "Applying calibration…"
-                : refinement.preview.failure?.code ===
-                    "reviewed_displacement_exceeded"
-                  ? "Apply and mark affected"
-                  : "Apply calibration"}
-            </button>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            onClick={() =>
+              onApply(
+                refinement.preview.failure?.code ===
+                  "reviewed_displacement_exceeded",
+              )
+            }
+            disabled={loading || !canApply || !canApplyPreview}
+          >
+            {loading ? "Applying calibration…" : "Apply calibration to table"}
+          </button>
+          {!canApplyPreview && refinement.preview.failure !== null ? (
+            <p className={styles.pipelineInspectorEmpty}>
+              {firstFailedGate !== undefined
+                ? `${formatIdentifier(firstFailedGate.gate_id)}: ${firstFailedGate.observed.toFixed(2)} exceeds ${firstFailedGate.threshold.toFixed(2)}. `
+                : ""}
+              {refinement.preview.failure.action}
+            </p>
           ) : null}
         </>
       )}
@@ -761,6 +785,19 @@ function CalibrationPreviewPanel({
   onSelectFrame: (frameId: string) => void;
 }) {
   const preview = refinement.preview;
+  if (preview === null) {
+    return (
+      <section
+        className={visibleStyles.coverageInspector}
+        aria-label="Calibration preview"
+      >
+        <strong>Calibration preview unavailable</strong>
+        <p role="alert">
+          The preview data is incomplete. Reload the calibration preview.
+        </p>
+      </section>
+    );
+  }
   if (refinement.preview_complete === false) {
     return (
       <section
@@ -770,6 +807,23 @@ function CalibrationPreviewPanel({
       >
         <strong>Calibration preview: Updating</strong>
         <p>Calculating the recording-wide scene impact.</p>
+      </section>
+    );
+  }
+  if (
+    !Array.isArray(preview.gates) ||
+    !Array.isArray(preview.most_affected_frame_ids) ||
+    !Array.isArray(preview.changed_frame_ids)
+  ) {
+    return (
+      <section
+        className={visibleStyles.coverageInspector}
+        aria-label="Calibration preview"
+      >
+        <strong>Calibration preview unavailable</strong>
+        <p role="alert">
+          The preview data is incomplete. Reload the calibration preview.
+        </p>
       </section>
     );
   }
@@ -797,6 +851,9 @@ function CalibrationPreviewPanel({
         {preview.gates.map((gate) => (
           <li key={gate.gate_id}>
             {gate.passed ? "Pass" : "Blocked"}: {formatIdentifier(gate.gate_id)}
+            {!gate.passed
+              ? ` (${gate.observed.toFixed(2)} / limit ${gate.threshold.toFixed(2)})`
+              : ""}
           </li>
         ))}
       </ul>

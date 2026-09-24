@@ -2,6 +2,7 @@ import {
   applyPoseSceneAction,
   cardPolygon,
   createCalibrationAnchorCommand,
+  createCalibrationAnchorStateCommand,
   moveAnchorCorner,
   withCalibrationAnchorCommandDigest,
   nextManualPoseId,
@@ -184,6 +185,24 @@ describe("PoseBasedVisibleCardScene", () => {
       expect.objectContaining({
         command_digest:
           "03709b841584e670c47865b1fb92770bb71362212509a3d97ba9a22f49eec5b1",
+      }),
+    );
+  });
+
+  it("digests an anchor decision with null corners", async () => {
+    const command = createCalibrationAnchorStateCommand({
+      command_id: "anchor-command-frame-1-2",
+      sequence: 2,
+      expected_draft_revision: 1,
+      anchor_id: "anchor-frame-1-card-1",
+      state: "accepted",
+      operator_id: "operator",
+    });
+    await expect(withCalibrationAnchorCommandDigest(command)).resolves.toEqual(
+      expect.objectContaining({
+        corners: null,
+        command_digest:
+          "e812bb06f7a7a2c19faa28f564e128cade8558958f61d0fe658c0e3cb0b4f7bb",
       }),
     );
   });

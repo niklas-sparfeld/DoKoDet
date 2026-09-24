@@ -1287,6 +1287,59 @@ describe("PipelineVisibleCardEditor", () => {
     );
   });
 
+  it("shows incomplete calibration preview data without crashing", async () => {
+    const currentReference = {
+      ...reference(),
+      draft: {
+        ...reference().draft,
+        proposal_revision_id: PROPOSAL_REVISION_ID,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input) =>
+        Promise.resolve(
+          jsonResponse(
+            String(input).includes("/pipeline/calibration-refinement")
+              ? {
+                  schema_version: "table-plane-calibration-refinement/v1",
+                  recording_id: RECORDING_ID,
+                  proposal_revision_id: PROPOSAL_REVISION_ID,
+                  draft: {
+                    draft_id: "draft-1",
+                    revision: 0,
+                    anchors: [],
+                    commands: [],
+                  },
+                  preview: {
+                    status: "blocked",
+                    changed_frame_ids: null,
+                    gates: null,
+                    most_affected_frame_ids: null,
+                  },
+                  anchor_contributions: [],
+                }
+              : String(input).includes("/pipeline/proposed-card-scenes")
+                ? { recording_id: RECORDING_ID, runs: [] }
+                : currentReference,
+          ),
+        ),
+      ),
+    );
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+    expect(
+      await screen.findByText(/The preview data is incomplete/),
+    ).toBeInTheDocument();
+  });
+
   it("loads maintained frames when an older reference omits ignore regions", async () => {
     const legacyReference = structuredClone(reference()) as unknown as {
       draft: { items: Array<{ item: Record<string, unknown> }> };
@@ -1630,7 +1683,9 @@ describe("PipelineVisibleCardEditor", () => {
         return Promise.resolve(jsonResponse(referenceWithIgnoreRegion([])));
       }
       if (url.includes("/result")) {
-        return Promise.resolve(jsonResponse(generatedResultWithTwoCandidates()));
+        return Promise.resolve(
+          jsonResponse(generatedResultWithTwoCandidates()),
+        );
       }
       return Promise.resolve(jsonResponse(referenceWithEmptyCandidates()));
     });

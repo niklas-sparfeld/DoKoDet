@@ -97,12 +97,9 @@ export type VisibleCardReviewWorkbenchAction =
 
 export type MappingWorkbenchAction =
   | "accept_anchor"
-  | "adjust_anchor"
-  | "pin_anchor"
   | "exclude_anchor"
   | "start_mapping_preview"
-  | "discard_mapping_preview"
-  | "apply_mapping";
+  | "discard_mapping_preview";
 
 type WorkbenchCalibrationAnchor = {
   anchorId: string;
@@ -180,9 +177,7 @@ export type VisibleCardReviewWorkbenchProps = {
   ) => Promise<boolean> | void;
   onStartMappingPreview?: () => void;
   onDiscardMappingPreview?: () => void;
-  onApplyMapping?: () => void;
   mappingLoading?: boolean;
-  mappingCanApply?: boolean;
   onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
   onResolveRemaining?: () => void;
   onOpenEditor?: (candidate: Candidate | null, polygonIndex?: number) => void;
@@ -242,9 +237,7 @@ export function VisibleCardReviewWorkbench({
   onAnchorCommand,
   onStartMappingPreview,
   onDiscardMappingPreview,
-  onApplyMapping,
   mappingLoading = false,
-  mappingCanApply = false,
   onCardDecision,
   onResolveRemaining,
   onOpenEditor,
@@ -559,12 +552,6 @@ export function VisibleCardReviewWorkbench({
       case "accept_anchor":
         emitAnchorStateCommand("accepted");
         return;
-      case "adjust_anchor":
-        emitAnchorStateCommand("adjusted");
-        return;
-      case "pin_anchor":
-        emitAnchorStateCommand("pinned");
-        return;
       case "exclude_anchor":
         emitAnchorStateCommand("excluded");
         return;
@@ -573,9 +560,6 @@ export function VisibleCardReviewWorkbench({
         return;
       case "discard_mapping_preview":
         onDiscardMappingPreview?.();
-        return;
-      case "apply_mapping":
-        onApplyMapping?.();
         return;
     }
   };
@@ -1078,12 +1062,9 @@ export function VisibleCardReviewWorkbench({
     }
     if (
       action === "accept_anchor" ||
-      action === "adjust_anchor" ||
-      action === "pin_anchor" ||
       action === "exclude_anchor" ||
       action === "start_mapping_preview" ||
-      action === "discard_mapping_preview" ||
-      action === "apply_mapping"
+      action === "discard_mapping_preview"
     ) {
       handleMappingAction(action);
       return;
@@ -1104,7 +1085,6 @@ export function VisibleCardReviewWorkbench({
       calibrationRefinement={calibrationRefinement}
       mappingAnchors={mappingAnchors}
       mappingLoading={mappingLoading}
-      mappingCanApply={mappingCanApply}
       anchorCornerIndex={anchorCornerIndex}
       numericAnchor={numericAnchor}
       onNumericChange={beginMappingNumericEdit}
@@ -1340,7 +1320,6 @@ type WorkbenchTimelineSelectionActionsProps = {
   calibrationRefinement: CalibrationRefinementResponse | null;
   mappingAnchors: WorkbenchCalibrationAnchor[];
   mappingLoading: boolean;
-  mappingCanApply: boolean;
   anchorCornerIndex: number;
   numericAnchor: { anchorId: string; point: TablePoint } | null;
   onNumericChange: (value: number, axis: 0 | 1) => void;
@@ -1366,7 +1345,6 @@ function WorkbenchTimelineSelectionActions({
   calibrationRefinement,
   mappingAnchors,
   mappingLoading,
-  mappingCanApply,
   anchorCornerIndex,
   numericAnchor,
   onNumericChange,
@@ -1418,7 +1396,6 @@ function WorkbenchTimelineSelectionActions({
           anchorCornerIndex={anchorCornerIndex}
           numericAnchor={numericAnchor}
           mappingLoading={mappingLoading}
-          mappingCanApply={mappingCanApply}
           onNumericChange={onNumericChange}
           onEmitNumeric={onEmitNumeric}
           onAction={onAction}
@@ -1708,7 +1685,6 @@ function MappingSelectionActions({
   anchorCornerIndex,
   numericAnchor,
   mappingLoading,
-  mappingCanApply,
   onNumericChange,
   onEmitNumeric,
   onAction,
@@ -1720,7 +1696,6 @@ function MappingSelectionActions({
   anchorCornerIndex: number;
   numericAnchor: { anchorId: string; point: TablePoint } | null;
   mappingLoading: boolean;
-  mappingCanApply: boolean;
   onNumericChange: (value: number, axis: 0 | 1) => void;
   onEmitNumeric: () => void;
   onAction: (action: VisibleCardReviewWorkbenchAction) => void;
@@ -1729,7 +1704,11 @@ function MappingSelectionActions({
     selection?.type === "calibration_anchor"
       ? (anchors.find((anchor) => anchor.anchorId === selection.id) ?? null)
       : null;
-  const stateButton = (state: AnchorState, label: string, symbol: string) => ({
+  const stateButton = (
+    state: "accepted" | "excluded",
+    label: string,
+    symbol: string,
+  ) => ({
     label,
     symbol,
     shortcut: "Click",
@@ -1746,15 +1725,7 @@ function MappingSelectionActions({
           ? "Start a mapping preview before changing anchor decisions."
           : "The selected anchor already has this state.",
     onClick: () =>
-      onAction(
-        state === "accepted"
-          ? "accept_anchor"
-          : state === "adjusted"
-            ? "adjust_anchor"
-            : state === "pinned"
-              ? "pin_anchor"
-              : "exclude_anchor",
-      ),
+      onAction(state === "accepted" ? "accept_anchor" : "exclude_anchor"),
   });
   const corner =
     selectedAnchor?.corners[anchorCornerIndex] ?? ([0, 0] as TablePoint);
@@ -1763,14 +1734,8 @@ function MappingSelectionActions({
     numericAnchor.anchorId === selectedAnchor?.anchorId
       ? numericAnchor.point
       : corner;
-  const previewReady =
-    refinement?.preview_complete !== false &&
-    (refinement?.preview.status === "pass" ||
-      refinement?.preview.failure?.code === "reviewed_displacement_exceeded");
   const controls = [
     stateButton("accepted", "Accept anchor", "✓"),
-    stateButton("adjusted", "Adjust anchor", "✎"),
-    stateButton("pinned", "Pin anchor", "⚑"),
     stateButton("excluded", "Exclude anchor", "⊘"),
     {
       label: "Start mapping preview",
@@ -1788,33 +1753,15 @@ function MappingSelectionActions({
       disabledReason: "Start a mapping preview first.",
       onClick: () => onAction("discard_mapping_preview"),
     },
-    {
-      label: "Apply mapping",
-      symbol: "✓",
-      shortcut: "Click",
-      disabled:
-        readOnly ||
-        refinement === null ||
-        !previewReady ||
-        !mappingCanApply ||
-        mappingLoading,
-      disabledReason:
-        refinement === null
-          ? "Start a mapping preview first."
-          : refinement.preview_complete === false
-            ? "The recording-wide scene impact preview is updating."
-            : !previewReady
-              ? "The current mapping preview is blocked."
-              : !mappingCanApply
-                ? "Wait for the calibration preview to load."
-                : "Mapping is busy.",
-      onClick: () => onAction("apply_mapping"),
-    },
   ];
   return (
     <>
+      <p>
+        Drag corners to save corrected anchors. Apply the calibration to the
+        table in Recording-wide mapping.
+      </p>
       <TimelineRailSeekingControls
-        groups={[{ label: "Selection actions", controls }]}
+        groups={[{ label: "Anchor decisions", controls }]}
       />
       {selectedAnchor !== null ? (
         <div className={styles.workbenchTimelineFields}>
@@ -1853,9 +1800,9 @@ function MappingSelectionActions({
           <button
             type="button"
             className={styles.workbenchTimelineFieldButton}
-            aria-label="Apply anchor edit"
+            aria-label="Save corner coordinates"
             disabled={readOnly || numericAnchor === null}
-            title="Apply anchor edit · Enter"
+            title="Save corner coordinates · Enter"
             onClick={onEmitNumeric}
           >
             <span aria-hidden="true">✓</span>

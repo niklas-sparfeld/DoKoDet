@@ -406,14 +406,22 @@ def build_calibration_preview(
             passed=fit_residual <= MAX_FIT_RESIDUAL_TABLE_UNITS,
             observed=fit_residual,
             threshold=MAX_FIT_RESIDUAL_TABLE_UNITS,
-            message="weighted table-plane residual is within the frozen gate",
+            message=(
+                "weighted table-plane residual is within the limit"
+                if fit_residual <= MAX_FIT_RESIDUAL_TABLE_UNITS
+                else "weighted table-plane residual exceeds the limit"
+            ),
         ),
         CalibrationGate.create(
             gate_id="held_out_alignment_change",
             passed=held_out_change <= MAX_HELD_OUT_ALIGNMENT_CHANGE_PX,
             observed=held_out_change,
             threshold=MAX_HELD_OUT_ALIGNMENT_CHANGE_PX,
-            message="held-out source alignment change is within the frozen gate",
+            message=(
+                "held-out source alignment change is within the limit"
+                if held_out_change <= MAX_HELD_OUT_ALIGNMENT_CHANGE_PX
+                else "held-out source alignment change exceeds the limit"
+            ),
         ),
         CalibrationGate.create(
             gate_id="reviewed_displacement",
