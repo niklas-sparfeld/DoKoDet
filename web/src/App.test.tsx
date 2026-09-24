@@ -297,6 +297,7 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalled();
     expect(pipelinePaths).toEqual([
       `/api/recordings/${recordingId}/pipeline?stage=events`,
+      `/v1/repository-bundles/${recordingId}/video`,
     ]);
   });
 

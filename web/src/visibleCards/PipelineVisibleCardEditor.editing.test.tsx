@@ -61,7 +61,7 @@ describe("PipelineVisibleCardEditor", () => {
     await screen.findByRole("img", { name: /visible-card proposal/ });
     await user.click(
       screen.getByRole("button", {
-        name: "Draw ignore region in shared workbench",
+        name: /Draw ignore region in shared workbench/,
       }),
     );
     const canvas = screen.getByRole("img", {
@@ -79,8 +79,11 @@ describe("PipelineVisibleCardEditor", () => {
       toJSON: () => ({}),
     } as DOMRect);
     fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(canvas);
     fireEvent.pointerDown(canvas, { clientX: 80, clientY: 10 });
+    fireEvent.pointerUp(canvas);
     fireEvent.pointerDown(canvas, { clientX: 80, clientY: 80 });
+    fireEvent.pointerUp(canvas);
     await waitFor(() =>
       expect(
         fetchImplementation.mock.calls.some(
@@ -142,7 +145,7 @@ describe("PipelineVisibleCardEditor", () => {
       region_id: IGNORE_REGION.region_id,
     });
 
-    await user.click(screen.getByRole("button", { name: "Delete selection" }));
+    await user.click(screen.getByRole("button", { name: /Delete selection/ }));
     await waitFor(() =>
       expect(
         fetchImplementation.mock.calls.filter(
@@ -189,7 +192,7 @@ describe("PipelineVisibleCardEditor", () => {
     await screen.findByRole("img", { name: /visible-card proposal/ });
     await user.click(
       screen.getByRole("button", {
-        name: "Draw ignore region in shared workbench",
+        name: /Draw ignore region in shared workbench/,
       }),
     );
     const canvas = screen.getByRole("img", { name: "1 visible-card proposal" });
@@ -206,8 +209,11 @@ describe("PipelineVisibleCardEditor", () => {
     } as DOMRect);
 
     fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(canvas);
     fireEvent.pointerDown(canvas, { clientX: 80, clientY: 10 });
+    fireEvent.pointerUp(canvas);
     fireEvent.pointerDown(canvas, { clientX: 80, clientY: 80 });
+    fireEvent.pointerUp(canvas);
     await waitFor(() => expect(putCount).toBe(1));
     await waitFor(() =>
       expect(screen.getByRole("status")).toHaveTextContent(
@@ -223,6 +229,7 @@ describe("PipelineVisibleCardEditor", () => {
     );
 
     fireEvent.pointerDown(canvas, { clientX: 10, clientY: 80 });
+    fireEvent.pointerUp(canvas);
     await waitFor(() => expect(putCount).toBe(2));
 
     const replaceBody = JSON.parse(
@@ -274,7 +281,7 @@ describe("PipelineVisibleCardEditor", () => {
     await user.click(
       await screen.findByRole("button", { name: "Select proposal 1" }),
     );
-    await user.click(screen.getByRole("button", { name: "Add polygon" }));
+    await user.click(screen.getByRole("button", { name: /Add polygon/ }));
     expect(
       screen.getByRole("button", {
         name: "Select polygon 2 for proposal 1",
@@ -294,8 +301,11 @@ describe("PipelineVisibleCardEditor", () => {
       toJSON: () => ({}),
     } as DOMRect);
     fireEvent.pointerDown(canvas, { clientX: 20, clientY: 20 });
+    fireEvent.pointerUp(canvas);
     fireEvent.pointerDown(canvas, { clientX: 40, clientY: 20 });
+    fireEvent.pointerUp(canvas);
     fireEvent.pointerDown(canvas, { clientX: 30, clientY: 40 });
+    fireEvent.pointerUp(canvas);
 
     await waitFor(() =>
       expect(
@@ -342,16 +352,16 @@ describe("PipelineVisibleCardEditor", () => {
       name: "Frame navigation",
     });
     expect(
-      within(controls).getByRole("button", { name: "Previous frame" }),
+      within(controls).getByRole("button", { name: /Previous frame/ }),
     ).toBeInTheDocument();
     expect(
-      within(controls).getByRole("button", { name: "Previous frame" }),
+      within(controls).getByRole("button", { name: /Previous frame/ }),
     ).toHaveAttribute("aria-keyshortcuts", "ArrowLeft");
     expect(
       screen.getByRole("button", { name: "Accept frame" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add visible card" }),
+      screen.getByRole("button", { name: /Add visible card/ }),
     ).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Select proposal 1" }));

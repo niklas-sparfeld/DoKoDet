@@ -117,8 +117,14 @@ def _read_json(path: Path) -> dict:
 
 
 class _EventProvider:
-    def infer(self, video_path: Path, *, request: object) -> dict[str, object]:
-        del video_path, request
+    def infer(
+        self,
+        video_path: Path,
+        *,
+        request: object,
+        progress_callback: object | None = None,
+    ) -> dict[str, object]:
+        del video_path, request, progress_callback
         return {
             "events": [
                 {"time_s": 0.1, "probability": 0.9},

@@ -397,6 +397,7 @@ describe("PipelineVisibleCardEditor", () => {
     } as DOMRect);
 
     fireEvent.pointerDown(canvas, { clientX: 75, clientY: 30 });
+    fireEvent.pointerUp(canvas);
 
     await waitFor(() =>
       expect(
@@ -468,6 +469,7 @@ describe("PipelineVisibleCardEditor", () => {
     } as DOMRect);
 
     fireEvent.pointerDown(canvas, { clientX: 50.5, clientY: 30 });
+    fireEvent.pointerUp(canvas);
 
     await waitFor(() =>
       expect(
@@ -659,12 +661,12 @@ describe("PipelineVisibleCardEditor", () => {
       name: "Frame navigation",
     });
     const copyButton = screen.getByRole("button", {
-      name: "Copy ignore regions",
+      name: "Copy ignore regions Click",
     });
     expect(copyButton).toBeDisabled();
 
     await user.click(
-      within(frameNavigation).getByRole("button", { name: "Next frame" }),
+      within(frameNavigation).getByRole("button", { name: /Next frame/ }),
     );
     expect(copyButton).toBeEnabled();
     await user.click(copyButton);

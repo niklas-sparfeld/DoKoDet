@@ -343,7 +343,7 @@ describe("PipelineVisibleCardEditor", () => {
       expect(reviewControlsSlot.textContent).toContain("＋");
       expect(
         reviewControlsSlot.querySelector(
-          'button[title="Generated visible-card results are read-only. · N"]',
+          'button[title="Generated visible-card results are read-only. (N)"]',
         ),
       ).not.toBeNull();
       expect(reviewControlsSlot.textContent).not.toContain("Accept frame");

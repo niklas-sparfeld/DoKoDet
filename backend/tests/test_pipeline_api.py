@@ -44,7 +44,7 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
         "dokodetector_backend.pipeline_comparison_api": 1,
         "dokodetector_backend.pipeline_reference_api": 6,
     }
-    assert len(pipeline_router.routes) == len(child_routers)
+    assert len(pipeline_router.routes) == len(child_routers) + 1
 
 
 def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Path) -> None:

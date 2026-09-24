@@ -67,6 +67,7 @@ describe("PipelineVisibleCardEditor", () => {
     } as DOMRect);
 
     fireEvent.pointerDown(canvas, { clientX: 50, clientY: 15 });
+    fireEvent.pointerUp(canvas);
 
     await waitFor(() =>
       expect(
@@ -212,7 +213,7 @@ describe("PipelineVisibleCardEditor", () => {
     const user = userEvent.setup();
     await user.click(
       await screen.findByRole("button", {
-        name: "Restore suggestion",
+        name: "Restore suggestion Click",
       }),
     );
     await waitFor(() =>
