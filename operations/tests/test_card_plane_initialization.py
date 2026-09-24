@@ -6,10 +6,16 @@ import cv2
 import numpy as np
 
 from doko_operations.card_plane_calibration import calibrate_recording
-from doko_operations.card_plane_geometry import project_fixed_card, rasterize_polygon
+from doko_operations.card_plane_geometry import (
+    apply_homography,
+    project_fixed_card,
+    rasterize_polygon,
+)
 from doko_operations.card_plane_initialization import (
     PoseFitRecipe,
     _boundary_mask,
+    _Candidate,
+    _fit_candidate,
     _fit_evidence_mask,
     _fit_score,
     _fit_score_projected,
@@ -139,6 +145,54 @@ def test_edge_fit_prefers_boundary_alignment_over_enclosing_segment_pixels() -> 
     )
 
     assert aligned_score > shifted_score
+
+
+def test_occlusion_fit_considers_the_quarter_turn_orientation_family() -> None:
+    _, calibration = _calibration_result()
+    true_polygon = project_fixed_card(
+        calibration.table_to_image,
+        (4.0, 0.0),
+        0.0,
+        calibration.card_short_size,
+        calibration.card_long_size,
+    )
+    source_mask = rasterize_polygon(true_polygon, 1920, 1080)
+    candidate = _Candidate(
+        suggestion_id="quarter-turn",
+        frame_id="frame-000",
+        polygons=(true_polygon,),
+        source_mask=source_mask,
+        confidence=1.0,
+        model_identity={},
+        table_points=apply_homography(
+            np.asarray(calibration.image_to_table), true_polygon
+        ),
+    )
+
+    without_alternate = _fit_candidate(
+        candidate,
+        calibration,
+        PoseFitRecipe(),
+        1920,
+        1080,
+        occluder_mask=np.zeros_like(source_mask),
+        initial_pose=(np.asarray([4.0, 0.0]), 90.0),
+    )
+    with_alternate = _fit_candidate(
+        candidate,
+        calibration,
+        PoseFitRecipe(),
+        1920,
+        1080,
+        occluder_mask=np.zeros_like(source_mask),
+        initial_pose=(np.asarray([4.0, 0.0]), 90.0),
+        try_quarter_turn=True,
+    )
+
+    assert without_alternate is not None
+    assert with_alternate is not None
+    assert with_alternate.score > without_alternate.score
+    assert with_alternate.pose.rotation_degrees == 0.0
 
 
 def _calibration_result() -> tuple[dict[str, object], object]:

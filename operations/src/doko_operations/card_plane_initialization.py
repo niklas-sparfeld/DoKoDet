@@ -356,6 +356,20 @@ def _dilate_mask(mask: np.ndarray, radius: int) -> np.ndarray:
     return cv2.dilate(values, np.ones((size, size), dtype=np.uint8))
 
 
+def _touches_frame_boundary(mask: np.ndarray) -> bool:
+    """Return whether source evidence reaches any image boundary."""
+
+    values = np.asarray(mask) > 0
+    if values.ndim != 2:
+        raise CardPlaneInitializationError("source mask must be two-dimensional")
+    return bool(
+        np.any(values[0, :])
+        or np.any(values[-1, :])
+        or np.any(values[:, 0])
+        or np.any(values[:, -1])
+    )
+
+
 def _fit_evidence_mask(
     source_mask: np.ndarray,
     occluder_mask: np.ndarray | None,
@@ -489,6 +503,7 @@ def _fit_candidate(
     height: int,
     occluder_mask: np.ndarray | None = None,
     initial_pose: tuple[np.ndarray, float] | None = None,
+    try_quarter_turn: bool = False,
 ) -> _FittedCandidate | None:
     try:
         occlusion_aware = occluder_mask is not None
@@ -508,76 +523,101 @@ def _fit_candidate(
                 "prediction has no non-occluded boundary evidence"
             )
         if initial_pose is None:
-            center, angle = _initial_pose(candidate.table_points)
+            seed_center, seed_angle = _initial_pose(candidate.table_points)
         else:
-            center = np.asarray(initial_pose[0], dtype=np.float64).copy()
-            if center.shape != (2,) or not np.all(np.isfinite(center)):
+            seed_center = np.asarray(initial_pose[0], dtype=np.float64).copy()
+            if seed_center.shape != (2,) or not np.all(np.isfinite(seed_center)):
                 raise CardPlaneInitializationError(
                     "initial pose center must contain two finite values"
                 )
-            angle = _normalized_angle(float(initial_pose[1]))
-        source_bounds = tuple(int(value) for value in cv2.boundingRect(fit_evidence))
-        best: tuple[float, np.ndarray, float] | None = None
-        center_radius = recipe.center_search_radius
-        angle_radius = recipe.angle_search_degrees
-        for _stage in range(recipe.refinement_stages + 1):
-            offsets = np.linspace(-1.0, 1.0, recipe.center_steps)
-            angle_offsets = np.linspace(-1.0, 1.0, recipe.angle_steps)
-            for center_x in offsets:
-                for center_y in offsets:
-                    trial_center = center + np.asarray(
-                        [center_x * center_radius, center_y * center_radius], dtype=np.float64
-                    )
-                    for angle_offset in angle_offsets:
-                        trial_angle = _normalized_angle(angle + angle_offset * angle_radius)
-                        projected = project_fixed_card(
-                            np.asarray(calibration.table_to_image, dtype=np.float64),
-                            trial_center,
-                            trial_angle,
-                            calibration.card_short_size,
-                            calibration.card_long_size,
+            seed_angle = _normalized_angle(float(initial_pose[1]))
+        orientation_seeds = (
+            (seed_angle, _normalized_angle(seed_angle + 90.0))
+            if try_quarter_turn
+            else (seed_angle,)
+        )
+        best_overall: tuple[float, np.ndarray, float] | None = None
+        best_overall_key: tuple[float, ...] | None = None
+        for orientation_index, orientation_seed in enumerate(orientation_seeds):
+            center = seed_center.copy()
+            angle = orientation_seed
+            source_bounds = tuple(int(value) for value in cv2.boundingRect(fit_evidence))
+            best: tuple[float, np.ndarray, float] | None = None
+            center_radius = recipe.center_search_radius
+            angle_radius = recipe.angle_search_degrees
+            for _stage in range(recipe.refinement_stages + 1):
+                offsets = np.linspace(-1.0, 1.0, recipe.center_steps)
+                angle_offsets = np.linspace(-1.0, 1.0, recipe.angle_steps)
+                for center_x in offsets:
+                    for center_y in offsets:
+                        trial_center = center + np.asarray(
+                            [center_x * center_radius, center_y * center_radius], dtype=np.float64
                         )
-                        score = _fit_score_projected(
-                            projected,
-                            fit_evidence,
-                            source_area,
-                            source_bounds,
-                            width,
-                            height,
-                            edge_only=occlusion_aware,
-                            edge_width_pixels=recipe.edge_width_pixels,
-                            edge_distance_tolerance_pixels=recipe.edge_distance_tolerance_pixels,
-                            occlusion_mask=occluder_mask,
-                        )
-                        tie_break = (
-                            score,
-                            -float(np.linalg.norm(trial_center - center)),
-                            -abs(angle_offset * angle_radius),
-                            -trial_angle,
-                            -float(trial_center[0]),
-                            -float(trial_center[1]),
-                        )
-                        if best is None:
-                            best = (score, trial_center.copy(), trial_angle)
-                        else:
-                            best_score, best_center, best_angle = best
-                            best_key = (
-                                best_score,
-                                -float(np.linalg.norm(best_center - center)),
-                                -abs(_normalized_angle(best_angle - angle)),
-                                -best_angle,
-                                -float(best_center[0]),
-                                -float(best_center[1]),
+                        for angle_offset in angle_offsets:
+                            trial_angle = _normalized_angle(angle + angle_offset * angle_radius)
+                            projected = project_fixed_card(
+                                np.asarray(calibration.table_to_image, dtype=np.float64),
+                                trial_center,
+                                trial_angle,
+                                calibration.card_short_size,
+                                calibration.card_long_size,
                             )
-                            if tie_break > best_key:
+                            score = _fit_score_projected(
+                                projected,
+                                fit_evidence,
+                                source_area,
+                                source_bounds,
+                                width,
+                                height,
+                                edge_only=occlusion_aware,
+                                edge_width_pixels=recipe.edge_width_pixels,
+                                edge_distance_tolerance_pixels=recipe.edge_distance_tolerance_pixels,
+                                occlusion_mask=occluder_mask,
+                            )
+                            tie_break = (
+                                score,
+                                -float(np.linalg.norm(trial_center - center)),
+                                -abs(angle_offset * angle_radius),
+                                -trial_angle,
+                                -float(trial_center[0]),
+                                -float(trial_center[1]),
+                            )
+                            if best is None:
                                 best = (score, trial_center.copy(), trial_angle)
-            if best is None:
-                raise CardPlaneInitializationError("pose search produced no candidate")
-            center = best[1]
-            angle = best[2]
-            center_radius /= 3.0
-            angle_radius /= 3.0
-        score, center, angle = best
+                            else:
+                                best_score, best_center, best_angle = best
+                                best_key = (
+                                    best_score,
+                                    -float(np.linalg.norm(best_center - center)),
+                                    -abs(_normalized_angle(best_angle - angle)),
+                                    -best_angle,
+                                    -float(best_center[0]),
+                                    -float(best_center[1]),
+                                )
+                                if tie_break > best_key:
+                                    best = (score, trial_center.copy(), trial_angle)
+                if best is None:
+                    raise CardPlaneInitializationError("pose search produced no candidate")
+                center = best[1]
+                angle = best[2]
+                center_radius /= 3.0
+                angle_radius /= 3.0
+            score, center, angle = best
+            overall_key = (
+                score,
+                -float(orientation_index),
+                -float(np.linalg.norm(center - seed_center)),
+                -abs(_normalized_angle(angle - orientation_seed)),
+                -angle,
+                -float(center[0]),
+                -float(center[1]),
+            )
+            if best_overall_key is None or overall_key > best_overall_key:
+                best_overall = (score, center.copy(), angle)
+                best_overall_key = overall_key
+        if best_overall is None:
+            raise CardPlaneInitializationError("pose search produced no candidate")
+        score, center, angle = best_overall
         projected = project_fixed_card(
             np.asarray(calibration.table_to_image, dtype=np.float64),
             center,
@@ -870,6 +910,9 @@ def initialize_card_scene(
                     np.asarray(provisional.pose.center, dtype=np.float64),
                     provisional.pose.rotation_degrees,
                 ),
+                # A partial card can make the observed min-area rectangle swap its axes.
+                # Do not use this extra hypothesis for cards clipped by the image boundary.
+                try_quarter_turn=not _touches_frame_boundary(provisional.candidate.source_mask),
             )
             if should_refit
             else None
