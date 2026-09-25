@@ -909,6 +909,15 @@ function renderIgnoreLayer({
   );
 }
 
+function virtualCardStrokeWidth(
+  viewpoint: LayerRenderContext["viewpoint"],
+  width: number,
+  selected: boolean,
+): number {
+  if (viewpoint === "rectified") return selected ? 0.025 : 0.012;
+  return selected ? Math.max(0.8, width / 625) : Math.max(0.5, width / 1250);
+}
+
 function renderVirtualCardLayer({
   scene,
   viewpoint,
@@ -950,9 +959,9 @@ function renderVirtualCardLayer({
           <g key={pose.card_id}>
             <polygon
               points={pointsAttribute(polygon)}
-              fill="rgba(55, 96, 106, 0.55)"
+              fill="rgba(55, 96, 106, 0.22)"
               stroke={selected ? "#d9fff7" : "#80b6b7"}
-              strokeWidth={strokeWidth(viewpoint, width, selected)}
+              strokeWidth={virtualCardStrokeWidth(viewpoint, width, selected)}
               data-card-id={pose.card_id}
               data-stacking-index={scene.scene.stacking_order.card_ids.indexOf(
                 pose.card_id,

@@ -140,6 +140,41 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(Number(handle.getAttribute("r"))).toBe(initialRadius / 2);
   });
 
+  it.each(["camera", "rectified"] as const)(
+    "uses a thin, transparent outline for virtual cards in %s view",
+    (viewpoint) => {
+      render(
+        <VisibleCardReviewWorkbench
+          recordingId="recording-1"
+          frame={frame}
+          readOnly={false}
+          initialPreferences={{
+            activeTool: "virtual_cards",
+            enabledLayers: ["virtual_cards"],
+            viewpoint,
+          }}
+          enabledEditTools={["virtual_cards"]}
+        />,
+      );
+
+      const card = document.querySelector(
+        '[data-workbench-layer="virtual_cards"] polygon[data-card-id="card-1"]',
+      );
+      expect(card).toHaveAttribute("fill", "rgba(55, 96, 106, 0.22)");
+      expect(Number(card?.getAttribute("stroke-width"))).toBeLessThan(
+        viewpoint === "camera" ? 1.25 : 0.035,
+      );
+
+      fireEvent.click(card!);
+      const selectedCard = document.querySelector(
+        '[data-workbench-layer="virtual_cards"] polygon[data-card-id="card-1"]',
+      );
+      expect(Number(selectedCard?.getAttribute("stroke-width"))).toBeLessThan(
+        viewpoint === "camera" ? 2 : 0.06,
+      );
+    },
+  );
+
   it("keeps editable calibration anchor corners when their order differs", () => {
     const reordered = structuredClone(
       calibrationRefinement,
