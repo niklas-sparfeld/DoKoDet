@@ -1118,6 +1118,8 @@ def test_proposal_seed_keeps_immutable_scene_and_supports_card_decisions(
     assert item.item["candidates"] == []
     assert item.item["card_scene"]["proposal_revision_id"] == proposal_revision_id
     assert item.item["card_scene"]["projection"]["table_to_image_homography"]
+    assert item.item["card_scene"]["projection"]["card_short_size"] == 20.0
+    assert item.item["card_scene"]["projection"]["card_long_size"] == pytest.approx(30.4)
 
     with pytest.raises(PipelineReferenceCoverageError):
         service.complete_reference(

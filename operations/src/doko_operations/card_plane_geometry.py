@@ -22,6 +22,9 @@ import numpy as np
 from .reviewed_rfdetr_detector_campaign import canonical_json_bytes
 
 CARD_ASPECT_RATIO = 1.5
+# Pose fitting and calibration use CARD_ASPECT_RATIO. The reviewed virtual-card
+# projection is deliberately a small, centered extension of that fitted geometry.
+VIRTUAL_CARD_ASPECT_RATIO = 1.52
 CARD_CORNER_RADIUS_OVER_SHORT_SIDE = 0.087
 GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v4"
 SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS = (
@@ -57,6 +60,12 @@ class CardPlaneGeometryError(ValueError):
 
 def _round(value: float) -> float:
     return round(float(value), NUMERIC_PRECISION_DECIMALS)
+
+
+def virtual_card_long_size(short_size: float) -> float:
+    """Return the centered virtual-card long side used after pose fitting."""
+
+    return float(short_size) * VIRTUAL_CARD_ASPECT_RATIO
 
 
 def _digest(value: Any) -> str:
@@ -2272,6 +2281,7 @@ __all__ = [
     "ANGLE_CONVENTION_VERSION",
     "CALIBRATION_CANDIDATE_SCHEMA_VERSION",
     "CARD_ASPECT_RATIO",
+    "VIRTUAL_CARD_ASPECT_RATIO",
     "CARD_CORNER_RADIUS_OVER_SHORT_SIDE",
     "CALIBRATION_POSE_SEED_RECIPE_VERSION",
     "CARD_POSE_SCHEMA_VERSION",
@@ -2284,6 +2294,7 @@ __all__ = [
     "POSE_SCENE_NORMALIZATION_POLICY",
     "GEOMETRY_ALGORITHM_VERSION",
     "SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS",
+    "virtual_card_long_size",
     "MASK_RASTER_POLICY",
     "MASK_THRESHOLD",
     "NUMERIC_PRECISION_DECIMALS",

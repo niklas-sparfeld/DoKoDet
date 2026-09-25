@@ -34,6 +34,7 @@ from doko_operations.card_plane_geometry import (
     rounded_card_outline,
     validate_derived_region_receipt,
     validate_pose_scene_candidate_view,
+    virtual_card_long_size,
 )
 from doko_operations.pipeline_data import canonical_json_bytes
 
@@ -196,6 +197,18 @@ def test_fixed_card_projection_round_trips_through_one_homography() -> None:
     image_quad = project_fixed_card(table_to_image, (1.4, 0.8), 23.0, 1.0, 1.5)
 
     assert np.allclose(apply_homography(invert_homography(table_to_image), image_quad), table_quad)
+
+
+def test_virtual_card_long_side_is_extended_symmetrically_after_fitting() -> None:
+    fitted = card_quad_from_pose((2.0, 3.0), 17.0, 1.0, 1.5)
+    virtual = card_quad_from_pose((2.0, 3.0), 17.0, 1.0, virtual_card_long_size(1.0))
+
+    assert virtual_card_long_size(1.0) == pytest.approx(1.52)
+    assert np.allclose(np.mean(virtual, axis=0), np.mean(fitted, axis=0))
+    assert np.linalg.norm(virtual[3] - virtual[0]) == pytest.approx(1.52)
+    assert np.linalg.norm(fitted[3] - fitted[0]) == pytest.approx(1.5)
+    assert np.linalg.norm(virtual[0] - fitted[0]) == pytest.approx(0.01)
+    assert np.linalg.norm(virtual[3] - fitted[3]) == pytest.approx(0.01)
 
 
 def test_rounded_card_outline_keeps_straight_sides_and_cuts_virtual_corners() -> None:

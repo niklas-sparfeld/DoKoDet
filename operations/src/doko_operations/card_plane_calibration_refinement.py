@@ -58,6 +58,7 @@ from .card_plane_geometry import (
     fit_table_plane,
     project_fixed_card,
     quadrilateral_orientations,
+    virtual_card_long_size,
 )
 from .pipeline_data import canonical_json_bytes
 from .pipeline_reference import ReferenceDraftItem
@@ -821,7 +822,7 @@ def _refit_scene_pose(
         pose.center,
         pose.rotation_degrees,
         source_calibration.card_short_size,
-        source_calibration.card_long_size,
+        virtual_card_long_size(source_calibration.card_short_size),
     )
     target_quad = apply_homography(
         np.asarray(target_calibration.image_to_table, dtype=np.float64), source_quad
@@ -841,7 +842,7 @@ def _refit_scene_pose(
         refit.center,
         refit.rotation_degrees,
         target_calibration.card_short_size,
-        target_calibration.card_long_size,
+        virtual_card_long_size(target_calibration.card_short_size),
     )
     displacement = float(np.max(np.linalg.norm(refit_quad - source_quad, axis=1)))
     return refit, displacement

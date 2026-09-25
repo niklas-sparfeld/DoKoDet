@@ -22,6 +22,7 @@ from .card_plane_geometry import (
     mask_bbox,
     project_rounded_card,
     rasterize_polygon,
+    virtual_card_long_size,
 )
 from .derived_view import ExactEventRequest, FFmpegFrameResolver
 from .pipeline_data import RecordingVideoSource
@@ -685,7 +686,7 @@ def _derive_masks(
 ) -> tuple[list[np.ndarray], list[np.ndarray]]:
     table_to_image = np.asarray(calibration["table_to_image"], dtype=np.float64)
     short_size = float(calibration["card_short_size"])
-    long_size = float(calibration["card_long_size"])
+    long_size = virtual_card_long_size(short_size)
     width = scene.source_frame_width
     height = scene.source_frame_height
     full_masks = []

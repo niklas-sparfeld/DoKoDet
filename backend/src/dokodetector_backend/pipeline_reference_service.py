@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from doko_operations.card_plane_calibration_refinement import reflow_reference_items
+from doko_operations.card_plane_geometry import virtual_card_long_size
 from doko_operations.pipeline_data import (
     DataRevision,
     HumanProducer,
@@ -583,10 +584,11 @@ class PipelineReferenceService:
     def _proposal_projection(proposal_data: ProposedCardSceneData) -> dict[str, Any]:
         calibration = proposal_data.calibration
         try:
+            short_size = calibration["card_short_size"]
             return {
                 "table_to_image_homography": calibration["table_to_image"],
-                "card_short_size": calibration["card_short_size"],
-                "card_long_size": calibration["card_long_size"],
+                "card_short_size": short_size,
+                "card_long_size": virtual_card_long_size(short_size),
             }
         except KeyError as error:
             raise PipelineReferenceInputError(
