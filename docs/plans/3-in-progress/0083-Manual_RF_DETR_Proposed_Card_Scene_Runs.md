@@ -4,7 +4,7 @@
 
 - **Summary:** Run the configured local RF-DETR segmentation provider, automatic table-plane
   calibration, and proposed card scene generation for an operator-supplied list of recordings.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0048, 0049, 0068, and 0073
 - **Outcome:** One manual local command creates visible-card and proposed-card-scene processor runs
   through the same backend API and durable stores used by the recording workspace. The operator can
@@ -14,9 +14,9 @@
 
 ## Milestone status
 
-- **M0:** Not started — add a manual command that reads the operator's recording list and checks all
-  recordings, selected event revisions, backend availability, and the configured RF-DETR provider
-  before it starts any runs.
+- **M0:** Complete — add a manual preflight command that checks the complete recording list,
+  selected event revisions, backend readiness, and the configured RF-DETR segmentation provider
+  before any processor run can start.
 - **M1:** Not started — run visible-card detection for each eligible recording with the explicit
   `local-rfdetr-segmentation` provider and retain each exact input and output revision.
 - **M2:** Not started — run proposed card scene generation from each available RF-DETR result,
@@ -63,3 +63,15 @@ remain processor output for operator inspection.
 - A terminal failure or partial result for one recording is visible in the summary and does not hide
   the outcomes for other recordings.
 - The UI can open each persisted visible-card result and proposed card scene result by recording.
+
+### M0 implementation evidence — 2026-09-25
+
+- Added `doko pipeline proposed-card-scenes-preflight --recordings <path>`. The runtime file has
+  one recording ID per line. The command rejects invalid and duplicate IDs before contacting the
+  backend.
+- Added a read-only provider availability endpoint. It loads the configured
+  `local-rfdetr-segmentation` provider and returns its validated bundle identity.
+- The command checks backend readiness, accepted recordings, and each selected completed-reference
+  or generated event revision. It visits every listed recording and starts no processor runs.
+- Focused checks passed: four operations tests, 20 backend app tests, and Ruff on all changed Python
+  files. CLI help renders the new command and its options.

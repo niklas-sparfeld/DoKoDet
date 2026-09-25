@@ -112,6 +112,12 @@ from .impact import (
     retire_source,
 )
 from .intake import inspect_repository
+from .manual_proposed_card_scene_preflight import (
+    ManualProposedCardScenePreflightError,
+    preflight_manual_proposed_card_scene_runs,
+    read_recording_ids,
+    render_manual_proposed_card_scene_preflight,
+)
 from .model_improvement import (
     ModelImprovementError,
     load_campaign,
@@ -1733,6 +1739,26 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Path to a round-reconstruction-run/v1 JSON request.",
     )
+    pipeline = commands.add_parser(
+        "pipeline",
+        help="Run backend pipeline operations.",
+        description="Run backend pipeline operations.",
+    )
+    pipeline_commands = pipeline.add_subparsers(dest="pipeline_command", metavar="COMMAND")
+    proposal_preflight = pipeline_commands.add_parser(
+        "proposed-card-scenes-preflight",
+        help="Check prerequisites for a manual RF-DETR proposed-card-scene batch.",
+        description=(
+            "Check the complete recording list, selected event revisions, backend readiness, "
+            "and local RF-DETR provider without starting processor runs."
+        ),
+    )
+    proposal_preflight.add_argument("--recordings", type=Path, required=True)
+    proposal_preflight.add_argument(
+        "--backend-url", default="http://127.0.0.1:8000", help="Local backend base URL."
+    )
+    proposal_preflight.add_argument("--timeout", type=float, default=15.0)
+    proposal_preflight.add_argument("--format", choices=("human", "json"), default="human")
     return parser
 
 
@@ -1810,6 +1836,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command is None:
         parser.print_help()
         return 0
+    if args.command == "pipeline":
+        if args.pipeline_command is None:
+            pipeline_parser = next(
+                action for action in parser._subparsers._group_actions if action.dest == "command"
+            ).choices["pipeline"]
+            pipeline_parser.print_help()
+            return 0
+        try:
+            recording_ids = read_recording_ids(args.recordings)
+            report = preflight_manual_proposed_card_scene_runs(
+                recording_ids,
+                base_url=args.backend_url,
+                timeout_seconds=args.timeout,
+            )
+        except ManualProposedCardScenePreflightError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.format == "json":
+            sys.stdout.write(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_manual_proposed_card_scene_preflight(report) + "\n")
+        return 0 if report["ready"] else 1
     if args.command == "data" and args.data_command is None:
         data_parser = next(
             action for action in parser._subparsers._group_actions if action.dest == "command"

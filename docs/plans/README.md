@@ -47,13 +47,13 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
-| [0083 — Manual RF-DETR runs for proposed card scenes](2-ready/0083-Manual_RF_DETR_Proposed_Card_Scene_Runs.md) | 0048, 0049, 0068, and 0073 complete | M0–M2 not started. A manual command runs the configured RF-DETR provider and proposed-card-scene processor for an operator-supplied recording list, with results persisted for UI inspection. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
+| [0083 — Manual RF-DETR runs for proposed card scenes](3-in-progress/0083-Manual_RF_DETR_Proposed_Card_Scene_Runs.md) | 0048, 0049, 0068, and 0073 complete | M0 complete. The `doko pipeline proposed-card-scenes-preflight` command checks the full recording list, selected event revisions, backend readiness, and loaded RF-DETR segmentation bundle. M1–M2 remain. |
 
 ### Blocked
 

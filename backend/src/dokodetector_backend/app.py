@@ -115,6 +115,7 @@ def create_app(
     visible_card_providers, visible_card_identity_classifiers = (
         create_configured_processor_registries(app_settings)
     )
+    app.state.visible_card_providers = visible_card_providers
     app.state.analyzer = analyzer or create_lazy_configured_analyzer(
         app_settings,
         visible_card_providers,

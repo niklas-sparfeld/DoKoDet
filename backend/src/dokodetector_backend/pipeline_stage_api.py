@@ -56,6 +56,35 @@ OBSERVATION_BASE = "/api/recordings/{recording_id}/pipeline/observations"
 PROPOSED_CARD_SCENE_BASE = (
     "/api/recordings/{recording_id}/pipeline/proposed-card-scenes"
 )
+RFDETR_SEGMENTATION_AVAILABILITY = (
+    "/api/processors/visible-cards/local-rfdetr-segmentation/availability"
+)
+
+
+@router.get(RFDETR_SEGMENTATION_AVAILABILITY)
+def get_rfdetr_segmentation_availability(request: Request) -> dict[str, Any]:
+    """Load and identify the configured local RF-DETR segmentation provider."""
+
+    try:
+        provider = request.app.state.visible_card_providers[
+            "local-rfdetr-segmentation"
+        ]
+        implementation = getattr(provider, "provider", provider)
+        bundle_identity = getattr(implementation, "bundle_identity", None)
+        if not isinstance(bundle_identity, dict):
+            raise RuntimeError("The configured provider has no validated bundle identity.")
+        return {
+            "provider": "local-rfdetr-segmentation",
+            "available": True,
+            "version": getattr(implementation, "version", None),
+            "bundle_identity": bundle_identity,
+        }
+    except Exception as error:
+        return {
+            "provider": "local-rfdetr-segmentation",
+            "available": False,
+            "error": str(error),
+        }
 
 
 class PipelineVisualIdentityOutcomeResponse(ContractModel):

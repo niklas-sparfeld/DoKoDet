@@ -22,6 +22,43 @@ def test_health_routes_report_process_status() -> None:
     assert client.get("/health/ready").json() == {"status": "ok"}
 
 
+def test_rfdetr_segmentation_availability_loads_and_identifies_provider() -> None:
+    app = create_test_app(Settings(_env_file=None))
+
+    class Provider:
+        version = "local-rfdetr-segmentation-v1"
+        bundle_identity = {"bundle_digest": "bundle-digest"}
+
+    class CachedProvider:
+        provider = Provider()
+
+    app.state.visible_card_providers = {
+        "local-rfdetr-segmentation": CachedProvider(),
+    }
+    response = TestClient(app).get(
+        "/api/processors/visible-cards/local-rfdetr-segmentation/availability"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "provider": "local-rfdetr-segmentation",
+        "available": True,
+        "version": "local-rfdetr-segmentation-v1",
+        "bundle_identity": {"bundle_digest": "bundle-digest"},
+    }
+
+
+def test_rfdetr_segmentation_availability_reports_missing_bundle() -> None:
+    app = create_test_app(Settings(_env_file=None))
+    response = TestClient(app).get(
+        "/api/processors/visible-cards/local-rfdetr-segmentation/availability"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["available"] is False
+    assert response.json()["provider"] == "local-rfdetr-segmentation"
+
+
 def test_packaged_frontend_serves_catalog_recording_route_and_hashed_assets(
     tmp_path: Path,
 ) -> None:
