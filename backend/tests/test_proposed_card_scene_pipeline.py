@@ -124,7 +124,7 @@ def _visible_data() -> VisibleCardData:
                         },
                         "side": "unknown",
                         "model_scores": [
-                            {"producer_id": "local-rfdetr-fine-prepass", "score": 0.98}
+                            {"producer_id": "local-rfdetr-fine-frame", "score": 0.98}
                         ],
                     }
                 ],
@@ -164,8 +164,8 @@ def test_service_publishes_proposal_without_changing_detector_input(
         producer=ProcessorProducer(
             run_id="detector-run-001",
             processor_type="visible-card-detection",
-            implementation_id="local-rfdetr-fine-prepass/v1",
-            model_id="local-rfdetr-fine-prepass",
+            implementation_id="local-rfdetr-fine-frame/v1",
+            model_id="local-rfdetr-fine-frame",
         ),
         coverage={"kind": "requested-event-frames"},
         created_at="2026-09-21T10:00:00Z",

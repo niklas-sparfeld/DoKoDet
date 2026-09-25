@@ -1,0 +1,3094 @@
+{
+  "bundle_digest": "b3deef701e26d91ebfd9d357b4ff69b45ae9360e3722de340f1044214179df29",
+  "checkpoint_sha256": "b72462e9736d16bb975ba9c6999fe1cc4baeab8805830c3116115279170f3d4f",
+  "confidence_threshold": 0.5,
+  "cost": {
+    "crop_area_ratio_sum_median": 0.09254412615740741,
+    "crop_count": 115,
+    "crop_latency_median_ms": 159.14600000000002,
+    "prepass_latency_median_ms": 214.8,
+    "total_latency_median_ms": 498.0785,
+    "total_latency_p95_ms": 864.251
+  },
+  "crop_ablation": {
+    "cost": {
+      "crop_area_ratio_sum_median": 0.09254412615740741,
+      "crop_count": 115,
+      "crop_latency_median_ms": 159.14600000000002,
+      "prepass_latency_median_ms": 214.8,
+      "total_latency_median_ms": 498.0785,
+      "total_latency_p95_ms": 864.251
+    },
+    "direct_full_frame": {
+      "duplicates": 2,
+      "false": 56,
+      "matched": 228,
+      "predictions": 286,
+      "recall": 0.7808219178082192,
+      "targets": 292
+    },
+    "fine_full_frame_plus_crop_refinement": {
+      "duplicates": 0,
+      "false": 62,
+      "matched": 227,
+      "predictions": 289,
+      "recall": 0.7773972602739726,
+      "targets": 292
+    },
+    "overlap_group": {
+      "direct": {
+        "duplicates": 1,
+        "false": 55,
+        "matched": 149,
+        "predictions": 205,
+        "recall": 0.7095238095238096
+      },
+      "fine": {
+        "duplicates": 0,
+        "false": 61,
+        "matched": 148,
+        "predictions": 209,
+        "recall": 0.7047619047619048
+      },
+      "frame_count": 58,
+      "target_count": 210
+    },
+    "provider_version": "local-rfdetr-fine-prepass-v1",
+    "stratification": {
+      "definitions": {
+        "central_card_frames": "frame contains a card center in normalized x/y range [0.33, 0.67]",
+        "far_field_frames": "frame contains a card center in the top third of the image (normalized y <= 0.33)",
+        "frame_edge_frames": "frame contains a card bbox within 5% of any image edge",
+        "overlap_frames": "frame contains a card bbox pair with at least 10% intersection relative to the smaller bbox",
+        "single_card_frames": "frame contains exactly one reviewed card",
+        "small_card_frames": "frame contains a card in the bottom quartile of normalized bbox area (<= 0.013576)"
+      },
+      "groups": {
+        "central_card_frames": {
+          "direct": {
+            "duplicates": 1,
+            "false": 55,
+            "matched": 184,
+            "predictions": 240,
+            "recall": 0.7510204081632653
+          },
+          "fine": {
+            "duplicates": 0,
+            "false": 61,
+            "matched": 183,
+            "predictions": 244,
+            "recall": 0.746938775510204
+          },
+          "frame_count": 83,
+          "target_count": 245
+        },
+        "far_field_frames": {
+          "direct": {
+            "duplicates": 0,
+            "false": 5,
+            "matched": 14,
+            "predictions": 19,
+            "recall": 0.5833333333333334
+          },
+          "fine": {
+            "duplicates": 0,
+            "false": 7,
+            "matched": 14,
+            "predictions": 21,
+            "recall": 0.5833333333333334
+          },
+          "frame_count": 6,
+          "target_count": 24
+        },
+        "frame_edge_frames": {
+          "direct": {
+            "duplicates": 0,
+            "false": 12,
+            "matched": 59,
+            "predictions": 71,
+            "recall": 0.7763157894736842
+          },
+          "fine": {
+            "duplicates": 0,
+            "false": 14,
+            "matched": 59,
+            "predictions": 73,
+            "recall": 0.7763157894736842
+          },
+          "frame_count": 21,
+          "target_count": 76
+        },
+        "overlap_frames": {
+          "direct": {
+            "duplicates": 1,
+            "false": 55,
+            "matched": 149,
+            "predictions": 205,
+            "recall": 0.7095238095238096
+          },
+          "fine": {
+            "duplicates": 0,
+            "false": 61,
+            "matched": 148,
+            "predictions": 209,
+            "recall": 0.7047619047619048
+          },
+          "frame_count": 58,
+          "target_count": 210
+        },
+        "single_card_frames": {
+          "direct": {
+            "duplicates": 1,
+            "false": 0,
+            "matched": 20,
+            "predictions": 21,
+            "recall": 1.0
+          },
+          "fine": {
+            "duplicates": 0,
+            "false": 0,
+            "matched": 20,
+            "predictions": 20,
+            "recall": 1.0
+          },
+          "frame_count": 20,
+          "target_count": 20
+        },
+        "small_card_frames": {
+          "direct": {
+            "duplicates": 0,
+            "false": 18,
+            "matched": 87,
+            "predictions": 105,
+            "recall": 0.7837837837837838
+          },
+          "fine": {
+            "duplicates": 0,
+            "false": 21,
+            "matched": 87,
+            "predictions": 108,
+            "recall": 0.7837837837837838
+          },
+          "frame_count": 37,
+          "target_count": 111
+        }
+      }
+    }
+  },
+  "device": "mps",
+  "elapsed_seconds": 68.211,
+  "exact_regression_fixtures": {
+    "event-000010": {
+      "output_sha256": "fe80cc312bd091537f06986876ed4710ca0e22a965d4cb208a35e40f52948443",
+      "proposals": 4,
+      "repeat_geometry_deterministic": true,
+      "support_regions_hit": 1
+    },
+    "event-000012": {
+      "output_sha256": "5b65733c8abd898a7f500978da65a0cec1283b42fdf9fa08f3f1daab51959d30",
+      "proposals": 4,
+      "repeat_geometry_deterministic": true,
+      "support_regions_hit": 1
+    }
+  },
+  "frames": [
+    {
+      "crop_area_ratio_sum": 0.010250289351851852,
+      "crop_count": 1,
+      "crop_ms": 82.061,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0646-000",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "cc0cb652f595bbd1d3c82f4b3ae48b93028fce9f44df691c52f2be73b502e9d7",
+      "prepass_ms": 488.547,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 703.716,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.05751446759259259,
+      "crop_count": 1,
+      "crop_ms": 103.263,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-001",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "15c2ab6f41f2dc5f317dfd537d316ce60bd61ca0d1c36213afdfbd74fa255ebb",
+      "prepass_ms": 205.872,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 356.478,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.17688657407407407,
+      "crop_count": 1,
+      "crop_ms": 226.086,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-002",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "5735e7929a5572fe5e9c4961bb2be1cd7b5f1e3062e54f3451f9d3e8a891ea91",
+      "prepass_ms": 214.773,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 547.414,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.17553626543209877,
+      "crop_count": 1,
+      "crop_ms": 230.405,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-003",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "3defd85c1d130a16450f179f44ca6790cca0f74499e69626b220ffb8430b0781",
+      "prepass_ms": 202.615,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 612.166,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.17469618055555555,
+      "crop_count": 1,
+      "crop_ms": 220.952,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-004",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "21acfee01ac04052142f8d3add3d4e486766ff373059b8dd48bdc416ea9be8c4",
+      "prepass_ms": 220.054,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 618.583,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.022259837962962964,
+      "crop_count": 1,
+      "crop_ms": 97.218,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0646-005",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "99dd427476438c65946e5e0109f56cc3a95e9a6126056a9477580fd9b9d287ba",
+      "prepass_ms": 214.163,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 339.286,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.036236496913580246,
+      "crop_count": 1,
+      "crop_ms": 94.273,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-006",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "a27f44e9b853bb2ca289bd2927fb8d41fbb9eeda446c9ade84bad08b8ca852c4",
+      "prepass_ms": 208.01,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 351.856,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.055945698302469135,
+      "crop_count": 2,
+      "crop_ms": 181.985,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-007",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "687f4b2c93da41e2c21bd4e6ea3b81db2172cc0e1df5c50692009d8555612328",
+      "prepass_ms": 214.111,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 476.596,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.14774498456790122,
+      "crop_count": 1,
+      "crop_ms": 184.025,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-008",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "f7f488f52ebc036674a9a41fc193c1a65c14932a5ab4251df498733f0417cbc3",
+      "prepass_ms": 209.063,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 548.051,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.14792920524691358,
+      "crop_count": 1,
+      "crop_ms": 188.244,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-009",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "3ca4450ad91ed414fcddd7a1be1f304189f128069ad503f201ed3ac2174c5fde",
+      "prepass_ms": 217.134,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 568.253,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.018506462191358024,
+      "crop_count": 1,
+      "crop_ms": 92.842,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0646-010",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "45ad612abcabc41146f4fff1f36c9caad5f40b61e8e18d59a0e00fd79daa0a3c",
+      "prepass_ms": 216.084,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 331.879,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.05714216820987654,
+      "crop_count": 1,
+      "crop_ms": 129.558,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-011",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "a0e0fdd95969e7ec31f58bf7085759d17eb05aaee81745890e0a9702f2e07917",
+      "prepass_ms": 212.545,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 381.306,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.06868778935185185,
+      "crop_count": 1,
+      "crop_ms": 158.894,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-012",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "804262fabc0d2ef76318435a0e747b72729b8cf8c6055ffe9866a807878b705a",
+      "prepass_ms": 207.815,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 446.246,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.07513503086419752,
+      "crop_count": 1,
+      "crop_ms": 175.343,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-013",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "0d8807e3c55da12cbf3ee5c04777fb4eaa6c03489dffcd28d0e0afef91276299",
+      "prepass_ms": 216.835,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 518.578,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.08241319444444445,
+      "crop_count": 1,
+      "crop_ms": 198.54,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-014",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "3db11352179bf232dcc179e61243a50afaf282b95ea6489c40fe809adb90826b",
+      "prepass_ms": 214.805,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 529.491,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.009846643518518518,
+      "crop_count": 1,
+      "crop_ms": 81.528,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0646-015",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "f6d8f60b400d140fe7b977d4cb9d833961b6318175d5b01a4cfe54a5496a1d39",
+      "prepass_ms": 410.897,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 505.094,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.022890625,
+      "crop_count": 1,
+      "crop_ms": 88.122,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-016",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "2b622ab2d2418cc00ba38cbb6ff2fe8579356cf8e74dd8b1ee502c3ceb22377a",
+      "prepass_ms": 219.0,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 330.112,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.030266203703703705,
+      "crop_count": 2,
+      "crop_ms": 154.51,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-017",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "c539d63cb5d48bcb0ebe13ed26fe7882b98dd11bf9db191f3acddb377dba7d9b",
+      "prepass_ms": 208.86,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 397.016,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.04420138888888889,
+      "crop_count": 2,
+      "crop_ms": 173.28,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-018",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "6198b7b39b2f9f41d9c1fb7803f340c73ef255b0bed3f109b555ddbf2caddc9e",
+      "prepass_ms": 214.239,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 439.463,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.028499228395061728,
+      "crop_count": 1,
+      "crop_ms": 96.725,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0646-020",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "f69ad4b29d8d75017cba4ed5e6bf0ec47e603042ac8fed5df02c216a80812571",
+      "prepass_ms": 206.761,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 335.392,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.04319155092592593,
+      "crop_count": 2,
+      "crop_ms": 188.009,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-021",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "ed3f5d8e9a3521af1089fd4c677d9a72fd24467f27d6b77f1f4ad72e244add90",
+      "prepass_ms": 216.739,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 456.035,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1614429012345679,
+      "crop_count": 1,
+      "crop_ms": 202.138,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-022",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "be4491f414cb1e50df82850ed9c1a2c95002eb3c6f50ee1f85a311401a64d9a6",
+      "prepass_ms": 210.189,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 513.184,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1629803240740741,
+      "crop_count": 2,
+      "crop_ms": 272.132,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 3,
+        "predictions": 5,
+        "targets": 5
+      },
+      "event_id": "cardeventnet-event-img_0646-023",
+      "fine": {
+        "duplicates": 0,
+        "false": 3,
+        "matched": 3,
+        "predictions": 6,
+        "targets": 5
+      },
+      "height": 1080,
+      "image_sha256": "67387064e3b0f7a0194e8a778c9b31b4e7f9265b1134cb2bc0ccc15b90bc49fd",
+      "prepass_ms": 216.928,
+      "refinement_status": "ok",
+      "targets": 5,
+      "total_ms": 640.056,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.15345293209876543,
+      "crop_count": 1,
+      "crop_ms": 195.738,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 5
+      },
+      "event_id": "cardeventnet-event-img_0646-024",
+      "fine": {
+        "duplicates": 0,
+        "false": 3,
+        "matched": 2,
+        "predictions": 5,
+        "targets": 5
+      },
+      "height": 1080,
+      "image_sha256": "c327becd5a5197e728a4de7be4d345caeb029e7810e80e6cbab8b3bd08df073c",
+      "prepass_ms": 218.328,
+      "refinement_status": "ok",
+      "targets": 5,
+      "total_ms": 552.556,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.007736786265432099,
+      "crop_count": 1,
+      "crop_ms": 79.173,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0646-025",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "27a61b126f6dc9924982bf3b61bc25d6778336aa72f28401de17c60d15cc91ff",
+      "prepass_ms": 209.609,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 300.364,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.022820216049382717,
+      "crop_count": 1,
+      "crop_ms": 84.209,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-026",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "82b61eb31d8eac269b0b94c8d3b6c21a09c8cc62a5aa1a9d19e68918a569ef51",
+      "prepass_ms": 214.329,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 328.77,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.04942708333333334,
+      "crop_count": 1,
+      "crop_ms": 118.019,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-027",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "30173bb661976a97db8aba6f295f47f5bab87c285983b058fd299eef14382fce",
+      "prepass_ms": 213.626,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 397.944,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.10163676697530864,
+      "crop_count": 2,
+      "crop_ms": 204.27,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 4,
+        "predictions": 5,
+        "targets": 5
+      },
+      "event_id": "cardeventnet-event-img_0646-028",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 4,
+        "predictions": 5,
+        "targets": 5
+      },
+      "height": 1080,
+      "image_sha256": "a7d6c79dc4dbbc41f6e007ab5c7dbd9afd6f6d0277f89abac6757d33f9481fd0",
+      "prepass_ms": 214.304,
+      "refinement_status": "ok",
+      "targets": 5,
+      "total_ms": 575.474,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.011919849537037038,
+      "crop_count": 1,
+      "crop_ms": 78.545,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-030",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "f74e4be89b68fa8221eabe52acd1090e95f5fa9166f94bfb80eeaca9c2ad9593",
+      "prepass_ms": 213.744,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 306.643,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.03196566358024691,
+      "crop_count": 1,
+      "crop_ms": 84.757,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-031",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "789a9b1c108a52f3aaa5c988809869d04172e3a65739b44c3b09f550736e38cb",
+      "prepass_ms": 214.315,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 323.377,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.038043981481481484,
+      "crop_count": 1,
+      "crop_ms": 96.068,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-032",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "4f7319c8cda8c1efc8a85dd15e575ece59efb88c4486a35162968f2fee0021ec",
+      "prepass_ms": 215.3,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 340.371,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.04773726851851852,
+      "crop_count": 1,
+      "crop_ms": 102.142,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 5
+      },
+      "event_id": "cardeventnet-event-img_0646-033",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 5
+      },
+      "height": 1080,
+      "image_sha256": "4b5df9310236602dc17085ae9ca8eb1ffc5726e4261591878aeaeabdf9b2675c",
+      "prepass_ms": 204.303,
+      "refinement_status": "ok",
+      "targets": 5,
+      "total_ms": 353.706,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.018472222222222223,
+      "crop_count": 1,
+      "crop_ms": 93.952,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-035",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "f293f3a3a323bca3223db9543015e02de2ad0d9722508dfefdf7fd6478f9660c",
+      "prepass_ms": 218.145,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 448.143,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.07476128472222222,
+      "crop_count": 1,
+      "crop_ms": 137.807,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-036",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "d5e788cd2292263c27bf101a2650cfbeff1690ed423a2d104810c045f40eadae",
+      "prepass_ms": 202.307,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 402.838,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.08345148533950618,
+      "crop_count": 1,
+      "crop_ms": 153.229,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-037",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "2590f8e9c6aecbe021e4ea918f209c531c73dd92f132a1e96b57436382772fd4",
+      "prepass_ms": 216.442,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 449.006,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1273360339506173,
+      "crop_count": 1,
+      "crop_ms": 167.476,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-038",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "c83e4ae3011e819b49bda5d36753721a526a957714b188effd35a0143773c894",
+      "prepass_ms": 207.402,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 492.349,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.12750626929012346,
+      "crop_count": 1,
+      "crop_ms": 165.131,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-039",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "14e5da05cfdea2689d016d2944cc89b9dac5879797a1d821c19beccfe9e91c00",
+      "prepass_ms": 217.395,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 495.002,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.005600405092592593,
+      "crop_count": 1,
+      "crop_ms": 72.904,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0646-040",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "8341732fc2d56067c51f4b62bdf654653ae43793a7e2cdcaf2a42fe9599c55fc",
+      "prepass_ms": 214.202,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 297.536,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.012300347222222223,
+      "crop_count": 1,
+      "crop_ms": 76.281,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 1,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-041",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 1,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "292d87f15a0ba56eace25e23c6dff08379b7a10ec7b3b46432bb6c404ca0c0b2",
+      "prepass_ms": 212.651,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 306.681,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.01980324074074074,
+      "crop_count": 1,
+      "crop_ms": 77.71,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-042",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "c175c21c261939ff10b88b0a65aadc185c1e11125c5eac9809a5e1baee65e484",
+      "prepass_ms": 200.488,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 305.707,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.023308256172839506,
+      "crop_count": 1,
+      "crop_ms": 82.968,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-043",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "bf844af7e6e175416b805f1c5cd051952f6352e69ad2199050ac911a33ad1b58",
+      "prepass_ms": 215.498,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 337.495,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.023391203703703702,
+      "crop_count": 1,
+      "crop_ms": 77.364,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-044",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "3c734708d6772a6ee9cbad612cb48fb00b197e4e7e7194dcf09120d2585149d0",
+      "prepass_ms": 212.45,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 330.733,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.011094232253086419,
+      "crop_count": 1,
+      "crop_ms": 79.358,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0646-045",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "b1a20c6b673f4677c104a97b4158166f985337cd4ff1c2be39f6b4d23dec2bb4",
+      "prepass_ms": 214.461,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 307.377,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.013410011574074074,
+      "crop_count": 2,
+      "crop_ms": 146.146,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0646-046",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "2cc9f6960f7768aa9149676c1aef3970f497c239e5d9905c40e81383264e6b9a",
+      "prepass_ms": 211.862,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 374.742,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.020217978395061727,
+      "crop_count": 2,
+      "crop_ms": 156.019,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0646-047",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "3ad3cb1104d9631145bb539d88b49ef78f41334ae292d49c243344015c69b216",
+      "prepass_ms": 205.732,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 386.595,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.039237557870370365,
+      "crop_count": 2,
+      "crop_ms": 170.33,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-048",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "80b20fdb6cd94931430a03f4d1674e30e4ca193d6ba840dc53037a9b71f60c19",
+      "prepass_ms": 214.795,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 430.07,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.03952498070987654,
+      "crop_count": 2,
+      "crop_ms": 171.174,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0646-049",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "bb9dbc0a47205edcef9aa7d3f80119c934c13221fcc3cb461aa8f89963c603ee",
+      "prepass_ms": 205.796,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 424.974,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.065,
+      "crop_count": 1,
+      "crop_ms": 134.452,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "manual-1789502424517-21",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "cb119eb555484a09b968a9c192b33992d6a71c3e38c13e623015487990af663d",
+      "prepass_ms": 213.077,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 419.617,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.06616512345679013,
+      "crop_count": 1,
+      "crop_ms": 137.223,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-000",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "2cc8ae0d0e168ad7c09806c4d82a2761bc37564fedfafdfed6fa6a7c393c7888",
+      "prepass_ms": 211.147,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 428.596,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.16347800925925926,
+      "crop_count": 1,
+      "crop_ms": 163.502,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-001",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "99990468c086aba71d338424dda75ab5423e8ee88f31a7b4f0d61165c3d6ab5a",
+      "prepass_ms": 213.092,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 571.134,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1627613811728395,
+      "crop_count": 1,
+      "crop_ms": 166.77,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-002",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "a587cb8433a0aa08805d138d7f827dfe5f51616e7ec7d8d3869bdcdd18bffd20",
+      "prepass_ms": 216.019,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 721.229,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.19445216049382716,
+      "crop_count": 1,
+      "crop_ms": 164.586,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-003",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "b65c51533cb75d74421d6d303700d6b10f355732f9dff0b0ad44c8416e6b6746",
+      "prepass_ms": 212.621,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 864.251,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.19414737654320988,
+      "crop_count": 1,
+      "crop_ms": 161.181,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-004",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "3cd10005f43fcbec35c90eb6c80ab84cae836907e83b4c6c3a2374fd4128bf5a",
+      "prepass_ms": 217.992,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 838.262,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.04828221450617284,
+      "crop_count": 1,
+      "crop_ms": 125.612,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-005",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "e7c38d93755f193ee9e2bf965901a64fe2646e978f679d88e2096371ba955e2e",
+      "prepass_ms": 212.318,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 392.132,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.13856577932098765,
+      "crop_count": 1,
+      "crop_ms": 145.136,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-006",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "ae653528dd7e561682fae86c026cd1d1b341c6cecfa51ae34192ad2d03c52a5d",
+      "prepass_ms": 214.472,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 473.788,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.14091435185185186,
+      "crop_count": 1,
+      "crop_ms": 145.523,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-007",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "2df6de8ca60852707bd669cee56ed92923606b081ee2e1900328f3fa2a470e9c",
+      "prepass_ms": 219.142,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 574.604,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.14732349537037037,
+      "crop_count": 1,
+      "crop_ms": 143.192,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-008",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "49bae7d768320567b711dc0b47da235ae63479f2a35f327dcd6be59107968fb8",
+      "prepass_ms": 208.197,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 674.854,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1478587962962963,
+      "crop_count": 1,
+      "crop_ms": 143.772,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-009",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "1f24e05ddeea6e4410884cf27558dc25f5dcb2db7b288930e9879a37ced88e1f",
+      "prepass_ms": 218.485,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 783.322,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.025541087962962963,
+      "crop_count": 1,
+      "crop_ms": 95.471,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-010",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "d803bd15d5e077e9f8a4c4c43d97726ce0942f576a2d0acf53235e6c3a4be171",
+      "prepass_ms": 213.018,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 343.549,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1825,
+      "crop_count": 1,
+      "crop_ms": 171.747,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-011",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "5acc13246a999a770e4405d36150b7674cdacb2ef124d8a1e9ce929ae2a1e161",
+      "prepass_ms": 202.547,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 542.045,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.18013117283950617,
+      "crop_count": 1,
+      "crop_ms": 158.208,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-012",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "52d5d5b962e028dc35f1005dced9415c5894d1ac71ee0f4173d59a86e8c37abb",
+      "prepass_ms": 217.649,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 652.727,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.19121720679012347,
+      "crop_count": 1,
+      "crop_ms": 168.431,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-013",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "78a3772ea64fa7fc76a9c8a72925b21d10ff4406e721b8186383180eb0c6528e",
+      "prepass_ms": 217.107,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 779.299,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.19065972222222222,
+      "crop_count": 1,
+      "crop_ms": 173.334,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-014",
+      "fine": {
+        "duplicates": 0,
+        "false": 3,
+        "matched": 2,
+        "predictions": 5,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "6e9b337c679934f92bc54c111bc4a7f3d341fb54bc857f0e5de4eade16fb3b51",
+      "prepass_ms": 218.334,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 801.651,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.04944058641975309,
+      "crop_count": 1,
+      "crop_ms": 126.685,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-015",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "85154a0853c7aea4b7931e3d91f22f51be831111aebae50ead2b1339076f44b5",
+      "prepass_ms": 213.288,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 401.145,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.135,
+      "crop_count": 1,
+      "crop_ms": 138.983,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-016",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "04e4cc6bc86c2af75efbb4f657d044a897c2e481e8059a5f37f671fc6adb3a32",
+      "prepass_ms": 212.083,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 491.014,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.258671875,
+      "crop_count": 1,
+      "crop_ms": 182.072,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-017",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "62bab05e1125cb1803fee8c8a9773c870e420d61ae51150953ece80e39ed6821",
+      "prepass_ms": 215.728,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 705.009,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.2960069444444444,
+      "crop_count": 1,
+      "crop_ms": 191.931,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-018",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "24223733467aed8e0cc297d3aedd6165053e7866f015fbac1b504427a794257f",
+      "prepass_ms": 226.144,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 863.781,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.051277970679012345,
+      "crop_count": 1,
+      "crop_ms": 127.892,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-020",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "ebd2f05b0ae33e0c420a2844b24404e6666e651561986db4d3d59427dc30858c",
+      "prepass_ms": 215.694,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 400.382,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.05382716049382716,
+      "crop_count": 1,
+      "crop_ms": 119.353,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-021",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "84ba23536a6678a32c3b503101d6da2aa60a1c0e50f181bf71f204c62cd3f903",
+      "prepass_ms": 213.314,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 393.929,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.16655864197530865,
+      "crop_count": 1,
+      "crop_ms": 167.269,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-022",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "38168679a13a1e249a45139692b3da60fc392f03345f06b5f0039a898e2f6159",
+      "prepass_ms": 216.402,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 574.849,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.27476658950617283,
+      "crop_count": 1,
+      "crop_ms": 272.889,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-023",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "1b7253a30f2021a56415f12046814abe278e1b9b8f4735546871803acb363d89",
+      "prepass_ms": 207.645,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 849.335,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.3614269868827161,
+      "crop_count": 1,
+      "crop_ms": 285.866,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-024",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "e7f4ca595a745ffa32c19af0e05df35e322ee6c1ef530bc3b77fcaef273b0016",
+      "prepass_ms": 408.389,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 1208.837,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.3616493055555556,
+      "crop_count": 1,
+      "crop_ms": 281.461,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-025",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "14a977e9acd193952f8f17f28b11285fc6d5c5154045a5450b18b0a3c1c58c12",
+      "prepass_ms": 214.408,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 991.085,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.034778163580246914,
+      "crop_count": 1,
+      "crop_ms": 105.797,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-026",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "090b6ea585f5055b7aabf3a08c667763e371694be964bf060defcfffab2cd969",
+      "prepass_ms": 212.985,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 362.93,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.11506317515432099,
+      "crop_count": 1,
+      "crop_ms": 161.013,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 1,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-027",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 1,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "ee648a7f344052b1f34d73ac4c036d796351d8a30dc22e604370f2dc4fce4b11",
+      "prepass_ms": 214.87,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 578.757,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.2066333912037037,
+      "crop_count": 1,
+      "crop_ms": 204.156,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-028",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "42a1d1c208453d467ea7e59287e91d6d501fd62502e4d2b8dd93c24e806d2017",
+      "prepass_ms": 216.286,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 813.635,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.2999537037037037,
+      "crop_count": 1,
+      "crop_ms": 275.883,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-029",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "d84147e0b92637b5beb55f426e672dd42a6963f083747330a7c563dc942e451b",
+      "prepass_ms": 220.473,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 1264.35,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.025347222222222222,
+      "crop_count": 1,
+      "crop_ms": 105.936,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-031",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "f0c8aaa564f0c4eb92b4758be70990327f5f68c80366d14fe50d71a62be86976",
+      "prepass_ms": 205.138,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 342.302,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.11782214506172839,
+      "crop_count": 1,
+      "crop_ms": 159.83,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-032",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "9660329e8b85ea036ca90dcfcbab7e04547398eff6a2fe21061333faead5d26d",
+      "prepass_ms": 220.301,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 499.997,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.18150848765432098,
+      "crop_count": 1,
+      "crop_ms": 163.183,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-033",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "a44cd3439a22f6d5dcc9479fa5028da0e18602b7f77f603e8d549138864b6304",
+      "prepass_ms": 206.178,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 616.724,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.2122878086419753,
+      "crop_count": 1,
+      "crop_ms": 184.338,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-034",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "82b724296b223d664b1c2571b16da7175696fbb0d73e768d2a19d37013e74917",
+      "prepass_ms": 219.365,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 779.386,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.21156394675925927,
+      "crop_count": 1,
+      "crop_ms": 185.175,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-035",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 4,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "4f3844ceda2f22f125dcb15230644d967d455e4b26fda9527ab087a9dcf378c8",
+      "prepass_ms": 217.863,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 780.577,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.03263454861111111,
+      "crop_count": 1,
+      "crop_ms": 104.634,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-036",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "be99972c065b3d7e931f8a71b1be728efff5caf5ee59e5373bc33f1f70ea6abf",
+      "prepass_ms": 216.004,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 359.79,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.0816261574074074,
+      "crop_count": 1,
+      "crop_ms": 153.622,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-037",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "1578c702c79ba05dcc3cf23d12edd3dd50d9638558389b79cd4806976451f299",
+      "prepass_ms": 204.141,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 458.164,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.08192515432098765,
+      "crop_count": 1,
+      "crop_ms": 162.379,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 1,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-038",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 1,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "d4cdae9e40a93eb0bb4324a682fa259cc1a49b482ff6cef6969a057abec64328",
+      "prepass_ms": 215.897,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 541.708,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.3223726851851852,
+      "crop_count": 1,
+      "crop_ms": 250.784,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-039",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "ebeacbb956cfe7daec3b25ae855a9331dc2c221e45d38a24da6415423fbb2241",
+      "prepass_ms": 218.843,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 728.946,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1713474151234568,
+      "crop_count": 1,
+      "crop_ms": 159.398,
+      "direct": {
+        "duplicates": 1,
+        "false": 2,
+        "matched": 2,
+        "predictions": 5,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-040",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "0f6d0d56420ee58a9bd1ec2b7d7291ccaf11834770ad5409615e6e5c2f666ce6",
+      "prepass_ms": 205.809,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 867.189,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.17107060185185186,
+      "crop_count": 1,
+      "crop_ms": 181.46,
+      "direct": {
+        "duplicates": 0,
+        "false": 3,
+        "matched": 2,
+        "predictions": 5,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-041",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "3f58726f1b5f047a54923c4bc18661c14ee5059c90aa76bc1b9166fda35b6e45",
+      "prepass_ms": 224.409,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 901.044,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.02271026234567901,
+      "crop_count": 1,
+      "crop_ms": 89.349,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-042",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "c7bae8bbe3ff68df734b6fd518b6b0fb3ee097e275bfe91899df9ad07b063e7a",
+      "prepass_ms": 207.232,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 324.956,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1405324074074074,
+      "crop_count": 1,
+      "crop_ms": 161.732,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-043",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "7af8ab63f23e9d0669698e34142160e1b9826aa4760672287bd5a2a208b4c00c",
+      "prepass_ms": 215.353,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 488.669,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.19191936728395062,
+      "crop_count": 1,
+      "crop_ms": 202.603,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-044",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "2bc20c5a34e4b2c2a4bba2f6a1dbd135f4b2907cad5b9170fb6cbc989c59c731",
+      "prepass_ms": 209.379,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 633.922,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.19439043209876544,
+      "crop_count": 1,
+      "crop_ms": 198.801,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-045",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "5cb8e588c6edbff68c0e0e799820f9531b62e65ef9356912de445a33639eb195",
+      "prepass_ms": 217.539,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 746.599,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.19443287037037038,
+      "crop_count": 1,
+      "crop_ms": 216.507,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-046",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "8929118ad48e08c53400965ce51863a4695535e8fd8eb5bd447843db1c1fb3bb",
+      "prepass_ms": 307.829,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 860.079,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.031064814814814816,
+      "crop_count": 1,
+      "crop_ms": 103.924,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0648-047",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "073fe24fa0aaba2ae9c03e204ed64d607f272982ad40cbe5b257a782d46ce5c2",
+      "prepass_ms": 345.116,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 485.191,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.04540027006172839,
+      "crop_count": 1,
+      "crop_ms": 139.432,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 1,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0648-048",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 1,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "fcbf172c7fcb0bdde84c78fac0bf3e956948f45999a7346a05ff0eef447bbedd",
+      "prepass_ms": 226.416,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 444.224,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1150221836419753,
+      "crop_count": 2,
+      "crop_ms": 257.205,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0648-049",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "ce7654ac8564ec5bf924335b5db4c3fd35736ea6667cdb7b9cde1ff2b914604c",
+      "prepass_ms": 217.529,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 727.953,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.2281322337962963,
+      "crop_count": 1,
+      "crop_ms": 207.469,
+      "direct": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-050",
+      "fine": {
+        "duplicates": 0,
+        "false": 2,
+        "matched": 2,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "d36e52b6a151660eb7af50b2faec95093ec4be2c47063c2e3aad7be1c98c9fe7",
+      "prepass_ms": 219.708,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 819.246,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.2281322337962963,
+      "crop_count": 1,
+      "crop_ms": 189.222,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0648-051",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "a3c6b12d6d9483e5c8194b8b0738eb907c679ae083b9080445856b9d68988559",
+      "prepass_ms": 228.24,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 816.059,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.06065538194444445,
+      "crop_count": 1,
+      "crop_ms": 140.605,
+      "direct": {
+        "duplicates": 1,
+        "false": 0,
+        "matched": 1,
+        "predictions": 2,
+        "targets": 1
+      },
+      "event_id": "cardeventnet-event-img_0649-000",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 1,
+        "predictions": 1,
+        "targets": 1
+      },
+      "height": 1080,
+      "image_sha256": "242827c37b7129fd7458bdda520d722ad5877ad823ca183bbd57ca30d8c238be",
+      "prepass_ms": 219.143,
+      "refinement_status": "ok",
+      "targets": 1,
+      "total_ms": 496.16,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.14323929398148147,
+      "crop_count": 1,
+      "crop_ms": 150.054,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "event_id": "cardeventnet-event-img_0649-001",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 2,
+        "predictions": 2,
+        "targets": 2
+      },
+      "height": 1080,
+      "image_sha256": "09f09c363e2a405c8ba9903f48e57ea4965790ebc1fee0d26ae58b55a288580b",
+      "prepass_ms": 218.726,
+      "refinement_status": "ok",
+      "targets": 2,
+      "total_ms": 528.071,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.2740451388888889,
+      "crop_count": 1,
+      "crop_ms": 211.802,
+      "direct": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0649-002",
+      "fine": {
+        "duplicates": 0,
+        "false": 0,
+        "matched": 3,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "5c3ae89041c2898814301ce6d2d34f9c547637d246cc855b5686994d7bd4f1f1",
+      "prepass_ms": 216.554,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 775.485,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.1648263888888889,
+      "crop_count": 1,
+      "crop_ms": 151.538,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "event_id": "cardeventnet-event-img_0649-003",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 2,
+        "predictions": 3,
+        "targets": 3
+      },
+      "height": 1080,
+      "image_sha256": "c83adb789a3490fcd23597a00f34c1a0cbec0a0b8411ab22ea0e0b9026198a1d",
+      "prepass_ms": 217.153,
+      "refinement_status": "ok",
+      "targets": 3,
+      "total_ms": 607.924,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.21716145833333333,
+      "crop_count": 1,
+      "crop_ms": 204.594,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0649-004",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "010511e333b9b738ef1b8d7a9acb759ebc6e468600d706c36ba8fc45bf0e872f",
+      "prepass_ms": 218.079,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 809.132,
+      "width": 1920
+    },
+    {
+      "crop_area_ratio_sum": 0.21635416666666665,
+      "crop_count": 1,
+      "crop_ms": 202.217,
+      "direct": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "event_id": "cardeventnet-event-img_0649-005",
+      "fine": {
+        "duplicates": 0,
+        "false": 1,
+        "matched": 3,
+        "predictions": 4,
+        "targets": 4
+      },
+      "height": 1080,
+      "image_sha256": "d1cc080dd5603f4a3bf0ad975fe43e51e75889908d906e739e0eded8405c501b",
+      "prepass_ms": 217.424,
+      "refinement_status": "ok",
+      "targets": 4,
+      "total_ms": 803.645,
+      "width": 1920
+    }
+  ],
+  "iou_threshold": 0.5,
+  "provider_change_decision": "Remove crop inference and duplicate suppression after comparison. Use the selected full-frame provider, which matches direct provider metrics on every held-out frame.",
+  "schema_version": "epic-0082-m3-sealed-test-comparison/v1",
+  "selected_provider_validation": {
+    "bundle_digest": "b3deef701e26d91ebfd9d357b4ff69b45ae9360e3722de340f1044214179df29",
+    "different_frames": [],
+    "frames": 104,
+    "latency_median_ms": 212.9545,
+    "latency_p95_ms": 224.012,
+    "matches_direct_provider_frame_metrics": true,
+    "output_sha256": "b25f86926ed3d26cb8abd546aa199a12e80eb5644f2dad4d7e753e77f034448a",
+    "overall": {
+      "duplicates": 2,
+      "false": 56,
+      "matched": 228,
+      "predictions": 286,
+      "recall": 0.7808219178082192,
+      "targets": 292
+    },
+    "provider": "local-rfdetr-fine-frame",
+    "stratification": {
+      "definitions": {
+        "central_card_frames": "frame contains a card center in normalized x/y range [0.33, 0.67]",
+        "far_field_frames": "frame contains a card center in the top third of the image (normalized y <= 0.33)",
+        "frame_edge_frames": "frame contains a card bbox within 5% of any image edge",
+        "overlap_frames": "frame contains a card bbox pair with at least 10% intersection relative to the smaller bbox",
+        "single_card_frames": "frame contains exactly one reviewed card",
+        "small_card_frames": "frame contains a card in the bottom quartile of normalized bbox area (<= 0.013576)"
+      },
+      "groups": {
+        "central_card_frames": {
+          "duplicates": 1,
+          "false": 55,
+          "frame_count": 83,
+          "matched": 184,
+          "predictions": 240,
+          "recall": 0.7510204081632653,
+          "target_count": 245
+        },
+        "far_field_frames": {
+          "duplicates": 0,
+          "false": 5,
+          "frame_count": 6,
+          "matched": 14,
+          "predictions": 19,
+          "recall": 0.5833333333333334,
+          "target_count": 24
+        },
+        "frame_edge_frames": {
+          "duplicates": 0,
+          "false": 12,
+          "frame_count": 21,
+          "matched": 59,
+          "predictions": 71,
+          "recall": 0.7763157894736842,
+          "target_count": 76
+        },
+        "overlap_frames": {
+          "duplicates": 1,
+          "false": 55,
+          "frame_count": 58,
+          "matched": 149,
+          "predictions": 205,
+          "recall": 0.7095238095238096,
+          "target_count": 210
+        },
+        "single_card_frames": {
+          "duplicates": 1,
+          "false": 0,
+          "frame_count": 20,
+          "matched": 20,
+          "predictions": 21,
+          "recall": 1.0,
+          "target_count": 20
+        },
+        "small_card_frames": {
+          "duplicates": 0,
+          "false": 18,
+          "frame_count": 37,
+          "matched": 87,
+          "predictions": 105,
+          "recall": 0.7837837837837838,
+          "target_count": 111
+        }
+      }
+    },
+    "version": "local-rfdetr-fine-frame-v1"
+  },
+  "source_annotation_sha256": "ed25a0be6764d1d4614ad64c51f1c79840fad873cab8887ecc6d4e02f86a6296",
+  "test_set": "0068 sealed_test reviewed visible-card polygons"
+}

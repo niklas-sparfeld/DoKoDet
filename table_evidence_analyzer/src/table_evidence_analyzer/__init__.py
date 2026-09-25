@@ -307,9 +307,9 @@ from table_evidence_analyzer.visible_card_evaluation import (
     load_visible_card_references,
     polygon_iou,
 )
-from table_evidence_analyzer.visible_card_fine_prepass_provider import (
-    FINE_PREPASS_PROVIDER_MANIFEST,
-    LocalVisibleCardFinePrepassProvider,
+from table_evidence_analyzer.visible_card_fine_frame_provider import (
+    FINE_FRAME_PROVIDER_MANIFEST,
+    LocalVisibleCardFineFrameProvider,
 )
 from table_evidence_analyzer.visible_card_observation import (
     DEFAULT_ANALYZER_NAME,
@@ -773,8 +773,8 @@ __all__ = [
     "IMPROVED_PROMPT",
     "IMPROVED_REQUEST_SCHEMA_VERSION",
     "LocalVisibleCardProvider",
-    "FINE_PREPASS_PROVIDER_MANIFEST",
-    "LocalVisibleCardFinePrepassProvider",
+    "FINE_FRAME_PROVIDER_MANIFEST",
+    "LocalVisibleCardFineFrameProvider",
     "LocalVisibleCardSegmentationProvider",
     "LOCAL_SEGMENTATION_PROVIDER_NAME",
     "LOCAL_SEGMENTATION_PROVIDER_VERSION",

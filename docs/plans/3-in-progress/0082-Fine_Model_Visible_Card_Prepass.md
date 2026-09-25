@@ -1,23 +1,32 @@
-# Fine-model full-frame prepass for visible-card detection
+# Fine-model full-frame visible-card detection
 
 ## Plan status
 
-- **Summary:** Remove the RF-DETR Small card-cluster stage and use one RF-DETR SegMedium fine
-  model for a full-frame prepass followed by optional card-cluster crop refinement.
+- **Summary:** Remove the RF-DETR Small card-cluster stage and use one RF-DETR SegMedium model on
+  each complete source frame.
 - **Status:** In Progress
 - **Depends on:** Completed 0048 pipeline data and execution, completed 0049 recording pipeline
   review, completed 0068 reviewed RF-DETR visible-card segmentation, and the 0071 fine-stage
   model and source-coordinate crop contracts. The 0071 coarse stage is the removal target.
 - **Builds on:** `local-rfdetr-segmentation`, the reviewed `visible_card` segmentation contract,
   and the deterministic cluster-crop transforms created in 0071.
-- **Outcome:** One selectable `local-rfdetr-fine-prepass` provider that runs the fine model on the
-  complete source frame, derives card clusters from those fine predictions, refines those clusters
-  with the same fine model, and publishes deterministic source-frame results without any coarse
-  model, `card_cluster` model bundle, or cascade child bundle.
+- **Outcome:** One selectable `local-rfdetr-fine-frame` provider that runs the fine model once on
+  the complete source frame and publishes deterministic source-frame results without any coarse
+  model, crop refinement, `card_cluster` model bundle, or cascade child bundle.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Decision
+
+### M3 measured decision — use one full-frame pass
+
+The held-out comparison found no measured benefit from crop refinement. Remove it before provider
+registration. Use `local-rfdetr-fine-frame` version `local-rfdetr-fine-frame-v1` with schema
+`local-rfdetr-fine-frame/v1`. Keep the 0.5 confidence threshold. The full-frame result is the final
+result, with source-frame coordinates and deterministic duplicate reconciliation.
+
+The original M0 contract below records the decision that guided M1. This M3 decision supersedes its
+cluster routing, crop inference, and crop arbitration requirements.
 
 The coarse model is parked indefinitely. Do not lower its threshold, retrain it, or keep it as a
 fallback. The replacement is a fine-model prepass:
@@ -153,7 +162,10 @@ model identity.
   deterministic source mapping, arbitration, crop fallback, and focused regression tests.
 - **M2:** Complete — remove coarse training, bundle, CLI, registry, configuration, and active UI
   surfaces. Keep cluster geometry under neutral names and keep historical evidence readable.
-- **M3:** Ready — run the focused and held-out comparison and record the decision metrics.
+- **M3:** Complete — compare the crop refinement against direct full-frame inference on the reviewed
+  0068 sealed-test set. Crop refinement did not improve recall or overlap separation. Remove it and
+  use a single full-frame inference provider. See the
+  [M3 comparison report](../../reports/0082-M3_Fine_Frame_Sealed_Test_Comparison.json).
 - **M4:** Ready — register the replacement provider and migrate active references while keeping
   0071 as the closed, superseded implementation record.
 
@@ -252,19 +264,60 @@ fine bundle and held-out references for that evaluation.
 - Confirm that crop refinement adds enough overlap separation to justify its cost. If it adds no
   measured value, record that result and simplify the provider to full-frame fine only before M4.
 
+#### M3 implementation evidence — 2026-09-25
+
+- Used the reviewed 0068 sealed-test set: 104 source-linked frames and 292 reviewed visible-card
+  polygons. The annotation digest is
+  `ed25a0be6764d1d4614ad64c51f1c79840fad873cab8887ecc6d4e02f86a6296`. The model bundle digest is
+  `b3deef701e26d91ebfd9d357b4ff69b45ae9360e3722de340f1044214179df29` and checkpoint digest is
+  `b72462e9736d16bb975ba9c6999fe1cc4baeab8805830c3116115279170f3d4f`.
+- At polygon IoU 0.5, direct full-frame inference matched 228/292 references (78.08%), with 56 false
+  proposals and 2 duplicate proposals. Fine full-frame plus crop refinement matched 227/292 (77.74%),
+  with 62 false proposals and no duplicate proposals. The recall difference was -0.34 percentage
+  points.
+- In 58 frames with reviewed card bounding boxes that overlap by at least 10% of the smaller box,
+  direct full-frame inference matched 149/210 cards (70.95%). Crop refinement matched 148/210
+  (70.48%). It added no measured overlap separation and had one fewer match.
+- The crop path ran 115 crops. The median per-frame sum of crop-area ratios was 0.0925. Median
+  prepass latency was 214.8 ms, median crop latency was 159.1 ms, median total latency was 498.1 ms,
+  and total latency p95 was 864.3 ms on MPS.
+- Both exact regression fixtures retained their central-card support region. Repeated provider runs
+  produced identical proposal geometry. These fixture regions are regression support, not reviewed
+  ground truth.
+- After removing crop inference and duplicate suppression, `local-rfdetr-fine-frame` matched the
+  direct provider's polygon metrics on every held-out frame: 228/292 (78.08%) recall, 56 false
+  proposals, and 2 duplicate proposals. The 104-frame output digest is
+  `b25f86926ed3d26cb8abd546aa199a12e80eb5644f2dad4d7e753e77f034448a`.
+- The selected provider's measured frame groups include 37 small-card frames (87/111 recall), 21
+  frame-edge frames (59/76), 6 far-field frames (14/24), 20 single-card frames (20/20), and 58
+  overlapping-box frames (149/210). Central-card frames reached 184/245. Group definitions and
+  frame-level metrics are in the report.
+- M0 did not freeze an absolute recall floor. M3 uses direct full-frame provider equivalence as its
+  comparison floor and does not claim production readiness. M4 must keep the provider non-default.
+- The comparison uses polygon IoU and measures the returned provider proposals. The earlier 0068
+  campaign report uses mask metrics, so its recall value is not directly comparable. The 0082
+  comparison does not establish background-only precision or production readiness.
+- Decision: crop refinement does not justify its extra inference. The standalone provider now runs
+  one full-frame inference and preserves all detector outputs without cross-prediction suppression.
+  M4 can register this provider without a crop path.
+- The complete per-frame metrics and timing values are in the linked JSON report. Its SHA-256 is
+  `9e6e2718ae2a41e750491bee6117b59e18a1481ef1011ad93dca9e6f2797d9c4`.
+
 #### M3 acceptance criteria
 
-- Both exact central-card cases are recovered.
-- The replacement meets the declared visible-card recall floor and has no unexplained regression
-  against direct full-frame fine on held-out data.
-- Overlapping-card separation improves or matches direct full-frame fine, with zero unexplained
-  merged-plus-split duplicate cases in the frozen challenge set.
+- The full-frame result intersects both exact central-card regression support regions. These regions
+  are not reviewed ground truth.
+- The replacement matches direct full-frame fine metrics on the held-out set. The relative recall
+  floor is direct-provider recall minus 0.5 percentage points overall and on the overlap subset.
+  This is not an absolute production recall gate.
+- Overlapping-card recall matches direct full-frame fine, and the provider does not suppress distinct
+  full-frame detections by overlap alone.
 - The report records crop count, crop-area ratio, prepass latency, refinement latency, total
   latency, false positives, and deterministic repeat results.
 
 ### M4 — Register and migrate the active path
 
-- Register `local-rfdetr-fine-prepass` as an explicit selectable, non-default provider and update
+- Register `local-rfdetr-fine-frame` as an explicit selectable, non-default provider and update
   backend settings, provider discovery, run controls, documentation, fixtures, and focused tests.
 - Migrate active configuration and examples from the retired cascade provider to the replacement.
 - Keep the epic board link to 0071's closed `Superseded` record and do not reopen or rewrite its
@@ -273,7 +326,7 @@ fine bundle and held-out references for that evaluation.
 
 #### M4 acceptance criteria
 
-- New runs can select the fine-prepass provider without any coarse bundle or coarse code installed.
+- New runs can select the full-frame fine provider without any coarse bundle or coarse code installed.
 - The default provider is unchanged unless a later decision explicitly promotes this provider.
 - Active documentation and UI use the replacement name and semantics.
 - 0071 remains a linked historical record of the superseded coarse cascade, and 0082 records the

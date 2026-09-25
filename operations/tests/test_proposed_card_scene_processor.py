@@ -268,7 +268,7 @@ def test_visible_card_revision_conversion_preserves_frame_and_detector_lineage()
                             },
                             "side": "unknown",
                             "model_scores": [
-                                {"producer_id": "local-rfdetr-fine-prepass", "score": 0.97}
+                                {"producer_id": "local-rfdetr-fine-frame", "score": 0.97}
                             ],
                         }
                     ],
