@@ -34,6 +34,7 @@ def _settings(tmp_path: Path, **values: object) -> Settings:
         "gemini_api_key": "test-key",
         "visible_card_provider": "gemini",
         "visible_card_bundle_path": None,
+        "visible_card_segmentation_bundle_path": None,
         "visible_card_device": None,
         "visible_card_identity_classifier": "gemini",
         "visible_card_identity_bundle_path": None,
@@ -70,6 +71,11 @@ class FakeLocalVisibleCardProvider:
 class FakeLocalSegmentationProvider(FakeLocalVisibleCardProvider):
     name = "local-rfdetr-segmentation"
     version = "local-visible-card-segmentation-test-v1"
+
+
+class FakeLocalFineFrameProvider(FakeLocalSegmentationProvider):
+    name = "local-rfdetr-fine-frame"
+    version = "local-rfdetr-fine-frame-v6"
 
 
 class FakeLocalIdentityClassifier:
@@ -240,6 +246,55 @@ def test_reviewed_segmentation_backend_selection_is_explicit_and_non_default(
     assert selected.device == device
     monkeypatch.delenv("VISIBLE_CARD_PROVIDER", raising=False)
     assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
+
+
+def test_fine_frame_provider_is_selectable_and_keeps_gemini_as_default(
+    tmp_path: Path, monkeypatch
+) -> None:
+    bundle_path = tmp_path / "segmentation-bundle"
+    bundle_path.mkdir()
+    monkeypatch.setattr(
+        gemini_analyzer,
+        "LocalVisibleCardFineFrameProvider",
+        FakeLocalFineFrameProvider,
+    )
+
+    app = create_app(
+        _settings(
+            tmp_path,
+            visible_card_provider="local-rfdetr-fine-frame",
+            visible_card_segmentation_bundle_path=bundle_path,
+            visible_card_device="cpu",
+        )
+    )
+
+    selected = app.state.analyzer.provider.provider
+    assert selected.name == "local-rfdetr-fine-frame"
+    assert selected.bundle == bundle_path
+    assert selected.device == "cpu"
+    assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
+
+
+def test_fine_frame_provider_is_discoverable_without_becoming_default(
+    tmp_path: Path, monkeypatch
+) -> None:
+    bundle_path = tmp_path / "segmentation-bundle"
+    bundle_path.mkdir()
+    monkeypatch.setattr(
+        gemini_analyzer,
+        "LocalVisibleCardFineFrameProvider",
+        FakeLocalFineFrameProvider,
+    )
+    visible, _ = gemini_analyzer.create_configured_processor_registries(
+        _settings(
+            tmp_path,
+            visible_card_segmentation_bundle_path=bundle_path,
+            visible_card_device="cpu",
+        )
+    )
+
+    assert "local-rfdetr-fine-frame" in visible
+    assert visible["local-rfdetr-fine-frame"].provider.name == "local-rfdetr-fine-frame"
 
 
 def test_local_pipeline_selection_detects_segmentation_bundle_with_cloud_default(

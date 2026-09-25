@@ -5,17 +5,21 @@
 - **Summary:** Remove the RF-DETR Small card-cluster stage. Use the same RF-DETR SegMedium model
   for full-frame detection and size-gated crop refinement. M3 measures small-card instance
   separation and crop cost. Card count is not a routing signal.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** The fine-frame v6 provider is selectable in backend runs and the Web UI. It
+  remains non-default because the held-out comparison did not improve small-card recall or overlap
+  separation.
 - **Depends on:** Completed 0048 pipeline data and execution, completed 0049 recording pipeline
   review, completed 0068 reviewed RF-DETR visible-card segmentation, and the 0071 fine-stage
   model and source-coordinate crop contracts. The 0071 coarse stage is the removal target.
 - **Builds on:** `local-rfdetr-segmentation`, the reviewed `visible_card` segmentation contract,
   and the deterministic cluster-crop transforms created in 0071.
-- **Outcome:** The `local-rfdetr-fine-frame` provider uses one fine model on the complete source
-  frame and on crops that contain a predicted small card. It keeps every full-frame candidate and
-  its identity. Confident crop results can refine geometry or add a missed card. The provider uses
-  no coarse model, `card_cluster` model bundle, or cascade child bundle. M4 will register it after
-  M3.
+- **Outcome:** The selectable `local-rfdetr-fine-frame` v6 provider uses one fine model on the
+  complete source frame and on crops that contain a predicted small card. It keeps every full-frame
+  candidate and its identity. Confident crop results can refine geometry or add a missed card. The
+  provider uses no coarse model, `card_cluster` model bundle, or cascade child bundle. It remains
+  non-default.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -211,8 +215,9 @@ model identity.
   report](../../reports/0082-M3_Fine_Frame_Refinement_Evaluation.json), the [v4 area-metric
   trial](../../reports/0082-M3_Size_Gated_Refinement_Evaluation.json), and the [v5 20% long-side
   trial](../../reports/0082-M3_Long_Side_Size_Refinement_Evaluation.json).
-- **M4:** Next — register provider v6 as a selectable non-default option and migrate active
-  references. Keep 0071 as the closed, superseded implementation record.
+- **M4:** Complete — register provider v6 as a selectable non-default option in backend settings,
+  lazy discovery, and the Web run selector. Gemini remains the default. Keep 0071 as the closed,
+  superseded implementation record.
 
 ## Delivery milestones
 
@@ -481,9 +486,31 @@ fine bundle and held-out references for that evaluation.
 - 0071 remains a linked historical record of the superseded coarse cascade, and 0082 records the
   replacement decision and validation evidence.
 
+#### M4 implementation evidence — 2026-09-25
+
+- Registered `local-rfdetr-fine-frame` in backend settings and lazy provider discovery. It uses the
+  existing `VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH` and `VISIBLE_CARD_DEVICE` settings. New visible-
+  card runs can select it in the Web UI. Gemini remains the default.
+- The selected bundle digest is
+  `b3deef701e26d91ebfd9d357b4ff69b45ae9360e3722de340f1044214179df29`. Its checkpoint digest is
+  `b72462e9736d16bb975ba9c6999fe1cc4baeab8805830c3116115279170f3d4f`. The provider is
+  `local-rfdetr-fine-frame-v6`, with a 0.5 full-frame and crop confidence threshold.
+- The [v6 evaluation report](../../reports/0082-M3_One_Eighth_Size_Refinement_Evaluation.json)
+  covers 155 reviewed frames and 437 reviewed card regions. Refinement kept the same 358/437
+  matches as full-frame inference. It did not improve recall for targets at or below 54 pixels or
+  for overlapping cards. It added 40 crop proposals: one matched a card, five were false positives,
+  33 were in ignore regions, and one was a duplicate. The provider remains selectable but
+  non-default.
+- A search of active source, settings, examples, and documentation found no remaining cascade
+  configuration to migrate. Retained pipeline runs and the closed 0071 epic remain historical
+  evidence.
+- Focused backend selection and Web run-control tests verify that the provider can be selected.
+  The M3 held-out inference and exact-frame fixture evidence is retained in its evaluation report;
+  M4 changes only provider registration and run selection.
+
 ## Verification
 
-Run the focused visible-card cascade/provider, RF-DETR segmentation, backend provider-selection,
-and web run-control tests. Run the repository's applicable formatting, type, and static checks for
-the changed Python and web paths. Re-run the exact two event frames and the held-out challenge
-report from a clean local environment. Record unrelated pre-existing failures separately.
+Run the focused fine-frame provider, backend provider-selection, and Web run-control tests. Run
+applicable formatting, type, and static checks for changed Python and Web paths. M4 does not change
+inference behavior; retain the exact-frame and held-out inference results from M3 rather than
+rerunning the model comparison.

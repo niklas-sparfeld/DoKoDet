@@ -188,6 +188,14 @@ When the frozen gate passes, the command writes a selectable provider registry. 
 rollback. The backend selects the candidate with `VISIBLE_CARD_PROVIDER=local-rfdetr-segmentation`
 and the same `VISIBLE_CARD_BUNDLE_PATH` plus `VISIBLE_CARD_DEVICE=cpu` or `mps`.
 
+Epic 0082 adds the optional `local-rfdetr-fine-frame` provider. Select it with
+`VISIBLE_CARD_PROVIDER=local-rfdetr-fine-frame`, the reviewed RF-DETR bundle in
+`VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH`, and `VISIBLE_CARD_DEVICE=cpu` or `mps`. Provider v6 uses
+the same SegMedium model for full-frame detection and size-gated crop refinement, with a 0.5
+confidence threshold for both passes. Gemini remains the default. The held-out comparison found no
+small-card recall or overlap-separation gain, so this provider remains an explicit experiment. See
+the [0082 v6 evaluation](../docs/reports/0082-M3_One_Eighth_Size_Refinement_Evaluation.json).
+
 Run the first visible-card baseline on one exact-event JPEG. Use `--provider gemini` only when
 `GEMINI_API_KEY` is present in the process environment. The fake provider is deterministic and
 does not need credentials:

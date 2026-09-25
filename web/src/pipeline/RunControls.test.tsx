@@ -370,6 +370,59 @@ describe("RunControls", () => {
     });
   });
 
+  it("starts a visible-card run with the selectable fine-frame refinement provider", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(runResponse("visible-run-fine-frame")), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const events = stage("events", {
+      selected_generated_revision_id: "events-generated",
+    });
+    const visible = stage("visible_cards");
+
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={visible}
+        stages={[events, visible]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    const modelSelector = screen.getByRole("combobox", {
+      name: "Model variant",
+    });
+    expect(
+      within(modelSelector).getByRole("option", {
+        name: "Local · RF-DETR fine-frame refinement",
+      }),
+    ).toBeInTheDocument();
+    await userEvent.selectOptions(modelSelector, "local-rfdetr-fine-frame");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.find(([, init]) => init?.method === "POST"),
+      ).toBeDefined(),
+    );
+    const postCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      request: {
+        input_revision_ids: ["events-generated"],
+        configuration: { provider: "local-rfdetr-fine-frame" },
+      },
+    });
+  });
+
   it("uses polygon crop policies for visual identity runs", async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(

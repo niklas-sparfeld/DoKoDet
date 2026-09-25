@@ -97,6 +97,7 @@ class Settings(BaseSettings):
         "gemini",
         "local",
         "local-rfdetr-segmentation",
+        "local-rfdetr-fine-frame",
     ] = Field(
         default="gemini",
         validation_alias=AliasChoices("VISIBLE_CARD_PROVIDER"),

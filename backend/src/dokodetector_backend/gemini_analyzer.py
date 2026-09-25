@@ -14,6 +14,7 @@ from table_evidence_analyzer import (
     DinoV3IdentityClassifier,
     GeminiCardClassifier,
     GeminiVisibleCardProvider,
+    LocalVisibleCardFineFrameProvider,
     LocalVisibleCardProvider,
     LocalVisibleCardSegmentationProvider,
     TableEvidenceAnalyzer,
@@ -203,6 +204,7 @@ def _create_visible_card_provider(
     elif provider_name in {
         "local",
         "local-rfdetr-segmentation",
+        "local-rfdetr-fine-frame",
     }:
         bundle_path = _bundle_path_for_provider(settings, provider_name)
         if bundle_path is None:
@@ -219,6 +221,7 @@ def _create_visible_card_provider(
             provider_class = {
                 "local": LocalVisibleCardProvider,
                 "local-rfdetr-segmentation": LocalVisibleCardSegmentationProvider,
+                "local-rfdetr-fine-frame": LocalVisibleCardFineFrameProvider,
             }[provider_name]
             provider_kwargs: dict[str, Any] = {"device": settings.visible_card_device}
             provider = provider_class(bundle_path, **provider_kwargs)
@@ -282,6 +285,7 @@ def _configured_local_visible_provider(settings: Settings) -> str:
     if settings.visible_card_provider in {
         "local",
         "local-rfdetr-segmentation",
+        "local-rfdetr-fine-frame",
     }:
         return settings.visible_card_provider
     bundle_path = settings.visible_card_bundle_path
@@ -303,13 +307,13 @@ def _configured_local_visible_provider(settings: Settings) -> str:
 
 
 def _bundle_path_for_provider(settings: Settings, provider_name: str) -> Path | None:
-    if provider_name == "local-rfdetr-segmentation":
+    if provider_name in {"local-rfdetr-segmentation", "local-rfdetr-fine-frame"}:
         return settings.visible_card_segmentation_bundle_path or settings.visible_card_bundle_path
     return settings.visible_card_bundle_path
 
 
 def _bundle_setting_name(provider_name: str) -> str:
-    if provider_name == "local-rfdetr-segmentation":
+    if provider_name in {"local-rfdetr-segmentation", "local-rfdetr-fine-frame"}:
         return "VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH"
     return "VISIBLE_CARD_BUNDLE_PATH"
 
@@ -345,6 +349,12 @@ def create_configured_processor_registries(
             "local-rfdetr-segmentation": lambda: _create_visible_card_provider(
                 settings,
                 "local-rfdetr-segmentation",
+                cache_root=cache_root,
+                request_limiter=request_limiter,
+            ),
+            "local-rfdetr-fine-frame": lambda: _create_visible_card_provider(
+                settings,
+                "local-rfdetr-fine-frame",
                 cache_root=cache_root,
                 request_limiter=request_limiter,
             ),

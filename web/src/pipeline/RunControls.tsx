@@ -24,9 +24,7 @@ type RunStageKey = Extract<
 type InputOrigin = "generated" | "reviewed";
 type ProcessorOrigin = "cloud" | "local";
 type VisibleCardModelVariant =
-  | "gemini"
-  | "local"
-  | "local-rfdetr-segmentation";
+  "gemini" | "local" | "local-rfdetr-segmentation" | "local-rfdetr-fine-frame";
 
 const VISIBLE_CARD_MODEL_VARIANTS: readonly {
   value: VisibleCardModelVariant;
@@ -38,7 +36,10 @@ const VISIBLE_CARD_MODEL_VARIANTS: readonly {
     value: "local-rfdetr-segmentation",
     label: "Local · RF-DETR segmentation",
   },
-
+  {
+    value: "local-rfdetr-fine-frame",
+    label: "Local · RF-DETR fine-frame refinement",
+  },
 ];
 
 const RUN_STAGE_KEYS: readonly RunStageKey[] = [
