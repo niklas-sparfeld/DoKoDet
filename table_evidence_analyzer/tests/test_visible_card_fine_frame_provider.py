@@ -69,13 +69,22 @@ class _Detector:
         self.empty = empty
         self.calls = 0
 
-    def predict(self, _image: Image.Image, **_kwargs: object) -> object:
+    def predict(self, image: Image.Image, **_kwargs: object) -> object:
         self.calls += 1
-        boxes = [] if self.empty else [[20, 20, 40, 40]]
+        if self.empty:
+            boxes = []
+        elif image.size == (100, 80):
+            boxes = [[20, 20, 40, 40]]
+        else:
+            # The cluster crop starts at (10, 10), so this maps to the same
+            # source-frame prediction as the prepass result.
+            boxes = [[10, 10, 30, 30]]
         return SimpleNamespace(xyxy=boxes, confidence=[0.9] * len(boxes), class_id=[0] * len(boxes))
 
 
-def test_full_frame_provider_runs_one_inference_and_records_source_geometry(tmp_path: Path) -> None:
+def test_provider_runs_full_frame_and_crop_and_deduplicates_matching_addition(
+    tmp_path: Path,
+) -> None:
     detector = _Detector()
     provider = LocalVisibleCardFineFrameProvider(_bundle(tmp_path), device="cpu", detector=detector)
 
@@ -83,12 +92,16 @@ def test_full_frame_provider_runs_one_inference_and_records_source_geometry(tmp_
 
     assert result.status == "ok"
     assert len(result.proposals) == 1
-    assert detector.calls == 1
+    assert detector.calls == 2
     assert result.raw_response["full_frame"]["status"] == "ok"
     assert result.raw_response["final_provenance"][0]["source"] == "full_frame"
     assert result.raw_response["timing"]["inference_latency_ms"] >= 0
-    assert "clusters" not in result.raw_response
-    assert "refinement" not in result.raw_response
+    assert result.raw_response["clusters"]["status"] == "ok"
+    assert result.raw_response["refinement"]["status"] == "ok"
+    assert result.raw_response["arbitration"]["full_frame_predictions_removed"] == 0
+    assert result.raw_response["reconciliation"]["discarded"][0]["reason"] == (
+        "duplicate_of_full_frame_prediction"
+    )
 
 
 def test_empty_full_frame_result_is_valid_negative_evidence(tmp_path: Path) -> None:
@@ -107,6 +120,8 @@ def test_invalid_detection_does_not_drop_valid_threshold_boundary_card(tmp_path:
     class BoundaryDetector(_Detector):
         def predict(self, _image: Image.Image, **_kwargs: object) -> object:
             self.calls += 1
+            if self.calls > 1:
+                return SimpleNamespace(xyxy=[], confidence=[], class_id=[])
             return SimpleNamespace(
                 xyxy=[[-1, 10, 10, 20], [0, 20, 20, 40]],
                 confidence=[0.9, 0.5],
@@ -120,6 +135,7 @@ def test_invalid_detection_does_not_drop_valid_threshold_boundary_card(tmp_path:
 
     assert result.status == "ok"
     assert len(result.proposals) == 1
+    assert detector.calls == 2
     detections = result.raw_response["full_frame"]["detections"]
     assert detections[0]["status"] == "rejected"
     assert detections[1]["status"] == "ok"
@@ -130,6 +146,8 @@ def test_overlapping_full_frame_detections_remain_separate(tmp_path: Path) -> No
     class OverlapDetector(_Detector):
         def predict(self, _image: Image.Image, **_kwargs: object) -> object:
             self.calls += 1
+            if self.calls > 1:
+                return SimpleNamespace(xyxy=[], confidence=[], class_id=[])
             return SimpleNamespace(
                 xyxy=[[20, 20, 50, 50], [30, 20, 60, 50]],
                 confidence=[0.9, 0.85],
@@ -146,6 +164,52 @@ def test_overlapping_full_frame_detections_remain_separate(tmp_path: Path) -> No
     assert result.raw_response["reconciliation"]["discarded"] == []
 
 
+def test_cluster_predictions_are_added_without_removing_full_frame_results(tmp_path: Path) -> None:
+    class SplitDetector(_Detector):
+        def predict(self, _image: Image.Image, **_kwargs: object) -> object:
+            self.calls += 1
+            boxes = [[20, 20, 40, 40]] if self.calls == 1 else [[10, 10, 20, 30], [20, 10, 30, 30]]
+            return SimpleNamespace(
+                xyxy=boxes,
+                confidence=[0.9] * len(boxes),
+                class_id=[0] * len(boxes),
+            )
+
+    detector = SplitDetector()
+    provider = LocalVisibleCardFineFrameProvider(_bundle(tmp_path), device="cpu", detector=detector)
+
+    result = provider.propose(_request())
+
+    assert result.status == "ok"
+    assert len(result.proposals) == 3
+    assert [item["source"] for item in result.raw_response["final_provenance"]] == [
+        "full_frame",
+        "cluster_crop",
+        "cluster_crop",
+    ]
+    assert result.raw_response["arbitration"]["full_frame_predictions_removed"] == 0
+
+
+def test_crop_failure_keeps_full_frame_predictions(tmp_path: Path) -> None:
+    class FailureDetector(_Detector):
+        def predict(self, _image: Image.Image, **_kwargs: object) -> object:
+            self.calls += 1
+            if self.calls == 2:
+                raise RuntimeError("fixture crop failure")
+            return SimpleNamespace(xyxy=[[20, 20, 40, 40]], confidence=[0.9], class_id=[0])
+
+    detector = FailureDetector()
+    provider = LocalVisibleCardFineFrameProvider(_bundle(tmp_path), device="cpu", detector=detector)
+
+    result = provider.propose(_request())
+
+    assert result.status == "ok"
+    assert len(result.proposals) == 1
+    assert result.raw_response["refinement"]["status"] == "partial"
+    assert result.raw_response["refinement"]["clusters"][0]["status"] == "unavailable"
+    assert result.raw_response["final_provenance"][0]["source"] == "full_frame"
+
+
 def test_repeated_full_frame_output_is_deterministic(tmp_path: Path) -> None:
     detector = _Detector()
     provider = LocalVisibleCardFineFrameProvider(_bundle(tmp_path), device="cpu", detector=detector)
@@ -157,4 +221,4 @@ def test_repeated_full_frame_output_is_deterministic(tmp_path: Path) -> None:
     assert [proposal.to_mapping() for proposal in first.proposals] == [
         proposal.to_mapping() for proposal in second.proposals
     ]
-    assert detector.calls == 2
+    assert detector.calls == 4

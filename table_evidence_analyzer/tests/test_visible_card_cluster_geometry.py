@@ -215,6 +215,34 @@ def test_reconciliation_discards_nested_partial_mask_fragments() -> None:
     assert result.decisions[0].discarded_prediction_id == "fragment"
 
 
+def test_strict_reconciliation_keeps_nested_cards_and_preserves_input_order() -> None:
+    earlier = _prediction(
+        "earlier",
+        "cluster-0001",
+        0.6,
+        (0, 0, 10, 10),
+        {(x, y) for x in range(10) for y in range(10)},
+    )
+    later = _prediction(
+        "later",
+        "cluster-0002",
+        0.95,
+        (2, 2, 8, 8),
+        {(x, y) for x in range(2, 8) for y in range(2, 8)},
+    )
+
+    result = reconcile_predictions(
+        [earlier, later],
+        frame_width=20,
+        frame_height=20,
+        allow_containment_duplicates=False,
+        preserve_input_order=True,
+    )
+
+    assert [prediction.prediction_id for prediction in result.retained] == ["earlier", "later"]
+    assert result.decisions[0].duplicate is False
+
+
 def test_reconciliation_discards_degraded_nested_duplicate() -> None:
     complete = _prediction(
         "complete",

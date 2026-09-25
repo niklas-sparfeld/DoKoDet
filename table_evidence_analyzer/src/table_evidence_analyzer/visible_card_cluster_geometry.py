@@ -812,11 +812,14 @@ def reconcile_predictions(
     frame_width: int,
     frame_height: int,
     iou_threshold: float = DUPLICATE_IOU_THRESHOLD,
+    allow_containment_duplicates: bool = True,
+    preserve_input_order: bool = False,
 ) -> ReconciliationResult:
-    """Suppress only near-identical mapped predictions.
+    """Reconcile duplicate mapped predictions with deterministic tie-breaking.
 
-    Both tight-box IoU and visible-mask IoU must meet the threshold.  This intentionally retains
-    distinct overlapping cards when their visible masks differ.
+    Strict mode requires both tight-box IoU and visible-mask IoU to meet the threshold. The optional
+    containment rule handles nested fragments. Input-order preservation makes the first matching
+    prediction win, which is useful when earlier results have higher priority.
     """
 
     _positive_int(frame_width, "frame_width")
@@ -861,7 +864,7 @@ def reconcile_predictions(
                 left.box.width * left.box.height,
                 right.box.width * right.box.height,
             )
-            nested_duplicate = (
+            nested_duplicate = allow_containment_duplicates and (
                 mask_containment >= DUPLICATE_MASK_CONTAINMENT_THRESHOLD
                 and box_containment >= DUPLICATE_MASK_CONTAINMENT_THRESHOLD
                 and smaller_box_area / larger_box_area <= DUPLICATE_BOX_AREA_RATIO_MAX
@@ -882,7 +885,10 @@ def reconcile_predictions(
 
     retained: list[MappedPrediction] = []
     discarded: list[MappedPrediction] = []
-    for candidate in sorted(predictions, key=_priority):
+    ordered_predictions = (
+        tuple(predictions) if preserve_input_order else tuple(sorted(predictions, key=_priority))
+    )
+    for candidate in ordered_predictions:
         duplicate_with = next(
             (
                 existing

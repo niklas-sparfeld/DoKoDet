@@ -1,7 +1,8 @@
-"""Single-pass full-frame visible-card segmentation with RF-DETR SegMedium."""
+"""Full-frame and cluster-crop visible-card segmentation with RF-DETR SegMedium."""
 
 from __future__ import annotations
 
+import hashlib
 import math
 import time
 from collections.abc import Callable
@@ -13,10 +14,17 @@ from typing import Any, Literal
 from PIL import Image, UnidentifiedImageError
 
 from . import visible_cards
+from .visible_card_cluster_crops import crop_source_image
 from .visible_card_cluster_geometry import (
+    DUPLICATE_IOU_THRESHOLD,
+    ClusterProposal,
     MappedPrediction,
     PixelBox,
     PixelPoint,
+    _box_iou,
+    _mask_iou,
+    build_cluster_layout,
+    reconcile_predictions,
 )
 from .visible_cards import (
     ProviderResult,
@@ -27,9 +35,10 @@ from .visible_cards import (
 )
 
 FINE_FRAME_PROVIDER_NAME = "local-rfdetr-fine-frame"
-FINE_FRAME_PROVIDER_VERSION = "local-rfdetr-fine-frame-v1"
-FINE_FRAME_SCHEMA = "local-rfdetr-fine-frame/v1"
+FINE_FRAME_PROVIDER_VERSION = "local-rfdetr-fine-frame-v2"
+FINE_FRAME_SCHEMA = "local-rfdetr-fine-frame/v2"
 FINE_FRAME_THRESHOLD = 0.5
+CROP_DUPLICATE_IOU_THRESHOLD = DUPLICATE_IOU_THRESHOLD
 FINE_FRAME_PROVIDER_MANIFEST = {
     "schema_version": FINE_FRAME_SCHEMA,
     "provider": FINE_FRAME_PROVIDER_NAME,
@@ -40,6 +49,10 @@ FINE_FRAME_PROVIDER_MANIFEST = {
     "input_size": [432, 432],
     "class_name": "visible_card",
     "confidence_threshold": FINE_FRAME_THRESHOLD,
+    "crop_routing_threshold": FINE_FRAME_THRESHOLD,
+    "result_policy": "retain_full_frame_and_add_cluster_predictions",
+    "duplicate_rule": "box_iou_and_visible_mask_iou",
+    "duplicate_iou_threshold": CROP_DUPLICATE_IOU_THRESHOLD,
 }
 
 
@@ -83,8 +96,27 @@ def _source_frame_mapping(request: VisibleCardRequest) -> dict[str, Any]:
     }
 
 
+def _png_digest(image: Image.Image) -> str:
+    output = BytesIO()
+    image.save(output, format="PNG", optimize=False)
+    return hashlib.sha256(output.getvalue()).hexdigest()
+
+
+def _prediction_pair_iou(
+    left: MappedPrediction,
+    right: MappedPrediction,
+    *,
+    width: int,
+    height: int,
+) -> tuple[float, float]:
+    return (
+        _box_iou(left.box, right.box),
+        _mask_iou(left, right, width=width, height=height),
+    )
+
+
 class LocalVisibleCardFineFrameProvider:
-    """Run one SegMedium model on the complete source frame."""
+    """Run one SegMedium model on the frame and add predictions from cluster crops."""
 
     name = FINE_FRAME_PROVIDER_NAME
     version = FINE_FRAME_PROVIDER_VERSION
@@ -229,12 +261,17 @@ class LocalVisibleCardFineFrameProvider:
 
     @staticmethod
     def _map_predictions(
-        predictions: list[dict[str, Any]], *, origin: str
+        predictions: list[dict[str, Any]], *, origin: str, cluster: Any | None = None
     ) -> tuple[MappedPrediction, ...]:
         mapped: list[MappedPrediction] = []
-        cluster_id = "full_frame"
+        cluster_id = cluster.cluster_id if cluster is not None else "full_frame"
         for record in predictions:
             polygons = record["polygons"]
+            if cluster is not None:
+                polygons = tuple(
+                    tuple(cluster.transform.crop_to_source(point) for point in polygon)
+                    for polygon in polygons
+                )
             box = _box_from_polygons(polygons)
             mapped.append(
                 MappedPrediction(
@@ -263,6 +300,8 @@ class LocalVisibleCardFineFrameProvider:
             "bundle_identity": self.bundle_identity,
             "provider_manifest": FINE_FRAME_PROVIDER_MANIFEST,
             "confidence_threshold": self.confidence_threshold,
+            "crop_routing_threshold": self.confidence_threshold,
+            "crop_duplicate_iou_threshold": CROP_DUPLICATE_IOU_THRESHOLD,
             "load_latency_ms": self.load_latency_ms,
         }
 
@@ -272,6 +311,9 @@ class LocalVisibleCardFineFrameProvider:
                 "total_latency_ms": _elapsed_ms(started),
             }
             raw.setdefault("full_frame", {"status": "not_run"})
+            raw.setdefault("clusters", {"status": "not_run", "layout": None})
+            raw.setdefault("refinement", {"status": "not_run", "clusters": []})
+            raw.setdefault("arbitration", {"status": "not_run"})
             raw.setdefault("mapping", {"predictions": []})
             raw.setdefault("reconciliation", {"status": "not_run"})
             return ProviderResult(
@@ -294,7 +336,24 @@ class LocalVisibleCardFineFrameProvider:
         inference_started = time.monotonic()
         try:
             diagnostics, records = self._predict(source_image)
-            predictions = self._map_predictions(records, origin="full_frame")
+            full_frame_inference_ms = _elapsed_ms(inference_started)
+            full_frame_predictions = self._map_predictions(records, origin="full_frame")
+            layout_started = time.monotonic()
+            layout = build_cluster_layout(
+                tuple(
+                    ClusterProposal(
+                        proposal_id=prediction.prediction_id,
+                        box=prediction.box,
+                        score=prediction.score,
+                    )
+                    for prediction in full_frame_predictions
+                ),
+                frame_width=request.width,
+                frame_height=request.height,
+                confidence_threshold=self.confidence_threshold,
+                model_input_size=self.input_size,
+            )
+            layout_latency_ms = _elapsed_ms(layout_started)
         except Exception as error:
             raw["full_frame"] = {
                 "status": "unavailable",
@@ -305,13 +364,185 @@ class LocalVisibleCardFineFrameProvider:
 
         raw["full_frame"] = {
             "status": "ok",
-            "latency_ms": _elapsed_ms(inference_started),
+            "latency_ms": full_frame_inference_ms,
             "threshold": self.confidence_threshold,
             "detections": diagnostics,
-            "predictions": [item.to_mapping() for item in predictions],
+            "predictions": [item.to_mapping() for item in full_frame_predictions],
+        }
+        raw["clusters"] = {
+            "status": "ok" if layout.clusters else "empty",
+            "layout": layout.to_mapping(),
+            "layout_latency_ms": layout_latency_ms,
+            "full_frame_attribution": [
+                {
+                    "cluster_id": cluster.cluster_id,
+                    "full_frame_prediction_ids": list(cluster.proposal_ids),
+                }
+                for cluster in layout.clusters
+            ],
+        }
+
+        crop_predictions: list[MappedPrediction] = []
+        refinement_records: list[dict[str, Any]] = []
+        crop_started = time.monotonic()
+        for cluster in layout.clusters:
+            started_crop = time.monotonic()
+            crop_digest: str | None = None
+            try:
+                crop_image = crop_source_image(source_image, cluster)
+                crop_digest = _png_digest(crop_image)
+                crop_diagnostics, crop_records = self._predict(crop_image)
+                mapped = self._map_predictions(crop_records, origin="cluster_crop", cluster=cluster)
+                in_frame: list[MappedPrediction] = []
+                rejected: list[dict[str, Any]] = []
+                for prediction in mapped:
+                    valid = all(
+                        0 <= point.x <= request.width and 0 <= point.y <= request.height
+                        for polygon in prediction.polygons
+                        for point in polygon
+                    )
+                    if valid:
+                        in_frame.append(prediction)
+                    else:
+                        rejected.append(
+                            {
+                                "prediction_id": prediction.prediction_id,
+                                "reason": "mapped_geometry_outside_source_frame",
+                            }
+                        )
+                crop_predictions.extend(in_frame)
+                refinement_records.append(
+                    {
+                        "cluster_id": cluster.cluster_id,
+                        "status": "ok",
+                        "crop": cluster.to_mapping(),
+                        "crop_image_sha256": crop_digest,
+                        "latency_ms": _elapsed_ms(started_crop),
+                        "threshold": self.confidence_threshold,
+                        "detections": crop_diagnostics,
+                        "predictions": [item.to_mapping() for item in in_frame],
+                        "rejected_predictions": rejected,
+                    }
+                )
+            except Exception as error:
+                refinement_records.append(
+                    {
+                        "cluster_id": cluster.cluster_id,
+                        "status": "unavailable",
+                        "crop": cluster.to_mapping(),
+                        "crop_image_sha256": crop_digest,
+                        "latency_ms": _elapsed_ms(started_crop),
+                        "error": str(error),
+                    }
+                )
+
+        raw["refinement"] = {
+            "status": (
+                "not_run"
+                if not layout.clusters
+                else (
+                    "partial"
+                    if any(item["status"] != "ok" for item in refinement_records)
+                    else "ok"
+                )
+            ),
+            "latency_ms": _elapsed_ms(crop_started) if layout.clusters else 0.0,
+            "clusters": refinement_records,
+        }
+
+        crop_reconciliation = reconcile_predictions(
+            crop_predictions,
+            frame_width=request.width,
+            frame_height=request.height,
+            iou_threshold=CROP_DUPLICATE_IOU_THRESHOLD,
+            allow_containment_duplicates=False,
+            preserve_input_order=True,
+        )
+        accepted_crops: list[MappedPrediction] = []
+        discarded: list[dict[str, Any]] = [
+            {
+                "prediction": item.to_mapping(),
+                "reason": "duplicate_cluster_crop_prediction",
+                "duplicate_of": next(
+                    (
+                        decision.kept_prediction_id
+                        for decision in crop_reconciliation.decisions
+                        if decision.discarded_prediction_id == item.prediction_id
+                    ),
+                    None,
+                ),
+            }
+            for item in crop_reconciliation.discarded
+        ]
+        cross_source_decisions: list[dict[str, Any]] = []
+        for crop_prediction in crop_reconciliation.retained:
+            duplicate_of = None
+            for full_prediction in full_frame_predictions:
+                box_iou, mask_iou = _prediction_pair_iou(
+                    full_prediction,
+                    crop_prediction,
+                    width=request.width,
+                    height=request.height,
+                )
+                duplicate = (
+                    box_iou >= CROP_DUPLICATE_IOU_THRESHOLD
+                    and mask_iou >= CROP_DUPLICATE_IOU_THRESHOLD
+                )
+                cross_source_decisions.append(
+                    {
+                        "full_frame_prediction_id": full_prediction.prediction_id,
+                        "crop_prediction_id": crop_prediction.prediction_id,
+                        "box_iou": box_iou,
+                        "visible_mask_iou": mask_iou,
+                        "duplicate": duplicate,
+                    }
+                )
+                if duplicate:
+                    duplicate_of = full_prediction.prediction_id
+                    break
+            if duplicate_of is None:
+                accepted_crops.append(crop_prediction)
+            else:
+                discarded.append(
+                    {
+                        "prediction": crop_prediction.to_mapping(),
+                        "reason": "duplicate_of_full_frame_prediction",
+                        "duplicate_of": duplicate_of,
+                    }
+                )
+
+        predictions = tuple(full_frame_predictions) + tuple(accepted_crops)
+        raw["arbitration"] = {
+            "policy": "retain_all_full_frame_predictions_and_add_nonduplicate_crop_predictions",
+            "full_frame_predictions_retained": len(full_frame_predictions),
+            "crop_predictions_before_reconciliation": len(crop_predictions),
+            "crop_predictions_added": len(accepted_crops),
+            "full_frame_predictions_removed": 0,
+            "crop_duplicate_decisions": cross_source_decisions,
         }
         raw["mapping"] = {"predictions": [item.to_mapping() for item in predictions]}
-        return self._result(request, started, raw, predictions)
+        raw["reconciliation"] = {
+            "schema_version": crop_reconciliation.to_mapping()["schema_version"],
+            "status": "applied" if layout.clusters else "not_needed",
+            "policy": "strict_iou_only; full_frame_predictions_are_immutable",
+            "duplicate_iou_threshold": CROP_DUPLICATE_IOU_THRESHOLD,
+            "retained_prediction_ids": [item.prediction_id for item in predictions],
+            "discarded_prediction_ids": [item["prediction"]["prediction_id"] for item in discarded],
+            "decisions": [
+                *[decision.to_mapping() for decision in crop_reconciliation.decisions],
+                *cross_source_decisions,
+            ],
+            "retained": [item.to_mapping() for item in predictions],
+            "discarded": discarded,
+        }
+        return self._result(
+            request,
+            started,
+            raw,
+            predictions,
+            full_frame_predictions,
+            layout.clusters,
+        )
 
     def _result(
         self,
@@ -319,6 +550,8 @@ class LocalVisibleCardFineFrameProvider:
         started: float,
         raw: dict[str, Any],
         predictions: tuple[MappedPrediction, ...],
+        full_frame_predictions: tuple[MappedPrediction, ...],
+        clusters: tuple[Any, ...],
     ) -> ProviderResult:
         proposals: list[VisibleCardProposal] = []
         for prediction in predictions:
@@ -343,28 +576,34 @@ class LocalVisibleCardFineFrameProvider:
                     polygons=polygons,
                 )
             )
-        raw["reconciliation"] = {
-            "status": "not_applied",
-            "reason": "preserve distinct full-frame predictions",
-            "retained": [prediction.to_mapping() for prediction in predictions],
-            "discarded": [],
-        }
         raw["final_provenance"] = [
             {
                 "prediction_id": p.prediction_id,
-                "source": "full_frame",
+                "source": (
+                    "full_frame"
+                    if p.prediction_id in {item.prediction_id for item in full_frame_predictions}
+                    else "cluster_crop"
+                ),
                 "cluster_id": p.cluster_id,
                 "source_transform": {
                     "kind": "source_frame",
                     "width": request.width,
                     "height": request.height,
-                },
+                }
+                if p.cluster_id == "full_frame"
+                else next(
+                    cluster.transform.to_mapping()
+                    for cluster in clusters
+                    if cluster.cluster_id == p.cluster_id
+                ),
             }
             for p in predictions
         ]
         raw["timing"] = {
             "load_latency_ms": self.load_latency_ms,
             "inference_latency_ms": raw["full_frame"].get("latency_ms", 0.0),
+            "cluster_layout_latency_ms": raw["clusters"].get("layout_latency_ms", 0.0),
+            "crop_latency_ms": raw["refinement"].get("latency_ms", 0.0),
             "total_latency_ms": _elapsed_ms(started),
         }
         return ProviderResult(

@@ -53,7 +53,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
-| [0082 — Fine-model full-frame visible-card detection](3-in-progress/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and the 0071 fine-stage model and crop contracts; 0071 coarse stage is the removal target | M0–M3 complete: the coarse path is removed, and held-out evaluation showed no value from crop refinement. The selectable replacement runs one full-frame fine inference; M4 is next. |
+| [0082 — Fine-model full-frame visible-card detection](3-in-progress/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and the 0071 fine-stage model and crop contracts; 0071 coarse stage is the removal target | M0–M2 complete. The initial M3 comparison used a fine model not trained on cluster crops and only six far-field frames, so it does not justify removing crop inference. The provider now keeps every full-frame candidate and adds strict-deduplicated crop candidates. M3 remains in progress for crop training and representative evaluation; M4 is blocked until then. |
 
 ### Blocked
 
