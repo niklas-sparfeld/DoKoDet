@@ -53,7 +53,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
-| [0082 — Fine-model full-frame prepass for visible-card detection](3-in-progress/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and the 0071 fine-stage model and crop contracts; 0071 coarse stage is the removal target | M0 complete: contract and exact source-linked regression fixtures are frozen. M1 is next. |
+| [0082 — Fine-model full-frame prepass for visible-card detection](3-in-progress/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and the 0071 fine-stage model and crop contracts; 0071 coarse stage is the removal target | M0 and M1 complete: contract, fixtures, and shared fine-model prepass provider are in place. M2 is next. |
 
 ### Blocked
 

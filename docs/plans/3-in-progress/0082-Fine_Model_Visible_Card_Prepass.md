@@ -149,8 +149,8 @@ model identity.
 
 - **M0:** Complete — freeze the fine-prepass contract, result arbitration, threshold policy, and
   exact-frame regression fixtures.
-- **M1:** Ready — replace the runtime provider with the shared fine-model prepass and crop
-  refinement path.
+- **M1:** Complete — add the shared fine-model prepass and crop-refinement provider with
+  deterministic source mapping, arbitration, crop fallback, and focused regression tests.
 - **M2:** Ready — remove coarse training, bundle, CLI, registry, configuration, and active UI
   surfaces while retaining generic crop geometry and historical evidence readability.
 - **M3:** Ready — run the focused and held-out comparison and record the decision metrics.
@@ -200,6 +200,14 @@ model identity.
 - Crop results improve or match full-frame results on overlap cases without emitting merged-plus-
   split duplicates.
 - Raw diagnostics identify every final proposal's prepass or crop provenance and source transform.
+
+#### M1 validation note
+
+The exact JPEG fixtures pass through the provider with their frozen regression-support regions as
+detector inputs. This checks source-coordinate mapping and crop arbitration. The only local model
+bundle available for a real inference check is an unreviewed one-epoch smoke bundle. It returns no
+detections on either exact frame, so it does not establish model recall. M3 must use the reviewed
+fine bundle and held-out references for that evaluation.
 
 ### M2 — Remove the retired coarse implementation
 
