@@ -94,7 +94,7 @@ def _m4_view(root: Path) -> Path:
         image_digest = _crop_image(image_path, color)
         source_frame_digest = hashlib.sha256(f"source-{crop_id}".encode()).hexdigest()
         transform = {
-            "schema_version": "visible-card-cascade-transform/v1",
+            "schema_version": "visible-card-coordinate-transform/v1",
             "source_size": {"width": 100, "height": 100},
             "crop_origin": {"x": 10, "y": 20},
             "crop_size": {"width": 32, "height": 32},

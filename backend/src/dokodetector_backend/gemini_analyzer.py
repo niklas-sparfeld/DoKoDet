@@ -14,7 +14,6 @@ from table_evidence_analyzer import (
     DinoV3IdentityClassifier,
     GeminiCardClassifier,
     GeminiVisibleCardProvider,
-    LocalVisibleCardCascadeProvider,
     LocalVisibleCardProvider,
     LocalVisibleCardSegmentationProvider,
     TableEvidenceAnalyzer,
@@ -25,14 +24,6 @@ from table_evidence_analyzer import (
 from dokodetector_backend.config import ConfigurationError, Settings
 
 _RFDETR_SEGMENTATION_BUNDLE_SCHEMA = "rfdetr-segmentation-bundle/v1"
-_RFDETR_CASCADE_BUNDLE_SCHEMA = "rfdetr-cascade-bundle/v1"
-_RFDETR_CASCADE_VARIANTS = frozenset(
-    {
-        "local-rfdetr-cascade",
-        "local-rfdetr-cascade-0068",
-        "local-rfdetr-cascade-0070",
-    }
-)
 
 
 class LazyProcessorRegistry(Mapping[str, Any]):
@@ -212,7 +203,6 @@ def _create_visible_card_provider(
     elif provider_name in {
         "local",
         "local-rfdetr-segmentation",
-        *_RFDETR_CASCADE_VARIANTS,
     }:
         bundle_path = _bundle_path_for_provider(settings, provider_name)
         if bundle_path is None:
@@ -229,16 +219,8 @@ def _create_visible_card_provider(
             provider_class = {
                 "local": LocalVisibleCardProvider,
                 "local-rfdetr-segmentation": LocalVisibleCardSegmentationProvider,
-                "local-rfdetr-cascade": LocalVisibleCardCascadeProvider,
-                "local-rfdetr-cascade-0068": LocalVisibleCardCascadeProvider,
-                "local-rfdetr-cascade-0070": LocalVisibleCardCascadeProvider,
             }[provider_name]
             provider_kwargs: dict[str, Any] = {"device": settings.visible_card_device}
-            if (
-                provider_name in _RFDETR_CASCADE_VARIANTS
-                and provider_name != "local-rfdetr-cascade"
-            ):
-                provider_kwargs["provider_name"] = provider_name
             provider = provider_class(bundle_path, **provider_kwargs)
         except Exception as error:
             raise ConfigurationError(
@@ -300,7 +282,6 @@ def _configured_local_visible_provider(settings: Settings) -> str:
     if settings.visible_card_provider in {
         "local",
         "local-rfdetr-segmentation",
-        *_RFDETR_CASCADE_VARIANTS,
     }:
         return settings.visible_card_provider
     bundle_path = settings.visible_card_bundle_path
@@ -316,13 +297,6 @@ def _configured_local_visible_provider(settings: Settings) -> str:
             and manifest.get("schema_version") == _RFDETR_SEGMENTATION_BUNDLE_SCHEMA
         ):
             return "local-rfdetr-segmentation"
-        if (
-            isinstance(manifest, dict)
-            and manifest.get("schema_version") == _RFDETR_CASCADE_BUNDLE_SCHEMA
-        ):
-            return "local-rfdetr-cascade"
-    if settings.visible_card_cascade_bundle_path is not None:
-        return "local-rfdetr-cascade"
     if settings.visible_card_segmentation_bundle_path is not None:
         return "local-rfdetr-segmentation"
     return "local"
@@ -331,24 +305,12 @@ def _configured_local_visible_provider(settings: Settings) -> str:
 def _bundle_path_for_provider(settings: Settings, provider_name: str) -> Path | None:
     if provider_name == "local-rfdetr-segmentation":
         return settings.visible_card_segmentation_bundle_path or settings.visible_card_bundle_path
-    if provider_name == "local-rfdetr-cascade":
-        return settings.visible_card_cascade_bundle_path or settings.visible_card_bundle_path
-    if provider_name == "local-rfdetr-cascade-0068":
-        return settings.visible_card_cascade_0068_bundle_path
-    if provider_name == "local-rfdetr-cascade-0070":
-        return settings.visible_card_cascade_0070_bundle_path
     return settings.visible_card_bundle_path
 
 
 def _bundle_setting_name(provider_name: str) -> str:
     if provider_name == "local-rfdetr-segmentation":
         return "VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH"
-    if provider_name == "local-rfdetr-cascade":
-        return "VISIBLE_CARD_CASCADE_BUNDLE_PATH"
-    if provider_name == "local-rfdetr-cascade-0068":
-        return "VISIBLE_CARD_CASCADE_0068_BUNDLE_PATH"
-    if provider_name == "local-rfdetr-cascade-0070":
-        return "VISIBLE_CARD_CASCADE_0070_BUNDLE_PATH"
     return "VISIBLE_CARD_BUNDLE_PATH"
 
 
@@ -383,24 +345,6 @@ def create_configured_processor_registries(
             "local-rfdetr-segmentation": lambda: _create_visible_card_provider(
                 settings,
                 "local-rfdetr-segmentation",
-                cache_root=cache_root,
-                request_limiter=request_limiter,
-            ),
-            "local-rfdetr-cascade": lambda: _create_visible_card_provider(
-                settings,
-                "local-rfdetr-cascade",
-                cache_root=cache_root,
-                request_limiter=request_limiter,
-            ),
-            "local-rfdetr-cascade-0068": lambda: _create_visible_card_provider(
-                settings,
-                "local-rfdetr-cascade-0068",
-                cache_root=cache_root,
-                request_limiter=request_limiter,
-            ),
-            "local-rfdetr-cascade-0070": lambda: _create_visible_card_provider(
-                settings,
-                "local-rfdetr-cascade-0070",
                 cache_root=cache_root,
                 request_limiter=request_limiter,
             ),

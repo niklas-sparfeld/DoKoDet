@@ -199,10 +199,10 @@ class ProposedCardScenePipelineService:
             or not isinstance(producer, ProcessorProducer)
             or producer.processor_type != "visible-card-detection"
             or producer.model_id is None
-            or not producer.model_id.startswith("local-rfdetr-cascade")
+            or not producer.model_id.startswith("local-rfdetr-")
         ):
             raise ProposedCardScenePipelineInputError(
-                "the proposal input must be a generated local cascade revision"
+                "the proposal input must be a generated local RF-DETR revision"
             )
         run_id = payload.get("run_id")
         if not isinstance(run_id, str) or not run_id:

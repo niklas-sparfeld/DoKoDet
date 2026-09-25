@@ -151,10 +151,6 @@ from .reviewed_rfdetr_detector_campaign import (
     render_reviewed_rfdetr_detector_human,
     write_reviewed_rfdetr_detector_manifest,
 )
-from .rfdetr_card_cluster_materialization import (
-    RfdetrCardClusterMaterializationError,
-    materialize_rfdetr_card_cluster_dataset,
-)
 from .rfdetr_cluster_crop_materialization import (
     RfdetrClusterCropMaterializationError,
     materialize_rfdetr_cluster_crop_dataset,
@@ -826,29 +822,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reviewed_rfdetr_materialize.add_argument("--format", choices=("human", "json"), default="human")
     reviewed_rfdetr_materialize.add_argument(
-        "--json", action="store_true", help="Alias for --format json."
-    )
-    card_cluster_materialize = data_commands.add_parser(
-        "rfdetr-card-cluster-materialize",
-        aliases=("rfdetr-card-cluster-view",),
-        help="Materialize the frozen full-frame card-cluster COCO detection view.",
-        description="Materialize the frozen 0068 reviewed card-cluster detection view.",
-    )
-    _add_path_options(card_cluster_materialize, suppress_defaults=True)
-    card_cluster_materialize.add_argument(
-        "--manifest",
-        type=Path,
-        required=True,
-        help="Frozen 0068 M0 reviewed RF-DETR detector manifest.",
-    )
-    card_cluster_materialize.add_argument(
-        "--output",
-        type=Path,
-        default=Path(".runtime/rfdetr-card-cluster-0071"),
-        help="Disposable train and validation COCO view directory.",
-    )
-    card_cluster_materialize.add_argument("--format", choices=("human", "json"), default="human")
-    card_cluster_materialize.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
     cluster_crop_materialize = data_commands.add_parser(
@@ -2461,38 +2434,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"annotations: {result.annotation_count}\n"
                 f"excluded frames: {result.excluded_frame_count}\n"
                 f"ineligible outcomes: {result.ineligible_outcome_count}\n"
-                f"manifest: {result.materialization_digest}\n"
-            )
-        return 0
-    if args.command == "data" and args.data_command in {
-        "rfdetr-card-cluster-materialize",
-        "rfdetr-card-cluster-view",
-    }:
-        try:
-            config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
-            manifest_path = args.manifest
-            if not manifest_path.is_absolute():
-                manifest_path = config.repository_root / manifest_path
-            output_path = args.output
-            if not output_path.is_absolute():
-                output_path = config.repository_root / output_path
-            result = materialize_rfdetr_card_cluster_dataset(
-                manifest_path,
-                repository_root=config.repository_root,
-                output_root=output_path,
-            )
-        except (ConfigurationError, OSError, RfdetrCardClusterMaterializationError) as error:
-            print(f"error: {error}", file=sys.stderr)
-            return 2
-        if args.json or args.format == "json":
-            sys.stdout.write(json.dumps(result.to_mapping(), indent=2, sort_keys=True) + "\n")
-        else:
-            sys.stdout.write(
-                "RF-DETR card-cluster detection view materialized\n"
-                f"view: {result.view_root}\n"
-                f"images: {result.image_count}\n"
-                f"clusters: {result.cluster_count}\n"
-                f"reviewed cards: {result.reviewed_card_count}\n"
                 f"manifest: {result.materialization_digest}\n"
             )
         return 0

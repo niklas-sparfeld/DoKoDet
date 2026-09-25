@@ -151,8 +151,8 @@ model identity.
   exact-frame regression fixtures.
 - **M1:** Complete — add the shared fine-model prepass and crop-refinement provider with
   deterministic source mapping, arbitration, crop fallback, and focused regression tests.
-- **M2:** Ready — remove coarse training, bundle, CLI, registry, configuration, and active UI
-  surfaces while retaining generic crop geometry and historical evidence readability.
+- **M2:** Complete — remove coarse training, bundle, CLI, registry, configuration, and active UI
+  surfaces. Keep cluster geometry under neutral names and keep historical evidence readable.
 - **M3:** Ready — run the focused and held-out comparison and record the decision metrics.
 - **M4:** Ready — register the replacement provider and migrate active references while keeping
   0071 as the closed, superseded implementation record.
@@ -221,6 +221,19 @@ fine bundle and held-out references for that evaluation.
   providers.
 - Search the repository for coarse provider names, `card_cluster` model identities, and stale
   cascade bundle references. Active code and user-facing controls must contain none.
+
+#### M2 outcome
+
+- Removed the coarse card-cluster trainer, bundle assembly and validation, materializer, provider,
+  CLI commands, backend settings, exports, and Web UI variants.
+- Renamed the shared cluster geometry module and its public proposal/layout types. The fine-prepass
+  and fine cluster-crop tools now use generic crop and coordinate-transform names.
+- Updated the proposal service to accept generated local RF-DETR revisions without depending on
+  the retired cascade provider name.
+- Kept 0071 reports and stored pipeline evidence as historical records. Kept the fine cluster-crop
+  training and materialization tools because they do not load or train a coarse model.
+- Validation passed: focused table-evidence, operations, and backend tests; the Web RunControls
+  test; CLI help inspection; Ruff checks; and `git diff --check`.
 
 #### M2 acceptance criteria
 

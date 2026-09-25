@@ -123,7 +123,9 @@ def _visible_data() -> VisibleCardData:
                             "policy_id": "full-frame-0-1000/v1",
                         },
                         "side": "unknown",
-                        "model_scores": [{"producer_id": "local-rfdetr-cascade", "score": 0.98}],
+                        "model_scores": [
+                            {"producer_id": "local-rfdetr-fine-prepass", "score": 0.98}
+                        ],
                     }
                 ],
                 "ignored_regions": [],
@@ -162,8 +164,8 @@ def test_service_publishes_proposal_without_changing_detector_input(
         producer=ProcessorProducer(
             run_id="detector-run-001",
             processor_type="visible-card-detection",
-            implementation_id="local-rfdetr-cascade/v1",
-            model_id="local-rfdetr-cascade",
+            implementation_id="local-rfdetr-fine-prepass/v1",
+            model_id="local-rfdetr-fine-prepass",
         ),
         coverage={"kind": "requested-event-frames"},
         created_at="2026-09-21T10:00:00Z",
@@ -193,8 +195,7 @@ def test_service_publishes_proposal_without_changing_detector_input(
         "steps": 3,
     }
     assert any(
-        entry["message"] == "Calibrating virtual cards"
-        for entry in result.state.metrics["logs"]
+        entry["message"] == "Calibrating virtual cards" for entry in result.state.metrics["logs"]
     )
     assert revisions.require(result.state.output_revision_ids[0]).manifest.content_type == (
         "card_scene_proposals"
@@ -205,7 +206,7 @@ def test_service_publishes_proposal_without_changing_detector_input(
     )
 
 
-def test_service_rejects_non_cascade_visible_card_revisions(tmp_path: Path) -> None:
+def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> None:
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
     runs = ProcessorRunStore(runtime, revision_store=revisions)
@@ -230,8 +231,8 @@ def test_service_rejects_non_cascade_visible_card_revisions(tmp_path: Path) -> N
         producer=ProcessorProducer(
             run_id="detector-run-segmentation",
             processor_type="visible-card-detection",
-            implementation_id="local-rfdetr-segmentation/v1",
-            model_id="local-rfdetr-segmentation",
+            implementation_id="gemini/v1",
+            model_id="gemini",
         ),
         coverage={"kind": "requested-event-frames"},
         created_at="2026-09-21T10:00:00Z",
@@ -241,11 +242,11 @@ def test_service_rejects_non_cascade_visible_card_revisions(tmp_path: Path) -> N
         _Settings(tmp_path), revision_store=revisions, run_store=runs, selection_store=selections
     )
 
-    with pytest.raises(ProposedCardScenePipelineInputError, match="generated local cascade"):
+    with pytest.raises(ProposedCardScenePipelineInputError, match="generated local RF-DETR"):
         service.start_proposal(
             source.recording_id,
             {
-                "run_id": "proposal-run-segmentation",
+                "run_id": "proposal-run-gemini",
                 "visible_card_revision_id": input_revision.revision_id,
             },
         )

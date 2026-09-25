@@ -21,21 +21,18 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw, UnidentifiedImageError
-from table_evidence_analyzer.visible_card_cascade import (
-    CASCADE_FINE_INPUT_SIZE,
-    CASCADE_FINE_MODEL_CLASS,
-    CASCADE_RFDETR_VERSION,
+from table_evidence_analyzer.visible_card_cluster_crops import crop_source_image
+from table_evidence_analyzer.visible_card_cluster_geometry import (
+    VISIBLE_CARD_MODEL_INPUT_SIZE,
     CardCluster,
     ClusterCrop,
-    CoarseProposal,
+    ClusterProposal,
     CoordinateTransform,
     Padding,
     PixelBox,
     PixelPoint,
-    build_cascade_layout,
-    frozen_cascade_recipe,
+    build_cluster_layout,
 )
-from table_evidence_analyzer.visible_card_cascade_provider import crop_source_image
 
 from .card_plane_geometry import CardPlaneGeometryError, validate_pose_scene_candidate_view
 from .reviewed_rfdetr_detector_campaign import (
@@ -331,10 +328,17 @@ def materialize_rfdetr_cluster_crop_dataset(
             "source_campaign_id": RFDETR_DETECTOR_CAMPAIGN_ID,
             "campaign_manifest": manifest_ref,
             "crop_recipe": {
-                "cascade": frozen_cascade_recipe(),
-                "fine_model_class": CASCADE_FINE_MODEL_CLASS,
-                "fine_model_input_size": [CASCADE_FINE_INPUT_SIZE, CASCADE_FINE_INPUT_SIZE],
-                "package": {"name": "rfdetr", "version": CASCADE_RFDETR_VERSION},
+                "cluster_geometry": {
+                    "schema_version": "visible-card-cluster/v1",
+                    "connectivity": "transitive_intersection_of_expanded_boxes",
+                    "crop": "square_around_union_center_with_out_of_frame_padding",
+                },
+                "fine_model_class": "RFDETRSegMedium",
+                "fine_model_input_size": [
+                    VISIBLE_CARD_MODEL_INPUT_SIZE,
+                    VISIBLE_CARD_MODEL_INPUT_SIZE,
+                ],
+                "package": {"name": "rfdetr", "version": "1.9.4"},
                 "perturbation_policy": RFDETR_CLUSTER_CROP_PERTURBATION_POLICY,
                 "perturbation": {
                     "translation": ["reference_span/4", "-reference_span/4"],
@@ -838,8 +842,8 @@ def _perturb_cluster_crop(base: ClusterCrop) -> tuple[ClusterCrop, dict[str, Any
         crop_y_min=int(applied_box.y_min),
         crop_width=side,
         crop_height=side,
-        model_width=CASCADE_FINE_INPUT_SIZE,
-        model_height=CASCADE_FINE_INPUT_SIZE,
+        model_width=VISIBLE_CARD_MODEL_INPUT_SIZE,
+        model_height=VISIBLE_CARD_MODEL_INPUT_SIZE,
     )
     perturbed = ClusterCrop(
         cluster=cluster,
@@ -847,7 +851,7 @@ def _perturb_cluster_crop(base: ClusterCrop) -> tuple[ClusterCrop, dict[str, Any
         source_height=base.source_height,
         crop_width=side,
         crop_height=side,
-        scale=CASCADE_FINE_INPUT_SIZE / side,
+        scale=VISIBLE_CARD_MODEL_INPUT_SIZE / side,
         padding=Padding(
             left=max(0, int(-applied_box.x_min)),
             top=max(0, int(-applied_box.y_min)),
@@ -867,16 +871,16 @@ def _perturb_cluster_crop(base: ClusterCrop) -> tuple[ClusterCrop, dict[str, Any
 
 def _layout_for_targets(targets: Sequence[Mapping[str, Any]], width: int, height: int) -> Any:
     proposals = tuple(
-        CoarseProposal(proposal_id=str(target["proposal_id"]), box=target["source_box"], score=1.0)
+        ClusterProposal(proposal_id=str(target["proposal_id"]), box=target["source_box"], score=1.0)
         for target in targets
     )
     try:
-        return build_cascade_layout(
+        return build_cluster_layout(
             proposals,
             frame_width=width,
             frame_height=height,
-            coarse_threshold=0.5,
-            model_input_size=CASCADE_FINE_INPUT_SIZE,
+            confidence_threshold=0.5,
+            model_input_size=VISIBLE_CARD_MODEL_INPUT_SIZE,
         )
     except (TypeError, ValueError) as error:
         raise RfdetrClusterCropMaterializationError(
@@ -1267,10 +1271,10 @@ def _scale_payload(
             "dataset_origin": record["dataset_origin"],
             "source_size": record["transform"]["source_size"],
             "crop_size": record["transform"]["crop_size"],
-            "fine_model_input_size": CASCADE_FINE_INPUT_SIZE,
+            "fine_model_input_size": VISIBLE_CARD_MODEL_INPUT_SIZE,
             "source_pixels_per_fine_input_pixel": {
-                "x": round(float(record["width"]) / CASCADE_FINE_INPUT_SIZE, 6),
-                "y": round(float(record["height"]) / CASCADE_FINE_INPUT_SIZE, 6),
+                "x": round(float(record["width"]) / VISIBLE_CARD_MODEL_INPUT_SIZE, 6),
+                "y": round(float(record["height"]) / VISIBLE_CARD_MODEL_INPUT_SIZE, 6),
             },
         }
         for record in records
@@ -1279,8 +1283,8 @@ def _scale_payload(
         "schema_version": RFDETR_CLUSTER_CROP_SCALE_SCHEMA,
         "source_manifest_digest": manifest["manifest_digest"],
         "fine_model": {
-            "class": CASCADE_FINE_MODEL_CLASS,
-            "input_size": CASCADE_FINE_INPUT_SIZE,
+            "class": "RFDETRSegMedium",
+            "input_size": VISIBLE_CARD_MODEL_INPUT_SIZE,
             "class_name": "visible_card",
         },
         "crops": values,

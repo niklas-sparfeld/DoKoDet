@@ -72,8 +72,6 @@ table-analyzer classify-dinov3-identity --help
 table-analyzer train-visible-card-detector --help
 table-analyzer train-rfdetr-segmentation --help
 table-analyzer train-rfdetr-segmentation-campaign --help
-table-analyzer train-rfdetr-card-cluster-campaign --help
-table-analyzer evaluate-rfdetr-card-cluster --help
 table-analyzer decide-rfdetr-visible-card-detector --help
 table-analyzer train --help
 table-analyzer evaluate --help
@@ -112,26 +110,6 @@ mise exec -- uv run --project table_evidence_analyzer --group training table-ana
 
 The campaign command validates the M0 digest and checkpoint pin before training. It refuses a
 non-empty output directory; rerunning a completed output verifies and reuses its bundle.
-
-Run the epic 0071 M3 full-frame card-cluster campaign on the frozen M2 view. It trains exactly one
-RF-DETR Small detection candidate at 512 x 512, calibrates one coarse threshold against reviewed
-card crop-containment recall, and writes a digest-checked bundle with retained missed-card and
-extra-cluster examples:
-
-```bash
-mise exec -- uv run --project table_evidence_analyzer --group training table-analyzer \
-  train-rfdetr-card-cluster-campaign \
-  --dataset-dir .runtime/rfdetr-card-cluster-0071 \
-  --pretrained-checkpoint .runtime/rfdetr/1.9.4/rf-detr-small.pt \
-  --output-dir .runtime/rfdetr-card-cluster-0071-m3-training \
-  --device mps
-```
-
-The real runner checks the requested device and RF-DETR package before training and never falls
-back to another device. Use `--runner fixture --device cpu` for local contract tests only. The
-campaign output contains `run.json`, the staged COCO view, validation threshold metrics, and a
-reloadable `bundle/` whose manifest pins the model class, `card_cluster` class map, input size,
-recipe, M2 materialization digest, package version, checkpoint, and selected threshold.
 
 Run the epic 0068 reviewed-detector smoke path and candidate with the same frozen RF-DETR
 SegMedium recipe. The smoke command uses six train images and one validation image. The campaign

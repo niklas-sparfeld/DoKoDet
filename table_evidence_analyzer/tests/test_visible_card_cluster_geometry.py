@@ -4,26 +4,21 @@ import math
 
 import pytest
 
-from table_evidence_analyzer.visible_card_cascade import (
-    CASCADE_COARSE_INPUT_SIZE,
-    CASCADE_COARSE_MODEL_CLASS,
-    CASCADE_FINE_INPUT_SIZE,
-    CASCADE_FINE_MODEL_CLASS,
-    CASCADE_RFDETR_VERSION,
-    CascadeContractError,
-    CoarseProposal,
+from table_evidence_analyzer.visible_card_cluster_geometry import (
+    VISIBLE_CARD_MODEL_INPUT_SIZE,
+    ClusterProposal,
     CoordinateTransform,
     MappedPrediction,
     PixelBox,
     PixelPoint,
-    StageBundleIdentity,
-    build_cascade_layout,
+    VisibleCardGeometryError,
+    build_cluster_layout,
     reconcile_predictions,
 )
 
 
 def _proposal(proposal_id: str, box: tuple[float, float, float, float], score: float = 0.9):
-    return CoarseProposal(
+    return ClusterProposal(
         proposal_id=proposal_id,
         box=PixelBox(*box),
         score=score,
@@ -31,7 +26,7 @@ def _proposal(proposal_id: str, box: tuple[float, float, float, float], score: f
 
 
 def test_transitive_proposal_chain_forms_one_cluster() -> None:
-    layout = build_cascade_layout(
+    layout = build_cluster_layout(
         [
             _proposal("a", (10, 10, 30, 30)),
             _proposal("b", (28, 10, 48, 30)),
@@ -47,14 +42,14 @@ def test_transitive_proposal_chain_forms_one_cluster() -> None:
 
 
 def test_separated_proposals_get_stable_square_crops_and_edge_padding() -> None:
-    layout = build_cascade_layout(
+    layout = build_cluster_layout(
         [
             _proposal("edge", (0, 0, 8, 12)),
             _proposal("far", (70, 40, 80, 50)),
         ],
         frame_width=80,
         frame_height=60,
-        model_input_size=CASCADE_FINE_INPUT_SIZE,
+        model_input_size=VISIBLE_CARD_MODEL_INPUT_SIZE,
     )
 
     assert [cluster.cluster_id for cluster in layout.clusters] == ["cluster-0001", "cluster-0002"]
@@ -70,7 +65,7 @@ def test_separated_proposals_get_stable_square_crops_and_edge_padding() -> None:
 
 
 def test_no_proposals_has_no_reference_span_or_clusters() -> None:
-    layout = build_cascade_layout([], frame_width=100, frame_height=80)
+    layout = build_cluster_layout([], frame_width=100, frame_height=80)
 
     assert layout.reference_span is None
     assert layout.clusters == ()
@@ -106,15 +101,15 @@ def test_coordinate_transform_round_trips_points_boxes_and_components() -> None:
 
 
 def test_invalid_geometry_and_non_invertible_transform_fail_before_inference() -> None:
-    with pytest.raises(CascadeContractError, match="finite"):
-        build_cascade_layout(
+    with pytest.raises(VisibleCardGeometryError, match="finite"):
+        build_cluster_layout(
             [_proposal("bad", (0, 0, math.inf, 10))], frame_width=100, frame_height=80
         )
-    with pytest.raises(CascadeContractError, match="inside the source frame"):
-        build_cascade_layout([_proposal("bad", (0, 0, 101, 10))], frame_width=100, frame_height=80)
-    with pytest.raises(CascadeContractError, match="positive"):
+    with pytest.raises(VisibleCardGeometryError, match="inside the source frame"):
+        build_cluster_layout([_proposal("bad", (0, 0, 101, 10))], frame_width=100, frame_height=80)
+    with pytest.raises(VisibleCardGeometryError, match="positive"):
         PixelBox(10, 10, 10, 20)
-    with pytest.raises(CascadeContractError, match="positive"):
+    with pytest.raises(VisibleCardGeometryError, match="positive"):
         CoordinateTransform(
             source_width=100,
             source_height=80,
@@ -305,34 +300,3 @@ def test_reconciliation_ties_use_cluster_then_proposal_order() -> None:
     result = reconcile_predictions([first, second], frame_width=20, frame_height=20)
 
     assert [prediction.prediction_id for prediction in result.retained] == ["earlier-order"]
-
-
-def test_stage_bundle_identity_freezes_both_model_contracts() -> None:
-    coarse = StageBundleIdentity(
-        stage="coarse",
-        model_class=CASCADE_COARSE_MODEL_CLASS,
-        input_size=CASCADE_COARSE_INPUT_SIZE,
-        bundle_digest="a" * 64,
-        checkpoint_sha256="b" * 64,
-        device="mps",
-    )
-    fine = StageBundleIdentity(
-        stage="fine",
-        model_class=CASCADE_FINE_MODEL_CLASS,
-        input_size=CASCADE_FINE_INPUT_SIZE,
-        bundle_digest="c" * 64,
-        checkpoint_sha256="d" * 64,
-        device="mps",
-    )
-
-    assert coarse.package_version == CASCADE_RFDETR_VERSION
-    assert fine.class_names == ("visible_card",)
-    with pytest.raises(CascadeContractError, match="coarse stage"):
-        StageBundleIdentity(
-            stage="coarse",
-            model_class=CASCADE_FINE_MODEL_CLASS,
-            input_size=CASCADE_COARSE_INPUT_SIZE,
-            bundle_digest="a" * 64,
-            checkpoint_sha256="b" * 64,
-            device="mps",
-        )

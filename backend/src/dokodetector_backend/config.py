@@ -97,9 +97,6 @@ class Settings(BaseSettings):
         "gemini",
         "local",
         "local-rfdetr-segmentation",
-        "local-rfdetr-cascade",
-        "local-rfdetr-cascade-0068",
-        "local-rfdetr-cascade-0070",
     ] = Field(
         default="gemini",
         validation_alias=AliasChoices("VISIBLE_CARD_PROVIDER"),
@@ -117,27 +114,6 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH",
             "LOCAL_VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH",
-        ),
-    )
-    visible_card_cascade_bundle_path: Path | None = Field(
-        default=None,
-        validation_alias=AliasChoices(
-            "VISIBLE_CARD_CASCADE_BUNDLE_PATH",
-            "LOCAL_VISIBLE_CARD_CASCADE_BUNDLE_PATH",
-        ),
-    )
-    visible_card_cascade_0068_bundle_path: Path = Field(
-        default=Path(".runtime/rfdetr-cascade-0071-m6-0068/bundle"),
-        validation_alias=AliasChoices(
-            "VISIBLE_CARD_CASCADE_0068_BUNDLE_PATH",
-            "LOCAL_VISIBLE_CARD_CASCADE_0068_BUNDLE_PATH",
-        ),
-    )
-    visible_card_cascade_0070_bundle_path: Path = Field(
-        default=Path(".runtime/rfdetr-cascade-0071-m6-0070/bundle"),
-        validation_alias=AliasChoices(
-            "VISIBLE_CARD_CASCADE_0070_BUNDLE_PATH",
-            "LOCAL_VISIBLE_CARD_CASCADE_0070_BUNDLE_PATH",
         ),
     )
     visible_card_device: Literal["cpu", "mps"] | None = Field(
@@ -216,16 +192,6 @@ class Settings(BaseSettings):
             self.visible_card_segmentation_bundle_path = _resolve_path(
                 self.visible_card_segmentation_bundle_path, root
             )
-        if self.visible_card_cascade_bundle_path is not None:
-            self.visible_card_cascade_bundle_path = _resolve_path(
-                self.visible_card_cascade_bundle_path, root
-            )
-        self.visible_card_cascade_0068_bundle_path = _resolve_path(
-            self.visible_card_cascade_0068_bundle_path, root
-        )
-        self.visible_card_cascade_0070_bundle_path = _resolve_path(
-            self.visible_card_cascade_0070_bundle_path, root
-        )
         if self.visible_card_identity_bundle_path is not None:
             self.visible_card_identity_bundle_path = _resolve_path(
                 self.visible_card_identity_bundle_path, root

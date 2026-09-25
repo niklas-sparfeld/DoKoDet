@@ -1,99 +1,55 @@
-"""Deterministic contracts for the epic 0071 visible-card cascade.
-
-This module contains only geometry, identity, and reconciliation logic.  It does not import a
-model runtime.  A coarse detector can therefore be replaced by the trained RF-DETR Small bundle
-without changing crop or source-coordinate semantics.
-"""
+"""Deterministic visible-card cluster, crop, and source-coordinate geometry."""
 
 from __future__ import annotations
 
-import hashlib
-import json
 import math
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
-CASCADE_SCHEMA_VERSION = "local-rfdetr-cascade/v1"
 CLUSTER_SCHEMA_VERSION = "visible-card-cluster/v1"
 CROP_SCHEMA_VERSION = "visible-card-cluster-crop/v1"
 TRANSFORM_SCHEMA_VERSION = "visible-card-coordinate-transform/v1"
 RECONCILIATION_SCHEMA_VERSION = "visible-card-reconciliation/v1"
-
-CASCADE_COARSE_MODEL_CLASS = "RFDETRSmall"
-CASCADE_COARSE_MODEL_VARIANT = "rfdetr-small"
-CASCADE_COARSE_INPUT_SIZE = 512
-CASCADE_COARSE_CLASS_NAME = "card_cluster"
-CASCADE_FINE_MODEL_CLASS = "RFDETRSegMedium"
-CASCADE_FINE_MODEL_VARIANT = "rfdetr-seg-medium"
-CASCADE_FINE_INPUT_SIZE = 432
-CASCADE_FINE_CLASS_NAME = "visible_card"
-CASCADE_RFDETR_VERSION = "1.9.4"
-CASCADE_DEVICE = "mps"
-CASCADE_SUPPORTED_DEVICES = frozenset({"cpu", "mps", "cuda"})
-CASCADE_COARSE_CONFIDENCE_THRESHOLD = 0.5
+VISIBLE_CARD_MODEL_INPUT_SIZE = 432
+DEFAULT_CLUSTER_ROUTING_THRESHOLD = 0.5
 DUPLICATE_IOU_THRESHOLD = 0.90
 DUPLICATE_MASK_CONTAINMENT_THRESHOLD = 0.75
 DUPLICATE_BOX_AREA_RATIO_MAX = 0.95
 NEUTRAL_PADDING_RGB = (128, 128, 128)
-
-_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 
 
-class CascadeContractError(ValueError):
-    """Raised when a cascade contract cannot be trusted."""
+class VisibleCardGeometryError(ValueError):
+    """Raised when visible-card geometry is invalid."""
 
 
 def _finite_number(value: Any, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise CascadeContractError(f"{field} must be a finite number")
+        raise VisibleCardGeometryError(f"{field} must be a finite number")
     number = float(value)
     if not math.isfinite(number):
-        raise CascadeContractError(f"{field} must be finite")
+        raise VisibleCardGeometryError(f"{field} must be finite")
     return number
 
 
 def _positive_int(value: Any, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise CascadeContractError(f"{field} must be a positive integer")
+        raise VisibleCardGeometryError(f"{field} must be a positive integer")
     return value
 
 
 def _non_negative_int(value: Any, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise CascadeContractError(f"{field} must be a non-negative integer")
+        raise VisibleCardGeometryError(f"{field} must be a non-negative integer")
     return value
 
 
 def _identifier(value: Any, field: str) -> str:
     if not isinstance(value, str) or _IDENTIFIER.fullmatch(value) is None:
-        raise CascadeContractError(f"{field} must be a non-empty identifier")
+        raise VisibleCardGeometryError(f"{field} must be a non-empty identifier")
     return value
-
-
-def _digest(value: Any, field: str) -> str:
-    if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
-        raise CascadeContractError(f"{field} must be a lower-case SHA-256 digest")
-    return value
-
-
-def _canonical_json(value: object) -> bytes:
-    try:
-        return json.dumps(
-            value,
-            ensure_ascii=True,
-            allow_nan=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-    except (TypeError, ValueError) as error:
-        raise CascadeContractError("cascade contract values must be finite JSON") from error
-
-
-def _sha256_json(value: object) -> str:
-    return hashlib.sha256(_canonical_json(value)).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +95,7 @@ class PixelBox:
                 value,
             )
         if self.x_min >= self.x_max or self.y_min >= self.y_max:
-            raise CascadeContractError("box must have positive width and height")
+            raise VisibleCardGeometryError("box must have positive width and height")
 
     @property
     def width(self) -> float:
@@ -230,9 +186,9 @@ class CoordinateTransform:
         _positive_int(self.model_width, "model_width")
         _positive_int(self.model_height, "model_height")
         if isinstance(self.crop_x_min, bool) or not isinstance(self.crop_x_min, int):
-            raise CascadeContractError("crop_x_min must be an integer")
+            raise VisibleCardGeometryError("crop_x_min must be an integer")
         if isinstance(self.crop_y_min, bool) or not isinstance(self.crop_y_min, int):
-            raise CascadeContractError("crop_y_min must be an integer")
+            raise VisibleCardGeometryError("crop_y_min must be an integer")
 
     @property
     def scale_x(self) -> float:
@@ -306,8 +262,8 @@ class CoordinateTransform:
 
 
 @dataclass(frozen=True, slots=True)
-class CoarseProposal:
-    """One coarse proposal in source-frame pixel coordinates."""
+class ClusterProposal:
+    """One cluster proposal in source-frame pixel coordinates."""
 
     proposal_id: str
     box: PixelBox
@@ -317,12 +273,12 @@ class CoarseProposal:
         _identifier(self.proposal_id, "proposal_id")
         object.__setattr__(self, "score", _finite_number(self.score, "proposal score"))
         if not 0 <= self.score <= 1:
-            raise CascadeContractError("proposal score must be in [0, 1]")
+            raise VisibleCardGeometryError("proposal score must be in [0, 1]")
 
 
 @dataclass(frozen=True, slots=True)
 class CardCluster:
-    """One connected coarse-proposal component and its source crop geometry."""
+    """One connected cluster-proposal component and its source crop geometry."""
 
     cluster_id: str
     proposal_ids: tuple[str, ...]
@@ -333,17 +289,17 @@ class CardCluster:
     def __post_init__(self) -> None:
         _identifier(self.cluster_id, "cluster_id")
         if not self.proposal_ids:
-            raise CascadeContractError("cluster must contain at least one proposal")
+            raise VisibleCardGeometryError("cluster must contain at least one proposal")
         if len(set(self.proposal_ids)) != len(self.proposal_ids):
-            raise CascadeContractError("cluster proposal IDs must be unique")
+            raise VisibleCardGeometryError("cluster proposal IDs must be unique")
         span = _finite_number(self.reference_span, "reference span")
         if span <= 0:
-            raise CascadeContractError("reference span must be positive")
+            raise VisibleCardGeometryError("reference span must be positive")
         object.__setattr__(self, "reference_span", span)
         if self.padded_square_box.width != self.padded_square_box.height:
-            raise CascadeContractError("cluster crop must be square")
+            raise VisibleCardGeometryError("cluster crop must be square")
         if not self.padded_square_box.contains(self.source_box):
-            raise CascadeContractError("cluster crop must contain its source box")
+            raise VisibleCardGeometryError("cluster crop must contain its source box")
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -375,27 +331,27 @@ class ClusterCrop:
         _positive_int(self.crop_width, "crop_width")
         _positive_int(self.crop_height, "crop_height")
         if self.crop_width != self.crop_height:
-            raise CascadeContractError("cluster crop dimensions must be square")
+            raise VisibleCardGeometryError("cluster crop dimensions must be square")
         scale = _finite_number(self.scale, "crop scale")
         if scale <= 0:
-            raise CascadeContractError("crop scale must be positive")
+            raise VisibleCardGeometryError("crop scale must be positive")
         object.__setattr__(self, "scale", scale)
         expected = self.cluster.padded_square_box
         if (expected.width, expected.height) != (self.crop_width, self.crop_height):
-            raise CascadeContractError("crop dimensions do not match the padded square box")
+            raise VisibleCardGeometryError("crop dimensions do not match the padded square box")
         if self.transform.source_width != self.source_width:
-            raise CascadeContractError("transform source width does not match crop")
+            raise VisibleCardGeometryError("transform source width does not match crop")
         if self.transform.source_height != self.source_height:
-            raise CascadeContractError("transform source height does not match crop")
+            raise VisibleCardGeometryError("transform source height does not match crop")
         if (self.transform.crop_width, self.transform.crop_height) != (
             self.crop_width,
             self.crop_height,
         ):
-            raise CascadeContractError("transform crop dimensions do not match crop")
+            raise VisibleCardGeometryError("transform crop dimensions do not match crop")
         if not math.isclose(self.scale, self.transform.scale_x) or not math.isclose(
             self.scale, self.transform.scale_y
         ):
-            raise CascadeContractError("crop scale does not match its coordinate transform")
+            raise VisibleCardGeometryError("crop scale does not match its coordinate transform")
 
     @property
     def cluster_id(self) -> str:
@@ -435,33 +391,33 @@ class ClusterCrop:
 
 
 @dataclass(frozen=True, slots=True)
-class CascadeLayout:
+class ClusterLayout:
     """Deterministic layout output for one source frame."""
 
     source_width: int
     source_height: int
-    coarse_threshold: float
+    confidence_threshold: float
     reference_span: float | None
     clusters: tuple[ClusterCrop, ...]
 
     def __post_init__(self) -> None:
         _positive_int(self.source_width, "source_width")
         _positive_int(self.source_height, "source_height")
-        threshold = _finite_number(self.coarse_threshold, "coarse threshold")
+        threshold = _finite_number(self.confidence_threshold, "confidence threshold")
         if not 0 <= threshold <= 1:
-            raise CascadeContractError("coarse threshold must be in [0, 1]")
-        object.__setattr__(self, "coarse_threshold", threshold)
+            raise VisibleCardGeometryError("confidence threshold must be in [0, 1]")
+        object.__setattr__(self, "confidence_threshold", threshold)
         if self.reference_span is not None:
             span = _finite_number(self.reference_span, "reference span")
             if span <= 0:
-                raise CascadeContractError("reference span must be positive")
+                raise VisibleCardGeometryError("reference span must be positive")
             object.__setattr__(self, "reference_span", span)
 
     def to_mapping(self) -> dict[str, Any]:
         return {
             "schema_version": CLUSTER_SCHEMA_VERSION,
             "source_size": {"width": self.source_width, "height": self.source_height},
-            "coarse_threshold": self.coarse_threshold,
+            "confidence_threshold": self.confidence_threshold,
             "reference_span": self.reference_span,
             "clusters": [cluster.to_mapping() for cluster in self.clusters],
         }
@@ -470,7 +426,7 @@ class CascadeLayout:
 def _validate_source_box(box: PixelBox, *, width: int, height: int) -> None:
     frame = PixelBox(0, 0, width, height)
     if not frame.contains(box):
-        raise CascadeContractError("proposal box must be inside the source frame")
+        raise VisibleCardGeometryError("proposal box must be inside the source frame")
 
 
 def _median(values: Sequence[float]) -> float:
@@ -481,7 +437,7 @@ def _median(values: Sequence[float]) -> float:
     return (ordered[middle - 1] + ordered[middle]) / 2
 
 
-def _components(proposals: Sequence[CoarseProposal], reference_span: float) -> list[list[int]]:
+def _components(proposals: Sequence[ClusterProposal], reference_span: float) -> list[list[int]]:
     expanded = [
         PixelBox(
             proposal.box.x_min - reference_span / 2,
@@ -516,7 +472,7 @@ def _components(proposals: Sequence[CoarseProposal], reference_span: float) -> l
 def _union(boxes: Iterable[PixelBox]) -> PixelBox:
     values = tuple(boxes)
     if not values:
-        raise CascadeContractError("cannot union an empty box collection")
+        raise VisibleCardGeometryError("cannot union an empty box collection")
     return PixelBox(
         min(box.x_min for box in values),
         min(box.y_min for box in values),
@@ -553,33 +509,33 @@ def _padding(square_box: PixelBox, *, width: int, height: int) -> Padding:
     )
 
 
-def build_cascade_layout(
-    proposals: Sequence[CoarseProposal],
+def build_cluster_layout(
+    proposals: Sequence[ClusterProposal],
     *,
     frame_width: int,
     frame_height: int,
-    coarse_threshold: float = CASCADE_COARSE_CONFIDENCE_THRESHOLD,
-    model_input_size: int = CASCADE_FINE_INPUT_SIZE,
-) -> CascadeLayout:
+    confidence_threshold: float = DEFAULT_CLUSTER_ROUTING_THRESHOLD,
+    model_input_size: int = VISIBLE_CARD_MODEL_INPUT_SIZE,
+) -> ClusterLayout:
     """Build deterministic connected clusters and reversible square crop transforms."""
 
     _positive_int(frame_width, "frame_width")
     _positive_int(frame_height, "frame_height")
     _positive_int(model_input_size, "model_input_size")
-    threshold = _finite_number(coarse_threshold, "coarse threshold")
+    threshold = _finite_number(confidence_threshold, "confidence threshold")
     if not 0 <= threshold <= 1:
-        raise CascadeContractError("coarse threshold must be in [0, 1]")
+        raise VisibleCardGeometryError("confidence threshold must be in [0, 1]")
     proposal_ids = [proposal.proposal_id for proposal in proposals]
     if len(set(proposal_ids)) != len(proposal_ids):
-        raise CascadeContractError("proposal IDs must be unique within one frame")
+        raise VisibleCardGeometryError("proposal IDs must be unique within one frame")
     for proposal in proposals:
         _validate_source_box(proposal.box, width=frame_width, height=frame_height)
     retained = tuple(proposal for proposal in proposals if proposal.score >= threshold)
     if not retained:
-        return CascadeLayout(frame_width, frame_height, threshold, None, ())
+        return ClusterLayout(frame_width, frame_height, threshold, None, ())
     reference_span = _median(tuple(min(item.box.width, item.box.height) for item in retained))
     if reference_span <= 0 or not math.isfinite(reference_span):
-        raise CascadeContractError("reference span must be finite and positive")
+        raise VisibleCardGeometryError("reference span must be finite and positive")
     components = _components(retained, reference_span)
     crops: list[ClusterCrop] = []
     for cluster_number, member_indices in enumerate(components, start=1):
@@ -587,7 +543,7 @@ def build_cascade_layout(
         source_box = _union(member.box for member in members)
         padded_square_box = _square_box(source_box, reference_span)
         if padded_square_box.width != padded_square_box.height:
-            raise CascadeContractError("computed cluster crop is not square")
+            raise VisibleCardGeometryError("computed cluster crop is not square")
         crop_width = int(padded_square_box.width)
         crop_height = int(padded_square_box.height)
         transform = CoordinateTransform(
@@ -619,7 +575,7 @@ def build_cascade_layout(
                 transform=transform,
             )
         )
-    return CascadeLayout(frame_width, frame_height, threshold, reference_span, tuple(crops))
+    return ClusterLayout(frame_width, frame_height, threshold, reference_span, tuple(crops))
 
 
 @dataclass(frozen=True, slots=True)
@@ -640,10 +596,12 @@ class MappedPrediction:
         _non_negative_int(self.proposal_order, "proposal_order")
         score = _finite_number(self.score, "prediction score")
         if not 0 <= score <= 1:
-            raise CascadeContractError("prediction score must be in [0, 1]")
+            raise VisibleCardGeometryError("prediction score must be in [0, 1]")
         object.__setattr__(self, "score", score)
         if not self.polygons or any(len(polygon) < 3 for polygon in self.polygons):
-            raise CascadeContractError("prediction must preserve one or more polygon components")
+            raise VisibleCardGeometryError(
+                "prediction must preserve one or more polygon components"
+            )
         if self.mask is not None:
             for point in self.mask:
                 if (
@@ -651,7 +609,7 @@ class MappedPrediction:
                     or len(point) != 2
                     or any(isinstance(value, bool) or not isinstance(value, int) for value in point)
                 ):
-                    raise CascadeContractError("prediction mask must contain integer points")
+                    raise VisibleCardGeometryError("prediction mask must contain integer points")
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -865,10 +823,10 @@ def reconcile_predictions(
     _positive_int(frame_height, "frame_height")
     threshold = _finite_number(iou_threshold, "duplicate IoU threshold")
     if not 0 <= threshold <= 1:
-        raise CascadeContractError("duplicate IoU threshold must be in [0, 1]")
+        raise VisibleCardGeometryError("duplicate IoU threshold must be in [0, 1]")
     identifiers = [prediction.prediction_id for prediction in predictions]
     if len(set(identifiers)) != len(identifiers):
-        raise CascadeContractError("prediction IDs must be unique")
+        raise VisibleCardGeometryError("prediction IDs must be unique")
 
     comparisons: dict[tuple[str, str], tuple[float, float, bool]] = {}
     decisions: list[ReconciliationDecision] = []
@@ -962,159 +920,18 @@ def reconcile_predictions(
     return ReconciliationResult(tuple(retained), tuple(discarded), tuple(decisions))
 
 
-@dataclass(frozen=True, slots=True)
-class StageBundleIdentity:
-    """Immutable identity for one cascade model stage."""
-
-    stage: Literal["coarse", "fine"]
-    model_class: str
-    input_size: int
-    bundle_digest: str
-    checkpoint_sha256: str
-    device: str = CASCADE_DEVICE
-    package_name: str = "rfdetr"
-    package_version: str = CASCADE_RFDETR_VERSION
-    class_names: tuple[str, ...] = ()
-
-    def __post_init__(self) -> None:
-        if self.stage not in {"coarse", "fine"}:
-            raise CascadeContractError("stage must be coarse or fine")
-        expected_class = (
-            CASCADE_COARSE_MODEL_CLASS if self.stage == "coarse" else CASCADE_FINE_MODEL_CLASS
-        )
-        expected_size = (
-            CASCADE_COARSE_INPUT_SIZE if self.stage == "coarse" else CASCADE_FINE_INPUT_SIZE
-        )
-        expected_names = (
-            (CASCADE_COARSE_CLASS_NAME,) if self.stage == "coarse" else (CASCADE_FINE_CLASS_NAME,)
-        )
-        if not self.class_names:
-            object.__setattr__(self, "class_names", expected_names)
-        if self.model_class != expected_class:
-            raise CascadeContractError(f"{self.stage} stage must use {expected_class}")
-        if self.input_size != expected_size:
-            raise CascadeContractError(
-                f"{self.stage} stage input size is frozen at {expected_size}"
-            )
-        _digest(self.bundle_digest, "bundle_digest")
-        _digest(self.checkpoint_sha256, "checkpoint_sha256")
-        if self.device not in CASCADE_SUPPORTED_DEVICES:
-            raise CascadeContractError("device must be cpu, mps, or cuda")
-        if self.package_name != "rfdetr" or self.package_version != CASCADE_RFDETR_VERSION:
-            raise CascadeContractError("RF-DETR package identity is not the frozen 1.9.4 contract")
-        if self.class_names != expected_names:
-            raise CascadeContractError(f"{self.stage} stage class names are frozen")
-
-    def to_mapping(self) -> dict[str, Any]:
-        return {
-            "stage": self.stage,
-            "model": {"class": self.model_class, "input_size": self.input_size},
-            "class_names": list(self.class_names),
-            "bundle_digest": self.bundle_digest,
-            "checkpoint_sha256": self.checkpoint_sha256,
-            "package": {"name": self.package_name, "version": self.package_version},
-            "device": self.device,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class CascadeBundleIdentity:
-    """Identity and frozen recipes for both cascade stages."""
-
-    coarse: StageBundleIdentity
-    fine: StageBundleIdentity
-    cluster_recipe_version: str = CLUSTER_SCHEMA_VERSION
-    crop_recipe_version: str = CROP_SCHEMA_VERSION
-    reconciliation_recipe_version: str = RECONCILIATION_SCHEMA_VERSION
-
-    def __post_init__(self) -> None:
-        if self.coarse.stage != "coarse" or self.fine.stage != "fine":
-            raise CascadeContractError("cascade stages must be coarse then fine")
-        if self.cluster_recipe_version != CLUSTER_SCHEMA_VERSION:
-            raise CascadeContractError("cluster recipe version is not the frozen M0 contract")
-        if self.crop_recipe_version != CROP_SCHEMA_VERSION:
-            raise CascadeContractError("crop recipe version is not the frozen M0 contract")
-        if self.reconciliation_recipe_version != RECONCILIATION_SCHEMA_VERSION:
-            raise CascadeContractError(
-                "reconciliation recipe version is not the frozen M0 contract"
-            )
-
-    @property
-    def digest(self) -> str:
-        return _sha256_json(self.to_mapping())
-
-    def to_mapping(self) -> dict[str, Any]:
-        return {
-            "schema_version": CASCADE_SCHEMA_VERSION,
-            "coarse": self.coarse.to_mapping(),
-            "fine": self.fine.to_mapping(),
-            "recipes": {
-                "cluster": self.cluster_recipe_version,
-                "crop": self.crop_recipe_version,
-                "reconciliation": self.reconciliation_recipe_version,
-            },
-            "neutral_padding_rgb": list(NEUTRAL_PADDING_RGB),
-            "duplicate_iou_threshold": DUPLICATE_IOU_THRESHOLD,
-        }
-
-
-def frozen_cascade_recipe() -> dict[str, Any]:
-    """Return the M0 recipe that later training and runtime manifests must embed."""
-
-    return {
-        "schema_version": CASCADE_SCHEMA_VERSION,
-        "coarse": {
-            "model_class": CASCADE_COARSE_MODEL_CLASS,
-            "model_variant": CASCADE_COARSE_MODEL_VARIANT,
-            "class_names": [CASCADE_COARSE_CLASS_NAME],
-            "input_size": [CASCADE_COARSE_INPUT_SIZE, CASCADE_COARSE_INPUT_SIZE],
-            "confidence_threshold": CASCADE_COARSE_CONFIDENCE_THRESHOLD,
-        },
-        "fine": {
-            "model_class": CASCADE_FINE_MODEL_CLASS,
-            "model_variant": CASCADE_FINE_MODEL_VARIANT,
-            "class_names": [CASCADE_FINE_CLASS_NAME],
-            "input_size": [CASCADE_FINE_INPUT_SIZE, CASCADE_FINE_INPUT_SIZE],
-        },
-        "package": {"name": "rfdetr", "version": CASCADE_RFDETR_VERSION},
-        "devices": {"default": CASCADE_DEVICE, "supported": sorted(CASCADE_SUPPORTED_DEVICES)},
-        "cluster_recipe": {
-            "schema_version": CLUSTER_SCHEMA_VERSION,
-            "reference_span": "median_shorter_side",
-            "expansion": "half_reference_span_each_edge",
-            "connectivity": "transitive_intersection_of_expanded_boxes",
-            "crop": "square_around_union_center_with_out_of_frame_padding",
-        },
-        "crop_recipe": {
-            "schema_version": CROP_SCHEMA_VERSION,
-            "padding_rgb": list(NEUTRAL_PADDING_RGB),
-            "coordinate_convention": "continuous_pixel_edges",
-        },
-        "reconciliation_recipe": {
-            "schema_version": RECONCILIATION_SCHEMA_VERSION,
-            "duplicate_rule": "box_iou_and_visible_mask_iou",
-            "threshold": DUPLICATE_IOU_THRESHOLD,
-            "tie_break": ["cluster_id", "proposal_order", "prediction_id"],
-        },
-    }
-
-
 __all__ = [
-    "CASCADE_COARSE_CLASS_NAME",
-    "CASCADE_COARSE_CONFIDENCE_THRESHOLD",
-    "CASCADE_COARSE_INPUT_SIZE",
-    "CASCADE_COARSE_MODEL_CLASS",
-    "CASCADE_DEVICE",
-    "CASCADE_FINE_CLASS_NAME",
-    "CASCADE_FINE_INPUT_SIZE",
-    "CASCADE_FINE_MODEL_CLASS",
-    "CASCADE_RFDETR_VERSION",
-    "CascadeBundleIdentity",
-    "CascadeContractError",
-    "CascadeLayout",
+    "CLUSTER_SCHEMA_VERSION",
+    "CROP_SCHEMA_VERSION",
+    "TRANSFORM_SCHEMA_VERSION",
+    "RECONCILIATION_SCHEMA_VERSION",
+    "VISIBLE_CARD_MODEL_INPUT_SIZE",
+    "DEFAULT_CLUSTER_ROUTING_THRESHOLD",
+    "VisibleCardGeometryError",
+    "ClusterLayout",
     "CardCluster",
     "ClusterCrop",
-    "CoarseProposal",
+    "ClusterProposal",
     "CoordinateTransform",
     "DUPLICATE_BOX_AREA_RATIO_MAX",
     "DUPLICATE_IOU_THRESHOLD",
@@ -1126,8 +943,6 @@ __all__ = [
     "PixelPoint",
     "ReconciliationDecision",
     "ReconciliationResult",
-    "StageBundleIdentity",
-    "build_cascade_layout",
-    "frozen_cascade_recipe",
+    "build_cluster_layout",
     "reconcile_predictions",
 ]

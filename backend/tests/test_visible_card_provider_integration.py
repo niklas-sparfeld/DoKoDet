@@ -72,17 +72,6 @@ class FakeLocalSegmentationProvider(FakeLocalVisibleCardProvider):
     version = "local-visible-card-segmentation-test-v1"
 
 
-class FakeLocalCascadeProvider(FakeLocalVisibleCardProvider):
-    name = "local-rfdetr-cascade"
-    version = "local-rfdetr-cascade-test-v1"
-
-    def __init__(self, bundle: Path, *, device: str, provider_name: str | None = None) -> None:
-        super().__init__(bundle, device=device)
-        if provider_name is not None:
-            self.name = provider_name
-            self.version = f"{provider_name}-test-v1"
-
-
 class FakeLocalIdentityClassifier:
     name = "local-dinov3"
     version = "dinov3-local-identity-test-v1"
@@ -253,31 +242,6 @@ def test_reviewed_segmentation_backend_selection_is_explicit_and_non_default(
     assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
 
 
-def test_cascade_backend_selection_is_explicit_and_non_default(tmp_path: Path, monkeypatch) -> None:
-    bundle_path = tmp_path / "cascade-bundle"
-    bundle_path.mkdir()
-    monkeypatch.setattr(
-        gemini_analyzer,
-        "LocalVisibleCardCascadeProvider",
-        FakeLocalCascadeProvider,
-    )
-    app = create_app(
-        _settings(
-            tmp_path,
-            visible_card_provider="local-rfdetr-cascade",
-            visible_card_bundle_path=bundle_path,
-            visible_card_device="cpu",
-            visible_card_identity_classifier="gemini",
-        )
-    )
-
-    selected = app.state.analyzer.provider.provider
-    assert selected.name == "local-rfdetr-cascade"
-    assert selected.device == "cpu"
-    monkeypatch.delenv("VISIBLE_CARD_PROVIDER", raising=False)
-    assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
-
-
 def test_local_pipeline_selection_detects_segmentation_bundle_with_cloud_default(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -309,65 +273,12 @@ def test_local_pipeline_selection_detects_segmentation_bundle_with_cloud_default
     assert selected.name == "local-rfdetr-segmentation"
 
 
-def test_explicit_rfdetr_variants_use_their_own_bundle_paths(tmp_path: Path, monkeypatch) -> None:
-    segmentation_bundle = tmp_path / "segmentation-bundle"
-    segmentation_bundle.mkdir()
-    cascade_bundle = tmp_path / "cascade-bundle"
-    cascade_bundle.mkdir()
-    monkeypatch.setattr(
-        gemini_analyzer,
-        "LocalVisibleCardSegmentationProvider",
-        FakeLocalSegmentationProvider,
-    )
-    monkeypatch.setattr(
-        gemini_analyzer,
-        "LocalVisibleCardCascadeProvider",
-        FakeLocalCascadeProvider,
-    )
-    visible, _ = gemini_analyzer.create_configured_processor_registries(
-        _settings(
-            tmp_path,
-            visible_card_bundle_path=None,
-            visible_card_segmentation_bundle_path=segmentation_bundle,
-            visible_card_cascade_bundle_path=cascade_bundle,
-            visible_card_device="cpu",
-        )
-    )
+def test_retired_cascade_provider_is_not_registered(tmp_path: Path) -> None:
+    visible, _ = gemini_analyzer.create_configured_processor_registries(_settings(tmp_path))
 
-    segmentation = visible["local-rfdetr-segmentation"].provider
-    cascade = visible["local-rfdetr-cascade"].provider
-    assert segmentation.name == "local-rfdetr-segmentation"
-    assert segmentation.bundle == segmentation_bundle
-    assert cascade.name == "local-rfdetr-cascade"
-    assert cascade.bundle == cascade_bundle
-
-
-def test_named_cascade_variants_use_separate_bundle_paths(tmp_path: Path, monkeypatch) -> None:
-    reviewed_bundle = tmp_path / "cascade-0068"
-    reviewed_bundle.mkdir()
-    synthetic_bundle = tmp_path / "cascade-0070"
-    synthetic_bundle.mkdir()
-    monkeypatch.setattr(
-        gemini_analyzer,
-        "LocalVisibleCardCascadeProvider",
-        FakeLocalCascadeProvider,
-    )
-    visible, _ = gemini_analyzer.create_configured_processor_registries(
-        _settings(
-            tmp_path,
-            visible_card_bundle_path=None,
-            visible_card_cascade_0068_bundle_path=reviewed_bundle,
-            visible_card_cascade_0070_bundle_path=synthetic_bundle,
-            visible_card_device="cpu",
-        )
-    )
-
-    reviewed = visible["local-rfdetr-cascade-0068"].provider
-    synthetic = visible["local-rfdetr-cascade-0070"].provider
-    assert reviewed.name == "local-rfdetr-cascade-0068"
-    assert reviewed.bundle == reviewed_bundle
-    assert synthetic.name == "local-rfdetr-cascade-0070"
-    assert synthetic.bundle == synthetic_bundle
+    assert "local-rfdetr-cascade" not in visible
+    assert "local-rfdetr-cascade-0068" not in visible
+    assert "local-rfdetr-cascade-0070" not in visible
 
 
 def test_local_identity_selection_does_not_require_gemini_or_construct_gemini(

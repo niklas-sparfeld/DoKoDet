@@ -28,6 +28,221 @@ def _digest_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def _manifest_fixture(root: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, dict[str, bytes]]:
+    monkeypatch.setattr(reviewed_campaign, "REQUIRED_SEALED_TEST_GROUPS", 1)
+    checkpoint = b"checkpoint"
+    source_frames = {
+        "train": b"train-frame",
+        "validation": b"validation-frame",
+        "sealed_test": b"sealed-frame",
+    }
+    operations = root / "data" / "operations"
+    recordings_root = root / "data" / "intake" / "recordings"
+    samples: list[dict[str, Any]] = []
+    references: list[dict[str, Any]] = []
+    recordings: list[dict[str, Any]] = []
+    source_groups: list[dict[str, Any]] = []
+    partition_recordings = {
+        "train": "recording-train",
+        "validation": "recording-validation",
+        "sealed_test": "recording-sealed",
+    }
+    target_polygons = {
+        "train": [
+            (100, 100, 300, 300),
+            (350, 120, 550, 320),
+            (600, 100, 800, 300),
+        ],
+        "validation": [(10, 10, 200, 200)],
+        "sealed_test": [(400, 400, 600, 600)],
+    }
+    for index, (split, recording_id) in enumerate(partition_recordings.items()):
+        source_bytes = f"video-{split}".encode()
+        source_digest = _digest_bytes(source_bytes)
+        bundle = recordings_root / recording_id
+        bundle.mkdir(parents=True)
+        (bundle / "video.mp4").write_bytes(source_bytes)
+        manifest_path = bundle / "manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "repository-bundle/v1",
+                    "state": "complete",
+                    "recording_id": recording_id,
+                    "session_id": f"session-{split}",
+                    "source_asset_id": f"asset-{split}",
+                    "video_id": f"video-{split}",
+                    "source_sha256": source_digest,
+                    "files": {
+                        "video": {"relative_path": "video.mp4", "byte_length": len(source_bytes)}
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        (bundle / "source-record.json").write_text(
+            json.dumps(
+                {
+                    "recording_id": recording_id,
+                    "session_id": f"session-{split}",
+                    "source_asset_id": f"asset-{split}",
+                    "video_id": f"video-{split}",
+                    "table_setup": f"setup-{split}",
+                    "sha256": source_digest,
+                    "allowed_uses": ["train", "validation", "evaluation"],
+                    "source_permission": "project_use",
+                    "retention_state": "active",
+                }
+            ),
+            encoding="utf-8",
+        )
+        frame_bytes = source_frames[split]
+        frame_digest = _digest_bytes(frame_bytes)
+        frame = {
+            "frame_index": index,
+            "image_sha256": frame_digest,
+            "source_video_sha256": source_digest,
+            "width": 1000,
+            "height": 1000,
+        }
+        event_id = f"event-{split}"
+        targets = []
+        for card_index, (x_min, y_min, x_max, y_max) in enumerate(target_polygons[split]):
+            targets.append(
+                {
+                    "card_id": f"{event_id}:card-{card_index}",
+                    "side": "face_up",
+                    "geometry": {
+                        "kind": "reviewed-visible-region/v1",
+                        "visible_region": {
+                            "polygons": [
+                                [
+                                    {"x": x_min, "y": y_min},
+                                    {"x": x_max, "y": y_min},
+                                    {"x": x_max, "y": y_max},
+                                    {"x": x_min, "y": y_max},
+                                ]
+                            ]
+                        },
+                    },
+                    "normalization": {
+                        "policy_id": "full-frame-0-1000/v1",
+                        "width": 1000,
+                        "height": 1000,
+                    },
+                }
+            )
+        sample = {
+            "recording_id": recording_id,
+            "split": split,
+            "session_id": f"session-{split}",
+            "table_setup": f"setup-{split}",
+            "source_asset_id": f"asset-{split}",
+            "source_sha256": source_digest,
+            "reference_revision_id": f"revision-{split}",
+            "event_id": event_id,
+            "item_id": event_id,
+            "frame_identity": frame,
+            "targets": targets,
+        }
+        group_core = {
+            "recording_id": recording_id,
+            "session_id": f"session-{split}",
+            "source_asset_id": f"asset-{split}",
+            "video_id": f"video-{split}",
+            "source_sha256": source_digest,
+            "table_setup": f"setup-{split}",
+        }
+        group = {**group_core, "partition": split, "group_key": sha256_json(group_core)}
+        sample["source_group"] = group_core
+        sample["source_group_key"] = group["group_key"]
+        samples.append(sample)
+        references.append(
+            {"recording_id": recording_id, "origin": "corrected", "samples": [sample]}
+        )
+        recordings.append(
+            {
+                "recording_id": recording_id,
+                "split": split,
+                "session_id": f"session-{split}",
+                "source_asset_id": f"asset-{split}",
+                "video_id": f"video-{split}",
+                "table_setup": f"setup-{split}",
+                "source_sha256": source_digest,
+                "source_byte_length": len(source_bytes),
+                "source_video_path": f"data/intake/recordings/{recording_id}/video.mp4",
+            }
+        )
+        source_groups.append(group)
+
+    recipe = {
+        "model": {"class": "RFDETRSegMedium", "resolution": [432, 432]},
+        "package": {"name": "rfdetr", "version": "1.9.4"},
+        "pretrained_checkpoint": {"sha256": _digest_bytes(checkpoint)},
+        "data_contract": {"test_partition": "sealed_test"},
+    }
+    split = {
+        partition: {"recording_ids": [recording_id]}
+        for partition, recording_id in partition_recordings.items()
+    }
+    core: dict[str, Any] = {
+        "schema_version": "rfdetr-visible-card-detector-manifest/v1",
+        "campaign_id": "0068-m0-reviewed-rfdetr-local-visible-card-detector",
+        "milestone": "M0",
+        "read_only": True,
+        "freeze_state": "frozen",
+        "selection": {
+            "strategy": "selected_completed_corrected_visible_card_references/v1",
+            "selected_recording_ids": sorted(partition_recordings.values()),
+            "unavailable_references": [],
+        },
+        "split": split,
+        "recipe": recipe,
+        "recipe_sha256": sha256_json(recipe),
+        "api_probe": {"status": "available", "gaps": []},
+        "source_groups": source_groups,
+        "recordings": recordings,
+        "references": references,
+        "samples": samples,
+        "excluded_frames": [
+            {
+                "recording_id": "recording-sealed",
+                "event_id": "excluded-event",
+                "split": "sealed_test",
+                "reason": "reviewed ignore region",
+            }
+        ],
+        "ineligible_outcomes": [
+            {
+                "recording_id": "recording-sealed",
+                "event_id": "ineligible-event",
+                "split": "sealed_test",
+                "reason": "reviewed unusable outcome",
+            }
+        ],
+        "inventory": {
+            "selected_recording_count": 3,
+            "recording_count": 3,
+            "completed_corrected_reference_count": 3,
+            "reviewed_frame_count": 3,
+            "retained_frame_count": 3,
+            "excluded_frame_count": 1,
+            "ineligible_outcome_count": 1,
+            "ignored_region_count": 1,
+            "target_count": 5,
+            "side_counts": {"face_up": 5, "face_down": 0, "unknown": 0},
+        },
+        "holdout_registry": {},
+        "coverage_gaps": [],
+    }
+    manifest = {**core, "manifest_digest": sha256_json(core)}
+    manifest_path = operations / "rfdetr-visible-card-detector-0068-m0-manifest.json"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_bytes(json.dumps(manifest).encode() + b"\n")
+    frame_lookup = {_digest_bytes(value): value for value in source_frames.values()}
+    return manifest_path, frame_lookup
+
+
 def _frame_bytes(color: tuple[int, int, int]) -> bytes:
     output = BytesIO()
     Image.new("RGB", (1000, 1000), color).save(output, format="PNG", optimize=False)
@@ -84,8 +299,6 @@ def _scene_targets(event_id: str, *, count: int) -> tuple[dict[str, Any], dict[s
 
 
 def _scene_manifest(root: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, dict[str, bytes]]:
-    from test_rfdetr_card_cluster_materialization import _manifest_fixture
-
     monkeypatch.setattr(reviewed_campaign, "REQUIRED_SEALED_TEST_GROUPS", 1)
     manifest_path, _ = _manifest_fixture(root, monkeypatch)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

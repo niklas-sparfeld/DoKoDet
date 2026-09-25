@@ -77,20 +77,6 @@ The materializer accepts only a frozen M0 manifest. Ignore-region frames and unu
 remain in `exclusions.json`; they do not become background targets. The output is disposable and
 can be rebuilt from the same manifest with identical digests.
 
-Epic 0071 M2 derives one full-frame `card_cluster` detection target from each connected component
-of reviewed 0068 visible-card boxes. It writes train and validation COCO views, source-card and
-cluster lineage, coverage and scale reports, and an explicit receipt for ignored, ineligible, and
-sealed-test inputs:
-
-```bash
-doko data rfdetr-card-cluster-materialize \
-  --manifest data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json \
-  --output .runtime/rfdetr-card-cluster-0071
-```
-
-The materializer uses no processor predictions as targets. It verifies source-frame digests and
-keeps the 0068 sealed-test partition out of the training view.
-
 Epic 0063 M0 provides a read-only audit of the legacy CardEventNet tree. It records every source,
 annotation, review, split, manifest, cache, and output path with its digest, intended disposition,
 and destination. It reconciles these paths with shared recording bundles, event revisions,

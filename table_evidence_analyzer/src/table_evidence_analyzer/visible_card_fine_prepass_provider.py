@@ -14,14 +14,15 @@ from typing import Any, Literal
 from PIL import Image, UnidentifiedImageError
 
 from . import visible_cards
-from .visible_card_cascade import (
-    CASCADE_FINE_INPUT_SIZE,
-    CoarseProposal,
+from .visible_card_cluster_crops import crop_source_image
+from .visible_card_cluster_geometry import (
+    VISIBLE_CARD_MODEL_INPUT_SIZE,
+    ClusterProposal,
     MappedPrediction,
     PixelBox,
     PixelPoint,
     _polygon_mask,
-    build_cascade_layout,
+    build_cluster_layout,
     reconcile_predictions,
 )
 from .visible_cards import (
@@ -44,7 +45,7 @@ FINE_PREPASS_PROVIDER_MANIFEST = {
     "model_bundle_schema": "rfdetr-segmentation-bundle/v1",
     "model_class": "RFDETRSegMedium",
     "model_variant": "rfdetr-seg-medium",
-    "input_size": [CASCADE_FINE_INPUT_SIZE, CASCADE_FINE_INPUT_SIZE],
+    "input_size": [VISIBLE_CARD_MODEL_INPUT_SIZE, VISIBLE_CARD_MODEL_INPUT_SIZE],
     "class_name": "visible_card",
     "prepass_threshold": FINE_PREPASS_THRESHOLD,
     "crop_routing_threshold": FINE_PREPASS_THRESHOLD,
@@ -129,28 +130,6 @@ def _normalized_polygon_area(polygon: tuple[Any, ...]) -> int:
     )
 
 
-def _crop_source_image(source: Image.Image, crop: Any) -> Image.Image:
-    canvas = Image.new("RGB", (crop.crop_width, crop.crop_height), crop.padding_color)
-    source_box = crop.padded_square_box.intersection(
-        PixelBox(0, 0, crop.source_width, crop.source_height)
-    )
-    if source_box is None:
-        return canvas
-    rectangle = (
-        math.floor(source_box.x_min),
-        math.floor(source_box.y_min),
-        math.ceil(source_box.x_max),
-        math.ceil(source_box.y_max),
-    )
-    piece = source.crop(rectangle)
-    destination = (
-        math.floor(source_box.x_min - crop.padded_square_box.x_min),
-        math.floor(source_box.y_min - crop.padded_square_box.y_min),
-    )
-    canvas.paste(piece, destination)
-    return canvas
-
-
 def _png_bytes(image: Image.Image) -> bytes:
     output = BytesIO()
     image.save(output, format="PNG", optimize=False)
@@ -201,7 +180,7 @@ class LocalVisibleCardFinePrepassProvider:
         )
         self.bundle = self._segmentation.bundle
         self.device = device
-        self.input_size = CASCADE_FINE_INPUT_SIZE
+        self.input_size = VISIBLE_CARD_MODEL_INPUT_SIZE
         self.confidence_threshold = FINE_PREPASS_THRESHOLD
         self.crop_routing_threshold = FINE_PREPASS_THRESHOLD
         self.load_latency_ms = self._segmentation.load_latency_ms
@@ -397,10 +376,10 @@ class LocalVisibleCardFinePrepassProvider:
             prepass_predictions = self._map_predictions(
                 prepass_records, cluster=None, origin="prepass"
             )
-            layout = build_cascade_layout(
+            layout = build_cluster_layout(
                 tuple(
                     # The generic layout contract consumes confidence-qualified boxes.
-                    CoarseProposal(
+                    ClusterProposal(
                         proposal_id=prediction.prediction_id,
                         box=prediction.box,
                         score=prediction.score,
@@ -409,7 +388,7 @@ class LocalVisibleCardFinePrepassProvider:
                 ),
                 frame_width=request.width,
                 frame_height=request.height,
-                coarse_threshold=self.crop_routing_threshold,
+                confidence_threshold=self.crop_routing_threshold,
                 model_input_size=self.input_size,
             )
         except Exception as error:
@@ -428,7 +407,7 @@ class LocalVisibleCardFinePrepassProvider:
             "predictions": [item.to_mapping() for item in prepass_predictions],
         }
         layout_mapping = layout.to_mapping()
-        layout_mapping["routing_threshold"] = layout_mapping.pop("coarse_threshold")
+        layout_mapping["routing_threshold"] = layout_mapping.pop("confidence_threshold")
         raw["clusters"] = {
             "status": "ok" if layout.clusters else "empty",
             "layout": layout_mapping,
@@ -449,7 +428,7 @@ class LocalVisibleCardFinePrepassProvider:
         crop_predictions: list[MappedPrediction] = []
         refinement_records: list[dict[str, Any]] = []
         for cluster in layout.clusters:
-            crop_image = _crop_source_image(source_image, cluster)
+            crop_image = crop_source_image(source_image, cluster)
             crop_digest = hashlib.sha256(_png_bytes(crop_image)).hexdigest()
             try:
                 diagnostics, records = self._predict(crop_image)

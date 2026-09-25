@@ -26,10 +26,7 @@ type ProcessorOrigin = "cloud" | "local";
 type VisibleCardModelVariant =
   | "gemini"
   | "local"
-  | "local-rfdetr-segmentation"
-  | "local-rfdetr-cascade"
-  | "local-rfdetr-cascade-0068"
-  | "local-rfdetr-cascade-0070";
+  | "local-rfdetr-segmentation";
 
 const VISIBLE_CARD_MODEL_VARIANTS: readonly {
   value: VisibleCardModelVariant;
@@ -41,18 +38,7 @@ const VISIBLE_CARD_MODEL_VARIANTS: readonly {
     value: "local-rfdetr-segmentation",
     label: "Local · RF-DETR segmentation",
   },
-  {
-    value: "local-rfdetr-cascade",
-    label: "Local · RF-DETR cascade (configured)",
-  },
-  {
-    value: "local-rfdetr-cascade-0068",
-    label: "Local · RF-DETR cascade · 0068 reviewed",
-  },
-  {
-    value: "local-rfdetr-cascade-0070",
-    label: "Local · RF-DETR cascade · 0070 synthetic",
-  },
+
 ];
 
 const RUN_STAGE_KEYS: readonly RunStageKey[] = [
