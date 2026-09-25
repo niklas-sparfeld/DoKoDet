@@ -20,8 +20,8 @@
   rules, deterministic lineage digest, and pre-queue versus per-item failure semantics.
 - **M1:** Complete (2026-09-25) — resolve one selected generated input before queueing and retain
   its exact manifest and provenance through run storage, outcomes, and crop previews.
-- **M2:** Not started — make virtual-card derived visible regions a selectable visual identity
-  input and materialize their deterministic identity crops.
+- **M2:** Complete (2026-09-25) — resolve reviewed virtual-card regions from the completed
+  maintained reference and freeze their deterministic crop-input lineage.
 - **M3:** Not started — expose clear input selection and inspectable provenance in the recording
   workspace, with focused integration and regression coverage.
 
@@ -199,6 +199,23 @@ Acceptance:
   passed. One Starlette deprecation warning remains in the backend test client.
 
 ### M2 — Materialize reviewed virtual-card identity crops
+
+#### M2 implementation evidence — 2026-09-25
+
+- Visual identity now accepts a `HumanProducer` visible-card revision only when it is the current
+  completed maintained reference at queue time. The run then stores that exact revision. Worker,
+  retry, and preview validation use the frozen revision and do not switch to a later reference.
+- Reused the maintained reference's materialized candidate regions and the shared scene-derived
+  view validator. The resolver rejects incomplete or stale scene receipts, non-reviewed geometry,
+  mixed scene or calibration revisions, and source revisions that do not match the accepted video.
+  It does not project poses or recalculate occlusion in the identity processor.
+- Added a deterministic reviewed-virtual-card manifest with scene, calibration, derivation-receipt,
+  and derived-visible-region digests. Face-down side and unusable state are retained on each item.
+- Verification: 7 visual-identity API tests passed, including deterministic lineage and rejection
+  when the completed-reference pointer differs. Shared card-plane geometry and derived-view tests
+  passed, including rounded outlines, occlusion, disconnected visible components, reviewed-region
+  crops, and warm-cache identity. The focused stale-scene completion test passed. Ruff and format
+  checks passed. One Starlette test-client deprecation warning remains.
 
 - Resolve a completed maintained reference's validated derived visible-card candidate view as the
   `reviewed_virtual_card` input.

@@ -33,6 +33,7 @@ from doko_operations.derived_view import (
 )
 from doko_operations.pipeline_data import (
     DataRevision,
+    HumanProducer,
     ModelIdentity,
     PipelineSelection,
     ProcessorProducer,
@@ -66,6 +67,7 @@ from table_evidence_analyzer.visual_identity import (
     VisualIdentityRequest,
 )
 from table_evidence_analyzer.visual_identity_crop_input import (
+    ReviewedVirtualCardLineage,
     VisualIdentityCropInput,
     VisualIdentityCropInputError,
     VisualIdentityCropInputItem,
@@ -160,6 +162,7 @@ class VisualIdentityPipelineService:
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
         selection_store: PipelineSelectionStore,
+        reference_store: Any | None = None,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
@@ -170,6 +173,7 @@ class VisualIdentityPipelineService:
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
+        self.reference_store = reference_store
         self.identity_classifiers = identity_classifiers
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.cloud_max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
@@ -654,6 +658,7 @@ class VisualIdentityPipelineService:
             source=source,
             requested=requested_crop_input,
             requested_kind=requested_kind,
+            require_current_reference=True,
         )
         values = dict(raw)
         values.pop("visible_card_revision_id", None)
@@ -729,8 +734,9 @@ class VisualIdentityPipelineService:
         source: RecordingVideoSource,
         requested: Any = None,
         requested_kind: Any = None,
+        require_current_reference: bool = False,
     ) -> VisualIdentityCropInput:
-        """Resolve one exact generated revision into the versioned crop-input manifest."""
+        """Resolve one exact generated or reviewed revision into its crop-input manifest."""
 
         if not isinstance(revision.content, VisibleCardData):
             raise VisualIdentityPipelineInputError("The selected crop input is unavailable.")
@@ -744,15 +750,67 @@ class VisualIdentityPipelineService:
                 producer_run = self.run_store.require(producer.run_id)
                 provider = str(producer_run.request.configuration.get("provider", "gemini"))
                 source_kind = "rfdetr_segment" if "rfdetr" in provider.lower() else "gemini_polygon"
+            elif isinstance(producer, HumanProducer):
+                source_kind = "reviewed_virtual_card"
             else:
                 raise VisualIdentityCropInputError(
-                    "a maintained visible-card revision is not a generated crop input"
+                    "the selected revision is not a generated or maintained crop input"
                 )
             if requested_kind is not None and requested_kind != source_kind:
                 raise VisualIdentityCropInputError(
                     "the selected input kind does not match its processor source"
                 )
             kind = source_kind
+
+            if kind == "reviewed_virtual_card":
+                if not isinstance(producer, HumanProducer):
+                    raise VisualIdentityCropInputError(
+                        "reviewed virtual-card geometry needs a completed maintained reference"
+                    )
+                if require_current_reference:
+                    reference = (
+                        None
+                        if self.reference_store is None
+                        else self.reference_store.get(recording_id, "visible_cards")
+                    )
+                    if (
+                        reference is None
+                        or reference.state.draft_state != "completed"
+                        or reference.state.selected_completed_revision_id
+                        != revision.manifest.revision_id
+                    ):
+                        raise VisualIdentityCropInputError(
+                            "the selected revision is not the completed maintained "
+                            "visible-card reference"
+                        )
+                self._validate_scene_derived_views(revision.content)
+                items, lineage = self._reviewed_virtual_card_items(
+                    revision.content,
+                    fallback_scene_revision_id=revision.manifest.revision_id,
+                )
+                input_value = VisualIdentityCropInput(
+                    input_kind=kind,
+                    recording_id=recording_id,
+                    accepted_video_sha256=source.video_sha256,
+                    accepted_video_byte_length=source.byte_length,
+                    source_revision_id=revision.manifest.revision_id,
+                    source_revision_digest=sha256_bytes(
+                        json.dumps(
+                            revision.manifest.to_mapping(), sort_keys=True, separators=(",", ":")
+                        ).encode("utf-8")
+                    ),
+                    source_view_digest=source_view_digest,
+                    items=tuple(items),
+                    virtual_card_lineage=lineage,
+                )
+                input_value = VisualIdentityCropInput.from_mapping(input_value.to_mapping())
+                if requested is not None:
+                    supplied = VisualIdentityCropInput.from_mapping(requested)
+                    if supplied.to_mapping() != input_value.to_mapping():
+                        raise VisualIdentityCropInputError(
+                            "the selected crop-input descriptor does not match its source revision"
+                        )
+                return input_value
 
             if kind not in {"gemini_polygon", "rfdetr_segment"}:
                 raise VisualIdentityCropInputError("the selected crop input kind is unsupported")
@@ -801,6 +859,115 @@ class VisualIdentityPipelineService:
             raise VisualIdentityPipelineInputError(
                 f"The selected visual identity crop input is invalid: {error}."
             ) from error
+
+    @staticmethod
+    def _reviewed_virtual_card_items(
+        content: VisibleCardData,
+        *,
+        fallback_scene_revision_id: str,
+    ) -> tuple[list[VisualIdentityCropInputItem], ReviewedVirtualCardLineage]:
+        """Use only validated, materialized reviewed scene regions and retain their lineage."""
+
+        items: list[VisualIdentityCropInputItem] = []
+        scenes: list[dict[str, Any]] = []
+        receipts: list[dict[str, Any]] = []
+        scene_revision_ids: set[str] = set()
+        calibration_revision_ids: set[str] = set()
+        calibration_digests: set[str] = set()
+        for outcome in content.outcomes:
+            if outcome.card_scene is None:
+                continue
+            if outcome.status != "detected":
+                raise VisualIdentityCropInputError(
+                    "reviewed virtual-card scenes must contain detected card frames"
+                )
+            if outcome.frame_identity is None:
+                raise VisualIdentityCropInputError(
+                    "a reviewed virtual-card frame has no exact source identity"
+                )
+            envelope = outcome.card_scene
+            if not isinstance(envelope, CardSceneDraft):
+                raise VisualIdentityCropInputError(
+                    "reviewed virtual-card input needs a versioned reviewed scene"
+                )
+            if (
+                envelope.reviewed is None
+                or envelope.projection is None
+                or envelope.derived_region_receipt is None
+            ):
+                raise VisualIdentityCropInputError(
+                    "the reviewed card scene has incomplete derivation lineage"
+                )
+            scene = ReviewedCardScene.from_mapping(envelope.reviewed.scene)
+            if envelope.proposal_revision_id is not None:
+                scene_revision_ids.add(envelope.proposal_revision_id)
+            scenes.append(
+                {
+                    "frame_identity": outcome.frame_identity.to_mapping(),
+                    "scene": scene.to_mapping(),
+                    "proposal_data_digest": envelope.proposal_data_digest,
+                }
+            )
+            calibration_revision_ids.add(scene.calibration_revision_id)
+            calibration_digests.add(scene.calibration_digest)
+            receipts.append(
+                {
+                    "frame_identity": outcome.frame_identity.to_mapping(),
+                    "receipt": envelope.derived_region_receipt,
+                }
+            )
+            for candidate in outcome.candidates:
+                if not isinstance(candidate.geometry, ReviewedVisibleRegionGeometry):
+                    raise VisualIdentityCropInputError(
+                        "reviewed card scene contains non-reviewed visible geometry"
+                    )
+                items.append(
+                    VisualIdentityCropInputItem(
+                        card_id=candidate.card_id,
+                        frame_identity=outcome.frame_identity,
+                        geometry=candidate.geometry,
+                        side=candidate.side,
+                        identity_usable=candidate.side != "face_down",
+                        failure_tags=("face_down",) if candidate.side == "face_down" else (),
+                    )
+                )
+        items.sort(key=lambda item: (item.frame_identity.frame_index, item.card_id))
+        if not items or len(scene_revision_ids) > 1:
+            raise VisualIdentityCropInputError(
+                "the completed reference has no single reviewed virtual-card scene source"
+            )
+        if len(calibration_revision_ids) != 1 or len(calibration_digests) != 1:
+            raise VisualIdentityCropInputError(
+                "reviewed virtual-card scenes do not share one calibration revision"
+            )
+        scene_revision_id = next(iter(scene_revision_ids), fallback_scene_revision_id)
+        calibration_revision_id = next(iter(calibration_revision_ids))
+        calibration_digest = next(iter(calibration_digests))
+        regions = [
+            {
+                "card_id": item.card_id,
+                "frame_identity": item.frame_identity.to_mapping(),
+                "geometry": item.geometry.to_mapping(),
+                "side": item.side,
+                "identity_usable": item.identity_usable,
+                "failure_tags": list(item.failure_tags),
+            }
+            for item in items
+        ]
+        return items, ReviewedVirtualCardLineage(
+            card_scene_revision_id=scene_revision_id,
+            card_scene_digest=sha256_bytes(
+                json.dumps(scenes, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ),
+            calibration_revision_id=calibration_revision_id,
+            calibration_digest=calibration_digest,
+            scene_derivation_receipt_digest=sha256_bytes(
+                json.dumps(receipts, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ),
+            derived_visible_region_digest=sha256_bytes(
+                json.dumps(regions, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ),
+        )
 
     def _visible_revision_id(self, raw: Mapping[str, Any]) -> str:
         explicit = raw.get("visible_card_revision_id")

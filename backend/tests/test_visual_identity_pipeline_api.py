@@ -10,7 +10,9 @@ from app_factory import create_test_app
 from doko_operations.derived_view import crop_jpeg_preview_cache_key_for_source_digest
 from doko_operations.pipeline_data import (
     DataRevision,
+    HumanProducer,
     ProcessorProducer,
+    RecordingVideoSource,
     RunProgress,
     sha256_bytes,
 )
@@ -876,7 +878,7 @@ def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> No
     assert result["state"]["progress"] == {"completed": 4, "total": 4}
 
 
-def test_visual_identity_accepts_typed_card_scene_draft_views() -> None:
+def test_visual_identity_accepts_typed_card_scene_draft_views(tmp_path: Any) -> None:
     import pytest
     from doko_operations.card_plane_geometry import (
         CardPose,
@@ -983,6 +985,82 @@ def test_visual_identity_accepts_typed_card_scene_draft_views() -> None:
     )
 
     VisualIdentityPipelineService._validate_scene_derived_views(content)
+
+    crop_items, lineage = VisualIdentityPipelineService._reviewed_virtual_card_items(
+        content,
+        fallback_scene_revision_id="completed-visible-reference-01",
+    )
+    repeated_items, repeated_lineage = VisualIdentityPipelineService._reviewed_virtual_card_items(
+        content,
+        fallback_scene_revision_id="completed-visible-reference-01",
+    )
+    assert len(crop_items) == 1
+    assert crop_items[0].geometry.to_mapping() == region["geometry"]
+    assert crop_items[0].identity_usable
+    assert lineage.card_scene_revision_id == "completed-visible-reference-01"
+    assert lineage.calibration_revision_id == "calibration-01"
+    assert crop_items == repeated_items
+    assert lineage == repeated_lineage
+
+    app = create_test_app(_settings(tmp_path))
+    service = app.state.visual_identity_pipeline_service
+    source = RecordingVideoSource(
+        recording_id=RECORDING_ID,
+        relative_path=f"recordings/{RECORDING_ID}/video.mov",
+        video_sha256=digest,
+        byte_length=100,
+        duration_us=1_000_000,
+    )
+    manifest = DataRevision(
+        revision_id="reviewed-visible-reference-01",
+        content_type="visible_cards",
+        content_schema="visible-card-data/v1",
+        recording_id=RECORDING_ID,
+        source=source,
+        content_sha256=sha256_bytes(canonical_visible_card_data_bytes(content)),
+        input_revision_ids=(),
+        origin="manual",
+        producer=HumanProducer(review_id="review-01", operator_id="operator-01"),
+        coverage={"kind": "fixture"},
+        created_at="2026-01-01T00:00:00Z",
+    )
+    stored, _ = service.revision_store.publish(manifest, content)
+    service.reference_store = SimpleNamespace(
+        get=lambda _recording_id, _content_type: SimpleNamespace(
+            state=SimpleNamespace(
+                draft_state="completed",
+                selected_completed_revision_id=stored.manifest.revision_id,
+            )
+        )
+    )
+    frozen = service._freeze_crop_input(
+        RECORDING_ID,
+        stored,
+        source=source,
+        requested_kind="reviewed_virtual_card",
+        require_current_reference=True,
+    )
+    assert frozen.input_kind == "reviewed_virtual_card"
+    assert frozen.source_revision_id == stored.manifest.revision_id
+    assert frozen.items[0].geometry.to_mapping() == region["geometry"]
+    assert frozen.virtual_card_lineage is not None
+    assert frozen.virtual_card_lineage.derived_visible_region_digest
+    service.reference_store = SimpleNamespace(
+        get=lambda _recording_id, _content_type: SimpleNamespace(
+            state=SimpleNamespace(
+                draft_state="completed",
+                selected_completed_revision_id="a-different-reference",
+            )
+        )
+    )
+    with pytest.raises(VisualIdentityPipelineError, match="completed maintained"):
+        service._freeze_crop_input(
+            RECORDING_ID,
+            stored,
+            source=source,
+            requested_kind="reviewed_virtual_card",
+            require_current_reference=True,
+        )
 
     assert draft.derived_region_receipt is not None
     stale_receipt = {**draft.derived_region_receipt, "scene_digest": "b" * 64}

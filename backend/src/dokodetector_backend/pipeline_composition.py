@@ -137,6 +137,7 @@ def build_pipeline_composition(
         revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
+        reference_store=reference_store,
     )
     observation_service = ObservationPipelineService(
         revision_store=revision_store,
