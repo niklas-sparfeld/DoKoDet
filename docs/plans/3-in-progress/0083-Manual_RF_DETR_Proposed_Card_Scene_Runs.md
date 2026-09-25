@@ -17,8 +17,9 @@
 - **M0:** Complete — add a manual preflight command that checks the complete recording list,
   selected event revisions, backend readiness, and the configured RF-DETR segmentation provider
   before any processor run can start.
-- **M1:** Not started — run visible-card detection for each eligible recording with the explicit
-  `local-rfdetr-segmentation` provider and retain each exact input and output revision.
+- **M1:** Complete — add a manual batch command that preflights the complete list, runs visible-card
+  detection with the explicit `local-rfdetr-segmentation` provider, waits for terminal states, and
+  reports exact input, model, run, and output revision lineage.
 - **M2:** Not started — run proposed card scene generation from each available RF-DETR result,
   capture the automatic calibration and scene outcomes, and report all run IDs and terminal states.
 
@@ -75,3 +76,15 @@ remain processor output for operator inspection.
   or generated event revision. It visits every listed recording and starts no processor runs.
 - Focused checks passed: four operations tests, 20 backend app tests, and Ruff on all changed Python
   files. CLI help renders the new command and its options.
+
+### M1 implementation evidence — 2026-09-25
+
+- Added `doko pipeline proposed-card-scenes-visible-cards --recordings <path>`. It repeats the full
+  M0 preflight before it starts any run, then freezes each selected event revision and explicitly
+  selects `local-rfdetr-segmentation` through the recording workspace API.
+- The command polls each durable run to a terminal state, retrieves completed or partial results,
+  and reports the event revision, run ID, exact model and implementation identity, output revision
+  IDs, and per-recording failures. It continues after a failed recording.
+- Focused operations tests cover event and provider selection, lineage capture, blocked preflight,
+  continuation after failure, and result-fetch errors. Eight focused preflight and batch-run tests
+  passed; Ruff and CLI help checks passed.
