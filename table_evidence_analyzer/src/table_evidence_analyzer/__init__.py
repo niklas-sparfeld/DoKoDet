@@ -464,6 +464,20 @@ from table_evidence_analyzer.visual_identity import (
     VisualIdentityClassifierProvider,
     VisualIdentityRequest,
 )
+from table_evidence_analyzer.visual_identity_crop_input import (
+    CROP_POLICY_GEOMETRY_KINDS,
+    PER_ITEM_FAILURE_REASONS,
+    PRE_QUEUE_FAILURE_REASONS,
+    VISUAL_IDENTITY_CROP_INPUT_KINDS,
+    VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION,
+    ReviewedVirtualCardLineage,
+    VisualIdentityCropInput,
+    VisualIdentityCropInputError,
+    VisualIdentityCropInputItem,
+    canonical_visual_identity_crop_input_bytes,
+    parse_visual_identity_crop_input_bytes,
+    validate_crop_policy_compatibility,
+)
 
 __all__ = [
     "ANCHOR_BASE_WEIGHTS",
@@ -871,4 +885,16 @@ __all__ = [
     "parse_proposed_card_scene_data_bytes",
     "parse_visible_card_data_bytes",
     "parse_visual_identity_data_bytes",
+    "CROP_POLICY_GEOMETRY_KINDS",
+    "PER_ITEM_FAILURE_REASONS",
+    "PRE_QUEUE_FAILURE_REASONS",
+    "VISUAL_IDENTITY_CROP_INPUT_KINDS",
+    "VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION",
+    "ReviewedVirtualCardLineage",
+    "VisualIdentityCropInput",
+    "VisualIdentityCropInputError",
+    "VisualIdentityCropInputItem",
+    "canonical_visual_identity_crop_input_bytes",
+    "parse_visual_identity_crop_input_bytes",
+    "validate_crop_policy_compatibility",
 ]

@@ -4,7 +4,7 @@
 
 - **Summary:** Let visual identity processing select a reviewed card-scene derived crop input,
   alongside generated Gemini polygons and RF-DETR segments.
-- **Status:** Backlog
+- **Status:** In Progress
 - **Depends on:** 0072 and 0073 complete
 - **Outcome:** One visual identity run freezes exactly one selected crop input and one crop policy.
   It can classify crops derived from reviewed virtual-card scenes, generated Gemini polygons, or
@@ -16,8 +16,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze the crop-input contract, supported sources, availability rules,
-  matching rules, and failure semantics.
+- **M0:** Complete (2026-09-25) — freeze the versioned crop-input contract, source and geometry
+  rules, deterministic lineage digest, and pre-queue versus per-item failure semantics.
 - **M1:** Not started — resolve and validate each selected input through one backend crop-input
   boundary, then persist its lineage in visual identity run requests and outcomes.
 - **M2:** Not started — make virtual-card derived visible regions a selectable visual identity
@@ -119,6 +119,29 @@ does not add editing actions to the visual identity screen.
 ## 3. Delivery milestones
 
 ### M0 — Freeze crop-input semantics and fixtures
+
+#### M0 implementation evidence — 2026-09-25
+
+- Added `visual-identity-crop-input/v1` in
+  `table_evidence_analyzer.visual_identity_crop_input`. The contract freezes one of
+  `gemini_polygon`, `rfdetr_segment`, or `reviewed_virtual_card`, the accepted recording video,
+  one source revision, an ordered frame/card item manifest, and a deterministic manifest digest.
+- Reviewed virtual-card inputs require scene revision and digest, calibration revision and digest,
+  scene-derivation receipt digest, and derived visible-region digest. They accept only reviewed
+  visible-region geometry. Generated inputs accept only generated visible-region geometry and do
+  not carry virtual-card lineage.
+- Added explicit crop-policy geometry compatibility checks. The input value remains separate from
+  the crop policy and classifier provider. Face-down and identity-unusable items retain explicit
+  side, usability, and failure tags.
+- Added pre-queue failure categories for missing or mixed inputs, changed source bytes, stale
+  derivation, invalid calibration, duplicate IDs, invalid geometry, and incomplete lineage. Added
+  per-item categories for missing frames, crop errors, unusable identity, and face-down cards.
+- Added deterministic contract fixtures and rejection tests for all three input kinds, repeated
+  serialization, virtual-card lineage, policy mismatch, duplicate frame/card IDs, source mismatch,
+  missing lineage, and changed manifest digests.
+- Verification: `38` focused table-evidence tests passed; Ruff check and format checks passed for
+  all touched Python files. A root-level pytest collection is not a valid package check in this
+  checkout and still has the existing missing backend/operations environment dependencies.
 
 - Inspect the current visual identity request, visible-card revisions, completed maintained
   references, card-scene derivation receipt, derived-view cache identity, and workspace run form.
