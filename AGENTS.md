@@ -64,6 +64,14 @@ whose correct fix is unclear, or an in-progress Git operation owned by another a
 cherry-pick reaches such a conflict, preserve the evidence and describe the competing changes and
 the decision that needs human input.
 
+### Worktree naming
+
+Codex-managed worktree directories are created before the agent reads this file. `AGENTS.md`
+cannot rename that directory. When you create or name a worktree yourself, use a short,
+task-based name in lower-case kebab case, such as `mapping-corner-diagnostics` or
+`proposal-status-fix`. If the task uses a branch, use the same task-based wording after the
+`codex/` prefix. Do not use the repository directory name as a task identifier.
+
 ## Planning workflow
 
 Use the [epic board](docs/plans/README.md) for project plans. Each numbered Markdown file is one
