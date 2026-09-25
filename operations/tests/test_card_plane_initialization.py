@@ -225,6 +225,7 @@ def test_half_occluded_card_fit_resolves_a_quarter_turn() -> None:
         table_points=apply_homography(np.asarray(calibration.image_to_table), polygon),
     )
 
+    initial_fit = _fit_candidate(candidate, calibration, PoseFitRecipe(), width, height)
     with_quarter_turn = _fit_candidate(
         candidate,
         calibration,
@@ -255,11 +256,13 @@ def test_half_occluded_card_fit_resolves_a_quarter_turn() -> None:
         try_quarter_turn=True,
     )
 
+    assert initial_fit is not None
     assert with_quarter_turn is not None
     assert single_orientation is not None
     assert without_drift_penalty is not None
+    assert abs(initial_fit.pose.rotation_degrees) < 2.0
     assert with_quarter_turn.pose.rotation_degrees == 0.0
-    assert with_quarter_turn.score > single_orientation.score
+    assert single_orientation.pose.rotation_degrees == 0.0
     assert with_quarter_turn.score < without_drift_penalty.score
 
 
@@ -365,7 +368,7 @@ def test_pose_uses_calibrated_dimensions_and_low_confidence_is_visible() -> None
     assert run.diagnostics["low_confidence_suggestion_ids"] == ["candidate-000"]
     pose = run.scene.poses[0]
     assert pose.rotation_degrees == pose.rotation_degrees % 180.0
-    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-grid-search/v2"
+    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-grid-search/v3"
 
 
 def test_failed_candidate_does_not_block_a_scene_or_manual_addition() -> None:

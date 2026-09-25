@@ -33,7 +33,7 @@ from .pipeline_data import canonical_json_bytes
 
 INITIALIZATION_PROCESSOR_SCHEMA_VERSION = "card-plane-initialization-processor/v1"
 INITIALIZATION_RUN_SCHEMA_VERSION = "card-plane-initialization-run/v1"
-POSE_FIT_RECIPE_VERSION = "fixed-card-pose-grid-search/v2"
+POSE_FIT_RECIPE_VERSION = "fixed-card-pose-grid-search/v3"
 
 
 class CardPlaneInitializationError(ValueError):
@@ -239,6 +239,9 @@ class PoseFitRecipe:
     occlusion_refit_min_boundary_fraction: float = 0.05
     quarter_turn_partial_area_threshold: float = 0.82
     occlusion_center_drift_penalty: float = 0.24
+    partial_axis_swap_area_threshold: float = 0.56
+    partial_axis_swap_aspect_fraction: float = 0.82
+    partial_axis_swap_orientation_bias: float = 0.32
 
     def __post_init__(self) -> None:
         if self.center_search_radius <= 0.0 or self.angle_search_degrees <= 0.0:
@@ -273,6 +276,16 @@ class PoseFitRecipe:
             )
         if not 0.0 <= self.occlusion_center_drift_penalty <= 1.0:
             raise CardPlaneInitializationError("occlusion_center_drift_penalty must be in [0, 1]")
+        if not 0.0 < self.partial_axis_swap_area_threshold <= 1.0:
+            raise CardPlaneInitializationError("partial_axis_swap_area_threshold must be in (0, 1]")
+        if not 0.0 < self.partial_axis_swap_aspect_fraction <= 1.0:
+            raise CardPlaneInitializationError(
+                "partial_axis_swap_aspect_fraction must be in (0, 1]"
+            )
+        if not 0.0 <= self.partial_axis_swap_orientation_bias <= 1.0:
+            raise CardPlaneInitializationError(
+                "partial_axis_swap_orientation_bias must be in [0, 1]"
+            )
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -295,6 +308,9 @@ class PoseFitRecipe:
             ),
             "quarter_turn_partial_area_threshold": _round(self.quarter_turn_partial_area_threshold),
             "occlusion_center_drift_penalty": _round(self.occlusion_center_drift_penalty),
+            "partial_axis_swap_area_threshold": _round(self.partial_axis_swap_area_threshold),
+            "partial_axis_swap_aspect_fraction": _round(self.partial_axis_swap_aspect_fraction),
+            "partial_axis_swap_orientation_bias": _round(self.partial_axis_swap_orientation_bias),
         }
 
     @property
@@ -537,13 +553,16 @@ def _fit_candidate(
             1,
         )
         removed_boundary_fraction = max(0.0, 1.0 - source_area / original_boundary_count)
+        raw_seed_center, raw_seed_angle = _initial_pose(candidate.table_points)
+        seed_center, seed_angle = raw_seed_center.copy(), raw_seed_angle
+        prefer_quarter_turn = False
+        partial_axis_swap = False
         if initial_pose is None:
-            seed_center, seed_angle = _initial_pose(candidate.table_points)
             if not try_quarter_turn and not _touches_frame_boundary(candidate.source_mask):
                 seed_outline = project_fixed_card(
                     np.asarray(calibration.table_to_image, dtype=np.float64),
-                    seed_center,
-                    seed_angle,
+                    raw_seed_center,
+                    raw_seed_angle,
                     calibration.card_short_size,
                     calibration.card_long_size,
                 )
@@ -559,11 +578,41 @@ def _fit_candidate(
                     "initial pose center must contain two finite values"
                 )
             seed_angle = _normalized_angle(float(initial_pose[1]))
-        orientation_seeds = (
-            (seed_angle, _normalized_angle(seed_angle + 90.0))
-            if try_quarter_turn
-            else (seed_angle,)
-        )
+        if not _touches_frame_boundary(candidate.source_mask):
+            seed_outline = project_fixed_card(
+                np.asarray(calibration.table_to_image, dtype=np.float64),
+                raw_seed_center,
+                raw_seed_angle,
+                calibration.card_short_size,
+                calibration.card_long_size,
+            )
+            expected_area = int(np.count_nonzero(rasterize_polygon(seed_outline, width, height)))
+            visible_fraction = int(np.count_nonzero(candidate.source_mask)) / max(expected_area, 1)
+            hull = cv2.convexHull(candidate.table_points.astype(np.float32))
+            extent = cv2.minAreaRect(hull)[1]
+            observed_aspect = max(extent) / max(min(extent), 1e-9)
+            expected_aspect = calibration.card_long_size / calibration.card_short_size
+            partial_axis_swap = (
+                visible_fraction <= recipe.partial_axis_swap_area_threshold
+                and observed_aspect < expected_aspect * recipe.partial_axis_swap_aspect_fraction
+            )
+            if partial_axis_swap:
+                try_quarter_turn = True
+                if initial_pose is None:
+                    prefer_quarter_turn = True
+                else:
+                    raw_angle_distance = abs(
+                        _normalized_angle(seed_angle - raw_seed_angle + 90.0) - 90.0
+                    )
+                    prefer_quarter_turn = raw_angle_distance < 45.0
+        orientation_seeds = (seed_angle,)
+        if try_quarter_turn:
+            quarter_turn_angle = _normalized_angle(seed_angle + 90.0)
+            orientation_seeds = (
+                (quarter_turn_angle, seed_angle)
+                if prefer_quarter_turn
+                else (seed_angle, quarter_turn_angle)
+            )
         best_overall: tuple[float, np.ndarray, float] | None = None
         best_overall_key: tuple[float, ...] | None = None
         for orientation_index, orientation_seed in enumerate(orientation_seeds):
@@ -613,6 +662,8 @@ def _fit_candidate(
                                     * removed_boundary_fraction
                                     * normalized_drift
                                 )
+                            if partial_axis_swap and orientation_index == 1:
+                                score -= recipe.partial_axis_swap_orientation_bias
                             tie_break = (
                                 score,
                                 -float(np.linalg.norm(trial_center - center)),
