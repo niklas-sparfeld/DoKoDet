@@ -859,6 +859,61 @@ class VisualIdentityCropIdentity:
 
 
 @dataclass(frozen=True, slots=True)
+class VisualIdentityCropInputProvenance:
+    """The selected crop input and manifest that supplied one identity outcome."""
+
+    input_kind: str
+    manifest_digest: str
+    source_revision_id: str
+    source_revision_digest: str
+    source_view_digest: str
+
+    @classmethod
+    def from_mapping(
+        cls, raw: Mapping[str, Any], context: str = "crop_input_provenance"
+    ) -> "VisualIdentityCropInputProvenance":
+        data = _mapping(raw, context)
+        _strict(
+            data,
+            {
+                "schema_version",
+                "input_kind",
+                "manifest_digest",
+                "source_revision_id",
+                "source_revision_digest",
+                "source_view_digest",
+            },
+            context,
+        )
+        if data["schema_version"] != "visual-identity-crop-input-provenance/v1":
+            raise PipelineDataError(f"{context}.schema_version is unsupported")
+        kind = data["input_kind"]
+        if kind not in {"gemini_polygon", "rfdetr_segment", "reviewed_virtual_card"}:
+            raise PipelineDataError(f"{context}.input_kind is unsupported")
+        return cls(
+            input_kind=kind,
+            manifest_digest=_digest(data["manifest_digest"], f"{context}.manifest_digest"),
+            source_revision_id=_identifier(
+                data["source_revision_id"], f"{context}.source_revision_id"
+            ),
+            source_revision_digest=_digest(
+                data["source_revision_digest"], f"{context}.source_revision_digest"
+            ),
+            source_view_digest=_digest(data["source_view_digest"], f"{context}.source_view_digest"),
+        )
+
+    def to_mapping(self) -> dict[str, str]:
+        return {
+            "schema_version": "visual-identity-crop-input-provenance/v1",
+            "input_kind": self.input_kind,
+            "manifest_digest": self.manifest_digest,
+            "source_revision_id": self.source_revision_id,
+            "source_revision_digest": self.source_revision_digest,
+            "source_view_digest": self.source_view_digest,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class VisualIdentityCandidate:
     """One ordered canonical visual card identity candidate."""
 
@@ -911,6 +966,7 @@ class VisualIdentityOutcome:
     candidates: tuple[VisualIdentityCandidate, ...]
     unusable_reason: str | None = None
     error: str | None = None
+    crop_input_provenance: VisualIdentityCropInputProvenance | None = None
 
     @classmethod
     def from_mapping(
@@ -920,6 +976,19 @@ class VisualIdentityOutcome:
         _strict(
             data,
             {
+                "card_id",
+                "frame_identity",
+                "geometry",
+                "crop_identity",
+                "classifier",
+                "status",
+                "candidates",
+                "unusable_reason",
+                "error",
+                "crop_input_provenance",
+            }
+            if "crop_input_provenance" in data
+            else {
                 "card_id",
                 "frame_identity",
                 "geometry",
@@ -968,6 +1037,14 @@ class VisualIdentityOutcome:
         error = data["error"]
         if error is not None:
             error = _text(error, f"{context}.error")
+        raw_provenance = data.get("crop_input_provenance")
+        provenance = (
+            None
+            if raw_provenance is None
+            else VisualIdentityCropInputProvenance.from_mapping(
+                _mapping(raw_provenance, f"{context}.crop_input_provenance")
+            )
+        )
         if status == "classified" and (
             not candidates or unusable_reason is not None or error is not None
         ):
@@ -994,6 +1071,7 @@ class VisualIdentityOutcome:
             candidates=candidates,
             unusable_reason=unusable_reason,
             error=error,
+            crop_input_provenance=provenance,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -1009,6 +1087,11 @@ class VisualIdentityOutcome:
             "candidates": [candidate.to_mapping() for candidate in self.candidates],
             "unusable_reason": self.unusable_reason,
             "error": self.error,
+            "crop_input_provenance": (
+                None
+                if self.crop_input_provenance is None
+                else self.crop_input_provenance.to_mapping()
+            ),
         }
 
 
@@ -1349,9 +1432,7 @@ class ProposedCardSceneData:
         if len(frame_ids) != len(set(frame_ids)):
             raise PipelineDataError("proposed card scene frames must have unique IDs")
         calibration_mapping = _mapping(calibration, "proposed calibration")
-        diagnostics_mapping = _mapping(
-            calibration_diagnostics, "proposed calibration diagnostics"
-        )
+        diagnostics_mapping = _mapping(calibration_diagnostics, "proposed calibration diagnostics")
         if not calibration_mapping or not diagnostics_mapping:
             raise PipelineDataError("proposed calibration values must not be empty")
         _validate_json(calibration_mapping, "proposed calibration")

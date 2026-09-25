@@ -54,14 +54,22 @@ from table_evidence_analyzer.pipeline_data import (
     VisualIdentityCandidate,
     VisualIdentityClassifierIdentity,
     VisualIdentityCropIdentity,
+    VisualIdentityCropInputProvenance,
     VisualIdentityData,
     VisualIdentityOutcome,
+    canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
 )
 from table_evidence_analyzer.visual_identity import (
     CardIdentityClassifierProvider,
     VisualIdentityClassifierProvider,
     VisualIdentityRequest,
+)
+from table_evidence_analyzer.visual_identity_crop_input import (
+    VisualIdentityCropInput,
+    VisualIdentityCropInputError,
+    VisualIdentityCropInputItem,
+    validate_crop_policy_compatibility,
 )
 
 from dokodetector_backend.config import Settings
@@ -433,6 +441,7 @@ class VisualIdentityPipelineService:
                 "The selected visual identity revision does not match the accepted recording video."
             )
         outcome = self._require_identity_outcome(revision, item_id)
+        self._validate_crop_input_provenance(revision, outcome)
         crop = outcome.crop_identity
         if crop is None or crop.status != "usable" or crop.image_sha256 is None:
             raise DerivedViewError("The identity crop is unavailable.")
@@ -446,6 +455,7 @@ class VisualIdentityPipelineService:
         _, source = self._accepted_source(recording_id)
         revision = self._require_identity_revision(recording_id, revision_id, source=source)
         outcome = self._require_identity_outcome(revision, item_id)
+        self._validate_crop_input_provenance(revision, outcome, source=source)
         if outcome.crop_identity is None or outcome.crop_identity.status != "usable":
             raise DerivedViewError("The identity crop is unavailable.")
         with self._derived_view_lock:
@@ -471,6 +481,83 @@ class VisualIdentityPipelineService:
             raise DerivedViewError("the resolved identity crop changed")
         return crop
 
+    def _validate_crop_input_provenance(
+        self,
+        output_revision: StoredPipelineRevision,
+        outcome: VisualIdentityOutcome,
+        *,
+        source: RecordingVideoSource | None = None,
+    ) -> VisualIdentityCropInput:
+        """Reject a stored crop whose run, source item, or manifest lineage has changed."""
+
+        provenance = outcome.crop_input_provenance
+        run_id = getattr(output_revision.manifest.producer, "run_id", None)
+        if provenance is None or not isinstance(run_id, str):
+            raise DerivedViewError("the identity crop input provenance is unavailable")
+        run = self.run_store.require(run_id)
+        if run.request.crop_input is None or len(run.request.input_revision_ids) != 1:
+            raise DerivedViewError("the identity crop input manifest is unavailable")
+        accepted_source = source
+        if accepted_source is None:
+            _, accepted_source = self._accepted_source(run.request.source.recording_id)
+        if accepted_source != run.request.source:
+            raise DerivedViewError("the identity crop input source changed")
+        input_revision = self.revision_store.require(run.request.input_revision_ids[0])
+        frozen_input = self._freeze_crop_input(
+            run.request.source.recording_id,
+            input_revision,
+            source=accepted_source,
+            requested=run.request.crop_input,
+        )
+        expected = self._crop_input_provenance(
+            frozen_input,
+            next(
+                (
+                    item
+                    for item in frozen_input.items
+                    if item.card_id == outcome.card_id
+                    and item.frame_identity.to_mapping() == outcome.frame_identity.to_mapping()
+                ),
+                None,
+            ),
+        )
+        if expected is None or provenance != expected:
+            raise DerivedViewError("the identity crop input lineage changed")
+        item = next(
+            (
+                item
+                for item in frozen_input.items
+                if item.card_id == outcome.card_id
+                and item.frame_identity.to_mapping() == outcome.frame_identity.to_mapping()
+            ),
+            None,
+        )
+        if item is None or item.geometry.to_mapping() != outcome.geometry.to_mapping():
+            raise DerivedViewError("the identity crop geometry changed")
+        try:
+            validate_crop_policy_compatibility(
+                frozen_input,
+                str((run.request.crop_policy or {}).get("policy_id", "")),
+            )
+        except VisualIdentityCropInputError as error:
+            raise DerivedViewError("the identity crop policy is incompatible") from error
+        return frozen_input
+
+    @staticmethod
+    def _crop_input_provenance(
+        crop_input: VisualIdentityCropInput,
+        item: VisualIdentityCropInputItem | None,
+    ) -> VisualIdentityCropInputProvenance | None:
+        if item is None:
+            return None
+        return VisualIdentityCropInputProvenance(
+            input_kind=crop_input.input_kind,
+            manifest_digest=crop_input.computed_manifest_digest,
+            source_revision_id=crop_input.source_revision_id,
+            source_revision_digest=crop_input.source_revision_digest,
+            source_view_digest=crop_input.source_view_digest,
+        )
+
     def resolve_identity_crop_browser_preview(
         self,
         recording_id: str,
@@ -480,6 +567,16 @@ class VisualIdentityPipelineService:
     ) -> ResolvedCropJpegPreview:
         """Resolve and cache one browser preview after a digest-only cache miss."""
 
+        revision = self._require_identity_revision(recording_id, revision_id)
+        outcome = self._require_identity_outcome(revision, item_id)
+        self._validate_crop_input_provenance(revision, outcome)
+        crop_identity = outcome.crop_identity
+        if (
+            crop_identity is None
+            or crop_identity.status != "usable"
+            or crop_identity.image_sha256 != source_crop_sha256
+        ):
+            raise DerivedViewError("the browser preview does not match the frozen identity crop")
         with self._derived_view_lock:
             cached = resolve_crop_jpeg_preview_from_cache(
                 source_crop_sha256,
@@ -539,7 +636,7 @@ class VisualIdentityPipelineService:
         if not isinstance(raw, Mapping):
             raise VisualIdentityPipelineInputError("request must be an object.")
         _, source = self._accepted_source(recording_id)
-        visible_revision_id = self._visible_revision_id(recording_id, raw)
+        visible_revision_id = self._visible_revision_id(raw)
         visible_revision = self.revision_store.require(visible_revision_id)
         if (
             visible_revision.manifest.content_type != "visible_cards"
@@ -549,8 +646,18 @@ class VisualIdentityPipelineService:
             raise VisualIdentityPipelineInputError(
                 "The selected visible-card revision does not match the accepted recording video."
             )
+        requested_crop_input = raw.get("crop_input")
+        requested_kind = raw.get("crop_input_kind")
+        crop_input = self._freeze_crop_input(
+            recording_id,
+            visible_revision,
+            source=source,
+            requested=requested_crop_input,
+            requested_kind=requested_kind,
+        )
         values = dict(raw)
         values.pop("visible_card_revision_id", None)
+        values.pop("crop_input_kind", None)
         values.setdefault("schema_version", "processor-run-request/v1")
         values.setdefault("run_id", payload.get("run_id"))
         if not values.get("run_id"):
@@ -581,6 +688,13 @@ class VisualIdentityPipelineService:
         if values.get("crop_policy") is None:
             values["crop_policy"] = _default_crop_policy(visible_revision.content)
         try:
+            validate_crop_policy_compatibility(crop_input, str(values["crop_policy"]["policy_id"]))
+        except (KeyError, TypeError, VisualIdentityCropInputError) as error:
+            raise VisualIdentityPipelineInputError(
+                "The crop policy is incompatible with the selected crop input."
+            ) from error
+        values["crop_input"] = crop_input.to_mapping()
+        try:
             request = ProcessorRunRequest.from_mapping(values)
         except (TypeError, ValueError) as error:
             raise VisualIdentityPipelineInputError(
@@ -607,7 +721,88 @@ class VisualIdentityPipelineService:
             )
         return request
 
-    def _visible_revision_id(self, recording_id: str, raw: Mapping[str, Any]) -> str:
+    def _freeze_crop_input(
+        self,
+        recording_id: str,
+        revision: StoredPipelineRevision,
+        *,
+        source: RecordingVideoSource,
+        requested: Any = None,
+        requested_kind: Any = None,
+    ) -> VisualIdentityCropInput:
+        """Resolve one exact generated revision into the versioned crop-input manifest."""
+
+        if not isinstance(revision.content, VisibleCardData):
+            raise VisualIdentityPipelineInputError("The selected crop input is unavailable.")
+        try:
+            source_view_bytes = canonical_visible_card_data_bytes(revision.content)
+            source_view_digest = sha256_bytes(source_view_bytes)
+            if source_view_digest != revision.manifest.content_sha256:
+                raise VisualIdentityCropInputError("the selected source view changed")
+            producer = revision.manifest.producer
+            if isinstance(producer, ProcessorProducer):
+                producer_run = self.run_store.require(producer.run_id)
+                provider = str(producer_run.request.configuration.get("provider", "gemini"))
+                source_kind = "rfdetr_segment" if "rfdetr" in provider.lower() else "gemini_polygon"
+            else:
+                raise VisualIdentityCropInputError(
+                    "a maintained visible-card revision is not a generated crop input"
+                )
+            if requested_kind is not None and requested_kind != source_kind:
+                raise VisualIdentityCropInputError(
+                    "the selected input kind does not match its processor source"
+                )
+            kind = source_kind
+
+            if kind not in {"gemini_polygon", "rfdetr_segment"}:
+                raise VisualIdentityCropInputError("the selected crop input kind is unsupported")
+            items: list[VisualIdentityCropInputItem] = []
+            for outcome in revision.content.outcomes:
+                if outcome.status != "detected":
+                    continue
+                if outcome.frame_identity is None:
+                    raise VisualIdentityCropInputError("a selected frame has no exact identity")
+                for card in outcome.candidates:
+                    items.append(
+                        VisualIdentityCropInputItem(
+                            card_id=card.card_id,
+                            frame_identity=outcome.frame_identity,
+                            geometry=card.geometry,
+                            side=card.side,
+                            identity_usable=card.side != "face_down",
+                        )
+                    )
+            items.sort(key=lambda item: (item.frame_identity.frame_index, item.card_id))
+            input_value = VisualIdentityCropInput(
+                input_kind=kind,
+                recording_id=recording_id,
+                accepted_video_sha256=source.video_sha256,
+                accepted_video_byte_length=source.byte_length,
+                source_revision_id=revision.manifest.revision_id,
+                source_revision_digest=sha256_bytes(
+                    json.dumps(
+                        revision.manifest.to_mapping(),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ),
+                source_view_digest=source_view_digest,
+                items=tuple(items),
+            )
+            input_value = VisualIdentityCropInput.from_mapping(input_value.to_mapping())
+            if requested is not None:
+                supplied = VisualIdentityCropInput.from_mapping(requested)
+                if supplied.to_mapping() != input_value.to_mapping():
+                    raise VisualIdentityCropInputError(
+                        "the selected crop-input descriptor does not match its source revision"
+                    )
+            return input_value
+        except (VisualIdentityCropInputError, PipelineNotFound, TypeError, ValueError) as error:
+            raise VisualIdentityPipelineInputError(
+                f"The selected visual identity crop input is invalid: {error}."
+            ) from error
+
+    def _visible_revision_id(self, raw: Mapping[str, Any]) -> str:
         explicit = raw.get("visible_card_revision_id")
         input_ids = raw.get("input_revision_ids")
         if explicit is not None:
@@ -628,15 +823,8 @@ class VisualIdentityPipelineService:
                     "visual identity classification needs one visible-card input revision."
                 )
             return input_ids[0]
-        selection = self.selection_store.get(recording_id, "visible_cards")
-        if selection is None:
-            raise VisualIdentityPipelineInputError(
-                "No selected visible-card revision is available."
-            )
-        return (
-            selection.selected_completed_reference_revision_id
-            or selection.selected_generated_revision_id
-            or _raise_input("No selected visible-card revision is available.")
+        raise VisualIdentityPipelineInputError(
+            "Select one exact visible-card revision before starting visual identity."
         )
 
     @classmethod
@@ -696,32 +884,57 @@ class VisualIdentityPipelineService:
     def _execute(self, run_id: str) -> None:
         try:
             run = self.run_store.require(run_id)
+            if len(run.request.input_revision_ids) != 1 or run.request.crop_input is None:
+                raise VisualIdentityPipelineError("The frozen crop input is unavailable.")
             visible_revision = self.revision_store.require(run.request.input_revision_ids[0])
             if not isinstance(visible_revision.content, VisibleCardData):
                 raise VisualIdentityPipelineError("The visible-card input revision is invalid.")
-            candidates = [
-                (outcome, candidate)
+            _, source = self._accepted_source(run.request.source.recording_id)
+            frozen_input = self._freeze_crop_input(
+                run.request.source.recording_id,
+                visible_revision,
+                source=source,
+                requested=run.request.crop_input,
+            )
+            if frozen_input.to_mapping() != run.request.crop_input:
+                raise VisualIdentityPipelineError("The frozen crop input changed.")
+            candidate_lookup = {
+                (outcome.frame_identity.frame_index, candidate.card_id): (outcome, candidate)
                 for outcome in visible_revision.content.outcomes
-                if outcome.status == "detected"
+                if outcome.status == "detected" and outcome.frame_identity is not None
                 for candidate in outcome.candidates
-            ]
+            }
+            candidates: list[tuple[Any, Any, VisualIdentityCropInputItem]] = []
+            for crop_item in frozen_input.items:
+                key = (crop_item.frame_identity.frame_index, crop_item.card_id)
+                pair = candidate_lookup.get(key)
+                if (
+                    pair is None
+                    or pair[0].frame_identity.to_mapping() != crop_item.frame_identity.to_mapping()
+                    or pair[1].geometry.to_mapping() != crop_item.geometry.to_mapping()
+                    or pair[1].side != crop_item.side
+                ):
+                    raise VisualIdentityPipelineError(
+                        "The frozen crop input no longer matches its source."
+                    )
+                candidates.append((pair[0], pair[1], crop_item))
             self._validate_scene_derived_views(visible_revision.content)
             outcomes_by_index: list[VisualIdentityOutcome | None] = [None] * len(candidates)
             prior_items = {item.item_id: item for item in run.state.items}
-            candidate_ids = {candidate.card_id for _, candidate in candidates}
+            candidate_ids = {candidate.card_id for _, candidate, _ in candidates}
             if not set(prior_items).issubset(candidate_ids):
                 raise VisualIdentityPipelineError(
                     "The retry contains an item that is not in the frozen card input."
                 )
             items_by_index: list[RunItemOutcome | None] = [
-                prior_items.get(candidate.card_id) for _, candidate in candidates
+                prior_items.get(candidate.card_id) for _, candidate, _ in candidates
             ]
             pending_candidates: list[tuple[int, Any, Any]] = []
             completed = 0
-            for index, (visible_outcome, candidate) in enumerate(candidates):
+            for index, (visible_outcome, candidate, crop_item) in enumerate(candidates):
                 item = items_by_index[index]
                 if item is None or item.status != "succeeded":
-                    pending_candidates.append((index, visible_outcome, candidate))
+                    pending_candidates.append((index, visible_outcome, candidate, crop_item))
                     continue
                 if item.result is None:
                     raise VisualIdentityPipelineError(
@@ -748,12 +961,14 @@ class VisualIdentityPipelineService:
                 thread_name_prefix="visual-identity-card",
             ) as executor:
                 futures: dict[Future[VisualIdentityOutcome], int] = {
-                    executor.submit(self._process_card_timed, run, outcome, candidate): index
-                    for index, outcome, candidate in pending_candidates
+                    executor.submit(
+                        self._process_card_timed, run, outcome, candidate, crop_item
+                    ): index
+                    for index, outcome, candidate, crop_item in pending_candidates
                 }
                 for future in as_completed(futures):
                     index = futures[future]
-                    outcome, candidate = candidates[index]
+                    outcome, candidate, crop_item = candidates[index]
                     try:
                         result = future.result()
                     except Exception:
@@ -770,6 +985,9 @@ class VisualIdentityPipelineService:
                             status="failed",
                             candidates=(),
                             error="The visual identity classifier failed for this card.",
+                            crop_input_provenance=self._crop_input_provenance(
+                                frozen_input, crop_item
+                            ),
                         )
                     outcomes_by_index[index] = result
                     item = RunItemOutcome(
@@ -815,6 +1033,7 @@ class VisualIdentityPipelineService:
         run: StoredProcessorRun,
         visible_outcome: Any,
         card: Any,
+        crop_item: VisualIdentityCropInputItem,
         *,
         timings: dict[str, float | None] | None = None,
     ) -> VisualIdentityOutcome:
@@ -822,6 +1041,8 @@ class VisualIdentityPipelineService:
         frame_identity = visible_outcome.frame_identity
         geometry: PipelineGeometry = card.geometry
         classifier_identity = self._classifier_identity(run.request)
+        crop_input = VisualIdentityCropInput.from_mapping(run.request.crop_input or {})
+        provenance = self._crop_input_provenance(crop_input, crop_item)
         frame = None
         try:
             started = time.monotonic()
@@ -849,6 +1070,7 @@ class VisualIdentityPipelineService:
                 status="failed",
                 candidates=(),
                 error="The exact visible-card frame is unavailable.",
+                crop_input_provenance=provenance,
             )
         finally:
             if timings is not None:
@@ -884,6 +1106,7 @@ class VisualIdentityPipelineService:
                 status="failed",
                 candidates=(),
                 error="The visible-card identity crop is unavailable.",
+                crop_input_provenance=provenance,
             )
         finally:
             if timings is not None:
@@ -897,6 +1120,22 @@ class VisualIdentityPipelineService:
                 classifier=classifier_identity,
                 status="face_down",
                 candidates=(),
+                crop_input_provenance=provenance,
+            )
+        if not crop_item.identity_usable:
+            return VisualIdentityOutcome(
+                card_id=card.card_id,
+                frame_identity=frame_identity,
+                geometry=geometry,
+                crop_identity=crop_identity,
+                classifier=classifier_identity,
+                status="unusable",
+                candidates=(),
+                unusable_reason=(
+                    ", ".join(crop_item.failure_tags)
+                    or "The selected crop input marks this identity as unusable."
+                ),
+                crop_input_provenance=provenance,
             )
         if crop.status == "unusable":
             return VisualIdentityOutcome(
@@ -908,6 +1147,7 @@ class VisualIdentityPipelineService:
                 status="unusable",
                 candidates=(),
                 unusable_reason=crop.unusable_reason,
+                crop_input_provenance=provenance,
             )
         classifier_started: float | None = None
         try:
@@ -935,6 +1175,7 @@ class VisualIdentityPipelineService:
                     status="failed",
                     candidates=(),
                     error=result.error or "The visual identity classifier failed for this card.",
+                    crop_input_provenance=provenance,
                 )
             if result.classification == "face_down":
                 return VisualIdentityOutcome(
@@ -945,6 +1186,7 @@ class VisualIdentityPipelineService:
                     classifier=classifier_identity,
                     status="face_down",
                     candidates=(),
+                    crop_input_provenance=provenance,
                 )
             if result.classification == "unknown" or not result.candidates:
                 return VisualIdentityOutcome(
@@ -956,6 +1198,7 @@ class VisualIdentityPipelineService:
                     status="unusable",
                     candidates=(),
                     unusable_reason="The classifier returned no identity candidates.",
+                    crop_input_provenance=provenance,
                 )
             if result.classification != "identity":
                 raise VisualIdentityPipelineError(
@@ -981,6 +1224,7 @@ class VisualIdentityPipelineService:
                 status="failed",
                 candidates=(),
                 error="The visual identity classifier failed for this card.",
+                crop_input_provenance=provenance,
             )
         finally:
             if timings is not None and classifier_started is not None:
@@ -995,15 +1239,20 @@ class VisualIdentityPipelineService:
             classifier=classifier_identity,
             status="classified",
             candidates=candidates,
+            crop_input_provenance=provenance,
         )
 
     def _process_card_timed(
-        self, run: StoredProcessorRun, visible_outcome: Any, card: Any
+        self,
+        run: StoredProcessorRun,
+        visible_outcome: Any,
+        card: Any,
+        crop_item: VisualIdentityCropInputItem,
     ) -> VisualIdentityOutcome:
         started = time.monotonic()
         timings: dict[str, float | None] = {}
         try:
-            return self._process_card(run, visible_outcome, card, timings=timings)
+            return self._process_card(run, visible_outcome, card, crop_item, timings=timings)
         finally:
             LOGGER.info(
                 "visual_identity_card_timing",
@@ -1284,10 +1533,6 @@ def _pipeline_crop_identity_mapping(crop: ResolvedCrop) -> dict[str, Any]:
 
 def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
-
-
-def _raise_input(message: str) -> str:
-    raise VisualIdentityPipelineInputError(message)
 
 
 __all__ = [

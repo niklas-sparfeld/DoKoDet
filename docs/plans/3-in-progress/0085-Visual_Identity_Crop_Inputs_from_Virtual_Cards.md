@@ -18,8 +18,8 @@
 
 - **M0:** Complete (2026-09-25) — freeze the versioned crop-input contract, source and geometry
   rules, deterministic lineage digest, and pre-queue versus per-item failure semantics.
-- **M1:** Not started — resolve and validate each selected input through one backend crop-input
-  boundary, then persist its lineage in visual identity run requests and outcomes.
+- **M1:** Complete (2026-09-25) — resolve one selected generated input before queueing and retain
+  its exact manifest and provenance through run storage, outcomes, and crop previews.
 - **M2:** Not started — make virtual-card derived visible regions a selectable visual identity
   input and materialize their deterministic identity crops.
 - **M3:** Not started — expose clear input selection and inspectable provenance in the recording
@@ -179,6 +179,24 @@ Acceptance:
   than served from cache; and
 - existing generated Gemini and RF-DETR paths retain their supported outcomes under equivalent
   explicit input selection.
+
+#### M1 implementation evidence — 2026-09-25
+
+- Added a backend resolver that freezes one exact generated visible-card revision as a
+  `gemini_polygon` or `rfdetr_segment` input. The run request stores the versioned manifest,
+  accepted video identity, source revision and content digests, ordered frame/card items, and
+  manifest digest. The resolver rejects missing selection, mixed revision IDs, changed source
+  content, unsupported geometry, and a processor kind that does not match the source revision.
+- Validated crop-policy compatibility before queueing. Classification uses the frozen manifest
+  items, so it cannot select a later revision or combine input kinds.
+- Added per-outcome crop-input provenance. Crop retrieval and browser-preview resolution verify the
+  stored run manifest, source revision, frame identity, geometry, policy, and crop digest before
+  returning data, including warm cached previews.
+- Added request storage and API response fields and regenerated the TypeScript API contract.
+  Restarted runs and retries retain the same manifest and provenance digest.
+- Verification: 9 visual-identity backend API tests, 14 operations request-contract tests, and 38
+  focused table-evidence tests passed. Ruff check and format checks passed. `npm run verify:api`
+  passed. One Starlette deprecation warning remains in the backend test client.
 
 ### M2 — Materialize reviewed virtual-card identity crops
 

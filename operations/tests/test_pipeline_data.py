@@ -147,13 +147,9 @@ def test_event_revision_variants_round_trip_to_canonical_bytes() -> None:
 def test_event_contract_fixtures_preserve_point_and_interval_bounds(
     fixture_name: str, expected_bounds: tuple[int, int]
 ) -> None:
-    fixture = json.loads(
-        (PIPELINE_EVENT_FIXTURES / fixture_name).read_text(encoding="utf-8")
-    )
+    fixture = json.loads((PIPELINE_EVENT_FIXTURES / fixture_name).read_text(encoding="utf-8"))
 
-    parsed = parse_event_data_bytes(
-        canonical_event_data_bytes(fixture), duration_us=10_000_000
-    )
+    parsed = parse_event_data_bytes(canonical_event_data_bytes(fixture), duration_us=10_000_000)
 
     event = parsed.events[0]
     assert (event.start_us, event.end_us) == expected_bounds
@@ -263,6 +259,18 @@ def test_run_request_freezes_exact_inputs_and_complete_policy_values() -> None:
     parsed = parse_processor_run_request_bytes(canonical_processor_run_request_bytes(request))
     assert parsed.input_revision_ids == ("revision-01", "revision-02")
     assert parsed.extraction_policy["policy_id"] == "exact-event/v1"
+
+    crop_input = {
+        "schema_version": "visual-identity-crop-input/v1",
+        "input_kind": "gemini_polygon",
+        "manifest_digest": DIGEST,
+        "source_revision_id": "revision-01",
+    }
+    with_crop_input = dict(request, crop_input=crop_input)
+    parsed_crop_input = parse_processor_run_request_bytes(
+        canonical_processor_run_request_bytes(with_crop_input)
+    )
+    assert parsed_crop_input.crop_input == crop_input
 
     duplicate = dict(request, input_revision_ids=["revision-01", "revision-01"])
     with pytest.raises(PipelineDataContractError):

@@ -41,7 +41,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0085 — Visual identity crop inputs from virtual cards](3-in-progress/0085-Visual_Identity_Crop_Inputs_from_Virtual_Cards.md) | 0072 and 0073 complete | M0 complete. The versioned crop-input contract freezes Gemini polygons, RF-DETR segments, or the reviewed card-scene derived visible-region view with deterministic lineage and explicit failure semantics. M1–M3 remain. |
+| [0085 — Visual identity crop inputs from virtual cards](3-in-progress/0085-Visual_Identity_Crop_Inputs_from_Virtual_Cards.md) | 0072 and 0073 complete | M0–M1 complete. Gemini and RF-DETR inputs resolve from one exact revision, with crop-input provenance retained in requests, outcomes, and previews. M2–M3 remain. |
 
 ### Ready
 

@@ -1,7 +1,6 @@
 """Frozen crop-input contracts for visual identity runs.
 
-This module freezes the geometry source independently from the crop policy.  M1 will
-connect the value to processor requests and the backend resolver.
+This module freezes the geometry source independently from the crop policy.
 """
 
 from __future__ import annotations

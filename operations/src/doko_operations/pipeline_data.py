@@ -152,9 +152,7 @@ def _event_type(value: Any, field: str, *, allow_legacy: bool = False) -> str:
     if len(result) > 128 or _EVENT_TYPE.fullmatch(result) is None:
         raise PipelineDataContractError(f"{field} must be a qualified event type")
     if not allow_legacy and result != CARD_STATE_CHANGED_EVENT_TYPE:
-        raise PipelineDataContractError(
-            f"{field} must be {CARD_STATE_CHANGED_EVENT_TYPE}"
-        )
+        raise PipelineDataContractError(f"{field} must be {CARD_STATE_CHANGED_EVENT_TYPE}")
     if allow_legacy and result not in {*_LEGACY_EVENT_TYPES, CARD_STATE_CHANGED_EVENT_TYPE}:
         raise PipelineDataContractError(f"{field} is unsupported")
     return result
@@ -856,9 +854,7 @@ def canonical_data_revision_bytes(value: DataRevision | Mapping[str, Any]) -> by
 canonical_data_revision_manifest_bytes = canonical_data_revision_bytes
 
 
-def parse_event_data_revision_bytes(
-    raw: bytes, *, allow_legacy: bool = False
-) -> EventDataRevision:
+def parse_event_data_revision_bytes(raw: bytes, *, allow_legacy: bool = False) -> EventDataRevision:
     return EventDataRevision.from_mapping(
         _mapping(_parse_json_bytes(raw, "event data revision"), "event data revision"),
         allow_legacy=allow_legacy,
@@ -948,6 +944,7 @@ class ProcessorRunRequest:
     configuration: dict[str, Any]
     extraction_policy: dict[str, Any]
     crop_policy: dict[str, Any] | None
+    crop_input: dict[str, Any] | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> ProcessorRunRequest:
@@ -964,6 +961,8 @@ class ProcessorRunRequest:
             "extraction_policy",
             "crop_policy",
         }
+        if "crop_input" in data:
+            expected.add("crop_input")
         _strict(
             data, expected if "model" in data else expected - {"model"}, "processor run request"
         )
@@ -990,6 +989,11 @@ class ProcessorRunRequest:
             configuration=_json_object(data["configuration"], "configuration"),
             extraction_policy=extraction_policy,
             crop_policy=_policy(data["crop_policy"], "crop_policy", allow_none=True),
+            crop_input=(
+                None
+                if data.get("crop_input") is None
+                else _json_object(data["crop_input"], "crop_input", require_non_empty=True)
+            ),
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -1006,6 +1010,8 @@ class ProcessorRunRequest:
         }
         if self.model is not None:
             value["model"] = self.model.to_mapping()
+        if self.crop_input is not None:
+            value["crop_input"] = self.crop_input
         return value
 
 

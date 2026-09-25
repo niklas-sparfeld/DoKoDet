@@ -53,9 +53,7 @@ IDENTITY_CROP_BASE = (
     "/api/recordings/{recording_id}/pipeline/derived-views/identity-crops/{revision_id}/{item_id}"
 )
 OBSERVATION_BASE = "/api/recordings/{recording_id}/pipeline/observations"
-PROPOSED_CARD_SCENE_BASE = (
-    "/api/recordings/{recording_id}/pipeline/proposed-card-scenes"
-)
+PROPOSED_CARD_SCENE_BASE = "/api/recordings/{recording_id}/pipeline/proposed-card-scenes"
 RFDETR_SEGMENTATION_AVAILABILITY = (
     "/api/processors/visible-cards/local-rfdetr-segmentation/availability"
 )
@@ -66,9 +64,7 @@ def get_rfdetr_segmentation_availability(request: Request) -> dict[str, Any]:
     """Load and identify the configured local RF-DETR segmentation provider."""
 
     try:
-        provider = request.app.state.visible_card_providers[
-            "local-rfdetr-segmentation"
-        ]
+        provider = request.app.state.visible_card_providers["local-rfdetr-segmentation"]
         implementation = getattr(provider, "provider", provider)
         bundle_identity = getattr(implementation, "bundle_identity", None)
         if not isinstance(bundle_identity, dict):
@@ -94,6 +90,7 @@ class PipelineVisualIdentityOutcomeResponse(ContractModel):
     frame_identity: dict[str, Any]
     geometry: dict[str, Any]
     crop_identity: dict[str, Any] | None
+    crop_input_provenance: dict[str, Any] | None
     classifier: dict[str, Any]
     status: Literal["classified", "face_down", "unusable", "failed"]
     candidates: list[dict[str, Any]]
@@ -507,9 +504,7 @@ def list_proposed_card_scene_runs(recording_id: str, request: Request) -> dict[s
 
 @router.get(PROPOSED_CARD_SCENE_BASE + "/{run_id}")
 @router.get(PROPOSED_CARD_SCENE_BASE + "/runs/{run_id}", include_in_schema=False)
-def get_proposed_card_scene_run(
-    recording_id: str, run_id: str, request: Request
-) -> dict[str, Any]:
+def get_proposed_card_scene_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Return one proposed-card-scene run."""
 
     try:

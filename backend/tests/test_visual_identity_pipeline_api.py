@@ -10,7 +10,7 @@ from app_factory import create_test_app
 from doko_operations.derived_view import crop_jpeg_preview_cache_key_for_source_digest
 from doko_operations.pipeline_data import (
     DataRevision,
-    HumanProducer,
+    ProcessorProducer,
     RunProgress,
     sha256_bytes,
 )
@@ -18,7 +18,6 @@ from fastapi.testclient import TestClient
 from table_evidence_analyzer import (
     CardClassificationResult,
     PredictedVisibleRegionGeometry,
-    ReviewedVisibleRegionGeometry,
     VisibleCardCandidate,
     VisibleCardData,
     VisibleCardFrameIdentity,
@@ -239,7 +238,9 @@ def test_auto_approval_plan_reuses_one_local_run_and_reports_matching_results(
         assert after_restart.json() == accepted.json()
 
 
-def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> str:
+def _fixture_generated_visible_revision(
+    app: Any, source: Any, frame: dict[str, Any], producer_run_id: str
+) -> str:
     frame_identity = VisibleCardFrameIdentity.from_mapping(frame)
     candidates = (
         VisibleCardCandidate(
@@ -252,7 +253,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
         ),
         VisibleCardCandidate(
             card_id="card-empty",
-            geometry=ReviewedVisibleRegionGeometry(
+            geometry=PredictedVisibleRegionGeometry(
                 polygons=(((100, 100), (900, 100), (900, 900), (100, 900)),)
             ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
@@ -260,7 +261,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
         ),
         VisibleCardCandidate(
             card_id="card-unusable",
-            geometry=ReviewedVisibleRegionGeometry(
+            geometry=PredictedVisibleRegionGeometry(
                 polygons=(((0, 0), (10, 0), (10, 10), (0, 10)),)
             ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
@@ -268,7 +269,7 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
         ),
         VisibleCardCandidate(
             card_id="card-failed",
-            geometry=ReviewedVisibleRegionGeometry(
+            geometry=PredictedVisibleRegionGeometry(
                 polygons=(((100, 100), (900, 100), (900, 900), (100, 900)),)
             ),
             normalization={"width": 64, "height": 64, "policy_id": "fixture/v1"},
@@ -294,22 +295,16 @@ def _manual_visible_revision(app: Any, source: Any, frame: dict[str, Any]) -> st
         source=source,
         content_sha256=sha256_bytes(canonical_visible_card_data_bytes(content)),
         input_revision_ids=(),
-        origin="manual",
-        producer=HumanProducer(review_id="review-1", operator_id="operator-1"),
+        origin="processor",
+        producer=ProcessorProducer(
+            run_id=producer_run_id,
+            processor_type="visible-card-detection",
+            implementation_id="visible-card-detector-adapter.v1",
+        ),
         coverage={"kind": "completed-reference", "card_ids": [item.card_id for item in candidates]},
         created_at="2026-01-01T00:00:00Z",
     )
     stored, _ = app.state.pipeline_revision_store.publish(manifest, content)
-    current = app.state.pipeline_selection_store.get(RECORDING_ID, "visible_cards")
-    app.state.pipeline_selection_store.update_pointers(
-        RECORDING_ID,
-        "visible_cards",
-        expected_revision=0 if current is None else current.revision,
-        selected_generated_revision_id=(
-            None if current is None else current.selected_generated_revision_id
-        ),
-        selected_completed_reference_revision_id=stored.manifest.revision_id,
-    )
     return stored.manifest.revision_id
 
 
@@ -389,7 +384,7 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
                 "input_revision_ids": [visible_revision_id],
             },
         )
-        assert identity_response.status_code == 202
+        assert identity_response.status_code == 202, identity_response.text
         assert _wait_identity(client, "identity-source-validation")["state"]["status"] == (
             "complete"
         )
@@ -398,7 +393,7 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
     assert set(resolve_calls) == {False}
 
 
-def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_restarts(
+def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
     tmp_path: Any, monkeypatch: Any
 ) -> None:
     _install_recording(tmp_path)
@@ -431,10 +426,16 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         ).json()
         generated_revision_id = visible_result["state"]["output_revision_ids"][0]
         generated_content = visible_result["revisions"][0]["content"]
-        manual_revision_id = _manual_visible_revision(
+        implicit_input = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={"run_id": "identity-implicit-input"},
+        )
+        assert implicit_input.status_code == 422
+        fixture_revision_id = _fixture_generated_visible_revision(
             app,
             app.state.pipeline_revision_store.require(generated_revision_id).manifest.source,
             generated_content["outcomes"][0]["frame_identity"],
+            "visible-generated",
         )
 
         generated_identity = client.post(
@@ -451,6 +452,15 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         ).json()
         generated_outcome = generated_result["revisions"][0]["content"]["outcomes"][0]
         assert generated_result["request"]["input_revision_ids"] == [generated_revision_id]
+        assert generated_result["request"]["crop_input"]["input_kind"] == "gemini_polygon"
+        assert generated_result["request"]["crop_input"]["source_revision_id"] == (
+            generated_revision_id
+        )
+        assert (
+            generated_outcome["crop_input_provenance"]["manifest_digest"]
+            == (generated_result["request"]["crop_input"]["manifest_digest"])
+        )
+        assert generated_outcome["crop_input_provenance"]["input_kind"] == "gemini_polygon"
         assert generated_result["request"]["crop_policy"] == {
             "policy_id": "predicted_visible_region",
             "output_encoding": "ppm",
@@ -462,6 +472,31 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         identity_revision_id = generated_result["state"]["output_revision_ids"][0]
 
         service = app.state.visual_identity_pipeline_service
+        generated_revision = app.state.pipeline_revision_store.require(generated_revision_id)
+        original_require = service.run_store.require
+        generated_run = original_require("visible-generated")
+        rfdetr_run = SimpleNamespace(
+            request=SimpleNamespace(
+                configuration={
+                    **generated_run.request.configuration,
+                    "provider": "local-rfdetr-segmentation",
+                }
+            )
+        )
+        with monkeypatch.context() as source_patch:
+            source_patch.setattr(
+                service.run_store,
+                "require",
+                lambda run_id: (
+                    rfdetr_run if run_id == "visible-generated" else original_require(run_id)
+                ),
+            )
+            rfdetr_input = service._freeze_crop_input(
+                RECORDING_ID,
+                generated_revision,
+                source=generated_revision.manifest.source,
+            )
+        assert rfdetr_input.input_kind == "rfdetr_segment"
         preview_path = (
             service.storage.derived_views_root
             / crop_jpeg_preview_cache_key_for_source_digest(
@@ -554,12 +589,37 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         )
         assert frozen_provider.status_code == 422
 
+        changed_manifest = dict(generated_result["request"]["crop_input"])
+        changed_manifest["manifest_digest"] = "0" * 64
+        changed_input = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-changed-crop-input",
+                "input_revision_ids": [generated_revision_id],
+                "crop_input": changed_manifest,
+            },
+        )
+        assert changed_input.status_code == 422
+        incompatible_policy = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-incompatible-policy",
+                "input_revision_ids": [generated_revision_id],
+                "crop_policy": {
+                    "policy_id": "oracle_visible_region",
+                    "output_encoding": "ppm",
+                },
+            },
+        )
+        assert incompatible_policy.status_code == 422
+
         completed_identity = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-completed",
+                "input_revision_ids": [fixture_revision_id],
                 "crop_policy": {
-                    "policy_id": "oracle_visible_region",
+                    "policy_id": "predicted_visible_region",
                     "output_encoding": "ppm",
                 },
             },
@@ -569,28 +629,32 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
         result = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-completed/result"
         ).json()
-        assert result["request"]["input_revision_ids"] == [manual_revision_id]
+        assert result["request"]["input_revision_ids"] == [fixture_revision_id]
         assert result["request"]["crop_policy"] == {
-            "policy_id": "oracle_visible_region",
+            "policy_id": "predicted_visible_region",
             "output_encoding": "ppm",
         }
         outcomes = result["revisions"][0]["content"]["outcomes"]
-        assert [outcome["status"] for outcome in outcomes] == [
-            "classified",
-            "unusable",
-            "face_down",
-            "failed",
-        ]
-        assert outcomes[1]["geometry"]["kind"] == "reviewed-visible-region/v1"
-        assert outcomes[1]["candidates"] == []
-        assert outcomes[1]["unusable_reason"] == "The classifier returned no identity candidates."
-        assert outcomes[0]["status"] == "classified"
-        assert outcomes[0]["crop_identity"]["crop_policy"] == "predicted_visible_region"
-        assert outcomes[2]["status"] == "face_down"
-        assert outcomes[2]["candidates"] == []
-        assert outcomes[2]["unusable_reason"] is None
-        assert outcomes[3]["crop_identity"]["status"] == "usable"
-        assert outcomes[3]["error"] == "fixture failure"
+        by_card_id = {outcome["card_id"]: outcome for outcome in outcomes}
+        assert [outcome["card_id"] for outcome in outcomes] == sorted(by_card_id)
+        assert {card_id: outcome["status"] for card_id, outcome in by_card_id.items()} == {
+            "card-classified": "classified",
+            "card-empty": "unusable",
+            "card-failed": "failed",
+            "card-unusable": "face_down",
+        }
+        assert by_card_id["card-empty"]["geometry"]["kind"] == "visible-region/v1"
+        assert by_card_id["card-empty"]["candidates"] == []
+        assert by_card_id["card-empty"]["unusable_reason"] == (
+            "The classifier returned no identity candidates."
+        )
+        assert by_card_id["card-classified"]["crop_identity"]["crop_policy"] == (
+            "predicted_visible_region"
+        )
+        assert by_card_id["card-unusable"]["candidates"] == []
+        assert by_card_id["card-unusable"]["unusable_reason"] is None
+        assert by_card_id["card-failed"]["crop_identity"]["status"] == "usable"
+        assert by_card_id["card-failed"]["error"] == "fixture failure"
         assert sorted(request.card_id for request in provider.requests[-3:]) == sorted(
             ["card-classified", "card-empty", "card-failed"]
         )
@@ -605,9 +669,17 @@ def test_visual_identity_pipeline_uses_generated_and_completed_geometry_and_rest
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-completed/result"
         )
         assert persisted.status_code == 200
-        assert [
-            outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
-        ] == ["classified", "unusable", "face_down", "failed"]
+        persisted_result = persisted.json()
+        assert persisted_result["request"]["crop_input"] == result["request"]["crop_input"]
+        assert {
+            outcome["card_id"]: outcome["status"]
+            for outcome in persisted_result["revisions"][0]["content"]["outcomes"]
+        } == {
+            "card-classified": "classified",
+            "card-empty": "unusable",
+            "card-failed": "failed",
+            "card-unusable": "face_down",
+        }
 
 
 def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) -> None:
@@ -645,17 +717,18 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
         ).json()
         visible_revision_id = visible_result["state"]["output_revision_ids"][0]
         visible_revision = app.state.pipeline_revision_store.require(visible_revision_id)
-        manual_revision_id = _manual_visible_revision(
+        fixture_revision_id = _fixture_generated_visible_revision(
             app,
             visible_revision.manifest.source,
             visible_result["revisions"][0]["content"]["outcomes"][0]["frame_identity"],
+            "visible-for-identity-retry",
         )
 
         baseline_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-retry-baseline",
-                "input_revision_ids": [manual_revision_id],
+                "input_revision_ids": [fixture_revision_id],
             },
         )
         assert baseline_response.status_code == 202
@@ -664,7 +737,7 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
 
         request = app.state.visual_identity_pipeline_service._build_request(
             RECORDING_ID,
-            {"run_id": "identity-retry", "input_revision_ids": [manual_revision_id]},
+            {"run_id": "identity-retry", "input_revision_ids": [fixture_revision_id]},
         )
         stored, created = app.state.pipeline_run_store.create(request)
         assert created
@@ -680,10 +753,18 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
         )
         assert retry_response.status_code == 202
         status = _wait_identity(client, "identity-retry")
+        retry_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-retry/result"
+        ).json()
 
     assert status["state"]["status"] == "complete"
     assert status["state"]["progress"] == {"completed": 4, "total": 4}
     assert len(status["state"]["items"]) == 4
+    assert status["request"]["crop_input"] == request.crop_input
+    assert all(
+        outcome["crop_input_provenance"]["manifest_digest"] == request.crop_input["manifest_digest"]
+        for outcome in retry_result["revisions"][0]["content"]["outcomes"]
+    )
 
 
 def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> None:
@@ -751,19 +832,20 @@ def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> No
         ).json()
         visible_revision_id = visible_result["state"]["output_revision_ids"][0]
         source = app.state.pipeline_revision_store.require(visible_revision_id).manifest.source
-        manual_revision_id = _manual_visible_revision(
+        fixture_revision_id = _fixture_generated_visible_revision(
             app,
             source,
             visible_result["revisions"][0]["content"]["outcomes"][0]["frame_identity"],
+            "visible-for-identity-blocking",
         )
         identity_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-blocking",
-                "input_revision_ids": [manual_revision_id],
+                "input_revision_ids": [fixture_revision_id],
             },
         )
-        assert identity_response.status_code == 202
+        assert identity_response.status_code == 202, identity_response.text
         assert started_two.wait(2)
         assert maximum == 2
         release.set()
@@ -776,20 +858,20 @@ def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> No
     assert [outcome["card_id"] for outcome in outcomes] == [
         "card-classified",
         "card-empty",
-        "card-unusable",
         "card-failed",
+        "card-unusable",
     ]
     assert [outcome["status"] for outcome in outcomes] == [
         "classified",
         "unusable",
-        "face_down",
         "failed",
+        "face_down",
     ]
     assert [item["item_id"] for item in result["state"]["items"]] == [
         "card-classified",
         "card-empty",
-        "card-unusable",
         "card-failed",
+        "card-unusable",
     ]
     assert result["state"]["progress"] == {"completed": 4, "total": 4}
 

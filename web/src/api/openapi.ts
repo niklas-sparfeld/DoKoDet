@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/processors/visible-cards/local-rfdetr-segmentation/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Rfdetr Segmentation Availability
+         * @description Load and identify the configured local RF-DETR segmentation provider.
+         */
+        get: operations["get_rfdetr_segmentation_availability_api_processors_visible_cards_local_rfdetr_segmentation_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/pipeline": {
         parameters: {
             query?: never;
@@ -33,12 +53,12 @@ export interface paths {
         };
         /**
          * Get Calibration Refinement
-         * @description Return the current draft and its deterministic preview.
+         * @description Return the current draft without starting a calibration preview.
          */
         get: operations["get_calibration_refinement_api_recordings__recording_id__pipeline_calibration_refinement_get"];
         /**
          * Update Calibration Refinement
-         * @description Apply one ordered anchor command and return the new preview.
+         * @description Apply one ordered anchor command without starting a calibration preview.
          */
         put: operations["update_calibration_refinement_api_recordings__recording_id__pipeline_calibration_refinement_put"];
         /**
@@ -2060,6 +2080,10 @@ export interface components {
             crop_identity: {
                 [key: string]: unknown;
             } | null;
+            /** Crop Input Provenance */
+            crop_input_provenance: {
+                [key: string]: unknown;
+            } | null;
             /** Error */
             error: string | null;
             /** Frame Identity */
@@ -3307,6 +3331,28 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_rfdetr_segmentation_availability_api_processors_visible_cards_local_rfdetr_segmentation_availability_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     get_recording_pipeline_workspace_api_recordings__recording_id__pipeline_get: {
         parameters: {
             query?: {
