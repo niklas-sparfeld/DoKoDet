@@ -203,12 +203,13 @@ def test_virtual_card_long_side_is_extended_symmetrically_after_fitting() -> Non
     fitted = card_quad_from_pose((2.0, 3.0), 17.0, 1.0, 1.5)
     virtual = card_quad_from_pose((2.0, 3.0), 17.0, 1.0, virtual_card_long_size(1.0))
 
-    assert virtual_card_long_size(1.0) == pytest.approx(1.52)
+    assert virtual_card_long_size(1.0) == pytest.approx(9.09 / 5.93)
     assert np.allclose(np.mean(virtual, axis=0), np.mean(fitted, axis=0))
-    assert np.linalg.norm(virtual[3] - virtual[0]) == pytest.approx(1.52)
+    assert np.linalg.norm(virtual[3] - virtual[0]) == pytest.approx(9.09 / 5.93)
     assert np.linalg.norm(fitted[3] - fitted[0]) == pytest.approx(1.5)
-    assert np.linalg.norm(virtual[0] - fitted[0]) == pytest.approx(0.01)
-    assert np.linalg.norm(virtual[3] - fitted[3]) == pytest.approx(0.01)
+    extension = (9.09 / 5.93 - 1.5) / 2
+    assert np.linalg.norm(virtual[0] - fitted[0]) == pytest.approx(extension)
+    assert np.linalg.norm(virtual[3] - fitted[3]) == pytest.approx(extension)
 
 
 def test_rounded_card_outline_keeps_straight_sides_and_cuts_virtual_corners() -> None:

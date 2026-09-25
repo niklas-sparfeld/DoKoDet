@@ -23,8 +23,8 @@ from .reviewed_rfdetr_detector_campaign import canonical_json_bytes
 
 CARD_ASPECT_RATIO = 1.5
 # Pose fitting and calibration use CARD_ASPECT_RATIO. The reviewed virtual-card
-# projection is deliberately a small, centered extension of that fitted geometry.
-VIRTUAL_CARD_ASPECT_RATIO = 1.52
+# projection uses the measured physical-card ratio: 9.09 cm by 5.93 cm.
+VIRTUAL_CARD_ASPECT_RATIO = 9.09 / 5.93
 CARD_CORNER_RADIUS_OVER_SHORT_SIDE = 0.087
 GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v4"
 SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS = (
