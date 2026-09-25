@@ -1,0 +1,47 @@
+{
+  "schema_version": "visible-card-fine-prepass-regression-fixtures/v1",
+  "recording_id": "game-2026-09-18-01-003",
+  "source_video": {
+    "path": "../../../../data/intake/recordings/game-2026-09-18-01-003/videos/game-2026-09-18-01-003-video.mov",
+    "sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada"
+  },
+  "cases": [
+    {
+      "event_id": "event-000010",
+      "requested_time_us": 38141669,
+      "presentation_timestamp_us": 38153522,
+      "frame_index": 2287,
+      "frame_identity": "exact-event/v1",
+      "decoder_version": "ffmpeg/8.1.2",
+      "transform_version": "ffmpeg-mjpeg/8.1.2",
+      "width": 608,
+      "height": 1080,
+      "image": "event-000010.jpg",
+      "image_sha256": "2ee693c566feebb49d4d77a9e6ee4cf438a10e78e59abf6e38872216a56c8086",
+      "expected_regions_source": "local-rfdetr-segmentation run visible_cards-run-fa13cf76-df3",
+      "expected_regions_are_reviewed_ground_truth": false,
+      "central_card_support_regions_normalized_1000": [
+        { "x_min": 444, "y_min": 482, "x_max": 704, "y_max": 580 }
+      ]
+    },
+    {
+      "event_id": "event-000012",
+      "requested_time_us": 54483336,
+      "presentation_timestamp_us": 54485965,
+      "frame_index": 3266,
+      "frame_identity": "exact-event/v1",
+      "decoder_version": "ffmpeg/8.1.2",
+      "transform_version": "ffmpeg-mjpeg/8.1.2",
+      "width": 608,
+      "height": 1080,
+      "image": "event-000012.jpg",
+      "image_sha256": "67d6ba4d533a2669b3d3380f6317b3d361c1b81b598fd4c189ee098a6f401f33",
+      "expected_regions_source": "local-rfdetr-segmentation run visible_cards-run-fa13cf76-df3",
+      "expected_regions_are_reviewed_ground_truth": false,
+      "central_card_support_regions_normalized_1000": [
+        { "x_min": 385, "y_min": 453, "x_max": 737, "y_max": 600 },
+        { "x_min": 429, "y_min": 509, "x_max": 737, "y_max": 600 }
+      ]
+    }
+  ]
+}

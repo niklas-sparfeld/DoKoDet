@@ -4,7 +4,7 @@
 
 - **Summary:** Remove the RF-DETR Small card-cluster stage and use one RF-DETR SegMedium fine
   model for a full-frame prepass followed by optional card-cluster crop refinement.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0048 pipeline data and execution, completed 0049 recording pipeline
   review, completed 0068 reviewed RF-DETR visible-card segmentation, and the 0071 fine-stage
   model and source-coordinate crop contracts. The 0071 coarse stage is the removal target.
@@ -61,6 +61,47 @@ The epic does not include:
 
 ## Provider contract
 
+### Frozen M0 choices
+
+- Provider: `local-rfdetr-fine-prepass`; provider version: `local-rfdetr-fine-prepass-v1`.
+- Provider schema: `local-rfdetr-fine-prepass/v1`; bundle schema: the existing
+  `rfdetr-segmentation-bundle/v1` with one `RFDETRSegMedium` `visible_card` model at 432 × 432.
+- Load one fine model from one bundle. Use it for both the full-frame prepass and crop refinement.
+- Use a confidence threshold of `0.5` for both the prepass candidates and crop routing. Keep
+  candidates whose score is greater than or equal to the threshold. Record both values in the
+  manifest and raw response. Do not tune either threshold on the two fixed regression frames.
+- Route every usable, finite, in-frame prepass box at or above the threshold. Assign each routed
+  prediction to exactly one deterministic connected component using the existing median-shorter-side
+  expansion and transitive-intersection rule. Each crop must contain the complete union box for its
+  component. Keep the existing square crop, neutral padding, and reversible source-coordinate
+  transform. An empty prepass produces no crops.
+- Keep full-frame predictions as the initial result. A successful crop can replace or split a
+  prepass candidate only within its source cluster. Map crop geometry to source coordinates before
+  arbitration. Suppress a prepass candidate only when the union of that cluster's mapped crop masks
+  covers at least 75% of its visible-mask pixels. Treat crop output as a set: retain each distinct
+  crop prediction, including overlapping cards. Do not suppress predictions by box overlap alone.
+  Reconcile duplicates only when both box IoU and visible-mask IoU are at least 0.90, or when mask
+  containment and box containment are both at least 0.75 and the smaller box is at most 95% of the
+  larger box. Use score, stable cluster order, proposal order, and prediction ID as tie-breaks. Keep
+  unmatched prepass candidates.
+  If a crop fails or cannot run, keep that cluster's prepass candidates and report the partial failure.
+- Reject non-finite, degenerate, or out-of-frame model geometry deterministically. A bad candidate
+  does not invalidate other valid candidates. A malformed source frame fails the item.
+- Use the two fixed JPEGs in
+  [`tests/fixtures/visible_card_fine_prepass/`](../../../table_evidence_analyzer/tests/fixtures/visible_card_fine_prepass/)
+  as exact model inputs. Their frame hashes link them to `game-2026-09-18-01-003` and the two event
+  times below. The expected regions are regression support regions copied from a direct local fine
+  model result. They are not reviewed reference geometry or ground truth.
+- Record `prepass`, `clusters`, `refinement`, `arbitration`, `mapping`, `reconciliation`, and
+  `timing` sections in the raw response. Include model and bundle identity, both 0.5 thresholds, the
+  0.75 crop-coverage threshold, the 0.90 duplicate-IoU threshold, source-frame
+  dimensions and digest, cluster-to-prepass attribution, crop transforms, per-crop outcome, and final
+  proposal provenance. Do not emit coarse-stage names or identities.
+- Freeze comparison fields as visible-card recall, central-card recall, overlapping-card separation,
+  merged-plus-split duplicates, false positives, crop count, crop-area ratio, prepass latency, crop
+  latency, total latency, and deterministic output digest. Report prepass misses, crop failures, and
+  arbitration errors separately.
+
 ### Full-frame fine prepass
 
 The provider decodes one complete source frame and runs the fine segmentation model at its declared
@@ -106,7 +147,7 @@ model identity.
 
 ## Milestone status
 
-- **M0:** Ready — freeze the fine-prepass contract, result arbitration, threshold policy, and
+- **M0:** Complete — freeze the fine-prepass contract, result arbitration, threshold policy, and
   exact-frame regression fixtures.
 - **M1:** Ready — replace the runtime provider with the shared fine-model prepass and crop
   refinement path.
@@ -121,11 +162,11 @@ model identity.
 ### M0 — Freeze the fine-prepass contract
 
 - Inspect the 0071 provider, bundle, crop layout, reconciliation, and diagnostics before editing.
-- Add exact source-frame fixtures for `event-000010` at `t_us=38141669` and `event-000012` at
-  `t_us=54483336`. Assert that the central visible cards are present in the full-frame fine
-  prepass and remain present in the final result.
+- Add exact source-frame JPEG fixtures for `event-000010` at `t_us=38141669` and `event-000012` at
+  `t_us=54483336`. Record their source video digest, frame identity, image digest, and the central
+  fine-model regression support regions in the fixture manifest.
 - Define the prepass threshold, crop-routing threshold semantics, crop coverage rule, arbitration
-  behavior, failure fallback, provider name, schema version, and manifest fields.
+  behavior, failure fallback, provider name, schema version, response and manifest fields.
 - Define the comparison report fields: visible-card recall, central-card recall, overlapping-card
   separation, merged-plus-split duplicates, false positives, crop count, crop-area ratio,
   prepass latency, crop latency, total latency, and deterministic output digest.
@@ -134,7 +175,9 @@ model identity.
 
 - The contract contains no coarse model, coarse threshold, `card_cluster` training target, or
   second model bundle.
-- The two exact frames are reproducible test inputs with source-linked expected outcomes.
+- The two exact frames are reproducible test inputs with source-linked expected outcomes. The
+  fixture contract check passes, and the outcome regions are explicitly marked as regression support,
+  not reviewed ground truth.
 - The arbitration policy can fall back to a successful full-frame result when crop inference fails.
 - The contract preserves separate overlapping cards and rejects invalid geometry deterministically.
 
