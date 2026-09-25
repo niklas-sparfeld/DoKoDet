@@ -10,6 +10,7 @@ from PIL import Image
 
 from table_evidence_analyzer.visible_card_fine_frame_provider import (
     FINE_FRAME_PROVIDER_NAME,
+    SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION,
     LocalVisibleCardFineFrameProvider,
 )
 from table_evidence_analyzer.visible_cards import VisibleCardRequest
@@ -74,11 +75,11 @@ class _Detector:
         if self.empty:
             boxes = []
         elif image.size == (100, 80):
-            boxes = [[20, 20, 40, 40]]
+            boxes = [[20, 20, 30, 30]]
         else:
-            # The cluster crop starts at (10, 10), so this maps to the same
+            # The cluster crop starts at (15, 15), so this maps to the same
             # source-frame prediction as the prepass result.
-            boxes = [[10, 10, 30, 30]]
+            boxes = [[5, 5, 15, 15]]
         return SimpleNamespace(xyxy=boxes, confidence=[0.9] * len(boxes), class_id=[0] * len(boxes))
 
 
@@ -123,7 +124,7 @@ def test_invalid_detection_does_not_drop_valid_threshold_boundary_card(tmp_path:
             if self.calls > 1:
                 return SimpleNamespace(xyxy=[], confidence=[], class_id=[])
             return SimpleNamespace(
-                xyxy=[[-1, 10, 10, 20], [0, 20, 20, 40]],
+                xyxy=[[-1, 10, 10, 20], [0, 20, 10, 30]],
                 confidence=[0.9, 0.5],
                 class_id=[0, 0],
             )
@@ -149,7 +150,7 @@ def test_overlapping_full_frame_detections_remain_separate(tmp_path: Path) -> No
             if self.calls > 1:
                 return SimpleNamespace(xyxy=[], confidence=[], class_id=[])
             return SimpleNamespace(
-                xyxy=[[20, 20, 50, 50], [30, 20, 60, 50]],
+                xyxy=[[20, 20, 30, 30], [25, 20, 35, 30]],
                 confidence=[0.9, 0.85],
                 class_id=[0, 0],
             )
@@ -168,7 +169,7 @@ def test_ambiguous_split_additions_preserve_the_full_frame_candidate(tmp_path: P
     class SplitDetector(_Detector):
         def predict(self, _image: Image.Image, **_kwargs: object) -> object:
             self.calls += 1
-            boxes = [[20, 20, 40, 40]] if self.calls == 1 else [[10, 10, 20, 30], [20, 10, 30, 30]]
+            boxes = [[20, 20, 30, 30]] if self.calls == 1 else [[5, 5, 10, 15], [10, 5, 15, 15]]
             return SimpleNamespace(
                 xyxy=boxes,
                 confidence=[0.9] * len(boxes) if self.calls == 1 else [0.98] * len(boxes),
@@ -199,7 +200,7 @@ def test_unambiguous_higher_confidence_crop_refines_full_frame_geometry(tmp_path
             self.calls += 1
             is_full_frame = image.size == (100, 80)
             return SimpleNamespace(
-                xyxy=[[20, 20, 40, 40]] if is_full_frame else [[10, 10, 29, 29]],
+                xyxy=[[20, 20, 30, 30]] if is_full_frame else [[5, 5, 14, 14]],
                 confidence=[0.9] if is_full_frame else [0.98],
                 class_id=[0],
             )
@@ -211,7 +212,7 @@ def test_unambiguous_higher_confidence_crop_refines_full_frame_geometry(tmp_path
 
     assert result.status == "ok"
     assert len(result.proposals) == 1
-    assert result.proposals[0].box_2d.x_max == 390
+    assert result.proposals[0].box_2d.x_max == 290
     assert result.raw_response["final_provenance"][0]["source"] == "crop_refinement"
     assert result.raw_response["arbitration"]["full_frame_candidates_removed"] == 0
     assert result.raw_response["arbitration"]["full_frame_geometries_refined"] == 1
@@ -225,7 +226,7 @@ def test_small_score_gain_keeps_full_frame_geometry(tmp_path: Path) -> None:
             self.calls += 1
             is_full_frame = image.size == (100, 80)
             return SimpleNamespace(
-                xyxy=[[20, 20, 40, 40]] if is_full_frame else [[10, 10, 29, 29]],
+                xyxy=[[20, 20, 30, 30]] if is_full_frame else [[5, 5, 14, 14]],
                 confidence=[0.9] if is_full_frame else [0.94],
                 class_id=[0],
             )
@@ -237,7 +238,7 @@ def test_small_score_gain_keeps_full_frame_geometry(tmp_path: Path) -> None:
 
     assert result.status == "ok"
     assert len(result.proposals) == 1
-    assert result.proposals[0].box_2d.x_max == 400
+    assert result.proposals[0].box_2d.x_max == 300
     assert result.raw_response["final_provenance"][0]["source"] == "full_frame"
     assert result.raw_response["arbitration"]["matched_pairs"][0]["decision"] == (
         "keep_full_frame_geometry"
@@ -249,7 +250,7 @@ def test_unmatched_crop_candidate_below_addition_threshold_is_discarded(tmp_path
         def predict(self, image: Image.Image, **_kwargs: object) -> object:
             self.calls += 1
             if image.size == (100, 80):
-                boxes, scores = [[20, 20, 40, 40]], [0.9]
+                boxes, scores = [[20, 20, 30, 30]], [0.9]
             else:
                 boxes, scores = [[10, 10, 15, 15]], [0.69]
             return SimpleNamespace(xyxy=boxes, confidence=scores, class_id=[0])
@@ -273,7 +274,7 @@ def test_crop_failure_keeps_full_frame_predictions(tmp_path: Path) -> None:
             self.calls += 1
             if self.calls == 2:
                 raise RuntimeError("fixture crop failure")
-            return SimpleNamespace(xyxy=[[20, 20, 40, 40]], confidence=[0.9], class_id=[0])
+            return SimpleNamespace(xyxy=[[20, 20, 30, 30]], confidence=[0.9], class_id=[0])
 
     detector = FailureDetector()
     provider = LocalVisibleCardFineFrameProvider(_bundle(tmp_path), device="cpu", detector=detector)
@@ -320,6 +321,12 @@ def test_provider_only_routes_small_clusters_that_gain_crop_resolution(tmp_path:
     assert result.status == "ok"
     assert detector.calls == 2
     assert result.raw_response["clusters"]["routed_cluster_ids"] == ["cluster-0001"]
+    routing = result.raw_response["clusters"]["routing"]
+    assert routing[0]["card_size_metric"] == "longer_visible_box_side"
+    assert routing[0]["minimum_card_size_model_px"] < 432 * SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION
+    assert routing[0]["route"] is True
+    assert routing[1]["minimum_card_size_model_px"] > 432 * SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION
+    assert routing[1]["route"] is False
     assert [item["status"] for item in result.raw_response["refinement"]["clusters"]] == [
         "ok",
         "skipped",

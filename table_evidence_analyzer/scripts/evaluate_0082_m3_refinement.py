@@ -16,6 +16,7 @@ from PIL import Image, ImageDraw
 from table_evidence_analyzer.visible_card_evaluation import _clip_polygon
 from table_evidence_analyzer.visible_card_fine_frame_provider import (
     FINE_FRAME_PROVIDER_NAME,
+    SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION,
     LocalVisibleCardFineFrameProvider,
 )
 from table_evidence_analyzer.visible_cards import VisibleCardRequest
@@ -28,10 +29,12 @@ REVIEW_REVISION = ROOT / (
 )
 FIXTURE_ROOT = ROOT / "table_evidence_analyzer/tests/fixtures/visible_card_fine_prepass"
 DERIVED_VIEWS = ROOT / ".runtime/pipeline/derived-views"
-DEFAULT_OUTPUT = ROOT / "docs/reports/0082-M3_Fine_Frame_Refinement_Evaluation.json"
+DEFAULT_OUTPUT = ROOT / "docs/reports/0082-M3_One_Eighth_Size_Refinement_Evaluation.json"
 IOU_THRESHOLD = 0.5
 IGNORE_COVERAGE_THRESHOLD = 0.5
 SMALL_CARD_AREA_THRESHOLD = 0.013576
+MODEL_INPUT_SIZE = 432
+SMALL_CARD_MODEL_SIZE_THRESHOLD = MODEL_INPUT_SIZE * SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION
 
 
 def _sha256(data: bytes) -> str:
@@ -111,6 +114,13 @@ def _area(polygon: tuple[tuple[float, float], ...]) -> float:
         )
         / 2.0
     )
+
+
+def _reference_model_size(polygon: tuple[tuple[float, float], ...], case: dict[str, Any]) -> float:
+    box = _bbox((polygon,))
+    source_width = (box[2] - box[0]) * case["width"] / 1000.0
+    source_height = (box[3] - box[1]) * case["height"] / 1000.0
+    return max(source_width, source_height) * MODEL_INPUT_SIZE / max(case["width"], case["height"])
 
 
 def _polygon_iou(
@@ -391,6 +401,11 @@ def _frame_groups(case: dict[str, Any]) -> set[str]:
     boxes = [_bbox((polygon,)) for polygon in case["references"]]
     groups: set[str] = set()
     if any(
+        _reference_model_size(polygon, case) <= SMALL_CARD_MODEL_SIZE_THRESHOLD
+        for polygon in case["references"]
+    ):
+        groups.add("small_model_card_frames")
+    if any(
         (box[3] - box[1]) * (box[2] - box[0]) / 1_000_000 <= SMALL_CARD_AREA_THRESHOLD
         for box in boxes
     ):
@@ -561,6 +576,18 @@ def _run(
         ]
         refinement = raw["arbitration"]
         routing = raw["clusters"]["routing"]
+        routed_cluster_ids = set(raw["clusters"]["routed_cluster_ids"])
+        all_member_sizes = [
+            member["visible_card_size_model_px"]
+            for cluster in routing
+            for member in cluster["member_card_sizes_model_px"]
+        ]
+        crop_member_sizes = [
+            member["visible_card_size_model_px"]
+            for cluster in routing
+            if cluster["cluster_id"] in routed_cluster_ids
+            for member in cluster["member_card_sizes_model_px"]
+        ]
         crop_rows = raw["refinement"]["clusters"]
         crop_area_ratio = sum(
             item["crop"]["crop_dimensions"]["width"]
@@ -588,6 +615,27 @@ def _run(
         matched_final_indices = {
             item["prediction_index"] for item in refined_metrics["matched_pairs"]
         }
+        small_reference_indices = {
+            index
+            for index, polygon in enumerate(case["references"])
+            if _reference_model_size(polygon, case) <= SMALL_CARD_MODEL_SIZE_THRESHOLD
+        }
+        full_frame_small_matches = {
+            item["reference_index"]
+            for item in main_metrics["matched_pairs"]
+            if item["reference_index"] in small_reference_indices
+        }
+        refined_small_matches = {
+            item["reference_index"]
+            for item in refined_metrics["matched_pairs"]
+            if item["reference_index"] in small_reference_indices
+        }
+        added_small_matches = {
+            item["reference_index"]
+            for item in refined_metrics["matched_pairs"]
+            if item["prediction_index"] in added_indices
+            and item["reference_index"] in small_reference_indices
+        }
         duplicate_final_indices = set(refined_metrics["duplicate_prediction_indices"])
         ignored_final_indices = set(refined_metrics["ignored_prediction_indices"])
         row = {
@@ -602,6 +650,23 @@ def _run(
                 "cluster_count": len(routing),
                 "routed_cluster_count": len(raw["clusters"]["routed_cluster_ids"]),
                 "skipped_cluster_count": sum(item["route"] is False for item in routing),
+                "card_size_threshold_model_px": SMALL_CARD_MODEL_SIZE_THRESHOLD,
+                "routing_clusters": [
+                    {
+                        "cluster_id": item["cluster_id"],
+                        "route": item["route"],
+                        "minimum_card_size_model_px": item["minimum_card_size_model_px"],
+                        "crop_scale_gain": item["crop_scale_gain"],
+                        "reason": item["reason"],
+                    }
+                    for item in routing
+                ],
+                "member_card_size_model_px": all_member_sizes,
+                "routed_member_card_size_model_px": crop_member_sizes,
+                "small_model_card_targets": len(small_reference_indices),
+                "full_frame_small_model_card_matches": len(full_frame_small_matches),
+                "refined_small_model_card_matches": len(refined_small_matches),
+                "crop_addition_small_model_card_matches": len(added_small_matches),
                 "failed_cluster_count": sum(item["status"] == "unavailable" for item in crop_rows),
                 "crop_area_ratio_sum": crop_area_ratio,
                 "crop_predictions": refinement["crop_predictions_before_reconciliation"],
@@ -687,6 +752,42 @@ def _run_summary(frame_rows: list[dict[str, Any]]) -> dict[str, Any]:
                 if sum(row["crop"]["cluster_count"] for row in frame_rows)
                 else 0.0
             ),
+            "card_size_threshold_model_px": SMALL_CARD_MODEL_SIZE_THRESHOLD,
+            "member_card_size_model_px": [
+                size for row in frame_rows for size in row["crop"]["member_card_size_model_px"]
+            ],
+            "small_model_card_member_count": sum(
+                size <= SMALL_CARD_MODEL_SIZE_THRESHOLD
+                for row in frame_rows
+                for size in row["crop"]["member_card_size_model_px"]
+            ),
+            "small_model_card_member_fraction": (
+                sum(
+                    size <= SMALL_CARD_MODEL_SIZE_THRESHOLD
+                    for row in frame_rows
+                    for size in row["crop"]["member_card_size_model_px"]
+                )
+                / sum(len(row["crop"]["member_card_size_model_px"]) for row in frame_rows)
+                if sum(len(row["crop"]["member_card_size_model_px"]) for row in frame_rows)
+                else 0.0
+            ),
+            "routed_member_card_size_model_px": [
+                size
+                for row in frame_rows
+                for size in row["crop"]["routed_member_card_size_model_px"]
+            ],
+            "small_model_card_targets": sum(
+                row["crop"]["small_model_card_targets"] for row in frame_rows
+            ),
+            "full_frame_small_model_card_matches": sum(
+                row["crop"]["full_frame_small_model_card_matches"] for row in frame_rows
+            ),
+            "refined_small_model_card_matches": sum(
+                row["crop"]["refined_small_model_card_matches"] for row in frame_rows
+            ),
+            "crop_addition_small_model_card_matches": sum(
+                row["crop"]["crop_addition_small_model_card_matches"] for row in frame_rows
+            ),
             "skipped_cluster_count": sum(
                 row["crop"]["skipped_cluster_count"] for row in frame_rows
             ),
@@ -755,14 +856,17 @@ def _interpretation(frame_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "frame_count": len(far_rows),
             "target_count": sum(row["reference_count"] for row in far_rows),
             "recording_ids": recording_ids,
-            "assessment": "insufficient",
+            "assessment": "descriptive_only",
             "reason": (
-                "The initial six-frame far-field slice was already identified as insufficient "
-                "in the M3 plan."
+                "Top-third location coverage is limited, so report this subset separately. "
+                "The routing evaluation uses projected card size across the reviewed set."
             ),
         },
         "limitations": [
-            f"{len(far_rows)} far-field frames span only {len(recording_ids)} held-out recordings.",
+            (
+                f"{len(far_rows)} far-field frames span {len(recording_ids)} held-out recording"
+                f"{'s' if len(recording_ids) != 1 else ''}."
+            ),
             "IMG_0644 adds held-out overlap and edge cases but no top-third targets.",
             (
                 "The current rule routed "
@@ -823,7 +927,7 @@ def main() -> None:
         if row["crop"]["full_frame_candidates_removed"] != 0:
             raise ValueError(f"full-frame candidate was removed in {row['event_id']}")
     report = {
-        "schema_version": "epic-0082-m3-refinement-evaluation/v1",
+        "schema_version": "epic-0082-m3-refinement-evaluation/v2",
         "provider": {
             "name": FINE_FRAME_PROVIDER_NAME,
             "version": provider.version,
@@ -832,7 +936,9 @@ def main() -> None:
             "checkpoint_sha256": bundle_manifest["checkpoint_sha256"],
             "confidence_threshold": provider.confidence_threshold,
             "far_cluster_routing": {
-                "max_full_frame_model_span_px": 96.0,
+                "card_size_metric": "longer_visible_box_side",
+                "max_card_size_fraction_of_model_input": SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION,
+                "max_card_size_model_input_px": SMALL_CARD_MODEL_SIZE_THRESHOLD,
                 "min_crop_scale_gain": 1.5,
             },
             "refinement": {
@@ -861,6 +967,11 @@ def main() -> None:
             ),
             "overlap_definition": (
                 "reviewed bounding-box intersection covers at least 10% of the smaller box"
+            ),
+            "small_model_card_definition": (
+                "longer side of the reviewed visible polygon bounding box after scale to "
+                "432-pixel model input "
+                f"is at most {SMALL_CARD_MODEL_SIZE_THRESHOLD:g} pixels"
             ),
             "determinism_digest_scope": (
                 "final normalized proposal geometry and provenance; timing excluded"

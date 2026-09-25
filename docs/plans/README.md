@@ -53,13 +53,13 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
+| [0082 — Fine-model small-card instance refinement](3-in-progress/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and 0071 contracts | M0–M3 complete. Provider v6 routes 56.4% of clusters by projected card length, with lower crop cost and unchanged full-frame recall. It does not improve small-card or overlap recall. M4 remains: register it as selectable and non-default. |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and a future fixed identity baseline; 0052 is not required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against a fixed identity baseline, then select at most one justified capability response. The completed 0067 `poc_candidate` is optional later input; M0–M3 not started. |
-| [0082 — Fine-model full-frame visible-card detection](4-blocked/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and 0071 contracts; add source-linked reviewed far-field frames outside the training and validation recordings | M0–M2 complete. The v3 evaluation preserves full-frame candidates and is repeatable, but only six far-field frames from one recording are reviewed. The current routing rule sends 98.2% of clusters to crops. M3 needs wider far-field coverage and routing evaluation; M4 depends on M3. |
 
 ### Closed
 

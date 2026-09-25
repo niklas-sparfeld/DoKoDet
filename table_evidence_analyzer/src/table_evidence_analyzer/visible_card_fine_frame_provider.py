@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import math
-import statistics
 import time
 from collections.abc import Callable
 from io import BytesIO
@@ -36,11 +35,11 @@ from .visible_cards import (
 )
 
 FINE_FRAME_PROVIDER_NAME = "local-rfdetr-fine-frame"
-FINE_FRAME_PROVIDER_VERSION = "local-rfdetr-fine-frame-v3"
-FINE_FRAME_SCHEMA = "local-rfdetr-fine-frame/v3"
+FINE_FRAME_PROVIDER_VERSION = "local-rfdetr-fine-frame-v6"
+FINE_FRAME_SCHEMA = "local-rfdetr-fine-frame/v6"
 FINE_FRAME_THRESHOLD = 0.5
 CROP_DUPLICATE_IOU_THRESHOLD = DUPLICATE_IOU_THRESHOLD
-FAR_CLUSTER_MAX_FULL_FRAME_MODEL_SPAN = 96.0
+SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION = 1 / 8
 FAR_CLUSTER_MIN_CROP_SCALE_GAIN = 1.5
 REFINEMENT_MIN_BOX_IOU = 0.5
 REFINEMENT_MIN_MASK_IOU = 0.5
@@ -60,7 +59,9 @@ FINE_FRAME_PROVIDER_MANIFEST = {
     "crop_routing_threshold": FINE_FRAME_THRESHOLD,
     "result_policy": "full_frame_main_with_far_cluster_refinement",
     "far_cluster_routing": {
-        "max_full_frame_model_span_px": FAR_CLUSTER_MAX_FULL_FRAME_MODEL_SPAN,
+        "card_size_metric": "longer_visible_box_side",
+        "max_card_size_fraction_of_model_input": SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION,
+        "max_card_size_model_input_px": 432 * SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION,
         "min_crop_scale_gain": FAR_CLUSTER_MIN_CROP_SCALE_GAIN,
     },
     "refinement_match": {
@@ -142,25 +143,44 @@ def _far_cluster_metrics(
     frame_height: int,
     model_input_size: int,
 ) -> dict[str, Any]:
-    member_spans = [
-        min(predictions_by_id[prediction_id].box.width, predictions_by_id[prediction_id].box.height)
+    frame_long_edge = max(frame_width, frame_height)
+    model_scale = model_input_size / frame_long_edge
+    member_sizes = [
+        {
+            "prediction_id": prediction_id,
+            "visible_card_size_model_px": max(
+                predictions_by_id[prediction_id].box.width,
+                predictions_by_id[prediction_id].box.height,
+            )
+            * model_scale,
+        }
         for prediction_id in cluster.proposal_ids
         if prediction_id in predictions_by_id
     ]
-    local_span = statistics.median(member_spans) if member_spans else 0.0
-    frame_long_edge = max(frame_width, frame_height)
-    full_frame_model_span = local_span * model_input_size / frame_long_edge
+    minimum_card_size = min(
+        (item["visible_card_size_model_px"] for item in member_sizes),
+        default=0.0,
+    )
+    maximum_card_size = model_input_size * SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION
     crop_scale_gain = frame_long_edge / cluster.crop_width
     far = (
-        full_frame_model_span <= FAR_CLUSTER_MAX_FULL_FRAME_MODEL_SPAN
+        bool(member_sizes)
+        and minimum_card_size <= maximum_card_size
         and crop_scale_gain >= FAR_CLUSTER_MIN_CROP_SCALE_GAIN
     )
     return {
-        "local_reference_span_px": local_span,
-        "full_frame_model_span_px": full_frame_model_span,
+        "card_size_metric": "longer_visible_box_side",
+        "member_card_sizes_model_px": member_sizes,
+        "minimum_card_size_model_px": minimum_card_size,
+        "maximum_card_size_model_px": maximum_card_size,
+        "maximum_card_size_fraction_of_model_input": SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION,
         "crop_scale_gain": crop_scale_gain,
         "route": far,
-        "reason": "small_cluster_with_useful_crop_upscale" if far else "not_far_enough_to_route",
+        "reason": (
+            "small_predicted_card_with_useful_crop_upscale"
+            if far
+            else "no_small_card_or_insufficient_crop_upscale"
+        ),
     }
 
 

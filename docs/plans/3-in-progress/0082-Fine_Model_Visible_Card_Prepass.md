@@ -1,43 +1,50 @@
-# Fine-model full-frame visible-card detection
+# Fine-model small-card instance refinement
 
 ## Plan status
 
 - **Summary:** Remove the RF-DETR Small card-cluster stage. Use the same RF-DETR SegMedium model
-  for full-frame detection and far-cluster crop refinement. Current evaluation preserves the main
-  detections, but it lacks far-field coverage and routes nearly every cluster.
-- **Status:** Blocked
+  for full-frame detection and size-gated crop refinement. M3 measures small-card instance
+  separation and crop cost. Card count is not a routing signal.
+- **Status:** In Progress
 - **Depends on:** Completed 0048 pipeline data and execution, completed 0049 recording pipeline
   review, completed 0068 reviewed RF-DETR visible-card segmentation, and the 0071 fine-stage
-  model and source-coordinate crop contracts. The 0071 coarse stage is the removal target. M3 also
-  needs source-linked reviewed far-field challenge frames from recordings outside training and
-  validation.
+  model and source-coordinate crop contracts. The 0071 coarse stage is the removal target.
 - **Builds on:** `local-rfdetr-segmentation`, the reviewed `visible_card` segmentation contract,
   and the deterministic cluster-crop transforms created in 0071.
 - **Outcome:** The `local-rfdetr-fine-frame` provider uses one fine model on the complete source
-  frame and on selected far-cluster crops. It keeps every full-frame candidate and its identity.
-  Confident crop results can refine geometry or add a missed card. The provider uses no coarse
-  model, `card_cluster` model bundle, or cascade child bundle. M4 will register it after M3.
+  frame and on crops that contain a predicted small card. It keeps every full-frame candidate and
+  its identity. Confident crop results can refine geometry or add a missed card. The provider uses
+  no coarse model, `card_cluster` model bundle, or cascade child bundle. M4 will register it after
+  M3.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Decision
 
-### Full-frame main result with far-cluster crop refinement
+### Full-frame main result with size-gated crop refinement
 
 The first M3 comparison used an all-cluster crop pass and replacement arbitration. It did not test
-the targeted far-cluster refinement in this decision, and the held-out set had only six far-field
-frames. Keep the current fine model. Do not start a new training run in this epic.
+the targeted crop refinement in this decision. Keep the current fine model. Do not start a new
+training run in this epic.
 
 Correction: provider v2 ran crops for every cluster and treated crop results as additions. Provider
-v3 routes only far clusters and uses matched crop predictions to refine full-frame geometry. It
-keeps every full-frame candidate and identity. Do not use the v2 result policy.
+v3 used the short side of each box. It sent 98.2% of clusters to crops, so it did not route
+selectively. A v4 trial used the square root of visible-mask area. It also sent 98.2% of clusters
+to crops and marked all full-frame predictions as small. A v5 trial used the longer visible-box
+side, but its 20% cutoff still routed 93.6% of clusters. Keep every full-frame candidate and
+identity.
 
-Use `local-rfdetr-fine-frame` version `local-rfdetr-fine-frame-v3` with schema
-`local-rfdetr-fine-frame/v3`. Keep the current 0.5 confidence threshold for full-frame and crop
-inference. Use the full-frame result as the main candidate set. Route a cluster to crop inference
-when its median card span is at most 96 pixels at the 432-pixel model input and the crop gives at
-least 1.5 times the full-frame resolution. This targets small, far-away cards and skips crops that
-give little scale benefit.
+Use `local-rfdetr-fine-frame` version `local-rfdetr-fine-frame-v6` with schema
+`local-rfdetr-fine-frame/v6`. Keep the current 0.5 confidence threshold for full-frame and crop
+inference. Use the full-frame result as the main candidate set. Estimate each predicted card's
+size from the longer side of its tight visible-region box after scaling the source frame's long
+edge to the 432-pixel model input. Route its cluster when at least one member is at most one eighth
+of the model input (54 pixels) and the crop gives at least 1.5 times the full-frame resolution.
+This measures projected card size. It does not use the number of cards as a routing signal.
+
+The longer side avoids treating the short dimension of an ordinary card as its distance cue. The
+evaluation must check cases where the full-frame model merges several cards into one large region.
+The size rule may not identify those cases by itself.
 
 Match crop results one-to-one with predictions from their source cluster when box IoU and visible-
 mask IoU are both at least 0.50. Rank qualifying matches for each candidate by the lower of box IoU
@@ -49,8 +56,8 @@ IoU and visible-mask IoU are at least 0.90, always keeping the earlier main resu
 by containment or general overlap. A failed crop leaves the full-frame result intact.
 
 This policy preserves every full-frame candidate while letting high-confidence crop results improve
-far-cluster geometry or add a missed card. Crop false positives and extra split predictions can
-still reduce precision, so M3 must report them.
+small-card geometry or add a missed instance. Crop false positives and extra split predictions can
+still reduce precision, so M3 must report them with small-card and overlap results.
 
 The coarse model is parked indefinitely. Do not lower its threshold, retrain it, or keep it as a
 fallback. The replacement is a fine-model prepass:
@@ -76,12 +83,13 @@ The epic includes:
 - a full-frame fine pass with explicit threshold and source-coordinate diagnostics;
 - card-cluster formation from prepass `visible_card` boxes, reusing the reversible crop geometry;
 - fine inference on the resulting padded square crops;
-- selective routing for small clusters when crops provide a useful scale increase;
+- routing by predicted card size at the 432-pixel model input, with a minimum crop scale gain;
 - one-to-one source-frame matching, geometry refinement, high-confidence crop additions, and strict
   duplicate reconciliation that preserve all full-frame candidates;
 - a new selectable provider and one fine-model bundle contract;
 - removal of coarse model loading, training, evaluation, bundle assembly, and provider wiring; and
-- held-out evaluation of recall, overlap separation, false positives, crop cost, and latency.
+- held-out evaluation of small-card instance separation, overlap, false positives, crop cost, and
+  latency. Card count alone is not a quality measure or routing signal.
 
 The epic does not include:
 
@@ -95,8 +103,8 @@ The epic does not include:
 
 ### Frozen M0 choices
 
-- Provider: `local-rfdetr-fine-frame`; provider version: `local-rfdetr-fine-frame-v3`.
-- Provider schema: `local-rfdetr-fine-frame/v3`; bundle schema: the existing
+- Provider: `local-rfdetr-fine-frame`; provider version: `local-rfdetr-fine-frame-v6`.
+- Provider schema: `local-rfdetr-fine-frame/v6`; bundle schema: the existing
   `rfdetr-segmentation-bundle/v1` with one `RFDETRSegMedium` `visible_card` model at 432 × 432.
 - Load one fine model from one bundle. Use it for both the full-frame pass and cluster crops.
 - Use a confidence threshold of `0.5` for full-frame candidates and crop detections. Keep
@@ -107,8 +115,11 @@ The epic does not include:
   expansion and transitive-intersection rule. Each crop must contain the complete union box for its
   component. Keep the existing square crop, neutral padding, and reversible source-coordinate
   transform. An empty full-frame result produces no crops.
-- Keep every valid full-frame candidate in the final result. Route small clusters only when the crop
-  gives a useful scale increase. Match crop results one-to-one to candidates in their source cluster
+- Keep every valid full-frame candidate in the final result. Route a cluster when at least one
+  member's longer visible-box side, scaled to 432 pixels along the source frame's long edge, is at
+  most 12.5% of the model input (54 pixels) and the crop provides at least 1.5 times scale.
+  Record the size of every member and the crop scale gain. Do not route by cluster or frame card
+  count. Match crop results one-to-one to candidates in their source cluster
   at box and mask IoU of at least 0.50. Rank matches by the lower IoU. Accept a pair only when it is
   the best match for both candidates and leads each candidate's second choice by at least 0.10.
   Refine geometry only when crop confidence is at least 0.05 higher; keep the full-frame identity.
@@ -124,7 +135,7 @@ The epic does not include:
   model result. They are not reviewed reference geometry or ground truth.
 - Record `full_frame`, `clusters`, `refinement`, `arbitration`, `mapping`, `reconciliation`, and
   `timing` sections in the raw response. Include model and bundle identity, the 0.5 inference
-  threshold, 96-pixel far-cluster size limit, 1.5 crop scale gain, 0.50 one-to-one match thresholds,
+  threshold, 12.5% model-input card-size limit, 1.5 crop scale gain, 0.50 one-to-one match thresholds,
   0.10 ambiguity margin, 0.05 confidence gain, 0.70 unmatched-crop threshold, and strict 0.90
   duplicate threshold. Record
   source-frame dimensions and digest, cluster-to-full-frame attribution, crop transforms, per-crop
@@ -148,8 +159,11 @@ does not run crop inference. It must report this as valid negative evidence.
 ### Prepass-derived card clusters
 
 Use the existing deterministic connected-component layout and reversible source-coordinate
-transform. Use valid full-frame predictions as crop-routing proposals. Route a cluster only when its
-median card span is at most 96 pixels at the model input size and crop scale gain is at least 1.5.
+transform. Use valid full-frame predictions as crop-routing proposals. Estimate each member's
+projected size from the longer side of its visible-region box, scaled to a 432-pixel model input
+along the source frame's long edge. Route the cluster when at least one member is at most 12.5% of
+that input (54 pixels) and crop scale gain is at least 1.5. Do not use the number of cards in a
+cluster or frame as a routing signal.
 The layout must preserve its behavior for one prediction, nearby overlapping predictions,
 frame-edge boxes, neutral padding, non-finite geometry, and an empty full-frame result.
 
@@ -183,21 +197,22 @@ model identity.
 
 ## Milestone status
 
-- **M0:** Complete — freeze far-cluster routing, one-to-one refinement, base-preserving arbitration,
-  thresholds, and exact-frame regression fixtures.
-- **M1:** Complete — add the shared fine-model pass with selective far-cluster routing, one-to-one
+- **M0:** Complete — freeze the one-model provider, base-preserving arbitration, crop transforms,
+  thresholds, and exact-frame regression fixtures. M3 supersedes the original v3 size metric.
+- **M1:** Complete — add the shared fine-model pass with selective size-based crop routing, one-to-one
   geometry refinement, high-confidence additions, strict duplicate checks, crop fallback, and
   focused tests.
 - **M2:** Complete — remove coarse training, bundle, CLI, registry, configuration, and active UI
   surfaces. Keep cluster geometry under neutral names and keep historical evidence readable.
-- **M3:** Blocked — the corrected v3 evaluation covers 155 reviewed frames, but only six far-field
-  frames from one recording. The current rule routes 98.2% of clusters, so the evaluation does not
-  establish selective far-cluster behavior or its cost. More reviewed far-field cases are required.
-  See the [initial comparison](../../reports/0082-M3_Fine_Frame_Sealed_Test_Comparison.json) and
-  [v3 refinement report](../../reports/0082-M3_Fine_Frame_Refinement_Evaluation.json).
-- **M4:** Blocked — register the current-model refinement provider and migrate active references
-  after M3 evaluates the algorithm and resolves routing behavior, while keeping 0071 as the closed,
-  superseded implementation record.
+- **M3:** Complete — provider v6 routes on projected card length at 12.5% of the 432-pixel input.
+  It routes 56.4% of clusters and lowers crop cost. It preserves full-frame recall, but does not
+  improve small-card or overlap recall. The new provider stays non-default. See the [v6 evaluation
+  report](../../reports/0082-M3_One_Eighth_Size_Refinement_Evaluation.json), the [v3 refinement
+  report](../../reports/0082-M3_Fine_Frame_Refinement_Evaluation.json), the [v4 area-metric
+  trial](../../reports/0082-M3_Size_Gated_Refinement_Evaluation.json), and the [v5 20% long-side
+  trial](../../reports/0082-M3_Long_Side_Size_Refinement_Evaluation.json).
+- **M4:** Next — register provider v6 as a selectable non-default option and migrate active
+  references. Keep 0071 as the closed, superseded implementation record.
 
 ## Delivery milestones
 
@@ -285,16 +300,20 @@ fine bundle and held-out references for that evaluation.
 - Historical stored results remain inspectable without reactivating the retired provider.
 - Focused Python, backend, and web tests pass for the changed surfaces.
 
-### M3 — Validate current-model far-cluster refinement
+### M3 — Validate current-model small-card refinement
 
 - Use the current reviewed fine-model bundle. Do not train a new model for this epic.
-- Compare the full-frame main result with selective crop refinement on source-linked reviewed small,
-  central, far-field, frame-edge, single-card, and overlapping-card cases. Ensure the challenge set
-  represents rare far-field recordings; the initial six far-field frames are not sufficient.
-- Report full-frame detections refined, crop additions, crop false positives, skipped clusters,
-  crop failures, strict duplicate decisions, overlap separation, crop area, and latency separately.
-- Do not remove crop inference based only on aggregate recall. Review far-field and overlap results
-  and the measured cost before setting the provider's final selectable behavior.
+- Compare the full-frame main result with size-gated crop refinement on source-linked reviewed cards
+  across small projected sizes, central and edge positions, single-card frames, and overlapping
+  cards. The far-field location group is informative, but card size and instance separation define
+  the routing question.
+- Report full-frame and final recall for cards at or below the routing size, crop additions and
+  false positives, likely merged predictions, split duplicates, crop failures, routed and skipped
+  clusters, crop area, and latency separately.
+- Check whether the full-frame model merges more than one reviewed card into one region. This is a
+  known case where an area-only router may not see a small individual card.
+- Do not remove crop inference based only on total card count or aggregate recall. Use the reviewed
+  small-card and overlap results and measured cost to set the provider's selectable behavior.
 
 #### M3 implementation evidence — 2026-09-25
 
@@ -366,8 +385,66 @@ fine bundle and held-out references for that evaluation.
 - The evaluation excludes unfinished IMG_0650, IMG_0652, IMG_0653, IMG_0654, IMG_0656, and IMG_0671
   drafts. It does not establish background-only precision. No model training was performed.
 - The source digests, per-frame metrics, crop decisions, timing, and repeated-run digests are in
-  [the v3 refinement report](../../reports/0082-M3_Fine_Frame_Refinement_Evaluation.json). Re-run it
-  with [`evaluate_0082_m3_refinement.py`](../../../table_evidence_analyzer/scripts/evaluate_0082_m3_refinement.py).
+  [the v3 refinement report](../../reports/0082-M3_Fine_Frame_Refinement_Evaluation.json). It is
+  historical evidence. The current evaluation script runs provider v6 and writes the linked v6
+  report by default.
+
+#### M3 v4 area-size routing trial — 2026-09-25
+
+- Evaluated `local-rfdetr-fine-frame-v4` with the reviewed 0068 checkpoint on the same 155 reviewed
+  frames, 437 card regions, and four recordings.
+- The square-root visible-mask-area metric still routed 216 of 220 clusters (98.2%). It put all
+  495 full-frame predictions below the 86.4-pixel cutoff. This metric did not separate small
+  projected cards from the rest of the reviewed set.
+- Full-frame and refined recall both matched 358/437 regions. Crop inference added no recall and
+  increased false proposals from 69 to 77 and duplicates from 2 to 6. Median total latency was
+  496 ms and p95 was 948 ms on MPS.
+- The v4 metric is rejected. Provider v5 uses the longer side of each visible-region box as the
+  projected card-size estimate. This is an evaluation revision, not a model change. See the
+  [v4 area-metric trial report](../../reports/0082-M3_Size_Gated_Refinement_Evaluation.json).
+
+#### M3 v5 20% long-side routing trial — 2026-09-25
+
+- Evaluated provider v5 with the reviewed 0068 checkpoint on 155 reviewed frames and 437 card
+  regions from four recordings.
+- The longer visible-box side was at or below 86.4 pixels for 421/495 full-frame candidates.
+  Because routing triggers when any member of a cluster is small, it sent 206/220 clusters (93.6%)
+  to crops. The reviewed targets below the same cutoff were 351/437.
+- Full-frame and refined recall both matched 358/437 regions overall. For the 351 below-cutoff
+  targets, both matched 294. Crop inference added no recall and increased false proposals from 69
+  to 77 and duplicates from 2 to 6. It refined 45 geometries; 39 had higher polygon IoU. The
+  provider removed no full-frame candidate.
+- Median crop-area ratio was 0.2186 per frame. Median total latency was 493 ms and p95 was 941 ms
+  on MPS. Repeated output was deterministic.
+- The 20% cutoff is too broad. Provider v6 tests a 12.5% cutoff (54 pixels). See the
+  [v5 long-side trial report](../../reports/0082-M3_Long_Side_Size_Refinement_Evaluation.json).
+
+#### M3 v6 one-eighth long-side evaluation — 2026-09-25
+
+- Evaluated provider v6 with the reviewed 0068 checkpoint on 155 reviewed frames and 437 card
+  regions across four recordings. The longer visible-box side cutoff was 54 pixels at the 432-pixel
+  model input. The cutoff is an exploratory routing choice selected from these size and cost
+  measurements. The result is not a final promotion gate.
+- The provider routed 124/220 clusters (56.4%) and skipped 96. The median crop-area ratio fell to
+  0.0344 per frame. On MPS, median crop latency was 73 ms, median total latency was 298 ms, and
+  total latency p95 was 698 ms.
+- Full-frame and final results both matched 358/437 reviewed regions (81.9%). The 101 reviewed
+  regions at or below 54 pixels had 81 matches before and after crop refinement. The overlap group
+  matched 198/273 regions both before and after refinement.
+- Crop inference refined 43 full-frame geometries; 37 had higher polygon IoU. It added 40
+  candidates: 1 matched a reviewed region, 5 were false, 33 were in reviewed ignore regions, and
+  1 was a duplicate. The provider removed no full-frame candidate. Overall false proposals rose
+  from 69 to 74 and duplicates rose from 2 to 4.
+- The six top-third frames still had 14/24 matches and no crop changes. They are all from IMG_0646.
+  Small-card targets at or below 54 pixels were spread across IMG_0644 (38), IMG_0646 (61), and
+  IMG_0648 (2). Other reviewed targets were above the cutoff.
+- Both exact central-card support regions intersected the full-frame and final results. They are
+  regression fixtures, not reviewed ground truth. Repeated output was deterministic, with geometry
+  digest `85b46110457f11993accfa1d06cd17c475ed9e7d6643db7194b12063f19069a1`. The report SHA-256
+  is `5658f22c1e31306865b59e4e3ccd1c37cdd2095eb0f67126a45b3e5772cab2b2`.
+- This evaluation completes M3's size-routing and cost comparison. It does not show improved card
+  recall or overlap separation. Keep provider v6 selectable but non-default, and do not promote it
+  from these results.
 
 #### M3 acceptance criteria
 
@@ -377,11 +454,13 @@ fine bundle and held-out references for that evaluation.
   training is required.
 - Every full-frame candidate remains represented in the output. Crop refinement can change its
   geometry, but it cannot delete the candidate.
-- Far-field and overlap subsets have enough reviewed cases to support a separate result. Do not use
-  the current six-frame far-field subset as a crop-removal gate.
-- The report records refined candidates, crop additions, strict duplicates, false positives,
-  overlap separation, routed and skipped clusters, crop area, full-frame and crop latency, total
-  latency, and deterministic output.
+- The provider routes from each predicted card's longer visible-box side scaled to the 432-pixel
+  model input. It does not route from the number of cards in a frame or cluster.
+- The report gives a separate full-frame and final result for reviewed cards at or below the size
+  threshold, and records overlap separation, split duplicates, crop additions, crop false positives,
+  routed and skipped clusters, crop area, latency, and deterministic output.
+- The report lists reviewed sample counts by size and recording. It reports top-third far-field
+  coverage as a limitation, without using that location-only count as a proxy for small-card size.
 
 ### M4 — Register and migrate the active path
 
