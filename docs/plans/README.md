@@ -47,14 +47,13 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
-| [0081 — Calibration pose-seed refinement from virtual-card fitting](2-ready/0081_Calibration_Pose_Seed_Refinement.md) | Completed 0072, 0075, 0078, and 0079; current occlusion-aware virtual-card fitter | M0 adds and measures a virtual-card-informed calibration seed while preserving the shared robust boundary objective and calibration evidence rules. |
-| [0082 — Fine-model full-frame prepass for visible-card detection](2-ready/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and the 0071 fine-stage model and crop contracts; 0071 coarse stage is the removal target | Remove the coarse RF-DETR cascade and register a non-default fine-model prepass with crop refinement and full-frame fallback. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
+| [0082 — Fine-model full-frame prepass for visible-card detection](2-ready/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and the 0071 fine-stage model and crop contracts; 0071 coarse stage is the removal target | M0 complete: contract and exact source-linked regression fixtures are frozen. M1 is next. |
 
 ### Blocked
 
@@ -66,6 +65,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0081 — Calibration pose-seed refinement from virtual-card fitting](5-closed/0081_Calibration_Pose_Seed_Refinement.md) | Complete | M0 adds a bounded virtual-card-informed calibration pose seed, keeps the shared robust boundary objective and evidence gates, preserves v3 stored-calibration readability, and passes the frozen comparison without a publication regression. |
 | [0071 — Coarse-to-fine visible-card detection](5-closed/0071-Coarse_to_Fine_Visible_Card_Detection.md) | Superseded | M0–M6 remain the historical implementation record. The coarse RF-DETR cascade is parked indefinitely and will be removed by 0082, which replaces it with a fine-model full-frame prepass and crop refinement. |
 | [0079 — Review-first calibration gates](5-closed/0079_Review_First_Calibration_Gates.md) | Complete | M0 makes spatial coverage and held-out boundaries review warnings, lowers the boundary straightness cutoff, and draws fitted rounded outlines. All 24 frozen real results now publish for human review. |
 | [0078 — Automatic calibration without a size reference](5-closed/0078-Automatic_Calibration_Without_Size_Reference.md) | Complete | M0 removes the independent size-reference publication gate, retains optional bias diagnostics, and lets four of 24 frozen real results publish. The other gates remain active. |

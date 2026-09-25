@@ -4,7 +4,7 @@
 
 - **Summary:** Use the strongest ideas from virtual-card fitting to improve the initial state of
   automatic table-plane calibration without replacing its recording-global objective.
-- **Status:** Ready
+- **Status:** Closed
 - **Depends on:** Completed 0072 pose-based visible-card review, completed 0075 robust automatic
   table-plane calibration, completed 0078 automatic calibration without a size reference, completed
   0079 review-first calibration gates, and the current occlusion-aware virtual-card fitter in
@@ -17,7 +17,33 @@
 
 ## Milestone status
 
-- **M0:** Ready — add and measure the virtual-card-informed calibration initialization path.
+- **M0:** Complete — add and measure the virtual-card-informed calibration initialization path.
+
+## Closure
+
+- **Closure reason:** Complete
+- **Closure note:** The shared geometry solver now evaluates a bounded virtual-card pose seed when
+  the finite preliminary metric seed is weak. It keeps the existing global robust boundary
+  objective, calibration gates, projected peer-boundary exclusion, and anchor-refinement caller.
+  Geometry outputs use `card-plane-geometry/v4`; stored `v3` calibration and fit-candidate bytes
+  remain readable.
+
+### M0 evidence
+
+- The new seed uses a bounded center and angle search, symmetric edge distance with clipped Huber
+  loss, and a quarter-turn initialization hypothesis. The final optimizer and publication gates
+  still use the shared robust boundary objective. It does not consume stacking order, an occluder
+  mask, or proposed card scenes.
+- Frozen comparison before → after: 24/24 local cases published in both runs; 10/10 synthetic
+  cases were repeatable; mean local runtime was 5,068 ms → 5,448 ms and maximum runtime was
+  15,905 ms → 19,346 ms. Candidate rejection counts and publication decisions stayed unchanged.
+  One diagnostic robust-fit index changed on a local case, but it did not change publication or
+  the rejection-reason totals.
+- Known noisy complete-card fixture before → after: median boundary error 0.436111 px and P90
+  error 0.568763 px in both runs; quality passed in both runs. The additional seed was selected
+  in one difficult frozen case and matched or lost to the existing seed in the other activations.
+- Repeated noisy-fit calls produced the same calibration digest. The focused automatic-calibration,
+  shared-geometry, anchor-refinement, initialization, and proposed-scene checks passed: 71 tests.
 
 ## Purpose
 

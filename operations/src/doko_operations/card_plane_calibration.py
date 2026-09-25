@@ -22,6 +22,7 @@ import numpy as np
 
 from .card_plane_geometry import (
     GEOMETRY_ALGORITHM_VERSION,
+    SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS,
     CalibrationCandidateReceipt,
     CardPlaneGeometryError,
     TablePlaneCalibration,
@@ -319,6 +320,7 @@ class CalibrationFitCandidate:
         candidate_receipt_digests: Sequence[str],
         size_reference_digest: str | None,
         fit_lineage: Mapping[str, Any],
+        geometry_algorithm_version: str = GEOMETRY_ALGORITHM_VERSION,
     ) -> "CalibrationFitCandidate":
         def matrix(value: Sequence[Sequence[float]], field: str) -> tuple[tuple[float, ...], ...]:
             array = np.asarray(value, dtype=np.float64)
@@ -326,6 +328,8 @@ class CalibrationFitCandidate:
                 raise CardPlaneCalibrationError(f"{field} must be a finite 3 by 3 matrix")
             return tuple(tuple(_finite(item, field) for item in row) for row in array.tolist())
 
+        if geometry_algorithm_version not in SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS:
+            raise CardPlaneCalibrationError("calibration fit candidate algorithm is unsupported")
         core: dict[str, Any] = {
             "schema_version": CALIBRATION_FIT_CANDIDATE_SCHEMA_VERSION,
             "recording_id": _identifier(recording_id, "recording_id"),
@@ -338,7 +342,7 @@ class CalibrationFitCandidate:
             "card_long_size": _finite(card_long_size, "card_long_size"),
             "recipe_digest": _identifier(recipe_digest, "recipe_digest"),
             "geometry_algorithm_version": _identifier(
-                GEOMETRY_ALGORITHM_VERSION, "geometry_algorithm_version"
+                geometry_algorithm_version, "geometry_algorithm_version"
             ),
             "fit_digest": _identifier(fit_digest, "fit_digest"),
             "fit_observation_ids": [
@@ -452,6 +456,7 @@ class CalibrationFitCandidate:
             card_long_size=data["card_long_size"],
             recipe_digest=data["recipe_digest"],
             fit_digest=data["fit_digest"],
+            geometry_algorithm_version=data["geometry_algorithm_version"],
             fit_observation_ids=data["fit_observation_ids"],
             held_out_observation_ids=data["held_out_observation_ids"],
             candidate_receipt_digests=data["candidate_receipt_digests"],
@@ -1868,6 +1873,9 @@ def calibrate_recording(
             "observation_residuals",
             "fit_attempt_count",
             "selected_attempt_seed",
+            "selected_attempt_strategy",
+            "virtual_card_pose_seed_recipe_version",
+            "virtual_card_pose_seed_attempt_count",
             "convergence_reason",
         )
     }

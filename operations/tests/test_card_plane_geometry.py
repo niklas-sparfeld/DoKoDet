@@ -6,8 +6,11 @@ import numpy as np
 import pytest
 
 from doko_operations.card_plane_geometry import (
+    CALIBRATION_POSE_SEED_RECIPE_VERSION,
+    CARD_ASPECT_RATIO,
     CARD_CORNER_RADIUS_OVER_SHORT_SIDE,
     DERIVATION_RECIPE_VERSION,
+    GEOMETRY_ALGORITHM_VERSION,
     CalibrationCandidateReceipt,
     CardPlaneGeometryError,
     CardPose,
@@ -16,6 +19,7 @@ from doko_operations.card_plane_geometry import (
     PoseFitDiagnostics,
     ReviewedCardScene,
     TablePlaneCalibration,
+    _virtual_card_pose_seed,
     apply_homography,
     card_quad_from_pose,
     derive_pose_scene_visible_regions,
@@ -137,6 +141,28 @@ def test_calibration_and_scene_contracts_round_trip_with_digests() -> None:
         ReviewedCardScene.from_mapping(tampered)
 
 
+def test_calibration_seed_version_changes_and_legacy_calibration_stays_readable() -> None:
+    legacy = TablePlaneCalibration.create(
+        calibration_revision_id="legacy-calibration-1",
+        recording_id="recording-1",
+        source_revision="generated-1",
+        frame_width=640,
+        frame_height=480,
+        image_to_table=np.eye(3),
+        table_to_image=np.eye(3),
+        card_short_size=1.0,
+        card_long_size=1.5,
+        candidate_receipt_digests=(),
+        diagnostics={"accepted": 3},
+        algorithm_version="card-plane-geometry/v3",
+    )
+
+    restored = TablePlaneCalibration.from_mapping(legacy.to_mapping())
+
+    assert GEOMETRY_ALGORITHM_VERSION == "card-plane-geometry/v4"
+    assert restored == legacy
+
+
 def test_derived_regions_reject_a_different_scene_or_calibration() -> None:
     receipt = DerivedRegionReceipt.create(
         source_frame_id="frame-1",
@@ -242,7 +268,9 @@ def test_joint_boundary_fit_recovers_known_projection_from_noisy_masks() -> None
     first = fit_table_plane(quads, boundary_samples=boundaries)
     second = fit_table_plane(quads, boundary_samples=boundaries)
 
-    assert first["method"] == "joint-robust-boundary-fit-v3"
+    assert first["method"] == "joint-robust-boundary-fit-v4"
+    assert first["virtual_card_pose_seed_recipe_version"] == CALIBRATION_POSE_SEED_RECIPE_VERSION
+    assert first["virtual_card_pose_seed_attempt_count"] == 0
     assert first["card_short_size"] == 1.0
     assert first["card_long_size"] == 1.5
     assert first["accepted_card_count"] == len(quads)
@@ -251,6 +279,19 @@ def test_joint_boundary_fit_recovers_known_projection_from_noisy_masks() -> None
     projected = apply_homography(first["table_to_image"], first["table_quads"][0])
     assert np.max(np.linalg.norm(projected - first["oriented_image_quads"][0], axis=1)) < 1.0
     assert first["median_boundary_error_px"] < 1.5
+
+
+def test_virtual_card_pose_seed_can_select_the_alternate_orientation_hypothesis() -> None:
+    samples = rounded_card_outline(
+        card_quad_from_pose((0.0, 0.0), 0.0, 1.0, CARD_ASPECT_RATIO), 64
+    )
+
+    pose, score = _virtual_card_pose_seed(
+        np.eye(3), np.asarray([0.0, 0.0, np.pi / 2.0]), samples
+    )
+
+    assert score < 1e-8
+    assert (np.degrees(pose[2]) % 180.0) == pytest.approx(0.0)
 
 
 def test_joint_boundary_fit_rejects_a_shrunken_mask_and_keeps_best_valid_fit() -> None:

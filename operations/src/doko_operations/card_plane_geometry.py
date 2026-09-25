@@ -23,7 +23,12 @@ from .reviewed_rfdetr_detector_campaign import canonical_json_bytes
 
 CARD_ASPECT_RATIO = 1.5
 CARD_CORNER_RADIUS_OVER_SHORT_SIDE = 0.087
-GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v3"
+GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v4"
+SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS = (
+    "card-plane-geometry/v3",
+    GEOMETRY_ALGORITHM_VERSION,
+)
+CALIBRATION_POSE_SEED_RECIPE_VERSION = "virtual-card-calibration-pose-seed/v1"
 DERIVATION_RECIPE_VERSION = "card-plane-derived-regions/v2"
 COORDINATE_SYSTEM_VERSION = "source-pixel-boundary/table-short-side-unit/v1"
 CORNER_ORDER_VERSION = "cyclic-short-edge-first/v1"
@@ -327,6 +332,13 @@ _FIT_MAX_STARTS = 3
 _FIT_MAX_ITERATIONS = 8
 _FIT_HUBER_DELTA = 0.025
 _FIT_OBSERVATION_GATE = 0.055
+_POSE_SEED_CENTER_RADIUS = 0.45
+_POSE_SEED_ANGLE_RADIUS = math.radians(20.0)
+_POSE_SEED_CENTER_STEPS = 3
+_POSE_SEED_ANGLE_STEPS = 3
+_POSE_SEED_REFINEMENT_STAGES = 1
+_POSE_SEED_TRIGGER = 4.0 * _FIT_HUBER_DELTA**2
+_POSE_SEED_GEOMETRY_TRIGGER = 1.0
 
 
 def _fit_projection(matrix: np.ndarray, points: np.ndarray) -> np.ndarray:
@@ -381,13 +393,100 @@ def _fit_parameters(homography: np.ndarray) -> np.ndarray:
     )
 
 
+def _angle_distance(left: float, right: float) -> float:
+    return abs((float(left) - float(right) + math.pi) % (2.0 * math.pi) - math.pi)
+
+
+def _virtual_card_pose_seed_score(
+    projection: np.ndarray, pose: np.ndarray, samples: np.ndarray
+) -> float:
+    residual = _fit_observation_residual(projection, pose, samples)
+    # The boundary residual is symmetric. Huber loss clips disconnected or noisy edge segments
+    # while keeping the score in the same normalized units as the final shared objective.
+    return _huber_cost([residual], np.ones(1, dtype=np.float64))
+
+
+def _virtual_card_pose_seed(
+    projection: np.ndarray,
+    initial_pose: np.ndarray,
+    samples: np.ndarray,
+) -> tuple[np.ndarray, float]:
+    """Refine one pose seed with a bounded, calibration-only virtual-card search."""
+
+    seed = np.asarray(initial_pose, dtype=np.float64).copy()
+    if seed.shape != (3,) or not np.all(np.isfinite(seed)):
+        raise CardPlaneGeometryError("virtual-card pose seed must contain three finite values")
+    orientation_seeds = (float(seed[2]), float(seed[2]) + math.pi / 2.0)
+    hypotheses: list[tuple[tuple[float, ...], np.ndarray, float]] = []
+    for orientation_index, orientation_seed in enumerate(orientation_seeds):
+        center = seed[:2].copy()
+        angle = orientation_seed
+        center_radius = _POSE_SEED_CENTER_RADIUS
+        angle_radius = _POSE_SEED_ANGLE_RADIUS
+        best_pose = np.asarray([center[0], center[1], angle], dtype=np.float64)
+        best_score = _virtual_card_pose_seed_score(projection, best_pose, samples)
+        for _stage in range(_POSE_SEED_REFINEMENT_STAGES):
+            stage_best: tuple[tuple[float, ...], np.ndarray, float] | None = None
+            for center_x in np.linspace(-1.0, 1.0, _POSE_SEED_CENTER_STEPS):
+                for center_y in np.linspace(-1.0, 1.0, _POSE_SEED_CENTER_STEPS):
+                    trial_center = center + np.asarray(
+                        [center_x * center_radius, center_y * center_radius], dtype=np.float64
+                    )
+                    for angle_offset in np.linspace(-1.0, 1.0, _POSE_SEED_ANGLE_STEPS):
+                        trial_pose = np.asarray(
+                            [
+                                trial_center[0],
+                                trial_center[1],
+                                angle + angle_offset * angle_radius,
+                            ],
+                            dtype=np.float64,
+                        )
+                        try:
+                            score = _virtual_card_pose_seed_score(projection, trial_pose, samples)
+                        except (CardPlaneGeometryError, np.linalg.LinAlgError, FloatingPointError):
+                            continue
+                        key = (
+                            score,
+                            float(orientation_index),
+                            float(np.linalg.norm(trial_center - seed[:2])),
+                            _angle_distance(float(trial_pose[2]), float(seed[2])),
+                            float(trial_pose[2]),
+                            float(trial_pose[0]),
+                            float(trial_pose[1]),
+                        )
+                        if stage_best is None or key < stage_best[0]:
+                            stage_best = (key, trial_pose, score)
+            if stage_best is None:
+                break
+            _key, best_pose, best_score = stage_best
+            center = best_pose[:2].copy()
+            angle = float(best_pose[2])
+            center_radius /= 3.0
+            angle_radius /= 3.0
+        final_key = (
+            best_score,
+            float(orientation_index),
+            float(np.linalg.norm(best_pose[:2] - seed[:2])),
+            _angle_distance(float(best_pose[2]), float(seed[2])),
+            float(best_pose[2]),
+            float(best_pose[0]),
+            float(best_pose[1]),
+        )
+        hypotheses.append((final_key, best_pose, best_score))
+    if not hypotheses:
+        raise CardPlaneGeometryError("virtual-card pose seed has no finite hypothesis")
+    _key, pose, score = min(hypotheses, key=lambda item: item[0])
+    return pose, score
+
+
 def _fit_seed(
     raw_quads: Sequence[np.ndarray],
     seed_index: int,
     reference_index: int,
     pixel_center: np.ndarray,
     pixel_scale: float,
-) -> tuple[np.ndarray, np.ndarray]:
+    boundary_samples: Sequence[np.ndarray] | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Build one deterministic metric-rectified seed for the joint boundary optimizer."""
 
     destination = np.asarray(
@@ -466,7 +565,33 @@ def _fit_seed(
         raise CardPlaneGeometryError("no finite multistart initialization is available")
     _score, parameters, poses = min(starts, key=lambda item: item[0])
     other_poses = poses[np.arange(len(poses)) != reference_index].reshape(-1)
-    return np.concatenate((parameters, other_poses)), poses
+    baseline_parameters = np.concatenate((parameters, other_poses))
+    if boundary_samples is None or _score <= _POSE_SEED_GEOMETRY_TRIGGER:
+        return baseline_parameters, baseline_parameters.copy(), poses
+    pose_seed_poses = poses.copy()
+    projection = _fit_homography(parameters)
+    for index, samples in enumerate(boundary_samples):
+        if index == reference_index:
+            continue
+        try:
+            preliminary_score = _virtual_card_pose_seed_score(
+                projection, pose_seed_poses[index], samples
+            )
+        except (CardPlaneGeometryError, np.linalg.LinAlgError, FloatingPointError):
+            continue
+        if preliminary_score <= _POSE_SEED_TRIGGER:
+            continue
+        try:
+            pose_seed_poses[index], _score = _virtual_card_pose_seed(
+                projection, pose_seed_poses[index], samples
+            )
+        except (CardPlaneGeometryError, np.linalg.LinAlgError, FloatingPointError):
+            continue
+    seeded_other_poses = pose_seed_poses[
+        np.arange(len(pose_seed_poses)) != reference_index
+    ].reshape(-1)
+    seeded_parameters = np.concatenate((parameters, seeded_other_poses))
+    return baseline_parameters, seeded_parameters, poses
 
 
 def _decode_fit_poses(
@@ -768,25 +893,48 @@ def fit_table_plane(
     samples_normalized = [(value - pixel_center) / pixel_scale for value in samples]
     reference_index = min(range(len(weights)), key=lambda index: (-float(weights[index]), index))
 
-    attempts: list[tuple[float, int, np.ndarray, list[np.ndarray], str]] = []
+    attempts: list[tuple[float, int, int, np.ndarray, list[np.ndarray], str]] = []
     seed_indices = _spatial_fit_seeds(raw_quads, weights)
+    evaluated_seed_indices: set[int] = set()
     for seed_index in seed_indices:
         try:
-            initial, _initial_poses = _fit_seed(
-                raw_quads, seed_index, reference_index, pixel_center, pixel_scale
+            initial, pose_seeded, _initial_poses = _fit_seed(
+                raw_quads,
+                seed_index,
+                reference_index,
+                pixel_center,
+                pixel_scale,
+                samples_normalized if seed_index == seed_indices[0] else None,
             )
-            optimized, residuals, objective, reason = _optimize_boundary_fit(
-                initial, samples_normalized, weights, reference_index
-            )
-            attempts.append((objective, seed_index, optimized, residuals, reason))
+            variants = [(0, initial)]
+            if not np.allclose(initial, pose_seeded, rtol=0.0, atol=1e-12):
+                variants.append((1, pose_seeded))
+            for variant_index, variant in variants:
+                optimized, residuals, objective, reason = _optimize_boundary_fit(
+                    variant, samples_normalized, weights, reference_index
+                )
+                attempts.append(
+                    (objective, seed_index, variant_index, optimized, residuals, reason)
+                )
+            evaluated_seed_indices.add(seed_index)
         except (CardPlaneGeometryError, np.linalg.LinAlgError, cv2.error, FloatingPointError):
             continue
-        if len(attempts) >= 2 and min(item[0] for item in attempts) <= 0.5 * _FIT_HUBER_DELTA**2:
+        if (
+            len(evaluated_seed_indices) >= 2
+            and min(item[0] for item in attempts) <= 0.5 * _FIT_HUBER_DELTA**2
+        ):
             break
     if not attempts:
         raise CardPlaneGeometryError("joint boundary fit found no finite multistart candidate")
-    attempts.sort(key=lambda item: (item[0], item[1]))
-    _objective, selected_seed, parameters, residuals, convergence_reason = attempts[0]
+    attempts.sort(key=lambda item: (item[0], item[1], item[2]))
+    (
+        _objective,
+        selected_seed,
+        selected_variant,
+        parameters,
+        residuals,
+        convergence_reason,
+    ) = attempts[0]
 
     def outlier_indices(values: Sequence[np.ndarray], active: Sequence[int]) -> list[int]:
         scores = np.asarray([float(np.median(values[index])) for index in active])
@@ -803,25 +951,37 @@ def fit_table_plane(
         refit_candidates = []
         for seed_index in seed_indices:
             try:
-                initial, _initial_poses = _fit_seed(
-                    raw_quads, seed_index, reference_index, pixel_center, pixel_scale
+                initial, pose_seeded, _initial_poses = _fit_seed(
+                    raw_quads,
+                    seed_index,
+                    reference_index,
+                    pixel_center,
+                    pixel_scale,
+                    samples_normalized if seed_index == seed_indices[0] else None,
                 )
-                optimized, fit_residuals, objective, reason = _optimize_boundary_fit(
-                    initial, samples_normalized, active_weights, reference_index
-                )
-                refit_candidates.append((objective, seed_index, optimized, fit_residuals, reason))
+                variants = [(0, initial)]
+                if not np.allclose(initial, pose_seeded, rtol=0.0, atol=1e-12):
+                    variants.append((1, pose_seeded))
+                for variant_index, variant in variants:
+                    optimized, fit_residuals, objective, reason = _optimize_boundary_fit(
+                        variant, samples_normalized, active_weights, reference_index
+                    )
+                    refit_candidates.append(
+                        (objective, seed_index, variant_index, optimized, fit_residuals, reason)
+                    )
             except (CardPlaneGeometryError, np.linalg.LinAlgError, cv2.error, FloatingPointError):
                 continue
             if (
-                len(refit_candidates) >= 2
+                len({item[1] for item in refit_candidates}) >= 2
                 and min(item[0] for item in refit_candidates) <= 0.5 * _FIT_HUBER_DELTA**2
             ):
                 break
         if refit_candidates:
-            refit_candidates.sort(key=lambda item: (item[0], item[1]))
+            refit_candidates.sort(key=lambda item: (item[0], item[1], item[2]))
             (
                 _objective,
                 selected_seed,
+                selected_variant,
                 parameters,
                 residuals,
                 convergence_reason,
@@ -911,8 +1071,10 @@ def fit_table_plane(
     )
     quality_passed = len(accepted_indices) >= 3 and median_normalized <= _FIT_OBSERVATION_GATE
     calibration_core = {
-        "method": "joint-robust-boundary-fit-v3",
+        "method": "joint-robust-boundary-fit-v4",
         "algorithm_version": GEOMETRY_ALGORITHM_VERSION,
+        "supported_algorithm_versions": list(SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS),
+        "calibration_pose_seed_recipe_version": CALIBRATION_POSE_SEED_RECIPE_VERSION,
         "card_aspect_ratio": CARD_ASPECT_RATIO,
         "input_card_count": len(raw_quads),
         "accepted_card_count": len(accepted_indices),
@@ -936,6 +1098,11 @@ def fit_table_plane(
         "quality_gate_passed": quality_passed,
         "fit_attempt_count": len(attempts),
         "selected_attempt_seed": selected_seed,
+        "selected_attempt_strategy": (
+            "virtual-card-pose-seed" if selected_variant else "quadrilateral-seed"
+        ),
+        "virtual_card_pose_seed_recipe_version": CALIBRATION_POSE_SEED_RECIPE_VERSION,
+        "virtual_card_pose_seed_attempt_count": sum(item[2] == 1 for item in attempts),
         "convergence_reason": convergence_reason,
     }
     return {
@@ -1341,6 +1508,7 @@ class TablePlaneCalibration:
     card_short_size: float
     card_long_size: float
     candidate_receipt_digests: tuple[str, ...]
+    algorithm_version: str
     diagnostics: Mapping[str, Any]
     calibration_digest: str
 
@@ -1359,7 +1527,11 @@ class TablePlaneCalibration:
         card_long_size: float,
         candidate_receipt_digests: Sequence[str],
         diagnostics: Mapping[str, Any],
+        algorithm_version: str = GEOMETRY_ALGORITHM_VERSION,
     ) -> "TablePlaneCalibration":
+        algorithm = _identifier(algorithm_version, "algorithm_version")
+        if algorithm not in SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS:
+            raise CardPlaneGeometryError("table-plane calibration algorithm is unsupported")
         core = {
             "schema_version": TABLE_PLANE_CALIBRATION_SCHEMA_VERSION,
             "calibration_revision_id": _identifier(
@@ -1384,7 +1556,7 @@ class TablePlaneCalibration:
                 _digest_value(value, f"candidate_receipt_digests[{index}]")
                 for index, value in enumerate(candidate_receipt_digests)
             ],
-            "algorithm_version": GEOMETRY_ALGORITHM_VERSION,
+            "algorithm_version": algorithm,
             "coordinate_system": COORDINATE_SYSTEM_VERSION,
             "corner_order": CORNER_ORDER_VERSION,
             "angle_convention": ANGLE_CONVENTION_VERSION,
@@ -1415,6 +1587,7 @@ class TablePlaneCalibration:
             card_short_size=core["card_short_size"],
             card_long_size=core["card_long_size"],
             candidate_receipt_digests=tuple(core["candidate_receipt_digests"]),
+            algorithm_version=core["algorithm_version"],
             diagnostics=core["diagnostics"],
             calibration_digest=_digest(core),
         )
@@ -1433,7 +1606,7 @@ class TablePlaneCalibration:
             "card_long_size": _round(self.card_long_size),
             "card_aspect_ratio": CARD_ASPECT_RATIO,
             "candidate_receipt_digests": list(self.candidate_receipt_digests),
-            "algorithm_version": GEOMETRY_ALGORITHM_VERSION,
+            "algorithm_version": self.algorithm_version,
             "coordinate_system": COORDINATE_SYSTEM_VERSION,
             "corner_order": CORNER_ORDER_VERSION,
             "angle_convention": ANGLE_CONVENTION_VERSION,
@@ -1469,7 +1642,7 @@ class TablePlaneCalibration:
             raise CardPlaneGeometryError("unsupported table-plane calibration schema")
         if data["card_aspect_ratio"] != CARD_ASPECT_RATIO:
             raise CardPlaneGeometryError("table-plane calibration card aspect ratio is unsupported")
-        if data["algorithm_version"] != GEOMETRY_ALGORITHM_VERSION:
+        if data["algorithm_version"] not in SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS:
             raise CardPlaneGeometryError("table-plane calibration algorithm is unsupported")
         if data["coordinate_system"] != COORDINATE_SYSTEM_VERSION:
             raise CardPlaneGeometryError("table-plane calibration coordinate system is unsupported")
@@ -1489,6 +1662,7 @@ class TablePlaneCalibration:
             card_long_size=data["card_long_size"],
             candidate_receipt_digests=data["candidate_receipt_digests"],
             diagnostics=data["diagnostics"],
+            algorithm_version=data["algorithm_version"],
         )
         if data["calibration_digest"] != calibration.calibration_digest:
             raise CardPlaneGeometryError(
@@ -2078,6 +2252,8 @@ def geometry_contract_manifest() -> dict[str, Any]:
 
     return {
         "algorithm_version": GEOMETRY_ALGORITHM_VERSION,
+        "supported_algorithm_versions": list(SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS),
+        "calibration_pose_seed_recipe_version": CALIBRATION_POSE_SEED_RECIPE_VERSION,
         "coordinate_system": COORDINATE_SYSTEM_VERSION,
         "corner_order": CORNER_ORDER_VERSION,
         "angle_convention": ANGLE_CONVENTION_VERSION,
@@ -2097,6 +2273,7 @@ __all__ = [
     "CALIBRATION_CANDIDATE_SCHEMA_VERSION",
     "CARD_ASPECT_RATIO",
     "CARD_CORNER_RADIUS_OVER_SHORT_SIDE",
+    "CALIBRATION_POSE_SEED_RECIPE_VERSION",
     "CARD_POSE_SCHEMA_VERSION",
     "CARD_STACKING_ORDER_SCHEMA_VERSION",
     "COORDINATE_SYSTEM_VERSION",
@@ -2106,6 +2283,7 @@ __all__ = [
     "POSE_SCENE_DERIVED_VIEW_SCHEMA_VERSION",
     "POSE_SCENE_NORMALIZATION_POLICY",
     "GEOMETRY_ALGORITHM_VERSION",
+    "SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS",
     "MASK_RASTER_POLICY",
     "MASK_THRESHOLD",
     "NUMERIC_PRECISION_DECIMALS",
