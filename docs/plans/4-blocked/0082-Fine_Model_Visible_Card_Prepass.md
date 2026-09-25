@@ -3,11 +3,14 @@
 ## Plan status
 
 - **Summary:** Remove the RF-DETR Small card-cluster stage. Use the same RF-DETR SegMedium model
-  for full-frame detection and far-cluster crop refinement.
-- **Status:** In Progress
+  for full-frame detection and far-cluster crop refinement. Current evaluation preserves the main
+  detections, but it lacks far-field coverage and routes nearly every cluster.
+- **Status:** Blocked
 - **Depends on:** Completed 0048 pipeline data and execution, completed 0049 recording pipeline
   review, completed 0068 reviewed RF-DETR visible-card segmentation, and the 0071 fine-stage
-  model and source-coordinate crop contracts. The 0071 coarse stage is the removal target.
+  model and source-coordinate crop contracts. The 0071 coarse stage is the removal target. M3 also
+  needs source-linked reviewed far-field challenge frames from recordings outside training and
+  validation.
 - **Builds on:** `local-rfdetr-segmentation`, the reviewed `visible_card` segmentation contract,
   and the deterministic cluster-crop transforms created in 0071.
 - **Outcome:** The `local-rfdetr-fine-frame` provider uses one fine model on the complete source
@@ -187,14 +190,14 @@ model identity.
   focused tests.
 - **M2:** Complete — remove coarse training, bundle, CLI, registry, configuration, and active UI
   surfaces. Keep cluster geometry under neutral names and keep historical evidence readable.
-- **M3:** In Progress — the initial comparison tested all-cluster replacement and had only six
-  far-field frames. It does not test the targeted refinement algorithm. Evaluate that algorithm
-  with the current fine model on a representative challenge set; no new model training is in scope.
-  The provider keeps every full-frame candidate and selectively refines small clusters. See the
-  [initial M3 comparison report](../../reports/0082-M3_Fine_Frame_Sealed_Test_Comparison.json).
+- **M3:** Blocked — the corrected v3 evaluation covers 155 reviewed frames, but only six far-field
+  frames from one recording. The current rule routes 98.2% of clusters, so the evaluation does not
+  establish selective far-cluster behavior or its cost. More reviewed far-field cases are required.
+  See the [initial comparison](../../reports/0082-M3_Fine_Frame_Sealed_Test_Comparison.json) and
+  [v3 refinement report](../../reports/0082-M3_Fine_Frame_Refinement_Evaluation.json).
 - **M4:** Blocked — register the current-model refinement provider and migrate active references
-  after M3 evaluates the algorithm, while keeping 0071 as the closed, superseded implementation
-  record.
+  after M3 evaluates the algorithm and resolves routing behavior, while keeping 0071 as the closed,
+  superseded implementation record.
 
 ## Delivery milestones
 
@@ -335,6 +338,36 @@ fine bundle and held-out references for that evaluation.
   the current model remains open.
 - The complete per-frame metrics and timing values are in the linked JSON report. Its SHA-256 is
   `9e6e2718ae2a41e750491bee6117b59e18a1481ef1011ad93dca9e6f2797d9c4`.
+
+#### M3 v3 refinement evaluation — 2026-09-25
+
+- Evaluated provider v3 with the reviewed 0068 checkpoint on 104 sealed-test frames and 51
+  source-linked, human-corrected frames from IMG_0644. IMG_0644 is outside the model's training and
+  validation recordings. The combined set has 155 frames and 437 reviewed card regions across four
+  recordings.
+- On the sealed set, full-frame inference matched 228/292 cards (78.08%), with 56 false proposals
+  and 2 duplicate proposals. Refinement matched the same 228/292 cards, with 61 false proposals and
+  4 duplicate proposals. The overlapping-card subset stayed at 149/210 matches. Its mean polygon
+  IoU rose from 0.8932 to 0.8969, but refinement added no card recall there.
+- The provider refined 45 full-frame geometries. Thirty-nine had higher IoU against their matched
+  reviewed region. It added 45 crop predictions: 3 matched regions already matched by full-frame
+  results, 8 were false, 33 were inside reviewed ignore regions, and 1 was a strict duplicate. The
+  provider removed no full-frame candidate. Crop refinement added no card recall on the sealed set.
+- The far-field subset has 6 frames and 24 cards, all from IMG_0646. It stayed at 14/24 matches,
+  with no geometry refinements or crop additions. IMG_0644 adds frame-edge and overlap cases, but no
+  cards in the top third. This does not meet the far-field coverage requirement.
+- The current 96-pixel routing rule sent 216 of 220 clusters to crops (98.2%). The median sum of
+  crop-area ratios was 0.2345 per frame. On MPS, median prepass latency was 191 ms, crop latency
+  was 147 ms, total latency was 465 ms, and total latency p95 was 876 ms. This routing is too broad
+  to validate rare far-cluster behavior or its cost.
+- Repeated runs produced identical geometry. The full-frame pass and final result intersect both
+  exact central-card regression fixtures. These support regions are regression checks, not reviewed
+  ground truth.
+- The evaluation excludes unfinished IMG_0650, IMG_0652, IMG_0653, IMG_0654, IMG_0656, and IMG_0671
+  drafts. It does not establish background-only precision. No model training was performed.
+- The source digests, per-frame metrics, crop decisions, timing, and repeated-run digests are in
+  [the v3 refinement report](../../reports/0082-M3_Fine_Frame_Refinement_Evaluation.json). Re-run it
+  with [`evaluate_0082_m3_refinement.py`](../../../table_evidence_analyzer/scripts/evaluate_0082_m3_refinement.py).
 
 #### M3 acceptance criteria
 

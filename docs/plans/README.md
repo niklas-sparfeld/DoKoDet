@@ -53,13 +53,13 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
-| [0082 — Fine-model full-frame visible-card detection](3-in-progress/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and the 0071 fine-stage model and crop contracts; 0071 coarse stage is the removal target | M0–M2 complete. The initial M3 comparison tested all-cluster replacement and had only six far-field frames. The provider now uses the current fine model, routes small clusters with useful crop upscaling, and refines one-to-one matches while preserving every full-frame candidate. M3 remains in progress for representative evaluation with the current model; M4 is blocked until then. |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and a future fixed identity baseline; 0052 is not required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against a fixed identity baseline, then select at most one justified capability response. The completed 0067 `poc_candidate` is optional later input; M0–M3 not started. |
+| [0082 — Fine-model full-frame visible-card detection](4-blocked/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and 0071 contracts; add source-linked reviewed far-field frames outside the training and validation recordings | M0–M2 complete. The v3 evaluation preserves full-frame candidates and is repeatable, but only six far-field frames from one recording are reviewed. The current routing rule sends 98.2% of clusters to crops. M3 needs wider far-field coverage and routing evaluation; M4 depends on M3. |
 
 ### Closed
 
