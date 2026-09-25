@@ -1780,6 +1780,22 @@ def build_parser() -> argparse.ArgumentParser:
     visible_cards.add_argument("--run-timeout", type=float, default=3600.0)
     visible_cards.add_argument("--poll-interval", type=float, default=2.0)
     visible_cards.add_argument("--format", choices=("human", "json"), default="human")
+    scene_proposals = pipeline_commands.add_parser(
+        "proposed-card-scenes-generate",
+        help="Run proposed-card-scene generation for selected RF-DETR results.",
+        description=(
+            "Check every selected generated local RF-DETR result, then start and poll one "
+            "proposed-card-scene run per recording."
+        ),
+    )
+    scene_proposals.add_argument("--recordings", type=Path, required=True)
+    scene_proposals.add_argument(
+        "--backend-url", default="http://127.0.0.1:8000", help="Local backend base URL."
+    )
+    scene_proposals.add_argument("--timeout", type=float, default=30.0)
+    scene_proposals.add_argument("--run-timeout", type=float, default=3600.0)
+    scene_proposals.add_argument("--poll-interval", type=float, default=2.0)
+    scene_proposals.add_argument("--format", choices=("human", "json"), default="human")
     return parser
 
 
@@ -1873,7 +1889,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     timeout_seconds=args.timeout,
                 )
                 renderer = render_manual_proposed_card_scene_preflight
-            else:
+            elif args.pipeline_command == "proposed-card-scenes-visible-cards":
                 report = run_manual_visible_card_detection(
                     recording_ids,
                     base_url=args.backend_url,
@@ -1882,10 +1898,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                     poll_interval_seconds=args.poll_interval,
                 )
                 renderer = render_manual_visible_card_detection
+            else:
+                from .manual_proposed_card_scene_generation import (
+                    render_manual_proposed_card_scene_generation,
+                    run_manual_proposed_card_scene_generation,
+                )
+
+                report = run_manual_proposed_card_scene_generation(
+                    recording_ids,
+                    base_url=args.backend_url,
+                    request_timeout_seconds=args.timeout,
+                    run_timeout_seconds=args.run_timeout,
+                    poll_interval_seconds=args.poll_interval,
+                )
+                renderer = render_manual_proposed_card_scene_generation
         except ManualProposedCardScenePreflightError as error:
             print(f"error: {error}", file=sys.stderr)
             return 2
         except ManualVisibleCardDetectionError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        except ValueError as error:
             print(f"error: {error}", file=sys.stderr)
             return 2
         if args.format == "json":
