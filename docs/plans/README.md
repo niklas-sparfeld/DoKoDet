@@ -47,6 +47,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
+| [0081 — Calibration pose-seed refinement from virtual-card fitting](2-ready/0081_Calibration_Pose_Seed_Refinement.md) | Completed 0072, 0075, 0078, and 0079; current occlusion-aware virtual-card fitter | M0 adds and measures a virtual-card-informed calibration seed while preserving the shared robust boundary objective and calibration evidence rules. |
 
 ### In Progress
 
