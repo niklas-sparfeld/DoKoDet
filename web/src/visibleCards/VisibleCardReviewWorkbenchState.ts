@@ -313,7 +313,7 @@ export function visibleCardReviewWorkbenchReducer(
         selection: null,
         visualFocus: false,
         gesture: null,
-        viewports: emptyViewports(),
+        viewports: state.viewports,
       };
     }
     case "refresh_capabilities": {

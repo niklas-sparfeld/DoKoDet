@@ -231,6 +231,22 @@ describe("visible-card review workbench state", () => {
     });
   });
 
+  it("preserves zoom and pan when navigating to another frame", () => {
+    const state = createVisibleCardReviewWorkbenchState(capabilities());
+    const adjusted = visibleCardReviewWorkbenchReducer(state, {
+      type: "set_viewport",
+      viewport: { zoom: 2.5, pan: { x: 14, y: -9 } },
+    });
+    const navigated = visibleCardReviewWorkbenchReducer(adjusted, {
+      type: "navigate_frame",
+      capabilities: capabilities({ frameId: "frame-2" }),
+    });
+
+    expect(navigated.viewports).toEqual(adjusted.viewports);
+    expect(navigated.selection).toBeNull();
+    expect(navigated.gesture).toBeNull();
+  });
+
   it("preserves layer and edit-mode preferences when a frame has no elements", () => {
     const state = createVisibleCardReviewWorkbenchState(capabilities());
     const prepared = visibleCardReviewWorkbenchReducer(state, {
