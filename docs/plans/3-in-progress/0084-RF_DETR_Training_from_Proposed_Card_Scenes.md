@@ -4,7 +4,7 @@
 
 - **Summary:** Derive visible-card instance masks from proposed card scenes and their card poses.
   Use the eligible source frames as training input for one bounded RF-DETR campaign.
-- **Status:** Blocked
+- **Status:** In Progress
 - **Depends on:** 0072, 0073, 0067, and 0068 complete; 0083 complete
 - **Outcome:** A frozen audit, deterministic RF-DETR segmentation materialization, and one paired
   local training and evaluation report. The report decides whether pose-derived training labels
@@ -15,13 +15,25 @@
 
 ## Milestone status
 
-- **M0:** Not started — audit completed 0083 outputs, freeze training-frame eligibility, source
+- **M0:** In progress — audit completed 0083 outputs, freeze training-frame eligibility, source
   groups, mask rules, and one RF-DETR comparison recipe.
 - **M1:** Not started — materialize eligible source frames and deterministic card-instance masks
   into a disposable RF-DETR training view.
 - **M2:** Not started — inspect representative mask overlays and verify the frozen materialization.
 - **M3:** Not started — run one real-only control and one pose-derived-data candidate, then publish
   the locked held-out decision.
+
+### M0 input inventory — 2026-09-25
+
+- The local proposal-run store has 31 run attempts for 30 unique recordings in the selected
+  0083 batch. All attempts are terminal: 23 complete, 5 partial, and 3 failed.
+- Recording `cardeventnet-IMG_0097` has a failed attempt followed by a complete attempt. The audit
+  will select terminal outcomes by recording and retain every attempt in the lineage.
+- The 0068 training partition has 15 recordings. Thirteen have proposal runs in this batch: 9
+  latest runs are complete, 3 are partial, and 1 failed. `IMG_0635` and `IMG_0655` have no
+  proposal run in this batch.
+- This inventory does not freeze eligible scenes. Source-group assignment, exact-frame duplicate
+  checks, pose and order gates, hand-occlusion review, and the campaign recipe remain in progress.
 
 ## 1. Purpose
 
