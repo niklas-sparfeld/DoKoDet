@@ -4,8 +4,8 @@
 
 - **Summary:** Derive visible-card instance masks from proposed card scenes and their card poses.
   Use the eligible source frames as training input for one bounded RF-DETR campaign.
-- **Status:** In Progress
-- **Depends on:** 0072, 0073, 0067, and 0068 complete; 0083 complete
+- **Status:** Blocked
+- **Depends on:** 0072, 0073, 0067, and 0068 complete; 0083 complete; corrected hand-occlusion exclusions and materialization
 - **Outcome:** A frozen audit, deterministic RF-DETR segmentation materialization, and one paired
   local training and evaluation report. The report decides whether pose-derived training labels
   improve held-out real visible-card segmentation. It does not promote a provider or update a
@@ -19,9 +19,10 @@
   groups, mask rules, and one paired RF-DETR comparison recipe.
 - **M1:** Complete — materialized and verified exact source frames and deterministic COCO RLE
   card-instance masks in a disposable RF-DETR training view.
-- **M2:** Not started — inspect representative mask overlays and verify the frozen materialization.
-- **M3:** Not started — run one real-only control and one pose-derived-data candidate, then publish
-  the locked held-out decision.
+- **M2:** Complete — reviewed all 141 overlays and smoke-loaded all 483 masks through pinned
+  RF-DETR. Found hand-over-card label defects; the view is not ready for training.
+- **M3:** Blocked — requires a complete hand-occlusion exclusion inventory and a corrected,
+  re-frozen materialization.
 
 ### M0 implementation evidence — 2026-09-25
 
@@ -76,6 +77,28 @@
   clipping, front-to-back overlap across three cards, disconnected and enclosed areas, empty masks,
   changed source bytes, RLE round trips, lineage, and cold/warm reproducibility. All eight focused
   tests and Ruff checks passed.
+
+### M2 implementation evidence — 2026-09-25
+
+- Produced 12 contact sheets with mask overlays and card-pose IDs for all 141 exact M1 source
+  frames. The review covered 12 training groups, 132 multi-card frames, 35 frames with a mask box
+  at an image edge, and nine masks with disconnected visible components. M1 contains no fully
+  hidden cards, so there is no fully hidden M1 example to inspect. The M0 audit recorded zero
+  hand-occlusion exclusions, so there were no M0-excluded hand frames to include.
+- The visual review found hand-over-card label spill in image IDs 35 and 36:
+  `cardeventnet-event-img_0097-009` and `cardeventnet-event-img_0097-014`. These are confirmed
+  examples, not a complete item-level exclusion list. Keep the frozen M0 and M1 records immutable.
+- The review and its all-frame selection are recorded in the disposable
+  `data/operations/rfdetr-pose-derived-0084-m2-review/visual-review.json` artifact. Its inspected
+  view digest matches M1: `229ecbbb1b05684dfe7a7d71b3e89e77d57d65f6552a41fcd1f057fd2ba6a114`.
+- Loaded all 141 images and 483 masks using pinned `rfdetr.datasets.coco.CocoDetection` 1.9.4 with
+  `include_masks=True` and `transforms=None`. All trainer masks were Boolean, matched the source
+  dimensions and M1 pixel digests; all boxes and areas were finite and positive. PyTorch was
+  2.13.0. The receipt is
+  `data/operations/rfdetr-pose-derived-0084-m2-review/trainer-smoke.json`.
+- M2 is complete as an inspection milestone, but training is blocked. Build a complete item-level
+  hand-occlusion exclusion inventory, freeze a corrected manifest and materialization with new
+  digests, then repeat visual review and trainer smoke checks before M3.
 
 ## 1. Purpose
 
