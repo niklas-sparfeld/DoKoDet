@@ -1,5 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { ApiError, type PipelineReferenceResource } from "../api/client";
+import {
+  ApiError,
+  type PipelineProposalRunResponse,
+  type PipelineReferenceResource,
+} from "../api/client";
 import type { EditableFrame } from "./PipelineVisibleCardTypes";
 import { usePipelineVisibleCardEditorController } from "./PipelineVisibleCardEditorController";
 
@@ -21,6 +25,8 @@ function setup(
   proposalRevisionId: string | null = null,
   getCalibrationRefinement = vi.fn(async () => ({})),
   startCalibrationRefinement = vi.fn(async () => ({})),
+  proposalRun: PipelineProposalRunResponse | null = null,
+  currentReference: PipelineReferenceResource = reference,
 ) {
   const input = {
     client: {
@@ -34,8 +40,8 @@ function setup(
     generatedRevisionId: "generated-1",
     generatedSourceRevisionId: "generated-1",
     proposalRevisionId,
-    proposalRun: null,
-    referenceRef: { current: reference },
+    proposalRun,
+    referenceRef: { current: currentReference },
     serverRevisionRef: { current: 1 },
     getFrames: () => [] as EditableFrame[],
     setLocalFrames: vi.fn(),
@@ -227,7 +233,18 @@ describe("usePipelineVisibleCardEditorController", () => {
 
   it("rebases to the selected proposal through the controller API", async () => {
     const update = vi.fn().mockResolvedValue(reference);
-    const { result } = setup(update, undefined, "proposal-new");
+    const proposalRun = {
+      request: { input_revision_ids: ["proposal-source"] },
+      state: { output_revision_ids: ["proposal-new"] },
+    } as unknown as PipelineProposalRunResponse;
+    const { result } = setup(
+      update,
+      undefined,
+      "proposal-new",
+      undefined,
+      undefined,
+      proposalRun,
+    );
 
     await act(async () => result.current.rebaseReferenceToProposal());
 
@@ -240,12 +257,48 @@ describe("usePipelineVisibleCardEditorController", () => {
         operations: [
           {
             operation: "rebase",
-            source_revision_id: "generated-1",
+            source_revision_id: "proposal-source",
             proposal_revision_id: "proposal-new",
           },
         ],
       }),
     );
+  });
+
+  it("starts a reference from the selected proposal's detector input", async () => {
+    const update = vi.fn().mockResolvedValue(reference);
+    const proposalRun = {
+      request: { input_revision_ids: ["proposal-source"] },
+      state: { output_revision_ids: ["proposal-new"] },
+    } as unknown as PipelineProposalRunResponse;
+    const emptyReference = {
+      ...reference,
+      draft: {
+        ...reference.draft,
+        source_revision_id: null,
+        items: [],
+      },
+    } as PipelineReferenceResource;
+    const { result } = setup(
+      update,
+      undefined,
+      "proposal-new",
+      undefined,
+      undefined,
+      proposalRun,
+      emptyReference,
+    );
+
+    act(() => result.current.startReference());
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update.mock.calls[0][2].operations).toEqual([
+      {
+        operation: "rebase",
+        source_revision_id: "proposal-source",
+        proposal_revision_id: "proposal-new",
+      },
+    ]);
   });
 
   it("clears its retry timer when the controller unmounts", async () => {

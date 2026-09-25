@@ -340,7 +340,7 @@ export function PipelineVisibleCardEditorView({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [loadProposalRun]);
+  }, [recordingId, generatedSourceRevisionId, loadProposalRun]);
 
   useEffect(() => {
     if (

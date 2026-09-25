@@ -34,6 +34,18 @@ import {
 const CONTENT_TYPE = "visible_cards" as const;
 const RETRY_LIMIT = 3;
 
+function proposalInputRevisionId(
+  proposalRun: PipelineProposalRunResponse | null,
+  proposalRevisionId: string,
+): string | null {
+  if (
+    proposalRun === null ||
+    readProposalRevisionId(proposalRun) !== proposalRevisionId
+  )
+    return null;
+  return readProposalInputRevisionId(proposalRun);
+}
+
 type Client = ReturnType<typeof createDokoDetectorClient>;
 
 type ControllerInput = {
@@ -548,9 +560,11 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
 
   const loadProposalRun = useCallback(async (signal?: AbortSignal) => {
     const current = inputRef.current;
+    current.setProposalRun(null);
+    current.setProposalRevisionId(null);
+    current.setProposalError(null);
     if (current.generatedSourceRevisionId === null) {
-      current.setProposalRun(null);
-      current.setProposalRevisionId(null);
+      current.setProposalLoading(false);
       return;
     }
     current.setProposalLoading(true);
@@ -806,22 +820,31 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
   const startReference = useCallback(() => {
     const current = inputRef.current;
     const reference = current.referenceRef.current;
+    const proposalRevisionId = current.proposalRevisionId;
+    const sourceRevisionId =
+      proposalRevisionId === null
+        ? current.generatedSourceRevisionId
+        : proposalInputRevisionId(current.proposalRun, proposalRevisionId);
     if (
       reference === null ||
       reference.draft.source_revision_id !== null ||
       reference.draft.items.length > 0 ||
-      current.generatedSourceRevisionId === null ||
+      sourceRevisionId === null ||
       current.operatorId.trim() === ""
     ) {
+      if (proposalRevisionId !== null && sourceRevisionId === null)
+        current.setProposalError(
+          "The selected proposal changed. Reload the proposal before starting this review.",
+        );
       return;
     }
     enqueue(
       {
         operation: "rebase",
-        source_revision_id: current.generatedSourceRevisionId,
-        ...(current.proposalRevisionId === null
+        source_revision_id: sourceRevisionId,
+        ...(proposalRevisionId === null
           ? {}
-          : { proposal_revision_id: current.proposalRevisionId }),
+          : { proposal_revision_id: proposalRevisionId }),
       },
       "Maintained visible-card reference seeded from the selected generated result.",
       (frames) => frames,
@@ -880,8 +903,17 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
   const rebaseReferenceToProposal = useCallback(async () => {
     const current = inputRef.current;
     const reference = current.referenceRef.current;
-    const sourceRevisionId = current.generatedSourceRevisionId;
     const proposalRevisionId = current.proposalRevisionId;
+    const sourceRevisionId =
+      proposalRevisionId === null
+        ? null
+        : proposalInputRevisionId(current.proposalRun, proposalRevisionId);
+    if (proposalRevisionId !== null && sourceRevisionId === null) {
+      current.setProposalError(
+        "The selected proposal changed. Reload the proposal before inspecting it.",
+      );
+      return;
+    }
     if (
       reference === null ||
       sourceRevisionId === null ||
