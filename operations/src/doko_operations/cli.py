@@ -166,6 +166,12 @@ from .rfdetr_cluster_crop_materialization import (
     RfdetrClusterCropMaterializationError,
     materialize_rfdetr_cluster_crop_dataset,
 )
+from .rfdetr_pose_derived_campaign import (
+    RfdetrPoseDerivedCampaignError,
+    build_rfdetr_pose_derived_manifest,
+    render_rfdetr_pose_derived_manifest,
+    write_rfdetr_pose_derived_manifest,
+)
 from .rfdetr_segmentation_campaign import (
     RfdetrSegmentationCampaignError,
     build_rfdetr_segmentation_manifest,
@@ -749,6 +755,38 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rfdetr.add_argument("--format", choices=("human", "json"), default="human")
     rfdetr.add_argument("--json", action="store_true", help="Alias for --format json.")
+    pose_derived = data_commands.add_parser(
+        "rfdetr-pose-derived",
+        help="Audit and freeze eligible proposed card scenes for epic 0084.",
+        description=(
+            "Audit exact 0083 proposal runs against the frozen 0068 split and write an immutable "
+            "M0 campaign manifest. This command is read-only with respect to source data."
+        ),
+    )
+    _add_path_options(pose_derived, suppress_defaults=True)
+    pose_derived.add_argument(
+        "--operations-root", type=Path, default=None, help="Shared operations root."
+    )
+    pose_derived.add_argument(
+        "--source-manifest",
+        type=Path,
+        required=True,
+        help="Frozen 0068 reviewed detector manifest.",
+    )
+    pose_derived.add_argument(
+        "--run-inventory",
+        type=Path,
+        required=True,
+        help="JSON object with the exact 0083 proposal_run_ids list.",
+    )
+    pose_derived.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/operations/rfdetr-pose-derived-0084-m0-manifest.json"),
+        help="Immutable M0 manifest path.",
+    )
+    pose_derived.add_argument("--format", choices=("human", "json"), default="human")
+    pose_derived.add_argument("--json", action="store_true", help="Alias for --format json.")
     reviewed_rfdetr = data_commands.add_parser(
         "rfdetr-visible-card-detector",
         aliases=("rfdetr-detector", "rfdetr-segmentation-0068"),
@@ -2517,6 +2555,46 @@ def main(argv: Sequence[str] | None = None) -> int:
             sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         else:
             sys.stdout.write(render_reviewed_rfdetr_detector_human(manifest))
+        return 0 if manifest["freeze_state"] == "frozen" else 1
+    if args.command == "data" and args.data_command == "rfdetr-pose-derived":
+        try:
+            config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
+            inventory_path = args.run_inventory
+            if not inventory_path.is_absolute():
+                inventory_path = config.repository_root / inventory_path
+            inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+            if not isinstance(inventory, dict) or not isinstance(
+                inventory.get("proposal_run_ids"), list
+            ):
+                raise RfdetrPoseDerivedCampaignError(
+                    "run inventory must contain a proposal_run_ids list"
+                )
+            source_manifest_path = args.source_manifest
+            if not source_manifest_path.is_absolute():
+                source_manifest_path = config.repository_root / source_manifest_path
+            operations_root = args.operations_root or config.derived_artifact_root
+            manifest = build_rfdetr_pose_derived_manifest(
+                config.repository_root,
+                source_manifest_path=source_manifest_path,
+                operations_root=operations_root,
+                proposal_run_ids=inventory["proposal_run_ids"],
+            )
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            write_rfdetr_pose_derived_manifest(output_path, manifest)
+        except (
+            ConfigurationError,
+            OSError,
+            json.JSONDecodeError,
+            RfdetrPoseDerivedCampaignError,
+        ) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(render_rfdetr_pose_derived_manifest(manifest) + "\n")
         return 0 if manifest["freeze_state"] == "frozen" else 1
     if args.command == "data" and args.data_command in {
         "rfdetr-segmentation-materialize",

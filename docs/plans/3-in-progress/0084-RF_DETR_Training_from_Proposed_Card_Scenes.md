@@ -15,25 +15,47 @@
 
 ## Milestone status
 
-- **M0:** In progress — audit completed 0083 outputs, freeze training-frame eligibility, source
-  groups, mask rules, and one RF-DETR comparison recipe.
+- **M0:** Complete — added a read-only audit command and froze eligible 0083 scenes, 0068 source
+  groups, mask rules, and one paired RF-DETR comparison recipe.
 - **M1:** Not started — materialize eligible source frames and deterministic card-instance masks
   into a disposable RF-DETR training view.
 - **M2:** Not started — inspect representative mask overlays and verify the frozen materialization.
 - **M3:** Not started — run one real-only control and one pose-derived-data candidate, then publish
   the locked held-out decision.
 
-### M0 input inventory — 2026-09-25
+### M0 implementation evidence — 2026-09-25
 
-- The local proposal-run store has 31 run attempts for 30 unique recordings in the selected
-  0083 batch. All attempts are terminal: 23 complete, 5 partial, and 3 failed.
-- Recording `cardeventnet-IMG_0097` has a failed attempt followed by a complete attempt. The audit
-  will select terminal outcomes by recording and retain every attempt in the lineage.
-- The 0068 training partition has 15 recordings. Thirteen have proposal runs in this batch: 9
-  latest runs are complete, 3 are partial, and 1 failed. `IMG_0635` and `IMG_0655` have no
-  proposal run in this batch.
-- This inventory does not freeze eligible scenes. Source-group assignment, exact-frame duplicate
-  checks, pose and order gates, hand-occlusion review, and the campaign recipe remain in progress.
+- Added `doko data rfdetr-pose-derived`. The command accepts the frozen 0068 manifest and an exact
+  inventory of 0083 proposal run IDs. It checks processor, calibration, source, and model lineage;
+  checks each frame's pose set and stacking order; records every excluded frame; and writes one
+  immutable manifest. It does not change source data or start training.
+- The audit used the 0068 manifest digest
+  `c057bacd2d62dc2f4473b2a31e821e8a268ba2b6834f34790a5dd6624c54022e` and the 30 final 0083
+  proposal runs. Outcomes were 23 complete, five partial, and two failed. It verified source video
+  bytes and lengths for all 13 training recordings with proposal runs.
+- The frozen manifest is
+  `data/operations/rfdetr-pose-derived-0084-m0-manifest.json`, digest
+  `1505f0955f6c6427d68627be2a983f1c602fafaac502d7772595b72f816ad733`. It accepts 141 frames,
+  483 card poses, and 12 0068 training source groups. It accepts no validation or sealed-test
+  frames. It records 1,255 frame exclusions and two failed-run receipts. Exclusion reasons include
+  418 exact-frame duplicates, 53 low-confidence pose sets, and 47 scenes with unresolved overlap
+  order.
+- The minimum source set is 100 frames, five source groups, and 400 candidate poses. After mask
+  construction, M1 must retain at least 100 frames, five groups, and 300 visible-card masks. Each
+  visible mask must contain at least 256 pixels and have a tight box at least 16 by 16 pixels.
+- M1 uses rounded physical card outlines, front-to-back card occlusion, frame clipping, and COCO
+  RLE masks. The RLE round-trip check must preserve holes and disconnected components. M2 must
+  review hand occlusion before training.
+- The paired campaign reuses the exact 0068 recipe digest
+  `1bac899f2d048b95bdfc7ab7114802c79b5ea0ed0096dbb8962affba96bd8b23`. It trains two candidates
+  from the same checkpoint with the same real sample count. The candidate adds one derived frame
+  per real frame per epoch, sampled uniformly with replacement using seed 8404. The RF-DETR
+  training seed remains 6701. The run uses the pinned package defaults, the MPS device, and a
+  7,200-second budget per candidate and a 14,400-second total budget. Report the added derived-data
+  compute separately. The candidate must strictly improve validation mask AP and recall over the
+  control before the sealed test can run once.
+- Repeated audits over unchanged inputs returned the same manifest digest. All 13 selected source
+  videos passed SHA-256 and byte-length checks. The focused audit tests and Ruff checks passed.
 
 ## 1. Purpose
 
