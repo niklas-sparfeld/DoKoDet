@@ -1393,6 +1393,95 @@ def test_proposal_scene_angle_correction_updates_reviewed_scene(tmp_path: Path) 
     )
 
 
+def test_proposal_scene_can_add_manual_card(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    proposal_revision_id = _proposal_revision(revision_store, source_revision_id)
+    seeded = service.create_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {"operator_id": "operator-01", "proposal_revision_id": proposal_revision_id},
+    )
+    item = dict(seeded.draft.items[0].item)
+    card_scene = item["card_scene"]
+    initial_scene = ReviewedCardScene.from_mapping(card_scene["proposal"]["initialized_scene"])
+    manual_poses = (
+        CardPose("manual-card-1", (70.0, 70.0), 0.0, None, None),
+        CardPose("manual-card-2", (75.0, 75.0), 0.0, None, None),
+    )
+    corrected_scene = ReviewedCardScene.create(
+        source_frame_id=initial_scene.source_frame_id,
+        source_frame_width=initial_scene.source_frame_width,
+        source_frame_height=initial_scene.source_frame_height,
+        calibration_revision_id=initial_scene.calibration_revision_id,
+        calibration_digest=initial_scene.calibration_digest,
+        poses=(*initial_scene.poses, *manual_poses),
+        stacking_order=CardStackingOrder(
+            card_ids=(
+                *initial_scene.stacking_order.card_ids,
+                *(pose.card_id for pose in manual_poses),
+            ),
+            uncertain_edges=initial_scene.stacking_order.uncertain_edges,
+            contradictions=initial_scene.stacking_order.contradictions,
+        ),
+    )
+    projection = card_scene["projection"]
+    derivation = derive_pose_scene_visible_regions(corrected_scene, projection)
+    item["card_scene"] = {
+        "schema_version": "reviewed-card-scene-editor/v1",
+        "scene": corrected_scene.to_mapping(),
+        "initialized_scene": card_scene["proposal"]["initialized_scene"],
+        "projection": projection,
+    }
+    item["candidates"] = [
+        {
+            "card_id": region["card_id"],
+            "geometry": region["geometry"],
+            "normalization": region["normalization"],
+            "side": "unknown",
+        }
+        for region in derivation.regions
+    ]
+
+    updated = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": seeded.draft.revision,
+            "operations": [{"operation": "set_frame_review", "item_id": "event-01", "item": item}],
+        },
+    )
+
+    updated_item = updated.draft.items[0].item
+    states = {state["card_id"]: state for state in updated_item["card_scene"]["card_states"]}
+    for pose in manual_poses:
+        assert states[pose.card_id]["source"] == "manual"
+        assert states[pose.card_id]["proposal_id"] is None
+        assert states[pose.card_id]["state"] == "adjusted"
+    assert {candidate["card_id"] for candidate in updated_item["candidates"]} == {
+        "card-01",
+        "manual-card-1",
+        "manual-card-2",
+    }
+
+    accepted = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": updated.draft.revision,
+            "operations": [
+                {"operation": "accept_card", "item_id": "event-01", "card_id": "card-01"}
+            ],
+        },
+    )
+    accepted_item = accepted.draft.items[0].item
+    assert {
+        pose["card_id"] for pose in accepted_item["card_scene"]["reviewed"]["scene"]["poses"]
+    } == {"card-01", "manual-card-1", "manual-card-2"}
+
+
 def test_empty_visible_card_reference_can_rebase_from_proposal_revision(tmp_path: Path) -> None:
     service, revision_store = _service(tmp_path)
     source_revision_id = _vision_source_revision(revision_store, "visible_cards")

@@ -589,11 +589,35 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if draft.proposal.initialized_scene is None:
             raise PipelineReferenceInputError("unsupported proposal has no reviewed scene")
         initial = ReviewedCardScene.from_mapping(draft.proposal.initialized_scene)
-        poses = tuple(pose for pose in initial.poses if pose.card_id in resolved_card_ids)
-        if not poses:
+        pose_by_id = {pose.card_id: pose for pose in initial.poses}
+        manual_ids = {state.card_id for state in draft.card_states if state.source == "manual"}
+        current = (
+            None if draft.reviewed is None else ReviewedCardScene.from_mapping(draft.reviewed.scene)
+        )
+        if current is not None:
+            pose_by_id.update(
+                (pose.card_id, pose) for pose in current.poses if pose.card_id in manual_ids
+            )
+        pose_ids = set(resolved_card_ids) & set(pose_by_id)
+        if not pose_ids:
             raise PipelineReferenceInputError("reviewed card decision references no proposal pose")
-        pose_ids = {pose.card_id for pose in poses}
-        order = tuple(card_id for card_id in initial.stacking_order.card_ids if card_id in pose_ids)
+        if pose_ids != set(resolved_card_ids):
+            raise PipelineReferenceInputError("reviewed scene is missing a resolved card pose")
+        ordered_ids: list[str] = []
+        for scene in (current, initial):
+            if scene is None:
+                continue
+            for card_id in scene.stacking_order.card_ids:
+                if card_id in pose_ids and card_id not in ordered_ids:
+                    ordered_ids.append(card_id)
+        order = tuple(ordered_ids)
+        poses = tuple(pose_by_id[card_id] for card_id in order)
+        base_scenes = tuple(scene for scene in (current, initial) if scene is not None)
+        uncertain_edges: list[tuple[str, str]] = []
+        for scene in base_scenes:
+            for edge in scene.stacking_order.uncertain_edges:
+                if edge[0] in pose_ids and edge[1] in pose_ids and edge not in uncertain_edges:
+                    uncertain_edges.append(edge)
         return ReviewedCardScene.create(
             source_frame_id=initial.source_frame_id,
             source_frame_width=initial.source_frame_width,
@@ -603,12 +627,12 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             poses=poses,
             stacking_order=CardStackingOrder(
                 card_ids=order,
-                uncertain_edges=tuple(
-                    edge
-                    for edge in initial.stacking_order.uncertain_edges
-                    if edge[0] in pose_ids and edge[1] in pose_ids
+                uncertain_edges=tuple(uncertain_edges),
+                contradictions=(
+                    current.stacking_order.contradictions
+                    if current is not None
+                    else initial.stacking_order.contradictions
                 ),
-                contradictions=initial.stacking_order.contradictions,
             ),
         )
 
@@ -750,9 +774,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if draft is None or draft.reviewed is None or draft.projection is None:
             return set()
         try:
-            derivation = derive_pose_scene_visible_regions(
-                draft.reviewed.scene, draft.projection
-            )
+            derivation = derive_pose_scene_visible_regions(draft.reviewed.scene, draft.projection)
         except (CardPlaneGeometryError, TypeError, ValueError):
             return set()
         covered: set[str] = set()
@@ -883,9 +905,16 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                     "corrected proposal scene changes immutable frame or calibration lineage"
                 )
             reviewed_ids = set(reviewed_scene.stacking_order.card_ids)
-            if not reviewed_ids.issubset(existing_draft.proposal.card_ids):
+            proposal_ids = set(existing_draft.proposal.card_ids)
+            manual_ids = reviewed_ids - proposal_ids
+            reviewed_poses = {pose.card_id: pose for pose in reviewed_scene.poses}
+            if any(
+                reviewed_poses[card_id].source_suggestion_id is not None
+                or reviewed_poses[card_id].fit_diagnostics_digest is not None
+                for card_id in manual_ids
+            ):
                 raise PipelineReferenceInputError(
-                    "corrected proposal scene contains an unknown card"
+                    "corrected proposal scene has proposal lineage for an unknown card"
                 )
             draft = CardSceneDraft.create(
                 proposal=existing_draft.proposal,
@@ -895,13 +924,25 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                     decision="adjusted",
                 ),
                 card_states=tuple(
-                    CardReviewState.create(
-                        card_id=card_id,
-                        source="proposal",
-                        proposal_id=existing_draft.proposal.proposal_id,
-                        state="adjusted" if card_id in reviewed_ids else "rejected",
-                    )
-                    for card_id in existing_draft.proposal.card_ids
+                    [
+                        CardReviewState.create(
+                            card_id=card_id,
+                            source="proposal",
+                            proposal_id=existing_draft.proposal.proposal_id,
+                            state="adjusted" if card_id in reviewed_ids else "rejected",
+                        )
+                        for card_id in existing_draft.proposal.card_ids
+                    ]
+                    + [
+                        CardReviewState.create(
+                            card_id=card_id,
+                            source="manual",
+                            proposal_id=None,
+                            state="adjusted",
+                        )
+                        for card_id in reviewed_scene.stacking_order.card_ids
+                        if card_id in manual_ids
+                    ]
                 ),
                 completion=FrameReviewCompletion.create(
                     state="complete",
