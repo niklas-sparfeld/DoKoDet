@@ -53,7 +53,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
-| [0083 — Manual RF-DETR runs for proposed card scenes](3-in-progress/0083-Manual_RF_DETR_Proposed_Card_Scene_Runs.md) | 0048, 0049, 0068, and 0073 complete | M0 complete. The preflight and batch commands are ready. M1 runs need an operator-supplied recording list; M2 remains. |
+| [0083 — Manual RF-DETR runs for proposed card scenes](3-in-progress/0083-Manual_RF_DETR_Proposed_Card_Scene_Runs.md) | 0048, 0049, 0068, and 0073 complete | M0–M1 complete. The preflight passed for all 30 selected recordings; all local RF-DETR visible-card runs completed and retained input, model, run, and output revision lineage. M2 remains. |
 
 ### Blocked
 

@@ -17,9 +17,9 @@
 - **M0:** Complete — add a manual preflight command that checks the complete recording list,
   selected event revisions, backend readiness, and the configured RF-DETR segmentation provider
   before any processor run can start.
-- **M1:** In Progress — the manual batch command is ready. Run visible-card detection for each
-  operator-supplied recording with the explicit `local-rfdetr-segmentation` provider, wait for
-  terminal states, and retain exact input, model, run, and output revision lineage.
+- **M1:** Complete — ran local RF-DETR visible-card detection for all 30 eligible recordings with
+  the explicit `local-rfdetr-segmentation` provider. All runs completed and retained exact input,
+  model, run, and output revision lineage.
 - **M2:** Not started — run proposed card scene generation from each available RF-DETR result,
   capture the automatic calibration and scene outcomes, and report all run IDs and terminal states.
 
@@ -88,4 +88,8 @@ remain processor output for operator inspection.
 - Focused operations tests cover event and provider selection, lineage capture, blocked preflight,
   continuation after failure, and result-fetch errors. Eight focused preflight and batch-run tests
   passed; Ruff and CLI help checks passed.
-- Processor runs were not started because no operator-supplied recording list was available.
+- The operator-supplied list contained 30 recordings. All 30 runs reached `complete`; there were no
+  partial or failed runs. Every request froze its selected event revision, and every stored result
+  retained its output revision ID.
+- The backend used bundle schema `rfdetr-segmentation-bundle/v1`, digest
+  `b3deef701e26d91ebfd9d357bff69b45ae9360e3722de340f1044214179df29`.
