@@ -2,41 +2,52 @@
 
 ## Plan status
 
-- **Summary:** Remove the RF-DETR Small card-cluster stage and use one RF-DETR SegMedium model for
-  full-frame detection and additive cluster-crop detection.
+- **Summary:** Remove the RF-DETR Small card-cluster stage. Use the same RF-DETR SegMedium model
+  for full-frame detection and far-cluster crop refinement.
 - **Status:** In Progress
 - **Depends on:** Completed 0048 pipeline data and execution, completed 0049 recording pipeline
   review, completed 0068 reviewed RF-DETR visible-card segmentation, and the 0071 fine-stage
   model and source-coordinate crop contracts. The 0071 coarse stage is the removal target.
 - **Builds on:** `local-rfdetr-segmentation`, the reviewed `visible_card` segmentation contract,
   and the deterministic cluster-crop transforms created in 0071.
-- **Outcome:** One selectable `local-rfdetr-fine-frame` provider that runs the fine model on the
-  complete source frame and its card-cluster crops. It keeps every valid full-frame result and adds
-  crop results after strict duplicate checks. It uses no coarse model, `card_cluster` model bundle,
-  or cascade child bundle.
+- **Outcome:** The `local-rfdetr-fine-frame` provider uses one fine model on the complete source
+  frame and on selected far-cluster crops. It keeps every full-frame candidate and its identity.
+  Confident crop results can refine geometry or add a missed card. The provider uses no coarse
+  model, `card_cluster` model bundle, or cascade child bundle. M4 will register it after M3.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Decision
 
-### Additive full-frame and cluster-crop result policy
+### Full-frame main result with far-cluster crop refinement
 
-The first M3 comparison used the existing fine model on both full frames and crops. That model was
-not trained on cluster crops. The comparison did not test the crop-trained model needed for this
-path, and the held-out set had only six far-field frames. It cannot establish that crop inference
-has no value or justify removing it.
+The first M3 comparison used an all-cluster crop pass and replacement arbitration. It did not test
+the targeted far-cluster refinement in this decision, and the held-out set had only six far-field
+frames. Keep the current fine model. Do not start a new training run in this epic.
 
-Use `local-rfdetr-fine-frame` version `local-rfdetr-fine-frame-v2` with schema
-`local-rfdetr-fine-frame/v2`. Keep the 0.5 confidence threshold for full-frame and crop inference.
-The full-frame predictions are the immutable base result. Add valid crop predictions after strict
-duplicate checks. Suppress a crop prediction only when both its box IoU and visible-mask IoU are at
-least 0.90 against a full-frame or earlier crop prediction. Keep the full-frame prediction when
-such a duplicate exists. Do not suppress by containment or general overlap because separate cards
-can overlap. A failed crop adds no crop results and does not change full-frame predictions.
+Correction: provider v2 ran crops for every cluster and treated crop results as additions. Provider
+v3 routes only far clusters and uses matched crop predictions to refine full-frame geometry. It
+keeps every full-frame candidate and identity. Do not use the v2 result policy.
 
-This policy protects the full-frame candidate recall. Crop false positives and extra split
-predictions can still reduce precision, so M3 must report them. Evaluate crop benefit after the fine
-model has been trained on cluster crops and include a representative set of rare far-field cases.
+Use `local-rfdetr-fine-frame` version `local-rfdetr-fine-frame-v3` with schema
+`local-rfdetr-fine-frame/v3`. Keep the current 0.5 confidence threshold for full-frame and crop
+inference. Use the full-frame result as the main candidate set. Route a cluster to crop inference
+when its median card span is at most 96 pixels at the 432-pixel model input and the crop gives at
+least 1.5 times the full-frame resolution. This targets small, far-away cards and skips crops that
+give little scale benefit.
+
+Match crop results one-to-one with predictions from their source cluster when box IoU and visible-
+mask IoU are both at least 0.50. Rank qualifying matches for each candidate by the lower of box IoU
+and mask IoU. Accept a pair only when it is the best match for both candidates and leads each
+candidate's second choice by at least 0.10. Refine a matched candidate's geometry only when crop
+confidence is at least 0.05 higher. Keep the full-frame candidate and its identity. Add an unmatched
+crop result only when its score is at least 0.70. Drop near-identical duplicates only when both box
+IoU and visible-mask IoU are at least 0.90, always keeping the earlier main result. Do not suppress
+by containment or general overlap. A failed crop leaves the full-frame result intact.
+
+This policy preserves every full-frame candidate while letting high-confidence crop results improve
+far-cluster geometry or add a missed card. Crop false positives and extra split predictions can
+still reduce precision, so M3 must report them.
 
 The coarse model is parked indefinitely. Do not lower its threshold, retrain it, or keep it as a
 fallback. The replacement is a fine-model prepass:
@@ -45,8 +56,8 @@ fallback. The replacement is a fine-model prepass:
 2. Use its `visible_card` boxes as routing proposals for deterministic card-cluster formation and
    padded square cluster crops.
 3. Run the same loaded fine model on each cluster crop.
-4. Keep every valid full-frame result. Add crop results unless strict box and mask IoU checks show
-   that a crop result duplicates an earlier candidate.
+4. Keep full-frame predictions as the main result. Use one-to-one crop matches to refine geometry,
+   then add high-confidence unmatched crop predictions.
 
 This keeps the full-frame fine inference as a recall path. The crop pass is a resolution and
 instance-separation refinement, not a second detector family. The two exact decision frames that
@@ -62,9 +73,9 @@ The epic includes:
 - a full-frame fine pass with explicit threshold and source-coordinate diagnostics;
 - card-cluster formation from prepass `visible_card` boxes, reusing the reversible crop geometry;
 - fine inference on the resulting padded square crops;
-- training the shared fine model on reviewed cluster-crop data before crop quality evaluation;
-- source-frame mapping, additive result assembly, and strict duplicate reconciliation that do not
-  remove full-frame candidates or suppress separate overlapping cards;
+- selective routing for small clusters when crops provide a useful scale increase;
+- one-to-one source-frame matching, geometry refinement, high-confidence crop additions, and strict
+  duplicate reconciliation that preserve all full-frame candidates;
 - a new selectable provider and one fine-model bundle contract;
 - removal of coarse model loading, training, evaluation, bundle assembly, and provider wiring; and
 - held-out evaluation of recall, overlap separation, false positives, crop cost, and latency.
@@ -81,8 +92,8 @@ The epic does not include:
 
 ### Frozen M0 choices
 
-- Provider: `local-rfdetr-fine-frame`; provider version: `local-rfdetr-fine-frame-v2`.
-- Provider schema: `local-rfdetr-fine-frame/v2`; bundle schema: the existing
+- Provider: `local-rfdetr-fine-frame`; provider version: `local-rfdetr-fine-frame-v3`.
+- Provider schema: `local-rfdetr-fine-frame/v3`; bundle schema: the existing
   `rfdetr-segmentation-bundle/v1` with one `RFDETRSegMedium` `visible_card` model at 432 × 432.
 - Load one fine model from one bundle. Use it for both the full-frame pass and cluster crops.
 - Use a confidence threshold of `0.5` for full-frame candidates and crop detections. Keep
@@ -93,12 +104,14 @@ The epic does not include:
   expansion and transitive-intersection rule. Each crop must contain the complete union box for its
   component. Keep the existing square crop, neutral padding, and reversible source-coordinate
   transform. An empty full-frame result produces no crops.
-- Keep every valid full-frame prediction in the final result. Map each crop prediction to source
-  coordinates before arbitration, then append it unless both its box IoU and visible-mask IoU are at
-  least 0.90 against an already retained prediction. Keep the earlier prediction when they match.
-  Do not suppress by containment or general overlap. This keeps distinct overlapping cards and all
-  full-frame results. A crop failure adds no crop predictions and leaves the full-frame result
-  unchanged.
+- Keep every valid full-frame candidate in the final result. Route small clusters only when the crop
+  gives a useful scale increase. Match crop results one-to-one to candidates in their source cluster
+  at box and mask IoU of at least 0.50. Rank matches by the lower IoU. Accept a pair only when it is
+  the best match for both candidates and leads each candidate's second choice by at least 0.10.
+  Refine geometry only when crop confidence is at least 0.05 higher; keep the full-frame identity.
+  Add unmatched crop results only at score 0.70
+  or higher. Remove a duplicate only when box and mask IoU are both at least 0.90, keeping the main
+  result. A crop failure leaves full-frame candidates unchanged.
 - Reject non-finite, degenerate, or out-of-frame model geometry deterministically. A bad candidate
   does not invalidate other valid candidates. A malformed source frame fails the item.
 - Use the two fixed JPEGs in
@@ -107,10 +120,12 @@ The epic does not include:
   times below. The expected regions are regression support regions copied from a direct local fine
   model result. They are not reviewed reference geometry or ground truth.
 - Record `full_frame`, `clusters`, `refinement`, `arbitration`, `mapping`, `reconciliation`, and
-  `timing` sections in the raw response. Include model and bundle identity, both 0.5 thresholds, the
-  strict 0.90 duplicate-IoU threshold, source-frame
-  dimensions and digest, cluster-to-full-frame attribution, crop transforms, per-crop outcome, and final
-  proposal provenance. Do not emit coarse-stage names or identities.
+  `timing` sections in the raw response. Include model and bundle identity, the 0.5 inference
+  threshold, 96-pixel far-cluster size limit, 1.5 crop scale gain, 0.50 one-to-one match thresholds,
+  0.10 ambiguity margin, 0.05 confidence gain, 0.70 unmatched-crop threshold, and strict 0.90
+  duplicate threshold. Record
+  source-frame dimensions and digest, cluster-to-full-frame attribution, crop transforms, per-crop
+  outcome, and final proposal provenance. Do not emit coarse-stage names or identities.
 - Freeze comparison fields as visible-card recall, central-card recall, overlapping-card separation,
   merged-plus-split duplicates, false positives, crop count, crop-area ratio, prepass latency, crop
   latency, total latency, and deterministic output digest. Report prepass misses, crop failures, and
@@ -120,9 +135,9 @@ The epic does not include:
 
 The provider decodes one complete source frame and runs the fine segmentation model at its declared
 model input size. It keeps the model's visible-card polygons, tight derived boxes, scores, masks,
-and source-frame dimensions. These predictions remain in the final result even when a crop returns
-other predictions for the same cluster. Record the threshold and selection rule in the provider
-manifest and measure them against held-out reviewed cards.
+and source-frame dimensions. They remain the main candidates. A crop can refine a candidate's
+geometry, but it cannot remove the candidate or change its identity. Record routing and matching
+rules in the manifest and measure them against held-out reviewed cards.
 
 When the full-frame pass returns no usable predictions, the provider returns an empty result and
 does not run crop inference. It must report this as valid negative evidence.
@@ -130,9 +145,10 @@ does not run crop inference. It must report this as valid negative evidence.
 ### Prepass-derived card clusters
 
 Use the existing deterministic connected-component layout and reversible source-coordinate
-transform. The layout uses valid full-frame predictions as crop-routing proposals. It must preserve
-the current behavior for one prediction, nearby overlapping predictions, frame-edge boxes, neutral
-padding, non-finite geometry, and an empty full-frame result.
+transform. Use valid full-frame predictions as crop-routing proposals. Route a cluster only when its
+median card span is at most 96 pixels at the model input size and crop scale gain is at least 1.5.
+The layout must preserve its behavior for one prediction, nearby overlapping predictions,
+frame-edge boxes, neutral padding, non-finite geometry, and an empty full-frame result.
 
 The provider must record which full-frame predictions created each card cluster. A cluster is an
 image-processing unit only. It does not assert a pile, trick, card play, or other gameplay
@@ -140,19 +156,23 @@ relationship.
 
 ### Refinement and arbitration
 
-Run the same fine model on every full-frame-derived cluster. Map all crop polygons, masks, and boxes
-back to the exact source frame before reconciliation.
+Run the same fine model on each routed cluster. Map all crop polygons, masks, and boxes back to the
+exact source frame before matching.
 
 Use this result policy:
 
-- keep every valid full-frame candidate as part of the final result;
-- add mapped crop candidates unless both box IoU and visible-mask IoU are at least 0.90 against a
-  retained candidate;
-- keep the full-frame candidate when a crop candidate is an exact duplicate;
-- keep overlapping and nested candidates unless both strict IoU checks identify a near-identical
-  duplicate; and
-- use stable cluster order, proposal order, and prediction ID for deterministic duplicate decisions.
-  Do not use containment or general high overlap to suppress physically overlapping visible cards.
+- keep every valid full-frame candidate and its identity in the final result;
+- match crop candidates one-to-one within their source cluster when box and mask IoU are both at
+  least 0.50;
+- rank matches by the lower of box IoU and mask IoU;
+- accept a pair only when it is the best match for both candidates and leads each candidate's second
+  choice by at least 0.10;
+- refine matched geometry only when crop confidence is at least 0.05 higher;
+- add unmatched crop candidates only when confidence is at least 0.70;
+- drop a duplicate only when both box IoU and mask IoU are at least 0.90, keeping the earlier main
+  result; and
+- use stable cluster order, proposal order, and prediction ID for deterministic matching. Do not
+  suppress candidates by containment or general overlap.
 
 The raw response must distinguish `full_frame`, `clusters`, `refinement`, `arbitration`, `mapping`,
 `reconciliation`, and `timing`. It must not expose `coarse`, `coarse_bundle`, or a `card_cluster`
@@ -160,21 +180,21 @@ model identity.
 
 ## Milestone status
 
-- **M0:** Complete — freeze the fine-prepass contract, result arbitration, threshold policy, and
-  exact-frame regression fixtures.
-- **M1:** Complete — add the shared fine-model prepass and crop-refinement provider with
-  deterministic source mapping, additive crop results, strict duplicate checks, crop fallback, and
-  focused regression tests.
+- **M0:** Complete — freeze far-cluster routing, one-to-one refinement, base-preserving arbitration,
+  thresholds, and exact-frame regression fixtures.
+- **M1:** Complete — add the shared fine-model pass with selective far-cluster routing, one-to-one
+  geometry refinement, high-confidence additions, strict duplicate checks, crop fallback, and
+  focused tests.
 - **M2:** Complete — remove coarse training, bundle, CLI, registry, configuration, and active UI
   surfaces. Keep cluster geometry under neutral names and keep historical evidence readable.
-- **M3:** In Progress — the initial comparison used a model that was not trained on cluster crops
-  and had only six far-field frames. It does not support removing crop refinement. Train the fine
-  model on cluster crops and evaluate the additive provider on a representative challenge set. The
-  current provider keeps every full-frame candidate and adds crop predictions. See the
+- **M3:** In Progress — the initial comparison tested all-cluster replacement and had only six
+  far-field frames. It does not test the targeted refinement algorithm. Evaluate that algorithm
+  with the current fine model on a representative challenge set; no new model training is in scope.
+  The provider keeps every full-frame candidate and selectively refines small clusters. See the
   [initial M3 comparison report](../../reports/0082-M3_Fine_Frame_Sealed_Test_Comparison.json).
-- **M4:** Blocked — register the additive provider and migrate active references after M3 evaluates
-  the crop-trained bundle, while keeping
-  0071 as the closed, superseded implementation record.
+- **M4:** Blocked — register the current-model refinement provider and migrate active references
+  after M3 evaluates the algorithm, while keeping 0071 as the closed, superseded implementation
+  record.
 
 ## Delivery milestones
 
@@ -184,7 +204,7 @@ model identity.
 - Add exact source-frame JPEG fixtures for `event-000010` at `t_us=38141669` and `event-000012` at
   `t_us=54483336`. Record their source video digest, frame identity, image digest, and the central
   fine-model regression support regions in the fixture manifest.
-- Define the full-frame and crop thresholds, additive arbitration behavior, strict duplicate rule,
+- Define far-cluster routing, one-to-one refinement, crop-addition threshold, strict duplicate rule,
   failure fallback, provider name, schema version, response and manifest fields.
 - Define the comparison report fields: visible-card recall, central-card recall, overlapping-card
   separation, merged-plus-split duplicates, false positives, crop count, crop-area ratio,
@@ -206,8 +226,8 @@ model identity.
   frame first and then on prepass-derived cluster crops.
 - Reuse or rename the generic coordinate and crop helpers. Remove coarse-specific constructor
   paths, model-size assumptions, and raw response fields.
-- Map full-frame and crop predictions to source coordinates and implement the M0 additive result
-  policy. Ensure a crop failure does not erase valid full-frame proposals.
+- Map full-frame and crop predictions to source coordinates and implement the M0 refinement policy.
+  Ensure a crop failure does not erase valid full-frame proposals.
 - Add focused unit and provider tests for empty prepass, one card, overlapping cards, merged
   prepass plus split crop results, frame-edge padding, crop failure, duplicate crops, and stable
   repeated output.
@@ -216,8 +236,9 @@ model identity.
 
 - The provider performs no RF-DETR Small inference and loads no coarse bundle.
 - The exact event fixtures retain the central cards in the final proposals.
-- Every valid full-frame result remains in the final result. Exact duplicate crop outputs are
-  discarded in favor of the full-frame result; distinct overlapping crop outputs remain.
+- Every valid full-frame candidate remains in the result. Crop geometry can refine a candidate only
+  through a one-to-one match with the required confidence gain. A crop failure preserves its source
+  candidate.
 - Raw diagnostics identify every final proposal's prepass or crop provenance and source transform.
 
 #### M1 validation note
@@ -261,15 +282,14 @@ fine bundle and held-out references for that evaluation.
 - Historical stored results remain inspectable without reactivating the retired provider.
 - Focused Python, backend, and web tests pass for the changed surfaces.
 
-### M3 — Train and evaluate additive cluster-crop inference
+### M3 — Validate current-model far-cluster refinement
 
-- Train the fine segmentation model with the reviewed cluster-crop training view before judging
-  crop recall or separation. Keep the complete source frames in the same evaluation pipeline.
-- Compare full-frame candidates with the additive crop result on source-linked reviewed small,
+- Use the current reviewed fine-model bundle. Do not train a new model for this epic.
+- Compare the full-frame main result with selective crop refinement on source-linked reviewed small,
   central, far-field, frame-edge, single-card, and overlapping-card cases. Ensure the challenge set
   represents rare far-field recordings; the initial six far-field frames are not sufficient.
-- Report prepass misses, crop additions, crop false positives, crop failures, strict duplicate
-  decisions, overlap separation, crop area, and latency separately.
+- Report full-frame detections refined, crop additions, crop false positives, skipped clusters,
+  crop failures, strict duplicate decisions, overlap separation, crop area, and latency separately.
 - Do not remove crop inference based only on aggregate recall. Review far-field and overlap results
   and the measured cost before setting the provider's final selectable behavior.
 
@@ -302,16 +322,17 @@ fine bundle and held-out references for that evaluation.
   overlapping-box frames (149/210). Central-card frames reached 184/245. Group definitions and
   frame-level metrics are in the report.
 - The fine checkpoint used in this comparison was not trained on cluster crops. The comparison
-  exercised the previous crop-replacement arbitration policy, which could remove full-frame
-  predictions. It does not measure the additive algorithm now implemented and cannot determine
-  whether crop-trained refinement helps rare far-field cases.
+  exercised the previous all-cluster crop-replacement arbitration policy, which could remove
+  full-frame predictions. It does not measure the selective, one-to-one refinement algorithm now
+  implemented.
 - The comparison uses polygon IoU and measures the returned provider proposals. The earlier 0068
   campaign report uses mask metrics, so its recall value is not directly comparable. The 0082
   comparison does not establish background-only precision or production readiness.
-- Correction: this evidence does not justify removing crop inference. The provider now retains all
-  valid full-frame predictions and adds source-mapped crop predictions. It drops only crop
-  predictions that match an earlier result at both box IoU and visible-mask IoU of at least 0.90.
-  Full-frame predictions are never discarded. Crop-trained evaluation remains open.
+- Correction: this evidence does not justify removing crop inference. The provider routes only
+  small clusters that gain at least 1.5 times crop resolution. It refines one-to-one matched
+  candidates only when crop confidence improves by at least 0.05. It preserves each full-frame
+  candidate and adds unmatched crop candidates only at confidence 0.70 or higher. Evaluation with
+  the current model remains open.
 - The complete per-frame metrics and timing values are in the linked JSON report. Its SHA-256 is
   `9e6e2718ae2a41e750491bee6117b59e18a1481ef1011ad93dca9e6f2797d9c4`.
 
@@ -319,28 +340,30 @@ fine bundle and held-out references for that evaluation.
 
 - The full-frame result intersects both exact central-card regression support regions. These regions
   are not reviewed ground truth.
-- The evaluated checkpoint is trained on the reviewed crop data and tested on held-out source
-  recordings.
-- Every full-frame candidate survives arbitration. Adding crop candidates cannot reduce the maximum
-  one-to-one recall match count; report any implementation or evaluation exception.
+- Use the existing reviewed fine-model checkpoint on held-out source recordings. No new model
+  training is required.
+- Every full-frame candidate remains represented in the output. Crop refinement can change its
+  geometry, but it cannot delete the candidate.
 - Far-field and overlap subsets have enough reviewed cases to support a separate result. Do not use
   the current six-frame far-field subset as a crop-removal gate.
-- The report records crop additions, strict duplicates, false positives, overlap separation, crop
-  count, crop-area ratio, full-frame and crop latency, total latency, and deterministic output.
+- The report records refined candidates, crop additions, strict duplicates, false positives,
+  overlap separation, routed and skipped clusters, crop area, full-frame and crop latency, total
+  latency, and deterministic output.
 
 ### M4 — Register and migrate the active path
 
 - Register `local-rfdetr-fine-frame` as an explicit selectable, non-default provider and update
   backend settings, provider discovery, run controls, documentation, fixtures, and focused tests.
-- Migrate active configuration and examples from the retired cascade provider to the replacement.
+- Migrate active configuration and examples from the retired cascade provider to the refinement
+  provider.
 - Keep the epic board link to 0071's closed `Superseded` record and do not reopen or rewrite its
   historical implementation evidence.
 - Record the final bundle digest, provider version, threshold, evaluation report, and known limits.
 
 #### M4 acceptance criteria
 
-- New runs can select the additive fine-frame provider without any coarse bundle or coarse code
-  installed.
+- New runs can select the current-model fine-frame refinement provider without any coarse bundle or
+  coarse code installed.
 - The default provider is unchanged unless a later decision explicitly promotes this provider.
 - Active documentation and UI use the replacement name and semantics.
 - 0071 remains a linked historical record of the superseded coarse cascade, and 0082 records the

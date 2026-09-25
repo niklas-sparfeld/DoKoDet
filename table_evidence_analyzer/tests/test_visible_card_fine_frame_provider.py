@@ -82,7 +82,7 @@ class _Detector:
         return SimpleNamespace(xyxy=boxes, confidence=[0.9] * len(boxes), class_id=[0] * len(boxes))
 
 
-def test_provider_runs_full_frame_and_crop_and_deduplicates_matching_addition(
+def test_provider_keeps_full_frame_when_matching_crop_has_no_score_gain(
     tmp_path: Path,
 ) -> None:
     detector = _Detector()
@@ -98,9 +98,9 @@ def test_provider_runs_full_frame_and_crop_and_deduplicates_matching_addition(
     assert result.raw_response["timing"]["inference_latency_ms"] >= 0
     assert result.raw_response["clusters"]["status"] == "ok"
     assert result.raw_response["refinement"]["status"] == "ok"
-    assert result.raw_response["arbitration"]["full_frame_predictions_removed"] == 0
-    assert result.raw_response["reconciliation"]["discarded"][0]["reason"] == (
-        "duplicate_of_full_frame_prediction"
+    assert result.raw_response["arbitration"]["full_frame_candidates_removed"] == 0
+    assert result.raw_response["arbitration"]["matched_pairs"][0]["decision"] == (
+        "keep_full_frame_geometry"
     )
 
 
@@ -164,14 +164,14 @@ def test_overlapping_full_frame_detections_remain_separate(tmp_path: Path) -> No
     assert result.raw_response["reconciliation"]["discarded"] == []
 
 
-def test_cluster_predictions_are_added_without_removing_full_frame_results(tmp_path: Path) -> None:
+def test_ambiguous_split_additions_preserve_the_full_frame_candidate(tmp_path: Path) -> None:
     class SplitDetector(_Detector):
         def predict(self, _image: Image.Image, **_kwargs: object) -> object:
             self.calls += 1
             boxes = [[20, 20, 40, 40]] if self.calls == 1 else [[10, 10, 20, 30], [20, 10, 30, 30]]
             return SimpleNamespace(
                 xyxy=boxes,
-                confidence=[0.9] * len(boxes),
+                confidence=[0.9] * len(boxes) if self.calls == 1 else [0.98] * len(boxes),
                 class_id=[0] * len(boxes),
             )
 
@@ -184,10 +184,87 @@ def test_cluster_predictions_are_added_without_removing_full_frame_results(tmp_p
     assert len(result.proposals) == 3
     assert [item["source"] for item in result.raw_response["final_provenance"]] == [
         "full_frame",
-        "cluster_crop",
-        "cluster_crop",
+        "cluster_crop_addition",
+        "cluster_crop_addition",
     ]
-    assert result.raw_response["arbitration"]["full_frame_predictions_removed"] == 0
+    assert result.raw_response["arbitration"]["full_frame_candidates_removed"] == 0
+    assert result.raw_response["arbitration"]["full_frame_geometries_refined"] == 0
+
+
+def test_unambiguous_higher_confidence_crop_refines_full_frame_geometry(tmp_path: Path) -> None:
+    class Refiner:
+        calls = 0
+
+        def predict(self, image: Image.Image, **_kwargs: object) -> object:
+            self.calls += 1
+            is_full_frame = image.size == (100, 80)
+            return SimpleNamespace(
+                xyxy=[[20, 20, 40, 40]] if is_full_frame else [[10, 10, 29, 29]],
+                confidence=[0.9] if is_full_frame else [0.98],
+                class_id=[0],
+            )
+
+    detector = Refiner()
+    provider = LocalVisibleCardFineFrameProvider(_bundle(tmp_path), device="cpu", detector=detector)
+
+    result = provider.propose(_request())
+
+    assert result.status == "ok"
+    assert len(result.proposals) == 1
+    assert result.proposals[0].box_2d.x_max == 390
+    assert result.raw_response["final_provenance"][0]["source"] == "crop_refinement"
+    assert result.raw_response["arbitration"]["full_frame_candidates_removed"] == 0
+    assert result.raw_response["arbitration"]["full_frame_geometries_refined"] == 1
+
+
+def test_small_score_gain_keeps_full_frame_geometry(tmp_path: Path) -> None:
+    class Refiner:
+        calls = 0
+
+        def predict(self, image: Image.Image, **_kwargs: object) -> object:
+            self.calls += 1
+            is_full_frame = image.size == (100, 80)
+            return SimpleNamespace(
+                xyxy=[[20, 20, 40, 40]] if is_full_frame else [[10, 10, 29, 29]],
+                confidence=[0.9] if is_full_frame else [0.94],
+                class_id=[0],
+            )
+
+    detector = Refiner()
+    provider = LocalVisibleCardFineFrameProvider(_bundle(tmp_path), device="cpu", detector=detector)
+
+    result = provider.propose(_request())
+
+    assert result.status == "ok"
+    assert len(result.proposals) == 1
+    assert result.proposals[0].box_2d.x_max == 400
+    assert result.raw_response["final_provenance"][0]["source"] == "full_frame"
+    assert result.raw_response["arbitration"]["matched_pairs"][0]["decision"] == (
+        "keep_full_frame_geometry"
+    )
+
+
+def test_unmatched_crop_candidate_below_addition_threshold_is_discarded(tmp_path: Path) -> None:
+    class LowConfidenceAddition(_Detector):
+        def predict(self, image: Image.Image, **_kwargs: object) -> object:
+            self.calls += 1
+            if image.size == (100, 80):
+                boxes, scores = [[20, 20, 40, 40]], [0.9]
+            else:
+                boxes, scores = [[10, 10, 15, 15]], [0.69]
+            return SimpleNamespace(xyxy=boxes, confidence=scores, class_id=[0])
+
+    detector = LowConfidenceAddition()
+    provider = LocalVisibleCardFineFrameProvider(_bundle(tmp_path), device="cpu", detector=detector)
+
+    result = provider.propose(_request())
+
+    assert result.status == "ok"
+    assert len(result.proposals) == 1
+    assert result.raw_response["final_provenance"][0]["source"] == "full_frame"
+    assert result.raw_response["reconciliation"]["discarded"][-1]["reason"] == (
+        "below_crop_addition_threshold"
+    )
 
 
 def test_crop_failure_keeps_full_frame_predictions(tmp_path: Path) -> None:
@@ -208,6 +285,46 @@ def test_crop_failure_keeps_full_frame_predictions(tmp_path: Path) -> None:
     assert result.raw_response["refinement"]["status"] == "partial"
     assert result.raw_response["refinement"]["clusters"][0]["status"] == "unavailable"
     assert result.raw_response["final_provenance"][0]["source"] == "full_frame"
+
+
+def test_provider_only_routes_small_clusters_that_gain_crop_resolution(tmp_path: Path) -> None:
+    class DistanceDetector:
+        calls = 0
+
+        def predict(self, image: Image.Image, **_kwargs: object) -> object:
+            self.calls += 1
+            boxes = [[20, 20, 35, 35], [100, 50, 190, 130]] if image.size == (300, 200) else []
+            return SimpleNamespace(
+                xyxy=boxes,
+                confidence=[0.9] * len(boxes),
+                class_id=[0] * len(boxes),
+            )
+
+    output = BytesIO()
+    Image.new("RGB", (300, 200), (30, 60, 90)).save(output, format="PNG")
+    request = VisibleCardRequest(
+        package_id="recording-far",
+        frame_part_name="event-far",
+        target_offset_ms=250,
+        image_bytes=output.getvalue(),
+        width=300,
+        height=200,
+        provider=FINE_FRAME_PROVIDER_NAME,
+        model=FINE_FRAME_PROVIDER_NAME,
+    )
+    detector = DistanceDetector()
+    provider = LocalVisibleCardFineFrameProvider(_bundle(tmp_path), device="cpu", detector=detector)
+
+    result = provider.propose(request)
+
+    assert result.status == "ok"
+    assert detector.calls == 2
+    assert result.raw_response["clusters"]["routed_cluster_ids"] == ["cluster-0001"]
+    assert [item["status"] for item in result.raw_response["refinement"]["clusters"]] == [
+        "ok",
+        "skipped",
+    ]
+    assert len(result.proposals) == 2
 
 
 def test_repeated_full_frame_output_is_deterministic(tmp_path: Path) -> None:
