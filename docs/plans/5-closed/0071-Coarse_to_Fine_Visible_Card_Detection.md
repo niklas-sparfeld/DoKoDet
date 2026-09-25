@@ -4,7 +4,12 @@
 
 - **Summary:** Find card clusters in the full source frame, run the reviewed RF-DETR segmentation
   model at higher effective card resolution on each cluster crop, and train one model for each stage.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Superseded
+- **Closure note:** The implemented coarse-to-fine path is retained as historical evidence. Its coarse
+  model, cascade provider, and active selection surfaces are parked indefinitely and are replaced by
+  0082's fine-model full-frame prepass.
+- **Superseded by:** [0082 — Fine-model full-frame prepass for visible-card detection](../2-ready/0082-Fine_Model_Visible_Card_Prepass.md)
 - **Depends on:** 0048 pipeline data and execution, 0049 recording pipeline review, the 0068
   reviewed RF-DETR training corpus, checkpoint, provider, and evaluation boundaries, the
   completed 0070 synthetic visible-region experiment for train-only supplemental M4–M5 data, and

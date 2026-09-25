@@ -48,13 +48,13 @@ The shared target architecture is
 | --- | --- | --- |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
 | [0081 — Calibration pose-seed refinement from virtual-card fitting](2-ready/0081_Calibration_Pose_Seed_Refinement.md) | Completed 0072, 0075, 0078, and 0079; current occlusion-aware virtual-card fitter | M0 adds and measures a virtual-card-informed calibration seed while preserving the shared robust boundary objective and calibration evidence rules. |
+| [0082 — Fine-model full-frame prepass for visible-card detection](2-ready/0082-Fine_Model_Visible_Card_Prepass.md) | Completed 0048, 0049, 0068, and the 0071 fine-stage model and crop contracts; 0071 coarse stage is the removal target | Remove the coarse RF-DETR cascade and register a non-default fine-model prepass with crop refinement and full-frame fallback. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
-| [0071 — Coarse-to-fine visible-card detection](3-in-progress/0071-Coarse_to_Fine_Visible_Card_Detection.md) | 0048 pipeline data and execution, 0049 recording pipeline review, the 0068 reviewed RF-DETR training corpus and evaluation boundaries, completed 0070 train-only synthetic fine-stage input, plus the completed 0072 scene-derived visible-region authority for M4–M6 | M0–M6 complete at the implementation and contract level. M3 remains validated on MPS with threshold `0.65` and `0.984043` crop-containment recall against the `0.98` floor. M4 materializes validated 0072 scene-derived crops and adds 0070 rows to train only. M5 supplies the crop RF-DETR SegMedium child contract. M6 assembles and registers the selectable, non-default `local-rfdetr-cascade`; real M4/M5 runtime artifacts are still required for a real cascade execution. |
 
 ### Blocked
 
@@ -66,6 +66,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0071 — Coarse-to-fine visible-card detection](5-closed/0071-Coarse_to_Fine_Visible_Card_Detection.md) | Superseded | M0–M6 remain the historical implementation record. The coarse RF-DETR cascade is parked indefinitely and will be removed by 0082, which replaces it with a fine-model full-frame prepass and crop refinement. |
 | [0079 — Review-first calibration gates](5-closed/0079_Review_First_Calibration_Gates.md) | Complete | M0 makes spatial coverage and held-out boundaries review warnings, lowers the boundary straightness cutoff, and draws fitted rounded outlines. All 24 frozen real results now publish for human review. |
 | [0078 — Automatic calibration without a size reference](5-closed/0078-Automatic_Calibration_Without_Size_Reference.md) | Complete | M0 removes the independent size-reference publication gate, retains optional bias diagnostics, and lets four of 24 frozen real results publish. The other gates remain active. |
 | [0077 — Rounded physical card outlines](5-closed/0077-Rounded_Physical_Card_Outlines.md) | Complete | M0 uses a deck-measured corner radius in calibration fits, held-out checks, review overlays, and pose-derived visible regions. One more frozen local result passes the held-out gate; fit P90 and runtime rise slightly. |
