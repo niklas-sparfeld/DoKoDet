@@ -49,6 +49,8 @@ export type PipelineRunStartRequest = {
     input_revision_ids?: string[];
     event_revision_id?: string;
     visible_card_revision_id?: string;
+    crop_input_kind?:
+      "gemini_polygon" | "rfdetr_segment" | "reviewed_virtual_card";
     processor_type?: string;
     implementation?: { name: string; version: string };
     model?: Record<string, unknown> | null;

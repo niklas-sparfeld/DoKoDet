@@ -41,7 +41,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0085 — Visual identity crop inputs from virtual cards](3-in-progress/0085-Visual_Identity_Crop_Inputs_from_Virtual_Cards.md) | 0072 and 0073 complete | M0–M2 complete. Gemini and RF-DETR inputs resolve from one exact revision; reviewed virtual-card inputs reuse the completed reference's validated derived visible regions. Exact crop-input provenance is retained in requests, outcomes, and previews. M3 remains. |
+| [0085 — Visual identity crop inputs from virtual cards](3-in-progress/0085-Visual_Identity_Crop_Inputs_from_Virtual_Cards.md) | 0072 and 0073 complete | M0–M3 complete. Operators select an exact Gemini, RF-DETR, or eligible reviewed virtual-card input; run history and crop inspection retain and show source and crop provenance. |
 
 ### Ready
 

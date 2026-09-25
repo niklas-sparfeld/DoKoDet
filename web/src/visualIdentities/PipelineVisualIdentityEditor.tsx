@@ -775,7 +775,8 @@ export function PipelineVisualIdentityEditor({
     if (
       reference === null ||
       selectedGeneratedSourceRevisionId === null ||
-      reference.draft.source_revision_id === selectedGeneratedSourceRevisionId ||
+      reference.draft.source_revision_id ===
+        selectedGeneratedSourceRevisionId ||
       operatorId.trim() === "" ||
       queueLength > 0 ||
       rebasingReference ||
@@ -1512,16 +1513,44 @@ function readOutcome(value: unknown): IdentityOutcome | null {
     crop === null
   )
     return null;
+  const provenance = readCropInputProvenance(value.crop_input_provenance);
+  if (
+    value.crop_input_provenance !== null &&
+    value.crop_input_provenance !== undefined &&
+    provenance === null
+  )
+    return null;
   return {
     card_id: cardId,
     frame_identity: frame,
     geometry,
     crop_identity: crop,
+    crop_input_provenance: provenance,
     status: status as IdentityOutcome["status"],
     candidates,
     unusable_reason:
       typeof value.unusable_reason === "string" ? value.unusable_reason : null,
     error: typeof value.error === "string" ? value.error : null,
+  };
+}
+
+function readCropInputProvenance(value: unknown) {
+  if (value === null || value === undefined) return null;
+  if (
+    !isRecord(value) ||
+    !["gemini_polygon", "rfdetr_segment", "reviewed_virtual_card"].includes(
+      String(value.input_kind),
+    ) ||
+    typeof value.source_revision_id !== "string" ||
+    typeof value.manifest_digest !== "string"
+  )
+    return null;
+  return {
+    input_kind: value.input_kind as NonNullable<
+      IdentityOutcome["crop_input_provenance"]
+    >["input_kind"],
+    source_revision_id: value.source_revision_id,
+    manifest_digest: value.manifest_digest,
   };
 }
 

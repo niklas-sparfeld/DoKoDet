@@ -70,6 +70,11 @@ function outcome(
       implementation: { name: "fixture", version: "v1" },
       model: { name: "fixture-model", version: "v1" },
     },
+    crop_input_provenance: {
+      input_kind: "reviewed_virtual_card",
+      source_revision_id: "visible-revision-reviewed",
+      manifest_digest: "d".repeat(64),
+    },
     status,
     candidates: status === "face_down" ? [] : candidates,
     unusable_reason: null,
@@ -238,6 +243,10 @@ describe("PipelineVisualIdentityEditor", () => {
       `Resolved source frame for ${CARD_ID}`,
     );
     expect(screen.getByText(/immutable/)).toBeInTheDocument();
+    expect(
+      screen.getByText("Reviewed virtual cards · visible-revision-reviewed"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(CROP.crop_policy)).toBeInTheDocument();
     expect(
       fetchImplementation.mock.calls.filter(([input]) =>
         String(input).includes(
@@ -763,9 +772,9 @@ describe("PipelineVisualIdentityEditor", () => {
         name: "Switch review to selected result",
       }),
     ).toBeDisabled();
-    expect(fetchImplementation.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(
-      false,
-    );
+    expect(
+      fetchImplementation.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
   });
 
   it("reports generated rail items and honors explicit item selection", async () => {

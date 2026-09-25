@@ -306,6 +306,14 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
           <dd>{item?.outcome.crop_identity?.crop_policy ?? "Unavailable"}</dd>
         </div>
         <div>
+          <dt>Geometry input</dt>
+          <dd>
+            {item?.outcome.crop_input_provenance === null || item === null
+              ? "Unavailable"
+              : `${formatCropInputKind(item.outcome.crop_input_provenance.input_kind)} · ${item.outcome.crop_input_provenance.source_revision_id}`}
+          </dd>
+        </div>
+        <div>
           <dt>Candidates</dt>
           <dd>
             {item?.outcome.candidates
@@ -352,6 +360,19 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
       ) : null}
     </div>
   );
+}
+
+function formatCropInputKind(kind: string): string {
+  switch (kind) {
+    case "gemini_polygon":
+      return "Generated · Gemini";
+    case "rfdetr_segment":
+      return "Generated · RF-DETR";
+    case "reviewed_virtual_card":
+      return "Reviewed virtual cards";
+    default:
+      return "Unknown input";
+  }
 }
 
 function AutoApprovalDiagnostics({

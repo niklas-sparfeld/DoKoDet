@@ -19,6 +19,12 @@ export type CropIdentity = {
   [key: string]: unknown;
 };
 
+export type CropInputProvenance = {
+  input_kind: "gemini_polygon" | "rfdetr_segment" | "reviewed_virtual_card";
+  source_revision_id: string;
+  manifest_digest: string;
+};
+
 export type IdentityCandidate = {
   identity: string;
   score: number | null;
@@ -30,6 +36,7 @@ export type IdentityOutcome = {
   frame_identity: FrameIdentity;
   geometry: Record<string, unknown>;
   crop_identity: CropIdentity | null;
+  crop_input_provenance: CropInputProvenance | null;
   status: "classified" | "face_down" | "unusable" | "failed";
   candidates: IdentityCandidate[];
   unusable_reason: string | null;

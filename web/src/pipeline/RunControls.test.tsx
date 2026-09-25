@@ -436,6 +436,27 @@ describe("RunControls", () => {
     const visible = stage("visible_cards", {
       selected_generated_revision_id: "visible-generated",
       selected_completed_reference_revision_id: "visible-reviewed",
+      input_options: [
+        {
+          ...option("visible-generated"),
+          content_type: "visible_cards",
+          producer: { kind: "processor", run_id: "gemini-run" },
+        },
+        {
+          ...option("visible-reviewed"),
+          content_type: "visible_cards",
+          origin: "manual",
+          producer: { kind: "human" },
+        },
+      ],
+      runs: [
+        {
+          run_id: "gemini-run",
+          output_revision_ids: ["visible-generated"],
+          configuration: { provider: "gemini" },
+          request: { configuration: { provider: "gemini" } },
+        },
+      ],
     });
     const identities = stage("visual_identities");
 
@@ -448,6 +469,10 @@ describe("RunControls", () => {
       />,
     );
 
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Crop geometry input" }),
+      "reviewed_virtual_card:visible-reviewed",
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "Run processor" }),
     );
@@ -463,6 +488,7 @@ describe("RunControls", () => {
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
         visible_card_revision_id: "visible-reviewed",
+        crop_input_kind: "reviewed_virtual_card",
         crop_policy: {
           policy_id: "oracle_visible_region",
           output_encoding: "ppm",
@@ -470,7 +496,10 @@ describe("RunControls", () => {
       },
     });
 
-    await userEvent.click(screen.getByRole("button", { name: "Generated" }));
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Crop geometry input" }),
+      "gemini_polygon:visible-generated",
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "Run processor" }),
     );
@@ -486,6 +515,7 @@ describe("RunControls", () => {
     expect(JSON.parse(String(postCalls[1]?.[1]?.body))).toMatchObject({
       request: {
         visible_card_revision_id: "visible-generated",
+        crop_input_kind: "gemini_polygon",
         configuration: { provider: "gemini" },
         crop_policy: {
           policy_id: "predicted_visible_region",
@@ -493,6 +523,169 @@ describe("RunControls", () => {
         },
       },
     });
+  });
+
+  it("preselects one crop input and requires an explicit choice when several exist", async () => {
+    const oneInput = stage("visible_cards", {
+      input_options: [
+        {
+          ...option("gemini-only"),
+          content_type: "visible_cards",
+          producer: { kind: "processor", run_id: "gemini-run" },
+        },
+      ],
+      runs: [
+        {
+          run_id: "gemini-run",
+          output_revision_ids: ["gemini-only"],
+          configuration: { provider: "gemini" },
+          request: { configuration: { provider: "gemini" } },
+        },
+      ],
+    });
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(runResponse("identity-run-1")), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const identities = stage("visual_identities");
+    const { rerender } = render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={identities}
+        stages={[oneInput, identities]}
+        onRefresh={async () => undefined}
+      />,
+    );
+    expect(
+      screen.getByRole("combobox", { name: "Crop geometry input" }),
+    ).toHaveValue("gemini_polygon:gemini-only");
+
+    const twoInputs = stage("visible_cards", {
+      input_options: [
+        ...oneInput.input_options,
+        {
+          ...option("rfdetr-one"),
+          content_type: "visible_cards",
+          producer: { kind: "processor", run_id: "rfdetr-run" },
+        },
+      ],
+      runs: [
+        ...oneInput.runs,
+        {
+          run_id: "rfdetr-run",
+          output_revision_ids: ["rfdetr-one"],
+          configuration: { provider: "local-rfdetr-segmentation" },
+          request: { configuration: { provider: "local-rfdetr-segmentation" } },
+        },
+      ],
+    });
+    rerender(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={identities}
+        stages={[twoInputs, identities]}
+        onRefresh={async () => undefined}
+      />,
+    );
+    expect(
+      screen.getByRole("combobox", { name: "Crop geometry input" }),
+    ).toHaveValue("");
+    expect(
+      screen.getByRole("option", { name: /Generated · RF-DETR/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Run processor" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/none is selected automatically/i),
+    ).toBeInTheDocument();
+  });
+
+  it("explains why reviewed virtual-card input is unavailable", () => {
+    const visible = stage("visible_cards", {
+      input_options: [
+        {
+          ...option("generated-visible"),
+          content_type: "visible_cards",
+          producer: { kind: "processor", run_id: "gemini-run" },
+        },
+      ],
+      runs: [
+        {
+          run_id: "gemini-run",
+          output_revision_ids: ["generated-visible"],
+          configuration: { provider: "gemini" },
+          request: { configuration: { provider: "gemini" } },
+        },
+      ],
+    });
+    const identities = stage("visual_identities");
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={identities}
+        stages={[visible, identities]}
+        onRefresh={async () => undefined}
+      />,
+    );
+    expect(
+      screen.getByText(
+        /Reviewed virtual-card input unavailable: complete a maintained visible-card reference\./,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the exact crop-input lineage visible for a historical run", async () => {
+    const identityRun = {
+      run_id: "identity-history",
+      status: "complete",
+      attempt: 1,
+      request: {
+        crop_input: {
+          input_kind: "reviewed_virtual_card",
+          source_revision_id: "visible-review-17",
+          items: Array.from({ length: 12 }, (_, index) => ({
+            card_id: `card-${index}`,
+          })),
+        },
+        crop_policy: { policy_id: "oracle_visible_region" },
+      },
+      state: {},
+      input_revision_ids: ["visible-review-17"],
+      implementation: { name: "fixture", version: "v1" },
+      model: null,
+      configuration: {},
+      extraction_policy: {},
+      crop_policy: { policy_id: "oracle_visible_region" },
+      output_revision_ids: [],
+      created_at: "2026-09-25T00:00:00Z",
+      started_at: null,
+      completed_at: null,
+      updated_at: "2026-09-25T00:00:00Z",
+      progress: { completed: 12, total: 12 },
+      failure: null,
+      failed_item_count: 0,
+    };
+    const identities = stage("visual_identities", { runs: [identityRun] });
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={identities}
+        stages={[stage("visible_cards"), identities]}
+        onRefresh={async () => undefined}
+      />,
+    );
+    await userEvent.click(screen.getByText("Retained runs and actual inputs"));
+    expect(
+      screen.getByText(
+        "Reviewed virtual cards · source visible-review-17 · 12 crop inputs · policy oracle_visible_region",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("does not offer retired RF-DETR cascade variants", () => {

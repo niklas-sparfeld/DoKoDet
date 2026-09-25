@@ -25,6 +25,13 @@ type InputOrigin = "generated" | "reviewed";
 type ProcessorOrigin = "cloud" | "local";
 type VisibleCardModelVariant =
   "gemini" | "local" | "local-rfdetr-segmentation" | "local-rfdetr-fine-frame";
+type CropInputKind =
+  "gemini_polygon" | "rfdetr_segment" | "reviewed_virtual_card";
+type CropInputOption = {
+  kind: CropInputKind;
+  revisionId: string;
+  label: string;
+};
 
 const VISIBLE_CARD_MODEL_VARIANTS: readonly {
   value: VisibleCardModelVariant;
@@ -106,6 +113,7 @@ export function RunControls({
       initialVisibleCardModelVariant(stage.runs[0]),
     );
   const [historicalRevisionId, setHistoricalRevisionId] = useState<string>("");
+  const [cropInputSelection, setCropInputSelection] = useState("");
   const [trackedRunId, setTrackedRunId] = useState<string | null>(
     () =>
       stage.runs.find(
@@ -115,9 +123,27 @@ export function RunControls({
   const [liveRun, setLiveRun] = useState<PipelineRunResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const cropInputOptions =
+    runStage === "visual_identities" && upstreamStage !== undefined
+      ? buildCropInputOptions(upstreamStage)
+      : [];
+  const selectedCropInput =
+    cropInputOptions.find(
+      (option) => cropInputKey(option) === cropInputSelection,
+    ) ?? (cropInputOptions.length === 1 ? cropInputOptions[0] : null);
   const selectedRevisionId =
-    historicalRevisionId ||
-    (inputOrigin === "reviewed" ? reviewedRevisionId : generatedRevisionId);
+    runStage === "visual_identities"
+      ? (selectedCropInput?.revisionId ?? null)
+      : historicalRevisionId ||
+        (inputOrigin === "reviewed" ? reviewedRevisionId : generatedRevisionId);
+  const reviewedInputListed =
+    reviewedRevisionId !== null &&
+    (upstreamStage?.input_options.some(
+      (option) =>
+        option.revision_id === reviewedRevisionId &&
+        option.origin !== "processor",
+    ) ??
+      false);
   const selectedRun = useMemo(
     () =>
       liveRun !== null && liveRun.run_id === trackedRunId
@@ -218,6 +244,7 @@ export function RunControls({
           inputOrigin,
           processorOrigin,
           visibleCardModelVariant,
+          selectedCropInput?.kind ?? null,
         ),
       );
       setLiveRun(response);
@@ -293,6 +320,57 @@ export function RunControls({
                 <p className={styles.pipelineRunInputValue}>
                   Accepted recording video
                 </p>
+              ) : runStage === "visual_identities" ? (
+                <>
+                  <label className={styles.pipelineRunSelector}>
+                    <span>Crop geometry input</span>
+                    <select
+                      aria-label="Crop geometry input"
+                      value={
+                        selectedCropInput ? cropInputKey(selectedCropInput) : ""
+                      }
+                      disabled={busy || cropInputOptions.length === 0}
+                      onChange={(event) => {
+                        setCropInputSelection(event.target.value);
+                        setMessage(null);
+                      }}
+                    >
+                      {cropInputOptions.length !== 1 ? (
+                        <option value="">Select one exact crop input</option>
+                      ) : null}
+                      {cropInputOptions.map((option) => (
+                        <option
+                          key={cropInputKey(option)}
+                          value={cropInputKey(option)}
+                        >
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {selectedCropInput !== null ? (
+                    <p className={styles.pipelineRunInputValue}>
+                      Exact source revision · {selectedCropInput.revisionId}
+                    </p>
+                  ) : (
+                    <p className={styles.pipelineRunInputValue}>
+                      {cropInputOptions.length === 0
+                        ? "No generated crop inputs are available."
+                        : "Choose an input. Multiple crop inputs are available; none is selected automatically."}
+                    </p>
+                  )}
+                  {reviewedRevisionId === null ? (
+                    <p className={styles.pipelineRunInputValue}>
+                      Reviewed virtual-card input unavailable: complete a
+                      maintained visible-card reference.
+                    </p>
+                  ) : !reviewedInputListed ? (
+                    <p className={styles.pipelineRunInputValue}>
+                      Reviewed virtual-card input unavailable: the completed
+                      reference revision is not present in the workspace inputs.
+                    </p>
+                  ) : null}
+                </>
               ) : (
                 <div
                   className={styles.pipelineToggleGroup}
@@ -327,7 +405,7 @@ export function RunControls({
                   </button>
                 </div>
               )}
-              {runStage !== "events" ? (
+              {runStage !== "events" && runStage !== "visual_identities" ? (
                 <p className={styles.pipelineRunInputValue}>
                   {selectedRevisionId === null
                     ? "No compatible revision selected"
@@ -409,7 +487,7 @@ export function RunControls({
             </button>
           </div>
 
-          {runStage !== "events" ? (
+          {runStage !== "events" && runStage !== "visual_identities" ? (
             <details className={styles.pipelineRunHistory}>
               <summary>Use another retained revision</summary>
               <label className={styles.pipelineRunSelector}>
@@ -474,6 +552,9 @@ export function RunControls({
                     ? "Accepted recording video"
                     : `Input ${run.input_revision_ids.join(", ")}`}
                 </span>
+                {runStage === "visual_identities" ? (
+                  <span>{describeCropInputRun(run.request)}</span>
+                ) : null}
                 <span>
                   {run.implementation.name} {run.implementation.version}
                   {run.model === null ? " · no model" : " · model retained"}
@@ -593,6 +674,10 @@ function RunStatus({
           <dt>Crop policy</dt>
           <dd>{formatValue(run.request.crop_policy)}</dd>
         </div>
+        <div>
+          <dt>Crop input</dt>
+          <dd>{describeCropInputRun(run.request)}</dd>
+        </div>
       </dl>
       {run.status === "failed" || run.status === "partial" ? (
         <button
@@ -662,6 +747,7 @@ function buildRunRequest(
   inputOrigin: InputOrigin,
   processorOrigin: ProcessorOrigin = "cloud",
   visibleCardModelVariant: VisibleCardModelVariant = "gemini",
+  cropInputKind: CropInputKind | null = null,
 ): PipelineRunStartRequest {
   const request = latestRun?.request ?? {};
   const implementation =
@@ -688,7 +774,8 @@ function buildRunRequest(
     stage === "visual_identities"
       ? {
           policy_id:
-            inputOrigin === "reviewed"
+            cropInputKind === "reviewed_virtual_card" ||
+            (cropInputKind === null && inputOrigin === "reviewed")
               ? "oracle_visible_region"
               : "predicted_visible_region",
           output_encoding: "ppm",
@@ -706,6 +793,9 @@ function buildRunRequest(
               ? { event_revision_id: inputRevisionId }
               : { visible_card_revision_id: inputRevisionId }),
           }),
+      ...(stage === "visual_identities" && cropInputKind !== null
+        ? { crop_input_kind: cropInputKind }
+        : {}),
       implementation,
       ...(model === undefined ? {} : { model }),
       configuration,
@@ -713,6 +803,88 @@ function buildRunRequest(
       crop_policy: cropPolicy,
     },
   };
+}
+
+function buildCropInputOptions(
+  stage: PipelineWorkspaceStage,
+): CropInputOption[] {
+  const options: CropInputOption[] = [];
+  for (const revision of stage.input_options) {
+    if (revision.origin !== "processor") continue;
+    const run = stage.runs.find((candidate) =>
+      candidate.output_revision_ids.includes(revision.revision_id),
+    );
+    const configuration = readObject(run?.configuration);
+    const requestConfiguration = readObject(run?.request.configuration);
+    const provider = readString(
+      configuration?.provider ?? requestConfiguration?.provider,
+    )?.toLowerCase();
+    const kind: CropInputKind = provider?.includes("rfdetr")
+      ? "rfdetr_segment"
+      : "gemini_polygon";
+    options.push({
+      kind,
+      revisionId: revision.revision_id,
+      label: `${formatCropInputKind(kind)} · ${revision.revision_id}${
+        revision.revision_id === stage.selected_generated_revision_id
+          ? " · selected generated revision"
+          : ""
+      }`,
+    });
+  }
+  const reviewedRevisionId = stage.selected_completed_reference_revision_id;
+  if (reviewedRevisionId !== null) {
+    const revision = stage.input_options.find(
+      (candidate) =>
+        candidate.revision_id === reviewedRevisionId &&
+        candidate.origin !== "processor",
+    );
+    if (revision !== undefined) {
+      options.push({
+        kind: "reviewed_virtual_card",
+        revisionId: revision.revision_id,
+        label: `Reviewed virtual cards · ${revision.revision_id}`,
+      });
+    }
+  }
+  return options;
+}
+
+function cropInputKey(option: CropInputOption): string {
+  return `${option.kind}:${option.revisionId}`;
+}
+
+function formatCropInputKind(kind: CropInputKind): string {
+  switch (kind) {
+    case "gemini_polygon":
+      return "Generated · Gemini";
+    case "rfdetr_segment":
+      return "Generated · RF-DETR";
+    case "reviewed_virtual_card":
+      return "Reviewed virtual cards";
+  }
+}
+
+function describeCropInputRun(request: Record<string, unknown>): string {
+  const cropInput = readObject(request.crop_input);
+  const kind = readString(cropInput?.input_kind);
+  const sourceRevisionId = readString(cropInput?.source_revision_id);
+  const items = Array.isArray(cropInput?.items) ? cropInput.items.length : null;
+  const policy = readString(readObject(request.crop_policy)?.policy_id);
+  const kindLabel =
+    kind === "gemini_polygon" ||
+    kind === "rfdetr_segment" ||
+    kind === "reviewed_virtual_card"
+      ? formatCropInputKind(kind)
+      : "Crop input unavailable";
+  return [
+    kindLabel,
+    sourceRevisionId === null ? null : `source ${sourceRevisionId}`,
+    items === null ? null : `${items} crop inputs`,
+    policy === null ? null : `policy ${policy}`,
+  ]
+    .filter((value): value is string => value !== null)
+    .join(" · ");
 }
 
 function initialVisibleCardModelVariant(

@@ -22,8 +22,9 @@
   its exact manifest and provenance through run storage, outcomes, and crop previews.
 - **M2:** Complete (2026-09-25) — resolve reviewed virtual-card regions from the completed
   maintained reference and freeze their deterministic crop-input lineage.
-- **M3:** Not started — expose clear input selection and inspectable provenance in the recording
-  workspace, with focused integration and regression coverage.
+- **M3:** Complete (2026-09-25) — select an exact Gemini, RF-DETR, or eligible reviewed
+  virtual-card revision in the recording workspace; retain the choice and show its item count,
+  crop policy, and per-item provenance.
 
 ## 1. Purpose
 
@@ -255,6 +256,23 @@ Acceptance:
   a rerender or restart;
 - crop previews identify the selected geometry input and resolved crop policy; and
 - focused contract, service/API, generated-client, derived-view, and rendered workspace tests pass.
+
+#### M3 implementation evidence — 2026-09-25
+
+The visual identity controls list generated Gemini polygon and RF-DETR segment revisions and the
+current completed maintained visible-card revision. The controls preselect one available input.
+When several inputs are available, they require an explicit choice. The request records the exact
+revision and input kind. The workspace explains when reviewed virtual-card input is unavailable.
+
+Run history reads the frozen crop-input manifest. It shows the input kind, source revision, item
+count, and crop policy. The selected identity inspector shows the per-item input kind and source
+revision beside the resolved crop policy. Historical runs keep their stored provenance when the
+current upstream selection changes.
+
+Focused controls and editor tests pass (32 tests). The full web suite passes (299 tests). TypeScript,
+targeted ESLint and Prettier checks, OpenAPI verification, and the production build pass. OpenAPI
+export reports two temporary missing-resource-root warnings. Vite reports the existing large-chunk
+advisory.
 
 ## 4. Non-goals
 
