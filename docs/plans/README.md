@@ -47,6 +47,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
+| [0083 — Manual RF-DETR runs for proposed card scenes](2-ready/0083-Manual_RF_DETR_Proposed_Card_Scene_Runs.md) | 0048, 0049, 0068, and 0073 complete | M0–M2 not started. A manual command runs the configured RF-DETR provider and proposed-card-scene processor for an operator-supplied recording list, with results persisted for UI inspection. |
 
 ### In Progress
 
