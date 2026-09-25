@@ -60,6 +60,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and a future fixed identity baseline; 0052 is not required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against a fixed identity baseline, then select at most one justified capability response. The completed 0067 `poc_candidate` is optional later input; M0–M3 not started. |
+| [0084 — RF-DETR training from proposed card scenes](4-blocked/0084-RF_DETR_Training_from_Proposed_Card_Scenes.md) | 0072, 0073, 0067, and 0068 complete; 0083 complete | Turn eligible 0083 card poses into deterministic rounded, z-order-correct visible-card masks, then measure one paired RF-DETR training result on held-out human-reviewed references. |
 
 ### Closed
 
