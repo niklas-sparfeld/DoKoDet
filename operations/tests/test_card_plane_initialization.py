@@ -368,7 +368,7 @@ def test_pose_uses_calibrated_dimensions_and_low_confidence_is_visible() -> None
     assert run.diagnostics["low_confidence_suggestion_ids"] == ["candidate-000"]
     pose = run.scene.poses[0]
     assert pose.rotation_degrees == pose.rotation_degrees % 180.0
-    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-grid-search/v3"
+    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-grid-search/v4"
 
 
 def test_failed_candidate_does_not_block_a_scene_or_manual_addition() -> None:

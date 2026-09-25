@@ -16,7 +16,7 @@ from doko_operations.card_plane_calibration import (
     CalibrationRun,
     calibrate_recording,
 )
-from doko_operations.card_plane_geometry import project_fixed_card
+from doko_operations.card_plane_geometry import CARD_ASPECT_RATIO, project_fixed_card
 from doko_operations.pipeline_data import canonical_json_bytes
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -120,7 +120,7 @@ def test_calibration_is_repeatable_and_validates_held_out_candidates() -> None:
     assert first.diagnostics["gates"]["held_out_boundary"] is True
     assert "absolute_size_reference" not in first.diagnostics["gates"]
     assert first.calibration.card_short_size == 1.0
-    assert first.calibration.card_long_size == 1.5
+    assert first.calibration.card_long_size == pytest.approx(CARD_ASPECT_RATIO, abs=1e-6)
     assert first.calibration_fit_candidate is not None
     assert first.to_mapping()["schema_version"] == "card-plane-calibration-run/v3"
 

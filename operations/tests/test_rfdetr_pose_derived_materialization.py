@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from doko_operations.card_plane_geometry import (
+    CARD_ASPECT_RATIO,
     CardPose,
     CardStackingOrder,
     ReviewedCardScene,
@@ -59,7 +60,7 @@ def test_rounded_pose_outline_has_curved_corners() -> None:
     calibration = {
         "table_to_image": [[20.0, 0.0, 10.0], [0.0, 20.0, 10.0], [0.0, 0.0, 1.0]],
         "card_short_size": 1.0,
-        "card_long_size": 1.5,
+        "card_long_size": CARD_ASPECT_RATIO,
     }
     projected = project_rounded_card(
         np.asarray(calibration["table_to_image"]),
@@ -209,7 +210,7 @@ def _make_minimal_campaign(root: Path) -> tuple[Path, bytes]:
         "calibration_digest": "b" * 64,
         "table_to_image": [[32.0, 0.0, 0.0], [0.0, 32.0, 0.0], [0.0, 0.0, 1.0]],
         "card_short_size": 1.0,
-        "card_long_size": 1.5,
+        "card_long_size": CARD_ASPECT_RATIO,
     }
     from doko_operations.card_plane_geometry import CardStackingOrder
 

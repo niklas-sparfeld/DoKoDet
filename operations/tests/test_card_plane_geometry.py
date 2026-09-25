@@ -50,7 +50,7 @@ def test_geometry_contract_manifest_freezes_the_numeric_boundary() -> None:
     assert contract["mask_threshold"] == 128
     assert contract["derivation_recipe_version"] == DERIVATION_RECIPE_VERSION
     assert contract["card_corner_radius_over_short_side"] == CARD_CORNER_RADIUS_OVER_SHORT_SIDE
-    assert contract["card_aspect_ratio"] == 1.5
+    assert contract["card_aspect_ratio"] == pytest.approx(CARD_ASPECT_RATIO)
 
 
 def test_calibration_and_scene_contracts_round_trip_with_digests() -> None:
@@ -88,7 +88,7 @@ def test_calibration_and_scene_contracts_round_trip_with_digests() -> None:
         image_to_table=np.eye(3),
         table_to_image=np.eye(3),
         card_short_size=1.0,
-        card_long_size=1.5,
+        card_long_size=CARD_ASPECT_RATIO,
         candidate_receipt_digests=(),
         diagnostics={"accepted": 3},
     )
@@ -160,7 +160,7 @@ def test_calibration_seed_version_changes_and_legacy_calibration_stays_readable(
 
     restored = TablePlaneCalibration.from_mapping(legacy.to_mapping())
 
-    assert GEOMETRY_ALGORITHM_VERSION == "card-plane-geometry/v4"
+    assert GEOMETRY_ALGORITHM_VERSION == "card-plane-geometry/v5"
     assert restored == legacy
 
 
@@ -286,7 +286,7 @@ def test_joint_boundary_fit_recovers_known_projection_from_noisy_masks() -> None
     assert first["virtual_card_pose_seed_recipe_version"] == CALIBRATION_POSE_SEED_RECIPE_VERSION
     assert first["virtual_card_pose_seed_attempt_count"] == 0
     assert first["card_short_size"] == 1.0
-    assert first["card_long_size"] == 1.5
+    assert first["card_long_size"] == pytest.approx(CARD_ASPECT_RATIO, abs=1e-6)
     assert first["accepted_card_count"] == len(quads)
     assert np.allclose(first["image_to_table"], second["image_to_table"], atol=1e-12)
     assert first["calibration_digest"] == second["calibration_digest"]

@@ -175,7 +175,7 @@ def _campaign_inputs(root: Path, *, uncertain: bool = False) -> tuple[Path, Path
                         "status": "supported",
                         "source_frame_id": frame_id,
                         "source_frame_digest": source_frame_digest,
-                        "initializer_recipe_version": "fixed-card-pose-grid-search/v3",
+                        "initializer_recipe_version": "fixed-card-pose-grid-search/v4",
                         "detector_revision_id": detector_revision_id,
                         "detector_revision_digest": detector_digest,
                         "calibration_revision_id": calibration_id,

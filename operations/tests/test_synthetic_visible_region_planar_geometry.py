@@ -5,7 +5,9 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pytest
 
+from doko_operations.card_plane_geometry import CARD_ASPECT_RATIO
 from doko_operations.rfdetr_segmentation_materialization import (
     validate_rfdetr_coco_annotations,
 )
@@ -29,7 +31,7 @@ def _card_quad(center: tuple[float, float], angle_degrees: float) -> np.ndarray:
     long_axis = np.asarray([-np.sin(angle), np.cos(angle)])
     center_array = np.asarray(center)
     short = short_axis * 0.5
-    long = long_axis * 0.75
+    long = long_axis * (CARD_ASPECT_RATIO / 2)
     return np.asarray(
         [
             center_array - short - long,
@@ -56,11 +58,11 @@ def test_table_plane_fit_rectifies_rotated_cards_with_one_average_size() -> None
     calibration = fit_table_plane(source_quads)
 
     assert calibration["accepted_card_count"] == 4
-    assert calibration["card_aspect_ratio"] == 1.5
+    assert calibration["card_aspect_ratio"] == pytest.approx(CARD_ASPECT_RATIO)
     assert calibration["median_angle_error_degrees"] < 0.05
     assert calibration["median_aspect_error"] < 0.001
     assert abs(calibration["card_short_size"] - 1.0) < 0.01
-    assert abs(calibration["card_long_size"] - 1.5) < 0.01
+    assert abs(calibration["card_long_size"] - CARD_ASPECT_RATIO) < 0.01
 
 
 def test_scanned_deck_assets_are_upright_canonical_cards() -> None:

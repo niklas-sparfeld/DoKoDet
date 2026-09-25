@@ -21,6 +21,7 @@ import cv2
 import numpy as np
 
 from .card_plane_geometry import (
+    CARD_ASPECT_RATIO,
     GEOMETRY_ALGORITHM_VERSION,
     SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS,
     CalibrationCandidateReceipt,
@@ -1234,7 +1235,7 @@ def _projected_card_for_observation(
     center = np.mean(table_quad, axis=0)
     angle = math.degrees(math.atan2(float(short[1]), float(short[0])))
     projection = project_rounded_card if rounded else project_fixed_card
-    return projection(table_to_image, center, angle, 1.0, 1.5)
+    return projection(table_to_image, center, angle, 1.0, CARD_ASPECT_RATIO)
 
 
 def _outline_within_frame(outline: np.ndarray, width: int, height: int) -> bool:

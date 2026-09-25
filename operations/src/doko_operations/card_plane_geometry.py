@@ -21,17 +21,14 @@ import numpy as np
 
 from .reviewed_rfdetr_detector_campaign import canonical_json_bytes
 
-CARD_ASPECT_RATIO = 1.5
-# Pose fitting and calibration use CARD_ASPECT_RATIO. The reviewed virtual-card
-# projection uses the measured physical-card ratio: 9.09 cm by 5.93 cm.
-VIRTUAL_CARD_ASPECT_RATIO = 9.09 / 5.93
+CARD_ASPECT_RATIO = 9.09 / 5.93
 CARD_CORNER_RADIUS_OVER_SHORT_SIDE = 0.087
-GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v4"
+GEOMETRY_ALGORITHM_VERSION = "card-plane-geometry/v5"
 SUPPORTED_GEOMETRY_ALGORITHM_VERSIONS = (
     "card-plane-geometry/v3",
     GEOMETRY_ALGORITHM_VERSION,
 )
-CALIBRATION_POSE_SEED_RECIPE_VERSION = "virtual-card-calibration-pose-seed/v1"
+CALIBRATION_POSE_SEED_RECIPE_VERSION = "virtual-card-calibration-pose-seed/v2"
 DERIVATION_RECIPE_VERSION = "card-plane-derived-regions/v2"
 COORDINATE_SYSTEM_VERSION = "source-pixel-boundary/table-short-side-unit/v1"
 CORNER_ORDER_VERSION = "cyclic-short-edge-first/v1"
@@ -63,9 +60,9 @@ def _round(value: float) -> float:
 
 
 def virtual_card_long_size(short_size: float) -> float:
-    """Return the centered virtual-card long side used after pose fitting."""
+    """Return the canonical measured-card long side for a short-side size."""
 
-    return float(short_size) * VIRTUAL_CARD_ASPECT_RATIO
+    return float(short_size) * CARD_ASPECT_RATIO
 
 
 def _digest(value: Any) -> str:
@@ -2281,7 +2278,6 @@ __all__ = [
     "ANGLE_CONVENTION_VERSION",
     "CALIBRATION_CANDIDATE_SCHEMA_VERSION",
     "CARD_ASPECT_RATIO",
-    "VIRTUAL_CARD_ASPECT_RATIO",
     "CARD_CORNER_RADIUS_OVER_SHORT_SIDE",
     "CALIBRATION_POSE_SEED_RECIPE_VERSION",
     "CARD_POSE_SCHEMA_VERSION",

@@ -33,7 +33,7 @@ from .pipeline_data import canonical_json_bytes
 
 INITIALIZATION_PROCESSOR_SCHEMA_VERSION = "card-plane-initialization-processor/v1"
 INITIALIZATION_RUN_SCHEMA_VERSION = "card-plane-initialization-run/v1"
-POSE_FIT_RECIPE_VERSION = "fixed-card-pose-grid-search/v3"
+POSE_FIT_RECIPE_VERSION = "fixed-card-pose-grid-search/v4"
 
 
 class CardPlaneInitializationError(ValueError):

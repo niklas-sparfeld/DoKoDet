@@ -5,9 +5,10 @@ per-table paper colour from several reviewed cards in the same recording.  It th
 one colour response, a soft rounded alpha edge, and card-scale blur to upright scanned deck cards.
 It does not add shadows, glare, or random per-card lighting changes.
 
-The calibration treats each complete reviewed card as a 1 by 1.5 rectangle on one flat table
-plane.  One rectangle gives an initial projective rectification.  All available rectangles then
-fit a common metric upgrade, reject outliers, and provide the median card size in table coordinates.
+The calibration treats each complete reviewed card as a 1 by 9.09/5.93 rectangle on one flat
+table plane. One rectangle gives an initial projective rectification. All available rectangles
+then fit a common metric upgrade, reject outliers, and provide the median card size in table
+coordinates.
 The inverse homography projects synthetic card layouts, including overlap, back into the empty
 source frame.
 """
