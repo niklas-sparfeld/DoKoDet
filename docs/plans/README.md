@@ -41,6 +41,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0085 — Visual identity crop inputs from virtual cards](1-backlog/0085-Visual_Identity_Crop_Inputs_from_Virtual_Cards.md) | 0072 and 0073 complete | Let one visual identity processor select one immutable crop input: Gemini polygons, RF-DETR segments, or the reviewed card-scene derived visible-region view. Preserve source and crop lineage without changing visual identity classification or card-scene review. |
 
 ### Ready
 

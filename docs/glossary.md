@@ -342,6 +342,14 @@ face-down, unusable, or failed visual identity outcome does not remove the visib
 A frozen rule that converts a visible region and its derived box into an identity crop, or rejects
 the crop. A crop policy is an evaluation condition. It does not change the reviewed visible region.
 
+### Crop input
+
+The selected, immutable card geometry input for one visual identity run. A crop input can be a
+generated Gemini polygon revision, an RF-DETR segment revision, or a reviewed card-scene derived
+visible-region view. It records its source revision, card IDs, frame identities, and geometry
+digests. A crop input chooses the visual evidence. A crop policy defines how that evidence becomes
+an identity crop.
+
 ### Visible-region exclusion
 
 A derived crop operation that neutralizes pixels assigned to other visible-card proposals. It uses
