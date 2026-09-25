@@ -953,12 +953,14 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
         "Proposed card scenes loaded. Inspect the poses and homography before completing the review.",
       );
     } catch (reason: unknown) {
+      const message = describeError(reason);
       current.setSaveState(
         reason instanceof ApiError && reason.status === 409
           ? "conflict"
           : "error",
       );
-      current.setError(describeError(reason));
+      current.setError(message);
+      current.setProposalError(message);
     } finally {
       current.setRebasingProposal(false);
     }

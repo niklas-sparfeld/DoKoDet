@@ -1289,11 +1289,31 @@ export function PipelineVisibleCardEditorView({
 
   const startReviewFromProposal = useCallback(async () => {
     if (proposalRevisionId === null) return;
+    if (operatorId.trim() === "") {
+      setProposalError("Set a profile name before starting this review.");
+      return;
+    }
     if (referenceRef.current === null) {
       await createReference();
     }
-    onReviewRequested?.();
-  }, [createReference, onReviewRequested, proposalRevisionId]);
+    if (
+      referenceRef.current?.draft.proposal_revision_id !== proposalRevisionId
+    ) {
+      await rebaseReferenceToProposal();
+    }
+    if (
+      referenceRef.current?.draft.proposal_revision_id === proposalRevisionId
+    ) {
+      onReviewRequested?.();
+    }
+  }, [
+    createReference,
+    onReviewRequested,
+    operatorId,
+    proposalRevisionId,
+    rebaseReferenceToProposal,
+    setProposalError,
+  ]);
 
   const selectEditorPolygon = useCallback((polygonIndex: number) => {
     setEditor((current) =>

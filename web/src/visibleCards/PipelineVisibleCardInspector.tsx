@@ -218,6 +218,7 @@ function VisibleCardInspectorAction({
           proposalRun={proposalRun}
           proposalRevisionId={proposalRevisionId}
           proposalLoading={proposalLoading}
+          startReviewBusy={creatingReference || rebasingProposal}
           proposalError={proposalError}
           onCreate={startProposal}
           onRetry={retryProposal}
@@ -569,6 +570,7 @@ function ProposalControls({
   onCreate,
   onRetry,
   onStartReview,
+  startReviewBusy,
   onSelectFitDiagnosticFrame,
   visibleCalibrationStatuses,
   onToggleCalibrationStatus,
@@ -577,6 +579,7 @@ function ProposalControls({
   proposalRun: PipelineProposalRunResponse | null;
   proposalRevisionId: string | null;
   proposalLoading: boolean;
+  startReviewBusy: boolean;
   proposalError: string | null;
   onCreate: () => void;
   onRetry: () => void;
@@ -651,7 +654,9 @@ function ProposalControls({
           className={styles.primaryButton}
           type="button"
           onClick={onCreate}
-          disabled={proposalLoading || generatedRevisionId === null}
+          disabled={
+            proposalLoading || startReviewBusy || generatedRevisionId === null
+          }
         >
           {proposalLoading
             ? "Creating proposed scenes…"
@@ -665,9 +670,11 @@ function ProposalControls({
           className={styles.secondaryButton}
           type="button"
           onClick={onStartReview}
-          disabled={proposalLoading}
+          disabled={proposalLoading || startReviewBusy}
         >
-          Start review from proposed scenes
+          {startReviewBusy
+            ? "Starting review…"
+            : "Start review from proposed scenes"}
         </button>
       ) : null}
       <CalibrationFitDiagnosticsPanel

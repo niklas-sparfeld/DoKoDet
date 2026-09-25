@@ -27,6 +27,7 @@ const {
 describe("PipelineVisibleCardEditor", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    window.localStorage.removeItem("dokodetector.profile.name");
     window.history.pushState({}, "", "/");
   });
 
@@ -559,6 +560,90 @@ describe("PipelineVisibleCardEditor", () => {
     await userEvent.click(proposal);
     expect(proposal).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Box")).toBeInTheDocument();
+  });
+
+  it("loads proposed scenes into an existing review before opening it", async () => {
+    window.localStorage.setItem("dokodetector.profile.name", "operator-01");
+    const proposalRun = {
+      run_id: "proposal-complete-1",
+      recording_id: RECORDING_ID,
+      processor_type: "visible-card-scene-proposal",
+      status: "complete",
+      attempt: 1,
+      request: { visible_card_revision_id: REVISION_ID },
+      state: { output_revision_ids: [fixtures.PROPOSAL_REVISION_ID] },
+    };
+    const currentReference = reference();
+    const proposalReference = {
+      ...currentReference,
+      draft: {
+        ...currentReference.draft,
+        proposal_revision_id: fixtures.PROPOSAL_REVISION_ID,
+      },
+    };
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/pipeline/proposed-card-scenes"))
+        return Promise.resolve(
+          jsonResponse({ recording_id: RECORDING_ID, runs: [proposalRun] }),
+        );
+      if (
+        url.endsWith("/pipeline/references/visible_cards") &&
+        init?.method === "POST"
+      )
+        return Promise.resolve(jsonResponse({ detail: "already exists" }, 409));
+      if (
+        url.endsWith("/pipeline/references/visible_cards/draft") &&
+        init?.method === "PUT"
+      )
+        return Promise.resolve(jsonResponse(proposalReference));
+      if (url.endsWith("/pipeline/references/visible_cards"))
+        return Promise.resolve(jsonResponse(currentReference));
+      if (url.endsWith("/result"))
+        return Promise.resolve(jsonResponse(generatedResult()));
+      return Promise.resolve(new Response("not found", { status: 404 }));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+    const onReviewRequested = vi.fn();
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="generated"
+        onReviewRequested={onReviewRequested}
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Start review from proposed scenes",
+      }),
+    );
+
+    await waitFor(() => expect(onReviewRequested).toHaveBeenCalledTimes(1));
+    const rebaseCallIndex = fetchImplementation.mock.calls.findIndex(
+      ([input, init]) =>
+        String(input).endsWith("/pipeline/references/visible_cards/draft") &&
+        init?.method === "PUT",
+    );
+    expect(rebaseCallIndex).toBeGreaterThanOrEqual(0);
+    const requestBody = JSON.parse(
+      String(fetchImplementation.mock.calls[rebaseCallIndex]?.[1]?.body),
+    );
+    expect(requestBody.operations).toEqual([
+      {
+        operation: "rebase",
+        source_revision_id: REVISION_ID,
+        proposal_revision_id: fixtures.PROPOSAL_REVISION_ID,
+      },
+    ]);
+    expect(onReviewRequested.mock.invocationCallOrder[0]).toBeGreaterThan(
+      fetchImplementation.mock.invocationCallOrder[rebaseCallIndex] ?? 0,
+    );
   });
 
   it("shows generated proposals when an existing maintained reference is empty", async () => {
