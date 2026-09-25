@@ -5,6 +5,7 @@ import {
   createCalibrationAnchorStateCommand,
   moveAnchorCorner,
   withCalibrationAnchorCommandDigest,
+  withSceneDigest,
   nextManualPoseId,
   projectImagePointToTable,
   projectTablePoint,
@@ -70,6 +71,19 @@ function scene(): PoseSceneEnvelope {
 }
 
 describe("PoseBasedVisibleCardScene", () => {
+  it("matches the backend scene digest after editing to whole table coordinates", async () => {
+    const current = scene();
+    current.scene.poses[0].center = [3, 4];
+    current.scene.poses[0].rotation_degrees = 0;
+
+    await expect(withSceneDigest(current)).resolves.toMatchObject({
+      scene: {
+        scene_digest:
+          "0f349da65c5e9eccb3b18dd95e865d331d9ed4543b83c9efbc417134bca32a2b",
+      },
+    });
+  });
+
   it("reads the frozen scene envelope and projects fixed card corners", () => {
     const current = scene();
     expect(readPoseScene(current)).toEqual(current);

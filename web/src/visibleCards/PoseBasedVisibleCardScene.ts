@@ -446,7 +446,7 @@ export async function withSceneDigest(
   const core = Object.fromEntries(
     Object.entries(scene).filter(([key]) => key !== "scene_digest"),
   );
-  const bytes = new TextEncoder().encode(stableStringify(core));
+  const bytes = new TextEncoder().encode(stableStringifySceneCore(core));
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const hex = Array.from(new Uint8Array(digest), (value) =>
     value.toString(16).padStart(2, "0"),
@@ -690,6 +690,52 @@ function stableStringify(value: unknown): string {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, child]) => `${JSON.stringify(key)}:${stableStringify(child)}`);
   return `{${entries.join(",")}}`;
+}
+
+function stableStringifySceneCore(value: unknown, floatValue = false): string {
+  if (typeof value === "string") return stringifyAscii(value);
+  if (typeof value === "number") {
+    const normalized = floatValue ? Number(value.toFixed(6)) : value;
+    if (floatValue && Object.is(normalized, -0)) return "-0.0";
+    if (floatValue && Number.isInteger(normalized)) {
+      return `${JSON.stringify(normalized)}.0`;
+    }
+    if (floatValue && Math.abs(normalized) >= 1e16) {
+      return pythonExponent(normalized);
+    }
+    if (floatValue && Math.abs(normalized) > 0 && Math.abs(normalized) < 1e-4) {
+      return pythonExponent(normalized);
+    }
+    return JSON.stringify(normalized);
+  }
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((child) => stableStringifySceneCore(child, floatValue)).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([key, child]) => {
+      const isPoseFloat = key === "rotation_degrees" || key === "center";
+      return `${stringifyAscii(key)}:${stableStringifySceneCore(child, isPoseFloat)}`;
+    });
+  return `{${entries.join(",")}}`;
+}
+
+function stringifyAscii(value: string): string {
+  return JSON.stringify(value).replace(/[^\u0000-\u007f]/g, (character) =>
+    Array.from(
+      character,
+      (unit) => `\\u${unit.charCodeAt(0).toString(16).padStart(4, "0")}`,
+    ).join(""),
+  );
+}
+
+function pythonExponent(value: number): string {
+  const [mantissa, rawExponent] = value.toExponential().split("e");
+  const exponent = Number(rawExponent);
+  return `${mantissa}e${exponent < 0 ? "-" : "+"}${Math.abs(exponent)
+    .toString()
+    .padStart(2, "0")}`;
 }
 
 function canonicalAnchorCommandStringify(
