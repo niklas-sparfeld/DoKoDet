@@ -195,6 +195,74 @@ def test_occlusion_fit_considers_the_quarter_turn_orientation_family() -> None:
     assert with_alternate.pose.rotation_degrees == 0.0
 
 
+def test_half_occluded_card_fit_resolves_a_quarter_turn() -> None:
+    _, calibration = _calibration_result()
+    width, height = 1920, 1080
+    true_polygon = project_fixed_card(
+        calibration.table_to_image,
+        (4.0, 0.0),
+        0.0,
+        calibration.card_short_size,
+        calibration.card_long_size,
+    )
+    full_mask = rasterize_polygon(true_polygon, width, height)
+    occluder = np.zeros_like(full_mask)
+    center_image = apply_homography(
+        calibration.table_to_image, np.asarray([[4.0, 0.0]], dtype=np.float64)
+    )[0]
+    cut_y = round(float(center_image[1]))
+    cv2.rectangle(occluder, (0, cut_y), (width - 1, height - 1), 255, thickness=-1)
+    visible_mask = np.where((full_mask > 0) & (occluder == 0), 255, 0).astype(np.uint8)
+    contours, _ = cv2.findContours(visible_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    polygon = contours[0].reshape(-1, 2).astype(np.float64)
+    candidate = _Candidate(
+        suggestion_id="partial-quarter-turn",
+        frame_id="frame-partial",
+        polygons=(polygon,),
+        source_mask=visible_mask,
+        confidence=1.0,
+        model_identity={},
+        table_points=apply_homography(np.asarray(calibration.image_to_table), polygon),
+    )
+
+    with_quarter_turn = _fit_candidate(
+        candidate,
+        calibration,
+        PoseFitRecipe(),
+        width,
+        height,
+        occluder_mask=occluder,
+        initial_pose=(np.asarray([4.2, 0.15]), 90.0),
+        try_quarter_turn=True,
+    )
+    single_orientation = _fit_candidate(
+        candidate,
+        calibration,
+        PoseFitRecipe(),
+        width,
+        height,
+        occluder_mask=occluder,
+        initial_pose=(np.asarray([4.2, 0.15]), 90.0),
+    )
+    without_drift_penalty = _fit_candidate(
+        candidate,
+        calibration,
+        PoseFitRecipe(occlusion_center_drift_penalty=0.0),
+        width,
+        height,
+        occluder_mask=occluder,
+        initial_pose=(np.asarray([4.2, 0.15]), 90.0),
+        try_quarter_turn=True,
+    )
+
+    assert with_quarter_turn is not None
+    assert single_orientation is not None
+    assert without_drift_penalty is not None
+    assert with_quarter_turn.pose.rotation_degrees == 0.0
+    assert with_quarter_turn.score > single_orientation.score
+    assert with_quarter_turn.score < without_drift_penalty.score
+
+
 def _calibration_result() -> tuple[dict[str, object], object]:
     positions = [
         (0.0, 0.0),
@@ -297,7 +365,7 @@ def test_pose_uses_calibrated_dimensions_and_low_confidence_is_visible() -> None
     assert run.diagnostics["low_confidence_suggestion_ids"] == ["candidate-000"]
     pose = run.scene.poses[0]
     assert pose.rotation_degrees == pose.rotation_degrees % 180.0
-    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-grid-search/v1"
+    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-grid-search/v2"
 
 
 def test_failed_candidate_does_not_block_a_scene_or_manual_addition() -> None:

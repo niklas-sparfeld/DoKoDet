@@ -346,7 +346,7 @@ def build_proposed_card_scene_data(
                 calibration_digest=calibration.calibration_digest,
                 initializer_recipe_version=(
                     initialized.diagnostics.get("recipe", {}).get(
-                        "recipe_version", "fixed-card-pose-grid-search/v1"
+                        "recipe_version", "fixed-card-pose-grid-search/v2"
                     )
                 ),
                 status="unsupported",
@@ -391,7 +391,7 @@ def build_proposed_card_scene_data(
             calibration_digest=calibration.calibration_digest,
             initializer_recipe_version=(
                 initialized.diagnostics.get("recipe", {}).get(
-                    "recipe_version", "fixed-card-pose-grid-search/v1"
+                    "recipe_version", "fixed-card-pose-grid-search/v2"
                 )
             ),
             status="supported",

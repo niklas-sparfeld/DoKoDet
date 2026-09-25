@@ -33,7 +33,7 @@ from .pipeline_data import canonical_json_bytes
 
 INITIALIZATION_PROCESSOR_SCHEMA_VERSION = "card-plane-initialization-processor/v1"
 INITIALIZATION_RUN_SCHEMA_VERSION = "card-plane-initialization-run/v1"
-POSE_FIT_RECIPE_VERSION = "fixed-card-pose-grid-search/v1"
+POSE_FIT_RECIPE_VERSION = "fixed-card-pose-grid-search/v2"
 
 
 class CardPlaneInitializationError(ValueError):
@@ -237,6 +237,8 @@ class PoseFitRecipe:
     occlusion_margin_pixels: int = 4
     edge_distance_tolerance_pixels: float = 8.0
     occlusion_refit_min_boundary_fraction: float = 0.05
+    quarter_turn_partial_area_threshold: float = 0.82
+    occlusion_center_drift_penalty: float = 0.24
 
     def __post_init__(self) -> None:
         if self.center_search_radius <= 0.0 or self.angle_search_degrees <= 0.0:
@@ -265,6 +267,12 @@ class PoseFitRecipe:
             raise CardPlaneInitializationError(
                 "occlusion_refit_min_boundary_fraction must be in [0, 1]"
             )
+        if not 0.0 < self.quarter_turn_partial_area_threshold <= 1.0:
+            raise CardPlaneInitializationError(
+                "quarter_turn_partial_area_threshold must be in (0, 1]"
+            )
+        if not 0.0 <= self.occlusion_center_drift_penalty <= 1.0:
+            raise CardPlaneInitializationError("occlusion_center_drift_penalty must be in [0, 1]")
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -285,6 +293,8 @@ class PoseFitRecipe:
             "occlusion_refit_min_boundary_fraction": _round(
                 self.occlusion_refit_min_boundary_fraction
             ),
+            "quarter_turn_partial_area_threshold": _round(self.quarter_turn_partial_area_threshold),
+            "occlusion_center_drift_penalty": _round(self.occlusion_center_drift_penalty),
         }
 
     @property
@@ -522,8 +532,26 @@ def _fit_candidate(
             raise CardPlaneInitializationError(
                 "prediction has no non-occluded boundary evidence"
             )
+        original_boundary_count = max(
+            int(np.count_nonzero(_boundary_mask(candidate.source_mask, recipe.edge_width_pixels))),
+            1,
+        )
+        removed_boundary_fraction = max(0.0, 1.0 - source_area / original_boundary_count)
         if initial_pose is None:
             seed_center, seed_angle = _initial_pose(candidate.table_points)
+            if not try_quarter_turn and not _touches_frame_boundary(candidate.source_mask):
+                seed_outline = project_fixed_card(
+                    np.asarray(calibration.table_to_image, dtype=np.float64),
+                    seed_center,
+                    seed_angle,
+                    calibration.card_short_size,
+                    calibration.card_long_size,
+                )
+                expected_area = int(
+                    np.count_nonzero(rasterize_polygon(seed_outline, width, height))
+                )
+                visible_fraction = source_area / max(expected_area, 1)
+                try_quarter_turn = visible_fraction < recipe.quarter_turn_partial_area_threshold
         else:
             seed_center = np.asarray(initial_pose[0], dtype=np.float64).copy()
             if seed_center.shape != (2,) or not np.all(np.isfinite(seed_center)):
@@ -574,6 +602,17 @@ def _fit_candidate(
                                 edge_distance_tolerance_pixels=recipe.edge_distance_tolerance_pixels,
                                 occlusion_mask=occluder_mask,
                             )
+                            if occlusion_aware and initial_pose is not None:
+                                normalized_drift = min(
+                                    1.0,
+                                    float(np.linalg.norm(trial_center - seed_center))
+                                    / (recipe.center_search_radius * math.sqrt(2.0)),
+                                )
+                                score -= (
+                                    recipe.occlusion_center_drift_penalty
+                                    * removed_boundary_fraction
+                                    * normalized_drift
+                                )
                             tie_break = (
                                 score,
                                 -float(np.linalg.norm(trial_center - center)),
