@@ -17,8 +17,8 @@
 
 - **M0:** Complete — added a read-only audit command and froze eligible 0083 scenes, 0068 source
   groups, mask rules, and one paired RF-DETR comparison recipe.
-- **M1:** Not started — materialize eligible source frames and deterministic card-instance masks
-  into a disposable RF-DETR training view.
+- **M1:** Complete — materialized and verified exact source frames and deterministic COCO RLE
+  card-instance masks in a disposable RF-DETR training view.
 - **M2:** Not started — inspect representative mask overlays and verify the frozen materialization.
 - **M3:** Not started — run one real-only control and one pose-derived-data candidate, then publish
   the locked held-out decision.
@@ -56,6 +56,26 @@
   control before the sealed test can run once.
 - Repeated audits over unchanged inputs returned the same manifest digest. All 13 selected source
   videos passed SHA-256 and byte-length checks. The focused audit tests and Ruff checks passed.
+
+### M1 implementation evidence — 2026-09-25
+
+- Added `doko data rfdetr-pose-derived-materialize`. It rechecks the M0 digest, source video
+  bytes, frame identities, proposal and detector revisions, calibration, pose set, and stacking
+  order. It writes only under the selected disposable output path.
+- The view is `data/operations/rfdetr-pose-derived-0084-m1`. It contains 141 exact JPEG frames,
+  483 `visible_card` masks, and 12 training source groups. No validation or sealed-test group is
+  present. The frozen mask gate passed with 141 frames and 483 masks.
+- Each COCO annotation uses uncompressed column-major RLE. The verifier decodes every mask and
+  checks its pixel digest, area, tight box, category, split, and proposal, calibration, frame, and
+  source-group lineage. The `materialization.json` digest is
+  `229ecbbb1b05684dfe7a7d71b3e89e77d57d65f6552a41fcd1f057fd2ba6a114`.
+- The exclusion receipt carries all 1,257 M0 exclusions and failed-run receipts. M1 excluded no
+  scenes, hidden cards, or below-minimum masks. It records 167 partially occluded cards with full,
+  occluded, and visible pixel counts. M2 still requires human review for hand occlusion.
+- Cold and warm runs produced the same M1 digest. The materialization tests cover rounded corners,
+  clipping, front-to-back overlap across three cards, disconnected and enclosed areas, empty masks,
+  changed source bytes, RLE round trips, lineage, and cold/warm reproducibility. All eight focused
+  tests and Ruff checks passed.
 
 ## 1. Purpose
 

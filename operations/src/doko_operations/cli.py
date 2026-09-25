@@ -172,6 +172,10 @@ from .rfdetr_pose_derived_campaign import (
     render_rfdetr_pose_derived_manifest,
     write_rfdetr_pose_derived_manifest,
 )
+from .rfdetr_pose_derived_materialization import (
+    RfdetrPoseDerivedMaterializationError,
+    materialize_rfdetr_pose_derived_dataset,
+)
 from .rfdetr_segmentation_campaign import (
     RfdetrSegmentationCampaignError,
     build_rfdetr_segmentation_manifest,
@@ -787,6 +791,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pose_derived.add_argument("--format", choices=("human", "json"), default="human")
     pose_derived.add_argument("--json", action="store_true", help="Alias for --format json.")
+    pose_derived_materialize = data_commands.add_parser(
+        "rfdetr-pose-derived-materialize",
+        aliases=("rfdetr-pose-derived-view",),
+        help="Materialize the frozen epic 0084 poses as COCO RLE masks.",
+        description=(
+            "Extract exact 0083 source frames and write a disposable COCO RLE training view. "
+            "The command verifies the frozen M0 lineage before writing labels."
+        ),
+    )
+    _add_path_options(pose_derived_materialize, suppress_defaults=True)
+    pose_derived_materialize.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+        help="Frozen epic 0084 M0 manifest.",
+    )
+    pose_derived_materialize.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/operations/rfdetr-pose-derived-0084-m1"),
+        help="Disposable COCO RLE view directory.",
+    )
+    pose_derived_materialize.add_argument(
+        "--format", choices=("human", "json"), default="human"
+    )
+    pose_derived_materialize.add_argument(
+        "--json", action="store_true", help="Alias for --format json."
+    )
     reviewed_rfdetr = data_commands.add_parser(
         "rfdetr-visible-card-detector",
         aliases=("rfdetr-detector", "rfdetr-segmentation-0068"),
@@ -2596,6 +2628,44 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             sys.stdout.write(render_rfdetr_pose_derived_manifest(manifest) + "\n")
         return 0 if manifest["freeze_state"] == "frozen" else 1
+    if args.command == "data" and args.data_command in {
+        "rfdetr-pose-derived-materialize",
+        "rfdetr-pose-derived-view",
+    }:
+        try:
+            config = RepositoryConfig.from_environment(getattr(args, "repository_root", None))
+            manifest_path = args.manifest
+            if not manifest_path.is_absolute():
+                manifest_path = config.repository_root / manifest_path
+            output_path = args.output
+            if not output_path.is_absolute():
+                output_path = config.repository_root / output_path
+            result = materialize_rfdetr_pose_derived_dataset(
+                manifest_path,
+                repository_root=config.repository_root,
+                output_root=output_path,
+            )
+        except (
+            ConfigurationError,
+            OSError,
+            RfdetrPoseDerivedMaterializationError,
+        ) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        if args.json or args.format == "json":
+            sys.stdout.write(json.dumps(result.to_mapping(), indent=2, sort_keys=True) + "\n")
+        else:
+            sys.stdout.write(
+                "RF-DETR pose-derived trainer view materialized\n"
+                f"view: {result.view_root}\n"
+                f"images: {result.image_count}\n"
+                f"annotations: {result.annotation_count}\n"
+                f"excluded scenes: {result.excluded_scene_count}\n"
+                f"fully hidden cards: {result.hidden_card_count}\n"
+                f"below-minimum cards: {result.excluded_card_count}\n"
+                f"manifest: {result.materialization_digest}\n"
+            )
+        return 0
     if args.command == "data" and args.data_command in {
         "rfdetr-segmentation-materialize",
         "rfdetr-segmentation-view",

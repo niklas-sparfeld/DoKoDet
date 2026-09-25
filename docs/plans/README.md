@@ -52,7 +52,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0084 — RF-DETR training from proposed card scenes](3-in-progress/0084-RF_DETR_Training_from_Proposed_Card_Scenes.md) | 0072, 0073, 0067, and 0068 complete; 0083 complete | M0 complete. M1–M3 remain. Turn eligible 0083 card poses into deterministic rounded, z-order-correct visible-card masks, then measure one paired RF-DETR training result on held-out human-reviewed references. |
+| [0084 — RF-DETR training from proposed card scenes](3-in-progress/0084-RF_DETR_Training_from_Proposed_Card_Scenes.md) | 0072, 0073, 0067, and 0068 complete; 0083 complete | M0–M1 complete. M2–M3 remain. The disposable view has 141 frames and 483 pose-derived COCO RLE masks across 12 training groups; hand-occlusion review remains before training. |
 | [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
 
 
