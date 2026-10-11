@@ -46,6 +46,7 @@ type VirtualCardGesture = {
   startPan?: { x: number; y: number };
   startViewBox?: { x: number; y: number; width: number; height: number };
   startPoint?: Point | null;
+  moveOffset?: TablePoint;
 };
 
 type MappingGesture = {
@@ -401,6 +402,56 @@ export function useVisibleCardWorkbenchInteraction({
       viewport,
     );
     if (startViewBox === null) return;
+    const pose = sceneDraftRef.current.scene.poses.find(
+      (candidate) => candidate.card_id === cardId,
+    );
+    const surface = event.currentTarget.ownerSVGElement;
+    const rect = surface?.getBoundingClientRect();
+    let moveOffset: TablePoint | undefined;
+    if (
+      kind === "move" &&
+      pose !== undefined &&
+      rect &&
+      rect.width > 0 &&
+      rect.height > 0
+    ) {
+      const scale = Math.min(
+        rect.width / startViewBox.width,
+        rect.height / startViewBox.height,
+      );
+      if (Number.isFinite(scale) && scale > 0) {
+        const displayX =
+          startViewBox.x +
+          (event.clientX -
+            rect.left -
+            (rect.width - startViewBox.width * scale) / 2) /
+            scale;
+        const displayY =
+          startViewBox.y +
+          (event.clientY -
+            rect.top -
+            (rect.height - startViewBox.height * scale) / 2) /
+            scale;
+        const pointerTablePoint =
+          activeState.viewpoint === "rectified"
+            ? ([displayX, displayY] as TablePoint)
+            : sourcePointToTablePoint(
+                {
+                  x: (displayX / width) * 1000,
+                  y: (displayY / height) * 1000,
+                },
+                width,
+                height,
+                sceneDraftRef.current,
+              );
+        if (pointerTablePoint !== null) {
+          moveOffset = [
+            pose.center[0] - pointerTablePoint[0],
+            pose.center[1] - pointerTablePoint[1],
+          ];
+        }
+      }
+    }
     select({ type: "virtual_card", id: cardId });
     setGestureViewBox(startViewBox);
     virtualGestureRef.current = {
@@ -412,6 +463,7 @@ export function useVisibleCardWorkbenchInteraction({
       startClientY: event.clientY,
       originalScene: sceneDraftRef.current,
       startViewBox,
+      moveOffset,
     };
     event.currentTarget.ownerSVGElement?.setPointerCapture?.(event.pointerId);
     dispatch({
@@ -559,7 +611,14 @@ export function useVisibleCardWorkbenchInteraction({
     const next = applyPoseSceneAction(
       sceneDraftRef.current,
       gesture.kind === "move"
-        ? { type: "move", cardId: gesture.cardId, center: tablePoint }
+        ? {
+            type: "move",
+            cardId: gesture.cardId,
+            center: [
+              tablePoint[0] + (gesture.moveOffset?.[0] ?? 0),
+              tablePoint[1] + (gesture.moveOffset?.[1] ?? 0),
+            ],
+          }
         : {
             type: "rotate",
             cardId: gesture.cardId,
