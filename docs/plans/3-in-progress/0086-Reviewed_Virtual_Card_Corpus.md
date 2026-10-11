@@ -4,7 +4,7 @@
 
 - **Summary:** Generate current proposed card scenes, complete human correction, and publish
   reviewed geometry and visual card identities for the selected recording corpus.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0073, 0074, and 0085; existing local detector and identity providers
 - **Outcome:** A recording inventory, completed maintained references, and a reproducible data
   handoff for separate RF-DETR and DINO campaigns.
@@ -13,7 +13,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze recording scope, source groups, review work, and exclusions.
+- **M0:** In progress — inventory all accepted recordings and select a pilot. Confirm exact
+  cross-campaign partitions before freezing development scope.
 - **M1:** Not started — generate current proposals for one bounded pilot.
 - **M2:** Not started — complete human geometry and identity review for the pilot.
 - **M3:** Not started — refresh remaining proposals in resumable recording batches.
@@ -21,6 +22,28 @@
 - **M5:** Not started — complete identity review and publish campaign readiness.
 
 ## 1. Current evidence and scope
+
+### M0 inventory snapshot — 2026-10-11
+
+The read-only inventory is [versioned manifest 1](../../reports/0086-M0_Reviewed_Virtual_Card_Corpus_Inventory.json).
+It found 52 complete accepted recordings, 58 proposed-card-scene runs across 36 recordings, and
+their current event, visible-card, and identity reference states. The candidate development set has
+24 recordings from the CardEventNet train partition. The manifest excludes five sealed system
+holdout recordings and three RF-DETR sealed-test recordings. It defers 20 recordings because the
+available partition records do not prove development eligibility. It counts completed maintained
+references separately from proposal frame coverage. A completed processor run does not count as
+human review.
+
+`cardeventnet-IMG_0095` is the pilot candidate. Its selected event revision names 53 frames, and its
+latest proposal run completed for those 53 frames. Its source permission allows training. The
+manifest does not authorize a refresh or review yet. The checkout does not contain the exact frozen
+0043 identity split or full 0068 train and validation manifests. Recover those assignments and
+confirm source-group separation before freezing the pilot. The stored proposal used recipe v3 and
+geometry v4. M1 must check the current v4 recipe and geometry v5 before it reuses any proposal.
+
+Six recordings also lack a selected completed event revision. Their frame scope remains unknown.
+Do not add them to a proposal batch until a completed event revision or explicit exclusion defines
+their scope. The manifest uses one recording per batch.
 
 The 2026-10-11 inspection found 52 intake recording directories. Latest stored proposal runs
 covered 36 recordings: 24 complete, seven partial, and five failed. The closed 0083 campaign
@@ -71,6 +94,10 @@ runs, recipe versions, reference state, and source-group assignments. Write one 
 manifest with exact recording and frame scope, pilot selection, batch size, exclusions, and blockers.
 Prefer `IMG_0095` for the pilot only if the live partition and prerequisites permit it; the snapshot
 had 42 of 53 scene frames complete there.
+
+The current inventory records `IMG_0095` as a candidate, not as an authorized pilot. Complete M0
+after exact 0043 and 0068 partition membership is available and the candidate has no source-group
+conflict. Keep the inventory exclusions and six missing event scopes explicit.
 
 Acceptance: repeated inventory is deterministic; all intake recordings have a disposition; protected
 groups are excluded; existing reviewed work is counted separately from pending proposals; no
