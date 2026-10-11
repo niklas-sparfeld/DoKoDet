@@ -17,6 +17,9 @@ DETECTOR_SEALED_RECORDINGS = {
     "cardeventnet-IMG_0648",
     "cardeventnet-IMG_0649",
 }
+DETECTOR_LEGACY_EXCLUSIONS = {
+    f"cardeventnet-IMG_{number}" for number in (2777, 2778, 2779, 2780, 2781)
+}
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -223,6 +226,7 @@ def build_manifest(root: Path) -> dict[str, Any]:
         row["source_group_id"] = groups[recording_id]
         row["cardeventnet_partition"] = cardevent_assignments.get(recording_id, "unassigned")
         row["rfdetr_sealed_test"] = recording_id in DETECTOR_SEALED_RECORDINGS
+        row["rfdetr_development_exclusion"] = recording_id in DETECTOR_LEGACY_EXCLUSIONS
         row["dino_partition"] = "unavailable-in-checkout"
         row["reference_state"] = {
             kind: _reference_state(root, recording_id, kind)
@@ -286,6 +290,9 @@ def build_manifest(root: Path) -> dict[str, Any]:
             ),
             "excluded_rfdetr_sealed_count": sum(
                 row["disposition"] == "excluded-rfdetr-sealed-test" for row in recordings
+            ),
+            "rfdetr_development_exclusion_count": sum(
+                row["rfdetr_development_exclusion"] for row in recordings
             ),
             "deferred_count": sum(
                 row["disposition"] == "deferred-protected-or-unassigned" for row in recordings
@@ -355,6 +362,13 @@ def build_manifest(root: Path) -> dict[str, Any]:
                         if row["disposition"] == "deferred-protected-or-unassigned"
                     ),
                 },
+            ],
+            "campaign_constraints": [
+                {
+                    "campaign": "0087 RF-DETR",
+                    "reason": "0087 follows 0068's legacy-device exclusion.",
+                    "recordings": sorted(DETECTOR_LEGACY_EXCLUSIONS),
+                }
             ],
         },
         "pilot": {

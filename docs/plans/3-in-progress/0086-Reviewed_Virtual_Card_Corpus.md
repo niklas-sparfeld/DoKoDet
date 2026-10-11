@@ -28,8 +28,8 @@
 The read-only inventory is [versioned manifest 1](../../reports/0086-M0_Reviewed_Virtual_Card_Corpus_Inventory.json).
 It found 52 complete accepted recordings, 58 proposed-card-scene runs across 36 recordings, and
 their current event, visible-card, and identity reference states. The candidate development set has
-24 recordings from the CardEventNet train partition. The manifest excludes five sealed system
-holdout recordings and three RF-DETR sealed-test recordings. It defers 20 recordings because the
+25 recordings from the current CardEventNet train partition. The manifest excludes five sealed system
+holdout recordings and three RF-DETR sealed-test recordings. It defers 19 recordings because the
 available partition records do not prove development eligibility. It counts completed maintained
 references separately from proposal frame coverage. A completed processor run does not count as
 human review.

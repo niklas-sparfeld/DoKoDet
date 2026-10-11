@@ -25,7 +25,8 @@
         "cardeventnet-IMG_0658",
         "cardeventnet-IMG_0659",
         "cardeventnet-IMG_0660",
-        "cardeventnet-IMG_0662"
+        "cardeventnet-IMG_0662",
+        "cardeventnet-IMG_2781"
       ],
       "id": "split-artifacts-not-present",
       "reason": "The checkout has CardEventNet splits and the 0068 sealed-test identities. It lacks the exact 0043 split and full 0068 split manifest.",
@@ -48,11 +49,11 @@
   "inventory_date": "2026-10-11",
   "inventory_summary": {
     "accepted_recording_count": 52,
-    "candidate_development_count": 24,
+    "candidate_development_count": 25,
     "completed_event_references": 46,
     "completed_identity_references": 15,
     "completed_visible_card_references": 25,
-    "deferred_count": 20,
+    "deferred_count": 19,
     "draft_identity_references": 8,
     "draft_visible_card_references": 18,
     "excluded_rfdetr_sealed_count": 3,
@@ -61,9 +62,10 @@
     "proposal_run_count": 58,
     "proposal_supported_frame_count": 1521,
     "proposal_unsupported_frame_count": 31,
-    "recordings_with_proposal_runs": 36
+    "recordings_with_proposal_runs": 36,
+    "rfdetr_development_exclusion_count": 5
   },
-  "manifest_sha256": "380b9288528427be573ea9c747dae8d4fcc0aa1a8690bf6d419a6b3a74911460",
+  "manifest_sha256": "9afea59a4b953626f4f071871a5528d9ae59e0953ca4bc537a4d240eb0929ec5",
   "pilot": {
     "blocked_until": [
       "Recover the exact frozen 0043 DINO train, validation, and holdout membership.",
@@ -231,6 +233,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-b6a11fe2-7df-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": null,
       "session_id": "6816e305-2143-40a4-b0c5-3fb26a9478c4",
@@ -408,6 +411,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-668d0677-ad5-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
       "session_id": "capture-img-0090",
@@ -585,6 +589,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-bae2bb48-a7c-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-46a7194352e9566958531b07b6765014",
       "session_id": "capture-img-0091",
@@ -710,6 +715,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-b76ee6895345ec9d9799c3eb01826a30",
       "session_id": "capture-img-0092",
@@ -893,6 +899,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-3e2d3b060f2719da7d4e932825b78370",
       "session_id": "capture-img-0095",
@@ -1070,6 +1077,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-69c9cd12-952-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-4643e6f10607988627190cc59ee064b3",
       "session_id": "capture-img-0096",
@@ -1247,6 +1255,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-6e87c66b-4b0-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
       "session_id": "capture-img-0097",
@@ -1356,6 +1365,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-134bf9ae-588-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-d04445704490d73312dba20cf61df830",
       "session_id": "capture-img-0635",
@@ -1536,6 +1546,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-59056f9a-0b9-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-0332acf97aeef7dcc7db5e3b5774e183",
       "session_id": "capture-img-0636",
@@ -1716,6 +1727,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-a03d2225-991-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-95021e1921249e2f04315178295fa34a",
       "session_id": "capture-img-0637",
@@ -1844,6 +1856,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-b635bfa8-cc3-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-96a83274f0a2c7673332e117aa4634a4",
       "session_id": "capture-img-0638",
@@ -2024,6 +2037,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-45cace9c-ead-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-cb2ed8f6119ff32735a45da28a189a7a",
       "session_id": "capture-img-0639",
@@ -2204,6 +2218,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-9db8f2a2-ba0-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-e7b2713881051baff4e7670071adb2a3",
       "session_id": "capture-img-0640",
@@ -2390,6 +2405,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-992d6e81-c04-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-2a160b004691519b79550b24f9bcb08c",
       "session_id": "capture-img-0641",
@@ -2570,6 +2586,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-c579f872-28e-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-fcc734f9ba43827938d76753ccb30f8b",
       "session_id": "capture-img-0642",
@@ -2754,6 +2771,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-f2059efc-f70-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-e091761f4d4d7dbbf586b250dfb5a4f9",
       "session_id": "capture-img-0643",
@@ -2942,6 +2960,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-2e0a2e3b-077-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
       "session_id": "capture-img-0644",
@@ -3070,6 +3089,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-032fbb42-da6-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-ae6ad9016b11d947c8174b0264323256",
       "session_id": "capture-img-0645",
@@ -3252,6 +3272,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-32494b2a-961-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": true,
       "selected_event_revision_id": "reference-events-a1af76872facf447b6d82de10e530818",
       "session_id": "capture-img-0646",
@@ -3436,6 +3457,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-a13792e5-02c-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": true,
       "selected_event_revision_id": "reference-events-1e4ec9bdaf89a9899b15422126bd55f9",
       "session_id": "capture-img-0648",
@@ -3624,6 +3646,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-4e241d05-aa4-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": true,
       "selected_event_revision_id": "reference-events-f00fda54352eef72ccc6996d6d82cbe3",
       "session_id": "capture-img-0649",
@@ -3776,6 +3799,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-69ca04143d361f6529379023b4c4cc88",
       "session_id": "capture-img-0650",
@@ -3958,6 +3982,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3",
       "session_id": "capture-img-0651",
@@ -4140,6 +4165,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
       "session_id": "capture-img-0652",
@@ -4320,6 +4346,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-726d441f95a2cd301ebdc0968532fa21",
       "session_id": "capture-img-0653",
@@ -4502,6 +4529,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-4fbcfe0c14e734b5431eaec5f8395e15",
       "session_id": "capture-img-0654",
@@ -4630,6 +4658,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-6fe976245fbbc3452c14decde7d85976",
       "session_id": "capture-img-0655",
@@ -4812,6 +4841,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-4e2126dc36ea31fc69de0981e6176a12",
       "session_id": "capture-img-0656",
@@ -4921,6 +4951,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-17e0b4ea8fc84cec099e237467798fdd",
       "session_id": "capture-img-0657",
@@ -5029,6 +5060,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7",
       "session_id": "capture-img-0658",
@@ -5139,6 +5171,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-7ecc6c3bc903fb1228a4ab2251f32c5d",
       "session_id": "capture-img-0659",
@@ -5246,6 +5279,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-964d49a8d059082ea0ae3017c4dd69d7",
       "session_id": "capture-img-0660",
@@ -5431,6 +5465,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-bfb2a7b1-e1c-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
       "session_id": "capture-img-0661",
@@ -5611,6 +5646,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
       "session_id": "capture-img-0662",
@@ -5813,6 +5849,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-9bc9dd19-6f6-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-d3f30c4175781edf8312682c9fabe4fd",
       "session_id": "capture-20260825-weird-staged-a",
@@ -6003,6 +6040,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-661ac3f29c7f5a4757421991868d7650",
       "session_id": "capture-20260825-weird-staged-a",
@@ -6149,6 +6187,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-9a3fb1cf734515438cffb6bf5cae5882",
       "session_id": "capture-20260825-weird-staged-a",
@@ -6329,6 +6368,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-ef9c7cb4ec3a4529cd28d952bb24d0fc",
       "session_id": "capture-20260825-weird-staged-a",
@@ -6477,6 +6517,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-81a51db94227767a839e5af4387b1cc2",
       "session_id": "capture-20260825-weird-staged-a",
@@ -6497,7 +6538,7 @@
         "train",
         "validation"
       ],
-      "cardeventnet_partition": "unassigned",
+      "cardeventnet_partition": "validation",
       "dino_partition": "unavailable-in-checkout",
       "disposition": "deferred-protected-or-unassigned",
       "disposition_reason": "A development assignment is not proven by the available split artifacts.",
@@ -6587,6 +6628,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": true,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "canonical-card-state-reference-events-642c109a91bd3d878cd1bbfb37d9228d",
       "session_id": "capture-20180128-1337-a",
@@ -6607,7 +6649,7 @@
         "train",
         "validation"
       ],
-      "cardeventnet_partition": "unassigned",
+      "cardeventnet_partition": "validation",
       "dino_partition": "unavailable-in-checkout",
       "disposition": "deferred-protected-or-unassigned",
       "disposition_reason": "A development assignment is not proven by the available split artifacts.",
@@ -6698,6 +6740,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": true,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "canonical-card-state-reference-events-eced60eb8798234e694b056a71a392c0",
       "session_id": "capture-20180128-1337-a",
@@ -6718,7 +6761,7 @@
         "train",
         "validation"
       ],
-      "cardeventnet_partition": "unassigned",
+      "cardeventnet_partition": "validation",
       "dino_partition": "unavailable-in-checkout",
       "disposition": "deferred-protected-or-unassigned",
       "disposition_reason": "A development assignment is not proven by the available split artifacts.",
@@ -6808,6 +6851,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": true,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "canonical-card-state-reference-events-74e1b70dda0e2624705e86c31990db5e",
       "session_id": "capture-20180128-1337-a",
@@ -6828,7 +6872,7 @@
         "train",
         "validation"
       ],
-      "cardeventnet_partition": "unassigned",
+      "cardeventnet_partition": "validation",
       "dino_partition": "unavailable-in-checkout",
       "disposition": "deferred-protected-or-unassigned",
       "disposition_reason": "A development assignment is not proven by the available split artifacts.",
@@ -6910,6 +6954,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": true,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "canonical-card-state-reference-events-18c788f8ae0053bb803b4dfe73a06d79",
       "session_id": "capture-20180128-1337-a",
@@ -6930,10 +6975,10 @@
         "train",
         "validation"
       ],
-      "cardeventnet_partition": "unassigned",
+      "cardeventnet_partition": "train",
       "dino_partition": "unavailable-in-checkout",
-      "disposition": "deferred-protected-or-unassigned",
-      "disposition_reason": "A development assignment is not proven by the available split artifacts.",
+      "disposition": "candidate-development",
+      "disposition_reason": "CardEventNet train assignment; cross-campaign reconciliation is pending.",
       "event_frame_ids": [
         "cardeventnet-event-img_2781-000",
         "cardeventnet-event-img_2781-001",
@@ -7008,6 +7053,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": true,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-e483ee237e50bff675875e13f72225b5",
       "session_id": "capture-20180124-1937-a",
@@ -7186,6 +7232,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-debcf221-570-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-e22b24bde3ef35a56ab930873b2200cc",
       "session_id": "session-2026-08-20",
@@ -7243,6 +7290,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": null,
       "session_id": "session-2026-08-20",
@@ -7300,6 +7348,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": null,
       "session_id": "session-2026-08-20",
@@ -7357,6 +7406,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": null,
       "session_id": "session-2026-08-20",
@@ -7414,6 +7464,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": null,
       "session_id": "session-2026-08-20",
@@ -7490,6 +7541,7 @@
           "selected_generated_revision_id": "visual-identities-visual_identities-run-20e2cc89-606-attempt-1"
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": null,
       "session_id": "session-2026-09-18",
@@ -7600,6 +7652,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-5d237adc3b34c116f5002e670bb93b5a",
       "session_id": "session-2026-09-18",
@@ -7794,6 +7847,7 @@
           "selected_generated_revision_id": null
         }
       },
+      "rfdetr_development_exclusion": false,
       "rfdetr_sealed_test": false,
       "selected_event_revision_id": "reference-events-245d3f4a9f9cc55f2eb6cb33e6e9b31d",
       "session_id": "session-2026-09-18",
@@ -7811,6 +7865,19 @@
   "schema_version": "reviewed-virtual-card-corpus-work-manifest/v1",
   "scope": {
     "batch_size_recordings": 1,
+    "campaign_constraints": [
+      {
+        "campaign": "0087 RF-DETR",
+        "reason": "0087 follows 0068's legacy-device exclusion.",
+        "recordings": [
+          "cardeventnet-IMG_2777",
+          "cardeventnet-IMG_2778",
+          "cardeventnet-IMG_2779",
+          "cardeventnet-IMG_2780",
+          "cardeventnet-IMG_2781"
+        ]
+      }
+    ],
     "candidate_recordings": [
       "cardeventnet-IMG_0092",
       "cardeventnet-IMG_0095",
@@ -7835,7 +7902,8 @@
       "cardeventnet-IMG_0658",
       "cardeventnet-IMG_0659",
       "cardeventnet-IMG_0660",
-      "cardeventnet-IMG_0662"
+      "cardeventnet-IMG_0662",
+      "cardeventnet-IMG_2781"
     ],
     "exclusions": [
       {
@@ -7871,7 +7939,6 @@
           "cardeventnet-IMG_2778",
           "cardeventnet-IMG_2779",
           "cardeventnet-IMG_2780",
-          "cardeventnet-IMG_2781",
           "game-2026-08-20-01-001",
           "game-2026-08-20-01-002",
           "game-2026-08-20-01-003",
