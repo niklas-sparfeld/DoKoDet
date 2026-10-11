@@ -12,14 +12,11 @@ from typing import Any
 
 SCHEMA_VERSION = "reviewed-virtual-card-corpus-work-manifest/v1"
 PILOT_RECORDING_ID = "cardeventnet-IMG_0095"
-DETECTOR_SEALED_RECORDINGS = {
-    "cardeventnet-IMG_0646",
-    "cardeventnet-IMG_0648",
-    "cardeventnet-IMG_0649",
-}
-DETECTOR_LEGACY_EXCLUSIONS = {
-    f"cardeventnet-IMG_{number}" for number in (2777, 2778, 2779, 2780, 2781)
-}
+RFDETR_MANIFEST = Path("data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json")
+DINO_CAMPAIGN = Path(
+    "data/operations/dinov3-identity-campaigns/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e"
+)
+LEGACY_EXCLUSION = Path("data/operations/source-exclusions/legacy-device-diagnostic.json")
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -69,7 +66,7 @@ def _source_groups(recordings: list[dict[str, Any]]) -> dict[str, str]:
     return result
 
 
-def _cardevent_split(root: Path) -> tuple[dict[str, str], list[dict[str, str]]]:
+def _cardevent_split(root: Path) -> tuple[dict[str, str], list[dict[str, Any]]]:
     split_paths = sorted((root / "data/operations/cardevent-datasets").glob("*/split.json"))
     assignments: dict[str, str] = {}
     sources: list[dict[str, str]] = []
@@ -84,6 +81,8 @@ def _cardevent_split(root: Path) -> tuple[dict[str, str], list[dict[str, str]]]:
                 "dataset_version_digest": split["dataset_version_digest"],
                 "split_version_id": split["split_version_id"],
                 "split_version_digest": split["split_version_digest"],
+                "task": split.get("task"),
+                "test_sealed": split.get("test_sealed", False),
             }
         )
         for partition in ("train", "validation", "test", "unassigned"):
@@ -92,6 +91,101 @@ def _cardevent_split(root: Path) -> tuple[dict[str, str], list[dict[str, str]]]:
                 if previous != partition:
                     raise ValueError(f"CardEventNet split conflict for {recording_id}")
     return assignments, sources
+
+
+def _rfdetr_partitions(root: Path) -> tuple[dict[str, str], dict[str, Any]]:
+    path = root / RFDETR_MANIFEST
+    manifest = _read_json(path)
+    if not manifest:
+        return {}, {"available": False, "path": RFDETR_MANIFEST.as_posix()}
+    partitions: dict[str, str] = {}
+    groups: dict[str, str] = {}
+    for item in manifest.get("source_groups", []):
+        recording_id = item["recording_id"]
+        partition = item["partition"]
+        previous = partitions.setdefault(recording_id, partition)
+        if previous != partition:
+            raise ValueError(f"RF-DETR partition conflict for {recording_id}")
+        groups[recording_id] = item["group_key"]
+    source = {
+        "available": True,
+        "path": RFDETR_MANIFEST.as_posix(),
+        "campaign_id": manifest.get("campaign_id"),
+        "manifest_digest": manifest.get("manifest_digest"),
+        "freeze_state": manifest.get("freeze_state"),
+        "partition_recordings": {
+            name: value.get("recording_ids", [])
+            for name, value in manifest.get("split", {}).items()
+        },
+        "source_group_keys": groups,
+    }
+    return partitions, source
+
+
+def _dino_partitions(root: Path) -> tuple[dict[str, str], dict[str, Any]]:
+    campaign_root = root / DINO_CAMPAIGN
+    manifest = _read_json(campaign_root / "manifest.json")
+    if not manifest:
+        return {}, {"available": False, "path": DINO_CAMPAIGN.as_posix()}
+    split_path = campaign_root / manifest["split"]["path"]
+    split = _read_json(split_path)
+    if not split:
+        return {}, {"available": False, "path": split_path.relative_to(root).as_posix()}
+    partitions: dict[str, str] = {}
+    for item in manifest.get("selection", {}).get("selected_revisions", []):
+        recording_id = item["recording_id"]
+        partition = item["partition"]
+        previous = partitions.setdefault(recording_id, partition)
+        if previous != partition:
+            raise ValueError(f"DINO partition conflict for {recording_id}")
+    source = {
+        "available": True,
+        "path": DINO_CAMPAIGN.as_posix(),
+        "campaign_id": manifest.get("campaign_id"),
+        "manifest_digest": manifest.get("manifest_digest"),
+        "freeze_digest": manifest.get("freeze_digest"),
+        "split_path": split_path.relative_to(root).as_posix(),
+        "split_version_id": split.get("split_version_id"),
+        "split_version_digest": split.get("split_version_digest"),
+        "selected_recordings": manifest.get("selection", {}).get("selected_recording_ids", []),
+    }
+    return partitions, source
+
+
+def _legacy_exclusions(root: Path) -> tuple[dict[str, dict[str, str]], dict[str, Any]]:
+    path = root / LEGACY_EXCLUSION
+    receipt = _read_json(path)
+    if not receipt:
+        return {}, {"available": False, "path": LEGACY_EXCLUSION.as_posix()}
+    exclusions = {
+        item["recording_id"]: {
+            "source_asset_id": item["source_asset_id"],
+            "source_sha256": item["source_sha256"],
+            "role": item["role"],
+        }
+        for item in receipt.get("sources", [])
+    }
+    source = {
+        "available": True,
+        "path": LEGACY_EXCLUSION.as_posix(),
+        "receipt_digest": receipt.get("receipt_digest"),
+        "decision": receipt.get("decision"),
+        "role": receipt.get("role"),
+    }
+    return exclusions, source
+
+
+def _validate_source_group_partitions(
+    recordings: list[dict[str, Any]], partition_field: str
+) -> None:
+    by_group: dict[str, set[str]] = defaultdict(set)
+    for row in recordings:
+        partition = row.get(partition_field)
+        if partition and partition not in {"not-in-frozen-campaign", "unassigned"}:
+            by_group[row["source_group_id"]].add(partition)
+    conflicts = {group: partitions for group, partitions in by_group.items() if len(partitions) > 1}
+    if conflicts:
+        raise ValueError(f"Source groups cross {partition_field} partitions: {conflicts}")
 
 
 def _latest_proposals(root: Path) -> dict[str, dict[str, Any]]:
@@ -230,14 +324,21 @@ def build_manifest(root: Path) -> dict[str, Any]:
 
     groups = _source_groups(recordings)
     cardevent_assignments, cardevent_split_sources = _cardevent_split(root)
+    rfdetr_assignments, rfdetr_source = _rfdetr_partitions(root)
+    dino_assignments, dino_source = _dino_partitions(root)
+    legacy_exclusions, legacy_source = _legacy_exclusions(root)
     proposals = _latest_proposals(root)
     for row in recordings:
         recording_id = row["recording_id"]
         row["source_group_id"] = groups[recording_id]
         row["cardeventnet_partition"] = cardevent_assignments.get(recording_id, "unassigned")
-        row["rfdetr_sealed_test"] = recording_id in DETECTOR_SEALED_RECORDINGS
-        row["rfdetr_development_exclusion"] = recording_id in DETECTOR_LEGACY_EXCLUSIONS
-        row["dino_partition"] = "unavailable-in-checkout"
+        row["rfdetr_partition"] = rfdetr_assignments.get(recording_id, "not-in-frozen-campaign")
+        row["rfdetr_source_group_key"] = rfdetr_source.get("source_group_keys", {}).get(
+            recording_id
+        )
+        row["rfdetr_sealed_test"] = row["rfdetr_partition"] == "sealed_test"
+        row["legacy_device_exclusion"] = legacy_exclusions.get(recording_id)
+        row["dino_partition"] = dino_assignments.get(recording_id, "not-in-frozen-campaign")
         row["reference_state"] = {
             kind: _reference_state(root, recording_id, kind)
             for kind in ("events", "visible_cards", "visual_identities", "table_observations")
@@ -254,21 +355,52 @@ def build_manifest(root: Path) -> dict[str, Any]:
             row["disposition_reason"] = (
                 "The 0068 RF-DETR campaign marks this recording as sealed test."
             )
+        elif row["legacy_device_exclusion"]:
+            row["disposition"] = "excluded-legacy-device-diagnostic"
+            row["disposition_reason"] = row["legacy_device_exclusion"]["role"]
+        elif any(
+            partition == "validation"
+            for partition in (
+                row["cardeventnet_partition"],
+                row["rfdetr_partition"],
+                row["dino_partition"],
+            )
+        ):
+            row["disposition"] = "deferred-protected-evaluation"
+            row["disposition_reason"] = (
+                "A frozen validation partition needs a separate blind review decision."
+            )
+        elif "train" not in row["allowed_uses"]:
+            row["disposition"] = "deferred-source-permission"
+            row["disposition_reason"] = "Source permission does not allow training use."
         elif row["cardeventnet_partition"] == "train":
             row["disposition"] = "candidate-development"
             row["disposition_reason"] = (
-                "CardEventNet train assignment; cross-campaign reconciliation is pending."
+                "Train eligible across current assignments; new campaign splits stay independent."
             )
         else:
             row["disposition"] = "deferred-protected-or-unassigned"
             row["disposition_reason"] = (
-                "A development assignment is not proven by the available split artifacts."
+                "No development assignment or completed event scope is available."
             )
+
+    for field in ("cardeventnet_partition", "rfdetr_partition", "dino_partition"):
+        _validate_source_group_partitions(recordings, field)
 
     pilot = next((row for row in recordings if row["recording_id"] == PILOT_RECORDING_ID), None)
     if pilot is None:
         raise ValueError(
             f"Required pilot candidate is not an accepted recording: {PILOT_RECORDING_ID}"
+        )
+    if (
+        pilot["disposition"] != "candidate-development"
+        or pilot["cardeventnet_partition"] != "train"
+        or pilot["rfdetr_partition"] != "train"
+        or pilot["dino_partition"] == "validation"
+        or "train" not in pilot["allowed_uses"]
+    ):
+        raise ValueError(
+            f"Pilot candidate is not eligible under frozen assignments: {PILOT_RECORDING_ID}"
         )
     pilot_frames = (
         pilot.get("latest_proposal", {}).get("frame_ids", [])
@@ -277,14 +409,21 @@ def build_manifest(root: Path) -> dict[str, Any]:
     )
     content = {
         "schema_version": SCHEMA_VERSION,
+        "read_only": True,
         "inventory_date": "2026-10-11",
         "source_roots": [
             "data/intake/recordings",
             "data/operations/pipeline",
             "data/operations/pipeline-references",
             "data/operations/cardevent-datasets",
+            RFDETR_MANIFEST.as_posix(),
+            DINO_CAMPAIGN.as_posix(),
+            LEGACY_EXCLUSION.as_posix(),
         ],
         "cardeventnet_split_sources": cardevent_split_sources,
+        "rfdetr_source": rfdetr_source,
+        "dino_source": dino_source,
+        "legacy_exclusion_source": legacy_source,
         "inventory_summary": {
             "accepted_recording_count": len(recordings),
             "proposal_run_count": sum(
@@ -302,12 +441,10 @@ def build_manifest(root: Path) -> dict[str, Any]:
             "excluded_rfdetr_sealed_count": sum(
                 row["disposition"] == "excluded-rfdetr-sealed-test" for row in recordings
             ),
-            "rfdetr_development_exclusion_count": sum(
-                row["rfdetr_development_exclusion"] for row in recordings
+            "excluded_legacy_device_count": sum(
+                row["disposition"] == "excluded-legacy-device-diagnostic" for row in recordings
             ),
-            "deferred_count": sum(
-                row["disposition"] == "deferred-protected-or-unassigned" for row in recordings
-            ),
+            "deferred_count": sum(row["disposition"].startswith("deferred-") for row in recordings),
             "completed_event_references": sum(
                 bool(row["reference_state"]["events"]["selected_completed_revision_id"])
                 for row in recordings
@@ -337,6 +474,7 @@ def build_manifest(root: Path) -> dict[str, Any]:
                 for row in recordings
             ),
             "proposal_outputs_are_reviewed_targets": False,
+            "source_group_partition_conflicts": 0,
         },
         "scope": {
             "candidate_recordings": [
@@ -361,8 +499,30 @@ def build_manifest(root: Path) -> dict[str, Any]:
                 },
                 {
                     "rule": "RF-DETR sealed test",
-                    "source": "0086/0068 documented sealed-test set",
-                    "recordings": sorted(DETECTOR_SEALED_RECORDINGS),
+                    "source": RFDETR_MANIFEST.as_posix(),
+                    "recordings": sorted(
+                        row["recording_id"]
+                        for row in recordings
+                        if row["disposition"] == "excluded-rfdetr-sealed-test"
+                    ),
+                },
+                {
+                    "rule": "legacy device diagnostic only",
+                    "source": LEGACY_EXCLUSION.as_posix(),
+                    "recordings": sorted(
+                        row["recording_id"]
+                        for row in recordings
+                        if row["disposition"] == "excluded-legacy-device-diagnostic"
+                    ),
+                },
+                {
+                    "rule": "protected validation",
+                    "source": "CardEventNet, 0068 RF-DETR, and 0043 DINO frozen splits",
+                    "recordings": sorted(
+                        row["recording_id"]
+                        for row in recordings
+                        if row["disposition"] == "deferred-protected-evaluation"
+                    ),
                 },
                 {
                     "rule": "not proven development",
@@ -370,16 +530,13 @@ def build_manifest(root: Path) -> dict[str, Any]:
                     "recordings": sorted(
                         row["recording_id"]
                         for row in recordings
-                        if row["disposition"] == "deferred-protected-or-unassigned"
+                        if row["disposition"]
+                        in {
+                            "deferred-protected-or-unassigned",
+                            "deferred-source-permission",
+                        }
                     ),
                 },
-            ],
-            "campaign_constraints": [
-                {
-                    "campaign": "0087 RF-DETR",
-                    "reason": "0087 follows 0068's legacy-device exclusion.",
-                    "recordings": sorted(DETECTOR_LEGACY_EXCLUSIONS),
-                }
             ],
         },
         "pilot": {
@@ -393,41 +550,32 @@ def build_manifest(root: Path) -> dict[str, Any]:
             "proposal_status": pilot.get("latest_proposal", {}).get("status")
             if pilot.get("latest_proposal")
             else None,
-            "candidate_only": True,
-            "blocked_until": [
-                "Recover the exact frozen 0043 DINO train, validation, and holdout membership.",
-                "Recover and verify the complete 0068 train and validation membership.",
-                "Confirm source-group separation before proposal refresh or review.",
-            ],
+            "selected": True,
+            "proposal_refresh_required": True,
+            "proposal_refresh_reason": "The stored proposal uses recipe v3 and geometry v4.",
+            "blocked_until": [],
         },
-        "blockers": [
+        "follow_up_constraints": [
             {
-                "id": "split-artifacts-not-present",
-                "reason": (
-                    "The checkout has CardEventNet splits and the 0068 sealed-test identities. "
-                    "It lacks the exact 0043 split and full 0068 split manifest."
-                ),
-                "affected_recordings": [
-                    row["recording_id"]
-                    for row in recordings
-                    if row["disposition"] == "candidate-development"
-                ],
-                "required_before": "M1 proposal generation and human review",
-            },
-            {
-                "id": "event-scope-not-complete",
-                "reason": (
-                    "Some accepted recordings have no selected completed event revision. "
-                    "Their review frame scope is not frozen."
-                ),
-                "affected_recordings": sorted(
+                "id": "missing-event-scope",
+                "reason": "Do not batch a recording without a selected completed event revision.",
+                "recordings": sorted(
                     row["recording_id"]
                     for row in recordings
                     if not row["reference_state"]["events"]["selected_completed_revision_id"]
                 ),
-                "required_before": "Adding those recordings to a proposal batch",
+            },
+            {
+                "id": "blind-validation-review",
+                "reason": ("Validation groups need a blind reference process before annotation."),
+                "recordings": sorted(
+                    row["recording_id"]
+                    for row in recordings
+                    if row["disposition"] == "deferred-protected-evaluation"
+                ),
             },
         ],
+        "blockers": [],
         "recordings": recordings,
     }
     return {**content, "manifest_sha256": _canonical_digest(content)}

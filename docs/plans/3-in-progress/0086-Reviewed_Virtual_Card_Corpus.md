@@ -13,8 +13,8 @@
 
 ## Milestone status
 
-- **M0:** In progress — inventory all accepted recordings and select a pilot. Confirm exact
-  cross-campaign partitions before freezing development scope.
+- **M0:** Complete (2026-10-11) — inventory all accepted recordings, reconcile frozen partitions,
+  exclude protected sources, and select the `IMG_0095` pilot.
 - **M1:** Not started — generate current proposals for one bounded pilot.
 - **M2:** Not started — complete human geometry and identity review for the pilot.
 - **M3:** Not started — refresh remaining proposals in resumable recording batches.
@@ -26,24 +26,26 @@
 ### M0 inventory snapshot — 2026-10-11
 
 The read-only inventory is [versioned manifest 1](../../reports/0086-M0_Reviewed_Virtual_Card_Corpus_Inventory.json).
-It found 52 complete accepted recordings, 58 proposed-card-scene runs across 36 recordings, and
-their current event, visible-card, and identity reference states. The candidate development set has
-25 recordings from the current CardEventNet train partition. The manifest excludes five sealed system
-holdout recordings and three RF-DETR sealed-test recordings. It defers 19 recordings because the
-available partition records do not prove development eligibility. It counts completed maintained
-references separately from proposal frame coverage. A completed processor run does not count as
-human review.
+It found 52 complete accepted recordings and 58 proposed-card-scene runs across 36 recordings. It
+reconciles the frozen CardEventNet, 0068 RF-DETR, and 0043 DINO splits. The source-group check found
+no partition conflicts. The inventory has 22 candidate development recordings. It excludes five
+system holdout recordings, three RF-DETR sealed-test recordings, and five legacy-device diagnostic
+recordings. It defers 17 recordings, including eight assigned to a validation partition and nine
+without a development assignment or event scope.
 
-`cardeventnet-IMG_0095` is the pilot candidate. Its selected event revision names 53 frames, and its
-latest proposal run completed for those 53 frames. Its source permission allows training. The
-manifest does not authorize a refresh or review yet. The checkout does not contain the exact frozen
-0043 identity split or full 0068 train and validation manifests. Recover those assignments and
-confirm source-group separation before freezing the pilot. The stored proposal used recipe v3 and
-geometry v4. M1 must check the current v4 recipe and geometry v5 before it reuses any proposal.
+The report counts completed event, visible-card, and identity references separately from proposal
+coverage. A completed processor run does not count as human review. It records exact source and
+split digests so the inventory can be repeated against the same local stores.
 
-Six recordings also lack a selected completed event revision. Their frame scope remains unknown.
-Do not add them to a proposal batch until a completed event revision or explicit exclusion defines
-their scope. The manifest uses one recording per batch.
+`cardeventnet-IMG_0095` is the selected pilot. It is in the train partition for CardEventNet and
+0068 RF-DETR. The 0043 DINO split does not assign it to a partition. Its source permission allows
+training. Its selected event revision names 53 frames, and its latest proposal run completed for
+those frames. The stored proposal used recipe v3 and geometry v4. M1 must refresh it with the current
+recipe v4 and geometry v5.
+
+Six recordings lack a selected completed event revision. Their frame scope remains unknown. Keep
+them out of proposal batches until a completed event revision or explicit exclusion defines their
+scope. The manifest uses one recording per batch.
 
 The 2026-10-11 inspection found 52 intake recording directories. Latest stored proposal runs
 covered 36 recordings: 24 complete, seven partial, and five failed. The closed 0083 campaign
@@ -95,9 +97,8 @@ manifest with exact recording and frame scope, pilot selection, batch size, excl
 Prefer `IMG_0095` for the pilot only if the live partition and prerequisites permit it; the snapshot
 had 42 of 53 scene frames complete there.
 
-The current inventory records `IMG_0095` as a candidate, not as an authorized pilot. Complete M0
-after exact 0043 and 0068 partition membership is available and the candidate has no source-group
-conflict. Keep the inventory exclusions and six missing event scopes explicit.
+The frozen inventory selects `IMG_0095` for M1. Keep its exact event, detector, calibration, and
+recipe lineage. Keep validation groups and six missing event scopes outside the pilot batch.
 
 Acceptance: repeated inventory is deterministic; all intake recordings have a disposition; protected
 groups are excluded; existing reviewed work is counted separately from pending proposals; no

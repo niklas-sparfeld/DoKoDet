@@ -63,7 +63,7 @@ No epics are currently ready.
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers | M0 inventory covers 52 accepted recordings and 25 candidate development recordings. Exact 0043 and full 0068 partition membership is missing, so the 0095 pilot remains gated. M1–M5 not started. |
+| [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers | M0 reconciles 52 accepted recordings and selects the 0095 pilot. It excludes protected and diagnostic sources and records all frame scope. M1–M5 not started. |
 
 ### Blocked
 
