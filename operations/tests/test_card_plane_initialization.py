@@ -102,8 +102,52 @@ def test_occlusion_mask_removes_hidden_projected_edge_from_fit_score() -> None:
         edge_width_pixels=3,
         occlusion_mask=occluder,
     )
+    source_distance_map = cv2.distanceTransform(
+        np.where(evidence > 0, 0, 255).astype(np.uint8),
+        cv2.DIST_L2,
+        3,
+    )
+    with_cached_source_distance = _fit_score_projected(
+        projected,
+        evidence,
+        source_area,
+        source_bounds,
+        width,
+        height,
+        edge_only=True,
+        edge_width_pixels=3,
+        occlusion_mask=occluder,
+        source_distance_map=source_distance_map,
+    )
 
     assert with_occlusion_geometry > without_occlusion_geometry
+    assert with_cached_source_distance == with_occlusion_geometry
+    for dx, dy in ((-70, 0), (25, 0), (0, -30), (0, 30), (140, 80)):
+        shifted = projected + np.asarray([dx, dy], dtype=np.float64)
+        uncached_score = _fit_score_projected(
+            shifted,
+            evidence,
+            source_area,
+            source_bounds,
+            width,
+            height,
+            edge_only=True,
+            edge_width_pixels=3,
+            occlusion_mask=occluder,
+        )
+        cached_score = _fit_score_projected(
+            shifted,
+            evidence,
+            source_area,
+            source_bounds,
+            width,
+            height,
+            edge_only=True,
+            edge_width_pixels=3,
+            occlusion_mask=occluder,
+            source_distance_map=source_distance_map,
+        )
+        assert cached_score == uncached_score
 
 
 def test_edge_fit_prefers_boundary_alignment_over_enclosing_segment_pixels() -> None:

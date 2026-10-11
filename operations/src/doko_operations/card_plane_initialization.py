@@ -454,6 +454,7 @@ def _fit_score_projected(
     edge_width_pixels: int = 1,
     edge_distance_tolerance_pixels: float = 8.0,
     occlusion_mask: np.ndarray | None = None,
+    source_distance_map: np.ndarray | None = None,
 ) -> float:
     """Score only the union of the source and projected pixel bounds."""
 
@@ -494,11 +495,18 @@ def _fit_score_projected(
             cv2.DIST_L2,
             3,
         )
-        projected_distance = cv2.distanceTransform(
-            np.where(source_evidence > 0, 0, 255).astype(np.uint8),
-            cv2.DIST_L2,
-            3,
-        )
+        if source_distance_map is None:
+            projected_distance = cv2.distanceTransform(
+                np.where(source_evidence > 0, 0, 255).astype(np.uint8),
+                cv2.DIST_L2,
+                3,
+            )
+        else:
+            if source_distance_map.shape != (height, width):
+                raise CardPlaneInitializationError(
+                    "source distance map shape must match the frame"
+                )
+            projected_distance = source_distance_map[y0:y1, x0:x1]
         source_to_projected = float(
             np.mean(np.minimum(source_distance[source_evidence > 0], tolerance))
         )
@@ -532,6 +540,7 @@ def _fit_candidate(
     try_quarter_turn: bool = False,
 ) -> _FittedCandidate | None:
     try:
+        table_to_image = np.asarray(calibration.table_to_image, dtype=np.float64)
         occlusion_aware = occluder_mask is not None
         fit_evidence = (
             _fit_evidence_mask(
@@ -548,6 +557,15 @@ def _fit_candidate(
             raise CardPlaneInitializationError(
                 "prediction has no non-occluded boundary evidence"
             )
+        source_distance_map = (
+            cv2.distanceTransform(
+                np.where(fit_evidence > 0, 0, 255).astype(np.uint8),
+                cv2.DIST_L2,
+                3,
+            )
+            if occlusion_aware
+            else None
+        )
         original_boundary_count = max(
             int(np.count_nonzero(_boundary_mask(candidate.source_mask, recipe.edge_width_pixels))),
             1,
@@ -560,7 +578,7 @@ def _fit_candidate(
         if initial_pose is None:
             if not try_quarter_turn and not _touches_frame_boundary(candidate.source_mask):
                 seed_outline = project_fixed_card(
-                    np.asarray(calibration.table_to_image, dtype=np.float64),
+                    table_to_image,
                     raw_seed_center,
                     raw_seed_angle,
                     calibration.card_short_size,
@@ -580,7 +598,7 @@ def _fit_candidate(
             seed_angle = _normalized_angle(float(initial_pose[1]))
         if not _touches_frame_boundary(candidate.source_mask):
             seed_outline = project_fixed_card(
-                np.asarray(calibration.table_to_image, dtype=np.float64),
+                table_to_image,
                 raw_seed_center,
                 raw_seed_angle,
                 calibration.card_short_size,
@@ -615,6 +633,8 @@ def _fit_candidate(
             )
         best_overall: tuple[float, np.ndarray, float] | None = None
         best_overall_key: tuple[float, ...] | None = None
+        center_offsets = np.linspace(-1.0, 1.0, recipe.center_steps)
+        angle_offsets = np.linspace(-1.0, 1.0, recipe.angle_steps)
         for orientation_index, orientation_seed in enumerate(orientation_seeds):
             center = seed_center.copy()
             angle = orientation_seed
@@ -623,17 +643,15 @@ def _fit_candidate(
             center_radius = recipe.center_search_radius
             angle_radius = recipe.angle_search_degrees
             for _stage in range(recipe.refinement_stages + 1):
-                offsets = np.linspace(-1.0, 1.0, recipe.center_steps)
-                angle_offsets = np.linspace(-1.0, 1.0, recipe.angle_steps)
-                for center_x in offsets:
-                    for center_y in offsets:
+                for center_x in center_offsets:
+                    for center_y in center_offsets:
                         trial_center = center + np.asarray(
                             [center_x * center_radius, center_y * center_radius], dtype=np.float64
                         )
                         for angle_offset in angle_offsets:
                             trial_angle = _normalized_angle(angle + angle_offset * angle_radius)
                             projected = project_fixed_card(
-                                np.asarray(calibration.table_to_image, dtype=np.float64),
+                                table_to_image,
                                 trial_center,
                                 trial_angle,
                                 calibration.card_short_size,
@@ -650,6 +668,7 @@ def _fit_candidate(
                                 edge_width_pixels=recipe.edge_width_pixels,
                                 edge_distance_tolerance_pixels=recipe.edge_distance_tolerance_pixels,
                                 occlusion_mask=occluder_mask,
+                                source_distance_map=source_distance_map,
                             )
                             if occlusion_aware and initial_pose is not None:
                                 normalized_drift = min(
