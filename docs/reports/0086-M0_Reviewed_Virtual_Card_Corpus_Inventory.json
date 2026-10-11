@@ -46,6 +46,29 @@
       "required_before": "Adding those recordings to a proposal batch"
     }
   ],
+  "cardeventnet_split_sources": [
+    {
+      "dataset_version_digest": "bfbeeec4c72905f6b545eaa782b427daee6a2756373fc823bd33936fef6d28a0",
+      "dataset_version_id": "cardeventnet-dataset-babc3dca31acd0c3631c",
+      "path": "data/operations/cardevent-datasets/cardeventnet-dataset-babc3dca31acd0c3631c/split.json",
+      "split_version_digest": "410c888ffe6bf080bcef13f5107e41c7950387f4e95c5650fb046ac8153b7279",
+      "split_version_id": "cardeventnet-split-b5c0a89b89b515b87fed"
+    },
+    {
+      "dataset_version_digest": "00a59b5fcd210d23c569727f98453c77237bb2c2ae71ebfc0a69e9abf8e807ee",
+      "dataset_version_id": "cardeventnet-interval-dataset-00a59b5fcd210d23c569",
+      "path": "data/operations/cardevent-datasets/cardeventnet-interval-dataset-00a59b5fcd210d23c569/split.json",
+      "split_version_digest": "939ecbcfa22d3658c966c383d24368f29ee915e4aa02be820fe2bf8f6f2c8fa0",
+      "split_version_id": "cardeventnet-interval-split-939ecbcfa22d3658c966"
+    },
+    {
+      "dataset_version_digest": "2e00fe87f08e25c51aa40d68ec2a212001bdff9a4586f86affd72703d04813ca",
+      "dataset_version_id": "cardeventnet-interval-dataset-2e00fe87f08e25c51aa4",
+      "path": "data/operations/cardevent-datasets/cardeventnet-interval-dataset-2e00fe87f08e25c51aa4/split.json",
+      "split_version_digest": "99ff7cb84e5484c7b4a16fda24e2b1d4812f598b0dc876c52b8e0bd25298ad24",
+      "split_version_id": "cardeventnet-interval-split-99ff7cb84e5484c7b4a1"
+    }
+  ],
   "inventory_date": "2026-10-11",
   "inventory_summary": {
     "accepted_recording_count": 52,
@@ -65,7 +88,7 @@
     "recordings_with_proposal_runs": 36,
     "rfdetr_development_exclusion_count": 5
   },
-  "manifest_sha256": "9afea59a4b953626f4f071871a5528d9ae59e0953ca4bc537a4d240eb0929ec5",
+  "manifest_sha256": "8b1ee77445bc3cba232739a2abf6fe0addb5b78f6e80b11e9e7be7c0d7810a3b",
   "pilot": {
     "blocked_until": [
       "Recover the exact frozen 0043 DINO train, validation, and holdout membership.",

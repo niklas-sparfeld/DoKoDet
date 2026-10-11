@@ -69,19 +69,29 @@ def _source_groups(recordings: list[dict[str, Any]]) -> dict[str, str]:
     return result
 
 
-def _cardevent_split(root: Path) -> dict[str, str]:
+def _cardevent_split(root: Path) -> tuple[dict[str, str], list[dict[str, str]]]:
     split_paths = sorted((root / "data/operations/cardevent-datasets").glob("*/split.json"))
     assignments: dict[str, str] = {}
+    sources: list[dict[str, str]] = []
     for path in split_paths:
         split = _read_json(path)
         if split is None:
             continue
+        sources.append(
+            {
+                "path": path.relative_to(root).as_posix(),
+                "dataset_version_id": split["dataset_version_id"],
+                "dataset_version_digest": split["dataset_version_digest"],
+                "split_version_id": split["split_version_id"],
+                "split_version_digest": split["split_version_digest"],
+            }
+        )
         for partition in ("train", "validation", "test", "unassigned"):
             for recording_id in split.get(partition, []):
                 previous = assignments.setdefault(recording_id, partition)
                 if previous != partition:
                     raise ValueError(f"CardEventNet split conflict for {recording_id}")
-    return assignments
+    return assignments, sources
 
 
 def _latest_proposals(root: Path) -> dict[str, dict[str, Any]]:
@@ -219,7 +229,7 @@ def build_manifest(root: Path) -> dict[str, Any]:
         )
 
     groups = _source_groups(recordings)
-    cardevent_assignments = _cardevent_split(root)
+    cardevent_assignments, cardevent_split_sources = _cardevent_split(root)
     proposals = _latest_proposals(root)
     for row in recordings:
         recording_id = row["recording_id"]
@@ -274,6 +284,7 @@ def build_manifest(root: Path) -> dict[str, Any]:
             "data/operations/pipeline-references",
             "data/operations/cardevent-datasets",
         ],
+        "cardeventnet_split_sources": cardevent_split_sources,
         "inventory_summary": {
             "accepted_recording_count": len(recordings),
             "proposal_run_count": sum(
