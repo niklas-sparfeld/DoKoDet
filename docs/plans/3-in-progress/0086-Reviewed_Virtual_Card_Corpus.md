@@ -16,7 +16,8 @@
 - **M0:** Complete (2026-10-11) — inventory all accepted recordings, reconcile frozen partitions,
   exclude protected sources, and select the `IMG_0095` pilot.
 - **M1:** Complete (2026-10-11) — generate current proposals for all 53 `IMG_0095` event frames.
-- **M2:** Not started — complete human geometry and identity review for the pilot.
+- **M2:** In progress — pilot review is ready for the operator; geometry and identity decisions
+  remain pending.
 - **M3:** Not started — refresh remaining proposals in resumable recording batches.
 - **M4:** Not started — complete geometry review for the selected corpus.
 - **M5:** Not started — complete identity review and publish campaign readiness.
@@ -141,6 +142,17 @@ Acceptance: the pilot publishes completed geometry and identity revisions with m
 frame lineage; masks exclude hidden and human-hand pixels; every unusable item has a reason;
 campaign preparation can resolve the references without treating proposals as reviewed targets.
 An agent must not claim this milestone complete without recorded human review.
+
+### M2 operator review handoff — 2026-10-11
+
+- The pilot workbench is open on `cardeventnet-IMG_0095` with the M1 proposal revision selected.
+- The workbench shows all 53 frames and 194 card proposals. The `Start review from proposed
+  scenes` control is ready. It will rebase the maintained draft to the M1 proposal and preserve
+  existing corrections.
+- The operator must set a profile name before starting the review. No geometry or identity
+  decisions have been recorded. Do not count the proposal output as reviewed work.
+- The local review service and browser are running for the operator handoff. The review URL is
+  `http://127.0.0.1:5173/recordings/cardeventnet-IMG_0095/pipeline/visible_cards?item=cardeventnet-event-img_0095-000`.
 
 ### M3 — Refresh the remaining proposal batches
 
