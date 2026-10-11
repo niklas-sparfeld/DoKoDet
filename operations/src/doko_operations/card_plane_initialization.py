@@ -643,6 +643,7 @@ def _fit_candidate(
             center_radius = recipe.center_search_radius
             angle_radius = recipe.angle_search_degrees
             for _stage in range(recipe.refinement_stages + 1):
+                best_key: tuple[float, ...] | None = None
                 for center_x in center_offsets:
                     for center_y in center_offsets:
                         trial_center = center + np.asarray(
@@ -691,20 +692,16 @@ def _fit_candidate(
                                 -float(trial_center[0]),
                                 -float(trial_center[1]),
                             )
-                            if best is None:
+                            if best_key is None or tie_break > best_key:
                                 best = (score, trial_center.copy(), trial_angle)
-                            else:
-                                best_score, best_center, best_angle = best
                                 best_key = (
-                                    best_score,
-                                    -float(np.linalg.norm(best_center - center)),
-                                    -abs(_normalized_angle(best_angle - angle)),
-                                    -best_angle,
-                                    -float(best_center[0]),
-                                    -float(best_center[1]),
+                                    score,
+                                    -float(np.linalg.norm(trial_center - center)),
+                                    -abs(_normalized_angle(trial_angle - angle)),
+                                    -trial_angle,
+                                    -float(trial_center[0]),
+                                    -float(trial_center[1]),
                                 )
-                                if tie_break > best_key:
-                                    best = (score, trial_center.copy(), trial_angle)
                 if best is None:
                     raise CardPlaneInitializationError("pose search produced no candidate")
                 center = best[1]
