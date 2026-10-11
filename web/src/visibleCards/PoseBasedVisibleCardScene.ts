@@ -695,7 +695,7 @@ function stableStringify(value: unknown): string {
 function stableStringifySceneCore(value: unknown, floatValue = false): string {
   if (typeof value === "string") return stringifyAscii(value);
   if (typeof value === "number") {
-    const normalized = floatValue ? Number(value.toFixed(6)) : value;
+    const normalized = floatValue ? roundSceneFloat(value) : value;
     if (floatValue && Object.is(normalized, -0)) return "-0.0";
     if (floatValue && Number.isInteger(normalized)) {
       return `${JSON.stringify(normalized)}.0`;
@@ -719,6 +719,20 @@ function stableStringifySceneCore(value: unknown, floatValue = false): string {
       return `${stringifyAscii(key)}:${stableStringifySceneCore(child, isPoseFloat)}`;
     });
   return `{${entries.join(",")}}`;
+}
+
+function roundSceneFloat(value: number): number {
+  const scale = 1_000_000;
+  const scaled = Math.abs(value) * scale;
+  const lower = Math.floor(scaled);
+  const fraction = scaled - lower;
+  const rounded =
+    fraction < 0.5
+      ? lower
+      : fraction > 0.5 || lower % 2 !== 0
+        ? lower + 1
+        : lower;
+  return Math.sign(value) * (rounded / scale);
 }
 
 function stringifyAscii(value: string): string {
