@@ -19,63 +19,88 @@ describe("VisibleCardReviewWorkbench", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("moves a virtual card by the full pointer distance in Rectified view", async () => {
-    const onSceneChange = vi.fn();
-    render(
-      <VisibleCardReviewWorkbench
-        recordingId="recording-1"
-        frame={frame}
-        readOnly={false}
-        onSceneChange={onSceneChange}
-      />,
-    );
-    const surface = screen.getByRole("img", {
-      name: /Rectified visible-card workbench/,
-    });
-    vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
-      bottom: 100,
-      height: 100,
-      left: 0,
-      right: 100,
-      top: 0,
-      width: 100,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
+  it.each(["Camera", "Rectified"] as const)(
+    "preserves the grab point while moving a virtual card in %s view",
+    async (viewpoint) => {
+      const onSceneChange = vi.fn();
+      render(
+        <VisibleCardReviewWorkbench
+          recordingId="recording-1"
+          frame={frame}
+          readOnly={false}
+          onSceneChange={onSceneChange}
+        />,
+      );
+      if (viewpoint === "Rectified") {
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: "Viewpoint: Camera. Switch to Rectified",
+          }),
+        );
+      }
+      const surface = screen.getByRole("img", {
+        name:
+          viewpoint === "Rectified"
+            ? /Rectified visible-card workbench/
+            : /visible-card proposal/,
+      });
+      vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+        bottom: 100,
+        height: 100,
+        left: 0,
+        right: 100,
+        top: 0,
+        width: 100,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
 
-    const card = screen.getByRole("button", {
-      name: "Select virtual card card-1",
-    });
-    const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
-    const scale = Math.min(100 / viewBox[2], 100 / viewBox[3]);
-    const offsetX = (100 - viewBox[2] * scale) / 2;
-    const offsetY = (100 - viewBox[3] * scale) / 2;
-    const startClientX = offsetX + (50 - viewBox[0]) * scale;
-    const startClientY = offsetY + (50 - viewBox[1]) * scale;
-    fireEvent.pointerDown(card, {
-      button: 0,
-      clientX: startClientX,
-      clientY: startClientY,
-      pointerId: 1,
-    });
-    fireEvent.pointerMove(surface, {
-      clientX: startClientX + 10,
-      clientY: startClientY,
-      pointerId: 1,
-    });
-    fireEvent.pointerMove(surface, {
-      clientX: startClientX + 20,
-      clientY: startClientY,
-      pointerId: 1,
-    });
-    fireEvent.pointerUp(surface, { pointerId: 1 });
+      const card = screen.getByRole("button", {
+        name: "Select virtual card card-1",
+      });
+      const viewBox = surface.getAttribute("viewBox")!.split(" ").map(Number);
+      const scale = Math.min(100 / viewBox[2], 100 / viewBox[3]);
+      const offsetX = (100 - viewBox[2] * scale) / 2;
+      const offsetY = (100 - viewBox[3] * scale) / 2;
+      const vertices = card.getAttribute("points")!.split(/[ ,]+/).map(Number);
+      const vertexCount = vertices.length / 2;
+      const centerX =
+        vertices
+          .filter((_, index) => index % 2 === 0)
+          .reduce((sum, x) => sum + x, 0) / vertexCount;
+      const centerY =
+        vertices
+          .filter((_, index) => index % 2 === 1)
+          .reduce((sum, y) => sum + y, 0) / vertexCount;
+      const grabX = vertices[0]! * 0.75 + centerX * 0.25;
+      const grabY = vertices[1]! * 0.75 + centerY * 0.25;
+      const startClientX = offsetX + (grabX - viewBox[0]!) * scale;
+      const startClientY = offsetY + (grabY - viewBox[1]!) * scale;
+      fireEvent.pointerDown(card, {
+        button: 0,
+        clientX: startClientX,
+        clientY: startClientY,
+        pointerId: 1,
+      });
+      fireEvent.pointerMove(surface, {
+        clientX: startClientX + 10,
+        clientY: startClientY,
+        pointerId: 1,
+      });
+      fireEvent.pointerMove(surface, {
+        clientX: startClientX + 20,
+        clientY: startClientY,
+        pointerId: 1,
+      });
+      fireEvent.pointerUp(surface, { pointerId: 1 });
 
-    await waitFor(() => expect(onSceneChange).toHaveBeenCalledTimes(1));
-    expect(onSceneChange.mock.calls[0][0].scene.poses[0].center[0]).toBeCloseTo(
-      50 + 20 / scale,
-    );
-  });
+      await waitFor(() => expect(onSceneChange).toHaveBeenCalledTimes(1));
+      expect(
+        onSceneChange.mock.calls[0][0].scene.poses[0].center[0],
+      ).toBeCloseTo(50 + 20 / scale);
+    },
+  );
 
   it("moves virtual-card actions into the Timeline Rail", async () => {
     const onSceneChange = vi.fn();
@@ -396,7 +421,7 @@ describe("VisibleCardReviewWorkbench", () => {
       />,
     );
     const surface = screen.getByRole("img", {
-      name: /visible-card workbench/i,
+      name: /visible-card proposal/i,
     });
     vi.spyOn(surface, "getBoundingClientRect").mockReturnValue({
       left: 0,
@@ -627,6 +652,11 @@ describe("VisibleCardReviewWorkbench", () => {
       screen.queryByRole("button", { name: /Use .* anchor constraint/ }),
     ).not.toBeInTheDocument();
 
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Viewpoint: Camera. Switch to Rectified",
+      }),
+    );
     const surface = screen.getByRole("img", {
       name: /Rectified visible-card workbench/,
     });
