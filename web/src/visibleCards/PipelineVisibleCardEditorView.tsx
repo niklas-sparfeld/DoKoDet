@@ -95,6 +95,7 @@ export type PipelineVisibleCardEditorProps = {
   generatedRevisionId: string | null;
   displayedRevisionId?: string | null;
   generatedRunId: string | null;
+  startReviewRequested?: boolean;
   view: "generated" | "reviewed";
   onRailItemsChange?: (items: PipelineVisibleCardRailItem[]) => void;
   onReviewRequested?: () => void;
@@ -109,6 +110,7 @@ export function PipelineVisibleCardEditorView({
   generatedRevisionId,
   displayedRevisionId = generatedRevisionId,
   generatedRunId,
+  startReviewRequested = false,
   view,
   onRailItemsChange,
   onReviewRequested,
@@ -167,6 +169,7 @@ export function PipelineVisibleCardEditorView({
     CalibrationFitDiagnosticOutline["status"][]
   >(["fit", "held_out", "discarded"]);
   const [proposalError, setProposalError] = useState<string | null>(null);
+  const autoStartReviewRef = useRef(false);
   const [calibrationRefinement, setCalibrationRefinement] =
     useState<CalibrationRefinementResponse | null>(null);
   const calibrationRefinementRef = useRef<CalibrationRefinementResponse | null>(
@@ -320,7 +323,8 @@ export function PipelineVisibleCardEditorView({
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      if (view === "reviewed") void loadReference(controller.signal);
+      if (view === "reviewed" || startReviewRequested)
+        void loadReference(controller.signal);
       else setLoading(false);
       void loadGenerated(controller.signal);
     }, 0);
@@ -328,7 +332,7 @@ export function PipelineVisibleCardEditorView({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [loadGenerated, loadReference, view]);
+  }, [loadGenerated, loadReference, startReviewRequested, view]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1315,6 +1319,34 @@ export function PipelineVisibleCardEditorView({
     setProposalError,
   ]);
 
+  useEffect(() => {
+    if (!startReviewRequested) {
+      autoStartReviewRef.current = false;
+      return;
+    }
+    if (
+      autoStartReviewRef.current ||
+      loading ||
+      proposalLoading ||
+      proposalRevisionId === null
+    )
+      return;
+    if (operatorId.trim() === "") return;
+    const timer = window.setTimeout(() => {
+      if (autoStartReviewRef.current) return;
+      autoStartReviewRef.current = true;
+      void startReviewFromProposal();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [
+    loading,
+    operatorId,
+    proposalLoading,
+    proposalRevisionId,
+    startReviewFromProposal,
+    startReviewRequested,
+  ]);
+
   const selectEditorPolygon = useCallback((polygonIndex: number) => {
     setEditor((current) =>
       current === null || current.polygons[polygonIndex] === undefined
@@ -1492,6 +1524,12 @@ export function PipelineVisibleCardEditorView({
       : activeFrame === null
         ? -1
         : displayedFrames.indexOf(activeFrame);
+  const proposalLinkError =
+    startReviewRequested &&
+    proposalRevisionId !== null &&
+    operatorId.trim() === ""
+      ? "Set a profile name to open this review link."
+      : proposalError;
   const previousReviewedFrame =
     activeFrameIndex <= 0
       ? null
@@ -1678,7 +1716,7 @@ export function PipelineVisibleCardEditorView({
       proposalRun={proposalRun}
       proposalRevisionId={proposalRevisionId}
       proposalLoading={proposalLoading}
-      proposalError={proposalError}
+      proposalError={proposalLinkError}
       startProposal={() => void startProposal()}
       retryProposal={() => void retryProposal()}
       startReviewFromProposal={() => void startReviewFromProposal()}

@@ -278,6 +278,7 @@ export function RecordingWorkspaceTaskSurface({
               displayedRevision ?? stage.selected_generated_revision_id ?? null
             }
             generatedRunId={selectedVisibleCardRunId}
+            startReviewRequested={urlState.startReview === "proposal"}
             view={activeView}
             inspectorEnabled={action.kind !== "blocked"}
             onRailItemsChange={onVisibleCardRailItemsChange}

@@ -1520,6 +1520,82 @@ def test_empty_visible_card_reference_can_rebase_from_proposal_revision(tmp_path
     assert seeded.draft.items[0].review_state == "pending"
 
 
+def test_proposal_rebase_preserves_ignore_regions_for_unchanged_frames(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    proposal_revision_id = _proposal_revision(revision_store, source_revision_id)
+    existing = service.create_reference(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "source_revision_id": source_revision_id,
+        },
+    )
+    region = {
+        "region_id": "ignore-region-01",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 0, "y": 0},
+                    {"x": 1000, "y": 0},
+                    {"x": 1000, "y": 1000},
+                    {"x": 0, "y": 1000},
+                ]
+            ],
+        },
+        "normalization": {
+            "width": 100,
+            "height": 100,
+            "policy_id": "full-frame-0-1000/v1",
+        },
+        "reason": "untidy_stack",
+        "source_candidates": [],
+    }
+    with_region = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": existing.draft.revision,
+            "operations": [
+                {
+                    "operation": "create_ignore_region",
+                    "item_id": "event-01",
+                    "region": region,
+                }
+            ],
+        },
+    )
+
+    rebased = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": with_region.draft.revision,
+            "operations": [
+                {
+                    "operation": "rebase",
+                    "source_revision_id": source_revision_id,
+                    "proposal_revision_id": proposal_revision_id,
+                }
+            ],
+        },
+    )
+
+    rebased_region = rebased.draft.items[0].item["ignored_regions"][0]
+    assert {key: value for key, value in rebased_region.items() if key != "source_candidates"} == {
+        key: value for key, value in region.items() if key != "source_candidates"
+    }
+    assert rebased_region["source_candidates"] == [
+        {"revision_id": source_revision_id, "card_id": "card-01"}
+    ]
+
+
 def test_pose_scene_draft_can_keep_hidden_pose_but_completion_rejects_it(tmp_path: Path) -> None:
     service, revision_store = _service(tmp_path)
     source_revision_id = _vision_source_revision(revision_store, "visible_cards")

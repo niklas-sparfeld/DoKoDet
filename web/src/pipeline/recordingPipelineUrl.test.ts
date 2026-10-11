@@ -61,6 +61,7 @@ describe("recording pipeline URL helpers", () => {
       ),
     ).toEqual({
       view: "reviewed",
+      startReview: null,
       revision: "revision/1",
       item: "event/1",
       tUs: -17,
@@ -78,6 +79,7 @@ describe("recording pipeline URL helpers", () => {
       ),
     ).toEqual({
       view: null,
+      startReview: null,
       revision: null,
       item: null,
       tUs: null,
@@ -86,6 +88,17 @@ describe("recording pipeline URL helpers", () => {
       reference: null,
       analysis: null,
     });
+  });
+
+  it("preserves a direct proposal-review request through route construction", () => {
+    const state = readPipelineUrlState(
+      "?view=generated&start_review=proposal&revision=detector-1&item=frame-1",
+    );
+
+    expect(state.startReview).toBe("proposal");
+    expect(recordingPipelinePath("recording-1", "visible_cards", state)).toBe(
+      "/recordings/recording-1/pipeline/visible_cards?view=generated&start_review=proposal&revision=detector-1&item=frame-1",
+    );
   });
 
   it("constructs task paths with selection and analysis state", () => {

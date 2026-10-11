@@ -557,7 +557,7 @@ function defaultPreferences(
   if (capabilities.hasIgnoreRegions) enabledLayers.push("ignore_regions");
   if (capabilities.hasProposals) enabledLayers.push("suggestions");
   return {
-    viewpoint: hasRectifiedScene ? "rectified" : "camera",
+    viewpoint: "camera",
     enabledLayers,
     activeTool: hasRectifiedScene ? "virtual_cards" : "visible_regions",
   };

@@ -496,6 +496,7 @@ class PipelineReferenceService:
         source_revision: StoredPipelineRevision,
         proposal_data: ProposedCardSceneData,
         proposal_revision_id: str,
+        previous_items: tuple[ReferenceDraftItem, ...] = (),
     ) -> tuple[ReferenceDraftItem, ...]:
         if not isinstance(source_revision.content, VisibleCardData):
             raise PipelineReferenceInputError("the proposal source must be visible-card data")
@@ -506,10 +507,21 @@ class PipelineReferenceService:
                 "proposal frames do not match the detector source coverage"
             )
         projection = self._proposal_projection(proposal_data)
+        previous_by_item_id = {item.item_id: item for item in previous_items}
         items: list[ReferenceDraftItem] = []
         for outcome in outcomes:
             frame = frames[outcome.event_id]
             item = outcome.to_mapping()
+            previous = previous_by_item_id.get(outcome.event_id)
+            if previous is not None:
+                previous_regions = previous.item.get("ignored_regions", [])
+                if previous_regions:
+                    if previous.item.get("frame_identity") != item.get("frame_identity"):
+                        raise PipelineReferenceInputError(
+                            "cannot rebase reviewed ignore regions for a changed source frame: "
+                            f"{outcome.event_id}"
+                        )
+                    item["ignored_regions"] = list(previous_regions)
             if frame.status == "supported":
                 if frame.proposal is None or outcome.frame_identity is None:
                     raise PipelineReferenceInputError(
@@ -709,6 +721,7 @@ class PipelineReferenceService:
                                 source_revision,
                                 proposal_data,
                                 operation.proposal_revision_id,
+                                working_current.draft.items,
                             )
                         )
                     else:

@@ -54,10 +54,10 @@ describe("visible-card review workbench state", () => {
     expect(WORKBENCH_SELECTION_ACTIONS.mapping).toContain("accept_anchor");
   });
 
-  it("defaults a calibrated card scene to Rectified and virtual-card review", () => {
+  it("defaults a calibrated card scene to Camera and virtual-card review", () => {
     const state = createVisibleCardReviewWorkbenchState(capabilities());
 
-    expect(state.viewpoint).toBe("rectified");
+    expect(state.viewpoint).toBe("camera");
     expect(state.activeTool).toBe("virtual_cards");
     expect(state.enabledLayers).toEqual([
       "visible_regions",
@@ -188,7 +188,9 @@ describe("visible-card review workbench state", () => {
   });
 
   it("toggles the single viewpoint control without writing geometry", () => {
-    const state = createVisibleCardReviewWorkbenchState(capabilities());
+    const state = createVisibleCardReviewWorkbenchState(capabilities(), {
+      viewpoint: "rectified",
+    });
     const gesturing = visibleCardReviewWorkbenchReducer(state, {
       type: "begin_gesture",
       gesture: { kind: "pan", tool: null, pointerId: 4 },
@@ -204,7 +206,9 @@ describe("visible-card review workbench state", () => {
   });
 
   it("keeps zoom and pan independent for Camera and Rectified viewpoints", () => {
-    const state = createVisibleCardReviewWorkbenchState(capabilities());
+    const state = createVisibleCardReviewWorkbenchState(capabilities(), {
+      viewpoint: "rectified",
+    });
     const rectified = visibleCardReviewWorkbenchReducer(state, {
       type: "set_viewport",
       viewport: { zoom: 2, pan: { x: 12, y: -8 } },

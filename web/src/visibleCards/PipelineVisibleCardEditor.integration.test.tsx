@@ -562,8 +562,13 @@ describe("PipelineVisibleCardEditor", () => {
     expect(screen.getByText("Box")).toBeInTheDocument();
   });
 
-  it("loads proposed scenes into an existing review before opening it", async () => {
+  it("opens a proposal review link without requiring the start button", async () => {
     window.localStorage.setItem("dokodetector.profile.name", "operator-01");
+    window.history.pushState(
+      {},
+      "",
+      `/recordings/${RECORDING_ID}/pipeline/visible_cards?view=generated&start_review=proposal&item=${ITEM_ID}`,
+    );
     const proposalRun = {
       run_id: "proposal-complete-1",
       recording_id: RECORDING_ID,
@@ -612,16 +617,10 @@ describe("PipelineVisibleCardEditor", () => {
         durationUs={1_000_000}
         generatedRevisionId={REVISION_ID}
         generatedRunId={RUN_ID}
+        startReviewRequested
         view="generated"
         onReviewRequested={onReviewRequested}
       />,
-    );
-
-    const user = userEvent.setup();
-    await user.click(
-      await screen.findByRole("button", {
-        name: "Start review from proposed scenes",
-      }),
     );
 
     await waitFor(() => expect(onReviewRequested).toHaveBeenCalledTimes(1));
