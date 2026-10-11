@@ -5,12 +5,11 @@
 - **Summary:** Measure current detector and composed observation quality, then select only the
   optional analyzer capability work justified by observed failures.
 - **Status:** Blocked
-- **Depends on:** 0048, 0049, and a future fixed identity baseline; 0052 is not required; plus
-  reviewed real video-derived evidence for the selected measurement with source-group-safe
-  development partitions
-- **Blocker:** The new run/reference workflow, a fixed identity baseline, and sufficient reviewed
-  real coverage are not ready. 0051 closed without the live comparison and therefore does not
-  provide that baseline.
+- **Depends on:** Completed 0048 and 0049; 0086 reviewed evidence; 0087 and 0088 fixed bundle
+  decisions; 0090 composed development report for later capability selection
+- **Blocker:** The current reviewed coverage, bundle decisions, and composed report are not ready.
+  The run/reference workflow is complete. 0051 closed without its live comparison; 0052 is not
+  required.
 - **Supersedes:** The remaining detector and optional capability experiments from 0022
 - **Outcome:** A reproducible baseline report and a bounded next capability decision, followed by
   at most one measured capability implementation. No automatic model promotion.
@@ -23,6 +22,16 @@
 - **M2:** Not started — specify one bounded response to the measured gap.
 - **M3:** Not started — implement and evaluate only that selected response, if justified.
 
+## Scheduling decision — 2026-10-11
+
+[0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
+[0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md) own new model campaigns.
+[0089](0089-Virtual_Card_Algorithm_Edge_Cases.md) owns bounded pose and crop integration fixes.
+[0090](0090-Local_End_to_End_Recording_Pipeline.md) owns the first composed local pilot. This epic
+uses their reports to select a later optional analyzer capability. Do not repeat their training,
+algorithm fixes, or coordinator implementation. M0 must define a new evidence question before
+this epic starts; a report that selects no new capability is a valid outcome.
+
 ## Handoff from 0067
 
 Epic 0067 completed a fixed-recipe visible-region PoC. Its RF-DETR SegMedium checkpoint is a
@@ -34,10 +43,10 @@ does not change this epic's blockers, coverage requirements, or composed-observa
 ## 1. Keep the useful evidence questions
 
 The old 0022 cloud-first implementation sequence is superseded. Local detection, identity models,
-review editors, and storage already exist. Reuse them through 0048 and 0049. Use the fixed resilient
-identity input and decision policy from 0051 and any required 0052 response. Do not repeat their
-implementation or carry forward old model names, prices, capture offsets, or provisional quality
-thresholds as current requirements.
+review editors, and storage already exist. Reuse them through 0048 and 0049. Use the exact
+identity bundle and crop-policy decision from 0088 and the composed evidence from 0090. Do not
+require the unexecuted 0051 comparison or the closed 0052 response. Do not carry forward old
+model names, prices, capture offsets, or provisional quality thresholds as current requirements.
 
 Freeze the question before the run. Compare the configured local detector and an explicitly selected
 existing baseline on identical video-derived frames and the same reviewed reference. Record model,

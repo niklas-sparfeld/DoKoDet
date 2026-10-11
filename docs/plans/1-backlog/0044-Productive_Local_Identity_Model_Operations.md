@@ -4,7 +4,7 @@
 
 - **Summary:** Make reviewed identity data, bounded training, comparison, promotion, and local
   runtime status productive in the web app after the first local candidate is measured.
-- **Status:** Ready
+- **Status:** Backlog
 - **Depends on:** Plan 0043 exports a local development candidate and publishes its measured limits,
   and plans 0048 and 0049 provide retained processor results, maintained references, comparison,
   and dataset boundaries
@@ -30,10 +30,19 @@ run comparisons in 0048 and 0049. A priority work list selects items in those re
 not create a parallel human reference or another review lifecycle. Store campaign predictions and
 input revisions through the same pipeline data boundary.
 
-**Blocker:** 0043 must export and measure the first local development candidate. M0 of this epic must
-turn the retained report, including unsupported classes, into explicit promotion gates before any
-productive cutover. A locally running candidate alone does not justify changing the backend default.
-Device evidence packages are not an input to campaigns or normal recording analysis.
+0043 has exported and measured the first local development candidate. M0 of this epic must turn
+the selected candidate report, including unsupported classes, into explicit promotion gates before
+any productive cutover. A locally running candidate alone does not justify changing the backend
+default. Device evidence packages are not an input to campaigns or normal recording analysis.
+
+## Scheduling decision — 2026-10-11
+
+Defer the productive campaign UI until the current corpus and model work have been exercised.
+[0086](../2-ready/0086-Reviewed_Virtual_Card_Corpus.md) owns current review work.
+[0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) owns the new identity training
+campaign and provides the preferred later report. Reuse that report if available; 0043 remains a
+valid development input, so 0088 is not a hard prerequisite for this backlog epic. This scheduling
+decision adds no training implementation or default change to 0044.
 
 ## 1. Purpose
 

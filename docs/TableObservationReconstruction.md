@@ -202,12 +202,19 @@ and tracking improve independently.
 - Closed epic [0049](plans/5-closed/0049-Recording_Pipeline_Review_and_Comparison.md) delivered the
   recording UI, reference editing, explicit run input selection, comparison, and obsolete
   review-route removal.
-- [0043](plans/2-ready/0043-First_Local_DINOv3_Card_Identifier.md) owns the first reviewed local
+- [0043](plans/5-closed/0043-First_Local_DINOv3_Card_Identifier.md) owns the first reviewed local
   DINOv3 candidate and its measured development limits.
-- [0044](plans/4-blocked/0044-Productive_Local_Identity_Model_Operations.md) owns later productive
+- [0044](plans/1-backlog/0044-Productive_Local_Identity_Model_Operations.md) owns later productive
   campaigns, promotion, and rollback.
-- [0050](plans/4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) owns detector baseline
-  measurements and justified optional analyzer capabilities.
+- [0086](plans/2-ready/0086-Reviewed_Virtual_Card_Corpus.md) owns the current reviewed geometry
+  and identity corpus.
+- [0087](plans/4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
+  [0088](plans/4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) own separate segmentation
+  and identity training campaigns.
+- [0089](plans/4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) owns measured algorithm fixes.
+- [0090](plans/4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) owns the composed local pilot.
+- [0050](plans/4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) owns later justified
+  optional analyzer capabilities after that pilot.
 - [0023](plans/0-to-specify/0023-Game_Reconstruction_Development.md),
   [0026](plans/0-to-specify/0026-Reconstruction_Review_Workflow.md), and
   [0024](plans/0-to-specify/0024-System_Production_Readiness.md) retain later specification work.

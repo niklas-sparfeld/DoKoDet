@@ -4,7 +4,9 @@
 
 - **Summary:** Split the visible-card workbench and its pipeline editor into small, cohesive modules
   with focused tests. Preserve all operator behavior and review contracts.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M5 are complete. Keep the recorded baseline editor and repository-wide check failures as verification limits; no further work is planned here.
 - **Depends on:** Completed 0059 web workspace module boundaries and completed 0074 unified
   visible-card review workbench
 - **Builds on:** The existing `PipelineVisibleCardTypes`, `VisibleCardReviewWorkbenchState`,

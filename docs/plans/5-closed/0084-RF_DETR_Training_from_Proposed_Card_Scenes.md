@@ -4,7 +4,11 @@
 
 - **Summary:** Derive visible-card instance masks from proposed card scenes and their card poses.
   Use the eligible source frames as training input for one bounded RF-DETR campaign.
-- **Status:** Blocked
+- **Status:** Closed
+- **Closure reason:** Superseded
+- **Closure note:** The selected direction uses human-corrected card scenes in 0086 and the
+  separate reviewed-data RF-DETR campaign in 0087. M0–M2 remain inspection evidence. M3 did
+  not run. The frozen generated-label view remains unsuitable for training.
 - **Depends on:** 0072, 0073, 0067, and 0068 complete; 0083 complete; corrected hand-occlusion exclusions and materialization
 - **Outcome:** A frozen audit, deterministic RF-DETR segmentation materialization, and one paired
   local training and evaluation report. The report decides whether pose-derived training labels
@@ -21,8 +25,7 @@
   card-instance masks in a disposable RF-DETR training view.
 - **M2:** Complete — reviewed all 141 overlays and smoke-loaded all 483 masks through pinned
   RF-DETR. Found hand-over-card label defects; the view is not ready for training.
-- **M3:** Blocked — requires a complete hand-occlusion exclusion inventory and a corrected,
-  re-frozen materialization.
+- **M3:** Not started — superseded by the reviewed-data campaign in 0087.
 
 ### M0 implementation evidence — 2026-09-25
 
@@ -99,6 +102,13 @@
 - M2 is complete as an inspection milestone, but training is blocked. Build a complete item-level
   hand-occlusion exclusion inventory, freeze a corrected manifest and materialization with new
   digests, then repeat visual review and trainer smoke checks before M3.
+
+## Closure decision — 2026-10-11
+
+[0086](../2-ready/0086-Reviewed_Virtual_Card_Corpus.md) owns human correction and corpus
+readiness. [0087](../4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns the new
+segmentation campaign. The remaining specification below records the former generated-label
+experiment. It is not an instruction to resume training. Retain frozen M0–M2 artifacts unchanged.
 
 ## 1. Purpose
 

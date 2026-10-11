@@ -4,7 +4,9 @@
 
 - **Summary:** Let visual identity processing select a reviewed card-scene derived crop input,
   alongside generated Gemini polygons and RF-DETR segments.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M3 are complete. Inference crop selection and provenance are delivered. Reviewed virtual-card training preparation belongs to 0088.
 - **Depends on:** 0072 and 0073 complete
 - **Outcome:** One visual identity run freezes exactly one selected crop input and one crop policy.
   It can classify crops derived from reviewed virtual-card scenes, generated Gemini polygons, or

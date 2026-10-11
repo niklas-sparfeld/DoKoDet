@@ -24,6 +24,18 @@ Update relative links in the same change.
 Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`, `Duplicate`, or
 `Invalid`. Add a `Closure note` when the reason needs context.
 
+## Current delivery order
+
+1. **0086:** Complete the reviewed virtual-card corpus. Start with M0 inventory and one pilot.
+2. **0087 and 0088:** Run separate RF-DETR segmentation and DINO identity campaigns. Both consume
+   the reviewed corpus; neither campaign requires the other to improve its model.
+3. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
+4. **0090:** Run and measure the automatic local recording pipeline on a small development batch.
+
+Fix bounded annotation blockers during 0086. Keep broader algorithm work in 0089. Retain explicit
+bundle decisions even when training does not improve quality. Productive campaign UI and promotion
+remain later work in 0044; optional analyzer capabilities remain later work in 0050.
+
 ## Board
 
 The shared target architecture is
@@ -41,32 +53,35 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0085 — Visual identity crop inputs from virtual cards](3-in-progress/0085-Visual_Identity_Crop_Inputs_from_Virtual_Cards.md) | 0072 and 0073 complete | M0–M3 complete. Operators select an exact Gemini, RF-DETR, or eligible reviewed virtual-card input; run history and crop inspection retain and show source and crop provenance. |
+| [0044 — Productive local identity model operations](1-backlog/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. Defer campaign UI, promotion, and rollback until current corpus and model work have been exercised. Prefer the later 0088 report; no new training belongs here. |
 
 ### Ready
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0044 — Productive local identity model operations](2-ready/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. The first 0043 development candidate is measured and retained without promotion; define explicit promotion gates before any local cutover. |
+| [0086 — Reviewed virtual-card corpus](2-ready/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers | M0–M5 not started. Inventory all accepted recordings, refresh pending proposals, complete human geometry and identity review, and publish separate campaign readiness. No training. |
 
 ### In Progress
 
-| Epic | Depends on | Outcome |
-| --- | --- | --- |
-| [0080 — Agent-scale visible-card review modules](3-in-progress/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Completed 0059 web workspace module boundaries and completed 0074 unified visible-card review workbench | M0–M5 complete. Public editor and workbench roots are small wrappers; focused tests are split by owner, and `npm run check` includes a passing root/test size guard. The 10 editor failures from M0 remain. Full checks also encounter existing lint, formatting, app-test, and Playwright failures; see M5 evidence. |
-
+No epics are currently in progress.
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0084 — RF-DETR training from proposed card scenes](4-blocked/0084-RF_DETR_Training_from_Proposed_Card_Scenes.md) | 0072, 0073, 0067, and 0068 complete; 0083 complete; corrected hand-occlusion exclusions and materialization | M0–M2 complete. The pinned trainer loaded all 483 masks. Visual review found hand-over-card label spill in two confirmed frames; freeze a complete exclusion list and corrected view before M3 training. |
-| [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0048, 0049, and a future fixed identity baseline; 0052 is not required; plus reviewed real evidence for a bounded measurement | Measure visible-region providers and composed quality against a fixed identity baseline, then select at most one justified capability response. The completed 0067 `poc_candidate` is optional later input; M0–M3 not started. |
+| [0087 — Reviewed virtual-card RF-DETR campaign](4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 reviewed corpus; 0068 and 0070 complete | M0–M5 not started. Freeze corrected instance masks, train bounded real and synthetic candidates, and publish segmentation metrics and an exact bundle decision. Replaces unstarted 0084 training. |
+| [0088 — Reviewed virtual-card DINO campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) | 0086 geometry and identity handoff; 0043 and 0085 complete | M0–M5 not started. Adapt reviewed virtual-card training crops, train separate bounded real and synthetic identity candidates, and publish measured class limits and a bundle decision. Does not depend on 0087 training. |
+| [0089 — Virtual-card algorithm edge cases](4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) | 0086 reviewed evidence; 0087 and 0088 bundle decisions | M0–M3 not started. Reproduce fresh failures, freeze at most two small failure families, and verify bounded pose, occlusion, or crop fixes. |
+| [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) | 0087 and 0088 bundle decisions; 0089 handoff; 0048 and 0049 complete | M0–M3 not started. Coordinate retained automatic stages on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion. |
+| [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0086 reviewed evidence, 0087 and 0088 decisions, and 0090 composed report; 0048 and 0049 complete | M0–M3 not started. Use the later reports to select at most one new optional analyzer capability. Do not repeat the campaigns, bounded algorithm fixes, or composed pilot. |
 
 ### Closed
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0085 — Visual identity crop inputs from virtual cards](5-closed/0085-Visual_Identity_Crop_Inputs_from_Virtual_Cards.md) | Complete | M0–M3 complete. Exact generated or reviewed virtual-card crop selection and inference provenance are delivered. Training preparation follows in 0088. |
+| [0084 — RF-DETR training from proposed card scenes](5-closed/0084-RF_DETR_Training_from_Proposed_Card_Scenes.md) | Superseded | M0–M2 retain audit, 483-mask loading, and human-hand label-spill evidence. M3 did not run. 0086 and 0087 replace the unreviewed-label training direction with human-corrected inputs. |
+| [0080 — Agent-scale visible-card review modules](5-closed/0080-Agent_Scale_Visible_Card_Review_Modules.md) | Complete | M0–M5 complete. Small public wrappers, focused test ownership, and size checks are delivered. Recorded baseline editor and repository-wide check failures remain verification limits. |
 | [0083 — Manual RF-DETR runs for proposed card scenes](5-closed/0083-Manual_RF_DETR_Proposed_Card_Scene_Runs.md) | Complete | M0–M2 complete. All 30 recordings reached terminal proposed-scene outcomes: 23 complete, five partial, and two failed. The epic records per-recording run IDs, result revisions, frame coverage, and failure codes; it does not assess result quality. |
 | [0081 — Calibration pose-seed refinement from virtual-card fitting](5-closed/0081_Calibration_Pose_Seed_Refinement.md) | Complete | M0 adds a bounded virtual-card-informed calibration pose seed, keeps the shared robust boundary objective and evidence gates, preserves v3 stored-calibration readability, and passes the frozen comparison without a publication regression. |
 | [0082 — Fine-model small-card instance refinement](5-closed/0082-Fine_Model_Visible_Card_Prepass.md) | Complete | M0–M4 complete. Provider v6 is selectable in backend runs and the Web UI, with Gemini unchanged as default. It preserves full-frame recall but does not improve small-card or overlap recall; see the held-out evaluation and known limits in the epic. |
