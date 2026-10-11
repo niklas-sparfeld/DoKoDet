@@ -149,14 +149,14 @@ def test_revision_identity_includes_geometry_algorithm_version(monkeypatch) -> N
     )
     older = calibrate_recording(result)
     monkeypatch.setattr(
-        card_plane_calibration, "GEOMETRY_ALGORITHM_VERSION", "card-plane-geometry/v5"
+        card_plane_calibration, "GEOMETRY_ALGORITHM_VERSION", "card-plane-geometry/v6"
     )
     current = calibrate_recording(result)
 
     assert older.calibration is not None
     assert current.calibration is not None
     assert older.calibration.algorithm_version == "card-plane-geometry/v3"
-    assert current.calibration.algorithm_version == "card-plane-geometry/v5"
+    assert current.calibration.algorithm_version == "card-plane-geometry/v6"
     assert older.calibration.calibration_revision_id != current.calibration.calibration_revision_id
 
 

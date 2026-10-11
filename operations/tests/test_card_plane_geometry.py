@@ -160,7 +160,7 @@ def test_calibration_seed_version_changes_and_legacy_calibration_stays_readable(
 
     restored = TablePlaneCalibration.from_mapping(legacy.to_mapping())
 
-    assert GEOMETRY_ALGORITHM_VERSION == "card-plane-geometry/v5"
+    assert GEOMETRY_ALGORITHM_VERSION == "card-plane-geometry/v6"
     assert restored == legacy
 
 
@@ -203,11 +203,11 @@ def test_virtual_card_long_side_is_extended_symmetrically_after_fitting() -> Non
     fitted = card_quad_from_pose((2.0, 3.0), 17.0, 1.0, 1.5)
     virtual = card_quad_from_pose((2.0, 3.0), 17.0, 1.0, virtual_card_long_size(1.0))
 
-    assert virtual_card_long_size(1.0) == pytest.approx(9.09 / 5.93)
+    assert virtual_card_long_size(1.0) == pytest.approx(91.0 / 59.0)
     assert np.allclose(np.mean(virtual, axis=0), np.mean(fitted, axis=0))
-    assert np.linalg.norm(virtual[3] - virtual[0]) == pytest.approx(9.09 / 5.93)
+    assert np.linalg.norm(virtual[3] - virtual[0]) == pytest.approx(91.0 / 59.0)
     assert np.linalg.norm(fitted[3] - fitted[0]) == pytest.approx(1.5)
-    extension = (9.09 / 5.93 - 1.5) / 2
+    extension = (91.0 / 59.0 - 1.5) / 2
     assert np.linalg.norm(virtual[0] - fitted[0]) == pytest.approx(extension)
     assert np.linalg.norm(virtual[3] - fitted[3]) == pytest.approx(extension)
 

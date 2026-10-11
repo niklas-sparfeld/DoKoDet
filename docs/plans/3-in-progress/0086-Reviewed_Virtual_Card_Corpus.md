@@ -16,8 +16,8 @@
 - **M0:** Complete (2026-10-11) — inventory all accepted recordings, reconcile frozen partitions,
   exclude protected sources, and select the `IMG_0095` pilot.
 - **M1:** Complete (2026-10-11) — generate current proposals for all 53 `IMG_0095` event frames.
-- **M2:** In progress — pilot review is ready for the operator; geometry and identity decisions
-  remain pending.
+- **M2:** In progress — refresh the pilot proposals with the corrected 59 mm by 91 mm geometry
+  before operator review; geometry and identity decisions remain pending.
 - **M3:** Not started — refresh remaining proposals in resumable recording batches.
 - **M4:** Not started — complete geometry review for the selected corpus.
 - **M5:** Not started — complete identity review and publish campaign readiness.
@@ -55,8 +55,9 @@ covered an earlier 30-recording list; it is not the current corpus inventory.
 Twelve recordings had card-scene drafts with 583 scene frames. Of those frames, 117 were marked
 complete, and 1,685 card states remained pending. Only `game-2026-08-20-01-001` had a selected
 completed reference with card scenes, covering 49 frames. Draft scenes included 327 v1, 205 v3,
-and 51 v4 fitting recipes. Current fitting uses `fixed-card-pose-grid-search/v4` and the measured
-card dimensions in `card-plane-geometry/v5`. These counts are an inspection snapshot, not a freeze.
+and 51 v4 fitting recipes. Current fitting uses `fixed-card-pose-grid-search/v5` and the corrected
+59 mm by 91 mm dimensions in `card-plane-geometry/v6`. These counts are an inspection snapshot,
+not a freeze.
 
 Audit every accepted recording. Select all eligible development recordings for proposal and
 review work, and name every deferred or excluded recording with its reason. Separate task
@@ -119,6 +120,8 @@ cover interrupted execution and refreshing a draft with accepted and adjusted ca
 
 - See [pilot proposal report](../../reports/0086-M1_Pilot_Proposal_Generation.md) for the exact
   detector, calibration, proposal, frame, and source lineage.
+- The pilot output in this report uses the previous 9.09 cm by 5.93 cm dimensions. Refresh it with
+  the current v5 pose recipe and v6 geometry before starting M2 operator review.
 - Reused the selected `IMG_0095` event revision and the completed local RF-DETR result from the
   current 0068 bundle. The new `fixed-card-pose-grid-search/v4` proposals use
   `card-plane-geometry/v5`.

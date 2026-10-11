@@ -1120,7 +1120,7 @@ def test_proposal_seed_keeps_immutable_scene_and_supports_card_decisions(
     assert item.item["card_scene"]["projection"]["table_to_image_homography"]
     assert item.item["card_scene"]["projection"]["card_short_size"] == 20.0
     assert item.item["card_scene"]["projection"]["card_long_size"] == pytest.approx(
-        20.0 * 9.09 / 5.93
+        20.0 * 91.0 / 59.0
     )
 
     with pytest.raises(PipelineReferenceCoverageError):
