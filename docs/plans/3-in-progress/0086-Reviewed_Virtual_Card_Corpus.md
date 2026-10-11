@@ -15,7 +15,7 @@
 
 - **M0:** Complete (2026-10-11) — inventory all accepted recordings, reconcile frozen partitions,
   exclude protected sources, and select the `IMG_0095` pilot.
-- **M1:** Not started — generate current proposals for one bounded pilot.
+- **M1:** Complete (2026-10-11) — generate current proposals for all 53 `IMG_0095` event frames.
 - **M2:** Not started — complete human geometry and identity review for the pilot.
 - **M3:** Not started — refresh remaining proposals in resumable recording batches.
 - **M4:** Not started — complete geometry review for the selected corpus.
@@ -113,6 +113,23 @@ to resume the pilot and preserve corrected items.
 Acceptance: every pilot frame has an inspectable current proposal or an exact failure receipt;
 unchanged completed inputs are reused; source bytes and human corrections remain intact; fixtures
 cover interrupted execution and refreshing a draft with accepted and adjusted cards.
+
+### M1 implementation evidence — 2026-10-11
+
+- See [pilot proposal report](../../reports/0086-M1_Pilot_Proposal_Generation.md) for the exact
+  detector, calibration, proposal, frame, and source lineage.
+- Reused the selected `IMG_0095` event revision and the completed local RF-DETR result from the
+  current 0068 bundle. The new `fixed-card-pose-grid-search/v4` proposals use
+  `card-plane-geometry/v5`.
+- All 53 frames have supported proposals. The processor run and proposal revision are stored in
+  the existing pipeline stores. The prior v4 calibration and maintained visible-card draft remain
+  intact.
+- A first run found that the v5 calibration reused the v4 revision ID. Calibration revision IDs
+  now include the geometry algorithm version. A regression test covers this collision. The
+  calibration reflow fixture also checks accepted and adjusted card states, and the backend test
+  covers interrupted proposal-run recovery.
+- Focused checks passed: 52 operations tests, three backend proposed-scene pipeline tests, Ruff,
+  and formatting. No review mutation or training started.
 
 ### M2 — Complete the pilot review
 

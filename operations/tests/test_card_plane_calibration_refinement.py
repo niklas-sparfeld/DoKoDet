@@ -431,9 +431,9 @@ def test_reflow_refits_reviewed_scene_under_new_calibration() -> None:
                 card_id=card_id,
                 source="proposal",
                 proposal_id=initial.proposal_id,
-                state="accepted",
+                state="accepted" if index == 0 else "adjusted",
             )
-            for card_id in scene_ids
+            for index, card_id in enumerate(scene_ids)
         ),
         completion=FrameReviewCompletion.create(state="complete", unresolved_card_ids=()),
         proposal_revision_id="proposal-old",
@@ -485,3 +485,6 @@ def test_reflow_refits_reviewed_scene_under_new_calibration() -> None:
     assert reflowed.draft.reviewed is not None
     assert reflowed.draft.reviewed.scene["calibration_revision_id"] == "calibration-target"
     assert reflowed.draft.completion.state == "complete"
+    assert [state.state for state in reflowed.draft.card_states] == [
+        "accepted" if index == 0 else "adjusted" for index in range(len(scene_ids))
+    ]

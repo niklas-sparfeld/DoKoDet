@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import doko_operations.card_plane_calibration as card_plane_calibration
 from doko_operations.card_plane_calibration import (
     CALIBRATION_RUN_SCHEMA_V2,
     CalibrationFailure,
@@ -123,6 +124,40 @@ def test_calibration_is_repeatable_and_validates_held_out_candidates() -> None:
     assert first.calibration.card_long_size == pytest.approx(CARD_ASPECT_RATIO, abs=1e-6)
     assert first.calibration_fit_candidate is not None
     assert first.to_mapping()["schema_version"] == "card-plane-calibration-run/v3"
+
+
+def test_revision_identity_includes_geometry_algorithm_version(monkeypatch) -> None:
+    result = _recording_result(
+        positions=[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (8.0, 0.0),
+            (0.0, 3.0),
+            (4.0, 3.0),
+            (8.0, 3.0),
+            (0.0, 6.0),
+            (4.0, 6.0),
+            (8.0, 6.0),
+            (2.0, 1.5),
+            (6.0, 4.5),
+            (10.0, 7.0),
+        ]
+    )
+
+    monkeypatch.setattr(
+        card_plane_calibration, "GEOMETRY_ALGORITHM_VERSION", "card-plane-geometry/v3"
+    )
+    older = calibrate_recording(result)
+    monkeypatch.setattr(
+        card_plane_calibration, "GEOMETRY_ALGORITHM_VERSION", "card-plane-geometry/v5"
+    )
+    current = calibrate_recording(result)
+
+    assert older.calibration is not None
+    assert current.calibration is not None
+    assert older.calibration.algorithm_version == "card-plane-geometry/v3"
+    assert current.calibration.algorithm_version == "card-plane-geometry/v5"
+    assert older.calibration.calibration_revision_id != current.calibration.calibration_revision_id
 
 
 def test_detector_only_fit_publishes_without_independent_size_reference(tmp_path: Path) -> None:

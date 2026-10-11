@@ -2217,6 +2217,7 @@ def calibrate_recording(
             {
                 "recording_id": recording_id,
                 "source_revision": source_revision,
+                "geometry_algorithm_version": GEOMETRY_ALGORITHM_VERSION,
                 "recipe_digest": selected_recipe.digest,
                 "candidate_receipt_digests": accepted_receipt_digests,
                 "size_reference_input_digest": size_reference_input_digest,
@@ -2237,6 +2238,7 @@ def calibrate_recording(
             card_long_size=fit["card_long_size"],
             candidate_receipt_digests=accepted_receipt_digests,
             diagnostics=diagnostics,
+            algorithm_version=GEOMETRY_ALGORITHM_VERSION,
         )
     except CardPlaneGeometryError as error:
         diagnostics["calibration_error"] = str(error)
