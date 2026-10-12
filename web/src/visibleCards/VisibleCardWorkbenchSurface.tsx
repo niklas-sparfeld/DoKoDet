@@ -247,12 +247,14 @@ export function WorkbenchSurface({
     );
   }
   const viewBox = cameraViewBox(width, height, viewport);
+  const viewportAspectWidth =
+    viewport.zoom > 1 && height > width ? width * viewport.zoom : width;
   return (
     <div
       className={styles.workbenchCameraViewport}
       style={
         {
-          "--workbench-frame-aspect-ratio": `${width} / ${height}`,
+          "--workbench-frame-aspect-ratio": `${viewportAspectWidth} / ${height}`,
         } as CSSProperties
       }
     >

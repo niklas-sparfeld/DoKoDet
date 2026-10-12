@@ -285,6 +285,17 @@ export function cameraViewBox(
   viewport: { zoom: number; pan: { x: number; y: number } },
 ): { x: number; y: number; width: number; height: number } {
   const zoom = Math.max(viewport.zoom, 0.01);
+  if (zoom > 1 && frameHeight > frameWidth) {
+    const width = frameWidth;
+    const height = frameHeight / zoom;
+    const centerY = frameHeight / 2 + viewport.pan.y;
+    return {
+      x: 0,
+      y: clampToRange(centerY - height / 2, 0, frameHeight - height),
+      width,
+      height,
+    };
+  }
   const width = frameWidth / zoom;
   const height = frameHeight / zoom;
   const centerX = frameWidth / 2 + viewport.pan.x;
