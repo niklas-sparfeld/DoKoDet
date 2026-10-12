@@ -51,7 +51,7 @@ function scene(): PoseSceneEnvelope {
       uncertain_edges: [],
       contradictions: [],
     },
-    derivation_recipe_version: "card-plane-derived-regions/v1",
+    derivation_recipe_version: "card-plane-derived-regions/v2",
     scene_digest: DIGEST,
   });
   return {
@@ -71,6 +71,8 @@ function scene(): PoseSceneEnvelope {
 }
 
 describe("PoseBasedVisibleCardScene", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it("matches the backend scene digest after editing to whole table coordinates", async () => {
     const current = scene();
     current.scene.poses[0].center = [3, 4];
@@ -79,7 +81,54 @@ describe("PoseBasedVisibleCardScene", () => {
     await expect(withSceneDigest(current)).resolves.toMatchObject({
       scene: {
         scene_digest:
-          "0f349da65c5e9eccb3b18dd95e865d331d9ed4543b83c9efbc417134bca32a2b",
+          "f4ace6ceaf5c1f4bff9ffb8933b09f2fbb60c2fb02270dcf145dbf3a236ca1e2",
+      },
+    });
+  });
+
+  it.each([
+    {
+      center: [1.0000015, -1.0513245] as [number, number],
+      savedCenter: [1.000001, -1.051324],
+      digest:
+        "466d7d783884395f48424f75fcb217f9599ee09fbf856274b1ff4ce2d9a14aff",
+    },
+    {
+      center: [-0, -0.0000001] as [number, number],
+      savedCenter: [0, 0],
+      digest:
+        "1a4771d514fce5bf75be42c89c97d6d208ace3b57c1d8a11582ed72739e8deb7",
+    },
+    {
+      center: [-0.5716315047217848, -0.24967960764142283] as [number, number],
+      savedCenter: [-0.571632, -0.24968],
+      digest:
+        "726292adbc3cf47377860bc2f637acf25b7da21f11b50bffc9ad89481ba38e37",
+    },
+  ])(
+    "hashes the saved pose values with the backend digest: $center",
+    async ({ center, savedCenter, digest }) => {
+      const current = scene();
+      current.scene.poses[0].center = center;
+      const saved = await withSceneDigest(current);
+      expect(saved.scene.poses[0].center).toEqual(savedCenter);
+      // Expected digests come from ReviewedCardScene.create in the backend.
+      expect(saved.scene.scene_digest).toBe(digest);
+      expect(JSON.parse(JSON.stringify(saved)).scene.poses[0].center).toEqual(
+        savedCenter,
+      );
+      expect(current.scene.poses[0].center).toEqual(center);
+    },
+  );
+
+  it("hashes scene edits when Web Crypto is unavailable on an HTTP origin", async () => {
+    vi.stubGlobal("crypto", {});
+    const current = scene();
+    current.scene.poses[0].center = [3, 4];
+    await expect(withSceneDigest(current)).resolves.toMatchObject({
+      scene: {
+        scene_digest:
+          "f4ace6ceaf5c1f4bff9ffb8933b09f2fbb60c2fb02270dcf145dbf3a236ca1e2",
       },
     });
   });
@@ -180,6 +229,7 @@ describe("PoseBasedVisibleCardScene", () => {
   });
 
   it("adds the canonical digest required by calibration refinement updates", async () => {
+    vi.stubGlobal("crypto", {});
     const command = createCalibrationAnchorCommand({
       command_id: "anchor-command-frame-1-1",
       sequence: 1,

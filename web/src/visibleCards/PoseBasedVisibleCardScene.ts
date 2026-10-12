@@ -1,3 +1,5 @@
+import { sha256 } from "@noble/hashes/sha2.js";
+
 export const REVIEWED_CARD_SCENE_EDITOR_SCHEMA =
   "reviewed-card-scene-editor/v1" as const;
 export const REVIEWED_CARD_SCENE_SCHEMA = "reviewed-card-scene/v1" as const;
@@ -175,7 +177,7 @@ export async function withCalibrationAnchorCommandDigest(
     corners: command.corners?.map(roundPoint) ?? null,
   };
   const bytes = new TextEncoder().encode(canonicalAnchorCommandStringify(core));
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = sha256(bytes);
   const hex = Array.from(new Uint8Array(digest), (value) =>
     value.toString(16).padStart(2, "0"),
   ).join("");
@@ -443,11 +445,18 @@ export async function withSceneDigest(
   envelope: PoseSceneEnvelope,
 ): Promise<PoseSceneEnvelope> {
   const scene = cloneScene(envelope.scene);
+  // Hash the same six-decimal values that we send. JSON loses negative zero,
+  // and the backend otherwise rounds the unrounded payload independently.
+  scene.poses = scene.poses.map((pose) => ({
+    ...pose,
+    center: roundPoint(pose.center),
+    rotation_degrees: Number(pose.rotation_degrees.toFixed(6)) || 0,
+  }));
   const core = Object.fromEntries(
     Object.entries(scene).filter(([key]) => key !== "scene_digest"),
   );
   const bytes = new TextEncoder().encode(stableStringifySceneCore(core));
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = sha256(bytes);
   const hex = Array.from(new Uint8Array(digest), (value) =>
     value.toString(16).padStart(2, "0"),
   ).join("");
@@ -672,7 +681,7 @@ function invertHomography(homography: number[][]): number[][] | null {
 }
 
 function roundPoint(point: TablePoint): TablePoint {
-  return [Number(point[0].toFixed(6)), Number(point[1].toFixed(6))];
+  return [Number(point[0].toFixed(6)) || 0, Number(point[1].toFixed(6)) || 0];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -695,7 +704,7 @@ function stableStringify(value: unknown): string {
 function stableStringifySceneCore(value: unknown, floatValue = false): string {
   if (typeof value === "string") return stringifyAscii(value);
   if (typeof value === "number") {
-    const normalized = floatValue ? roundSceneFloat(value) : value;
+    const normalized = value;
     if (floatValue && Object.is(normalized, -0)) return "-0.0";
     if (floatValue && Number.isInteger(normalized)) {
       return `${JSON.stringify(normalized)}.0`;
@@ -721,22 +730,8 @@ function stableStringifySceneCore(value: unknown, floatValue = false): string {
   return `{${entries.join(",")}}`;
 }
 
-function roundSceneFloat(value: number): number {
-  const scale = 1_000_000;
-  const scaled = Math.abs(value) * scale;
-  const lower = Math.floor(scaled);
-  const fraction = scaled - lower;
-  const rounded =
-    fraction < 0.5
-      ? lower
-      : fraction > 0.5 || lower % 2 !== 0
-        ? lower + 1
-        : lower;
-  return Math.sign(value) * (rounded / scale);
-}
-
 function stringifyAscii(value: string): string {
-  return JSON.stringify(value).replace(/[^\u0000-\u007f]/g, (character) =>
+  return JSON.stringify(value).replace(/[\u0080-\uffff]/g, (character) =>
     Array.from(
       character,
       (unit) => `\\u${unit.charCodeAt(0).toString(16).padStart(4, "0")}`,
