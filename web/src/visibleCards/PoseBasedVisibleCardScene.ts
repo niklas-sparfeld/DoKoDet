@@ -376,6 +376,10 @@ export function applyPoseSceneAction(
     scene.stacking_order.card_ids = scene.stacking_order.card_ids.filter(
       (cardId) => cardId !== action.cardId,
     );
+    scene.stacking_order.uncertain_edges =
+      scene.stacking_order.uncertain_edges.filter(
+        (edge) => !edge.includes(action.cardId),
+      );
   }
   return {
     ...envelope,

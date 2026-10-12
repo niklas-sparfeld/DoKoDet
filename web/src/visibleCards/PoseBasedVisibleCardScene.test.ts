@@ -208,6 +208,31 @@ describe("PoseBasedVisibleCardScene", () => {
     ).toEqual(oneCard);
   });
 
+  it("removes stacking uncertainty for a deleted card and preserves other edges", async () => {
+    const current = applyPoseSceneAction(scene(), {
+      type: "add",
+      cardId: "card-c",
+      center: [4, 0],
+    });
+    current.scene.stacking_order.uncertain_edges = [
+      ["card-a", "card-b"],
+      ["card-c", "card-a"],
+      ["card-b", "card-c"],
+    ];
+    const removed = await withSceneDigest(
+      applyPoseSceneAction(current, { type: "remove", cardId: "card-a" }),
+    );
+    expect(removed.scene.stacking_order.uncertain_edges).toEqual([
+      ["card-b", "card-c"],
+    ]);
+    expect(current.scene.stacking_order.uncertain_edges).toHaveLength(3);
+    expect(removed.scene.stacking_order.card_ids).toEqual(["card-b", "card-c"]);
+    expect(removed.scene.poses.map((pose) => pose.card_id)).toEqual([
+      "card-b",
+      "card-c",
+    ]);
+  });
+
   it("moves only the selected anchor corner without a geometric constraint", () => {
     const corners: [
       [number, number],
