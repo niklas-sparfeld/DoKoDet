@@ -1095,9 +1095,15 @@ def build_rfdetr_segmentation_manifest(
             "pixel_ownership": "reviewed-card-pixels-priority-v1",
             "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
         }
-    probe = dict(api_probe) if api_probe is not None else probe_rfdetr_segmentation_api()
+    probe = (
+        dict(api_probe)
+        if api_probe is not None
+        else {"status": "not_required", "gaps": []}
+        if include_piles
+        else probe_rfdetr_segmentation_api()
+    )
     gaps: list[str] = []
-    if recipe["pretrained_checkpoint"]["sha256"] is None:
+    if not include_piles and recipe["pretrained_checkpoint"]["sha256"] is None:
         gaps.append("pretrained RF-DETR segmentation checkpoint is missing or unreadable")
     holdout, held_out, holdout_gaps = _holdout_groups(repository, operations, holdout_registry_path)
     gaps.extend(holdout_gaps)
@@ -1374,16 +1380,19 @@ def validate_rfdetr_segmentation_manifest(raw: Mapping[str, Any]) -> None:
         raise RfdetrSegmentationCampaignError("api_probe.gaps must be a list")
     if data["freeze_state"] == "frozen":
         checkpoint = _mapping(recipe["pretrained_checkpoint"], "recipe.pretrained_checkpoint")
-        if (
+        if not is_pile_manifest and (
             not isinstance(checkpoint.get("sha256"), str)
             or _SHA256.fullmatch(checkpoint["sha256"]) is None
         ):
             raise RfdetrSegmentationCampaignError(
                 "frozen M0 manifest must pin a pretrained checkpoint digest"
             )
-        if probe.get("status") != "available" or probe.get("gaps"):
+        allowed_probe_statuses = (
+            {"available", "not_required"} if is_pile_manifest else {"available"}
+        )
+        if probe.get("status") not in allowed_probe_statuses or probe.get("gaps"):
             raise RfdetrSegmentationCampaignError(
-                "frozen M0 manifest must pass the RF-DETR segmentation API probe"
+                "frozen manifest has an invalid RF-DETR API probe state"
             )
     for field in (
         "recordings",

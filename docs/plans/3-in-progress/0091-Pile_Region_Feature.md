@@ -245,7 +245,8 @@ Added `--include-piles` to `doko data rfdetr-segmentation`. This writes a separa
 with category IDs 1=`visible_card` and 2=`card_pile`. The audit accepts only human-maintained v2
 outcomes with an explicit `pile_regions` field and matching frame coverage. Legacy card-only
 outcomes remain visible as pile-review gaps and cannot become two-class negatives. Reviewed empty
-frames remain background samples. Unusable frames remain in the exclusion receipt.
+frames remain background samples. Unusable frames remain in the exclusion receipt. This export
+does not require a checkpoint or an RF-DETR trainer probe; those are M3 or campaign inputs.
 
 Pile polygons use pixel-center even-odd rasterization. The exporter removes the union of reviewed
 individual-card pixels from each pile mask, rejects intersecting pile masks and empty effective

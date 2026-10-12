@@ -526,13 +526,9 @@ def test_m2_materializes_pile_targets_as_a_separate_rle_category(
         empty_recording=campaign.VALIDATION_RECORDING_IDS[0],
         pile_only_recording=campaign.TRAIN_RECORDING_IDS[1],
     )
-    checkpoint = tmp_path / "checkpoint.pt"
-    checkpoint.write_bytes(b"fixture checkpoint")
     manifest = campaign.build_rfdetr_segmentation_manifest(
         corpus,
-        pretrained_checkpoint=checkpoint,
         verify_source_bytes=True,
-        api_probe=_available_api(),
         include_piles=True,
     )
     assert manifest["schema_version"] == campaign.RFDETR_PILE_SEGMENTATION_MANIFEST_SCHEMA_VERSION
@@ -542,6 +538,7 @@ def test_m2_materializes_pile_targets_as_a_separate_rle_category(
     assert manifest["inventory"]["pile_target_count"] == 2
     assert manifest["inventory"]["target_count"] == 9
     assert manifest["inventory"]["pile_review_gap_count"] == 0
+    assert manifest["api_probe"]["status"] == "not_required"
     assert any(not sample["targets"] and sample["pile_targets"] for sample in manifest["samples"])
     assert any(sample.get("sample_decision") == "reviewed_empty" for sample in manifest["samples"])
     manifest_path = tmp_path / "data/operations/rfdetr-pile-m2-manifest.json"
