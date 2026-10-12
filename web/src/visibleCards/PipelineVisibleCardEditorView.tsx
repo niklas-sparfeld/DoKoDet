@@ -1349,7 +1349,10 @@ export function PipelineVisibleCardEditorView({
       }
       const activePolygon =
         currentEditor.polygons[currentEditor.polygonIndex] ?? [];
-      if (currentEditor.cardId !== null && activePolygon.length >= 3) {
+      if (
+        (currentEditor.cardId !== null || currentEditor.regionId !== null) &&
+        activePolygon.length >= 3
+      ) {
         setEditor((current) => {
           if (current === null) return current;
           const polygons = current.polygons.map((polygon) => [...polygon]);

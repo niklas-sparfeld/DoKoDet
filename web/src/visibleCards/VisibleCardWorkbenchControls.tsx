@@ -1203,7 +1203,7 @@ function PileRegionSelectionActions({
       action: "convert_ignore_region_to_pile" as const,
     },
     {
-      label: "Copy piles from previous frame",
+      label: "Copy pile regions from earlier frames",
       symbol: "⧉",
       disabled: readOnly || !canCopyPiles,
       reason: "Review an earlier frame with pile regions first.",

@@ -239,6 +239,27 @@ describe("visible-card workbench controls", () => {
     expect(callbacks.onAction).toHaveBeenCalledWith("copy_ignore_regions");
   });
 
+  it("keeps copying pile regions available while another tool is active", async () => {
+    const callbacks = selectionCallbacks();
+    const user = userEvent.setup();
+    render(
+      <WorkbenchTimelineSelectionActions
+        viewModel={selectionViewModel({
+          activeTool: "virtual_cards",
+          canCopyPiles: true,
+        })}
+        callbacks={callbacks}
+      />,
+    );
+
+    const copyButton = screen.getByRole("button", {
+      name: "Copy pile regions from earlier frames Click",
+    });
+    expect(copyButton).toBeEnabled();
+    await user.click(copyButton);
+    expect(callbacks.onAction).toHaveBeenCalledWith("copy_piles");
+  });
+
   it("does not render the removed mapping instruction label", () => {
     render(
       <WorkbenchTimelineSelectionActions

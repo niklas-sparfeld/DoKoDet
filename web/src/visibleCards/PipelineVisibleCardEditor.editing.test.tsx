@@ -228,7 +228,9 @@ describe("PipelineVisibleCardEditor", () => {
       ),
     );
 
-    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 80 });
+    // A point on the top edge belongs between its endpoints, not at the end
+    // of the polygon point list.
+    fireEvent.pointerDown(canvas, { clientX: 50, clientY: 10 });
     fireEvent.pointerUp(canvas);
     await waitFor(() => expect(putCount).toBe(2));
 
@@ -248,9 +250,9 @@ describe("PipelineVisibleCardEditor", () => {
           polygons: [
             [
               { x: 100, y: 100 },
+              { x: 500, y: 100 },
               { x: 800, y: 100 },
               { x: 800, y: 800 },
-              { x: 100, y: 800 },
             ],
           ],
         },

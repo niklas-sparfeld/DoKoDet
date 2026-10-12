@@ -91,6 +91,107 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
     });
   });
 
+  it("inserts a new pile point on the nearest edge", async () => {
+    const value = reference();
+    const item = value.draft.items[0]!.item as Record<string, unknown>;
+    item.pile_detection_status = "supported";
+    item.pile_regions = [
+      {
+        pile_id: "pile-1",
+        geometry: {
+          kind: "pile-region/v1",
+          polygons: [
+            [
+              { x: 100, y: 100 },
+              { x: 900, y: 100 },
+              { x: 900, y: 800 },
+            ],
+          ],
+        },
+        normalization: {
+          width: FRAME_IDENTITY.width,
+          height: FRAME_IDENTITY.height,
+          policy_id: "full-frame-0-1000/v1",
+        },
+        source_candidates: [],
+        grouped_candidates: [],
+        grouped_card_states: [],
+        grouped_scene_decision: null,
+        origin: "model_prediction",
+        confidence: 0.87,
+        model_lineage: {
+          provider: "local-rfdetr-segmentation",
+          bundle_identity: { bundle_digest: "a".repeat(64) },
+        },
+      },
+    ];
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
+      Promise.resolve(jsonResponse(value)),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("img", { name: /visible-card proposal/ });
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Select pile region pile-1" }));
+    const canvas = screen.getByRole("img", { name: /pile region/ });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    fireEvent.pointerDown(canvas, { clientX: 50, clientY: 10 });
+    fireEvent.pointerUp(canvas);
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const body = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(body.operations[0]).toMatchObject({
+      operation: "replace_pile_region",
+      region_id: "pile-1",
+      region: {
+        geometry: {
+          polygons: [
+            [
+              { x: 100, y: 100 },
+              { x: 500, y: 100 },
+              { x: 900, y: 100 },
+              { x: 900, y: 800 },
+            ],
+          ],
+        },
+      },
+    });
+  });
+
   it("groups only explicitly selected card proposals into a pile", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse(referenceWithTwoCandidates())),
