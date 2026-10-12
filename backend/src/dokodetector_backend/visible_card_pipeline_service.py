@@ -44,6 +44,7 @@ from table_evidence_analyzer.pipeline_data import (
     VisibleCardFrameIdentity,
     VisibleCardModelScore,
     VisibleCardOutcome,
+    VisibleCardPileRegion,
     canonical_visible_card_data_bytes,
 )
 from table_evidence_analyzer.visible_cards import ProviderResult, VisibleCardRequest
@@ -501,11 +502,38 @@ class VisibleCardPipelineService:
             self._candidate(run, event.event_id, frame, index, proposal, result)
             for index, proposal in enumerate(result.proposals)
         )
+        pile_regions = tuple(
+            VisibleCardPileRegion(
+                pile_id=f"{_safe(run.run_id)}-{_safe(event.event_id)}-pile-{index:04d}",
+                polygons=(
+                    tuple(
+                        (point.x, point.y)
+                        for point in proposal.polygon
+                    ),
+                ),
+                normalization={
+                    "width": frame.width,
+                    "height": frame.height,
+                    "policy_id": "full-frame-0-1000/v1",
+                },
+                origin="model_prediction",
+                confidence=proposal.confidence,
+                model_lineage=proposal.model_lineage,
+            )
+            for index, proposal in enumerate(result.pile_proposals)
+        )
         return VisibleCardOutcome(
             event_id=event.event_id,
             frame_identity=frame_identity,
-            status="detected" if candidates else "empty",
+            status="detected" if candidates or pile_regions else "empty",
             candidates=candidates,
+            pile_regions=pile_regions,
+            pile_detection_status=(
+                "supported"
+                if isinstance(result.raw_response, Mapping)
+                and result.raw_response.get("pile_detection_supported") is True
+                else "unsupported"
+            ),
             error=None,
         )
 

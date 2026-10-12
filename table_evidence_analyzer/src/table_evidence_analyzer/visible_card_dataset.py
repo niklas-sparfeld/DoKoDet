@@ -284,6 +284,7 @@ def _result_from_payload(
                 for field in (
                     "status",
                     "prediction",
+                    "pile_predictions",
                     "usage",
                     "latency_ms",
                     "retry_count",
@@ -291,6 +292,7 @@ def _result_from_payload(
                     "error",
                     "raw_response",
                 )
+                if field in validated
             }
         )
         if request["schema_version"] == IMPROVED_REQUEST_SCHEMA_VERSION:
@@ -307,6 +309,7 @@ def _result_from_payload(
         "prediction_schema_version",
         "status",
         "prediction",
+        "pile_predictions",
         "usage",
         "latency_ms",
         "retry_count",
@@ -315,7 +318,10 @@ def _result_from_payload(
         "raw_response",
         "provider",
     }
-    if set(payload) != expected:
+    if set(payload) not in {
+        frozenset(expected),
+        frozenset(expected - {"pile_predictions"}),
+    }:
         raise VisibleCardDatasetError("visible-card cache has unexpected fields")
     if payload["prediction_schema_version"] != PREDICTION_SCHEMA_VERSION:
         raise VisibleCardDatasetError("unsupported visible-card prediction schema")
@@ -328,6 +334,7 @@ def _result_from_payload(
             for field in (
                 "status",
                 "prediction",
+                "pile_predictions",
                 "usage",
                 "latency_ms",
                 "retry_count",
@@ -335,6 +342,7 @@ def _result_from_payload(
                 "error",
                 "raw_response",
             )
+            if field in payload
         }
     )
     if request["schema_version"] == IMPROVED_REQUEST_SCHEMA_VERSION:

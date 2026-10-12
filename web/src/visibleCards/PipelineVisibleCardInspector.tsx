@@ -812,6 +812,14 @@ function VisibleCardInspectorSelection({
             <dt>Pile-region count</dt>
             <dd>{selectedFrame.outcome.pile_regions?.length ?? 0}</dd>
           </div>
+          <div>
+            <dt>Pile detection</dt>
+            <dd>
+              {selectedFrame.outcome.pile_detection_status === "supported"
+                ? "Supported by provider"
+                : "Provider does not detect piles"}
+            </dd>
+          </div>
         </dl>
       ) : null}
       {view === "reviewed" && reference !== null && !referenceNeedsSeed ? (

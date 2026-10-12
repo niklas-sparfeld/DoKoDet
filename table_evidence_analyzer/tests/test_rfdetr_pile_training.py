@@ -3,9 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from PIL import Image
 
+import table_evidence_analyzer.rfdetr_segmentation_training as segmentation_training
 from table_evidence_analyzer.rfdetr_segmentation_training import (
     RFDETR_PILE_CLASS_MAP,
     RFDETR_PILE_MASK_POLICY,
@@ -14,6 +16,10 @@ from table_evidence_analyzer.rfdetr_segmentation_training import (
     load_rfdetr_segmentation_bundle,
     run_rfdetr_segmentation_campaign_training,
     run_rfdetr_segmentation_training,
+)
+from table_evidence_analyzer.visible_cards import (
+    LocalVisibleCardSegmentationProvider,
+    VisibleCardRequest,
 )
 
 
@@ -179,3 +185,52 @@ def test_two_class_campaign_fixture_preserves_category_contract(tmp_path: Path) 
     bundle = load_rfdetr_segmentation_bundle(record["bundle"]["path"])
     assert bundle.manifest["class_map"] == RFDETR_PILE_CLASS_MAP
     assert bundle.manifest["mask_policy"] == RFDETR_PILE_MASK_POLICY
+
+
+def test_segmentation_provider_keeps_pile_predictions_separate(tmp_path: Path, monkeypatch) -> None:
+    bundle = SimpleNamespace(
+        manifest={
+            "schema_version": "rfdetr-segmentation-bundle/v1",
+            "bundle_digest": "a" * 64,
+            "checkpoint_sha256": "b" * 64,
+            "run_id": "fixture-run",
+        }
+    )
+    monkeypatch.setattr(
+        segmentation_training, "load_rfdetr_segmentation_bundle", lambda _path: bundle
+    )
+
+    class Detector:
+        def predict(self, *_args, **_kwargs):
+            return SimpleNamespace(
+                xyxy=[[10, 10, 30, 30], [5, 5, 50, 50], [6, 6, 49, 49]],
+                confidence=[0.91, 0.87, 0.75],
+                class_id=[0, 1, 1],
+                mask=None,
+            )
+
+    image_path = tmp_path / "frame.png"
+    Image.new("RGB", (64, 64), (10, 20, 30)).save(image_path)
+    request = VisibleCardRequest(
+        package_id="fixture",
+        frame_part_name="frame-1",
+        target_offset_ms=0,
+        image_bytes=image_path.read_bytes(),
+        width=64,
+        height=64,
+        provider="local-rfdetr-segmentation",
+    )
+    provider = LocalVisibleCardSegmentationProvider("fixture-bundle", detector=Detector())
+    result = provider.propose(request)
+
+    assert result.status == "ok"
+    assert len(result.proposals) == 1
+    assert len(result.pile_proposals) == 1
+    assert result.pile_proposals[0].confidence == 0.87
+    assert result.raw_response["pile_detection_supported"] is True
+    assert any(
+        item["geometry_source"] == "duplicate_pile_prediction"
+        for item in result.raw_response["skipped_detections"]
+    )
+    round_trip = type(result).from_mapping(result.to_mapping())
+    assert round_trip.pile_proposals == result.pile_proposals

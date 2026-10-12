@@ -27,7 +27,12 @@ from doko_operations.pipeline_data import (
 )
 from fastapi.testclient import TestClient
 from PIL import Image
-from table_evidence_analyzer.visible_cards import ProviderResult, normalize_prediction
+from table_evidence_analyzer.visible_cards import (
+    NormalizedPoint,
+    ProviderResult,
+    VisibleCardPileProposal,
+    normalize_prediction,
+)
 
 from dokodetector_backend.config import Settings
 
@@ -202,6 +207,37 @@ class _Detector:
 class _GeminiDetector(_Detector):
     name = "gemini"
     version = "gemini-visible-cards-v1"
+
+
+class _PileDetector(_Detector):
+    name = "local-rfdetr-segmentation"
+    version = "local-rfdetr-segmentation-v1"
+
+    def propose(self, request: object) -> ProviderResult:
+        result = super().propose(request)
+        package_id = request.package_id  # type: ignore[attr-defined]
+        if result.status != "ok" or not package_id.endswith("event-000000"):
+            return result
+        return ProviderResult(
+            status="ok",
+            proposals=result.proposals,
+            pile_proposals=(
+                VisibleCardPileProposal(
+                    polygon=(
+                        NormalizedPoint(150, 150),
+                        NormalizedPoint(850, 150),
+                        NormalizedPoint(850, 850),
+                        NormalizedPoint(150, 850),
+                    ),
+                    confidence=0.87,
+                    model_lineage={
+                        "provider": self.name,
+                        "bundle_identity": {"bundle_digest": "a" * 64},
+                    },
+                ),
+            ),
+            raw_response={"pile_detection_supported": True},
+        )
 
 
 def _run_blocking_visible_detection(
@@ -423,7 +459,7 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
     app = create_test_app(
         _settings(tmp_path),
         event_provider=_EventProvider(),
-        visible_card_provider=_Detector(),
+        visible_card_provider=_PileDetector(),
         visible_card_frame_resolver=_FrameResolver(),
     )
 
@@ -487,13 +523,20 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             ]
         ]
         assert generated_content["outcomes"][0]["candidates"][0]["side"] == "unknown"
+        assert generated_content["outcomes"][0]["pile_detection_status"] == "supported"
+        pile = generated_content["outcomes"][0]["pile_regions"][0]
+        assert pile["origin"] == "model_prediction"
+        assert pile["confidence"] == 0.87
+        assert pile["model_lineage"]["bundle_identity"]["bundle_digest"] == "a" * 64
+        assert pile["geometry"]["polygons"][0][0] == {"x": 150, "y": 150}
+        assert generated_content["outcomes"][1]["pile_detection_status"] == "unsupported"
         assert generated_content["outcomes"][2]["error"] == "fixture detector failed"
         assert generated_content["outcomes"][2]["frame_identity"] is not None
         assert generated_content["outcomes"][3]["frame_identity"] is None
         generated_card_id = generated_content["outcomes"][0]["candidates"][0]["card_id"]
         assert generated_result["request"]["configuration"]["detector"] == {
-            "name": "fixture-detector",
-            "version": "fixture-detector/v1",
+            "name": "local-rfdetr-segmentation",
+            "version": "local-rfdetr-segmentation-v1",
         }
 
         manual_revision_id = _manual_event_revision(

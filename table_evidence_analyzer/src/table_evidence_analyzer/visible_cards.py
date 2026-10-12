@@ -586,11 +586,30 @@ class ProviderUsage:
 
 
 @dataclass(frozen=True, slots=True)
+class VisibleCardPileProposal:
+    """A coarse pile prediction kept separate from individual-card proposals."""
+
+    polygon: tuple[NormalizedPoint, ...]
+    confidence: float
+    model_lineage: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        if len(self.polygon) < 3:
+            raise VisibleCardError("pile proposal polygons need at least three points.")
+        _require_finite_non_negative(self.confidence, "pile proposal confidence")
+        if self.confidence > 1:
+            raise VisibleCardError("pile proposal confidence must be in [0, 1].")
+        if not isinstance(self.model_lineage, dict) or not self.model_lineage:
+            raise VisibleCardError("pile proposal model lineage must be a non-empty object.")
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderResult:
     """One successful or explicitly unavailable provider result."""
 
     status: Literal["ok", "unavailable"]
     proposals: tuple[VisibleCardProposal, ...] = ()
+    pile_proposals: tuple[VisibleCardPileProposal, ...] = ()
     raw_response: dict[str, Any] | None = None
     usage: ProviderUsage = ProviderUsage()
     latency_ms: float = 0.0
@@ -613,7 +632,7 @@ class ProviderResult:
         _require_finite_non_negative(self.estimated_cost_usd, "estimated_cost_usd")
         if not isinstance(self.cache_hit, bool):
             raise VisibleCardError("cache_hit must be a boolean.")
-        if self.status == "unavailable" and self.proposals:
+        if self.status == "unavailable" and (self.proposals or self.pile_proposals):
             raise VisibleCardError("unavailable results must not contain proposals.")
 
     @property
@@ -624,6 +643,14 @@ class ProviderResult:
         result: dict[str, Any] = {
             "status": self.status,
             "prediction": self.prediction.to_mapping(),
+            "pile_predictions": [
+                {
+                    "polygon": [point.to_mapping() for point in proposal.polygon],
+                    "confidence": proposal.confidence,
+                    "model_lineage": proposal.model_lineage,
+                }
+                for proposal in self.pile_proposals
+            ],
             "usage": self.usage.to_mapping(),
             "latency_ms": self.latency_ms,
             "retry_count": self.retry_count,
@@ -641,6 +668,7 @@ class ProviderResult:
         expected = {
             "status",
             "prediction",
+            "pile_predictions",
             "usage",
             "latency_ms",
             "retry_count",
@@ -648,9 +676,36 @@ class ProviderResult:
             "error",
             "raw_response",
         }
-        if set(value) != expected:
+        if set(value) not in {frozenset(expected), frozenset(expected - {"pile_predictions"})}:
             raise VisibleCardError("provider result has unexpected fields.")
         prediction = normalize_prediction(value["prediction"])
+        raw_piles = value.get("pile_predictions", [])
+        if not isinstance(raw_piles, list):
+            raise VisibleCardError("provider pile_predictions must be a list.")
+        parsed_piles: list[VisibleCardPileProposal] = []
+        for index, item in enumerate(raw_piles):
+            if not isinstance(item, dict) or set(item) != {
+                "polygon",
+                "confidence",
+                "model_lineage",
+            }:
+                raise VisibleCardError(f"provider pile_predictions[{index}] is invalid.")
+            raw_polygon = item["polygon"]
+            if not isinstance(raw_polygon, list):
+                raise VisibleCardError(f"provider pile_predictions[{index}].polygon is invalid.")
+            polygon: list[NormalizedPoint] = []
+            for point in raw_polygon:
+                if not isinstance(point, dict) or set(point) != {"x", "y"}:
+                    raise VisibleCardError("pile prediction point is invalid.")
+                polygon.append(NormalizedPoint(x=point["x"], y=point["y"]))
+            parsed_piles.append(
+                VisibleCardPileProposal(
+                    polygon=tuple(polygon),
+                    confidence=item["confidence"],
+                    model_lineage=item["model_lineage"],
+                )
+            )
+        pile_proposals = tuple(parsed_piles)
         usage_value = value["usage"]
         if not isinstance(usage_value, dict) or set(usage_value) != {
             "input_tokens",
@@ -661,6 +716,7 @@ class ProviderResult:
         return cls(
             status=value["status"],
             proposals=prediction.cards,
+            pile_proposals=pile_proposals,
             raw_response=value["raw_response"],
             usage=ProviderUsage(**usage_value),
             latency_ms=value["latency_ms"],
@@ -1144,12 +1200,17 @@ def _normalised_polygon_from_mask(
 
 def _local_bundle_identity(bundle: Any) -> dict[str, Any]:
     manifest = bundle.manifest
-    return {
+    identity = {
         "schema_version": manifest["schema_version"],
         "bundle_digest": manifest["bundle_digest"],
         "checkpoint_sha256": manifest["checkpoint_sha256"],
         "run_id": manifest.get("run_id"),
     }
+    if "class_map" in manifest:
+        identity["class_map"] = manifest["class_map"]
+    if "mask_policy" in manifest:
+        identity["mask_policy"] = manifest["mask_policy"]
+    return identity
 
 
 def _normalised_box_from_pixels(
@@ -1284,6 +1345,8 @@ class LocalVisibleCardProvider:
             if mask_rows is not None and len(mask_rows) != len(boxes):
                 raise VisibleCardError("detector output mask field has a different length")
             proposals: list[VisibleCardProposal] = []
+            pile_proposals: list[VisibleCardPileProposal] = []
+            pile_boxes: list[list[float]] = []
             output_detections: list[dict[str, Any]] = []
             skipped_detections: list[dict[str, Any]] = []
             for detection_index, (coordinates, raw_score, raw_class_id) in enumerate(
@@ -1327,6 +1390,28 @@ class LocalVisibleCardProvider:
                         continue
                     box = _tight_box_for_polygon(polygon)
                     geometry_source = "segmentation_mask"
+                if class_id == 1 and isinstance(self, LocalVisibleCardSegmentationProvider):
+                    duplicate_of = next(
+                        (
+                            previous_index
+                            for previous_index, previous in enumerate(pile_boxes)
+                            if _box_iou_xyxy(pixel_box, previous) >= 0.9
+                        ),
+                        None,
+                    )
+                    if duplicate_of is not None:
+                        skipped_detections.append(
+                            {
+                                "class_id": class_id,
+                                "score": score,
+                                "box_xyxy": pixel_box,
+                                "geometry_source": "duplicate_pile_prediction",
+                                "duplicate_of": duplicate_of,
+                                **mask_diagnostics,
+                            }
+                        )
+                        continue
+                    pile_boxes.append(pixel_box)
                 output_detections.append(
                     {
                         "class_id": class_id,
@@ -1337,6 +1422,25 @@ class LocalVisibleCardProvider:
                         **mask_diagnostics,
                     }
                 )
+                if class_id == 1 and isinstance(self, LocalVisibleCardSegmentationProvider):
+                    pile_proposals.append(
+                        VisibleCardPileProposal(
+                            polygon=polygon,
+                            confidence=score,
+                            model_lineage={
+                                "provider": self.name,
+                                "provider_version": self.version,
+                                "bundle_identity": self.bundle_identity,
+                                "class_id": class_id,
+                                "class_name": "card_pile",
+                            },
+                        )
+                    )
+                    continue
+                if class_id != 0:
+                    raise VisibleCardError(
+                        f"detector returned a pile class from a card-only provider: {class_id}"
+                    )
                 proposals.append(
                     VisibleCardProposal(
                         box_2d=box,
@@ -1350,6 +1454,7 @@ class LocalVisibleCardProvider:
         return ProviderResult(
             status="ok",
             proposals=tuple(proposals),
+            pile_proposals=tuple(pile_proposals),
             raw_response={
                 "provider": self.name,
                 "version": self.version,
@@ -1357,6 +1462,7 @@ class LocalVisibleCardProvider:
                 "bundle_identity": self.bundle_identity,
                 "load_latency_ms": self.load_latency_ms,
                 "confidence_threshold": self.confidence_threshold,
+                "pile_detection_supported": isinstance(self, LocalVisibleCardSegmentationProvider),
                 "detector_scores": [detection["score"] for detection in output_detections],
                 "detections": output_detections,
                 "skipped_detections": skipped_detections,
@@ -1494,6 +1600,7 @@ class CachedVisibleCardProvider:
                 "prediction_schema_version",
                 "status",
                 "prediction",
+                "pile_predictions",
                 "usage",
                 "latency_ms",
                 "retry_count",
@@ -1502,7 +1609,10 @@ class CachedVisibleCardProvider:
                 "raw_response",
                 "provider",
             }
-            if set(value) != expected_fields:
+            if set(value) not in {
+                frozenset(expected_fields),
+                frozenset(expected_fields - {"pile_predictions"}),
+            }:
                 return None
             if value.get("schema_version") != CACHE_SCHEMA_VERSION:
                 return None
@@ -1523,6 +1633,7 @@ class CachedVisibleCardProvider:
                     for key in (
                         "status",
                         "prediction",
+                        "pile_predictions",
                         "usage",
                         "latency_ms",
                         "retry_count",
@@ -1530,6 +1641,7 @@ class CachedVisibleCardProvider:
                         "error",
                         "raw_response",
                     )
+                    if key in value
                 }
             )
             if request.request_version == IMPROVED_REQUEST_SCHEMA_VERSION:
@@ -1921,6 +2033,18 @@ def _image_size(width: int, height: int) -> tuple[int, int]:
     return width, height
 
 
+def _box_iou_xyxy(left: list[float], right: list[float]) -> float:
+    x_min = max(left[0], right[0])
+    y_min = max(left[1], right[1])
+    x_max = min(left[2], right[2])
+    y_max = min(left[3], right[3])
+    intersection = max(0.0, x_max - x_min) * max(0.0, y_max - y_min)
+    left_area = max(0.0, left[2] - left[0]) * max(0.0, left[3] - left[1])
+    right_area = max(0.0, right[2] - right[0]) * max(0.0, right[3] - right[1])
+    union = left_area + right_area - intersection
+    return 0.0 if union <= 0 else intersection / union
+
+
 def build_request_from_image(
     image_path: str | Path,
     *,
@@ -2021,6 +2145,7 @@ def load_run_artifact(path: str | Path) -> dict[str, Any]:
     result_fields = {
         "status",
         "prediction",
+        "pile_predictions",
         "usage",
         "latency_ms",
         "retry_count",
@@ -2038,7 +2163,10 @@ def load_run_artifact(path: str | Path) -> dict[str, Any]:
         "overlay",
         *result_fields,
     }
-    if set(value) != expected_fields:
+    if set(value) not in {
+        frozenset(expected_fields),
+        frozenset(expected_fields - {"pile_predictions"}),
+    }:
         raise VisibleCardError("visible-card run has unexpected fields.")
     if value["schema_version"] != RUN_SCHEMA_VERSION:
         raise VisibleCardError("unsupported visible-card run schema version.")
@@ -2156,6 +2284,7 @@ __all__ = [
     "VisibleCardError",
     "VisibleCardPrediction",
     "VisibleCardProposal",
+    "VisibleCardPileProposal",
     "VisibleCardProvider",
     "VisibleCardRequest",
     "VisibleCardReviewItem",

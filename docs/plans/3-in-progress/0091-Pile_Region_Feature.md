@@ -21,7 +21,8 @@
   COCO views with card-priority pixel ownership, pile RLE masks, and lineage receipts.
 - **M3:** Complete — the pinned trainer, class-aware evaluator, and digest-checked bundle contract
   support both visible cards and piles.
-- **M4:** Not started — retain pile predictions across providers, proposals, and review.
+- **M4:** Complete — retain pile predictions through two-class inference, durable outcomes, and
+  the proposal editor, with explicit provider capability and model lineage.
 - **M5:** Not started — exclude piles from identity work and preserve them in table observations.
 - **M6:** Not started — preserve pile evidence in reconstruction input and inspection.
 - **M7:** Not started — verify the complete local flow and publish the capability handoff.
@@ -324,6 +325,31 @@ providers must not count as reviewed pile negatives.
 Acceptance: fixture logits for both classes survive inference, normalization, storage, reload,
 proposal refresh, and UI rendering; mismatched bundles fail; reviewed pile corrections survive
 reruns; pile IDs do not appear in pose or calibration work. No default provider change.
+
+#### M4 implementation evidence — 2026-10-12
+
+The local segmentation provider validates the M3 bundle before loading the model and maps its
+class-0 outputs to individual-card proposals and class-1 outputs to separate pile proposals. It
+retains confidence, full-frame normalized geometry, provider version, bundle/checkpoint identity,
+and the frozen class map and mask policy in pile lineage. Duplicate pile boxes with IoU at least
+0.9 are suppressed in detector order; card and pile outputs are never suppressed against each
+other, including when they touch or overlap. Fine-frame crop routing
+remains card-only; pile geometry is produced on the full frame and is not transformed through a
+card crop. Existing card-only providers persist `pile_detection_status=unsupported`, so an empty
+pile list is not a reviewed negative.
+
+Pipeline outcomes store pile polygons in the existing full-frame 0–1000 coordinate contract,
+with origin, confidence, bundle lineage, and capability status. The result API and editor reader
+preserve those fields; the existing pile layer renders the generated geometry while keeping it
+separate from individual-card candidates. Generated revisions remain separate from maintained
+references, so reruns do not replace reviewed pile corrections. No default provider was changed.
+
+Validation: focused Python tests passed across provider serialization and pipeline-data
+contracts; 23 backend visible-card pipeline and provider-integration tests passed; the pile editor
+suite passed (3 tests), Web TypeScript checks passed, and API types were regenerated. Ruff checks
+passed. Fixtures verified two-class inference separation, durable pile lineage and capability,
+round-trip parsing, API publication, and overlay/editor compatibility. No real two-class model
+quality claim was made.
 
 ### M5 — Isolate identity work and assemble pile evidence
 

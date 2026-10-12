@@ -213,6 +213,7 @@ class VisibleCardTeacherLineage:
         expected_result_fields = {
             "status",
             "prediction",
+            "pile_predictions",
             "usage",
             "latency_ms",
             "retry_count",
@@ -220,7 +221,10 @@ class VisibleCardTeacherLineage:
             "error",
             "raw_response",
         }
-        if set(self.result) != expected_result_fields:
+        if set(self.result) not in {
+            frozenset(expected_result_fields),
+            frozenset(expected_result_fields - {"pile_predictions"}),
+        }:
             raise VisibleCardReviewWorkflowError("teacher result has unexpected fields")
         try:
             normalized = ProviderResult.from_mapping(self.result).prediction.to_mapping()
@@ -611,6 +615,7 @@ def _teacher_from_artifact(
             for field in (
                 "status",
                 "prediction",
+                "pile_predictions",
                 "usage",
                 "latency_ms",
                 "retry_count",
@@ -618,6 +623,7 @@ def _teacher_from_artifact(
                 "error",
                 "raw_response",
             )
+            if field in artifact
         }
     except KeyError as error:
         raise VisibleCardReviewWorkflowError(

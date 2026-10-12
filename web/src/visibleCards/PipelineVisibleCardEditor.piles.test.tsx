@@ -164,6 +164,7 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
       const value = reference(state);
       const item = value.draft.items[0]!.item as Record<string, unknown>;
       item.candidates = [];
+      item.pile_detection_status = "supported";
       item.pile_regions = [
         {
           pile_id: "pile-1",
@@ -186,6 +187,12 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
           grouped_candidates: [],
           grouped_card_states: [],
           grouped_scene_decision: null,
+          origin: "model_prediction",
+          confidence: 0.87,
+          model_lineage: {
+            provider: "local-rfdetr-segmentation",
+            bundle_identity: { bundle_digest: "a".repeat(64) },
+          },
         },
       ];
       return value;
@@ -207,6 +214,12 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
         view="reviewed"
       />,
     );
+    expect(
+      await screen.findByText("Supported by provider"),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-pile-id="pile-1"]'),
+    ).toBeInTheDocument();
     const user = userEvent.setup();
     await user.type(
       await screen.findByRole("textbox", { name: "Operator ID" }),

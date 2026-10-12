@@ -173,6 +173,9 @@ class PipelineVisibleCardPileRegionResponse(ContractModel):
     grouped_candidates: list[dict[str, Any]]
     grouped_card_states: list[dict[str, Any]]
     grouped_scene_decision: Literal["accepted", "adjusted", "manual"] | None
+    origin: Literal["reviewed", "model_prediction"] = "reviewed"
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    model_lineage: dict[str, Any] | None = None
 
 
 class PipelineVisibleCardCandidateResponse(ContractModel):
@@ -194,6 +197,7 @@ class PipelineVisibleCardOutcomeResponse(ContractModel):
     candidates: list[PipelineVisibleCardCandidateResponse]
     ignored_regions: list[PipelineVisibleCardIgnoreRegionResponse]
     pile_regions: list[PipelineVisibleCardPileRegionResponse] | None = None
+    pile_detection_status: Literal["supported", "unsupported"] = "unsupported"
     card_scene: dict[str, Any] | None = None
     error: str | None
 

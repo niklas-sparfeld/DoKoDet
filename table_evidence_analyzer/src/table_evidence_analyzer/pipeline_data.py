@@ -561,6 +561,9 @@ class VisibleCardPileRegion:
     grouped_candidates: tuple[dict[str, Any], ...] = ()
     grouped_card_states: tuple[dict[str, Any], ...] = ()
     grouped_scene_decision: str | None = None
+    origin: Literal["reviewed", "model_prediction"] = "reviewed"
+    confidence: float | None = None
+    model_lineage: dict[str, Any] | None = None
 
     @classmethod
     def from_mapping(
@@ -574,6 +577,9 @@ class VisibleCardPileRegion:
             expected.add("grouped_card_states")
         if "grouped_scene_decision" in data:
             expected.add("grouped_scene_decision")
+        for field_name in ("origin", "confidence", "model_lineage"):
+            if field_name in data:
+                expected.add(field_name)
         _strict(data, expected, context)
         geometry = _mapping(data["geometry"], f"{context}.geometry")
         _strict(geometry, {"kind", "polygons"}, f"{context}.geometry")
@@ -649,6 +655,22 @@ class VisibleCardPileRegion:
         scene_decision = data.get("grouped_scene_decision")
         if scene_decision not in {None, "accepted", "adjusted", "manual"}:
             raise PipelineDataError(f"{context}.grouped_scene_decision is unsupported")
+        origin = data.get("origin", "reviewed")
+        if origin not in {"reviewed", "model_prediction"}:
+            raise PipelineDataError(f"{context}.origin is unsupported")
+        confidence = data.get("confidence")
+        if confidence is not None and (
+            isinstance(confidence, bool)
+            or not isinstance(confidence, (int, float))
+            or not math.isfinite(confidence)
+            or not 0 <= confidence <= 1
+        ):
+            raise PipelineDataError(f"{context}.confidence must be finite in [0, 1]")
+        model_lineage = data.get("model_lineage")
+        if model_lineage is not None:
+            if not isinstance(model_lineage, dict):
+                raise PipelineDataError(f"{context}.model_lineage must be an object")
+            _validate_json(model_lineage, f"{context}.model_lineage")
         return cls(
             pile_id=_identifier(data["pile_id"], f"{context}.pile_id"),
             polygons=parsed.polygons,
@@ -657,10 +679,13 @@ class VisibleCardPileRegion:
             grouped_candidates=tuple(grouped),
             grouped_card_states=tuple(grouped_states),
             grouped_scene_decision=scene_decision,
+            origin=origin,
+            confidence=confidence,
+            model_lineage=model_lineage,
         )
 
     def to_mapping(self) -> dict[str, Any]:
-        return {
+        value = {
             "pile_id": self.pile_id,
             "geometry": {
                 "kind": PILE_REGION_GEOMETRY_KIND,
@@ -672,6 +697,13 @@ class VisibleCardPileRegion:
             "grouped_card_states": list(self.grouped_card_states),
             "grouped_scene_decision": self.grouped_scene_decision,
         }
+        if self.origin != "reviewed":
+            value["origin"] = self.origin
+        if self.confidence is not None:
+            value["confidence"] = self.confidence
+        if self.model_lineage is not None:
+            value["model_lineage"] = self.model_lineage
+        return value
 
 
 PipelineGeometry = (
@@ -1313,6 +1345,7 @@ class VisibleCardOutcome:
     error: str | None = None
     ignored_regions: tuple[VisibleCardIgnoreRegion, ...] = ()
     pile_regions: tuple[VisibleCardPileRegion, ...] = ()
+    pile_detection_status: Literal["supported", "unsupported"] = "unsupported"
     card_scene: CardSceneDraft | dict[str, Any] | None = None
 
     @classmethod
@@ -1328,6 +1361,8 @@ class VisibleCardOutcome:
         }
         if "pile_regions" in data:
             expected.add("pile_regions")
+        if "pile_detection_status" in data:
+            expected.add("pile_detection_status")
         _strict(data, expected | {"card_scene"} if "card_scene" in data else expected, context)
         status = data["status"]
         if status not in {"detected", "empty", "failed"}:
@@ -1369,6 +1404,9 @@ class VisibleCardOutcome:
             raise PipelineDataError(
                 f"{context}.pile_ids must be distinct from card and ignore-region IDs"
             )
+        pile_detection_status = data.get("pile_detection_status", "unsupported")
+        if pile_detection_status not in {"supported", "unsupported"}:
+            raise PipelineDataError(f"{context}.pile_detection_status is unsupported")
         frame = (
             None
             if data["frame_identity"] is None
@@ -1428,10 +1466,16 @@ class VisibleCardOutcome:
             error=error,
             ignored_regions=ignored_regions,
             pile_regions=pile_regions,
+            pile_detection_status=pile_detection_status,
             card_scene=card_scene,
         )
 
-    def to_mapping(self, *, include_pile_regions: bool = True) -> dict[str, Any]:
+    def to_mapping(
+        self,
+        *,
+        include_pile_regions: bool = True,
+        include_pile_detection_status: bool = True,
+    ) -> dict[str, Any]:
         value = {
             "event_id": self.event_id,
             "frame_identity": None
@@ -1444,6 +1488,8 @@ class VisibleCardOutcome:
         }
         if include_pile_regions:
             value["pile_regions"] = [region.to_mapping() for region in self.pile_regions]
+        if include_pile_detection_status:
+            value["pile_detection_status"] = self.pile_detection_status
         if self.card_scene is not None:
             value["card_scene"] = (
                 self.card_scene.to_mapping()
@@ -1489,7 +1535,11 @@ class VisibleCardData:
             return {
                 "schema_version": LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION,
                 "outcomes": [
-                    outcome.to_mapping(include_pile_regions=False) for outcome in self.outcomes
+                    outcome.to_mapping(
+                        include_pile_regions=False,
+                        include_pile_detection_status=False,
+                    )
+                    for outcome in self.outcomes
                 ],
             }
         return {

@@ -327,9 +327,10 @@ def _validated_pilot_frame(
         image_digests.add(image_sha256)
         request_digests[version] = request_key
         result_record = version_record["result"]
-        if not isinstance(result_record, dict) or set(result_record) != {
+        expected_result_fields = {
             "status",
             "prediction",
+            "pile_predictions",
             "usage",
             "latency_ms",
             "retry_count",
@@ -337,6 +338,10 @@ def _validated_pilot_frame(
             "error",
             "raw_response",
             "result_sha256",
+        }
+        if not isinstance(result_record, dict) or set(result_record) not in {
+            frozenset(expected_result_fields),
+            frozenset(expected_result_fields - {"pile_predictions"}),
         }:
             raise VisibleCardPromptPilotError(f"prompt pilot {version} result is invalid")
         result_sha256 = _digest_mapping(result_record["result_sha256"], f"{version} result_sha256")

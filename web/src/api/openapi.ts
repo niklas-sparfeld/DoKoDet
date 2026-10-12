@@ -1992,6 +1992,12 @@ export interface components {
             } | null;
             /** Ignored Regions */
             ignored_regions: components["schemas"]["PipelineVisibleCardIgnoreRegionResponse"][];
+            /**
+             * Pile Detection Status
+             * @default unsupported
+             * @enum {string}
+             */
+            pile_detection_status: "supported" | "unsupported";
             /** Pile Regions */
             pile_regions?: components["schemas"]["PipelineVisibleCardPileRegionResponse"][] | null;
             /**
@@ -2018,6 +2024,8 @@ export interface components {
          * @description One reviewed pile region and its proposal-grouping lineage.
          */
         PipelineVisibleCardPileRegionResponse: {
+            /** Confidence */
+            confidence?: number | null;
             geometry: components["schemas"]["PipelineVisibleCardPileGeometryResponse"];
             /** Grouped Candidates */
             grouped_candidates: {
@@ -2029,10 +2037,20 @@ export interface components {
             }[];
             /** Grouped Scene Decision */
             grouped_scene_decision: ("accepted" | "adjusted" | "manual") | null;
+            /** Model Lineage */
+            model_lineage?: {
+                [key: string]: unknown;
+            } | null;
             /** Normalization */
             normalization: {
                 [key: string]: unknown;
             };
+            /**
+             * Origin
+             * @default reviewed
+             * @enum {string}
+             */
+            origin: "reviewed" | "model_prediction";
             /** Pile Id */
             pile_id: string;
             /** Source Candidates */

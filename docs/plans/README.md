@@ -71,7 +71,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0091 — Pile-region feature](3-in-progress/0091-Pile_Region_Feature.md) | 0048, 0049, 0065, 0073, 0074, and 0085 complete; staged gates in the epic | M0–M3 complete: durable v2 annotation, reversible operator workflow, deterministic two-class COCO export, pinned two-class trainer/evaluator, and digest-checked class/mask-map bundles. M4–M7 remain for inference, identity isolation, observation and engine preservation, and complete local verification. Real training and quality gates stay in 0087. |
+| [0091 — Pile-region feature](3-in-progress/0091-Pile_Region_Feature.md) | 0048, 0049, 0065, 0073, 0074, and 0085 complete; staged gates in the epic | M0–M4 complete: durable annotation and reversible workflow, deterministic two-class export/training support, and pile predictions preserved through inference, API publication, and review UI. M5–M7 remain for identity isolation, observation and engine preservation, and complete local verification. Real training and quality gates stay in 0087. |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers; pile review uses 0091 M0–M1 | M0 reconciles 52 accepted recordings and selects the 0095 pilot. M1 generates current proposals for all 53 pilot frames. M2 awaits operator review; M3–M5 not started. Continue individual-card review and use one region per accumulated pile after 0091 M1. |
 
 ### Blocked

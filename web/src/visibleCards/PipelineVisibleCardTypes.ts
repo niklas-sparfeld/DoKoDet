@@ -68,6 +68,9 @@ export type PileRegion = {
   grouped_candidates: Candidate[];
   grouped_card_states: Array<Record<string, unknown>>;
   grouped_scene_decision: "accepted" | "adjusted" | "manual" | null;
+  origin?: "reviewed" | "model_prediction";
+  confidence?: number;
+  model_lineage?: Record<string, unknown>;
 };
 
 export type Outcome = {
@@ -77,6 +80,7 @@ export type Outcome = {
   candidates: Candidate[];
   ignored_regions: IgnoreRegion[];
   pile_regions?: PileRegion[];
+  pile_detection_status?: "supported" | "unsupported";
   card_scene?: PoseSceneEnvelope;
   error: string | null;
 };

@@ -224,6 +224,7 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
                         for field in (
                             "status",
                             "prediction",
+                            "pile_predictions",
                             "usage",
                             "latency_ms",
                             "retry_count",
@@ -231,6 +232,7 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
                             "error",
                             "raw_response",
                         )
+                        if field in run
                     }
                 )
                 skipped_count += 1
@@ -329,8 +331,7 @@ def run_visible_card_batch(config: VisibleCardBatchConfig) -> dict[str, Any]:
         "estimated_cost_usd": round(total_cost, 10),
         "retry_count": total_retries,
         "identity_classifier": (
-            config.identity_classifier
-            or ("bundle" if config.identity_bundle is not None else None)
+            config.identity_classifier or ("bundle" if config.identity_bundle is not None else None)
         ),
         "observation_count": sum("observation" in result for result in results),
         "results": sorted(results, key=lambda result: result["package_id"]),

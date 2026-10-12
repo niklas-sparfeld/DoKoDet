@@ -84,12 +84,16 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
   const rawCandidates = value.candidates;
   const rawIgnoredRegions = value.ignored_regions;
   const rawPileRegions = value.pile_regions;
+  const pileDetectionStatus = value.pile_detection_status;
   if (
     typeof eventId !== "string" ||
     !["detected", "empty", "failed"].includes(String(status)) ||
     !Array.isArray(rawCandidates) ||
     (rawIgnoredRegions !== undefined && !Array.isArray(rawIgnoredRegions)) ||
-    (rawPileRegions !== undefined && !Array.isArray(rawPileRegions))
+    (rawPileRegions !== undefined && !Array.isArray(rawPileRegions)) ||
+    (pileDetectionStatus !== undefined &&
+      pileDetectionStatus !== "supported" &&
+      pileDetectionStatus !== "unsupported")
   )
     return null;
   const frame = rawFrame === null ? null : readFrameIdentity(rawFrame);
@@ -116,6 +120,8 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
     candidates,
     ignored_regions: ignoredRegions,
     pile_regions: pileRegions,
+    pile_detection_status:
+      pileDetectionStatus === "supported" ? "supported" : "unsupported",
     ...(cardScene === null ? {} : { card_scene: cardScene }),
     error: typeof value.error === "string" ? value.error : null,
   };
@@ -137,6 +143,15 @@ function readPileRegion(value: unknown): PileRegion | null {
     !Array.isArray(value.grouped_candidates) ||
     !Array.isArray(value.grouped_card_states) ||
     value.grouped_card_states.some((state) => !isRecord(state)) ||
+    (value.origin !== undefined &&
+      value.origin !== "reviewed" &&
+      value.origin !== "model_prediction") ||
+    (value.confidence !== undefined &&
+      (typeof value.confidence !== "number" ||
+        !Number.isFinite(value.confidence) ||
+        value.confidence < 0 ||
+        value.confidence > 1)) ||
+    (value.model_lineage !== undefined && !isRecord(value.model_lineage)) ||
     !(
       value.grouped_scene_decision === null ||
       ["accepted", "adjusted", "manual"].includes(
@@ -181,6 +196,15 @@ function readPileRegion(value: unknown): PileRegion | null {
     grouped_card_states: value.grouped_card_states,
     grouped_scene_decision:
       value.grouped_scene_decision as PileRegion["grouped_scene_decision"],
+    ...(value.origin === undefined
+      ? {}
+      : { origin: value.origin as PileRegion["origin"] }),
+    ...(value.confidence === undefined
+      ? {}
+      : { confidence: value.confidence as number }),
+    ...(value.model_lineage === undefined
+      ? {}
+      : { model_lineage: value.model_lineage }),
   };
 }
 
@@ -455,6 +479,13 @@ export function pileRegionMapping(region: PileRegion): Record<string, unknown> {
     grouped_candidates: region.grouped_candidates,
     grouped_card_states: region.grouped_card_states,
     grouped_scene_decision: region.grouped_scene_decision,
+    ...(region.origin === undefined ? {} : { origin: region.origin }),
+    ...(region.confidence === undefined
+      ? {}
+      : { confidence: region.confidence }),
+    ...(region.model_lineage === undefined
+      ? {}
+      : { model_lineage: region.model_lineage }),
   };
 }
 

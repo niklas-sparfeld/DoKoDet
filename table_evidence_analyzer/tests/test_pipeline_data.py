@@ -261,14 +261,24 @@ def test_visible_card_data_round_trips_pile_only_outcome_and_reads_v1() -> None:
                             "policy_id": "full-frame-0-1000/v1",
                         },
                         "source_candidates": [],
+                        "origin": "model_prediction",
+                        "confidence": 0.87,
+                        "model_lineage": {
+                            "provider": "local-rfdetr-segmentation",
+                            "bundle_identity": {"bundle_digest": "a" * 64},
+                        },
                     }
                 ],
+                "pile_detection_status": "supported",
                 "error": None,
             }
         ],
     }
     parsed = VisibleCardData.from_mapping(value)
     assert parsed.outcomes[0].pile_regions[0].pile_id == "pile-1"
+    assert parsed.outcomes[0].pile_regions[0].origin == "model_prediction"
+    assert parsed.outcomes[0].pile_regions[0].confidence == 0.87
+    assert parsed.outcomes[0].pile_detection_status == "supported"
     assert VisibleCardData.from_mapping(_content()).outcomes[0].pile_regions == ()
     assert b'"schema_version":"visible-card-data/v1"' in canonical_visible_card_data_bytes(
         _content()
