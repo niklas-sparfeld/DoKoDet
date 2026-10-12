@@ -60,12 +60,23 @@ export type IgnoreRegion = {
   source_candidates: IgnoreRegionSourceCandidate[];
 };
 
+export type PileRegion = {
+  pile_id: string;
+  geometry: { kind: "pile-region/v1"; polygons: Point[][] };
+  normalization: { width: number; height: number; policy_id: string };
+  source_candidates: IgnoreRegionSourceCandidate[];
+  grouped_candidates: Candidate[];
+  grouped_card_states: Array<Record<string, unknown>>;
+  grouped_scene_decision: "accepted" | "adjusted" | "manual" | null;
+};
+
 export type Outcome = {
   event_id: string;
   frame_identity: FrameIdentity | null;
   status: "detected" | "empty" | "failed";
   candidates: Candidate[];
   ignored_regions: IgnoreRegion[];
+  pile_regions?: PileRegion[];
   card_scene?: PoseSceneEnvelope;
   error: string | null;
 };
@@ -104,6 +115,8 @@ export type EditorState = {
   cardId: string | null;
   regionId: string | null;
   ignoreRegion: IgnoreRegion | null;
+  pileRegion?: PileRegion | null;
+  groupCandidateIds?: string[];
   polygons: Point[][];
   polygonIndex: number;
   selectedPointIndex: number | null;
@@ -117,5 +130,14 @@ export type PipelineVisibleCardRailItem = {
   proposalCount: number;
   ignoredRegionCount?: number;
   decision:
-    "cards" | "ignored" | "cards_and_ignored" | "empty" | "unusable" | null;
+    | "cards"
+    | "ignored"
+    | "cards_and_ignored"
+    | "piles"
+    | "cards_and_piles"
+    | "piles_and_ignored"
+    | "cards_piles_and_ignored"
+    | "empty"
+    | "unusable"
+    | null;
 };

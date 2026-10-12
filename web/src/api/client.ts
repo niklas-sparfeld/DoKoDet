@@ -182,6 +182,11 @@ export type PipelineReferenceOperation = {
     | "replace_ignore_region"
     | "delete_ignore_region"
     | "convert_to_ignore_region"
+    | "create_pile_region"
+    | "replace_pile_region"
+    | "delete_pile_region"
+    | "group_cards_into_pile"
+    | "convert_ignore_region_to_pile"
     | "accept_identity_suggestion"
     | "set_identity_unreviewed"
     | "set_identity_face_down"
@@ -219,7 +224,15 @@ export type PipelineReferenceCompletionRequest = {
           item_id?: string;
           frame_identity: Record<string, unknown> | null;
           decision:
-            "cards" | "ignored" | "cards_and_ignored" | "empty" | "unusable";
+            | "cards"
+            | "ignored"
+            | "cards_and_ignored"
+            | "piles"
+            | "cards_and_piles"
+            | "piles_and_ignored"
+            | "cards_piles_and_ignored"
+            | "empty"
+            | "unusable";
         }>;
       }
     | {

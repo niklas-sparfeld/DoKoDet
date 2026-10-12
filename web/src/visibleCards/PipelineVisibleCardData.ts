@@ -13,6 +13,7 @@ import type {
   IgnoreRegion,
   IgnoreRegionSourceCandidate,
   Outcome,
+  PileRegion,
   Point,
 } from "./PipelineVisibleCardTypes";
 import { validatePolygons } from "./PipelineVisibleCardGeometry";
@@ -82,11 +83,13 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
   const rawFrame = value.frame_identity;
   const rawCandidates = value.candidates;
   const rawIgnoredRegions = value.ignored_regions;
+  const rawPileRegions = value.pile_regions;
   if (
     typeof eventId !== "string" ||
     !["detected", "empty", "failed"].includes(String(status)) ||
     !Array.isArray(rawCandidates) ||
-    (rawIgnoredRegions !== undefined && !Array.isArray(rawIgnoredRegions))
+    (rawIgnoredRegions !== undefined && !Array.isArray(rawIgnoredRegions)) ||
+    (rawPileRegions !== undefined && !Array.isArray(rawPileRegions))
   )
     return null;
   const frame = rawFrame === null ? null : readFrameIdentity(rawFrame);
@@ -97,6 +100,14 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
   const ignoredRegions = (rawIgnoredRegions ?? [])
     .map(readIgnoreRegion)
     .filter((region): region is IgnoreRegion => region !== null);
+  const pileRegions = (rawPileRegions ?? [])
+    .map(readPileRegion)
+    .filter((region): region is PileRegion => region !== null);
+  if (
+    Array.isArray(rawPileRegions) &&
+    pileRegions.length !== rawPileRegions.length
+  )
+    return null;
   const cardScene = readPoseScene(value.card_scene);
   return {
     event_id: eventId,
@@ -104,8 +115,72 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
     status: status as Outcome["status"],
     candidates,
     ignored_regions: ignoredRegions,
+    pile_regions: pileRegions,
     ...(cardScene === null ? {} : { card_scene: cardScene }),
     error: typeof value.error === "string" ? value.error : null,
+  };
+}
+
+function readPileRegion(value: unknown): PileRegion | null {
+  if (!isRecord(value) || typeof value.pile_id !== "string") return null;
+  const geometry = value.geometry;
+  const normalization = value.normalization;
+  if (
+    !isRecord(geometry) ||
+    geometry.kind !== "pile-region/v1" ||
+    !Array.isArray(geometry.polygons) ||
+    !isRecord(normalization) ||
+    !isInteger(normalization.width) ||
+    !isInteger(normalization.height) ||
+    normalization.policy_id !== "full-frame-0-1000/v1" ||
+    !Array.isArray(value.source_candidates) ||
+    !Array.isArray(value.grouped_candidates) ||
+    !Array.isArray(value.grouped_card_states) ||
+    value.grouped_card_states.some((state) => !isRecord(state)) ||
+    !(
+      value.grouped_scene_decision === null ||
+      ["accepted", "adjusted", "manual"].includes(
+        String(value.grouped_scene_decision),
+      )
+    )
+  )
+    return null;
+  const polygons = geometry.polygons.map((polygon) =>
+    Array.isArray(polygon) &&
+    polygon.every(
+      (point) => isRecord(point) && isInteger(point.x) && isInteger(point.y),
+    )
+      ? (polygon as Point[])
+      : null,
+  );
+  if (
+    polygons.some((polygon) => polygon === null) ||
+    validatePolygons(polygons as Point[][]) !== null
+  )
+    return null;
+  const sources = value.source_candidates
+    .filter(isRecord)
+    .filter(
+      (source) =>
+        typeof source.revision_id === "string" &&
+        typeof source.card_id === "string",
+    ) as PileRegion["source_candidates"];
+  if (sources.length !== value.source_candidates.length) return null;
+  const groupedCandidates = value.grouped_candidates.map(readCandidate);
+  if (groupedCandidates.some((candidate) => candidate === null)) return null;
+  return {
+    pile_id: value.pile_id,
+    geometry: { kind: "pile-region/v1", polygons: polygons as Point[][] },
+    normalization: {
+      width: normalization.width,
+      height: normalization.height,
+      policy_id: normalization.policy_id,
+    },
+    source_candidates: sources,
+    grouped_candidates: groupedCandidates as Candidate[],
+    grouped_card_states: value.grouped_card_states,
+    grouped_scene_decision:
+      value.grouped_scene_decision as PileRegion["grouped_scene_decision"],
   };
 }
 
@@ -283,10 +358,21 @@ export function coverageEntries(
 
 export function frameDecision(
   frame: EditableFrame,
-): "cards" | "ignored" | "cards_and_ignored" | "empty" | "unusable" | null {
+):
+  | "cards"
+  | "ignored"
+  | "cards_and_ignored"
+  | "piles"
+  | "cards_and_piles"
+  | "piles_and_ignored"
+  | "cards_piles_and_ignored"
+  | "empty"
+  | "unusable"
+  | null {
   if (frame.outcome.status === "detected" && frame.reviewState === "accepted") {
     const hasCards = frame.outcome.candidates.length > 0;
     const hasIgnoredRegions = frame.outcome.ignored_regions.length > 0;
+    const hasPiles = (frame.outcome.pile_regions?.length ?? 0) > 0;
     const hasAcceptedScene =
       frame.outcome.card_scene?.completion_state === "complete" &&
       (frame.outcome.card_scene.scene.poses.length > 0 ||
@@ -294,8 +380,13 @@ export function frameDecision(
           (state) => state.state === "accepted" || state.state === "adjusted",
         ) ??
           false));
+    if ((hasCards || hasAcceptedScene) && hasPiles && hasIgnoredRegions)
+      return "cards_piles_and_ignored";
+    if ((hasCards || hasAcceptedScene) && hasPiles) return "cards_and_piles";
+    if (hasPiles && hasIgnoredRegions) return "piles_and_ignored";
     if ((hasCards || hasAcceptedScene) && hasIgnoredRegions)
       return "cards_and_ignored";
+    if (hasPiles) return "piles";
     if (hasCards || hasAcceptedScene) return "cards";
     if (hasIgnoredRegions) return "ignored";
   }
@@ -319,6 +410,52 @@ export function copiedIgnoreRegionId(
   index: number,
 ): string {
   return `ignore-${frame.itemId}-copied-${index + 1}`;
+}
+
+export function copiedPileRegionId(
+  frame: EditableFrame,
+  index: number,
+): string {
+  return `pile-${frame.itemId}-copied-${index + 1}`;
+}
+
+export function newPileRegion(
+  frame: EditableFrame,
+  pileId: string,
+): PileRegion {
+  const identity = frame.outcome.frame_identity;
+  return {
+    pile_id: pileId,
+    geometry: { kind: "pile-region/v1", polygons: [] },
+    normalization: {
+      width: identity?.width ?? 1,
+      height: identity?.height ?? 1,
+      policy_id: "full-frame-0-1000/v1",
+    },
+    source_candidates: [],
+    grouped_candidates: [],
+    grouped_card_states: [],
+    grouped_scene_decision: null,
+  };
+}
+
+export function pileRegionMapping(region: PileRegion): Record<string, unknown> {
+  return {
+    pile_id: region.pile_id,
+    geometry: {
+      kind: region.geometry.kind,
+      polygons: region.geometry.polygons.map((polygon) =>
+        polygon.map((point) => ({ ...point })),
+      ),
+    },
+    normalization: { ...region.normalization },
+    source_candidates: region.source_candidates.map((source) => ({
+      ...source,
+    })),
+    grouped_candidates: region.grouped_candidates,
+    grouped_card_states: region.grouped_card_states,
+    grouped_scene_decision: region.grouped_scene_decision,
+  };
 }
 
 export function newIgnoreRegion(

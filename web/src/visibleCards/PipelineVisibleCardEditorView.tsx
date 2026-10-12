@@ -19,9 +19,12 @@ import {
 import { usePipelineVisibleCardEditorController } from "./PipelineVisibleCardEditorController";
 import {
   copiedIgnoreRegionId,
+  copiedPileRegionId,
   frameCoverageKey,
   frameDecision,
   ignoreRegionMapping,
+  pileRegionMapping,
+  newPileRegion,
   newIgnoreRegion,
   nextManualCardId,
   nextManualRegionId,
@@ -74,6 +77,7 @@ import type {
   CalibrationRefinementResponse,
   EditableFrame,
   IgnoreRegion,
+  PileRegion,
   EditorState,
   Outcome,
   PipelineVisibleCardRailItem,
@@ -685,6 +689,39 @@ export function PipelineVisibleCardEditorView({
     [],
   );
 
+  const openPileRegionEditor = useCallback(
+    (
+      frame: EditableFrame,
+      region: PileRegion | null = null,
+      groupCandidateIds: string[] = [],
+    ) => {
+      if (frame.outcome.frame_identity === null) return;
+      const pile =
+        region ??
+        newPileRegion(
+          frame,
+          nextManualRegionId(frame).replace("ignore-", "pile-"),
+        );
+      setEditorError(null);
+      setSelectedCandidateIds([]);
+      setEditor({
+        frameItemId: frame.itemId,
+        cardId: null,
+        regionId: pile.pile_id,
+        ignoreRegion: null,
+        pileRegion: pile,
+        groupCandidateIds,
+        polygons:
+          region === null
+            ? [[]]
+            : pile.geometry.polygons.map((polygon) => [...polygon]),
+        polygonIndex: 0,
+        selectedPointIndex: null,
+      });
+    },
+    [],
+  );
+
   const saveEditor = useCallback(
     (closeEditor = true) => {
       const currentEditor = editorRef.current;
@@ -698,6 +735,73 @@ export function PipelineVisibleCardEditorView({
         return;
       }
       if (currentEditor.regionId !== null) {
+        if (currentEditor.pileRegion != null) {
+          const previous = currentEditor.pileRegion;
+          const nextRegion: PileRegion = {
+            ...previous,
+            geometry: {
+              kind: "pile-region/v1",
+              polygons: currentEditor.polygons.map((polygon) =>
+                polygon.map((point) => ({
+                  x: Math.round(point.x),
+                  y: Math.round(point.y),
+                })),
+              ),
+            },
+          };
+          const exists = (frame.outcome.pile_regions ?? []).some(
+            (pile) => pile.pile_id === previous.pile_id,
+          );
+          enqueue(
+            {
+              operation: currentEditor.groupCandidateIds?.length
+                ? "group_cards_into_pile"
+                : exists
+                  ? "replace_pile_region"
+                  : "create_pile_region",
+              item_id: frame.itemId,
+              region_id: exists ? previous.pile_id : undefined,
+              region: pileRegionMapping(nextRegion),
+              candidate_ids: currentEditor.groupCandidateIds,
+            },
+            exists ? "Pile region geometry saved." : "Pile region created.",
+            (current) =>
+              current.map((candidate) =>
+                candidate.itemId !== frame.itemId
+                  ? candidate
+                  : {
+                      ...candidate,
+                      outcome: {
+                        ...candidate.outcome,
+                        status: "detected",
+                        candidates: (candidate.outcome.candidates ?? []).filter(
+                          (card) =>
+                            !currentEditor.groupCandidateIds?.includes(
+                              card.card_id,
+                            ),
+                        ),
+                        pile_regions: exists
+                          ? (candidate.outcome.pile_regions ?? []).map(
+                              (pile) =>
+                                pile.pile_id === nextRegion.pile_id
+                                  ? nextRegion
+                                  : pile,
+                            )
+                          : [
+                              ...(candidate.outcome.pile_regions ?? []),
+                              nextRegion,
+                            ],
+                        error: null,
+                      },
+                    },
+              ),
+          );
+          if (currentEditor.groupCandidateIds?.length)
+            setSelectedCandidateIds([]);
+          if (closeEditor) setEditor(null);
+          setEditorError(null);
+          return;
+        }
         const existingRegion = frame.outcome.ignored_regions.find(
           (region) => region.region_id === currentEditor.regionId,
         );
@@ -973,6 +1077,106 @@ export function PipelineVisibleCardEditorView({
       );
     },
     [endEditMode, enqueue],
+  );
+
+  const removePileRegion = useCallback(
+    (frame: EditableFrame, pileId: string) => {
+      endEditMode();
+      enqueue(
+        {
+          operation: "delete_pile_region",
+          item_id: frame.itemId,
+          region_id: pileId,
+        },
+        "Pile region deleted. Grouped card work was restored.",
+        (current) =>
+          current.map((candidate) => {
+            if (candidate.itemId !== frame.itemId) return candidate;
+            const pile = (candidate.outcome.pile_regions ?? []).find(
+              (item) => item.pile_id === pileId,
+            );
+            return {
+              ...candidate,
+              outcome: {
+                ...candidate.outcome,
+                pile_regions: (candidate.outcome.pile_regions ?? []).filter(
+                  (item) => item.pile_id !== pileId,
+                ),
+                candidates:
+                  pile === undefined
+                    ? candidate.outcome.candidates
+                    : [
+                        ...candidate.outcome.candidates,
+                        ...pile.grouped_candidates,
+                      ],
+              },
+            };
+          }),
+      );
+    },
+    [endEditMode, enqueue],
+  );
+
+  const copyPiles = useCallback(
+    (frame: EditableFrame, source: EditableFrame) => {
+      const sourcePiles = source.outcome.pile_regions ?? [];
+      if (sourcePiles.length === 0) return;
+      const copied = sourcePiles.map((pile, index): PileRegion => ({
+        ...pile,
+        pile_id: copiedPileRegionId(frame, index),
+        geometry: {
+          kind: "pile-region/v1",
+          polygons: pile.geometry.polygons.map((polygon) =>
+            polygon.map((point) => ({ ...point })),
+          ),
+        },
+        normalization: {
+          ...pile.normalization,
+          width:
+            frame.outcome.frame_identity?.width ?? pile.normalization.width,
+          height:
+            frame.outcome.frame_identity?.height ?? pile.normalization.height,
+        },
+        source_candidates: [],
+        grouped_candidates: [],
+        grouped_card_states: [],
+        grouped_scene_decision: null,
+      }));
+      const operations: PipelineReferenceOperation[] = [
+        { operation: "set_frame_unreviewed", item_id: frame.itemId },
+        ...(frame.outcome.pile_regions ?? []).map((pile) => ({
+          operation: "delete_pile_region" as const,
+          item_id: frame.itemId,
+          region_id: pile.pile_id,
+        })),
+        ...copied.map((pile) => ({
+          operation: "create_pile_region" as const,
+          item_id: frame.itemId,
+          region: pileRegionMapping(pile),
+        })),
+      ];
+      endEditMode();
+      enqueueOperations(
+        operations,
+        `Copied ${copied.length} pile region${copied.length === 1 ? "" : "s"} from the previous reviewed frame. Review each copied region on this frame.`,
+        (current) =>
+          current.map((candidate) =>
+            candidate.itemId !== frame.itemId
+              ? candidate
+              : {
+                  ...candidate,
+                  reviewState: "pending",
+                  outcome: {
+                    ...candidate.outcome,
+                    status: "detected",
+                    pile_regions: copied,
+                    error: null,
+                  },
+                },
+          ),
+      );
+    },
+    [endEditMode, enqueueOperations],
   );
 
   const copyIgnoreRegions = useCallback(
@@ -1541,9 +1745,22 @@ export function PipelineVisibleCardEditorView({
               frameReviewStatus(frame) === "accepted" &&
               frame.outcome.ignored_regions.length > 0,
           ) ?? null);
+  const previousPileFrame =
+    activeFrameIndex <= 0
+      ? null
+      : ([...displayedFrames]
+          .slice(0, activeFrameIndex)
+          .reverse()
+          .find(
+            (frame) =>
+              frameReviewStatus(frame) === "accepted" &&
+              (frame.outcome.pile_regions?.length ?? 0) > 0,
+          ) ?? null);
   const canCopyIgnoreRegions =
     activeFrame?.outcome.status === "detected" &&
     previousReviewedFrame !== null;
+  const canCopyPiles =
+    activeFrame?.outcome.status === "detected" && previousPileFrame !== null;
   const prewarmFrameUrls = useCallback(
     (frame: EditableFrame) => visibleCardReviewPrewarmUrls(recordingId, frame),
     [recordingId],
@@ -1593,6 +1810,13 @@ export function PipelineVisibleCardEditorView({
         if (region !== undefined) openIgnoreRegionEditor(activeFrame, region);
         return;
       }
+      if (selection.type === "pile_region") {
+        const pile = (activeFrame.outcome.pile_regions ?? []).find(
+          (candidate) => candidate.pile_id === selection.id,
+        );
+        if (pile !== undefined) openPileRegionEditor(activeFrame, pile);
+        return;
+      }
       if (
         selection.type === "virtual_card" ||
         selection.type === "calibration_anchor"
@@ -1622,6 +1846,7 @@ export function PipelineVisibleCardEditorView({
       generatedFrames,
       openEditor,
       openIgnoreRegionEditor,
+      openPileRegionEditor,
     ],
   );
 
@@ -1644,6 +1869,64 @@ export function PipelineVisibleCardEditorView({
         case "draw_ignore_region":
           openIgnoreRegionEditor(activeFrame);
           break;
+        case "draw_pile_region":
+          openPileRegionEditor(activeFrame);
+          break;
+        case "group_selected_cards_into_pile":
+          if (selectedCandidateIds.length > 0)
+            openPileRegionEditor(activeFrame, null, [...selectedCandidateIds]);
+          break;
+        case "convert_ignore_region_to_pile": {
+          if (selection?.type !== "ignore_region") break;
+          const source = activeFrame.outcome.ignored_regions.find(
+            (r) => r.region_id === selection.id,
+          );
+          if (source === undefined) break;
+          const pile = newPileRegion(
+            activeFrame,
+            source.region_id.replace(/^ignore-/, "pile-"),
+          );
+          pile.geometry.polygons = source.geometry.polygons.map((polygon) =>
+            polygon.map((point) => ({ ...point })),
+          );
+          pile.source_candidates = source.source_candidates.map(
+            (candidate) => ({ ...candidate }),
+          );
+          enqueue(
+            {
+              operation: "convert_ignore_region_to_pile",
+              item_id: activeFrame.itemId,
+              region_id: source.region_id,
+              region: pileRegionMapping(pile),
+            },
+            "Ignore region converted to a pending pile region.",
+            (current) =>
+              current.map((candidate) =>
+                candidate.itemId !== activeFrame.itemId
+                  ? candidate
+                  : {
+                      ...candidate,
+                      reviewState: "pending",
+                      outcome: {
+                        ...candidate.outcome,
+                        ignored_regions:
+                          candidate.outcome.ignored_regions.filter(
+                            (r) => r.region_id !== source.region_id,
+                          ),
+                        pile_regions: [
+                          ...(candidate.outcome.pile_regions ?? []),
+                          pile,
+                        ],
+                      },
+                    },
+              ),
+          );
+          break;
+        }
+        case "copy_piles":
+          if (canCopyPiles && previousPileFrame !== null)
+            copyPiles(activeFrame, previousPileFrame);
+          break;
         case "convert_to_ignore_region":
           convertSelectedToIgnoreRegion(activeFrame);
           break;
@@ -1656,6 +1939,8 @@ export function PipelineVisibleCardEditorView({
             removeIgnoreRegion(activeFrame, selection.id);
           else if (selection?.type === "visible_card")
             removeCard(activeFrame, selection.id);
+          else if (selection?.type === "pile_region")
+            removePileRegion(activeFrame, selection.id);
           else if (selection?.type === "polygon") removeEditorPolygon();
           break;
         case "restore_suggestion":
@@ -1670,12 +1955,19 @@ export function PipelineVisibleCardEditorView({
       convertSelectedToIgnoreRegion,
       copyIgnoreRegions,
       editable,
+      enqueue,
       openEditor,
       openIgnoreRegionEditor,
+      openPileRegionEditor,
       previousReviewedFrame,
       removeCard,
       removeEditorPolygon,
       removeIgnoreRegion,
+      removePileRegion,
+      selectedCandidateIds,
+      canCopyPiles,
+      previousPileFrame,
+      copyPiles,
       restoreGeneratedSuggestions,
     ],
   );
@@ -1868,6 +2160,7 @@ export function PipelineVisibleCardEditorView({
                 calibrationFitOutlines={fitDiagnosticOutlines}
                 proposalSlot={proposalSlot}
                 canCopyIgnoreRegions={canCopyIgnoreRegions}
+                canCopyPiles={canCopyPiles}
                 canRestoreSuggestion={
                   generatedFrames.some(
                     (frame) => frame.itemId === activeFrame.itemId,

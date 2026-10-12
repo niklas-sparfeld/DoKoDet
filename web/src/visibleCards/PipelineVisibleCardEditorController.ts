@@ -474,6 +474,10 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
                   | "cards"
                   | "ignored"
                   | "cards_and_ignored"
+                  | "piles"
+                  | "cards_and_piles"
+                  | "piles_and_ignored"
+                  | "cards_piles_and_ignored"
                   | "empty"
                   | "unusable",
               })),

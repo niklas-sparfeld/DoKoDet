@@ -69,6 +69,10 @@ export type VisibleRegionWorkbenchAction =
   | "draw_ignore_region"
   | "convert_to_ignore_region"
   | "copy_ignore_regions"
+  | "draw_pile_region"
+  | "group_selected_cards_into_pile"
+  | "convert_ignore_region_to_pile"
+  | "copy_piles"
   | "delete_selection"
   | "restore_suggestion";
 
@@ -122,6 +126,7 @@ export type VisibleCardReviewWorkbenchProps = {
   selectedCandidateIds?: string[];
   proposalSlot?: HTMLElement | null;
   canCopyIgnoreRegions?: boolean;
+  canCopyPiles?: boolean;
   canRestoreSuggestion?: boolean;
   onToolChange?: (tool: WorkbenchPreferences["activeTool"]) => void;
   onStartProposal?: () => void;
@@ -172,6 +177,7 @@ export function VisibleCardReviewWorkbenchView({
   selectedCandidateIds = [],
   proposalSlot,
   canCopyIgnoreRegions = false,
+  canCopyPiles = false,
   canRestoreSuggestion = false,
   onToolChange,
   onStartProposal,
@@ -283,6 +289,13 @@ export function VisibleCardReviewWorkbenchView({
   const viewport = activeState.viewports[activeState.viewpoint];
   const availability = getWorkbenchAvailability(capabilities);
   const scene = sceneDraft;
+  const pendingIndividualCount =
+    scene?.card_review_states === undefined
+      ? frame.reviewState === "accepted"
+        ? 0
+        : frame.outcome.candidates.length
+      : scene.card_review_states.filter((state) => state.state === "pending")
+          .length;
   const sourceIdentity = frame.outcome.frame_identity;
   const width = sourceIdentity?.width ?? scene?.scene.source_frame_width ?? 1;
   const height =
@@ -453,6 +466,17 @@ export function VisibleCardReviewWorkbenchView({
       handleMappingAction(action);
       return;
     }
+    if (
+      [
+        "draw_pile_region",
+        "group_selected_cards_into_pile",
+        "convert_ignore_region_to_pile",
+      ].includes(action) &&
+      activeState.activeTool !== "visible_regions"
+    ) {
+      dispatch({ type: "select_tool", tool: "visible_regions" });
+      onToolChange?.("visible_regions");
+    }
     onAction?.(action, activeState.selection);
   };
 
@@ -473,6 +497,7 @@ export function VisibleCardReviewWorkbenchView({
               },
         sourceAvailable: availability.viewpoints.camera.available,
         canCopyIgnoreRegions,
+        canCopyPiles,
         canRestoreSuggestion,
         frameDecision,
         scene,
@@ -524,6 +549,9 @@ export function VisibleCardReviewWorkbenchView({
           onStartMappingPreview,
         }}
       />
+      <p aria-live="polite" className={styles.workbenchStatus}>
+        {`${(frame.outcome.pile_regions ?? []).length} pile region${(frame.outcome.pile_regions ?? []).length === 1 ? "" : "s"} · ${pendingIndividualCount} individual card${pendingIndividualCount === 1 ? "" : "s"} ${pendingIndividualCount === 1 ? "still requires" : "still require"} review · ${frame.reviewState === "accepted" ? "reviewed" : "pending review"}`}
+      </p>
       {timelineReviewControlsSlot === null
         ? timelineSelectionActions
         : createPortal(timelineSelectionActions, timelineReviewControlsSlot)}

@@ -37,6 +37,7 @@ describe("visible-card review workbench state", () => {
       "visible_regions",
       "virtual_cards",
       "ignore_regions",
+      "pile_regions",
       "suggestions",
       "mapping",
     ]);

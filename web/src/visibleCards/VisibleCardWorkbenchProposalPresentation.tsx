@@ -314,7 +314,7 @@ export function WorkbenchProposalColumn({
                     <label className={styles.proposalCheckbox}>
                       <input
                         type="checkbox"
-                        aria-label={`Select proposal ${index + 1} for ignore region`}
+                        aria-label={`Select proposal ${index + 1} for region action`}
                         checked={markedForIgnore || alreadyIgnored}
                         disabled={alreadyIgnored}
                         onChange={() =>

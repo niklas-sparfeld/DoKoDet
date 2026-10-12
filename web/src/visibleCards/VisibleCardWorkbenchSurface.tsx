@@ -141,6 +141,8 @@ export function WorkbenchSurface({
 }) {
   const count = frame.outcome.candidates.length;
   const proposalLabel = `${count} visible-card proposal${count === 1 ? "" : "s"}${includeIgnoreRegionCount && frame.outcome.ignored_regions.length > 0 ? ` and ${frame.outcome.ignored_regions.length} ignore region${frame.outcome.ignored_regions.length === 1 ? "" : "s"}` : ""}`;
+  const pileCount = frame.outcome.pile_regions?.length ?? 0;
+  const surfaceLabel = `${proposalLabel}${pileCount > 0 ? ` and ${pileCount} pile region${pileCount === 1 ? "" : "s"}` : ""}`;
   if (viewpoint === "rectified" && scene !== null) {
     const viewBox =
       gestureViewBox ?? tableViewBox(scene.scene, scene.projection, viewport);
@@ -149,7 +151,7 @@ export function WorkbenchSurface({
         className={styles.workbenchRectifiedSurface}
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
         role="img"
-        aria-label={`Rectified visible-card workbench with ${proposalLabel}`}
+        aria-label={`Rectified visible-card workbench with ${surfaceLabel}`}
         tabIndex={0}
         onKeyDown={(event) => {
           onKeyDown(event);
@@ -263,7 +265,7 @@ export function WorkbenchSurface({
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label={proposalLabel}
+        aria-label={surfaceLabel}
         tabIndex={0}
         onKeyDown={(event) => {
           onKeyDown(event);
@@ -742,6 +744,7 @@ type LayerRenderer = {
 export const WORKBENCH_LAYER_REGISTRY: readonly LayerRenderer[] = [
   { layer: "mapping", render: renderMappingLayer },
   { layer: "ignore_regions", render: renderIgnoreLayer },
+  { layer: "pile_regions", render: renderPileLayer },
   { layer: "suggestions", render: renderSuggestionLayer },
   { layer: "virtual_cards", render: renderVirtualCardLayer },
   { layer: "visible_regions", render: renderVisibleRegionLayer },
@@ -904,6 +907,49 @@ function renderIgnoreLayer({
           onClick={(event) => {
             event.stopPropagation();
             onSelect({ type: "ignore_region", id: region.region_id });
+          }}
+        />
+      );
+    }),
+  );
+}
+
+function renderPileLayer({
+  frame,
+  viewpoint,
+  scene,
+  width,
+  height,
+  selection,
+  onSelect,
+}: LayerRenderContext) {
+  return (frame.outcome.pile_regions ?? []).flatMap((pile) =>
+    pile.geometry.polygons.map((polygon, polygonIndex) => {
+      const points = transformSourcePolygon(
+        polygon,
+        width,
+        height,
+        viewpoint,
+        scene,
+      );
+      return (
+        <polygon
+          key={`${pile.pile_id}-${polygonIndex}`}
+          points={pointsAttribute(points)}
+          fill="rgba(140, 110, 255, 0.24)"
+          stroke={
+            isSelected(selection, { type: "pile_region", id: pile.pile_id })
+              ? "#ffd24f"
+              : "#a98cff"
+          }
+          strokeWidth={strokeWidth(viewpoint, width)}
+          data-pile-id={pile.pile_id}
+          role="button"
+          tabIndex={0}
+          aria-label={`Select pile region ${pile.pile_id}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect({ type: "pile_region", id: pile.pile_id });
           }}
         />
       );

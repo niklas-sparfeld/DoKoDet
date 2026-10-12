@@ -55,6 +55,7 @@ const LAYER_LABELS: Record<WorkbenchLayer, string> = {
   visible_regions: "Visible regions",
   virtual_cards: "Virtual cards",
   ignore_regions: "Ignore regions",
+  pile_regions: "Pile regions",
   suggestions: "Detector suggestions",
   mapping: "Mapping diagnostics",
 };
@@ -497,6 +498,7 @@ export type WorkbenchTimelineSelectionViewModel = {
   editor: VisibleCardEditorSummary | null;
   sourceAvailable: boolean;
   canCopyIgnoreRegions: boolean;
+  canCopyPiles?: boolean;
   canRestoreSuggestion: boolean;
   frameDecision?: VisibleCardFrameDecision;
   scene: PoseSceneEnvelope | null;
@@ -534,6 +536,7 @@ export function WorkbenchTimelineSelectionActions({
     editor,
     sourceAvailable,
     canCopyIgnoreRegions,
+    canCopyPiles = false,
     canRestoreSuggestion,
     frameDecision,
     scene,
@@ -559,6 +562,14 @@ export function WorkbenchTimelineSelectionActions({
       <CopyIgnoreRegionsAction
         readOnly={readOnly}
         canCopyIgnoreRegions={canCopyIgnoreRegions}
+        onAction={onAction}
+      />
+      <PileRegionSelectionActions
+        readOnly={readOnly}
+        sourceAvailable={sourceAvailable}
+        selectedCandidateCount={selectedCandidateIds.length}
+        selection={selection}
+        canCopyPiles={canCopyPiles}
         onAction={onAction}
       />
       {activeTool === "visible_regions" || selectedCandidateIds.length > 0 ? (
@@ -1143,6 +1154,80 @@ function VisibleRegionSelectionActions({
               symbol,
               shortcut,
               ariaShortcut,
+              disabled,
+              disabledReason: reason,
+              onClick: () => onAction(action),
+            }),
+          ),
+        },
+      ]}
+    />
+  );
+}
+
+function PileRegionSelectionActions({
+  readOnly,
+  sourceAvailable,
+  selectedCandidateCount,
+  selection,
+  canCopyPiles,
+  onAction,
+}: {
+  readOnly: boolean;
+  sourceAvailable: boolean;
+  selectedCandidateCount: number;
+  selection: WorkbenchSelection | null;
+  canCopyPiles: boolean;
+  onAction: (action: VisibleCardReviewWorkbenchAction) => void;
+}) {
+  const controls = [
+    {
+      label: "Draw pile region",
+      symbol: "▱",
+      disabled: readOnly || !sourceAvailable,
+      reason: "A resolved source frame is required to draw a pile region.",
+      action: "draw_pile_region" as const,
+    },
+    {
+      label: "Group selected cards into pile",
+      symbol: "▣",
+      disabled: readOnly || selectedCandidateCount === 0,
+      reason: "Select pending card proposals first.",
+      action: "group_selected_cards_into_pile" as const,
+    },
+    {
+      label: "Convert ignore region to pile",
+      symbol: "⇢",
+      disabled: readOnly || selection?.type !== "ignore_region",
+      reason: "Select an ignore region to convert it to a pile.",
+      action: "convert_ignore_region_to_pile" as const,
+    },
+    {
+      label: "Copy piles from previous frame",
+      symbol: "⧉",
+      disabled: readOnly || !canCopyPiles,
+      reason: "Review an earlier frame with pile regions first.",
+      action: "copy_piles" as const,
+    },
+    {
+      label: "Delete pile region",
+      symbol: "⌫",
+      disabled: readOnly || selection?.type !== "pile_region",
+      reason:
+        "Select a pile region first. Deleting a grouped pile restores its members.",
+      action: "delete_selection" as const,
+    },
+  ];
+  return (
+    <TimelineRailSeekingControls
+      groups={[
+        {
+          label: "Pile regions",
+          controls: controls.map(
+            ({ action, label, symbol, disabled, reason }) => ({
+              label,
+              symbol,
+              shortcut: "Click",
               disabled,
               disabledReason: reason,
               onClick: () => onAction(action),

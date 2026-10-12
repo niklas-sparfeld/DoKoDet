@@ -74,6 +74,55 @@ describe("visible-card editor data helpers", () => {
     );
   });
 
+  it("accepts pile-only coverage and keeps pile regions separate from cards", () => {
+    const result = {
+      revisions: [
+        {
+          manifest: { revision_id: "pile-revision" },
+          content: {
+            outcomes: [
+              {
+                event_id: "pile-frame",
+                frame_identity: identity,
+                status: "detected",
+                candidates: [],
+                ignored_regions: [],
+                pile_regions: [
+                  {
+                    pile_id: "pile-1",
+                    geometry: {
+                      kind: "pile-region/v1",
+                      polygons: [
+                        [
+                          { x: 10, y: 10 },
+                          { x: 400, y: 10 },
+                          { x: 400, y: 400 },
+                        ],
+                      ],
+                    },
+                    normalization: {
+                      width: 640,
+                      height: 480,
+                      policy_id: "full-frame-0-1000/v1",
+                    },
+                    source_candidates: [],
+                    grouped_candidates: [],
+                    grouped_card_states: [],
+                    grouped_scene_decision: null,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    } as unknown as PipelineVisibleCardResult;
+    const [frame] = readFramesFromResult(result, "pile-revision");
+    expect(frame?.outcome.candidates).toEqual([]);
+    expect(frame?.outcome.pile_regions).toHaveLength(1);
+    expect(frameDecision({ ...frame!, reviewState: "accepted" })).toBe("piles");
+  });
+
   it("parses null-identity coverage and ignores malformed entries", () => {
     expect(
       coverageEntries({

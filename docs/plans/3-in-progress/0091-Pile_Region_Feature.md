@@ -15,7 +15,8 @@
 ## Milestone status
 
 - **M0:** Complete — persist the pile contract, reversible atomic commands, pile coverage, and API.
-- **M1:** Not started — deliver the complete pile annotation and publication workflow.
+- **M1:** Complete — source-frame pile annotation, reversible grouping, explicit conversion,
+  frame copying, pile-only completion, and the operator handoff are available.
 - **M2:** Not started — materialize reviewed individual-card and pile training targets.
 - **M3:** Not started — support two-class trainer, evaluation, and bundle contracts.
 - **M4:** Not started — retain pile predictions across providers, proposals, and review.
@@ -208,22 +209,21 @@ real training is required to complete M0.
 
 ### M1 — Make pile annotation available to the operator
 
-Add a Pile regions layer, source-view polygon drawing and editing, an inspector, selected-member
-grouping, explicit ignore conversion, deletion and undo, and Copy piles from previous frame.
-Reuse workbench tool, viewpoint, selection, and contextual-command boundaries. Show pending and
-reviewed states, pile counts, and the individual cards still requiring review. Rectified display
-is optional when calibration exists; annotation works in Camera view without it.
+Implemented the Pile regions layer, Camera-view polygon drawing and editing, pile inspector
+counts, explicit selected-member grouping, ignore-region conversion, deletion with grouped-member
+restoration, and Copy piles from previous frame. Pile commands use the maintained-reference
+queue. Copied regions start pending and require a new-frame review. The workbench reports pending
+individual-card work and frame review state. Rectified view remains optional.
 
-Verify frame acceptance, recording-reference completion, reload, revision selection, and
-navigation. Keep model training and other unavailable consumers out of the annotation flow.
-Supply a short operator guide and an annotation handoff using the named 0662 example. The agent
-provides fixtures and controls; the operator makes the real review decisions.
+Pile-only frame acceptance and recording-reference completion use explicit pile coverage. The
+editor reads pile data after reload and revision selection. Existing ignore regions remain
+editable. Added interaction checks for drawing and grouping, and a completion check for pile-only
+coverage. The operator guide and 0662 handoff are in
+[`docs/guides/Pile_Region_Annotation.md`](../../guides/Pile_Region_Annotation.md).
 
-Acceptance: the operator can publish three pile regions plus the isolated card in the example
-without reviewing component poses or identities; grouping removes only selected pending work;
-reload and undo preserve data; copied regions require new-frame review; old ignore regions remain
-editable. Focused interaction, reference-publication, and workbench-boundary checks pass. This
-milestone explicitly releases annotation for continued 0086 work.
+The 0662 annotation itself remains an operator decision. The agent supplies the workflow and
+handoff; it does not create reviewed labels. This releases the pile annotation feature for
+continued 0086 review.
 
 ### M2 — Export reviewed two-class targets
 

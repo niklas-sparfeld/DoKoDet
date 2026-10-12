@@ -7,6 +7,7 @@ export const WORKBENCH_LAYERS = [
   "visible_regions",
   "virtual_cards",
   "ignore_regions",
+  "pile_regions",
   "suggestions",
   "mapping",
 ] as const;
@@ -23,6 +24,7 @@ export const WORKBENCH_SELECTION_TYPES = [
   "visible_card",
   "polygon",
   "ignore_region",
+  "pile_region",
   "virtual_card",
   "calibration_anchor",
 ] as const;
@@ -32,6 +34,7 @@ export type WorkbenchSelection =
   | { type: "visible_card"; id: string }
   | { type: "polygon"; id: string; polygonIndex: number }
   | { type: "ignore_region"; id: string }
+  | { type: "pile_region"; id: string }
   | { type: "virtual_card"; id: string }
   | { type: "calibration_anchor"; id: string };
 
@@ -43,6 +46,7 @@ export type WorkbenchFrameCapabilities = {
   hasCalibration: boolean;
   hasProposals: boolean;
   hasIgnoreRegions: boolean;
+  hasPileRegions?: boolean;
   readOnly: boolean;
 };
 
@@ -107,6 +111,7 @@ export const WORKBENCH_HIT_TEST_PRIORITY = [
   "visible_regions",
   "virtual_cards",
   "ignore_regions",
+  "pile_regions",
   "suggestions",
   "mapping",
 ] as const satisfies readonly WorkbenchLayer[];
@@ -127,6 +132,10 @@ export const WORKBENCH_SELECTION_ACTIONS = {
     "draw_ignore_region",
     "convert_to_ignore_region",
     "copy_ignore_regions",
+    "draw_pile_region",
+    "group_selected_cards_into_pile",
+    "convert_ignore_region_to_pile",
+    "copy_piles",
     "delete_selection",
     "restore_suggestion",
   ],
@@ -278,6 +287,28 @@ export function visibleCardReviewWorkbenchReducer(
       };
     }
     case "select": {
+      if (
+        action.selection.type === "pile_region" ||
+        action.selection.type === "ignore_region"
+      ) {
+        const availability = getWorkbenchAvailability(state.capabilities);
+        const layer =
+          action.selection.type === "pile_region"
+            ? "pile_regions"
+            : "ignore_regions";
+        if (!availability.layers[layer].available) return state;
+        return {
+          ...state,
+          activeTool: "visible_regions",
+          enabledLayers: uniqueLayers([
+            ...state.enabledLayers,
+            layer,
+            "visible_regions",
+          ]),
+          selection: action.selection,
+          visualFocus: true,
+        };
+      }
       if (!isSelectionAvailable(action.selection, state)) return state;
       return {
         ...state,
@@ -327,6 +358,10 @@ export function visibleCardReviewWorkbenchReducer(
         !action.capabilities.hasIgnoreRegions
           ? []
           : (["ignore_regions"] as const)),
+        ...(state.capabilities.hasPileRegions === true ||
+        !action.capabilities.hasPileRegions
+          ? []
+          : (["pile_regions"] as const)),
       ];
       const preferences = normalizePreferences(action.capabilities, {
         viewpoint: state.viewpoint,
@@ -435,6 +470,10 @@ export function getWorkbenchAvailability(
             : WORKBENCH_DISABLED_REASONS.noIgnoreRegions
           : WORKBENCH_DISABLED_REASONS.noSourceFrame,
       ),
+      pile_regions: control(
+        source,
+        source ? null : WORKBENCH_DISABLED_REASONS.noSourceFrame,
+      ),
       suggestions: control(
         source && capabilities.hasProposals,
         source
@@ -477,6 +516,8 @@ export function layerForSelection(
       return "visible_regions";
     case "ignore_region":
       return "ignore_regions";
+    case "pile_region":
+      return "pile_regions";
     case "virtual_card":
       return "virtual_cards";
     case "calibration_anchor":
@@ -493,7 +534,8 @@ export function isSelectionCompatible(
     return (
       selection.type === "visible_card" ||
       selection.type === "polygon" ||
-      selection.type === "ignore_region"
+      selection.type === "ignore_region" ||
+      selection.type === "pile_region"
     );
   if (tool === "virtual_cards") return selection.type === "virtual_card";
   return selection.type === "calibration_anchor";
@@ -555,6 +597,7 @@ function defaultPreferences(
   if (capabilities.hasVisibleRegions) enabledLayers.push("visible_regions");
   if (hasRectifiedScene) enabledLayers.push("virtual_cards");
   if (capabilities.hasIgnoreRegions) enabledLayers.push("ignore_regions");
+  if (capabilities.hasPileRegions === true) enabledLayers.push("pile_regions");
   if (capabilities.hasProposals) enabledLayers.push("suggestions");
   return {
     viewpoint: "camera",
@@ -657,6 +700,7 @@ export function workbenchCapabilitiesFromFrame(
     hasCalibration: frame.outcome.card_scene !== undefined,
     hasProposals: displayedCandidates.length > 0,
     hasIgnoreRegions: frame.outcome.ignored_regions.length > 0,
+    hasPileRegions: (frame.outcome.pile_regions?.length ?? 0) > 0,
     readOnly,
   };
 }

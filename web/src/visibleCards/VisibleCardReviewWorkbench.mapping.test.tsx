@@ -243,7 +243,7 @@ describe("VisibleCardReviewWorkbench", () => {
 
     await user.click(
       screen.getByRole("checkbox", {
-        name: "Select proposal 1 for ignore region",
+        name: "Select proposal 1 for region action",
       }),
     );
 
@@ -280,7 +280,7 @@ describe("VisibleCardReviewWorkbench", () => {
     ).not.toBeInTheDocument();
     const markedRow = screen
       .getByRole("checkbox", {
-        name: "Select proposal 1 for ignore region",
+        name: "Select proposal 1 for region action",
       })
       .closest("[data-marked-for-ignore]");
     expect(markedRow).toHaveAttribute("data-marked-for-ignore", "true");
@@ -344,7 +344,7 @@ describe("VisibleCardReviewWorkbench", () => {
     expect(ignoredRow).toHaveAttribute("data-already-ignored", "true");
     expect(
       screen.getByRole("checkbox", {
-        name: "Select proposal 1 for ignore region",
+        name: "Select proposal 1 for region action",
       }),
     ).toBeDisabled();
     expect(

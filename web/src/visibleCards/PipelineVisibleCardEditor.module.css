@@ -947,3 +947,9 @@
     height: 4rem;
   }
 }
+.workbenchStatus {
+  display: block;
+  padding: 0.35rem 0.6rem;
+  color: var(--muted-foreground, #667085);
+  font-size: 0.8rem;
+}

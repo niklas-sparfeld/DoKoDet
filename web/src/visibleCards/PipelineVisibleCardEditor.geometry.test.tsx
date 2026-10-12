@@ -507,12 +507,12 @@ describe("PipelineVisibleCardEditor", () => {
     await screen.findByRole("img", { name: /visible-card proposal/ });
     await user.click(
       screen.getByRole("checkbox", {
-        name: "Select proposal 1 for ignore region",
+        name: "Select proposal 1 for region action",
       }),
     );
     await user.click(
       screen.getByRole("checkbox", {
-        name: "Select proposal 2 for ignore region",
+        name: "Select proposal 2 for region action",
       }),
     );
     await user.click(
@@ -585,16 +585,16 @@ describe("PipelineVisibleCardEditor", () => {
 
     const user = userEvent.setup();
     await screen.findByRole("checkbox", {
-      name: "Select proposal 1 for ignore region",
+      name: "Select proposal 1 for region action",
     });
     await user.click(
       screen.getByRole("checkbox", {
-        name: "Select proposal 1 for ignore region",
+        name: "Select proposal 1 for region action",
       }),
     );
     await user.click(
       screen.getByRole("checkbox", {
-        name: "Select proposal 2 for ignore region",
+        name: "Select proposal 2 for region action",
       }),
     );
     await user.click(
