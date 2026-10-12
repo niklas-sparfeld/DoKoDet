@@ -1000,6 +1000,7 @@ function EvidenceDetailOverlay({
           snippet.duration_ms / 1000,
         );
   const cards = evidence.table_observation.cards ?? [];
+  const piles = evidence.table_observation.piles ?? [];
   return (
     <div
       className={styles.frameOverlay}
@@ -1104,6 +1105,13 @@ function EvidenceDetailOverlay({
             </div>
           )}
         </section>
+        <section className={styles.detailFacts}>
+          <h3>Observed piles</h3>
+          <p className={styles.frameDialogMeta}>
+            Spatial evidence only · pile contents and count are unknown
+          </p>
+          <PileEvidenceList piles={piles} />
+        </section>
       </div>
     </div>
   );
@@ -1130,6 +1138,7 @@ function ObservationCell({
 }) {
   const observation = row.table_observation;
   const cards = observation.cards ?? [];
+  const piles = observation.piles ?? [];
 
   return (
     <div className={styles.cell}>
@@ -1149,7 +1158,11 @@ function ObservationCell({
         {observation.capabilities.length === 1 ? "" : "ies"}
       </p>
       {cards.length === 0 ? (
-        <p className={styles.emptyState}>No observed cards.</p>
+        <p className={styles.emptyState}>
+          {piles.length === 0
+            ? "No observed cards."
+            : "No observed cards; pile evidence is listed separately."}
+        </p>
       ) : (
         <div className={styles.cardList}>
           {cards.map((card) => (
@@ -1172,10 +1185,70 @@ function ObservationCell({
           ))}
         </div>
       )}
+      <section className={styles.observedPileSection}>
+        <h4>Observed piles</h4>
+        <p className={styles.emptyState}>
+          Location only; contents and card count are not inferred.
+        </p>
+        <PileEvidenceList piles={piles} />
+      </section>
       <CounterfactualObservationControls
         row={row}
         counterfactual={counterfactual}
       />
+    </div>
+  );
+}
+
+function PileEvidenceList({
+  piles,
+}: {
+  piles: Array<{
+    pile_id: string;
+    geometry: { polygons: Array<Array<{ x: number; y: number }>> };
+    normalization: Record<string, unknown>;
+  }>;
+}) {
+  if (piles.length === 0) {
+    return (
+      <p className={styles.emptyState}>No pile regions in this observation.</p>
+    );
+  }
+
+  return (
+    <div className={styles.pileEvidenceList}>
+      {piles.map((pile) => {
+        const width = pile.normalization.width;
+        const height = pile.normalization.height;
+        if (typeof width !== "number" || typeof height !== "number") {
+          return null;
+        }
+
+        return (
+          <div className={styles.pileEvidence} key={pile.pile_id}>
+            <span className={styles.cardId}>{pile.pile_id}</span>
+            <svg
+              className={styles.pileFootprint}
+              viewBox={`0 0 ${width} ${height}`}
+              style={{ aspectRatio: `${width} / ${height}` }}
+              role="img"
+              aria-label={`Full-frame footprint for pile ${pile.pile_id}`}
+            >
+              {pile.geometry.polygons.map((polygon, index) => (
+                <polygon
+                  key={`${pile.pile_id}-polygon-${index}`}
+                  points={polygon
+                    .map(
+                      ({ x, y }) =>
+                        `${(x * width) / 1000},${(y * height) / 1000}`,
+                    )
+                    .join(" ")}
+                />
+              ))}
+            </svg>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -163,6 +163,9 @@ class ReconstructionDiagnostics:
     calibration_states: tuple[str, ...]
     observations_seen: int
     card_proposals_seen: int
+    pile_observations_seen: int
+    pile_regions_seen: int
+    pile_search_status: Literal["retained_not_used"]
     search_nodes: int
     complete_branches: int
     merged_branches: int
@@ -580,6 +583,13 @@ def reconstruct_round(
         ),
         observations_seen=len(reconstruction_input.observations),
         card_proposals_seen=proposal_count,
+        pile_observations_seen=sum(
+            bool(observation.piles) for observation in reconstruction_input.observations
+        ),
+        pile_regions_seen=sum(
+            len(observation.piles or []) for observation in reconstruction_input.observations
+        ),
+        pile_search_status="retained_not_used",
         search_nodes=search_nodes,
         complete_branches=complete_branches,
         merged_branches=merged_branches,
@@ -762,6 +772,13 @@ def reconstruct_manual_sequence(
         card_proposals_seen=sum(
             len(observation.cards) for observation in reconstruction_input.observations
         ),
+        pile_observations_seen=sum(
+            bool(observation.piles) for observation in reconstruction_input.observations
+        ),
+        pile_regions_seen=sum(
+            len(observation.piles or []) for observation in reconstruction_input.observations
+        ),
+        pile_search_status="retained_not_used",
         search_nodes=0,
         complete_branches=1,
         merged_branches=0,

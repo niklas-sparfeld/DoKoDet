@@ -70,8 +70,10 @@ Piles bypass card-pose fitting, calibration anchors, and identity classification
 manifests contain only individual-card candidates. When an observation contains piles, the
 publisher writes `table-observation/v2` with a separate pile collection, geometry, source
 references, and model lineage. Card-only observations retain `table-observation/v1`. The mirrored
-engine parser and inspection remain an M6 boundary. A pile-only frame is detected evidence, not an
-assertion of an empty table.
+game-engine parser accepts both observation versions and retains pile evidence through canonical
+round-input serialization. The timeline inspector displays pile footprints separately from
+individual cards. Reconstruction diagnostics report pile evidence as retained but not used by
+search. A pile-only frame is detected evidence, not an assertion of an empty table.
 
 Pile location is visual evidence. Count, contents, ownership, prior plays, and association across
 frames remain unknown unless another source establishes them. 0091 preserves the evidence but

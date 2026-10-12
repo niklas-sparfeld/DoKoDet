@@ -259,7 +259,7 @@ export function reconstructionResultSnapshot(
   timeline: RoundAnalysisTimeline,
 ): Record<string, unknown> {
   return {
-    schema_version: "round-reconstruction-result/v2",
+    schema_version: "round-reconstruction-result/v3",
     status: timeline.reconstruction_status,
     search: timeline.search,
     hypotheses: timeline.hypotheses,

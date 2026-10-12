@@ -82,6 +82,73 @@ describe("analysis timeline presentation", () => {
       screen.getByText(/Derived input uses Clubs Nine/),
     ).toBeInTheDocument();
   });
+
+  it("shows pile footprints separately from cards and labels pile-only evidence", () => {
+    const firstRow = resolvedTimeline.rows[0]!;
+    const pileTimeline = {
+      ...resolvedTimeline,
+      rows: [
+        {
+          ...firstRow,
+          table_observation: {
+            ...firstRow.table_observation,
+            schema_version: "table-observation/v2" as const,
+            cards: [],
+            piles: [
+              {
+                pile_id: "pile-01",
+                geometry: {
+                  kind: "pile-region/v1" as const,
+                  polygons: [
+                    [
+                      { x: 100, y: 200 },
+                      { x: 300, y: 200 },
+                      { x: 200, y: 400 },
+                    ],
+                  ],
+                },
+                normalization: {
+                  width: 1920,
+                  height: 1080,
+                  policy_id: "full-frame-0-1000/v1" as const,
+                },
+                source_candidates: [],
+                grouped_candidates: [],
+                grouped_card_states: [],
+                grouped_scene_decision: null,
+                origin: "reviewed" as const,
+                confidence: null,
+                model_lineage: null,
+              },
+            ],
+          },
+        },
+        ...resolvedTimeline.rows.slice(1),
+      ],
+    };
+
+    render(<ResolvedTimeline timeline={pileTimeline} />);
+
+    expect(
+      screen.getByText(
+        "No observed cards; pile evidence is listed separately.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("heading", { name: "Observed piles" }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("pile-01").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("img", {
+        name: "Full-frame footprint for pile pile-01",
+      }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "Location only; contents and card count are not inferred.",
+      ).length,
+    ).toBeGreaterThan(0);
+  });
 });
 
 describe("analysis formatting and data readers", () => {

@@ -99,6 +99,9 @@ def diagnostics_payload() -> dict[str, object]:
         "calibration_states": ["fixture"],
         "observations_seen": 2,
         "card_proposals_seen": 2,
+        "pile_observations_seen": 0,
+        "pile_regions_seen": 0,
+        "pile_search_status": "retained_not_used",
         "search_nodes": 3,
         "complete_branches": 0,
         "merged_branches": 0,
@@ -120,7 +123,7 @@ def diagnostics_payload() -> dict[str, object]:
 
 def result_payload() -> dict[str, object]:
     return {
-        "schema_version": "round-reconstruction-result/v2",
+        "schema_version": "round-reconstruction-result/v3",
         "run_id": "example-round-01",
         "operations_version": "0.1.0",
         "request_sha256": "0" * 64,
@@ -268,6 +271,9 @@ def engine_result() -> ReconstructionResult:
             calibration_states=("fixture",),
             observations_seen=2,
             card_proposals_seen=4,
+            pile_observations_seen=0,
+            pile_regions_seen=0,
+            pile_search_status="retained_not_used",
             search_nodes=7,
             complete_branches=2,
             merged_branches=1,

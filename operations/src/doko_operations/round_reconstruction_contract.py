@@ -18,7 +18,7 @@ from game_engine import (
 )
 
 ROUND_RECONSTRUCTION_RUN_SCHEMA_VERSION = "round-reconstruction-run/v1"
-ROUND_RECONSTRUCTION_RESULT_SCHEMA_VERSION = "round-reconstruction-result/v2"
+ROUND_RECONSTRUCTION_RESULT_SCHEMA_VERSION = "round-reconstruction-result/v3"
 OPERATIONS_PACKAGE_VERSION = "0.1.0"
 ACTION_SCORE_TOLERANCE = 1e-9
 
@@ -1084,6 +1084,9 @@ class ReconstructionDiagnosticsRecord:
     calibration_states: tuple[str, ...]
     observations_seen: int
     card_proposals_seen: int
+    pile_observations_seen: int
+    pile_regions_seen: int
+    pile_search_status: Literal["retained_not_used"]
     search_nodes: int
     complete_branches: int
     merged_branches: int
@@ -1107,6 +1110,9 @@ class ReconstructionDiagnosticsRecord:
             "calibration_states",
             "observations_seen",
             "card_proposals_seen",
+            "pile_observations_seen",
+            "pile_regions_seen",
+            "pile_search_status",
             "search_nodes",
             "complete_branches",
             "merged_branches",
@@ -1123,6 +1129,10 @@ class ReconstructionDiagnosticsRecord:
             raise RoundReconstructionContractError(f"{context}.ruleset must be doko-normal/v1.")
         if data["deck_variant"] != "doko-40-v1":
             raise RoundReconstructionContractError(f"{context}.deck_variant must be doko-40-v1.")
+        if data["pile_search_status"] != "retained_not_used":
+            raise RoundReconstructionContractError(
+                f"{context}.pile_search_status must be retained_not_used."
+            )
         capabilities = _string_list(data["capabilities"], f"{context}.capabilities")
         if any(value not in CAPABILITIES for value in capabilities):
             raise RoundReconstructionContractError(
@@ -1197,6 +1207,13 @@ class ReconstructionDiagnosticsRecord:
             card_proposals_seen=_non_negative_int(
                 data["card_proposals_seen"], f"{context}.card_proposals_seen"
             ),
+            pile_observations_seen=_non_negative_int(
+                data["pile_observations_seen"], f"{context}.pile_observations_seen"
+            ),
+            pile_regions_seen=_non_negative_int(
+                data["pile_regions_seen"], f"{context}.pile_regions_seen"
+            ),
+            pile_search_status="retained_not_used",
             search_nodes=_non_negative_int(data["search_nodes"], f"{context}.search_nodes"),
             complete_branches=_non_negative_int(
                 data["complete_branches"], f"{context}.complete_branches"
@@ -1237,6 +1254,9 @@ class ReconstructionDiagnosticsRecord:
             "calibration_states": list(self.calibration_states),
             "observations_seen": self.observations_seen,
             "card_proposals_seen": self.card_proposals_seen,
+            "pile_observations_seen": self.pile_observations_seen,
+            "pile_regions_seen": self.pile_regions_seen,
+            "pile_search_status": self.pile_search_status,
             "search_nodes": self.search_nodes,
             "complete_branches": self.complete_branches,
             "merged_branches": self.merged_branches,
@@ -1376,7 +1396,7 @@ def validate_round_reconstruction_request(
 def validate_round_reconstruction_result(
     payload: Mapping[str, Any],
 ) -> RoundReconstructionRunResult:
-    """Validate one decoded round-reconstruction-result/v2 object."""
+    """Validate one decoded round-reconstruction-result/v3 object."""
 
     return RoundReconstructionRunResult.from_mapping(payload)
 
@@ -1398,7 +1418,7 @@ def parse_round_reconstruction_request_bytes(raw: bytes) -> RoundReconstructionR
 
 
 def parse_round_reconstruction_result_bytes(raw: bytes) -> RoundReconstructionRunResult:
-    """Parse one UTF-8 round-reconstruction-result/v2 document."""
+    """Parse one UTF-8 round-reconstruction-result/v3 document."""
 
     return _parse_bytes(raw, "round-reconstruction-result", validate_round_reconstruction_result)
 

@@ -151,6 +151,9 @@ export const resolvedTimeline = {
     calibration_states: ["fixture"],
     observations_seen: 2,
     card_proposals_seen: 2,
+    pile_observations_seen: 0,
+    pile_regions_seen: 0,
+    pile_search_status: "retained_not_used",
     search_nodes: 4,
     complete_branches: 2,
     merged_branches: 0,
@@ -449,7 +452,7 @@ function counterfactualResult(
   timeline: RoundAnalysisTimeline,
 ): Record<string, unknown> {
   return {
-    schema_version: "round-reconstruction-result/v2",
+    schema_version: "round-reconstruction-result/v3",
     run_id: counterfactualId,
     operations_version: "fixture-v1",
     request_sha256: "d".repeat(64),

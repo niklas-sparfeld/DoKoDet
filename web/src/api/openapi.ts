@@ -1523,6 +1523,53 @@ export interface components {
             side: "face_up" | "face_down" | "unknown";
         };
         /**
+         * ObservedPile
+         * @description One separate pile footprint retained as visual evidence.
+         */
+        ObservedPile: {
+            /** Confidence */
+            confidence?: number | null;
+            geometry: components["schemas"]["ObservedPileGeometry"];
+            /** Grouped Candidates */
+            grouped_candidates?: {
+                [key: string]: unknown;
+            }[];
+            /** Grouped Card States */
+            grouped_card_states?: {
+                [key: string]: unknown;
+            }[];
+            /** Grouped Scene Decision */
+            grouped_scene_decision?: ("accepted" | "adjusted" | "manual") | null;
+            /** Model Lineage */
+            model_lineage?: {
+                [key: string]: unknown;
+            } | null;
+            /** Normalization */
+            normalization: {
+                [key: string]: unknown;
+            };
+            /**
+             * Origin
+             * @default reviewed
+             * @enum {string}
+             */
+            origin: "reviewed" | "model_prediction";
+            /** Pile Id */
+            pile_id: string;
+            /** Source Candidates */
+            source_candidates?: components["schemas"]["PileSourceCandidate"][];
+        };
+        /** ObservedPileGeometry */
+        ObservedPileGeometry: {
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "pile-region/v1";
+            /** Polygons */
+            polygons: components["schemas"]["PilePoint"][][];
+        };
+        /**
          * PackageMetadataResponse
          * @description Stored package metadata returned by the read endpoint.
          */
@@ -1583,6 +1630,23 @@ export interface components {
             state: string;
             /** Upload Id */
             upload_id: string;
+        };
+        /**
+         * PilePoint
+         * @description One full-frame normalized point in a coarse pile footprint.
+         */
+        PilePoint: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** PileSourceCandidate */
+        PileSourceCandidate: {
+            /** Card Id */
+            card_id: string;
+            /** Revision Id */
+            revision_id: string;
         };
         /**
          * PipelineComparisonCountsResponse
@@ -3110,11 +3174,13 @@ export interface components {
             observation_id: string;
             /** Observed At Ms */
             observed_at_ms: number;
+            /** Piles */
+            piles?: components["schemas"]["ObservedPile"][] | null;
             /**
              * Schema Version
-             * @constant
+             * @enum {string}
              */
-            schema_version: "table-observation/v1";
+            schema_version: "table-observation/v1" | "table-observation/v2";
             session: components["schemas"]["ObservationSession"];
             source: components["schemas"]["ObservationSource"];
             /**

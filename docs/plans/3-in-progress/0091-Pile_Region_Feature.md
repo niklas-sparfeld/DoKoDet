@@ -25,7 +25,7 @@
   the proposal editor, with explicit provider capability and model lineage.
 - **M5:** Complete — identity crops include only cards; observations retain separate pile geometry
   and lineage.
-- **M6:** Not started — preserve pile evidence in reconstruction input and inspection.
+- **M6:** Complete — preserve pile evidence in reconstruction input and inspection.
 - **M7:** Not started — verify the complete local flow and publish the capability handoff.
 
 ## 1. Problem and selected scope
@@ -399,6 +399,28 @@ Acceptance: publisher-to-engine round-trip parity; mixed and pile-only inputs pa
 correctly; individual-card fixtures retain their behavior; a pile cannot add a phantom play or
 identity. Reconstruction output and diagnostics state when pile evidence is not yet used by
 the search, rather than claiming inferred pile contents.
+
+#### M6 implementation evidence — 2026-10-12
+
+The mirrored game-engine parser accepts `table-observation/v1` and `table-observation/v2`. Its v2
+pile contract retains normalized polygons, source dimensions, source candidate references, grouped
+member lineage, origin, confidence, and model lineage in canonical serialization. The
+`round-reconstruction-input/v1` wrapper keeps the nested observation versions unchanged.
+
+Reconstruction diagnostics now report pile-bearing observation and pile-region counts, with
+`pile_search_status=retained_not_used`. The operations result contract is
+`round-reconstruction-result/v3`. Piles remain outside card proposals and replay actions. The
+timeline inspector shows each footprint in its full-frame aspect ratio beside individual cards. It
+states that contents and card count are not inferred. A pile-only observation remains
+`observed`; with no card proposals, reconstruction is `incomplete`, not an empty-table result.
+
+Validation: three publisher-to-engine boundary tests passed for mixed and pile-only parity,
+canonical round-input reload, explicit pile diagnostics, and unchanged plays/actions on the
+unambiguous card fixture. All 76 game-engine tests passed. All 36 focused operations reconstruction
+and pile-boundary tests passed with an OpenCV 4.11 test overlay; the synced OpenCV 5 distribution did
+not expose its `cv2` module. The focused timeline inspector suite passed (6 tests), TypeScript checks
+passed, and generated API types matched OpenAPI. The full Web suite reported 19 failures in unrelated
+recording pipeline, frame cache, and visible-card workbench tests; its typecheck passed.
 
 ### M7 — Verify the feature and publish the handoff
 

@@ -1,4 +1,4 @@
-"""Strict V1 contracts for table observations and reconstruction input."""
+"""Strict contracts for table observations and reconstruction input."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from pydantic import (
 from .cards import CARD_IDENTITIES, CardIdentity, load_deck_manifest
 
 OBSERVATION_SCHEMA_VERSION = "table-observation/v1"
+PILE_OBSERVATION_SCHEMA_VERSION = "table-observation/v2"
 RECONSTRUCTION_INPUT_SCHEMA_VERSION = "round-reconstruction-input/v1"
 ROUND_SCENARIO_SCHEMA_VERSION = "round-scenario/v1"
 OBSERVATION_PROBABILITY_TOLERANCE = 1e-6
@@ -198,6 +199,100 @@ class ObservedCard(ContractModel):
         return self
 
 
+class PilePoint(ContractModel):
+    """One full-frame normalized point in a coarse pile footprint."""
+
+    x: int = Field(ge=0, le=1000, strict=True)
+    y: int = Field(ge=0, le=1000, strict=True)
+
+    @field_validator("x", "y")
+    @classmethod
+    def require_integer_coordinate(cls, value: int) -> int:
+        if isinstance(value, bool):
+            raise ValueError("pile coordinates must be integers.")
+        return value
+
+
+class ObservedPileGeometry(ContractModel):
+    """Normalized polygon evidence for one pile region."""
+
+    kind: Literal["pile-region/v1"]
+    polygons: list[list[PilePoint]] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_polygons(self) -> ObservedPileGeometry:
+        for polygon in self.polygons:
+            if len(polygon) < 3:
+                raise ValueError("pile polygons need at least three points.")
+            area = sum(
+                polygon[index].x * polygon[(index + 1) % len(polygon)].y
+                - polygon[(index + 1) % len(polygon)].x * polygon[index].y
+                for index in range(len(polygon))
+            )
+            if area == 0:
+                raise ValueError("pile polygons must have positive area.")
+        return self
+
+
+class PileSourceCandidate(ContractModel):
+    """One source proposal grouped into a reviewed pile region."""
+
+    revision_id: Identifier
+    card_id: Identifier
+
+
+class ObservedPile(ContractModel):
+    """One separate pile footprint retained as visual evidence."""
+
+    pile_id: Identifier
+    geometry: ObservedPileGeometry
+    normalization: dict[str, object]
+    source_candidates: list[PileSourceCandidate] = Field(default_factory=list)
+    grouped_candidates: list[dict[str, object]] = Field(default_factory=list)
+    grouped_card_states: list[dict[str, object]] = Field(default_factory=list)
+    grouped_scene_decision: Literal["accepted", "adjusted", "manual"] | None = None
+    origin: Literal["reviewed", "model_prediction"] = "reviewed"
+    confidence: BoundedScore | None = None
+    model_lineage: dict[str, object] | None = None
+
+    @field_validator("normalization")
+    @classmethod
+    def validate_normalization(cls, value: dict[str, object]) -> dict[str, object]:
+        if set(value) != {"width", "height", "policy_id"}:
+            raise ValueError("pile normalization must declare width, height, and policy_id.")
+        for field_name in ("width", "height"):
+            field_value = value[field_name]
+            if (
+                isinstance(field_value, bool)
+                or not isinstance(field_value, int)
+                or field_value <= 0
+            ):
+                raise ValueError("pile normalization dimensions must be positive integers.")
+        if value["policy_id"] != "full-frame-0-1000/v1":
+            raise ValueError("pile normalization policy is unsupported.")
+        return value
+
+    @field_validator("grouped_candidates", "grouped_card_states", "model_lineage")
+    @classmethod
+    def require_finite_json_mapping(cls, value: object) -> object:
+        if value is not None:
+            try:
+                json.dumps(value, ensure_ascii=True, allow_nan=False)
+            except (TypeError, ValueError) as error:
+                raise ValueError("pile metadata must contain finite JSON values.") from error
+        return value
+
+    @model_validator(mode="after")
+    def validate_lineage(self) -> ObservedPile:
+        if self.confidence is not None and not math.isfinite(self.confidence):
+            raise ValueError("pile confidence must be finite.")
+        if len({(item.revision_id, item.card_id) for item in self.source_candidates}) != len(
+            self.source_candidates
+        ):
+            raise ValueError("pile source candidates must be unique.")
+        return self
+
+
 class AnalyzerMetadata(ContractModel):
     """Analyzer identity recorded with each observation."""
 
@@ -208,7 +303,7 @@ class AnalyzerMetadata(ContractModel):
 class TableObservation(ContractModel):
     """One ordered, uncertain visual observation with no game claims."""
 
-    schema_version: Literal["table-observation/v1"]
+    schema_version: Literal["table-observation/v1", "table-observation/v2"]
     observation_id: Identifier
     source: ObservationSource
     session: ObservationSession
@@ -216,6 +311,7 @@ class TableObservation(ContractModel):
     status: ObservationStatus
     capabilities: list[Capability] = Field(min_length=1, max_length=len(ANALYZER_CAPABILITIES))
     cards: list[ObservedCard] = Field(default_factory=list, max_length=64)
+    piles: list[ObservedPile] | None = Field(default=None, max_length=64)
     calibration: CalibrationState
     analyzer: AnalyzerMetadata
     diagnostics: dict[str, object] = Field(default_factory=dict)
@@ -235,7 +331,7 @@ class TableObservation(ContractModel):
         if value != sorted(value, key=ANALYZER_CAPABILITIES.index):
             raise ValueError("capabilities must use the canonical order.")
         if "identity_candidates" not in value:
-            raise ValueError("identity_candidates is required in table-observation/v1.")
+            raise ValueError("identity_candidates is required in table observations.")
         return value
 
     @field_validator("diagnostics")
@@ -251,6 +347,11 @@ class TableObservation(ContractModel):
     def validate_status_and_capabilities(self) -> TableObservation:
         if self.status == "insufficient_evidence" and self.cards:
             raise ValueError("insufficient_evidence observations must not contain cards.")
+        if self.piles and self.schema_version != PILE_OBSERVATION_SCHEMA_VERSION:
+            raise ValueError("pile evidence requires table-observation/v2.")
+        pile_ids = [pile.pile_id for pile in (self.piles or [])]
+        if len(pile_ids) != len(set(pile_ids)):
+            raise ValueError("pile IDs must be unique within an observation.")
 
         capability_fields = {
             "presence_score": [

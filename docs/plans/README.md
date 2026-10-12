@@ -28,8 +28,8 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 1. **0086:** Continue reviewed corpus work. Use the 0091 annotation workflow to review one region
    per accumulated pile.
-2. **0091 M6–M7:** Preserve pile evidence through engine input and inspection, then verify the
-   complete local flow. This does not require completion of the corpus or a real training campaign.
+2. **0091 M7:** Verify the complete local flow and publish the pile-capability handoff. This does
+   not require completion of the corpus or a real training campaign.
 3. **0087 and 0088:** Run separate RF-DETR and DINO campaigns after their corpus and feature gates.
    Neither campaign requires the other to improve its model. 0087 preparation needs 0091 M0–M3;
    pile-capable inference checks need M4. Pile-aware identity preparation needs M5.
@@ -68,7 +68,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0091 — Pile-region feature](3-in-progress/0091-Pile_Region_Feature.md) | 0048, 0049, 0065, 0073, 0074, and 0085 complete; staged gates in the epic | M0–M5 complete: durable annotation, two-class training support, pile inference, identity isolation, and separate pile evidence in table observations. M6–M7 remain for engine preservation and complete local verification. Real training and quality gates stay in 0087. |
+| [0091 — Pile-region feature](3-in-progress/0091-Pile_Region_Feature.md) | 0048, 0049, 0065, 0073, 0074, and 0085 complete; staged gates in the epic | M0–M6 complete: durable annotation, two-class training support, pile inference, identity isolation, separate observation evidence, and engine inspection. M7 remains for complete local verification and capability handoff. Real training and quality gates stay in 0087. |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers; pile review uses 0091 M0–M1 | M0 reconciles 52 accepted recordings and selects the 0095 pilot. M1 generates current proposals for all 53 pilot frames. M2 awaits operator review; M3–M5 not started. Continue individual-card review and use one region per accumulated pile after 0091 M1. |
 
 ### Blocked

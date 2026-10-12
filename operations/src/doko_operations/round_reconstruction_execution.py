@@ -235,7 +235,8 @@ def load_round_reconstruction_observations_from_paths(
             observation = parse_observation_bytes(observation_bytes)
         except GameEngineContractError as error:
             raise RoundReconstructionContractError(
-                f"observation_paths[{index}] {observation_path!r} failed table-observation/v1 "
+                f"observation_paths[{index}] {observation_path!r} failed table-observation/v1 or "
+                "table-observation/v2 "
                 "validation."
             ) from error
         loaded.append(
@@ -450,6 +451,9 @@ def _serialize_engine_diagnostics(diagnostics: Any) -> ReconstructionDiagnostics
         calibration_states=tuple(diagnostics.calibration_states),
         observations_seen=diagnostics.observations_seen,
         card_proposals_seen=diagnostics.card_proposals_seen,
+        pile_observations_seen=diagnostics.pile_observations_seen,
+        pile_regions_seen=diagnostics.pile_regions_seen,
+        pile_search_status=diagnostics.pile_search_status,
         search_nodes=diagnostics.search_nodes,
         complete_branches=diagnostics.complete_branches,
         merged_branches=diagnostics.merged_branches,

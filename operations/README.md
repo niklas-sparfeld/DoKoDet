@@ -692,7 +692,7 @@ The command publishes `<output_root>/<run_id>/` with these files:
 | File | Contents |
 | --- | --- |
 | `input.json` | Canonical `round-reconstruction-input/v1` assembled from the setup and observations. |
-| `result.json` | Canonical `round-reconstruction-result/v2` with `schema_version`, `run_id`, `operations_version`, the canonical request SHA-256, ordered `sources`, requested `search` limits, engine `status`, scored per-action hypothesis explanations, `focused_decisions`, and `diagnostics`. |
+| `result.json` | Canonical `round-reconstruction-result/v3` with `schema_version`, `run_id`, `operations_version`, the canonical request SHA-256, ordered `sources`, requested `search` limits, engine `status`, scored per-action hypothesis explanations, `focused_decisions`, and diagnostics that report retained pile evidence separately from card search. |
 
 Each `sources` entry records the request path, observation ID, exact source byte length, and
 source-byte SHA-256. The artifacts contain no absolute paths, timestamps, host data, or generated

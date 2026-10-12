@@ -1223,6 +1223,48 @@ h2 {
   margin-top: 0.8rem;
 }
 
+.pileEvidenceList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.8rem;
+  margin-top: 0.65rem;
+}
+
+.pileEvidence {
+  min-width: 0;
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--surface) 55%, var(--panel));
+}
+
+.pileFootprint {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.pileFootprint polygon {
+  fill: color-mix(in srgb, var(--accent) 30%, transparent);
+  stroke: var(--accent);
+  stroke-width: 8;
+  vector-effect: non-scaling-stroke;
+}
+
+.observedPileSection {
+  margin-top: 1rem;
+}
+
+.observedPileSection h4 {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .frameDialogHeader {
   display: flex;
   align-items: start;
