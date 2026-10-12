@@ -1,10 +1,17 @@
-import { useRef, useState, type MutableRefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
 } from "react";
 import type { CalibrationRefinementResponse } from "../api/client";
+import { ignoresReviewNavigationShortcut } from "../reviewNavigation";
 import type { WorkbenchCalibrationAnchor } from "./VisibleCardWorkbenchControls";
 import {
   applyPoseSceneAction,
@@ -143,6 +150,52 @@ export function useVisibleCardWorkbenchInteraction({
     anchorPreviewRef.current = next;
     setAnchorPreview(next);
   };
+  const removeVirtualCard = useCallback((cardId: string) => {
+    if (
+      readOnly ||
+      activeState.activeTool !== "virtual_cards" ||
+      activeState.selection?.type !== "virtual_card" ||
+      activeState.selection.id !== cardId
+    )
+      return false;
+    const scene = sceneDraftRef.current;
+    if (scene === null) return false;
+    if (scene.scene.poses.length <= 1) return true;
+    const nextSelection = scene.scene.poses.find(
+      (pose) => pose.card_id !== cardId,
+    );
+    applySceneAction(
+      { type: "remove", cardId },
+      "Card removed from the virtual table.",
+    );
+    if (nextSelection === undefined) clearSelection();
+    else select({ type: "virtual_card", id: nextSelection.card_id });
+    return true;
+  }, [
+    activeState.activeTool,
+    activeState.selection,
+    applySceneAction,
+    clearSelection,
+    readOnly,
+    sceneDraftRef,
+    select,
+  ]);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key !== "Backspace" ||
+        ignoresReviewNavigationShortcut(event.target) ||
+        readOnly ||
+        activeState.activeTool !== "virtual_cards" ||
+        activeState.selection?.type !== "virtual_card"
+      )
+        return;
+      if (!removeVirtualCard(activeState.selection.id)) return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeState.activeTool, activeState.selection, readOnly, removeVirtualCard]);
   const handleSurfaceKeyDown = (event: ReactKeyboardEvent<SVGSVGElement>) => {
     if (
       event.key === "Escape" &&
@@ -209,19 +262,9 @@ export function useVisibleCardWorkbenchInteraction({
       activeState.selection?.type === "virtual_card" &&
       activeState.selection.id === cardId
     ) {
-      const scene = sceneDraftRef.current;
-      if (scene === null || scene.scene.poses.length <= 1) return;
+      if (!removeVirtualCard(cardId)) return;
       event.preventDefault();
       event.stopPropagation();
-      const nextSelection = scene.scene.poses.find(
-        (pose) => pose.card_id !== cardId,
-      );
-      applySceneAction(
-        { type: "remove", cardId },
-        "Card removed from the virtual table.",
-      );
-      if (nextSelection === undefined) clearSelection();
-      else select({ type: "virtual_card", id: nextSelection.card_id });
       return;
     }
     if (
