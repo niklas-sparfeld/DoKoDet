@@ -59,6 +59,24 @@ decision belongs to a later reconstruction epic.
 
 ## 3. Data, review, and reproducibility
 
+### Planned pile-region boundary
+
+[Epic 0091](plans/2-ready/0091-Pile_Region_Feature.md) specifies pile regions beside individual
+cards. Its first two milestones deliver the data model and complete annotation workflow so
+corpus review can continue before downstream implementation or model training.
+
+The planned detector distinguishes precise individual-card visible regions from coarse pile
+footprints. Piles bypass card-pose fitting, calibration anchors, and identity classification.
+Observation assembly publishes a separate pile collection, and the mirrored engine parser and
+inspection retain it. A pile-only frame is detected evidence, not an assertion of an empty table.
+
+Pile location is visual evidence. Count, contents, ownership, prior plays, and association across
+frames remain unknown unless another source establishes them. 0091 preserves the evidence but
+does not change reconstruction search to infer those facts. Real two-class RF-DETR training stays
+in 0087. These are planned contracts until their owning milestones are implemented.
+
+### Existing lifecycle
+
 Every processor run pins its video source, input revisions, implementation, model, configuration,
 and extraction policies. Selection pointers are resolved once at creation. Retrying incomplete work
 uses frozen inputs; an intentional rerun retains another result. Failures remain distinct from
@@ -206,7 +224,7 @@ and tracking improve independently.
   DINOv3 candidate and its measured development limits.
 - [0044](plans/1-backlog/0044-Productive_Local_Identity_Model_Operations.md) owns later productive
   campaigns, promotion, and rollback.
-- [0086](plans/2-ready/0086-Reviewed_Virtual_Card_Corpus.md) owns the current reviewed geometry
+- [0086](plans/3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) owns the current reviewed geometry
   and identity corpus.
 - [0087](plans/4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
   [0088](plans/4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) own separate segmentation

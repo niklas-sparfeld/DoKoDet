@@ -6,6 +6,7 @@
   the composed result with explicit model, input, and failure lineage.
 - **Status:** Blocked
 - **Depends on:** 0087 and 0088 bundle decisions; 0089 algorithm handoff; completed 0048 and 0049
+  0091 M7 pile feature handoff and explicit real pile-model capability decision.
 - **Blocker:** Fixed model and algorithm decisions for the composed run are not available.
 - **Outcome:** A resumable local coordinator, retained stage results, and a measured development
   pilot from video through reconstruction.
@@ -33,6 +34,13 @@ outputs. A reviewed scene can be a separate diagnostic input, but must not be de
 fully automatic inference. If the chosen identity crop requires reviewed geometry, define and
 verify a separate generated-geometry execution contract or retain a compatible automatic crop
 policy. This epic cannot bypass 0085's reviewed-input authority checks.
+
+[0091](../2-ready/0091-Pile_Region_Feature.md) owns pile support at the individual boundaries.
+Freeze its capability and observation versions in the coordinator. Keep pile detections separate
+from individual cards, bypass identity and pose work for piles, and retain pile evidence through
+engine input. Distinguish retained but unused pile evidence from gameplay inference. If the
+selected bundle cannot detect piles, declare that coverage limit before the pilot; do not hide
+it as an empty pile collection or silently use a different model.
 
 Use a small varied development batch with reviewed event, geometry, identity, and reconstruction
 coverage where available. Keep reviewed targets separate from execution inputs. System holdout

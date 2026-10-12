@@ -6,6 +6,7 @@
   bounded DINOv3 identity campaign with one measured synthetic-data addition.
 - **Status:** Blocked
 - **Depends on:** 0086 completed geometry and identity handoff; completed 0043 and 0085
+  0091 M5 identity isolation for pile-bearing references; no dependency on 0087 training.
 - **Blocker:** Reviewed identity coverage and the virtual-card training crop contract are not frozen.
 - **Outcome:** Reproducible identity crops, measured real and synthetic candidates, and a retained
   local identity bundle decision.
@@ -30,6 +31,12 @@ The candidate remains a development baseline, not evidence for unsupported class
 0085 supports reviewed virtual-card crop inputs for inference. The current campaign preparation
 requires `predicted_visible_region`, while reviewed geometry defaults to `oracle_visible_region`.
 Adapt the preparation contract explicitly; do not relabel reviewed geometry as detector output.
+
+[0091](../2-ready/0091-Pile_Region_Feature.md) adds pile regions beside individual cards. Its M5
+defines the individual-card projection used by this campaign. Piles and their consumed member
+proposals have no identity crops, labels, pending identity work, or synthetic cutout eligibility.
+Report their exclusion separately from failed or identity-unusable individual cards. Readiness
+counts individual-card support only; a pile is neither FACE_DOWN nor UNKNOWN identity evidence.
 
 This campaign does not depend on the new RF-DETR candidate. It trains from completed reviewed
 geometry and labels. RF-DETR training belongs to [0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md).

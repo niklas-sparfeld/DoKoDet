@@ -307,6 +307,23 @@ One offline training image made by compositing reviewed card cutouts onto a revi
 recorded geometry and z-order. Its exact visible-region masks are renderer outputs. A synthetic
 training scene is not a reviewed source frame or an independent source group.
 
+### Card pile
+
+A visible physical group of accumulated overlapping cards represented as one visual object.
+A card pile does not establish card count, contents, trick ownership, or whether its cards were
+played. Ordinary overlapping trick cards remain individual cards when they can be reviewed.
+
+### Pile region
+
+A coarse source-frame footprint of one card pile, stored separately from individual visible
+regions and ignore regions. Small internal gaps can be included. A pile region does not require
+component-card poses, stacking order, identities, or table-plane calibration. Generated and reviewed
+pile regions differ in origin and review authority. The detector class is `card_pile`.
+
+The planned [pile-region feature](plans/2-ready/0091-Pile_Region_Feature.md) owns persistence,
+annotation, training targets, inference, and downstream evidence support. A pile region is not yet
+an implemented runtime contract merely because this glossary defines it.
+
 ### Visible-card ignore region
 
 A reviewed source-frame region that contains visible card-like evidence but does not support

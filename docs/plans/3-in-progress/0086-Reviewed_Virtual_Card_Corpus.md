@@ -6,6 +6,7 @@
   reviewed geometry and visual card identities for the selected recording corpus.
 - **Status:** In Progress
 - **Depends on:** Completed 0073, 0074, and 0085; existing local detector and identity providers
+  Pile annotation uses 0091 M0–M1; individual-card review can continue before that handoff.
 - **Outcome:** A recording inventory, completed maintained references, and a reproducible data
   handoff for separate RF-DETR and DINO campaigns.
 - **Target architecture:**
@@ -69,6 +70,14 @@ implement general algorithm improvements, promote bundles, or automate reconstru
 
 ## 2. Data and review rules
 
+- [0091](../2-ready/0091-Pile_Region_Feature.md) owns pile feature implementation. After its M1
+  handoff, review each accumulated pile as one coarse source-frame region. Do not require its
+  component-card poses, stacking order, count, or identities. Keep normal trick overlap under
+  individual-card review. Preserve genuine ignore regions for ambiguous evidence. Do not
+  automatically relabel existing ignores or treat pile membership as proof of a prior play.
+- Grouped proposals become provenance for the pile, not pending individual review or card targets.
+  Retain exact remaining individual-card and pile coverage. Publish pile-only frames as detected
+  evidence. Older card-only references do not establish reviewed pile coverage.
 - Freeze source-group assignments before crop extraction or synthetic generation. Reconcile the
   existing detector, identity, CardEventNet, and system-holdout assignments. Related sessions,
   source assets, and table setups must not cross protected boundaries. Record conflicts and resolve
@@ -140,6 +149,8 @@ cover interrupted execution and refreshing a draft with accepted and adjusted ca
 An operator reviews the pilot geometry, occlusion exclusions, sides, and identity usability, then
 reviews identities from the completed geometry. Inspect derived masks and identity crop previews.
 Record correction effort and any workflow blocker. Fix only bounded blockers to this review path.
+Use 0091 M1 for pile annotation when piles occur. Keep that feature's implementation outside this
+epic; do not delay ordinary individual-card review until its later milestones.
 
 Acceptance: the pilot publishes completed geometry and identity revisions with matching card and
 frame lineage; masks exclude hidden and human-hand pixels; every unusable item has a reason;
@@ -171,6 +182,8 @@ review work or exclusions; interruption resumes without duplicate runs or lost c
 An operator completes the frozen geometry work in bounded review sessions. Record each session's
 coverage and remaining work. Correct calibration and stacking order, and resolve human-hand
 occlusion and ignore regions before reference completion.
+After 0091 M1, review piles as coarse regions and complete only the remaining individual poses.
+Measure effort by pile regions and remaining cards, not by hidden component cards.
 
 Acceptance: every selected frame has a completed reference decision or exact exclusion; all
 published derived visible regions pass validation; no pending card is a training target. This
@@ -181,6 +194,9 @@ milestone remains open until the recorded human work is complete.
 Use the completed reviewed virtual-card crop input to propose identities. An operator confirms or
 corrects labels and unusable outcomes. Publish a handoff with exact reference revisions, source
 groups, class counts, geometry and identity exclusions, recipe versions, and campaign-specific gaps.
+Include reviewed pile counts, footprint policy, grouping provenance, and explicit pile-review
+coverage. Piles have no identity work. Hand two-class detector eligibility to 0087 separately
+from individual-card crop and identity eligibility for 0088.
 
 Acceptance: repeated readiness reports reproduce counts and digests; each training identity matches
 its reviewed geometry; unsupported classes and face-down coverage are explicit; RF-DETR and DINO

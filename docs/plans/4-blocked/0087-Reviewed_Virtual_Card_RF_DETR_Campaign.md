@@ -2,11 +2,12 @@
 
 ## Plan status
 
-- **Summary:** Train and compare RF-DETR segmentation candidates from corrected virtual-card
-  references, with one measured synthetic-data addition.
+- **Summary:** Train and compare RF-DETR candidates from reviewed individual-card masks and
+  coarse pile targets, with one compatible synthetic-data addition where supported.
 - **Status:** Blocked
 - **Depends on:** 0086 completed reviewed corpus and source-group handoff; completed 0068 and 0070
-- **Blocker:** The corrected corpus and current mask eligibility are not frozen.
+  0091 M0–M3 for two-class preparation; M4 before pile-capable inference checks.
+- **Blocker:** The corrected corpus, pile feature support, and target eligibility are not frozen.
 - **Supersedes:** Unstarted training in 0084; retain its M0–M2 evidence as historical inspection
 - **Outcome:** Verified segmentation views, bounded training, real evaluation, and a retained bundle
   decision. Improvement is measured, not assumed.
@@ -24,8 +25,9 @@
 
 ## 1. Boundaries and evidence
 
-This campaign uses completed human-reviewed card scenes. Unreviewed proposed scenes and review
-drafts are not targets. Do not reuse the 0084 mask view as corrected training data: its inspection
+This campaign uses completed human-reviewed individual-card scenes and pile regions under
+[0091](../2-ready/0091-Pile_Region_Feature.md). Unreviewed proposed scenes and review drafts are
+not targets. Do not reuse the 0084 mask view as corrected training data: its inspection
 found human-hand label spill, and its geometry predates the current measured dimensions.
 
 Reuse the 0068 SegMedium trainer, evaluation, bundle, and provider boundaries. Reuse the 0070
@@ -45,6 +47,17 @@ rounded outlines and remove card-card occlusion, then apply reviewed non-card ex
 unresolved occlusion, invalid calibration, empty masks, and unsupported loss masking with receipts.
 RLE encoding must preserve holes and disconnected components through the pinned trainer.
 
+Use 0091's fixed two-class mapping: precise `visible_card` masks and coarse `card_pile` footprints.
+Piles are ordinary positive targets, not ignores or `iscrowd` annotations. Consumed group members
+do not become individual targets. Freeze the footprint and pixel-ownership policies separately
+from precise-card masks. Pile-bearing frames require reviewed pile coverage; older references
+do not establish pile negatives. Genuine ignores retain explicit loss-safe exclusions.
+
+0091 implements export, trainer, evaluator, bundle, and runtime support. This epic runs the real
+campaign and owns its budgets and numerical quality gates. Preparation requires 0091 M0–M3;
+M5's pile-capable inference verification requires M4, not completion of 0091. Neither epic waits
+for the other's complete closure. Missing real pile support blocks a pile-model quality claim.
+
 M0 must first reconcile historical split and test usage. Do not silently reuse a previously opened
 sealed test as a fresh sealed test. Freeze either an eligible unopened test or explicitly label
 previously observed data as diagnostic evaluation. Never move a protected group into training.
@@ -59,6 +72,9 @@ Do not sweep ratios, seeds, model sizes, or thresholds.
 Synthetic contributors must come from training groups only, including card cutouts, reviewed empty
 backgrounds, geometry, and calibration. Retain exact contributor lineage. Synthetic frames are not
 independent real coverage. Evaluate only on real reviewed frames.
+Existing synthetic individual-card overlaps are not pile labels. Freeze their two-class exposure
+and target compatibility explicitly. Pile synthesis is not part of 0091; omit the synthetic
+candidate with a recorded reason if this campaign cannot define a compatible pool.
 
 ## 3. Delivery milestones
 
@@ -68,6 +84,9 @@ Audit the 0086 handoff and prior evaluation usage. Freeze the comparison design,
 minimum support, recipes, budgets, and numerical gates. Include mask AP, recall, false detections,
 duplicates, empty predictions, and per-recording coverage. Freeze overlap, small-card, frame-edge,
 and human-hand slices where real support exists.
+Freeze individual-card metrics separately from pile localization and classification, pile/card
+confusion, fragments predicted inside piles, and individual-card recall near piles. Include
+ordinary overlapping tricks as a confusion slice. Aggregate AP is not a sufficient gate.
 
 Acceptance: immutable manifest and deterministic readiness; no protected contributor enters training;
 candidate count and total budget are fixed; missing support blocks training with exact reasons.
@@ -76,6 +95,8 @@ candidate count and total budget are fixed; missing support blocks training with
 
 Extract exact source frames and materialize corrected visible instance masks. Retain ignored-pixel
 or frame-exclusion receipts, tight boxes, source and geometry digests, and reviewed-reference lineage.
+Include coarse pile targets under 0091's policy and verify that consumed cards are absent from
+individual targets. Pile-only images remain positive training samples.
 Inspect overlays from every recording and all declared risk slices. Smoke-load through pinned RF-DETR.
 
 Acceptance: cold and warm views have equal digests; decoded trainer masks match source masks;

@@ -26,11 +26,18 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-1. **0086:** Complete the reviewed virtual-card corpus. Start with M0 inventory and one pilot.
-2. **0087 and 0088:** Run separate RF-DETR segmentation and DINO identity campaigns. Both consume
-   the reviewed corpus; neither campaign requires the other to improve its model.
-3. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
-4. **0090:** Run and measure the automatic local recording pipeline on a small development batch.
+1. **0091 M0–M1:** Deliver the pile data contract and complete annotation workflow first. The
+   operator can then annotate accumulated piles while the remaining feature support is implemented.
+2. **0086:** Continue reviewed corpus work, with one region per accumulated pile after 0091 M1.
+   Individual-card review can continue before that handoff.
+3. **0091 M2–M7:** Implement two-class export, trainer support, inference, identity isolation,
+   observation and engine contracts, and fixture-backed end-to-end verification. This does not
+   require completion of the corpus or a real training campaign.
+4. **0087 and 0088:** Run separate RF-DETR and DINO campaigns after their corpus and feature gates.
+   Neither campaign requires the other to improve its model. 0087 preparation needs 0091 M0–M3;
+   pile-capable inference checks need M4. Pile-aware identity preparation needs M5.
+5. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
+6. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
 
 Fix bounded annotation blockers during 0086. Keep broader algorithm work in 0089. Retain explicit
 bundle decisions even when training does not improve quality. Productive campaign UI and promotion
@@ -57,22 +64,24 @@ The shared target architecture is
 
 ### Ready
 
-No epics are currently ready.
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
+| [0091 — Pile-region feature](2-ready/0091-Pile_Region_Feature.md) | 0048, 0049, 0065, 0073, 0074, and 0085 complete; staged gates in the epic | M0–M7 not started. M0–M1 release durable pile annotation first. Later milestones implement two-class RF-DETR support, inference, identity isolation, observation and engine preservation, and complete local verification. Real model training stays in 0087. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers | M0 reconciles 52 accepted recordings and selects the 0095 pilot. M1 generates current proposals for all 53 pilot frames. M2 is in progress and awaits operator geometry and identity review; M3–M5 not started. |
+| [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers; pile review uses 0091 M0–M1 | M0 reconciles 52 accepted recordings and selects the 0095 pilot. M1 generates current proposals for all 53 pilot frames. M2 awaits operator review; M3–M5 not started. Continue individual-card review and use one region per accumulated pile after 0091 M1. |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0087 — Reviewed virtual-card RF-DETR campaign](4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 reviewed corpus; 0068 and 0070 complete | M0–M5 not started. Freeze corrected instance masks, train bounded real and synthetic candidates, and publish segmentation metrics and an exact bundle decision. Replaces unstarted 0084 training. |
-| [0088 — Reviewed virtual-card DINO campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) | 0086 geometry and identity handoff; 0043 and 0085 complete | M0–M5 not started. Adapt reviewed virtual-card training crops, train separate bounded real and synthetic identity candidates, and publish measured class limits and a bundle decision. Does not depend on 0087 training. |
+| [0087 — Reviewed virtual-card RF-DETR campaign](4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 reviewed corpus; 0091 M0–M3 for preparation and M4 for inference; 0068 and 0070 complete | M0–M5 not started. Freeze individual-card masks and coarse pile targets, train bounded real and synthetic candidates, and publish per-class metrics and an exact bundle decision. Replaces unstarted 0084 training. |
+| [0088 — Reviewed virtual-card DINO campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) | 0086 geometry and identity handoff; 0091 M5 for pile-bearing inputs; 0043 and 0085 complete | M0–M5 not started. Prepare individual-card crops with piles excluded, train separate bounded real and synthetic identity candidates, and publish measured class limits and a bundle decision. Does not depend on 0087 training. |
 | [0089 — Virtual-card algorithm edge cases](4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) | 0086 reviewed evidence; 0087 and 0088 bundle decisions | M0–M3 not started. Reproduce fresh failures, freeze at most two small failure families, and verify bounded pose, occlusion, or crop fixes. |
-| [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) | 0087 and 0088 bundle decisions; 0089 handoff; 0048 and 0049 complete | M0–M3 not started. Coordinate retained automatic stages on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion. |
+| [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) | 0087 and 0088 bundle decisions; 0089 and 0091 M7 handoffs; 0048 and 0049 complete | M0–M3 not started. Coordinate retained automatic stages with declared pile capabilities on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0086 reviewed evidence, 0087 and 0088 decisions, and 0090 composed report; 0048 and 0049 complete | M0–M3 not started. Use the later reports to select at most one new optional analyzer capability. Do not repeat the campaigns, bounded algorithm fixes, or composed pilot. |
 
 ### Closed
