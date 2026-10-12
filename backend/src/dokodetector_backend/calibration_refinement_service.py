@@ -98,6 +98,7 @@ class CalibrationRefinementService:
             raise CalibrationRefinementInputError("proposal_revision_id is required")
         proposal, source, data = self._proposal(recording_id, proposal_revision_id)
         del proposal
+        self._require_supported_calibration_geometry(data)
         draft_id = payload.get("draft_id", f"calibration-draft-{proposal_revision_id}")
         if not isinstance(draft_id, str) or not draft_id:
             raise CalibrationRefinementInputError("draft_id must be a non-empty string")
@@ -240,6 +241,23 @@ class CalibrationRefinementService:
             raise CalibrationRefinementInputError(
                 "calibration draft uses a different detector revision; start a new mapping preview"
             )
+
+    @staticmethod
+    def _require_supported_calibration_geometry(data: ProposedCardSceneData) -> None:
+        calibration = data.calibration
+        calibration_mapping = (
+            calibration.to_mapping()
+            if isinstance(calibration, TablePlaneCalibration)
+            else calibration
+        )
+        try:
+            TablePlaneCalibration.from_mapping(calibration_mapping)
+        except (TypeError, ValueError) as error:
+            raise CalibrationRefinementInputError(
+                "the proposal uses an unsupported calibration geometry; "
+                "rerun the card-scene proposal with the current geometry before "
+                "preparing calibration refinement"
+            ) from error
 
     def apply(
         self,
