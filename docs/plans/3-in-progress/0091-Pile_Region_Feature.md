@@ -23,7 +23,8 @@
   support both visible cards and piles.
 - **M4:** Complete — retain pile predictions through two-class inference, durable outcomes, and
   the proposal editor, with explicit provider capability and model lineage.
-- **M5:** Not started — exclude piles from identity work and preserve them in table observations.
+- **M5:** Complete — identity crops include only cards; observations retain separate pile geometry
+  and lineage.
 - **M6:** Not started — preserve pile evidence in reconstruction input and inspection.
 - **M7:** Not started — verify the complete local flow and publish the capability handoff.
 
@@ -363,6 +364,26 @@ Acceptance: a mixed fixture issues identity work only for the individual card; a
 fixture issues none and still publishes nonempty pile evidence; identity failure cannot remove
 piles; no pile becomes FACE_DOWN, UNKNOWN, or an anonymous individual card. Exact pile evidence
 survives observation publication and reload. Run focused 0085 crop and assembly regressions.
+
+#### M5 implementation evidence — 2026-10-12
+
+Identity runs now accept pile-bearing visible-card revisions. Crop manifests still iterate only
+individual-card candidates, so pile geometry and grouped members do not create identity work.
+Reviewed virtual-card crop lineage remains unchanged. Identity outcomes for individual cards do
+not control whether pile evidence is published.
+
+Observation assembly copies every pile into a separate `piles` collection. It retains the pile ID,
+normalized polygons, frame normalization, source candidate references, grouped-member lineage,
+origin, optional confidence, and model lineage. A pile-bearing observation uses
+`table-observation/v2`; card-only observations remain `table-observation/v1`. Pile-only frames have
+status `observed` with no cards. They are not empty-table claims.
+
+Validation: 9 observation-assembly tests and 9 backend identity/observation API tests passed. The
+API fixture submitted mixed and pile-only revisions through identity processing. The mixed crop
+manifest named only its card candidates; the pile-only manifest had zero items and produced no
+identity outcomes. Observation publication retained the mixed pile through backend restart. The
+pile-only assembly fixture retained a nonempty pile collection. Engine parsing and inspection
+remain M6.
 
 ### M6 — Retain pile evidence in engine input and inspection
 

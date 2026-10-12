@@ -8,11 +8,13 @@ from typing import Any, Literal
 from .pipeline_data import TableObservationData, VisibleCardData, VisualIdentityData
 from .table_observation import (
     OBSERVATION_SCHEMA_VERSION,
+    PILE_OBSERVATION_SCHEMA_VERSION,
     AnalyzerMetadata,
     IdentityCandidate,
     ObservationSession,
     ObservationSource,
     ObservedCard,
+    ObservedPile,
     TableObservation,
 )
 
@@ -190,7 +192,11 @@ def assemble_table_observations(
         }
         observations.append(
             TableObservation(
-                schema_version=OBSERVATION_SCHEMA_VERSION,
+                schema_version=(
+                    PILE_OBSERVATION_SCHEMA_VERSION
+                    if visible_outcome.pile_regions
+                    else OBSERVATION_SCHEMA_VERSION
+                ),
                 observation_id=f"{assembly_run_id}-observation-{event_index:04d}",
                 source=source,
                 session=ObservationSession(
@@ -201,6 +207,34 @@ def assemble_table_observations(
                 status=status,
                 capabilities=["identity_candidates"],
                 cards=cards,
+                piles=(
+                    [
+                        ObservedPile(
+                            pile_id=pile.pile_id,
+                            geometry={
+                                "kind": "pile-region/v1",
+                                "polygons": [
+                                    [{"x": x, "y": y} for x, y in polygon]
+                                    for polygon in pile.polygons
+                                ],
+                            },
+                            normalization=dict(pile.normalization),
+                            source_candidates=[
+                                source.to_mapping() for source in pile.source_candidates
+                            ],
+                            grouped_candidates=[dict(value) for value in pile.grouped_candidates],
+                            grouped_card_states=[dict(value) for value in pile.grouped_card_states],
+                            grouped_scene_decision=pile.grouped_scene_decision,
+                            origin=pile.origin,
+                            confidence=pile.confidence,
+                            model_lineage=(
+                                None if pile.model_lineage is None else dict(pile.model_lineage)
+                            ),
+                        )
+                        for pile in visible_outcome.pile_regions
+                    ]
+                    or None
+                ),
                 calibration=calibration,
                 analyzer=AnalyzerMetadata(name=analyzer_name, version=analyzer_version),
                 diagnostics=diagnostics,

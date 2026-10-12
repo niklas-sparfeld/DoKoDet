@@ -7,8 +7,9 @@ bundles and durable pipeline resources below `data/`. Temporary uploads, derived
 caches are disposable runtime state.
 
 The backend stores table observations produced by a `TableEvidenceAnalyzer` and adds an optional
-bounded video snippet. It stores the canonical `table-observation/v1` contract and does not import
-training modules.
+bounded video snippet. Card-only observations use `table-observation/v1`; pile-bearing observations
+use `table-observation/v2` with a separate pile collection. The backend does not import training
+modules.
 
 ## First hop
 

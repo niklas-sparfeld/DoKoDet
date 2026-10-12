@@ -237,7 +237,10 @@ class VisualIdentityCropInputItem:
 
 @dataclass(frozen=True, slots=True)
 class VisualIdentityCropInput:
-    """One immutable geometry input for a visual identity run."""
+    """One immutable geometry input for a visual identity run.
+
+    Empty inputs represent a valid revision with no individual-card crops to classify.
+    """
 
     input_kind: CropInputKind
     recording_id: str
@@ -259,8 +262,6 @@ class VisualIdentityCropInput:
         _identifier(self.source_revision_id, "source_revision_id")
         _digest(self.source_revision_digest, "source_revision_digest")
         _digest(self.source_view_digest, "source_view_digest")
-        if not self.items:
-            raise VisualIdentityCropInputError("items must not be empty")
         if not isinstance(self.items, tuple) or any(
             not isinstance(item, VisualIdentityCropInputItem) for item in self.items
         ):

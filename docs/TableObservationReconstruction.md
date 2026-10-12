@@ -59,21 +59,24 @@ decision belongs to a later reconstruction epic.
 
 ## 3. Data, review, and reproducibility
 
-### Planned pile-region boundary
+### Pile-region boundary
 
 [Epic 0091](plans/3-in-progress/0091-Pile_Region_Feature.md) specifies pile regions beside individual
-cards. Its first two milestones deliver the data model and complete annotation workflow so
-corpus review can continue before downstream implementation or model training.
+cards. Its first five milestones deliver the annotation, training-data, inference, identity, and
+observation boundaries independently of real model training.
 
-The planned detector distinguishes precise individual-card visible regions from coarse pile
-footprints. Piles bypass card-pose fitting, calibration anchors, and identity classification.
-Observation assembly publishes a separate pile collection, and the mirrored engine parser and
-inspection retain it. A pile-only frame is detected evidence, not an assertion of an empty table.
+The detector distinguishes precise individual-card visible regions from coarse pile footprints.
+Piles bypass card-pose fitting, calibration anchors, and identity classification. Identity crop
+manifests contain only individual-card candidates. When an observation contains piles, the
+publisher writes `table-observation/v2` with a separate pile collection, geometry, source
+references, and model lineage. Card-only observations retain `table-observation/v1`. The mirrored
+engine parser and inspection remain an M6 boundary. A pile-only frame is detected evidence, not an
+assertion of an empty table.
 
 Pile location is visual evidence. Count, contents, ownership, prior plays, and association across
 frames remain unknown unless another source establishes them. 0091 preserves the evidence but
 does not change reconstruction search to infer those facts. Real two-class RF-DETR training stays
-in 0087. These are planned contracts until their owning milestones are implemented.
+in 0087.
 
 ### Existing lifecycle
 

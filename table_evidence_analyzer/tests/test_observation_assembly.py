@@ -19,6 +19,7 @@ from table_evidence_analyzer import (
     canonical_table_observation_data_bytes,
     parse_table_observation_data_bytes,
 )
+from table_evidence_analyzer.pipeline_data import VisibleCardPileRegion
 
 DIGEST = "a" * 64
 FRAME = VisibleCardFrameIdentity(
@@ -154,6 +155,85 @@ def test_assembler_preserves_order_lineage_and_detected_empty_evidence() -> None
 
     parsed = parse_table_observation_data_bytes(canonical_table_observation_data_bytes(result))
     assert parsed == result
+
+
+def test_assembler_preserves_piles_separately_for_mixed_and_pile_only_frames() -> None:
+    events, visible, identities = _inputs()
+    pile = VisibleCardPileRegion.from_mapping(
+        {
+            "pile_id": "pile-reviewed",
+            "geometry": {
+                "kind": "pile-region/v1",
+                "polygons": [
+                    [
+                        {"x": 100, "y": 200},
+                        {"x": 400, "y": 200},
+                        {"x": 400, "y": 600},
+                        {"x": 100, "y": 600},
+                    ]
+                ],
+            },
+            "normalization": {
+                "width": 100,
+                "height": 100,
+                "policy_id": "full-frame-0-1000/v1",
+            },
+            "source_candidates": [{"revision_id": "visible-source", "card_id": "card-old"}],
+            "grouped_candidates": [],
+            "grouped_card_states": [],
+            "grouped_scene_decision": None,
+            "origin": "model_prediction",
+            "confidence": 0.87,
+            "model_lineage": {"bundle_id": "fixture-bundle"},
+        }
+    )
+    visible = VisibleCardData(
+        outcomes=(
+            replace(visible.outcomes[0], pile_regions=(pile,)),
+            replace(
+                visible.outcomes[1],
+                status="detected",
+                pile_regions=(replace(pile, pile_id="pile-only"),),
+            ),
+        )
+    )
+
+    result = assemble_table_observations(
+        events,
+        visible,
+        identities,
+        recording_id="recording-01",
+        video_sha256=DIGEST,
+        assembly_run_id="assembly-piles",
+        input_revision_ids=("events-01", "visible-01", "identity-01"),
+    )
+    mixed, pile_only = result.observations
+    assert mixed.cards[0].observed_card_id == "card-01"
+    assert [item.pile_id for item in mixed.piles] == ["pile-reviewed"]
+    assert mixed.piles[0].origin == "model_prediction"
+    assert mixed.piles[0].confidence == 0.87
+    assert mixed.piles[0].model_lineage == {"bundle_id": "fixture-bundle"}
+    assert [item.card_id for item in mixed.piles[0].source_candidates] == ["card-old"]
+    assert pile_only.status == "observed"
+    assert pile_only.cards == []
+    assert [item.pile_id for item in pile_only.piles] == ["pile-only"]
+
+    parsed = parse_table_observation_data_bytes(canonical_table_observation_data_bytes(result))
+    assert parsed == result
+
+    failed_identity_result = assemble_table_observations(
+        events,
+        visible,
+        VisualIdentityData(outcomes=()),
+        recording_id="recording-01",
+        video_sha256=DIGEST,
+        assembly_run_id="assembly-piles-identity-failure",
+        input_revision_ids=("events-01", "visible-01", "identity-failed"),
+    )
+    assert failed_identity_result.observations[0].cards[0].identity_status == "failed"
+    assert [pile_item.pile_id for pile_item in failed_identity_result.observations[0].piles] == [
+        "pile-reviewed"
+    ]
 
 
 def test_assembler_retains_classified_face_down_and_failed_proposals() -> None:

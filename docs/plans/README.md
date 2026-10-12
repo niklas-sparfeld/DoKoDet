@@ -26,18 +26,15 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-1. **0091 M1:** Deliver the complete pile annotation workflow. The operator can then annotate
-   accumulated piles while the remaining feature support is implemented.
-2. **0086:** Continue reviewed corpus work, with one region per accumulated pile after 0091 M1.
-   Individual-card review can continue before that handoff.
-3. **0091 M4–M7:** Implement inference, identity isolation,
-   observation and engine contracts, and fixture-backed end-to-end verification. This does not
-   require completion of the corpus or a real training campaign.
-4. **0087 and 0088:** Run separate RF-DETR and DINO campaigns after their corpus and feature gates.
+1. **0086:** Continue reviewed corpus work. Use the 0091 annotation workflow to review one region
+   per accumulated pile.
+2. **0091 M6–M7:** Preserve pile evidence through engine input and inspection, then verify the
+   complete local flow. This does not require completion of the corpus or a real training campaign.
+3. **0087 and 0088:** Run separate RF-DETR and DINO campaigns after their corpus and feature gates.
    Neither campaign requires the other to improve its model. 0087 preparation needs 0091 M0–M3;
    pile-capable inference checks need M4. Pile-aware identity preparation needs M5.
-5. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
-6. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
+4. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
+5. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
 
 Fix bounded annotation blockers during 0086. Keep broader algorithm work in 0089. Retain explicit
 bundle decisions even when training does not improve quality. Productive campaign UI and promotion
@@ -71,7 +68,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0091 — Pile-region feature](3-in-progress/0091-Pile_Region_Feature.md) | 0048, 0049, 0065, 0073, 0074, and 0085 complete; staged gates in the epic | M0–M4 complete: durable annotation and reversible workflow, deterministic two-class export/training support, and pile predictions preserved through inference, API publication, and review UI. M5–M7 remain for identity isolation, observation and engine preservation, and complete local verification. Real training and quality gates stay in 0087. |
+| [0091 — Pile-region feature](3-in-progress/0091-Pile_Region_Feature.md) | 0048, 0049, 0065, 0073, 0074, and 0085 complete; staged gates in the epic | M0–M5 complete: durable annotation, two-class training support, pile inference, identity isolation, and separate pile evidence in table observations. M6–M7 remain for engine preservation and complete local verification. Real training and quality gates stay in 0087. |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers; pile review uses 0091 M0–M1 | M0 reconciles 52 accepted recordings and selects the 0095 pilot. M1 generates current proposals for all 53 pilot frames. M2 awaits operator review; M3–M5 not started. Continue individual-card review and use one region per accumulated pile after 0091 M1. |
 
 ### Blocked

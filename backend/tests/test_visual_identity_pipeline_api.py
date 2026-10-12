@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import threading
+from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any
 
@@ -27,6 +28,7 @@ from table_evidence_analyzer import (
     VisualIdentityRequest,
     canonical_visible_card_data_bytes,
 )
+from table_evidence_analyzer.pipeline_data import VisibleCardPileRegion
 from table_evidence_analyzer.table_observation import IdentityCandidate
 from test_visible_card_pipeline_api import (
     RECORDING_ID,
@@ -379,17 +381,92 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             "visible-for-identity-source-validation/result"
         ).json()["state"]["output_revision_ids"][0]
 
+        visible_revision = app.state.pipeline_revision_store.require(visible_revision_id)
+        pile = VisibleCardPileRegion.from_mapping(
+            {
+                "pile_id": "pile-identity-isolation",
+                "geometry": {
+                    "kind": "pile-region/v1",
+                    "polygons": [
+                        [
+                            {"x": 100, "y": 200},
+                            {"x": 400, "y": 200},
+                            {"x": 400, "y": 600},
+                            {"x": 100, "y": 600},
+                        ]
+                    ],
+                },
+                "normalization": {
+                    "width": 64,
+                    "height": 64,
+                    "policy_id": "full-frame-0-1000/v1",
+                },
+                "source_candidates": [],
+                "origin": "model_prediction",
+                "confidence": 0.9,
+                "model_lineage": {"bundle_id": "pile-fixture"},
+            }
+        )
+        pile_content = replace(
+            visible_revision.content,
+            outcomes=(replace(visible_revision.content.outcomes[0], pile_regions=(pile,)),),
+        )
+        pile_manifest = replace(
+            visible_revision.manifest,
+            revision_id="visible-revision-with-pile",
+            content_sha256=sha256_bytes(canonical_visible_card_data_bytes(pile_content)),
+        )
+        app.state.pipeline_revision_store.publish(pile_manifest, pile_content)
+
         identity_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-source-validation",
-                "input_revision_ids": [visible_revision_id],
+                "input_revision_ids": ["visible-revision-with-pile"],
             },
         )
         assert identity_response.status_code == 202, identity_response.text
         assert _wait_identity(client, "identity-source-validation")["state"]["status"] == (
             "complete"
         )
+        identity_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/"
+            "identity-source-validation/result"
+        ).json()
+        assert {item["card_id"] for item in identity_result["request"]["crop_input"]["items"]} == {
+            candidate.card_id for candidate in pile_content.outcomes[0].candidates
+        }
+
+        pile_only_content = replace(
+            pile_content,
+            outcomes=(
+                replace(
+                    pile_content.outcomes[0],
+                    status="detected",
+                    candidates=(),
+                ),
+            ),
+        )
+        pile_only_manifest = replace(
+            pile_manifest,
+            revision_id="visible-pile-only",
+            content_sha256=sha256_bytes(canonical_visible_card_data_bytes(pile_only_content)),
+        )
+        app.state.pipeline_revision_store.publish(pile_only_manifest, pile_only_content)
+        pile_only_identity = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-pile-only",
+                "input_revision_ids": ["visible-pile-only"],
+            },
+        )
+        assert pile_only_identity.status_code == 202, pile_only_identity.text
+        assert _wait_identity(client, "identity-pile-only")["state"]["status"] == "complete"
+        pile_only_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-pile-only/result"
+        ).json()
+        assert pile_only_result["request"]["crop_input"]["items"] == []
+        assert pile_only_result["revisions"][0]["content"]["outcomes"] == []
 
     assert resolve_calls
     assert set(resolve_calls) == {False}

@@ -195,11 +195,6 @@ class ObservationPipelineService:
         assert isinstance(event_revision.content, EventData)
         assert isinstance(visible_revision.content, VisibleCardData)
         assert isinstance(identity_revision.content, VisualIdentityData)
-        if any(outcome.pile_regions for outcome in visible_revision.content.outcomes):
-            raise ObservationPipelineInputError(
-                "Table-observation assembly does not support pile regions yet; retain the "
-                "pile-bearing visible-card reference and retry after pile support is available."
-            )
         try:
             assemble_table_observations(
                 event_revision.content,
@@ -310,10 +305,6 @@ class ObservationPipelineService:
             assert isinstance(event_revision.content, EventData)
             assert isinstance(visible_revision.content, VisibleCardData)
             assert isinstance(identity_revision.content, VisualIdentityData)
-            if any(outcome.pile_regions for outcome in visible_revision.content.outcomes):
-                raise ObservationPipelineInputError(
-                    "Table-observation assembly does not support pile regions yet."
-                )
             total = len(event_revision.content.events)
             self.run_store.update_progress(run_id, progress=RunProgress(completed=0, total=total))
             configuration = run.request.configuration

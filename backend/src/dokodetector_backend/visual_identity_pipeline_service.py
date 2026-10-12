@@ -650,11 +650,6 @@ class VisualIdentityPipelineService:
             raise VisualIdentityPipelineInputError(
                 "The selected visible-card revision does not match the accepted recording video."
             )
-        if any(outcome.pile_regions for outcome in visible_revision.content.outcomes):
-            raise VisualIdentityPipelineInputError(
-                "Visual identity processing does not support pile-bearing references yet; "
-                "select an individual-card-only revision or wait for pile-aware identity support."
-            )
         requested_crop_input = raw.get("crop_input")
         requested_kind = raw.get("crop_input_kind")
         crop_input = self._freeze_crop_input(
@@ -1061,10 +1056,6 @@ class VisualIdentityPipelineService:
             visible_revision = self.revision_store.require(run.request.input_revision_ids[0])
             if not isinstance(visible_revision.content, VisibleCardData):
                 raise VisualIdentityPipelineError("The visible-card input revision is invalid.")
-            if any(outcome.pile_regions for outcome in visible_revision.content.outcomes):
-                raise VisualIdentityPipelineError(
-                    "Visual identity processing does not support pile-bearing references yet."
-                )
             _, source = self._accepted_source(run.request.source.recording_id)
             frozen_input = self._freeze_crop_input(
                 run.request.source.recording_id,

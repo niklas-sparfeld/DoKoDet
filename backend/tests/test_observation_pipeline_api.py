@@ -3,11 +3,17 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from app_factory import create_test_app
+from doko_operations.pipeline_data import sha256_bytes
 from fastapi.testclient import TestClient
+from table_evidence_analyzer.pipeline_data import (
+    VisibleCardPileRegion,
+    canonical_visible_card_data_bytes,
+)
 from test_visible_card_pipeline_api import (
     RECORDING_ID,
     _Detector,
@@ -34,22 +40,68 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
     with TestClient(app) as client:
         event_revision_id = _run_pipeline(client, "events-assembly", "events")
         visible_revision_id = _run_pipeline(client, "visible-assembly", "visible-cards")
-        identity_revision_id = _run_pipeline(client, "identity-assembly", "visual-identities")
+        generated_visible_revision_id = visible_revision_id
+        stored_visible = app.state.pipeline_revision_store.require(visible_revision_id)
+        pile = VisibleCardPileRegion.from_mapping(
+            {
+                "pile_id": "pile-observation-fixture",
+                "geometry": {
+                    "kind": "pile-region/v1",
+                    "polygons": [
+                        [
+                            {"x": 100, "y": 200},
+                            {"x": 400, "y": 200},
+                            {"x": 400, "y": 600},
+                            {"x": 100, "y": 600},
+                        ]
+                    ],
+                },
+                "normalization": {
+                    "width": 64,
+                    "height": 64,
+                    "policy_id": "full-frame-0-1000/v1",
+                },
+                "source_candidates": [],
+                "origin": "model_prediction",
+                "confidence": 0.91,
+                "model_lineage": {"bundle_id": "pile-observation-fixture"},
+            }
+        )
+        pile_visible_content = replace(
+            stored_visible.content,
+            outcomes=tuple(
+                replace(outcome, pile_regions=(pile,))
+                if outcome is stored_visible.content.outcomes[0]
+                else outcome
+                for outcome in stored_visible.content.outcomes
+            ),
+        )
+        pile_visible_manifest = replace(
+            stored_visible.manifest,
+            revision_id="visible-assembly-with-pile",
+            content_sha256=sha256_bytes(canonical_visible_card_data_bytes(pile_visible_content)),
+        )
+        app.state.pipeline_revision_store.publish(pile_visible_manifest, pile_visible_content)
+        visible_revision_id = "visible-assembly-with-pile"
+        identity_revision_id = _run_pipeline(
+            client,
+            "identity-assembly",
+            "visual-identities",
+            input_revision_ids=[visible_revision_id],
+        )
 
         workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert workspace.status_code == 200
-        assert workspace.json()["stages"][3]["compatible_input_sets"] == [
-            {
-                "input_revision_ids": [
-                    event_revision_id,
-                    visible_revision_id,
-                    identity_revision_id,
-                ],
-                "display_label": (
-                    "Generated events + Generated visible cards + Generated visual identities"
-                ),
-            }
-        ]
+        assert {
+            "input_revision_ids": [
+                event_revision_id,
+                generated_visible_revision_id,
+                identity_revision_id,
+            ],
+            "display_label": (
+                "Generated events + Generated visible cards + Generated visual identities"
+            ),
+        } in workspace.json()["stages"][3]["compatible_input_sets"]
 
         first = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
@@ -64,7 +116,7 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
                 }
             },
         )
-        assert first.status_code == 202
+        assert first.status_code == 202, first.text
         assert _wait_observation(client, "assembly-01")["state"]["status"] == "complete"
         first_result = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations/assembly-01/result"
@@ -78,6 +130,11 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         ]
         content = first_body["revisions"][0]["content"]
         assert content["observations"][0]["status"] == "observed"
+        assert content["observations"][0]["schema_version"] == "table-observation/v2"
+        assert content["observations"][0]["piles"][0]["pile_id"] == "pile-observation-fixture"
+        assert content["observations"][0]["piles"][0]["model_lineage"] == {
+            "bundle_id": "pile-observation-fixture"
+        }
         assert content["observations"][0]["source"]["assembly_run_id"] == "assembly-01"
         assert content["observations"][0]["source"]["input_revision_ids"] == [
             event_revision_id,
@@ -134,6 +191,9 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             ]
             == "assembly-01"
         )
+        persisted_observation = persisted.json()["revisions"][0]["content"]["observations"][0]
+        assert persisted_observation["piles"][0]["pile_id"] == "pile-observation-fixture"
+        assert persisted_observation["piles"][0]["confidence"] == 0.91
 
 
 def _run_pipeline(
@@ -142,12 +202,15 @@ def _run_pipeline(
     stage: str,
     *,
     configuration: dict[str, object] | None = None,
+    input_revision_ids: list[str] | None = None,
 ) -> str:
     payload: dict[str, object] = {"run_id": run_id}
     if configuration is not None:
         payload["configuration"] = configuration
+    if input_revision_ids is not None:
+        payload["input_revision_ids"] = input_revision_ids
     response = client.post(f"/api/recordings/{RECORDING_ID}/pipeline/{stage}", json=payload)
-    assert response.status_code == 202
+    assert response.status_code == 202, response.text
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
         body = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/{stage}/{run_id}").json()
@@ -186,7 +249,15 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
     with TestClient(app) as client:
         _run_pipeline(client, "analysis-assembly-01", "events")
         _run_pipeline(client, "analysis-visible-01", "visible-cards")
-        _run_pipeline(client, "analysis-identity-01", "visual-identities")
+        visible_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/analysis-visible-01"
+        ).json()["state"]["output_revision_ids"][0]
+        _run_pipeline(
+            client,
+            "analysis-identity-01",
+            "visual-identities",
+            input_revision_ids=[visible_revision_id],
+        )
         first_revision_id = _run_pipeline(
             client,
             "analysis-observation-01",
