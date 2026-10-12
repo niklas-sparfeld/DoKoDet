@@ -720,8 +720,11 @@ def build_parser() -> argparse.ArgumentParser:
     rfdetr = data_commands.add_parser(
         "rfdetr-segmentation",
         aliases=("rfdetr-segmentation-audit",),
-        help="Audit and freeze the RF-DETR visible-region segmentation input.",
-        description="Audit and freeze the RF-DETR visible-region segmentation input.",
+        help="Audit and freeze the reviewed RF-DETR segmentation input.",
+        description=(
+            "Audit the existing card-only M0 input, or use --include-piles for the explicit "
+            "Epic 0091 M2 two-class export."
+        ),
     )
     _add_path_options(rfdetr, suppress_defaults=True)
     rfdetr.add_argument(
@@ -744,6 +747,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rfdetr.add_argument("--device", choices=("mps", "cuda", "cpu"), default="mps")
     rfdetr.add_argument(
+        "--include-piles",
+        action="store_true",
+        help="Build the Epic 0091 M2 two-class view and require explicit pile review per frame.",
+    )
+    rfdetr.add_argument(
         "--verify-source-bytes",
         action="store_true",
         help="Hash every selected source video in addition to checking declared digests.",
@@ -753,8 +761,8 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("data/operations/rfdetr-segmentation-0067-m0-manifest.json"),
         help=(
-            "Immutable manifest path (default: "
-            "data/operations/rfdetr-segmentation-0067-m0-manifest.json)."
+            "Immutable manifest path (default: the 0067 M0 path, or the 0091 M2 pile path "
+            "when --include-piles is set)."
         ),
     )
     rfdetr.add_argument("--format", choices=("human", "json"), default="human")
@@ -813,9 +821,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("data/operations/rfdetr-pose-derived-0084-m1"),
         help="Disposable COCO RLE view directory.",
     )
-    pose_derived_materialize.add_argument(
-        "--format", choices=("human", "json"), default="human"
-    )
+    pose_derived_materialize.add_argument("--format", choices=("human", "json"), default="human")
     pose_derived_materialize.add_argument(
         "--json", action="store_true", help="Alias for --format json."
     )
@@ -872,13 +878,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--manifest",
         type=Path,
         required=True,
-        help="Frozen M0 RF-DETR segmentation manifest.",
+        help="Frozen M0 card-only or Epic 0091 M2 pile manifest.",
     )
     rfdetr_materialize.add_argument(
         "--output",
         type=Path,
-        default=Path(".runtime/rfdetr-segmentation-0067"),
-        help="Disposable trainer-view directory.",
+        default=None,
+        help="Disposable trainer-view directory (defaults by manifest type).",
     )
     rfdetr_materialize.add_argument("--format", choices=("human", "json"), default="human")
     rfdetr_materialize.add_argument("--json", action="store_true", help="Alias for --format json.")
@@ -2538,8 +2544,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 pretrained_checkpoint=args.pretrained_checkpoint,
                 device=args.device,
                 verify_source_bytes=args.verify_source_bytes,
+                include_piles=args.include_piles,
             )
             output_path = args.output
+            if args.include_piles and output_path == Path(
+                "data/operations/rfdetr-segmentation-0067-m0-manifest.json"
+            ):
+                output_path = Path("data/operations/rfdetr-pile-0091-m2-manifest.json")
             if not output_path.is_absolute():
                 output_path = config.repository_root / output_path
             if manifest["freeze_state"] == "frozen":
@@ -2576,7 +2587,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 verify_source_bytes=args.verify_source_bytes,
             )
             output_path = args.output
-            if not output_path.is_absolute():
+            if output_path is not None and not output_path.is_absolute():
                 output_path = config.repository_root / output_path
             if manifest["freeze_state"] == "frozen":
                 write_reviewed_rfdetr_detector_manifest(output_path, manifest)

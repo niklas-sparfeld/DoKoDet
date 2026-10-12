@@ -22,6 +22,7 @@ from table_evidence_analyzer.rfdetr_import import block_pyav_import
 from .holdout import load_system_holdout_registry, sealed_group_keys
 
 RFDETR_SEGMENTATION_MANIFEST_SCHEMA_VERSION = "rfdetr-segmentation-campaign-manifest/v1"
+RFDETR_PILE_SEGMENTATION_MANIFEST_SCHEMA_VERSION = "rfdetr-pile-segmentation-manifest/v1"
 RFDETR_PACKAGE_VERSION = "1.9.4"
 RFDETR_MODEL_CLASS = "RFDETRSegMedium"
 RFDETR_MODEL_VARIANT = "rfdetr-seg-medium"
@@ -550,6 +551,68 @@ def _validate_ignore_region(
     return dict(region), []
 
 
+def _validate_pile_region(
+    region: Any, frame: Mapping[str, Any], context: str
+) -> tuple[dict[str, Any] | None, list[str]]:
+    gaps: list[str] = []
+    if not isinstance(region, Mapping):
+        return None, [f"{context} must be an object"]
+    pile_id = region.get("pile_id")
+    if not isinstance(pile_id, str) or not pile_id:
+        gaps.append(f"{context}.pile_id must be a non-empty string")
+    geometry = region.get("geometry")
+    if not isinstance(geometry, Mapping) or geometry.get("kind") != "pile-region/v1":
+        gaps.append(f"{context}.geometry must be pile-region/v1")
+        polygons = None
+    else:
+        polygons, polygon_gaps = _polygon_points(
+            geometry.get("polygons"), f"{context}.geometry.polygons"
+        )
+        gaps.extend(polygon_gaps)
+    normalization = region.get("normalization")
+    if not isinstance(normalization, Mapping):
+        gaps.append(f"{context}.normalization must be an object")
+    elif (
+        normalization.get("policy_id") != "full-frame-0-1000/v1"
+        or normalization.get("width") != frame.get("width")
+        or normalization.get("height") != frame.get("height")
+    ):
+        gaps.append(f"{context}.normalization does not match the source frame")
+    source_candidates = region.get("source_candidates", [])
+    grouped_candidates = region.get("grouped_candidates", [])
+    if not isinstance(source_candidates, list) or not isinstance(grouped_candidates, list):
+        gaps.append(f"{context} source and grouped candidates must be lists")
+        source_candidates, grouped_candidates = [], []
+    for index, source in enumerate(source_candidates):
+        if (
+            not isinstance(source, Mapping)
+            or not isinstance(source.get("revision_id"), str)
+            or not source.get("revision_id")
+            or not isinstance(source.get("card_id"), str)
+            or not source.get("card_id")
+        ):
+            gaps.append(f"{context}.source_candidates[{index}] has invalid lineage")
+    normalized_grouped: list[dict[str, Any]] = []
+    for index, candidate in enumerate(grouped_candidates):
+        normalized, candidate_gaps = _validate_candidate(
+            candidate, frame, f"{context}.grouped_candidates[{index}]"
+        )
+        gaps.extend(candidate_gaps)
+        if normalized is not None:
+            normalized_grouped.append(normalized)
+    if gaps:
+        return None, gaps
+    return {
+        "pile_id": pile_id,
+        "geometry": {"kind": "pile-region/v1", "polygons": polygons},
+        "normalization": dict(normalization),
+        "source_candidates": [dict(item) for item in source_candidates],
+        "grouped_candidates": normalized_grouped,
+        "grouped_card_states": list(region.get("grouped_card_states", [])),
+        "grouped_scene_decision": region.get("grouped_scene_decision"),
+    }, []
+
+
 def _normalize_outcome(value: Mapping[str, Any]) -> dict[str, Any]:
     result = dict(value)
     result.setdefault("ignored_regions", [])
@@ -561,6 +624,7 @@ def _reference_audit(
     *,
     operations_root: Path,
     repository_root: Path,
+    include_piles: bool = False,
 ) -> tuple[dict[str, Any], list[str]]:
     recording_id = recording["recording_id"]
     reference_root = operations_root / "pipeline-references" / recording_id / "visible_cards"
@@ -585,6 +649,12 @@ def _reference_audit(
         "excluded_frames": [],
         "ineligible_outcomes": [],
     }
+    if include_piles:
+        result.update(
+            pile_reviewed_frame_count=0,
+            pile_target_count=0,
+            pile_coverage_gaps=[],
+        )
     retained_frame_keys: set[tuple[str, int]] = set()
     if not state_path.is_file() or not draft_path.is_file():
         return result, [f"{recording_id}: maintained visible_cards reference is incomplete"]
@@ -630,7 +700,13 @@ def _reference_audit(
         gaps.append(f"{recording_id}: selected revision points to another recording")
     if revision_manifest.get("content_type") != "visible_cards":
         gaps.append(f"{recording_id}: selected revision is not visible-card data")
-    if revision_manifest.get("content_schema") != "visible-card-data/v1":
+    content_schema = revision_manifest.get("content_schema")
+    accepted_schemas = (
+        {"visible-card-data/v1", "visible-card-data/v2"}
+        if include_piles
+        else {"visible-card-data/v1"}
+    )
+    if content_schema not in accepted_schemas:
         gaps.append(f"{recording_id}: selected revision has an unsupported content schema")
     if revision_manifest.get("origin") not in {"manual", "corrected"}:
         gaps.append(f"{recording_id}: selected revision is not human-maintained")
@@ -710,7 +786,47 @@ def _reference_audit(
         if not isinstance(candidates, list):
             gaps.append(f"{context}.candidates must be a list")
             candidates = []
+        pile_regions = outcome.get("pile_regions", []) if include_piles else []
+        if not isinstance(pile_regions, list):
+            gaps.append(f"{context}.pile_regions must be a list")
+            pile_regions = []
+        has_pile_review = (
+            include_piles and content_schema == "visible-card-data/v2" and "pile_regions" in outcome
+        )
+        if include_piles and not has_pile_review:
+            result["pile_coverage_gaps"].append(
+                {"item_id": item_id, "event_id": item_id, "reason": "pile_review_missing"}
+            )
         expected_decision = (
+            (
+                "cards_piles_and_ignored"
+                if pile_regions and candidates and ignored
+                else "piles_and_ignored"
+                if pile_regions and ignored
+                else "cards_and_piles"
+                if pile_regions and candidates
+                else "piles"
+                if pile_regions
+                else "cards_and_ignored"
+                if ignored
+                else "cards"
+                if outcome.get("status") == "detected" and candidates
+                else "empty"
+                if outcome.get("status") == "empty"
+                else "unusable"
+            )
+            if include_piles
+            else (
+                "cards_and_ignored"
+                if ignored
+                else "cards"
+                if outcome.get("status") == "detected" and candidates
+                else "empty"
+                if outcome.get("status") == "empty"
+                else "unusable"
+            )
+        )
+        legacy_decision = (
             "cards_and_ignored"
             if ignored
             else "cards"
@@ -719,7 +835,10 @@ def _reference_audit(
             if outcome.get("status") == "empty"
             else "unusable"
         )
-        if coverage_frame is not None and coverage_frame.get("decision") != expected_decision:
+        accepted_decisions = {expected_decision}
+        if not include_piles or not pile_regions:
+            accepted_decisions.add(legacy_decision)
+        if coverage_frame is not None and coverage_frame.get("decision") not in accepted_decisions:
             gaps.append(f"{context}: frame coverage decision is inconsistent with outcome")
         if normalized_ignored:
             result["excluded_frame_count"] += 1
@@ -732,6 +851,38 @@ def _reference_audit(
                     "candidate_count": len(candidates),
                     "target_count": len(candidates),
                     "ignored_region_ids": [region["region_id"] for region in normalized_ignored],
+                }
+            )
+            continue
+        accepted = isinstance(draft_item, Mapping) and draft_item.get("review_state") in {
+            "accepted",
+            "corrected",
+        }
+        if (
+            include_piles
+            and outcome.get("status") == "empty"
+            and accepted
+            and has_pile_review
+            and not pile_regions
+        ):
+            result["retained_frame_count"] += 1
+            result["pile_reviewed_frame_count"] += 1
+            result["samples"].append(
+                {
+                    "recording_id": recording_id,
+                    "split": recording["split"],
+                    "session_id": recording["session_id"],
+                    "table_setup": recording["table_setup"],
+                    "source_asset_id": recording["source_asset_id"],
+                    "source_sha256": recording["source_sha256"],
+                    "reference_revision_id": revision_id,
+                    "event_id": item_id,
+                    "item_id": draft_item.get("item_id", item_id),
+                    "frame_identity": frame,
+                    "targets": [],
+                    "pile_targets": [],
+                    "pile_reviewed": True,
+                    "sample_decision": "reviewed_empty",
                 }
             )
             continue
@@ -748,10 +899,7 @@ def _reference_audit(
                 }
             )
             continue
-        if not isinstance(draft_item, Mapping) or draft_item.get("review_state") not in {
-            "accepted",
-            "corrected",
-        }:
+        if not accepted:
             gaps.append(f"{context}: draft item is not accepted or corrected")
             result["ineligible_outcomes"].append(
                 {
@@ -765,7 +913,20 @@ def _reference_audit(
                 }
             )
             continue
-        if not candidates:
+        if include_piles and not has_pile_review:
+            result["ineligible_outcomes"].append(
+                {
+                    "item_id": item_id,
+                    "event_id": item_id,
+                    "status": "pile_review_missing",
+                    "frame_identity": frame,
+                    "candidate_count": len(candidates),
+                    "target_count": len(candidates),
+                    "reason": "explicit v2 pile coverage is required for two-class training",
+                }
+            )
+            continue
+        if not candidates and not pile_regions:
             result["ineligible_outcomes"].append(
                 {
                     "item_id": item_id,
@@ -791,6 +952,26 @@ def _reference_audit(
                     item_gaps.append(f"{context}: candidate card IDs are not unique")
                 candidate_ids.add(normalized_candidate["card_id"])
                 normalized_candidates.append(normalized_candidate)
+        normalized_piles: list[dict[str, Any]] = []
+        pile_ids: set[str] = set()
+        for pile_index, pile in enumerate(pile_regions):
+            normalized_pile, pile_gaps = _validate_pile_region(
+                pile, frame or {}, f"{context}.pile_regions[{pile_index}]"
+            )
+            item_gaps.extend(pile_gaps)
+            if normalized_pile is not None:
+                if normalized_pile["pile_id"] in pile_ids:
+                    item_gaps.append(f"{context}: pile IDs are not unique")
+                pile_ids.add(normalized_pile["pile_id"])
+                normalized_piles.append(normalized_pile)
+        grouped_ids = {
+            candidate.get("card_id")
+            for pile in normalized_piles
+            for candidate in pile.get("grouped_candidates", [])
+            if isinstance(candidate, Mapping)
+        }
+        if grouped_ids & candidate_ids:
+            item_gaps.append(f"{context}: grouped members remain duplicate individual-card targets")
         if item_gaps:
             gaps.extend(item_gaps)
             result["ineligible_outcomes"].append(
@@ -823,6 +1004,10 @@ def _reference_audit(
             retained_frame_keys.add(frame_key)
         result["retained_frame_count"] += 1
         result["target_count"] += len(normalized_candidates)
+        if include_piles:
+            result["pile_target_count"] += len(normalized_piles)
+            if has_pile_review:
+                result["pile_reviewed_frame_count"] += 1
         sample = {
             "recording_id": recording_id,
             "split": recording["split"],
@@ -836,6 +1021,9 @@ def _reference_audit(
             "frame_identity": frame,
             "targets": normalized_candidates,
         }
+        if include_piles:
+            sample["pile_targets"] = normalized_piles
+            sample["pile_reviewed"] = has_pile_review
         card_scene = outcome.get("card_scene")
         if isinstance(card_scene, Mapping):
             sample["card_scene"] = dict(card_scene)
@@ -884,8 +1072,9 @@ def build_rfdetr_segmentation_manifest(
     device: str = "mps",
     verify_source_bytes: bool = False,
     api_probe: Mapping[str, Any] | None = None,
+    include_piles: bool = False,
 ) -> dict[str, Any]:
-    """Build the deterministic, read-only RF-DETR M0 campaign manifest."""
+    """Build the read-only card-only M0 or reviewed two-class M2 manifest."""
 
     repository = Path(repository_root).expanduser().resolve()
     intake = _resolve(repository, intake_root, repository / "data" / "intake" / "recordings")
@@ -895,6 +1084,17 @@ def build_rfdetr_segmentation_manifest(
         pretrained_checkpoint=pretrained_checkpoint,
         device=device,
     )
+    if include_piles:
+        recipe["data_contract"] = {
+            **recipe["data_contract"],
+            "categories": [
+                {"id": 1, "name": "visible_card", "supercategory": "card"},
+                {"id": 2, "name": "card_pile", "supercategory": "card"},
+            ],
+            "pile_mask_source": "reviewed_coarse_pile_region",
+            "pixel_ownership": "reviewed-card-pixels-priority-v1",
+            "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+        }
     probe = dict(api_probe) if api_probe is not None else probe_rfdetr_segmentation_api()
     gaps: list[str] = []
     if recipe["pretrained_checkpoint"]["sha256"] is None:
@@ -929,7 +1129,10 @@ def build_rfdetr_segmentation_manifest(
             gaps.append(f"{recording_id}: recording is in the sealed system holdout ({groups})")
             continue
         reference_report, reference_gaps = _reference_audit(
-            recording, operations_root=operations, repository_root=repository
+            recording,
+            operations_root=operations,
+            repository_root=repository,
+            include_piles=include_piles,
         )
         gaps.extend(reference_gaps)
         recordings.append(recording)
@@ -994,7 +1197,7 @@ def build_rfdetr_segmentation_manifest(
                 if report["recording_id"] in TRAIN_RECORDING_IDS
             ),
             "targets": sum(
-                report["target_count"]
+                report["target_count"] + (report["pile_target_count"] if include_piles else 0)
                 for report in reference_reports
                 if report["recording_id"] in TRAIN_RECORDING_IDS
             ),
@@ -1012,7 +1215,7 @@ def build_rfdetr_segmentation_manifest(
                 if report["recording_id"] in VALIDATION_RECORDING_IDS
             ),
             "targets": sum(
-                report["target_count"]
+                report["target_count"] + (report["pile_target_count"] if include_piles else 0)
                 for report in reference_reports
                 if report["recording_id"] in VALIDATION_RECORDING_IDS
             ),
@@ -1026,33 +1229,62 @@ def build_rfdetr_segmentation_manifest(
         "excluded_frame_count": len(excluded_frames),
         "ineligible_outcome_count": len(ineligible_outcomes),
         "ignored_region_count": sum(report["ignored_region_count"] for report in reference_reports),
-        "target_count": len([target for sample in samples for target in sample["targets"]]),
+        "target_count": len([target for sample in samples for target in sample["targets"]])
+        + (
+            sum(report["pile_target_count"] for report in reference_reports) if include_piles else 0
+        ),
+        **(
+            {
+                "pile_reviewed_frame_count": sum(
+                    report["pile_reviewed_frame_count"] for report in reference_reports
+                ),
+                "pile_target_count": sum(
+                    report["pile_target_count"] for report in reference_reports
+                ),
+                "pile_review_gap_count": sum(
+                    len(report["pile_coverage_gaps"]) for report in reference_reports
+                ),
+            }
+            if include_piles
+            else {}
+        ),
     }
     expected_total_gaps = []
-    for split, expected in EXPECTED_COUNTS.items():
-        for field, value in expected.items():
-            if split_summary[split][field] != value:
-                expected_total_gaps.append(
-                    f"{split} {field} drift: expected {value}, found {split_summary[split][field]}"
-                )
+    if not include_piles:
+        for split, expected in EXPECTED_COUNTS.items():
+            for field, value in expected.items():
+                if split_summary[split][field] != value:
+                    expected_total_gaps.append(
+                        f"{split} {field} drift: expected {value}, "
+                        f"found {split_summary[split][field]}"
+                    )
     inventory_fields = {
         "reviewed_frames": "reviewed_frame_count",
         "retained_frames": "retained_frame_count",
         "targets": "target_count",
     }
-    for field, value in EXPECTED_TOTALS.items():
-        inventory_field = inventory_fields[field]
-        actual = inventory[inventory_field]
-        if actual != value:
-            expected_total_gaps.append(f"total {field} drift: expected {value}, found {actual}")
+    if not include_piles:
+        for field, value in EXPECTED_TOTALS.items():
+            inventory_field = inventory_fields[field]
+            actual = inventory[inventory_field]
+            if actual != value:
+                expected_total_gaps.append(f"total {field} drift: expected {value}, found {actual}")
     gaps.extend(expected_total_gaps)
     if inventory["excluded_frame_count"] and inventory["target_count"] == 0:
         gaps.append("selected references contain no retained visible-card targets")
+    if include_piles and inventory["pile_reviewed_frame_count"] == 0:
+        gaps.append("selected references contain no frames with explicit pile review")
+    if include_piles and inventory["pile_target_count"] == 0:
+        gaps.append("selected references contain no reviewed card_pile positives")
     freeze_state = "frozen" if not gaps else "blocked"
     core = {
-        "schema_version": RFDETR_SEGMENTATION_MANIFEST_SCHEMA_VERSION,
-        "campaign_id": CAMPAIGN_ID,
-        "milestone": "M0",
+        "schema_version": (
+            RFDETR_PILE_SEGMENTATION_MANIFEST_SCHEMA_VERSION
+            if include_piles
+            else RFDETR_SEGMENTATION_MANIFEST_SCHEMA_VERSION
+        ),
+        "campaign_id": ("0091-m2-reviewed-two-class-pile-export" if include_piles else CAMPAIGN_ID),
+        "milestone": "M2" if include_piles else "M0",
         "read_only": True,
         "freeze_state": freeze_state,
         "split": split_summary,
@@ -1101,9 +1333,18 @@ def validate_rfdetr_segmentation_manifest(raw: Mapping[str, Any]) -> None:
     }
     if set(data) != expected:
         raise RfdetrSegmentationCampaignError("RF-DETR segmentation manifest has invalid fields")
-    if data["schema_version"] != RFDETR_SEGMENTATION_MANIFEST_SCHEMA_VERSION:
+    is_pile_manifest = data["schema_version"] == RFDETR_PILE_SEGMENTATION_MANIFEST_SCHEMA_VERSION
+    if data["schema_version"] not in {
+        RFDETR_SEGMENTATION_MANIFEST_SCHEMA_VERSION,
+        RFDETR_PILE_SEGMENTATION_MANIFEST_SCHEMA_VERSION,
+    }:
         raise RfdetrSegmentationCampaignError("RF-DETR segmentation manifest schema is unsupported")
-    if data["campaign_id"] != CAMPAIGN_ID or data["milestone"] != "M0":
+    expected_identity = (
+        ("0091-m2-reviewed-two-class-pile-export", "M2")
+        if is_pile_manifest
+        else (CAMPAIGN_ID, "M0")
+    )
+    if (data["campaign_id"], data["milestone"]) != expected_identity:
         raise RfdetrSegmentationCampaignError("RF-DETR segmentation manifest identity is invalid")
     if data["read_only"] is not True or data["freeze_state"] not in {"frozen", "blocked"}:
         raise RfdetrSegmentationCampaignError("RF-DETR segmentation manifest state is invalid")
@@ -1112,6 +1353,17 @@ def validate_rfdetr_segmentation_manifest(raw: Mapping[str, Any]) -> None:
         raise RfdetrSegmentationCampaignError("recipe_sha256 does not match recipe")
     if recipe.get("package") != {"name": "rfdetr", "version": RFDETR_PACKAGE_VERSION}:
         raise RfdetrSegmentationCampaignError("RF-DETR package pin changed")
+    if is_pile_manifest:
+        data_contract = _mapping(recipe.get("data_contract"), "recipe.data_contract")
+        if data_contract.get("categories") != [
+            {"id": 1, "name": "visible_card", "supercategory": "card"},
+            {"id": 2, "name": "card_pile", "supercategory": "card"},
+        ]:
+            raise RfdetrSegmentationCampaignError("M2 category map is invalid")
+        if data_contract.get("pixel_ownership") != "reviewed-card-pixels-priority-v1":
+            raise RfdetrSegmentationCampaignError("M2 pixel-ownership policy is invalid")
+        if data_contract.get("pile_mask_encoding") != "coco-uncompressed-rle-column-major-v1":
+            raise RfdetrSegmentationCampaignError("M2 pile mask encoding is invalid")
     model = _mapping(recipe.get("model"), "recipe.model")
     if model.get("class") != RFDETR_MODEL_CLASS or model.get("resolution") != RFDETR_RESOLUTION:
         raise RfdetrSegmentationCampaignError("RF-DETR model or resolution pin changed")
@@ -1182,7 +1434,11 @@ def render_rfdetr_segmentation_human(manifest: Mapping[str, Any]) -> str:
 
     inventory = manifest["inventory"]
     lines = [
-        "RF-DETR visible-region segmentation campaign M0",
+        (
+            "Epic 0091 reviewed two-class pile export M2"
+            if manifest["milestone"] == "M2"
+            else "RF-DETR visible-region segmentation campaign M0"
+        ),
         f"status: {manifest['freeze_state']}",
         f"recordings: {inventory['recording_count']}/{inventory['selected_recording_count']}",
         f"reviewed frames: {inventory['reviewed_frame_count']}",
@@ -1192,6 +1448,14 @@ def render_rfdetr_segmentation_human(manifest: Mapping[str, Any]) -> str:
         f"ineligible outcomes: {inventory['ineligible_outcome_count']}",
         f"manifest digest: {manifest['manifest_digest']}",
     ]
+    if manifest["milestone"] == "M2":
+        lines.extend(
+            [
+                f"pile-reviewed frames: {inventory['pile_reviewed_frame_count']}",
+                f"pile targets: {inventory['pile_target_count']}",
+                f"frames missing explicit pile review: {inventory['pile_review_gap_count']}",
+            ]
+        )
     if manifest["coverage_gaps"]:
         lines.append("coverage gaps:")
         lines.extend(f"- {gap}" for gap in manifest["coverage_gaps"])

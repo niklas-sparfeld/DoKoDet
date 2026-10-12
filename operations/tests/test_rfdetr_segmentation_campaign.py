@@ -25,6 +25,9 @@ def _fixture_corpus(
     *,
     ignored_recording: str | None = None,
     unusable_recording: str | None = None,
+    include_piles: bool = False,
+    empty_recording: str | None = None,
+    pile_only_recording: str | None = None,
 ) -> Path:
     intake = root / "data" / "intake" / "recordings"
     operations = root / "data" / "operations"
@@ -82,7 +85,13 @@ def _fixture_corpus(
             "width": 100,
             "height": 100,
         }
-        status = "failed" if recording_id == unusable_recording else "detected"
+        status = (
+            "failed"
+            if recording_id == unusable_recording
+            else "empty"
+            if recording_id == empty_recording
+            else "detected"
+        )
         candidate = {
             "card_id": f"card-{index}",
             "geometry": {
@@ -102,10 +111,14 @@ def _fixture_corpus(
             "event_id": event_id,
             "frame_identity": frame,
             "status": status,
-            "candidates": [] if status == "failed" else [candidate],
+            "candidates": (
+                [candidate] if status == "detected" and recording_id != pile_only_recording else []
+            ),
             "error": "fixture unusable" if status == "failed" else None,
         }
-        coverage_decision = "unusable" if status == "failed" else "cards"
+        coverage_decision = (
+            "unusable" if status == "failed" else "empty" if status == "empty" else "cards"
+        )
         if recording_id == ignored_recording:
             outcome["ignored_regions"] = [
                 {
@@ -123,8 +136,66 @@ def _fixture_corpus(
                 }
             ]
             coverage_decision = "cards_and_ignored"
+        if include_piles:
+            outcome["pile_regions"] = []
+            if (
+                (index == 0 or recording_id == pile_only_recording)
+                and status == "detected"
+                and recording_id != ignored_recording
+            ):
+                outcome["pile_regions"] = [
+                    {
+                        "pile_id": "pile-fixture",
+                        "geometry": {
+                            "kind": "pile-region/v1",
+                            "polygons": [
+                                [
+                                    {"x": 300, "y": 300},
+                                    {"x": 800, "y": 300},
+                                    {"x": 800, "y": 800},
+                                    {"x": 300, "y": 800},
+                                ]
+                            ],
+                        },
+                        "normalization": {
+                            "width": 100,
+                            "height": 100,
+                            "policy_id": "full-frame-0-1000/v1",
+                        },
+                        "source_candidates": [
+                            {"revision_id": f"revision-{index}", "card_id": "grouped-card"}
+                        ],
+                        "grouped_candidates": [
+                            {
+                                "card_id": "grouped-card",
+                                "geometry": {
+                                    "kind": "reviewed-visible-region/v1",
+                                    "visible_region": {
+                                        "polygons": [
+                                            [
+                                                {"x": 820, "y": 300},
+                                                {"x": 900, "y": 300},
+                                                {"x": 900, "y": 400},
+                                            ]
+                                        ]
+                                    },
+                                },
+                                "normalization": {
+                                    "width": 100,
+                                    "height": 100,
+                                    "policy_id": "full-frame-0-1000/v1",
+                                },
+                                "side": "unknown",
+                            }
+                        ],
+                        "grouped_card_states": [],
+                        "grouped_scene_decision": None,
+                    }
+                ]
+                coverage_decision = "cards_and_piles" if outcome["candidates"] else "piles"
         revision_id = f"revision-{index}"
-        content = {"schema_version": "visible-card-data/v1", "outcomes": [outcome]}
+        content_schema = "visible-card-data/v2" if include_piles else "visible-card-data/v1"
+        content = {"schema_version": content_schema, "outcomes": [outcome]}
         revision = operations / "pipeline" / "revisions" / revision_id
         revision.mkdir(parents=True)
         revision_manifest = {
@@ -132,7 +203,7 @@ def _fixture_corpus(
             "revision_id": revision_id,
             "recording_id": recording_id,
             "content_type": "visible_cards",
-            "content_schema": "visible-card-data/v1",
+            "content_schema": content_schema,
             "content_sha256": campaign.sha256_json(content),
             "origin": "corrected",
             "producer": {"kind": "human", "operator_id": "fixture"},
@@ -444,6 +515,121 @@ def test_m1_materialization_is_reproducible_and_preserves_lineage_and_exclusions
     assert len(exclusions["excluded_frames"]) == 1
     assert len(exclusions["ineligible_outcomes"]) == 1
     assert exclusions["ineligible_outcomes"][0]["status"] == "failed"
+
+
+def test_m2_materializes_pile_targets_as_a_separate_rle_category(
+    tmp_path: Path, fixture_expected_counts: None
+) -> None:
+    corpus = _fixture_corpus(
+        tmp_path,
+        include_piles=True,
+        empty_recording=campaign.VALIDATION_RECORDING_IDS[0],
+        pile_only_recording=campaign.TRAIN_RECORDING_IDS[1],
+    )
+    checkpoint = tmp_path / "checkpoint.pt"
+    checkpoint.write_bytes(b"fixture checkpoint")
+    manifest = campaign.build_rfdetr_segmentation_manifest(
+        corpus,
+        pretrained_checkpoint=checkpoint,
+        verify_source_bytes=True,
+        api_probe=_available_api(),
+        include_piles=True,
+    )
+    assert manifest["schema_version"] == campaign.RFDETR_PILE_SEGMENTATION_MANIFEST_SCHEMA_VERSION
+    assert manifest["milestone"] == "M2"
+    assert manifest["freeze_state"] == "frozen"
+    assert manifest["inventory"]["pile_reviewed_frame_count"] == 9
+    assert manifest["inventory"]["pile_target_count"] == 2
+    assert manifest["inventory"]["target_count"] == 9
+    assert manifest["inventory"]["pile_review_gap_count"] == 0
+    assert any(not sample["targets"] and sample["pile_targets"] for sample in manifest["samples"])
+    assert any(sample.get("sample_decision") == "reviewed_empty" for sample in manifest["samples"])
+    manifest_path = tmp_path / "data/operations/rfdetr-pile-m2-manifest.json"
+    campaign.write_rfdetr_segmentation_manifest(manifest_path, manifest)
+
+    output = tmp_path / "m2-two-class-view"
+    first = materialize_rfdetr_segmentation_dataset(
+        manifest_path,
+        repository_root=tmp_path,
+        output_root=output,
+        frame_extractor=_fixture_frame_extractor,
+    )
+    first_files = _view_files(output)
+    second = materialize_rfdetr_segmentation_dataset(
+        manifest_path,
+        repository_root=tmp_path,
+        output_root=output,
+        frame_extractor=_fixture_frame_extractor,
+    )
+    assert first.to_mapping() == second.to_mapping()
+    assert first_files == _view_files(output)
+
+    train = json.loads((output / "train" / "_annotations.coco.json").read_text())
+    valid = json.loads((output / "valid" / "_annotations.coco.json").read_text())
+    materialization = load_rfdetr_segmentation_materialization(output)
+    assert [category["name"] for category in train["categories"]] == [
+        "visible_card",
+        "card_pile",
+    ]
+    pile = next(item for item in train["annotations"] if item["category_id"] == 2)
+    assert pile["target_state"] == "reviewed_coarse_pile_region"
+    assert pile["source_candidates"] == [{"revision_id": "revision-0", "card_id": "grouped-card"}]
+    assert [candidate["card_id"] for candidate in pile["grouped_candidates"]] == ["grouped-card"]
+    assert not any(
+        annotation.get("card_id") == "grouped-card" for annotation in train["annotations"]
+    )
+    assert isinstance(pile["segmentation"], dict)
+    assert pile["segmentation"]["size"] == [100, 100]
+    assert materialization["counts"]["card_pile_annotations"] == 2
+    assert materialization["counts"]["visible_card_annotations"] == first.annotation_count - 2
+    assert materialization["review_readiness"]["pile_reviewed_frame_count"] == 9
+    assert materialization["review_readiness"]["two_class_ready"] is True
+    assert materialization["review_readiness"]["identity_support"] == "not_assessed_by_m2"
+    empty_event_id = next(
+        sample["event_id"]
+        for sample in manifest["samples"]
+        if sample.get("sample_decision") == "reviewed_empty"
+    )
+    empty_image = next(image for image in valid["images"] if image["event_id"] == empty_event_id)
+    assert not any(
+        annotation["image_id"] == empty_image["id"] for annotation in valid["annotations"]
+    )
+    pile_only_event_id = next(
+        sample["event_id"]
+        for sample in manifest["samples"]
+        if not sample["targets"] and sample["pile_targets"]
+    )
+    pile_only_image = next(
+        image for image in train["images"] if image["event_id"] == pile_only_event_id
+    )
+    pile_only_labels = [
+        item["category_id"]
+        for item in train["annotations"]
+        if item["image_id"] == pile_only_image["id"]
+    ]
+    assert pile_only_labels == [2]
+
+
+def test_m2_does_not_treat_legacy_card_only_review_as_pile_negative(
+    tmp_path: Path, fixture_expected_counts: None
+) -> None:
+    corpus = _fixture_corpus(tmp_path)
+    checkpoint = tmp_path / "checkpoint.pt"
+    checkpoint.write_bytes(b"fixture checkpoint")
+
+    manifest = campaign.build_rfdetr_segmentation_manifest(
+        corpus,
+        pretrained_checkpoint=checkpoint,
+        verify_source_bytes=True,
+        api_probe=_available_api(),
+        include_piles=True,
+    )
+
+    assert manifest["freeze_state"] == "blocked"
+    assert manifest["samples"] == []
+    assert manifest["inventory"]["pile_reviewed_frame_count"] == 0
+    assert manifest["inventory"]["pile_review_gap_count"] == len(campaign.RECORDING_SPLITS)
+    assert all(item["status"] == "pile_review_missing" for item in manifest["ineligible_outcomes"])
 
 
 def test_m1_rejects_a_changed_extracted_frame_digest(

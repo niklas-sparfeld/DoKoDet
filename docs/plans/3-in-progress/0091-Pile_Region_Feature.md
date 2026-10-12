@@ -17,7 +17,8 @@
 - **M0:** Complete — persist the pile contract, reversible atomic commands, pile coverage, and API.
 - **M1:** Complete — source-frame pile annotation, reversible grouping, explicit conversion,
   frame copying, pile-only completion, and the operator handoff are available.
-- **M2:** Not started — materialize reviewed individual-card and pile training targets.
+- **M2:** Complete — freeze explicit pile-review readiness and export deterministic two-class
+  COCO views with card-priority pixel ownership, pile RLE masks, and lineage receipts.
 - **M3:** Not started — support two-class trainer, evaluation, and bundle contracts.
 - **M4:** Not started — retain pile predictions across providers, proposals, and review.
 - **M5:** Not started — exclude piles from identity work and preserve them in table observations.
@@ -237,6 +238,27 @@ Acceptance: deterministic cold and warm views; both categories decode exactly; g
 never appear as duplicate card targets; pile-only images are positive samples; ignore treatment
 is explicit; stale or unreviewed geometry cannot enter training. M1 annotations load without
 redrawing. Readiness separates pile coverage from individual-card and identity support.
+
+#### M2 implementation evidence — 2026-10-12
+
+Added `--include-piles` to `doko data rfdetr-segmentation`. This writes a separate M2 manifest
+with category IDs 1=`visible_card` and 2=`card_pile`. The audit accepts only human-maintained v2
+outcomes with an explicit `pile_regions` field and matching frame coverage. Legacy card-only
+outcomes remain visible as pile-review gaps and cannot become two-class negatives. Reviewed empty
+frames remain background samples. Unusable frames remain in the exclusion receipt.
+
+Pile polygons use pixel-center even-odd rasterization. The exporter removes the union of reviewed
+individual-card pixels from each pile mask, rejects intersecting pile masks and empty effective
+masks, derives a tight box from occupied pixels, and stores uncompressed column-major COCO RLE.
+Each pile annotation retains its source candidate references, grouped candidates, and a
+deterministic pixel-ownership receipt. The materialization reports card and pile counts separately;
+identity support remains explicitly unassessed. The existing 0068 cluster-crop exporter remains
+bound to its 0068 input contract; this M2 output is a full-frame view and is not passed to that
+crop path.
+
+The fixture covers mixed, card-only, pile-only, and reviewed empty images,
+including cold/warm digest parity and exact RLE decoding. A legacy card-only fixture is blocked
+from M2 export. No live annotation data or real training campaign was changed.
 
 ### M3 — Support training, evaluation, and bundles
 

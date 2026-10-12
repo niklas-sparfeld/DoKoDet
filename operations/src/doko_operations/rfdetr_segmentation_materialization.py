@@ -27,6 +27,7 @@ from .reviewed_rfdetr_detector_campaign import (
     ReviewedRfdetrDetectorCampaignError,
     validate_reviewed_rfdetr_detector_manifest,
 )
+from .rfdetr_pile_targets import RfdetrPileTargetError, project_pile_masks
 from .rfdetr_segmentation_campaign import (
     RfdetrSegmentationCampaignError,
     canonical_json_bytes,
@@ -40,6 +41,7 @@ RFDETR_SEGMENTATION_SPLIT_SCHEMA_VERSION = "rfdetr-segmentation-split/v1"
 RFDETR_SEGMENTATION_EXCLUSIONS_SCHEMA_VERSION = "rfdetr-segmentation-exclusions/v1"
 COCO_VERSION = "coco-2017"
 TARGET_CATEGORY = {"id": 1, "name": "visible_card", "supercategory": "card"}
+PILE_CATEGORY = {"id": 2, "name": "card_pile", "supercategory": "card"}
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _FRAME_IDENTITY_FIELDS = (
     "schema_version",
@@ -139,6 +141,14 @@ def materialize_rfdetr_segmentation_dataset(
         image_id = 0
         annotation_id = 0
         for sample in samples:
+            two_class = len(_target_categories(manifest)) == 2
+            if two_class and (
+                sample.get("pile_reviewed") is not True
+                or not isinstance(sample.get("pile_targets"), list)
+            ):
+                raise RfdetrSegmentationMaterializationError(
+                    f"two-class sample {sample.get('event_id')} lacks explicit pile review coverage"
+                )
             split = str(sample["split"])
             recording = recordings[str(sample["recording_id"])]
             frame = sample["frame_identity"]
@@ -187,7 +197,23 @@ def materialize_rfdetr_segmentation_dataset(
                     "sha256": actual_frame_digest,
                 }
             )
-            for target in sample["targets"]:
+            pile_targets: list[dict[str, Any]] = []
+            if sample.get("pile_targets"):
+                try:
+                    pile_targets = project_pile_masks(
+                        sample["targets"],
+                        sample["pile_targets"],
+                        width=int(frame["width"]),
+                        height=int(frame["height"]),
+                    )
+                except (RfdetrPileTargetError, TypeError, ValueError) as error:
+                    raise RfdetrSegmentationMaterializationError(
+                        f"could not project pile targets for {sample['event_id']}: {error}"
+                    ) from error
+            all_targets = [
+                {**target, "target_kind": "visible_card"} for target in sample["targets"]
+            ] + [{**target, "target_kind": "card_pile"} for target in pile_targets]
+            for target in all_targets:
                 annotation_id += 1
                 annotations_by_split[split].append(
                     _coco_annotation(annotation_id, image_id, sample, target)
@@ -252,7 +278,11 @@ def materialize_rfdetr_segmentation_dataset(
                 "normalization": "full-frame-0-1000/v1",
                 "pixel_point_rounding": "six_decimal_places",
                 "derived_box": "tight_floor_min_ceil_max_v1",
-                "category": TARGET_CATEGORY,
+                "categories": _target_categories(manifest),
+                "pile_geometry": "coarse-footprint-pixel-center-even-odd-v1",
+                "pixel_ownership": "reviewed-card-pixels-priority-v1",
+                "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+                "pile_box": "tight_occupied_pixel_bbox_v1",
             },
             "ignore_policy": "exclude_frame_on_any_reviewed_ignore_region",
             "split": {
@@ -275,6 +305,49 @@ def materialize_rfdetr_segmentation_dataset(
                     f"{split}_annotations": len(annotations_by_split[split])
                     for split in partition_names
                 },
+                **(
+                    {
+                        "visible_card_annotations": sum(
+                            1
+                            for split in partition_names
+                            for item in annotations_by_split[split]
+                            if item.get("category_id") == 1
+                        ),
+                        "card_pile_annotations": sum(
+                            1
+                            for split in partition_names
+                            for item in annotations_by_split[split]
+                            if item.get("category_id") == 2
+                        ),
+                    }
+                    if len(_target_categories(manifest)) == 2
+                    else {}
+                ),
+            },
+            "review_readiness": {
+                "individual_card_target_count": sum(
+                    len(sample.get("targets", [])) for sample in samples
+                ),
+                "pile_reviewed_frame_count": sum(
+                    1
+                    for sample in samples
+                    if sample.get("pile_reviewed") is True
+                    and isinstance(sample.get("pile_targets"), list)
+                ),
+                "pile_target_count": sum(
+                    len(sample.get("pile_targets", []))
+                    for sample in samples
+                    if isinstance(sample.get("pile_targets"), list)
+                ),
+                "two_class_ready": (
+                    len(_target_categories(manifest)) == 2
+                    and all(
+                        sample.get("pile_reviewed") is True
+                        and isinstance(sample.get("pile_targets"), list)
+                        for sample in samples
+                    )
+                ),
+                "identity_support": "not_assessed_by_m2",
             },
             "generated_files": generated_files,
         }
@@ -343,6 +416,7 @@ def load_rfdetr_segmentation_materialization(path: str | Path) -> dict[str, Any]
         "inputs",
         "exclusions",
         "counts",
+        "review_readiness",
         "generated_files",
         "materialization_digest",
     }
@@ -409,8 +483,10 @@ def validate_rfdetr_coco_annotations(raw: Mapping[str, Any]) -> None:
     expected = {"info", "licenses", "images", "annotations", "categories"}
     if set(data) != expected:
         raise RfdetrSegmentationMaterializationError("COCO annotations have invalid fields")
-    if data["categories"] != [TARGET_CATEGORY]:
-        raise RfdetrSegmentationMaterializationError("COCO category map is not visible_card")
+    categories = data["categories"]
+    if categories not in ([TARGET_CATEGORY], [TARGET_CATEGORY, PILE_CATEGORY]):
+        raise RfdetrSegmentationMaterializationError("COCO category map is unsupported")
+    category_ids = {item["id"] for item in categories}
     info = _mapping(data["info"], "COCO info")
     trainer_partition = info.get("trainer_partition")
     if trainer_partition not in {"train", "valid", "sealed_test"}:
@@ -463,7 +539,7 @@ def validate_rfdetr_coco_annotations(raw: Mapping[str, Any]) -> None:
             raise RfdetrSegmentationMaterializationError(
                 f"COCO annotation {annotation_id} references an unknown image"
             )
-        if item.get("category_id") != 1 or item.get("iscrowd") != 0:
+        if item.get("category_id") not in category_ids or item.get("iscrowd") != 0:
             raise RfdetrSegmentationMaterializationError(
                 f"COCO annotation {annotation_id} has an invalid category or crowd flag"
             )
@@ -475,6 +551,28 @@ def validate_rfdetr_coco_annotations(raw: Mapping[str, Any]) -> None:
         ):
             raise RfdetrSegmentationMaterializationError(
                 f"COCO annotation {annotation_id} has an invalid bbox"
+            )
+        segmentation = item.get("segmentation")
+        if item.get("category_id") == 2:
+            try:
+                from .rfdetr_pile_targets import decode_uncompressed_rle
+
+                mask = decode_uncompressed_rle(segmentation)
+            except (RfdetrPileTargetError, TypeError, ValueError) as error:
+                raise RfdetrSegmentationMaterializationError(
+                    f"COCO pile annotation {annotation_id} has invalid RLE"
+                ) from error
+            if mask.shape != (image["height"], image["width"]):
+                raise RfdetrSegmentationMaterializationError(
+                    f"COCO pile annotation {annotation_id} mask dimensions differ from image"
+                )
+            if int(mask.sum()) != item.get("area"):
+                raise RfdetrSegmentationMaterializationError(
+                    f"COCO pile annotation {annotation_id} area differs from decoded mask"
+                )
+        elif not isinstance(segmentation, list) or not segmentation:
+            raise RfdetrSegmentationMaterializationError(
+                f"COCO card annotation {annotation_id} has invalid polygon segmentation"
             )
         x_min, y_min, box_width, box_height = bbox
         if (
@@ -488,6 +586,8 @@ def validate_rfdetr_coco_annotations(raw: Mapping[str, Any]) -> None:
             raise RfdetrSegmentationMaterializationError(
                 f"COCO annotation {annotation_id} bbox is outside its image"
             )
+        if item.get("category_id") == 2:
+            continue
         segmentation = item.get("segmentation")
         if not isinstance(segmentation, list) or not segmentation:
             raise RfdetrSegmentationMaterializationError(
@@ -777,6 +877,16 @@ def _validated_samples(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
                         and reference_sample.get("card_scene") != sample.get("card_scene")
                     )
                 )
+                or (
+                    manifest.get("schema_version") == "rfdetr-pile-segmentation-manifest/v1"
+                    and (
+                        reference_sample.get("item_id") != sample.get("item_id")
+                        or reference_sample.get("targets") != sample.get("targets")
+                        or reference_sample.get("pile_targets") != sample.get("pile_targets")
+                        or reference_sample.get("pile_reviewed") is not True
+                        or sample.get("pile_reviewed") is not True
+                    )
+                )
             )
         ):
             raise RfdetrSegmentationMaterializationError(
@@ -785,7 +895,24 @@ def _validated_samples(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
         width = _positive_int(frame.get("width"), f"samples[{index}].width")
         height = _positive_int(frame.get("height"), f"samples[{index}].height")
         targets = sample.get("targets")
-        if not isinstance(targets, list) or not targets:
+        pile_mode = manifest.get("schema_version") == ("rfdetr-pile-segmentation-manifest/v1")
+        if pile_mode and (
+            sample.get("pile_reviewed") is not True
+            or not isinstance(sample.get("pile_targets"), list)
+        ):
+            raise RfdetrSegmentationMaterializationError(
+                f"sample {event_id} lacks explicit pile review coverage"
+            )
+        pile_targets = sample.get("pile_targets", [])
+        empty_reviewed = (
+            pile_mode
+            and sample.get("sample_decision") == "reviewed_empty"
+            and not targets
+            and not pile_targets
+        )
+        if not isinstance(targets, list) or (
+            not targets and not pile_targets and not empty_reviewed
+        ):
             raise RfdetrSegmentationMaterializationError(
                 f"sample {event_id} has no retained target; empty outcomes stay ineligible"
             )
@@ -1004,6 +1131,39 @@ def _coco_annotation(
     width, height = frame["width"], frame["height"]
     source_group = sample.get("source_group")
     group = source_group if isinstance(source_group, Mapping) else {}
+    if target.get("target_kind") == "card_pile":
+        geometry = _mapping(target.get("geometry"), f"{sample['event_id']}.pile.geometry")
+        if geometry.get("kind") != "pile-region/v1":
+            raise RfdetrSegmentationMaterializationError(
+                f"pile {target.get('pile_id')} is not pile-region/v1"
+            )
+        return {
+            "id": annotation_id,
+            "image_id": image_id,
+            "category_id": 2,
+            "bbox": target["bbox"],
+            "area": target["area"],
+            "segmentation": target["segmentation"],
+            "iscrowd": 0,
+            "target_state": "reviewed_coarse_pile_region",
+            "recording_id": sample["recording_id"],
+            "event_id": sample["event_id"],
+            "item_id": sample["item_id"],
+            "reference_revision_id": sample["reference_revision_id"],
+            "pile_id": target["pile_id"],
+            "source_video_sha256": sample["source_sha256"],
+            "source_frame_sha256": _digest(frame.get("image_sha256"), "frame.image_sha256"),
+            "target_geometry_sha256": target["geometry_sha256"],
+            "split": sample["split"],
+            "pixel_ownership": target["pixel_ownership"],
+            "source_candidates": target["source_candidates"],
+            "grouped_candidates": target["grouped_candidates"],
+            "session_id": sample.get("session_id", group.get("session_id")),
+            "source_asset_id": sample.get("source_asset_id", group.get("source_asset_id")),
+            "video_id": sample.get("video_id", group.get("video_id")),
+            "table_setup": sample.get("table_setup", group.get("table_setup")),
+            "source_group_key": sample.get("source_group_key"),
+        }
     geometry = _mapping(target.get("geometry"), f"{sample['event_id']}.target.geometry")
     if geometry.get("kind") not in {"visible-region/v1", "reviewed-visible-region/v1"}:
         raise RfdetrSegmentationMaterializationError(
@@ -1089,8 +1249,21 @@ def _coco_payload(
         "licenses": [],
         "images": images,
         "annotations": annotations,
-        "categories": [TARGET_CATEGORY],
+        "categories": _target_categories(manifest),
     }
+
+
+def _target_categories(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
+    inventory = manifest.get("inventory")
+    if isinstance(inventory, Mapping) and "pile_reviewed_frame_count" in inventory:
+        return [TARGET_CATEGORY, PILE_CATEGORY]
+    if any(
+        sample.get("pile_targets")
+        for sample in manifest.get("samples", [])
+        if isinstance(sample, Mapping)
+    ):
+        return [TARGET_CATEGORY, PILE_CATEGORY]
+    return [TARGET_CATEGORY]
 
 
 def _split_payload(
@@ -1145,6 +1318,9 @@ def _output_directory(
             "rfdetr-segmentation-0068"
             if manifest is not None
             and manifest.get("schema_version") == RFDETR_DETECTOR_MANIFEST_SCHEMA_VERSION
+            else "rfdetr-pile-0091-m2"
+            if manifest is not None
+            and manifest.get("schema_version") == "rfdetr-pile-segmentation-manifest/v1"
             else "rfdetr-segmentation-0067"
         )
         return repository / ".runtime" / directory_name
