@@ -19,7 +19,8 @@
   frame copying, pile-only completion, and the operator handoff are available.
 - **M2:** Complete — freeze explicit pile-review readiness and export deterministic two-class
   COCO views with card-priority pixel ownership, pile RLE masks, and lineage receipts.
-- **M3:** Not started — support two-class trainer, evaluation, and bundle contracts.
+- **M3:** Complete — the pinned trainer, class-aware evaluator, and digest-checked bundle contract
+  support both visible cards and piles.
 - **M4:** Not started — retain pile predictions across providers, proposals, and review.
 - **M5:** Not started — exclude piles from identity work and preserve them in table observations.
 - **M6:** Not started — preserve pile evidence in reconstruction input and inspection.
@@ -282,6 +283,31 @@ Acceptance: decoded masks and label indices match the frozen view; finite traine
 reproducible per-class metrics; checkpoint save/load and bundle class-map parity; missing pile
 support blocks a pile-model claim. Publish the implementation handoff to 0087. Real training
 budgets, numerical quality gates, candidate selection, and promotion stay outside this milestone.
+
+#### M3 implementation evidence — 2026-10-12
+
+Extended the `rfdetr==1.9.4` SegMedium trainer to read the frozen M2 category map explicitly:
+COCO category 1 is `visible_card`; category 2 is `card_pile`. Training arguments carry both class
+names and `num_classes=2`. Staging rejects unsupported category maps, missing M2 pile-review
+readiness, or a changed mask policy. The checkpoint bundle records the exact class map, package,
+pretrained checkpoint digest, M2 materialization digest, and pile mask policy. Bundle loading
+rejects a two-class model without the 0091 capability receipt or with mismatched class count,
+recipe map, or mask policy.
+
+The evaluator decodes the M2 uncompressed column-major RLE masks and reports card and pile mask
+AP, box AP, recall, class confusion, and card predictions inside pile masks. It reports individual
+card recall near piles using a fixed gap of 5% of the shorter image dimension, with a 4-pixel
+minimum. It also names face-down, ordinary-trick-overlap, pile-edge, and human-hand slices. M2
+does not tag ordinary trick overlaps, pile edges separately, or human hands, so those slice results
+are marked unavailable. Consumed grouped candidates do not become individual-card ground truth.
+The evaluator records metrics without applying 0087 quality gates; M2 does not provide a sealed
+test partition.
+
+Validation: focused training and evaluator tests passed (21 tests); Ruff passed. A CPU smoke run
+with the pinned trainer used a tiny two-class M2 fixture, completed one epoch, verified finite
+losses, saved and reloaded a checkpoint, and wrote a bundle with matching class and mask maps.
+This checks software compatibility only. It is not a training candidate or quality result. The
+existing one-class trainer and bundle remain supported for 0067 and 0068.
 
 ### M4 — Preserve piles through inference and proposals
 

@@ -58,6 +58,13 @@ campaign and owns its budgets and numerical quality gates. Preparation requires 
 M5's pile-capable inference verification requires M4, not completion of 0091. Neither epic waits
 for the other's complete closure. Missing real pile support blocks a pile-model quality claim.
 
+0091 M3 pins RF-DETR 1.9.4, category IDs 1=`visible_card` and 2=`card_pile`, reviewed-card pixel
+priority, and uncompressed column-major pile RLE. Its evaluator reports class-specific mask and box
+metrics, class confusion, pile-contained card predictions, and card recall near piles. Fixture and
+one-epoch trainer smoke results establish software support only; they do not select a candidate or
+establish a quality gate. Treat the two-class bundle as a training artifact until 0091 M4 completes
+provider and proposal handling.
+
 M0 must first reconcile historical split and test usage. Do not silently reuse a previously opened
 sealed test as a fresh sealed test. Freeze either an eligible unopened test or explicitly label
 previously observed data as diagnostic evaluation. Never move a protected group into training.

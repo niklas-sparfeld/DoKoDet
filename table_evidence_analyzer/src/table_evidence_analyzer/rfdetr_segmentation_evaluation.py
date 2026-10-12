@@ -37,6 +37,18 @@ _THRESHOLDS = tuple(round(0.5 + index * 0.05, 2) for index in range(10))
 _CARD_SIDES = ("face_down", "face_up", "unknown")
 _PARTITIONS = ("valid", "sealed_test")
 _PARTITION_LABELS = {"valid": "validation", "sealed_test": "sealed_test"}
+_CARD_CATEGORY_ID = 1
+_PILE_CATEGORY_ID = 2
+_MODEL_INDEX_TO_CATEGORY_ID = {0: _CARD_CATEGORY_ID, 1: _PILE_CATEGORY_ID}
+
+
+def _prediction_category_id(prediction: Mapping[str, Any]) -> int:
+    if "category_id" in prediction:
+        return int(prediction["category_id"])
+    model_index = int(prediction.get("class_id", 0))
+    if model_index not in _MODEL_INDEX_TO_CATEGORY_ID:
+        raise RfdetrSegmentationEvaluationError("prediction uses an unsupported model class index")
+    return _MODEL_INDEX_TO_CATEGORY_ID[model_index]
 
 
 class RfdetrSegmentationEvaluationError(ValueError):
@@ -101,13 +113,15 @@ def _assert_device(device: str) -> None:
         )
 
 
-def _load_model(checkpoint: Path, device: str, *, pretrained: bool = False) -> Any:
+def _load_model(
+    checkpoint: Path, device: str, *, pretrained: bool = False, num_classes: int = 1
+) -> Any:
     _assert_device(device)
     model_class = _import_segmentation_model()
     try:
         if pretrained:
             return model_class(
-                num_classes=1,
+                num_classes=num_classes,
                 pretrain_weights=str(checkpoint),
                 resolution=RFDETR_SEGMENTATION_INPUT_SIZE,
                 device=device,
@@ -115,7 +129,7 @@ def _load_model(checkpoint: Path, device: str, *, pretrained: bool = False) -> A
             )
         return model_class.from_checkpoint(
             str(checkpoint),
-            num_classes=1,
+            num_classes=num_classes,
             resolution=RFDETR_SEGMENTATION_INPUT_SIZE,
             device=device,
         )
@@ -186,6 +200,7 @@ def _prediction_rows(model: Any, image_path: Path, width: int, height: int) -> l
             {
                 "score": round(score, 8),
                 "class_id": int(class_id),
+                "category_id": _MODEL_INDEX_TO_CATEGORY_ID[int(class_id)],
                 "polygon_normalized": normalized,
                 "polygon_pixels": pixels,
                 "box_xywh": [
@@ -201,21 +216,62 @@ def _prediction_rows(model: Any, image_path: Path, width: int, height: int) -> l
     return sorted(result, key=lambda item: (-float(item["score"]), item["polygon_pixels"]))
 
 
-def _mask(polygons: Sequence[Sequence[Sequence[float]]], width: int, height: int) -> Image.Image:
+def _rle_mask(rle: Mapping[str, Any], width: int, height: int) -> Image.Image:
+    if rle.get("size") != [height, width] or not isinstance(rle.get("counts"), list):
+        raise RfdetrSegmentationEvaluationError("target RLE dimensions or counts are invalid")
+    pixels = Image.new("1", (width, height), 0)
+    draw = ImageDraw.Draw(pixels)
+    cursor = 0
+    value = 0
+    for raw_count in rle["counts"]:
+        if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
+            raise RfdetrSegmentationEvaluationError("target RLE contains an invalid run")
+        end = cursor + raw_count
+        if end > width * height:
+            raise RfdetrSegmentationEvaluationError("target RLE exceeds its declared dimensions")
+        if value:
+            for index in range(cursor, end):
+                draw.point((index // height, index % height), fill=1)
+        cursor = end
+        value = 1 - value
+    if cursor != width * height:
+        raise RfdetrSegmentationEvaluationError("target RLE does not cover its declared dimensions")
+    return pixels
+
+
+def _mask(
+    polygons: Sequence[Sequence[Sequence[float]]] | None,
+    width: int,
+    height: int,
+    rle: Mapping[str, Any] | None = None,
+) -> Image.Image:
+    if rle is not None:
+        return _rle_mask(rle, width, height)
     result = Image.new("1", (width, height), 0)
     drawer = ImageDraw.Draw(result)
-    for polygon in polygons:
+    for polygon in polygons or ():
         drawer.polygon([(float(point[0]), float(point[1])) for point in polygon], fill=1)
     return result
 
 
 def _mask_iou(left: Mapping[str, Any], right: Mapping[str, Any]) -> float:
     width, height = int(left["width"]), int(left["height"])
-    left_mask = _mask(left["polygons"], width, height)
-    right_mask = _mask(right["polygons"], width, height)
+    left_mask = _mask(left.get("polygons"), width, height, left.get("rle"))
+    right_mask = _mask(right.get("polygons"), width, height, right.get("rle"))
     intersection = ImageChops.logical_and(left_mask, right_mask).histogram()[-1]
     union = ImageChops.logical_or(left_mask, right_mask).histogram()[-1]
     return 0.0 if union == 0 else intersection / union
+
+
+def _prediction_area_fraction_inside(
+    prediction: Mapping[str, Any], target: Mapping[str, Any]
+) -> float:
+    width, height = int(prediction["width"]), int(prediction["height"])
+    prediction_mask = _mask(prediction.get("polygons"), width, height, prediction.get("rle"))
+    target_mask = _mask(target.get("polygons"), width, height, target.get("rle"))
+    prediction_area = prediction_mask.histogram()[1]
+    intersection = ImageChops.logical_and(prediction_mask, target_mask).histogram()[-1]
+    return 0.0 if prediction_area == 0 else intersection / prediction_area
 
 
 def _box_iou(left: Sequence[float], right: Sequence[float]) -> float:
@@ -251,6 +307,10 @@ def _match(
         frame = by_id[image_id]
         candidates: list[tuple[float, int]] = []
         for target_index, _target in enumerate(frame["targets"]):
+            if _prediction_category_id(_prediction) != int(
+                _target.get("category_id", _CARD_CATEGORY_ID)
+            ):
+                continue
             candidates.append((values[(image_id, _index, target_index, geometry)], target_index))
         available = [item for item in candidates if item[1] not in matched[image_id]]
         best = max(available, default=(0.0, -1))
@@ -285,8 +345,10 @@ def _average_precision(rows: Sequence[tuple[float, bool]], target_count: int) ->
     return sum(samples) / len(samples)
 
 
-def calculate_metrics(frames: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Calculate the frozen one-class metrics from retained prediction rows."""
+def calculate_metrics(
+    frames: Sequence[Mapping[str, Any]], *, include_class_reports: bool = True
+) -> dict[str, Any]:
+    """Calculate class-aware mask and box metrics from retained prediction rows."""
 
     if not frames:
         raise RfdetrSegmentationEvaluationError("validation has no frames")
@@ -316,7 +378,7 @@ def calculate_metrics(frames: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     _rows, target_count, false_predictions, duplicate_predictions = mask_matches[0.5]
     recall = sum(int(matched) for _score, matched in _rows) / target_count if target_count else 0.0
     empty = sum(not frame["predictions"] for frame in frames)
-    return {
+    result: dict[str, Any] = {
         "frame_count": len(frames),
         "target_count": target_count,
         "prediction_count": sum(len(frame["predictions"]) for frame in frames),
@@ -328,43 +390,212 @@ def calculate_metrics(frames: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "duplicate_predictions": duplicate_predictions,
         "empty_prediction_rate": round(empty / len(frames), 6),
     }
-
-
-def _targets(coco: Mapping[str, Any]) -> dict[int, list[dict[str, Any]]]:
-    result: dict[int, list[dict[str, Any]]] = defaultdict(list)
-    for annotation in coco["annotations"]:
-        if annotation.get("category_id") != 1:
-            raise RfdetrSegmentationEvaluationError(
-                "validation COCO annotation has another category"
-            )
-        if annotation.get("card_side") not in _CARD_SIDES:
-            raise RfdetrSegmentationEvaluationError(
-                "validation COCO annotation has an unsupported card side"
-            )
-        segmentation = annotation.get("segmentation")
-        if not isinstance(segmentation, list) or not segmentation:
-            raise RfdetrSegmentationEvaluationError(
-                "validation COCO annotation has no mask polygon"
-            )
-        polygons = [
-            [[float(points[index]), float(points[index + 1])] for index in range(0, len(points), 2)]
-            for points in segmentation
-        ]
-        result[int(annotation["image_id"])].append(
+    if include_class_reports:
+        class_reports: dict[str, Any] = {}
+        for category_id, name in (
+            (_CARD_CATEGORY_ID, "visible_card"),
+            (_PILE_CATEGORY_ID, "card_pile"),
+        ):
+            class_frames = [
+                {
+                    **frame,
+                    "targets": [
+                        target
+                        for target in frame["targets"]
+                        if int(target.get("category_id", _CARD_CATEGORY_ID)) == category_id
+                    ],
+                    "predictions": [
+                        prediction
+                        for prediction in frame["predictions"]
+                        if _prediction_category_id(prediction) == category_id
+                    ],
+                }
+                for frame in frames
+            ]
+            class_reports[name] = calculate_metrics(class_frames, include_class_reports=False)
+        confusion = {"visible_card_to_card_pile": 0, "card_pile_to_visible_card": 0}
+        fragments_inside_piles = 0
+        for frame in frames:
+            pile_targets = [
+                target
+                for target in frame["targets"]
+                if int(target.get("category_id", _CARD_CATEGORY_ID)) == _PILE_CATEGORY_ID
+            ]
+            for prediction in frame["predictions"]:
+                category_id = _prediction_category_id(prediction)
+                candidates = [
+                    (_mask_iou(prediction, target), int(target.get("category_id", 1)))
+                    for target in frame["targets"]
+                ]
+                best_iou, best_category = max(candidates, default=(0.0, category_id))
+                if best_iou >= 0.5 and best_category != category_id:
+                    key = (
+                        "visible_card_to_card_pile"
+                        if category_id == _CARD_CATEGORY_ID
+                        else "card_pile_to_visible_card"
+                    )
+                    confusion[key] += 1
+                if (
+                    category_id == _CARD_CATEGORY_ID
+                    and pile_targets
+                    and any(
+                        _prediction_area_fraction_inside(prediction, pile) > 0.5
+                        for pile in pile_targets
+                    )
+                ):
+                    fragments_inside_piles += 1
+        near_pile_frames: list[dict[str, Any]] = []
+        face_down_frames: list[dict[str, Any]] = []
+        for frame in frames:
+            piles = [
+                target
+                for target in frame["targets"]
+                if int(target.get("category_id", _CARD_CATEGORY_ID)) == _PILE_CATEGORY_ID
+            ]
+            cards_near: list[Mapping[str, Any]] = []
+            face_down_cards = [
+                target
+                for target in frame["targets"]
+                if int(target.get("category_id", _CARD_CATEGORY_ID)) == _CARD_CATEGORY_ID
+                and target.get("card_side") == "face_down"
+            ]
+            if face_down_cards:
+                face_down_frames.append(
+                    {
+                        **frame,
+                        "targets": face_down_cards,
+                        "predictions": [
+                            prediction
+                            for prediction in frame["predictions"]
+                            if _prediction_category_id(prediction) == _CARD_CATEGORY_ID
+                        ],
+                    }
+                )
+            width, height = int(frame.get("width", 0)), int(frame.get("height", 0))
+            gap_limit = max(4.0, min(width, height) * 0.05) if width and height else 4.0
+            for card in frame["targets"]:
+                if int(card.get("category_id", _CARD_CATEGORY_ID)) != _CARD_CATEGORY_ID:
+                    continue
+                x, y, w, h = card["box_xywh"]
+                for pile in piles:
+                    px, py, pw, ph = pile["box_xywh"]
+                    dx = max(px - (x + w), x - (px + pw), 0.0)
+                    dy = max(py - (y + h), y - (py + ph), 0.0)
+                    if math.hypot(dx, dy) <= gap_limit:
+                        cards_near.append(card)
+                        break
+            if cards_near:
+                near_pile_frames.append(
+                    {
+                        **frame,
+                        "targets": cards_near,
+                        "predictions": [
+                            prediction
+                            for prediction in frame["predictions"]
+                            if _prediction_category_id(prediction) == _CARD_CATEGORY_ID
+                        ],
+                    }
+                )
+        result.update(
             {
-                "annotation_id": int(annotation["id"]),
-                "card_id": annotation["card_id"],
-                "card_side": annotation["card_side"],
-                "polygons": polygons,
-                "box_xywh": [float(value) for value in annotation["bbox"]],
+                "by_class": class_reports,
+                "class_confusion_at_mask_iou_50": confusion,
+                "visible_card_fragments_inside_piles": fragments_inside_piles,
+                "visible_card_near_pile": (
+                    {
+                        "gap_limit_policy": "5_percent_of_shorter_image_dimension_min_4px",
+                        **calculate_metrics(near_pile_frames, include_class_reports=False),
+                    }
+                    if near_pile_frames
+                    else {
+                        "status": "no_near_pile_card_targets",
+                        "target_count": 0,
+                        "gap_limit_policy": "5_percent_of_shorter_image_dimension_min_4px",
+                    }
+                ),
+                "named_slices": {
+                    "face_down_cards": (
+                        calculate_metrics(face_down_frames, include_class_reports=False)
+                        if face_down_frames
+                        else {"status": "no_face_down_targets", "target_count": 0}
+                    ),
+                    "pile_edges": {
+                        "status": "not_separately_tagged_in_m2_view",
+                        "metrics": class_reports["card_pile"],
+                    },
+                    "ordinary_trick_overlap": {"status": "not_tagged_in_m2_view"},
+                    "human_hands": {"status": "not_tagged_in_m2_view"},
+                },
+                "slice_availability": {
+                    "ordinary_trick_overlap": "not_tagged_in_m2_view",
+                    "pile_edges": "pile_targets_reported_as_card_pile_class",
+                    "face_down_cards": "available_from_card_side",
+                    "human_hands": "not_tagged_in_m2_view",
+                },
             }
         )
     return result
 
 
+def _targets(coco: Mapping[str, Any]) -> dict[int, list[dict[str, Any]]]:
+    result: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    categories = coco.get("categories")
+    if categories == [{"id": 1, "name": "visible_card", "supercategory": "card"}]:
+        supported_categories = {1: "visible_card"}
+    elif categories == [
+        {"id": 1, "name": "visible_card", "supercategory": "card"},
+        {"id": 2, "name": "card_pile", "supercategory": "card"},
+    ]:
+        supported_categories = {1: "visible_card", 2: "card_pile"}
+    else:
+        raise RfdetrSegmentationEvaluationError("validation COCO class map is unsupported")
+    for annotation in coco["annotations"]:
+        category_id = annotation.get("category_id")
+        if category_id not in supported_categories:
+            raise RfdetrSegmentationEvaluationError(
+                "validation COCO annotation has an unknown category"
+            )
+        segmentation = annotation.get("segmentation")
+        target: dict[str, Any] = {
+            "annotation_id": int(annotation["id"]),
+            "category_id": int(category_id),
+            "category": supported_categories[int(category_id)],
+            "box_xywh": [float(value) for value in annotation["bbox"]],
+        }
+        if category_id == _CARD_CATEGORY_ID:
+            if annotation.get("card_side") not in _CARD_SIDES:
+                raise RfdetrSegmentationEvaluationError(
+                    "validation COCO annotation has an unsupported card side"
+                )
+            if not isinstance(segmentation, list) or not segmentation:
+                raise RfdetrSegmentationEvaluationError("visible card target has no mask polygon")
+            target.update(
+                {
+                    "card_id": annotation.get("card_id"),
+                    "card_side": annotation["card_side"],
+                    "polygons": [
+                        [
+                            [float(points[index]), float(points[index + 1])]
+                            for index in range(0, len(points), 2)
+                        ]
+                        for points in segmentation
+                    ],
+                }
+            )
+        else:
+            if not isinstance(segmentation, Mapping):
+                raise RfdetrSegmentationEvaluationError("pile target has no COCO RLE mask")
+            target["rle"] = dict(segmentation)
+            target["grouped_candidate_ids"] = annotation.get("grouped_candidate_ids", [])
+        result[int(annotation["image_id"])].append(target)
+    return result
+
+
 def _visible_card_count_bucket(count: int) -> str:
-    if count < 1:
-        raise RfdetrSegmentationEvaluationError("visible-card count must be positive")
+    if count < 0:
+        raise RfdetrSegmentationEvaluationError("visible-card count cannot be negative")
+    if count == 0:
+        return "0"
     if count <= 2:
         return str(count)
     if count <= 4:
@@ -472,7 +703,10 @@ def _prediction_artifact(
                 ],
             }
         )
-        frames[-1]["visible_card_count"] = len(frames[-1]["targets"])
+        frames[-1]["visible_card_count"] = sum(
+            int(target.get("category_id", _CARD_CATEGORY_ID)) == _CARD_CATEGORY_ID
+            for target in frames[-1]["targets"]
+        )
         frames[-1]["visible_card_count_bucket"] = _visible_card_count_bucket(
             frames[-1]["visible_card_count"]
         )
@@ -530,7 +764,8 @@ def _evaluate_model(
     pretrained: bool,
     partition: str,
 ) -> dict[str, Any]:
-    model = _load_model(checkpoint, device, pretrained=pretrained)
+    num_classes = len(view.get("class_map", {"1": "visible_card"}))
+    model = _load_model(checkpoint, device, pretrained=pretrained, num_classes=num_classes)
     try:
         return _prediction_artifact(
             model_id=model_id,
@@ -600,6 +835,12 @@ def run_rfdetr_segmentation_campaign_validation(
             raise RfdetrSegmentationEvaluationError(
                 "candidate bundle uses another M1 materialization"
             )
+        if candidate.manifest.get("class_map", {"1": "visible_card"}) != view.get(
+            "class_map", {"1": "visible_card"}
+        ):
+            raise RfdetrSegmentationEvaluationError(
+                "candidate bundle class map differs from the frozen COCO view"
+            )
         if (
             manifest_receipt.get("campaign_id")
             == "0068-m0-reviewed-rfdetr-local-visible-card-detector"
@@ -629,16 +870,24 @@ def run_rfdetr_segmentation_campaign_validation(
             "baseline": baseline["metrics"],
             "candidate": candidate_predictions["metrics"],
         }
+        pile_mode = len(view.get("class_map", {})) == 2
         candidate_overall = candidate_predictions["metrics"]["overall"]
         baseline_overall = baseline["metrics"]["overall"]
-        validation_gate = {
-            "candidate_reloads": True,
-            "metrics_reproducible": True,
-            "mask_ap_better_than_baseline": candidate_overall["mask_ap_50_95"]
-            > baseline_overall["mask_ap_50_95"],
-            "recall_better_than_baseline": candidate_overall["recall"] > baseline_overall["recall"],
-        }
-        validation_passes = all(validation_gate.values())
+        validation_gate = {"candidate_reloads": True, "metrics_reproducible": True}
+        if pile_mode:
+            validation_gate["quality_assessment"] = "deferred_to_0087"
+        else:
+            validation_gate.update(
+                {
+                    "mask_ap_better_than_baseline": candidate_overall["mask_ap_50_95"]
+                    > baseline_overall["mask_ap_50_95"],
+                    "recall_better_than_baseline": candidate_overall["recall"]
+                    > baseline_overall["recall"],
+                }
+            )
+        validation_passes = all(
+            value is True for key, value in validation_gate.items() if key != "quality_assessment"
+        )
         prediction_artifacts: dict[str, dict[str, Any]] = {
             "validation_baseline": baseline,
             "validation_candidate": candidate_predictions,
@@ -646,10 +895,15 @@ def run_rfdetr_segmentation_campaign_validation(
         sealed_metrics: dict[str, Any] | None = None
         sealed_gate: dict[str, Any] = {
             "evaluated": False,
-            "reason": "validation_gate_failed",
+            "reason": (
+                "0091 M2 view has no sealed_test partition"
+                if pile_mode
+                else "validation_gate_failed"
+            ),
             "passes": False,
         }
-        if validation_passes:
+        has_sealed_test = "partitions" not in view or "sealed_test" in view["partitions"]
+        if validation_passes and not pile_mode and has_sealed_test:
             sealed_baseline = _evaluate_model(
                 pretrained,
                 view,
@@ -689,7 +943,7 @@ def run_rfdetr_segmentation_campaign_validation(
         gate = {
             "validation": {**validation_gate, "passes": validation_passes},
             "sealed_test": sealed_gate,
-            "passes": validation_passes and bool(sealed_gate["passes"]),
+            "passes": validation_passes and (pile_mode or bool(sealed_gate["passes"])),
         }
         for key, artifact in prediction_artifacts.items():
             path = _artifact_path(output, key)
@@ -697,6 +951,7 @@ def run_rfdetr_segmentation_campaign_validation(
         exclusions = {
             _PARTITION_LABELS[partition]: _exclusion_artifact(view, partition)
             for partition in _PARTITIONS
+            if "partitions" not in view or partition in view["partitions"]
         }
         partition_reports = {
             label: {
@@ -724,6 +979,12 @@ def run_rfdetr_segmentation_campaign_validation(
                 "rfdetr": RFDETR_SEGMENTATION_PACKAGE_VERSION,
             },
             "campaign_manifest": manifest_receipt,
+            "quality_state": "not_assessed_by_0091_m3" if pile_mode else "evaluated",
+            "evaluation_policy": {
+                "grouped_member_candidates_are_individual_ground_truth": False,
+                "class_map": view.get("class_map", {"1": "visible_card"}),
+                "numerical_quality_gates": "owned_by_0087" if pile_mode else "0068_campaign",
+            },
             "materialization_digest": view["manifest"]["materialization_digest"],
             "pretrained_checkpoint": {"sha256": pretrained_sha256, "path": str(pretrained)},
             "candidate_bundle": {

@@ -29,6 +29,7 @@ from .rfdetr_import import block_pyav_import
 
 RFDETR_SEGMENTATION_TRAINING_RUN_SCHEMA = "rfdetr-segmentation-training-run/v1"
 RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA = "rfdetr-segmentation-campaign-training-run/v1"
+RFDETR_PILE_CAMPAIGN_RUN_SCHEMA = "rfdetr-pile-segmentation-training-run/v1"
 RFDETR_SEGMENTATION_CAMPAIGN_DATASET_SCHEMA = "rfdetr-segmentation-campaign-dataset/v1"
 RFDETR_SEGMENTATION_BUNDLE_SCHEMA = "rfdetr-segmentation-bundle/v1"
 RFDETR_SEGMENTATION_MODEL_CLASS = "RFDETRSegMedium"
@@ -39,6 +40,18 @@ RFDETR_SEGMENTATION_CHECKPOINT_NAME = "rf-detr-seg-medium.pt"
 RFDETR_SEGMENTATION_FINAL_CHECKPOINT = "checkpoint_best_total.pth"
 RFDETR_SEGMENTATION_CONFIDENCE_THRESHOLD = 0.5
 RFDETR_SEGMENTATION_MATERIALIZATION_SCHEMA = "rfdetr-segmentation-materialization/v1"
+RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID = "0091-m2-reviewed-two-class-pile-export"
+RFDETR_PILE_CAMPAIGN_MANIFEST_SCHEMA = "rfdetr-pile-segmentation-manifest/v1"
+RFDETR_PILE_CLASS_MAP = {"1": "visible_card", "2": "card_pile"}
+RFDETR_PILE_MASK_POLICY = {
+    "normalization": "full-frame-0-1000/v1",
+    "pixel_point_rounding": "six_decimal_places",
+    "derived_box": "tight_floor_min_ceil_max_v1",
+    "pile_geometry": "coarse-footprint-pixel-center-even-odd-v1",
+    "pixel_ownership": "reviewed-card-pixels-priority-v1",
+    "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+    "pile_box": "tight_occupied_pixel_bbox_v1",
+}
 RFDETR_SEGMENTATION_RECIPE_SCHEMA = "rfdetr-segmentation-training-recipe/v1"
 RFDETR_SEGMENTATION_PROVIDER_MODEL = "rfdetr-seg-medium"
 RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID = "0068-m0-reviewed-rfdetr-local-visible-card-detector"
@@ -191,6 +204,7 @@ def _load_materialization_view(root_value: str | Path) -> dict[str, Any]:
     if campaign_id not in {
         "0067-m0-rfdetr-segmentation",
         RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID,
+        RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID,
     }:
         raise RfdetrSegmentationTrainingError(
             "M1 materialization belongs to an unsupported campaign"
@@ -213,15 +227,27 @@ def _load_materialization_view(root_value: str | Path) -> dict[str, Any]:
             )
 
     partitions: dict[str, list[dict[str, Any]]] = {}
+    class_map: dict[str, str] | None = None
     partition_names = ("train", "valid")
     if campaign_id == RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID:
         partition_names += ("sealed_test",)
     for partition in partition_names:
         coco = _read_json(root / partition / "_annotations.coco.json", f"{partition} COCO data")
-        if coco.get("categories") != [{"id": 1, "name": "visible_card", "supercategory": "card"}]:
+        categories = coco.get("categories")
+        if categories == [{"id": 1, "name": "visible_card", "supercategory": "card"}]:
+            partition_class_map = {"1": "visible_card"}
+        elif categories == [
+            {"id": 1, "name": "visible_card", "supercategory": "card"},
+            {"id": 2, "name": "card_pile", "supercategory": "card"},
+        ]:
+            partition_class_map = dict(RFDETR_PILE_CLASS_MAP)
+        else:
             raise RfdetrSegmentationTrainingError(
-                f"{partition} COCO data does not contain the visible_card category"
+                f"{partition} COCO data has an unsupported explicit category map"
             )
+        if class_map is not None and class_map != partition_class_map:
+            raise RfdetrSegmentationTrainingError("COCO partitions use different category maps")
+        class_map = partition_class_map
         images = coco.get("images")
         annotations = coco.get("annotations")
         if not isinstance(images, list) or not images:
@@ -256,6 +282,10 @@ def _load_materialization_view(root_value: str | Path) -> dict[str, Any]:
                 raise RfdetrSegmentationTrainingError(
                     f"{partition} COCO annotation references an unknown image"
                 )
+            if annotation.get("category_id") not in {int(key) for key in partition_class_map}:
+                raise RfdetrSegmentationTrainingError(
+                    f"{partition} COCO annotation uses a category outside the frozen map"
+                )
             annotation_image_ids.add(image_id)
         missing_target_ids = image_ids - annotation_image_ids
         if missing_target_ids:
@@ -270,7 +300,29 @@ def _load_materialization_view(root_value: str | Path) -> dict[str, Any]:
                     f"{partition} COCO data has an image without a reviewed target"
                 )
         partitions[partition] = [dict(image) for image in images]
-    return {"root": root, "manifest": materialization, "partitions": partitions}
+    assert class_map is not None
+    if len(class_map) == 2 and (
+        materialization.get("campaign_id") != RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID
+        or materialization.get("review_readiness", {}).get("two_class_ready") is not True
+    ):
+        raise RfdetrSegmentationTrainingError(
+            "two-class COCO data lacks the frozen 0091 M2 readiness receipt"
+        )
+    if len(class_map) == 2:
+        target_conversion = materialization.get("target_conversion")
+        if not isinstance(target_conversion, Mapping) or any(
+            target_conversion.get(key) != expected
+            for key, expected in RFDETR_PILE_MASK_POLICY.items()
+        ):
+            raise RfdetrSegmentationTrainingError(
+                "two-class COCO data does not use the frozen 0091 M2 mask policy"
+            )
+    return {
+        "root": root,
+        "manifest": materialization,
+        "partitions": partitions,
+        "class_map": class_map,
+    }
 
 
 def _representative_images(images: Sequence[Mapping[str, Any]], count: int) -> list[dict[str, Any]]:
@@ -569,9 +621,9 @@ def _code_revision() -> str:
     return result.stdout.strip() or "unknown"
 
 
-def _model_arguments(checkpoint: Path) -> dict[str, Any]:
+def _model_arguments(checkpoint: Path, *, num_classes: int = 1) -> dict[str, Any]:
     return {
-        "num_classes": 1,
+        "num_classes": num_classes,
         "pretrain_weights": str(checkpoint),
         "resolution": RFDETR_SEGMENTATION_INPUT_SIZE,
     }
@@ -703,6 +755,41 @@ def _verify_campaign_manifest(
     if not path.is_file():
         raise RfdetrSegmentationTrainingError(f"campaign manifest does not exist: {path}")
     manifest = _read_json(path, "M0 campaign manifest")
+    if manifest.get("schema_version") == RFDETR_PILE_CAMPAIGN_MANIFEST_SCHEMA:
+        declared_digest = _assert_sha256(manifest.get("manifest_digest"), "M2 manifest_digest")
+        core = {key: value for key, value in manifest.items() if key != "manifest_digest"}
+        if declared_digest != _digest(core):
+            raise RfdetrSegmentationTrainingError("M2 manifest digest does not match contents")
+        if (
+            manifest.get("campaign_id") != RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID
+            or manifest.get("milestone") != "M2"
+            or manifest.get("read_only") is not True
+            or manifest.get("freeze_state") != "frozen"
+            or view.get("class_map") != RFDETR_PILE_CLASS_MAP
+            or view["manifest"].get("campaign_id") != RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID
+            or view["manifest"].get("campaign_manifest", {}).get("manifest_digest")
+            != declared_digest
+        ):
+            raise RfdetrSegmentationTrainingError(
+                "M2 manifest and two-class materialization do not match"
+            )
+        recipe = manifest.get("recipe")
+        if not isinstance(recipe, Mapping) or manifest.get("recipe_sha256") != _digest(recipe):
+            raise RfdetrSegmentationTrainingError("M2 recipe digest does not match contents")
+        if recipe.get("package") != {
+            "name": "rfdetr",
+            "version": RFDETR_SEGMENTATION_PACKAGE_VERSION,
+        }:
+            raise RfdetrSegmentationTrainingError("M2 RF-DETR package pin changed")
+        return {
+            "path": str(path),
+            "campaign_id": RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID,
+            "schema_version": RFDETR_PILE_CAMPAIGN_MANIFEST_SCHEMA,
+            "manifest_digest": declared_digest,
+            "file_sha256": _file_digest(path),
+            "recipe_sha256": manifest["recipe_sha256"],
+            "class_map": dict(RFDETR_PILE_CLASS_MAP),
+        }
     if manifest.get("schema_version") == RFDETR_REVIEWED_DETECTOR_MANIFEST_SCHEMA:
         return _verify_reviewed_detector_manifest(view, path, pretrained_sha256)
     declared_digest = _assert_sha256(manifest.get("manifest_digest"), "M0 manifest_digest")
@@ -824,11 +911,11 @@ def _training_arguments(staged_dataset: Path, output: Path, device: str) -> dict
     }
 
 
-def _campaign_model_arguments(checkpoint: Path) -> dict[str, Any]:
+def _campaign_model_arguments(checkpoint: Path, *, num_classes: int = 1) -> dict[str, Any]:
     """Return model arguments that implement the frozen no-mixed-precision recipe."""
 
     return {
-        **_model_arguments(checkpoint),
+        **_model_arguments(checkpoint, num_classes=num_classes),
         "amp": False,
     }
 
@@ -840,6 +927,7 @@ def _campaign_training_arguments(
     *,
     seed: int = 6701,
     resume: Path | None = None,
+    class_names: Sequence[str] = ("visible_card",),
 ) -> dict[str, Any]:
     """Return the exact RF-DETR arguments for the one-candidate M3 run."""
 
@@ -854,7 +942,7 @@ def _campaign_training_arguments(
         "seed": seed,
         "resolution": RFDETR_SEGMENTATION_INPUT_SIZE,
         "device": device,
-        "class_names": ["visible_card"],
+        "class_names": list(class_names),
         "run_test": False,
         "use_ema": True,
         "multi_scale": True,
@@ -1120,6 +1208,7 @@ def _write_bundle(
     recipe = {
         "schema_version": RFDETR_SEGMENTATION_RECIPE_SCHEMA,
         "model": inputs["model"],
+        "class_map": inputs.get("class_map", {"1": "visible_card"}),
         "package": {"name": "rfdetr", "version": RFDETR_SEGMENTATION_PACKAGE_VERSION},
         "pretrained_checkpoint": {
             "name": RFDETR_SEGMENTATION_CHECKPOINT_NAME,
@@ -1129,6 +1218,8 @@ def _write_bundle(
         "subset_digest": inputs["subset"]["subset_digest"],
         "materialization_digest": inputs["materialization_digest"],
     }
+    if len(recipe["class_map"]) == 2:
+        recipe["mask_policy"] = inputs["mask_policy"]
     recipe["recipe_digest"] = _digest(recipe)
     manifest: dict[str, Any] = {
         "schema_version": RFDETR_SEGMENTATION_BUNDLE_SCHEMA,
@@ -1137,7 +1228,8 @@ def _write_bundle(
         "model": inputs["model"],
         "model_variant": RFDETR_SEGMENTATION_MODEL_VARIANT,
         "package": {"name": "rfdetr", "version": RFDETR_SEGMENTATION_PACKAGE_VERSION},
-        "class_map": {"1": "visible_card"},
+        "class_map": inputs.get("class_map", {"1": "visible_card"}),
+        "num_classes": inputs["model"]["num_classes"],
         "input_size": [RFDETR_SEGMENTATION_INPUT_SIZE, RFDETR_SEGMENTATION_INPUT_SIZE],
         "confidence_threshold": RFDETR_SEGMENTATION_CONFIDENCE_THRESHOLD,
         "materialization_digest": inputs["materialization_digest"],
@@ -1156,6 +1248,8 @@ def _write_bundle(
         "dependency_versions": _environment()["packages"],
         "code_revision": _code_revision(),
     }
+    if len(manifest["class_map"]) == 2:
+        manifest["mask_policy"] = inputs["mask_policy"]
     if campaign_receipt is not None:
         manifest["campaign_id"] = campaign_receipt["campaign_id"]
         manifest["campaign_manifest"] = {
@@ -1350,11 +1444,11 @@ def _run_real_inference(
     }
 
 
-def _reload_checkpoint(checkpoint: Path, device: str) -> dict[str, Any]:
+def _reload_checkpoint(checkpoint: Path, device: str, *, num_classes: int = 1) -> dict[str, Any]:
     model_class = _import_segmentation_model()
     model = model_class.from_checkpoint(
         str(checkpoint),
-        num_classes=1,
+        num_classes=num_classes,
         resolution=RFDETR_SEGMENTATION_INPUT_SIZE,
         device=device,
     )
@@ -1391,6 +1485,9 @@ def run_rfdetr_segmentation_training(
             campaign_receipt = _verify_campaign_manifest(
                 view, config.campaign_manifest, pretrained_sha256
             )
+            if campaign_receipt.get("campaign_id") == RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID:
+                record["schema_version"] = RFDETR_PILE_CAMPAIGN_RUN_SCHEMA
+                record["run_id"] = f"rfdetr-pile-0091-m3-smoke-{int(started)}"
         _mark_stage(record, "inputs", "completed")
         staged_dataset = output / "smoke-dataset"
         staged = _stage_smoke_dataset(
@@ -1406,8 +1503,12 @@ def run_rfdetr_segmentation_training(
         )
         _mark_stage(record, "subset", "completed")
         training_output = output / "rfdetr"
-        model_arguments = _model_arguments(pretrained)
+        class_map = view["class_map"]
+        class_names = tuple(class_map[str(index)] for index in range(1, len(class_map) + 1))
+        num_classes = len(class_map)
+        model_arguments = _model_arguments(pretrained, num_classes=num_classes)
         training_arguments = _training_arguments(staged_dataset, training_output, config.device)
+        training_arguments["class_names"] = list(class_names)
         inputs = {
             "runner": config.runner,
             "device": config.device,
@@ -1417,9 +1518,11 @@ def run_rfdetr_segmentation_training(
             "model": {
                 "class": RFDETR_SEGMENTATION_MODEL_CLASS,
                 "variant": RFDETR_SEGMENTATION_MODEL_VARIANT,
-                "num_classes": 1,
+                "num_classes": num_classes,
                 "resolution": RFDETR_SEGMENTATION_INPUT_SIZE,
             },
+            "class_map": class_map,
+            "mask_policy": dict(RFDETR_PILE_MASK_POLICY) if num_classes == 2 else {},
             "model_arguments": model_arguments,
             "training_arguments": training_arguments,
         }
@@ -1461,20 +1564,30 @@ def run_rfdetr_segmentation_training(
             _mark_stage(record, "reload", "skipped")
             _mark_stage(record, "inference", "skipped")
         else:
-            reload_result = _reload_checkpoint(bundle.checkpoint_path, config.device)
-            _mark_stage(record, "reload", "completed")
-            inference_result = _run_real_inference(
-                bundle.root,
-                staged["validation_frame"],
-                staged_dataset,
-                config.device,
-                campaign_id=(
-                    campaign_receipt["campaign_id"]
-                    if campaign_receipt is not None
-                    else "0067-m0-rfdetr-segmentation"
-                ),
+            reload_result = _reload_checkpoint(
+                bundle.checkpoint_path, config.device, num_classes=num_classes
             )
-            _mark_stage(record, "inference", "completed")
+            _mark_stage(record, "reload", "completed")
+            if num_classes == 1:
+                inference_result = _run_real_inference(
+                    bundle.root,
+                    staged["validation_frame"],
+                    staged_dataset,
+                    config.device,
+                    campaign_id=(
+                        campaign_receipt["campaign_id"]
+                        if campaign_receipt is not None
+                        else "0067-m0-rfdetr-segmentation"
+                    ),
+                )
+            else:
+                inference_result = {
+                    "status": "deferred_to_0091_m4",
+                    "reason": "the visible-card provider does not yet consume pile bundles",
+                }
+                _mark_stage(record, "inference", "skipped")
+            if num_classes == 1:
+                _mark_stage(record, "inference", "completed")
         record.update(
             {
                 "status": "completed",
@@ -1484,6 +1597,7 @@ def run_rfdetr_segmentation_training(
                     else "0067-m0-rfdetr-segmentation"
                 ),
                 "model": inputs["model"],
+                "class_map": class_map,
                 "model_arguments": model_arguments,
                 "training_arguments": training_arguments,
                 "runtime_memory_guard": _mps_memory_guard(config.device, training_output),
@@ -1538,8 +1652,11 @@ def run_rfdetr_segmentation_campaign_training(
                 config.campaign_manifest.expanduser().resolve(), "M0 campaign manifest"
             ).get("schema_version")
     reviewed = manifest_schema == RFDETR_REVIEWED_DETECTOR_MANIFEST_SCHEMA
+    pile_mode = manifest_schema == RFDETR_PILE_CAMPAIGN_MANIFEST_SCHEMA
     expected_schema = (
-        RFDETR_REVIEWED_DETECTOR_CAMPAIGN_RUN_SCHEMA
+        RFDETR_PILE_CAMPAIGN_RUN_SCHEMA
+        if pile_mode
+        else RFDETR_REVIEWED_DETECTOR_CAMPAIGN_RUN_SCHEMA
         if reviewed
         else RFDETR_SEGMENTATION_CAMPAIGN_RUN_SCHEMA
     )
@@ -1588,7 +1705,7 @@ def run_rfdetr_segmentation_campaign_training(
                             and record.get("pretrained_checkpoint", {}).get("sha256")
                             == _file_digest(pretrained)
                             and (
-                                not reviewed
+                                not (reviewed or pile_mode)
                                 or bundle.manifest.get("campaign_manifest", {}).get(
                                     "manifest_digest"
                                 )
@@ -1614,10 +1731,15 @@ def run_rfdetr_segmentation_campaign_training(
             view, config.campaign_manifest, pretrained_sha256
         )
         reviewed = campaign_receipt.get("campaign_id") == RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID
+        pile_mode = campaign_receipt.get("campaign_id") == RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID
         if reviewed:
             record["schema_version"] = RFDETR_REVIEWED_DETECTOR_CAMPAIGN_RUN_SCHEMA
             record["run_id"] = f"rfdetr-visible-card-detector-m2-training-{int(started)}"
             record["campaign_id"] = RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID
+        if pile_mode:
+            record["schema_version"] = RFDETR_PILE_CAMPAIGN_RUN_SCHEMA
+            record["run_id"] = f"rfdetr-pile-0091-m3-training-{int(started)}"
+            record["campaign_id"] = RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID
         _mark_stage(record, "inputs", "completed")
         staged_dataset = output / "campaign-dataset"
         subset_schema = (
@@ -1632,9 +1754,17 @@ def run_rfdetr_segmentation_campaign_training(
         )
         _mark_stage(record, "dataset", "completed")
         training_output = output / "rfdetr"
-        model_arguments = _campaign_model_arguments(pretrained)
+        class_map = view["class_map"]
+        class_names = tuple(class_map[str(index)] for index in range(1, len(class_map) + 1))
+        num_classes = len(class_map)
+        model_arguments = _campaign_model_arguments(pretrained, num_classes=num_classes)
         training_arguments = _campaign_training_arguments(
-            staged_dataset, training_output, config.device, seed=config.seed, resume=resume
+            staged_dataset,
+            training_output,
+            config.device,
+            seed=config.seed,
+            resume=resume,
+            class_names=class_names,
         )
         inputs = {
             "runner": config.runner,
@@ -1645,9 +1775,11 @@ def run_rfdetr_segmentation_campaign_training(
             "model": {
                 "class": RFDETR_SEGMENTATION_MODEL_CLASS,
                 "variant": RFDETR_SEGMENTATION_MODEL_VARIANT,
-                "num_classes": 1,
+                "num_classes": num_classes,
                 "resolution": RFDETR_SEGMENTATION_INPUT_SIZE,
             },
+            "class_map": class_map,
+            "mask_policy": dict(RFDETR_PILE_MASK_POLICY) if num_classes == 2 else {},
             "model_arguments": model_arguments,
             "training_arguments": training_arguments,
             "campaign_manifest": campaign_receipt,
@@ -1677,7 +1809,7 @@ def run_rfdetr_segmentation_campaign_training(
             checkpoint=checkpoint,
             checkpoint_sha256=checkpoint_sha256,
             run_id=record["run_id"],
-            campaign_receipt=campaign_receipt if reviewed else None,
+            campaign_receipt=campaign_receipt if reviewed or pile_mode else None,
         )
         bundle = load_rfdetr_segmentation_bundle(output / "bundle")
         _mark_stage(record, "bundle", "completed")
@@ -1693,6 +1825,7 @@ def run_rfdetr_segmentation_campaign_training(
                 ),
                 "campaign_manifest": campaign_receipt,
                 "model": inputs["model"],
+                "class_map": class_map,
                 "model_arguments": model_arguments,
                 "training_arguments": training_arguments,
                 "runtime_memory_guard": _mps_memory_guard(config.device, training_output),
@@ -1751,8 +1884,23 @@ def load_rfdetr_segmentation_bundle(path: str | Path) -> RfdetrSegmentationBundl
         "version": RFDETR_SEGMENTATION_PACKAGE_VERSION,
     }:
         raise RfdetrSegmentationTrainingError("segmentation bundle package is not rfdetr 1.9.4")
-    if manifest.get("class_map") != {"1": "visible_card"}:
+    class_map = manifest.get("class_map")
+    if class_map not in ({"1": "visible_card"}, RFDETR_PILE_CLASS_MAP):
         raise RfdetrSegmentationTrainingError("segmentation bundle class map is invalid")
+    if manifest.get("num_classes", 1) != len(class_map):
+        raise RfdetrSegmentationTrainingError(
+            "segmentation bundle class count differs from class map"
+        )
+    if manifest.get("model", {}).get("num_classes") != len(class_map):
+        raise RfdetrSegmentationTrainingError(
+            "segmentation model class count differs from class map"
+        )
+    if len(class_map) == 2 and manifest.get("campaign_id") != (
+        RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID
+    ):
+        raise RfdetrSegmentationTrainingError(
+            "two-class segmentation bundle lacks the 0091 pile capability receipt"
+        )
     if manifest.get("input_size") != [
         RFDETR_SEGMENTATION_INPUT_SIZE,
         RFDETR_SEGMENTATION_INPUT_SIZE,
@@ -1765,6 +1913,14 @@ def load_rfdetr_segmentation_bundle(path: str | Path) -> RfdetrSegmentationBundl
         {key: value for key, value in recipe.items() if key != "recipe_digest"}
     ):
         raise RfdetrSegmentationTrainingError("segmentation bundle recipe digest is stale")
+    if len(class_map) == 2 and (
+        manifest.get("mask_policy") != RFDETR_PILE_MASK_POLICY
+        or recipe.get("class_map") != class_map
+        or recipe.get("mask_policy") != RFDETR_PILE_MASK_POLICY
+    ):
+        raise RfdetrSegmentationTrainingError(
+            "two-class segmentation bundle mask policy or recipe class map is invalid"
+        )
     if manifest.get("bundle_digest") != _digest(_stable_bundle_manifest(manifest)):
         raise RfdetrSegmentationTrainingError("segmentation bundle digest does not match contents")
     files = manifest.get("files")
