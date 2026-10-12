@@ -61,7 +61,7 @@ decision belongs to a later reconstruction epic.
 
 ### Pile-region boundary
 
-[Epic 0091](plans/3-in-progress/0091-Pile_Region_Feature.md) specifies pile regions beside individual
+[Epic 0091](plans/5-closed/0091-Pile_Region_Feature.md) specifies pile regions beside individual
 cards. Its first five milestones deliver the annotation, training-data, inference, identity, and
 observation boundaries independently of real model training.
 

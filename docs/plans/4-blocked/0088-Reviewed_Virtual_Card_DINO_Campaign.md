@@ -32,11 +32,13 @@ The candidate remains a development baseline, not evidence for unsupported class
 requires `predicted_visible_region`, while reviewed geometry defaults to `oracle_visible_region`.
 Adapt the preparation contract explicitly; do not relabel reviewed geometry as detector output.
 
-[0091](../3-in-progress/0091-Pile_Region_Feature.md) adds pile regions beside individual cards. Its M5
+[0091](../5-closed/0091-Pile_Region_Feature.md) adds pile regions beside individual cards. Its M5
 defines the individual-card projection used by this campaign. Piles and their consumed member
 proposals have no identity crops, labels, pending identity work, or synthetic cutout eligibility.
 Report their exclusion separately from failed or identity-unusable individual cards. Readiness
 counts individual-card support only; a pile is neither FACE_DOWN nor UNKNOWN identity evidence.
+See the [0091 capability handoff](../../reports/0091-Pile_Region_Capability_Handoff.md) for the
+pile exclusion and observation contract.
 
 This campaign does not depend on the new RF-DETR candidate. It trains from completed reviewed
 geometry and labels. RF-DETR training belongs to [0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md).

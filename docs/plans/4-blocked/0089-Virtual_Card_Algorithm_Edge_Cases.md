@@ -25,6 +25,9 @@ Use fresh runs with the exact bundle and crop-policy decisions from
 [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md). A campaign can select a retained baseline;
 it need not produce a better model to unblock this epic.
 
+The [0091 capability handoff](../../reports/0091-Pile_Region_Capability_Handoff.md) records the
+current boundary: piles are preserved in engine input but do not affect search or gameplay claims.
+
 The current fitter already tries quarter-turn candidates and refits with occluder masks. Stored
 v1 and v3 overlays do not prove a current 90-degree defect. Start from fresh reproductions of
 partial visibility, deep overlap, frame edges, human-hand occlusion, and orientation ambiguity.

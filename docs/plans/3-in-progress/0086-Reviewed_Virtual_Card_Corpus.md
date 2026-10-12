@@ -70,11 +70,14 @@ implement general algorithm improvements, promote bundles, or automate reconstru
 
 ## 2. Data and review rules
 
-- [0091](0091-Pile_Region_Feature.md) owns pile feature implementation. After its M1
-  handoff, review each accumulated pile as one coarse source-frame region. Do not require its
-  component-card poses, stacking order, count, or identities. Keep normal trick overlap under
+- [0091](../5-closed/0091-Pile_Region_Feature.md) owns pile feature implementation. Its M7
+  handoff is complete; continue using the delivered workflow to review each accumulated pile as
+  one coarse source-frame region. Do not require its component-card poses, stacking order, count,
+  or identities. Keep normal trick overlap under
   individual-card review. Preserve genuine ignore regions for ambiguous evidence. Do not
   automatically relabel existing ignores or treat pile membership as proof of a prior play.
+  Use the `visible-card-data/v2` pile annotation workflow in
+  [the capability report](../../reports/0091-Pile_Region_Capability_Handoff.md).
 - Grouped proposals become provenance for the pile, not pending individual review or card targets.
   Retain exact remaining individual-card and pile coverage. Publish pile-only frames as detected
   evidence. Older card-only references do not establish reviewed pile coverage.

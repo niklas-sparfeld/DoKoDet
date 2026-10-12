@@ -4,7 +4,10 @@
 
 - **Summary:** Review each accumulated card pile as one coarse region, support it as a separate
   RF-DETR target, and retain pile evidence through inference and table observations.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M7 delivered. Fixture-backed software and annotation support are ready;
+  no trained pile model is selected, and real training remains in 0087.
 - **Depends on:** Completed 0048, 0049, 0065, 0073, 0074, and 0085 foundations. M0 and M1 can
   start now. Later milestone prerequisites are listed below.
 - **Outcome:** A usable early pile annotation workflow, reproducible two-class detector views,
@@ -26,7 +29,8 @@
 - **M5:** Complete — identity crops include only cards; observations retain separate pile geometry
   and lineage.
 - **M6:** Complete — preserve pile evidence in reconstruction input and inspection.
-- **M7:** Not started — verify the complete local flow and publish the capability handoff.
+- **M7:** Complete (2026-10-12) — verify the complete fixture flow and publish the capability
+  handoff. The software is ready; a selected trained pile model is not available.
 
 ## 1. Problem and selected scope
 
@@ -439,6 +443,15 @@ Acceptance: one reproducible fixture command proves all feature boundaries; no p
 silently disappears; the operator guide and retained annotations remain valid; real model
 availability and limits are explicit. Hand the exact feature/capability versions to 0086, 0087,
 0088, 0089, and 0090. No campaign, temporal search, or model promotion is added at closure.
+
+#### M7 implementation evidence — 2026-10-12
+
+Published [the pile-region capability handoff](../../reports/0091-Pile_Region_Capability_Handoff.md)
+with separate annotation-ready, software-ready, and trained-model-ready states. It records the
+feature contracts, handoffs to 0086–0090, a reproducible local fixture verification command, and
+a one-frame smoke procedure gated on an exact 0087-selected bundle. No such candidate is selected;
+trained-model readiness remains unavailable. The handoff does not alter reviewed annotations or
+run a model campaign.
 
 ## 5. Verification and implementation discipline
 

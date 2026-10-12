@@ -26,7 +26,7 @@
 ## 1. Boundaries and evidence
 
 This campaign uses completed human-reviewed individual-card scenes and pile regions under
-[0091](../3-in-progress/0091-Pile_Region_Feature.md). Unreviewed proposed scenes and review drafts are
+[0091](../5-closed/0091-Pile_Region_Feature.md). Unreviewed proposed scenes and review drafts are
 not targets. Do not reuse the 0084 mask view as corrected training data: its inspection
 found human-hand label spill, and its geometry predates the current measured dimensions.
 
@@ -64,6 +64,11 @@ metrics, class confusion, pile-contained card predictions, and card recall near 
 one-epoch trainer smoke results establish software support only; they do not select a candidate or
 establish a quality gate. Treat the two-class bundle as a training artifact until 0091 M4 completes
 provider and proposal handling.
+
+0091 M7 completes provider and downstream software handling. See its
+[capability handoff](../../reports/0091-Pile_Region_Capability_Handoff.md) for the reproducible
+fixture command and bounded one-frame real-bundle smoke procedure. 0087 remains responsible for
+the trained-model decision and numerical quality gates.
 
 M0 must first reconcile historical split and test usage. Do not silently reuse a previously opened
 sealed test as a fresh sealed test. Freeze either an eligible unopened test or explicitly label
