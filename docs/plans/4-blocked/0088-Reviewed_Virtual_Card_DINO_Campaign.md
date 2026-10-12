@@ -32,7 +32,7 @@ The candidate remains a development baseline, not evidence for unsupported class
 requires `predicted_visible_region`, while reviewed geometry defaults to `oracle_visible_region`.
 Adapt the preparation contract explicitly; do not relabel reviewed geometry as detector output.
 
-[0091](../2-ready/0091-Pile_Region_Feature.md) adds pile regions beside individual cards. Its M5
+[0091](../3-in-progress/0091-Pile_Region_Feature.md) adds pile regions beside individual cards. Its M5
 defines the individual-card projection used by this campaign. Piles and their consumed member
 proposals have no identity crops, labels, pending identity work, or synthetic cutout eligibility.
 Report their exclusion separately from failed or identity-unusable individual cards. Readiness

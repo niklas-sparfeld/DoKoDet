@@ -19,7 +19,8 @@ from .card_scene_contract import (
 from .cards import CARD_IDENTITIES
 from .table_observation import TableObservation, parse_observation_bytes
 
-VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
+VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v2"
+LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
 PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION = "proposed-card-scene-data/v1"
 VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v1"
 TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
@@ -27,6 +28,8 @@ EXACT_EVENT_FRAME_SCHEMA_VERSION = "exact-event/v1"
 DETECTOR_BOX_GEOMETRY_KIND = "detector-box/v1"
 PREDICTED_VISIBLE_REGION_GEOMETRY_KIND = "visible-region/v1"
 REVIEWED_IGNORE_REGION_GEOMETRY_KIND = "reviewed-ignore-region/v1"
+PILE_REGION_GEOMETRY_KIND = "pile-region/v1"
+PILE_REGION_NORMALIZATION_POLICY = "full-frame-0-1000/v1"
 VISIBLE_CARD_SIDES = frozenset({"face_up", "face_down", "unknown"})
 VISIBLE_CARD_IGNORE_REASONS = frozenset({"untidy_stack"})
 VISIBLE_CARD_IGNORE_RASTER_POLICY = "pixel-center-even-odd/v1"
@@ -484,6 +487,8 @@ class VisibleCardIgnoreRegion:
                 normalization["policy_id"], f"{context}.normalization.policy_id"
             ),
         }
+        if normalized["policy_id"] != PILE_REGION_NORMALIZATION_POLICY:
+            raise PipelineDataError(f"{context}.normalization.policy_id is unsupported")
         raw_sources = data["source_candidates"]
         if not isinstance(raw_sources, list):
             raise PipelineDataError(f"{context}.source_candidates must be a list")
@@ -542,6 +547,130 @@ class VisibleCardIgnoreRegion:
             "normalization": self.normalization,
             "reason": self.reason,
             "source_candidates": [item.to_mapping() for item in self.source_candidates],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class VisibleCardPileRegion:
+    """One reviewed coarse footprint for an accumulated physical card pile."""
+
+    pile_id: str
+    polygons: tuple[tuple[tuple[int, int], ...], ...]
+    normalization: dict[str, Any]
+    source_candidates: tuple[VisibleCardIgnoreSourceCandidate, ...] = ()
+    grouped_candidates: tuple[dict[str, Any], ...] = ()
+    grouped_card_states: tuple[dict[str, Any], ...] = ()
+    grouped_scene_decision: str | None = None
+
+    @classmethod
+    def from_mapping(
+        cls, raw: Mapping[str, Any], context: str = "pile_region"
+    ) -> "VisibleCardPileRegion":
+        data = _mapping(raw, context)
+        expected = {"pile_id", "geometry", "normalization", "source_candidates"}
+        if "grouped_candidates" in data:
+            expected.add("grouped_candidates")
+        if "grouped_card_states" in data:
+            expected.add("grouped_card_states")
+        if "grouped_scene_decision" in data:
+            expected.add("grouped_scene_decision")
+        _strict(data, expected, context)
+        geometry = _mapping(data["geometry"], f"{context}.geometry")
+        _strict(geometry, {"kind", "polygons"}, f"{context}.geometry")
+        if geometry["kind"] != PILE_REGION_GEOMETRY_KIND:
+            raise PipelineDataError(f"{context}.geometry.kind is unsupported")
+        parsed = ReviewedIgnoreRegionGeometry.from_mapping(
+            {"kind": REVIEWED_IGNORE_REGION_GEOMETRY_KIND, "polygons": geometry["polygons"]},
+            f"{context}.geometry",
+        )
+        normalization = _mapping(data["normalization"], f"{context}.normalization")
+        _strict(normalization, {"width", "height", "policy_id"}, f"{context}.normalization")
+        normalized = {
+            "width": _positive_int(normalization["width"], f"{context}.normalization.width"),
+            "height": _positive_int(normalization["height"], f"{context}.normalization.height"),
+            "policy_id": _qualified(
+                normalization["policy_id"], f"{context}.normalization.policy_id"
+            ),
+        }
+        raw_sources = data["source_candidates"]
+        if not isinstance(raw_sources, list):
+            raise PipelineDataError(f"{context}.source_candidates must be a list")
+        sources = tuple(
+            VisibleCardIgnoreSourceCandidate.from_mapping(
+                value, f"{context}.source_candidates[{index}]"
+            )
+            for index, value in enumerate(raw_sources)
+        )
+        if len({(source.revision_id, source.card_id) for source in sources}) != len(sources):
+            raise PipelineDataError(f"{context}.source_candidates must be unique")
+        raw_grouped = data.get("grouped_candidates", [])
+        if not isinstance(raw_grouped, list):
+            raise PipelineDataError(f"{context}.grouped_candidates must be a list")
+        grouped: list[dict[str, Any]] = []
+        for index, raw_candidate in enumerate(raw_grouped):
+            candidate = VisibleCardCandidate.from_mapping(
+                _mapping(raw_candidate, f"{context}.grouped_candidates[{index}]"),
+                f"{context}.grouped_candidates[{index}]",
+            )
+            grouped.append(candidate.to_mapping())
+        raw_states = data.get("grouped_card_states", [])
+        if not isinstance(raw_states, list):
+            raise PipelineDataError(f"{context}.grouped_card_states must be a list")
+        grouped_states: list[dict[str, Any]] = []
+        for index, raw_state in enumerate(raw_states):
+            state = _mapping(raw_state, f"{context}.grouped_card_states[{index}]")
+            _strict(
+                state,
+                {"card_id", "source", "proposal_id", "state"},
+                f"{context}.grouped_card_states[{index}]",
+            )
+            if state["source"] not in {"proposal", "manual"} or state["state"] not in {
+                "pending",
+                "accepted",
+                "adjusted",
+                "rejected",
+            }:
+                raise PipelineDataError(f"{context}.grouped_card_states[{index}] is invalid")
+            _identifier(state["card_id"], f"{context}.grouped_card_states[{index}].card_id")
+            if state["source"] == "proposal":
+                _identifier(
+                    state["proposal_id"], f"{context}.grouped_card_states[{index}].proposal_id"
+                )
+            elif state["proposal_id"] is not None:
+                raise PipelineDataError(
+                    f"{context}.grouped_card_states[{index}].proposal_id must be null "
+                    "for manual cards"
+                )
+            grouped_states.append(json.loads(canonical_json_bytes(state).decode("utf-8")))
+        grouped_ids = [candidate["card_id"] for candidate in grouped]
+        state_ids = [state["card_id"] for state in grouped_states]
+        if len(grouped_ids) != len(set(grouped_ids)) or len(state_ids) != len(set(state_ids)):
+            raise PipelineDataError(f"{context} grouped member IDs must be unique")
+        scene_decision = data.get("grouped_scene_decision")
+        if scene_decision not in {None, "accepted", "adjusted", "manual"}:
+            raise PipelineDataError(f"{context}.grouped_scene_decision is unsupported")
+        return cls(
+            pile_id=_identifier(data["pile_id"], f"{context}.pile_id"),
+            polygons=parsed.polygons,
+            normalization=normalized,
+            source_candidates=sources,
+            grouped_candidates=tuple(grouped),
+            grouped_card_states=tuple(grouped_states),
+            grouped_scene_decision=scene_decision,
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "pile_id": self.pile_id,
+            "geometry": {
+                "kind": PILE_REGION_GEOMETRY_KIND,
+                "polygons": [[{"x": x, "y": y} for x, y in polygon] for polygon in self.polygons],
+            },
+            "normalization": self.normalization,
+            "source_candidates": [source.to_mapping() for source in self.source_candidates],
+            "grouped_candidates": list(self.grouped_candidates),
+            "grouped_card_states": list(self.grouped_card_states),
+            "grouped_scene_decision": self.grouped_scene_decision,
         }
 
 
@@ -1183,6 +1312,7 @@ class VisibleCardOutcome:
     candidates: tuple[VisibleCardCandidate, ...]
     error: str | None = None
     ignored_regions: tuple[VisibleCardIgnoreRegion, ...] = ()
+    pile_regions: tuple[VisibleCardPileRegion, ...] = ()
     card_scene: CardSceneDraft | dict[str, Any] | None = None
 
     @classmethod
@@ -1196,6 +1326,8 @@ class VisibleCardOutcome:
             "ignored_regions",
             "error",
         }
+        if "pile_regions" in data:
+            expected.add("pile_regions")
         _strict(data, expected | {"card_scene"} if "card_scene" in data else expected, context)
         status = data["status"]
         if status not in {"detected", "empty", "failed"}:
@@ -1222,6 +1354,20 @@ class VisibleCardOutcome:
         if set(region_ids).intersection(item.card_id for item in candidates):
             raise PipelineDataError(
                 f"{context}.card_id and ignored_regions.region_id must use distinct identifiers"
+            )
+        raw_piles = data.get("pile_regions", [])
+        if not isinstance(raw_piles, list):
+            raise PipelineDataError(f"{context}.pile_regions must be a list")
+        pile_regions = tuple(
+            VisibleCardPileRegion.from_mapping(item, f"{context}.pile_regions[{index}]")
+            for index, item in enumerate(raw_piles)
+        )
+        pile_ids = [region.pile_id for region in pile_regions]
+        if len(pile_ids) != len(set(pile_ids)):
+            raise PipelineDataError(f"{context}.pile_regions must have unique pile IDs")
+        if set(pile_ids).intersection({item.card_id for item in candidates} | set(region_ids)):
+            raise PipelineDataError(
+                f"{context}.pile_ids must be distinct from card and ignore-region IDs"
             )
         frame = (
             None
@@ -1256,16 +1402,19 @@ class VisibleCardOutcome:
             status == "detected"
             and not candidates
             and not ignored_regions
+            and not pile_regions
             and raw_card_scene is None
         ):
             raise PipelineDataError(
                 f"{context}.detected outcome needs candidates or ignored regions"
             )
-        if status == "empty" and (candidates or ignored_regions or error is not None):
+        if status == "empty" and (
+            candidates or ignored_regions or pile_regions or error is not None
+        ):
             raise PipelineDataError(
                 f"{context}.empty outcome must have no candidates, ignored regions, or error"
             )
-        if status == "failed" and (candidates or ignored_regions or error is None):
+        if status == "failed" and (candidates or ignored_regions or pile_regions or error is None):
             raise PipelineDataError(
                 f"{context}.failed outcome needs an error and no candidates or ignored regions"
             )
@@ -1278,10 +1427,11 @@ class VisibleCardOutcome:
             candidates=candidates,
             error=error,
             ignored_regions=ignored_regions,
+            pile_regions=pile_regions,
             card_scene=card_scene,
         )
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self, *, include_pile_regions: bool = True) -> dict[str, Any]:
         value = {
             "event_id": self.event_id,
             "frame_identity": None
@@ -1292,6 +1442,8 @@ class VisibleCardOutcome:
             "ignored_regions": [region.to_mapping() for region in self.ignored_regions],
             "error": self.error,
         }
+        if include_pile_regions:
+            value["pile_regions"] = [region.to_mapping() for region in self.pile_regions]
         if self.card_scene is not None:
             value["card_scene"] = (
                 self.card_scene.to_mapping()
@@ -1306,25 +1458,40 @@ class VisibleCardData:
     """The concrete visible-card detector content payload."""
 
     outcomes: tuple[VisibleCardOutcome, ...]
+    schema_version: str = VISIBLE_CARD_DATA_SCHEMA_VERSION
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "VisibleCardData":
         data = _mapping(raw, "visible-card data")
         _strict(data, {"schema_version", "outcomes"}, "visible-card data")
-        if data["schema_version"] != VISIBLE_CARD_DATA_SCHEMA_VERSION:
+        if data["schema_version"] not in {
+            VISIBLE_CARD_DATA_SCHEMA_VERSION,
+            LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION,
+        }:
             raise PipelineDataError("visible-card data has an unsupported schema")
         raw_outcomes = data["outcomes"]
         if not isinstance(raw_outcomes, list):
             raise PipelineDataError("visible-card data.outcomes must be a list")
+        if data["schema_version"] == LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION and any(
+            "pile_regions" in _mapping(outcome, "outcome") for outcome in raw_outcomes
+        ):
+            raise PipelineDataError("visible-card-data/v1 cannot contain pile regions")
         outcomes = tuple(
             VisibleCardOutcome.from_mapping(item, f"outcomes[{index}]")
             for index, item in enumerate(raw_outcomes)
         )
         if len({item.event_id for item in outcomes}) != len(outcomes):
             raise PipelineDataError("visible-card outcome event IDs must be unique")
-        return cls(outcomes=outcomes)
+        return cls(outcomes=outcomes, schema_version=data["schema_version"])
 
     def to_mapping(self) -> dict[str, Any]:
+        if self.schema_version == LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION:
+            return {
+                "schema_version": LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION,
+                "outcomes": [
+                    outcome.to_mapping(include_pile_regions=False) for outcome in self.outcomes
+                ],
+            }
         return {
             "schema_version": VISIBLE_CARD_DATA_SCHEMA_VERSION,
             "outcomes": [outcome.to_mapping() for outcome in self.outcomes],
@@ -1686,12 +1853,15 @@ __all__ = [
     "DETECTOR_BOX_GEOMETRY_KIND",
     "EXACT_EVENT_FRAME_SCHEMA_VERSION",
     "PREDICTED_VISIBLE_REGION_GEOMETRY_KIND",
+    "PILE_REGION_GEOMETRY_KIND",
+    "PILE_REGION_NORMALIZATION_POLICY",
     "REVIEWED_IGNORE_REGION_GEOMETRY_KIND",
     "VISIBLE_CARD_IGNORE_RASTER_POLICY",
     "PipelineDataError",
     "PipelineGeometry",
     "TABLE_OBSERVATION_DATA_SCHEMA_VERSION",
     "VISIBLE_CARD_DATA_SCHEMA_VERSION",
+    "LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION",
     "PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION",
     "VISUAL_IDENTITY_DATA_SCHEMA_VERSION",
     "VisibleCardCandidate",
@@ -1701,6 +1871,7 @@ __all__ = [
     "ProposedCardSceneFrame",
     "VisibleCardFrameIdentity",
     "VisibleCardIgnoreRegion",
+    "VisibleCardPileRegion",
     "VisibleCardIgnoreSourceCandidate",
     "VisibleCardModelScore",
     "VisibleCardOutcome",

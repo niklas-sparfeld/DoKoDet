@@ -51,6 +51,11 @@ PIPELINE_REFERENCE_OPERATIONS = frozenset(
         "replace_ignore_region",
         "delete_ignore_region",
         "convert_to_ignore_region",
+        "create_pile_region",
+        "replace_pile_region",
+        "delete_pile_region",
+        "group_cards_into_pile",
+        "convert_ignore_region_to_pile",
         "accept_identity_suggestion",
         "set_identity_unreviewed",
         "set_identity_face_down",
@@ -541,6 +546,53 @@ class PipelineReferenceOperation:
                 region_id=_identifier(data["region_id"], f"{context}.region_id"),
             )
         if operation == "convert_to_ignore_region":
+            _strict(data, {"operation", "item_id", "candidate_ids", "region"}, context)
+            region = _mapping(data["region"], f"{context}.region")
+            _validate_json(region, f"{context}.region")
+            candidate_ids = _identifier_list(data["candidate_ids"], f"{context}.candidate_ids")
+            if not candidate_ids:
+                raise PipelineReferenceContractError(f"{context}.candidate_ids must not be empty")
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                region=json.loads(canonical_json_bytes(region).decode("utf-8")),
+                candidate_ids=candidate_ids,
+            )
+        if operation in {"create_pile_region", "convert_ignore_region_to_pile"}:
+            expected = {"operation", "item_id", "region"}
+            if operation == "convert_ignore_region_to_pile":
+                expected.add("region_id")
+            _strict(data, expected, context)
+            region = _mapping(data["region"], f"{context}.region")
+            _validate_json(region, f"{context}.region")
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                region_id=(
+                    _identifier(data["region_id"], f"{context}.region_id")
+                    if "region_id" in data
+                    else None
+                ),
+                region=json.loads(canonical_json_bytes(region).decode("utf-8")),
+            )
+        if operation == "replace_pile_region":
+            _strict(data, {"operation", "item_id", "pile_id", "region"}, context)
+            region = _mapping(data["region"], f"{context}.region")
+            _validate_json(region, f"{context}.region")
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                region_id=_identifier(data["pile_id"], f"{context}.pile_id"),
+                region=json.loads(canonical_json_bytes(region).decode("utf-8")),
+            )
+        if operation == "delete_pile_region":
+            _strict(data, {"operation", "item_id", "pile_id"}, context)
+            return cls(
+                operation=operation,
+                item_id=_identifier(data["item_id"], f"{context}.item_id"),
+                region_id=_identifier(data["pile_id"], f"{context}.pile_id"),
+            )
+        if operation == "group_cards_into_pile":
             _strict(data, {"operation", "item_id", "candidate_ids", "region"}, context)
             region = _mapping(data["region"], f"{context}.region")
             _validate_json(region, f"{context}.region")

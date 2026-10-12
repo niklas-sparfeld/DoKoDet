@@ -320,7 +320,7 @@ regions and ignore regions. Small internal gaps can be included. A pile region d
 component-card poses, stacking order, identities, or table-plane calibration. Generated and reviewed
 pile regions differ in origin and review authority. The detector class is `card_pile`.
 
-The planned [pile-region feature](plans/2-ready/0091-Pile_Region_Feature.md) owns persistence,
+The planned [pile-region feature](plans/3-in-progress/0091-Pile_Region_Feature.md) owns persistence,
 annotation, training targets, inference, and downstream evidence support. A pile region is not yet
 an implemented runtime contract merely because this glossary defines it.
 

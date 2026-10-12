@@ -156,6 +156,25 @@ class PipelineVisibleCardIgnoreRegionResponse(ContractModel):
     source_candidates: list[PipelineVisibleCardIgnoreSourceCandidateResponse]
 
 
+class PipelineVisibleCardPileGeometryResponse(ContractModel):
+    """The normalized polygon footprint of one pile."""
+
+    kind: Literal["pile-region/v1"]
+    polygons: list[list[PipelineVisibleCardPointResponse]] = Field(min_length=1)
+
+
+class PipelineVisibleCardPileRegionResponse(ContractModel):
+    """One reviewed pile region and its proposal-grouping lineage."""
+
+    pile_id: str = Field(min_length=1)
+    geometry: PipelineVisibleCardPileGeometryResponse
+    normalization: dict[str, Any]
+    source_candidates: list[PipelineVisibleCardIgnoreSourceCandidateResponse]
+    grouped_candidates: list[dict[str, Any]]
+    grouped_card_states: list[dict[str, Any]]
+    grouped_scene_decision: Literal["accepted", "adjusted", "manual"] | None
+
+
 class PipelineVisibleCardCandidateResponse(ContractModel):
     """One generated or reviewed visible-card candidate."""
 
@@ -174,6 +193,7 @@ class PipelineVisibleCardOutcomeResponse(ContractModel):
     status: Literal["detected", "empty", "failed"]
     candidates: list[PipelineVisibleCardCandidateResponse]
     ignored_regions: list[PipelineVisibleCardIgnoreRegionResponse]
+    pile_regions: list[PipelineVisibleCardPileRegionResponse] | None = None
     card_scene: dict[str, Any] | None = None
     error: str | None
 
@@ -181,7 +201,7 @@ class PipelineVisibleCardOutcomeResponse(ContractModel):
 class PipelineVisibleCardRevisionContentResponse(ContractModel):
     """The typed visible-card content inside one pipeline revision response."""
 
-    schema_version: Literal["visible-card-data/v1"]
+    schema_version: Literal["visible-card-data/v1", "visible-card-data/v2"]
     outcomes: list[PipelineVisibleCardOutcomeResponse]
 
 

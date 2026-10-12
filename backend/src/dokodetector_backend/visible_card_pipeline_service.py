@@ -641,7 +641,7 @@ class VisibleCardPipelineService:
         manifest = DataRevision(
             revision_id=f"visible-cards-{_safe(run.run_id)}-attempt-{run.state.attempt}",
             content_type="visible_cards",
-            content_schema="visible-card-data/v1",
+            content_schema="visible-card-data/v2",
             recording_id=run.request.source.recording_id,
             source=run.request.source,
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(content)),

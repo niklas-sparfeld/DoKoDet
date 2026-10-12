@@ -23,7 +23,8 @@ from table_evidence_analyzer.pipeline_data import (
 
 DATA_REVISION_SCHEMA_VERSION = "data-revision/v1"
 EVENT_DATA_SCHEMA_VERSION = "event-data/v1"
-VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
+VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v2"
+LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
 VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v1"
 TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 PROCESSOR_RUN_REQUEST_SCHEMA_VERSION = "processor-run-request/v1"
@@ -693,12 +694,17 @@ class DataRevision:
         content_schema = _text(data["content_schema"], "content_schema")
         supported_schema = {
             "events": EVENT_DATA_SCHEMA_VERSION,
-            "visible_cards": VISIBLE_CARD_DATA_SCHEMA_VERSION,
+            "visible_cards": {
+                VISIBLE_CARD_DATA_SCHEMA_VERSION,
+                LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION,
+            },
             "visual_identities": VISUAL_IDENTITY_DATA_SCHEMA_VERSION,
             "table_observations": TABLE_OBSERVATION_DATA_SCHEMA_VERSION,
             "card_scene_proposals": PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
         }.get(content_type)
-        if supported_schema is None or content_schema != supported_schema:
+        if supported_schema is None or content_schema not in (
+            supported_schema if isinstance(supported_schema, set) else {supported_schema}
+        ):
             raise PipelineDataContractError("content_type and content_schema do not match")
         recording_id = (
             _identifier(data["recording_id"], "recording_id") if recording_source else None

@@ -1046,11 +1046,26 @@ def test_ignore_region_added_after_virtual_card_review_removes_covered_pose(
         {"operator_id": "operator-01", "proposal_revision_id": proposal_revision_id},
     )
     accepted = service.update_draft(
-        SOURCE.recording_id,
+        "recording-01",
         "visible_cards",
         {
             "operator_id": "operator-01",
             "expected_revision": seeded.draft.revision,
+            "operations": [
+                {
+                    "operation": "accept_card",
+                    "item_id": "event-01",
+                    "card_id": "card-01",
+                }
+            ],
+        },
+    )
+    accepted = service.update_draft(
+        SOURCE.recording_id,
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": accepted.draft.revision,
             "operations": [
                 {"operation": "accept_card", "item_id": "event-01", "card_id": "card-01"}
             ],
@@ -1773,10 +1788,353 @@ def test_visible_card_ignore_region_operations_are_atomic_idempotent_and_durable
     assert stored.content.outcomes[0].ignored_regions[0].source_candidates[0].revision_id == (
         source_revision_id
     )
-    restored = PipelineReferenceStore(tmp_path / "operations" / "pipeline-references").require(
-        "recording-01", "visible_cards"
+
+
+def test_pile_grouping_is_reversible_and_pile_only_coverage_completes(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(
+        revision_store, "visible_cards", visible_candidate_ids=("card-01", "card-02")
     )
-    assert restored.draft.items[0].item["ignored_regions"] == outcome["ignored_regions"]
+    service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    region = {
+        "pile_id": "pile-01",
+        "geometry": {
+            "kind": "pile-region/v1",
+            "polygons": [
+                [
+                    {"x": 100, "y": 100},
+                    {"x": 700, "y": 100},
+                    {"x": 700, "y": 700},
+                    {"x": 100, "y": 700},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "source_candidates": [],
+    }
+    grouped = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {
+                    "operation": "group_cards_into_pile",
+                    "item_id": "event-01",
+                    "candidate_ids": ["card-01"],
+                    "region": region,
+                }
+            ],
+        },
+    )
+    grouped_item = grouped.draft.items[0].item
+    assert [candidate["card_id"] for candidate in grouped_item["candidates"]] == ["card-02"]
+    pile = grouped_item["pile_regions"][0]
+    assert pile["source_candidates"] == [{"revision_id": source_revision_id, "card_id": "card-01"}]
+    assert [candidate["card_id"] for candidate in pile["grouped_candidates"]] == ["card-01"]
+
+    restored = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": grouped.draft.revision,
+            "operations": [
+                {
+                    "operation": "delete_pile_region",
+                    "item_id": "event-01",
+                    "pile_id": "pile-01",
+                }
+            ],
+        },
+    )
+    restored_item = restored.draft.items[0].item
+    assert {candidate["card_id"] for candidate in restored_item["candidates"]} == {
+        "card-01",
+        "card-02",
+    }
+    assert restored_item["pile_regions"] == []
+
+    second_region = {**region, "pile_id": "pile-02"}
+    pile_seeded = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": restored.draft.revision,
+            "operations": [
+                {
+                    "operation": "group_cards_into_pile",
+                    "item_id": "event-01",
+                    "candidate_ids": ["card-02"],
+                    "region": second_region,
+                }
+            ],
+        },
+    )
+    pile_only = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": pile_seeded.draft.revision,
+            "operations": [
+                {
+                    "operation": "group_cards_into_pile",
+                    "item_id": "event-01",
+                    "candidate_ids": ["card-01"],
+                    "region": {**region, "pile_id": "pile-03"},
+                }
+            ],
+        },
+    )
+    accepted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": pile_only.draft.revision,
+            "operations": [{"operation": "accept_frame_suggestions", "item_id": "event-01"}],
+        },
+    )
+    completed = service.complete_reference(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": accepted.draft.revision,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": accepted.draft.items[0].item["frame_identity"],
+                        "decision": "piles",
+                    }
+                ],
+            },
+        },
+    )
+    stored = revision_store.require(completed.state.selected_completed_revision_id)
+    assert {pile.pile_id for pile in stored.content.outcomes[0].pile_regions} == {
+        "pile-02",
+        "pile-03",
+    }
+    assert stored.content.outcomes[0].candidates == ()
+
+
+def test_pile_grouping_removes_and_restores_proposal_card_review_state(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    proposal_revision_id = _proposal_revision(
+        revision_store, source_revision_id, card_ids=("card-01", "card-02")
+    )
+    seeded = service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "proposal_revision_id": proposal_revision_id},
+    )
+    accepted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": seeded.draft.revision,
+            "operations": [
+                {
+                    "operation": "accept_card",
+                    "item_id": "event-01",
+                    "card_id": "card-01",
+                }
+            ],
+        },
+    )
+    region = {
+        "pile_id": "pile-proposal",
+        "geometry": {
+            "kind": "pile-region/v1",
+            "polygons": [
+                [
+                    {"x": 100, "y": 100},
+                    {"x": 700, "y": 100},
+                    {"x": 700, "y": 700},
+                    {"x": 100, "y": 700},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "source_candidates": [],
+    }
+    grouped = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": accepted.draft.revision,
+            "operations": [
+                {
+                    "operation": "group_cards_into_pile",
+                    "item_id": "event-01",
+                    "candidate_ids": ["card-01"],
+                    "region": region,
+                }
+            ],
+        },
+    )
+    grouped_item = grouped.draft.items[0].item
+    states = {item["card_id"]: item["state"] for item in grouped_item["card_scene"]["card_states"]}
+    assert states == {"card-01": "rejected", "card-02": "pending"}
+    assert grouped_item["pile_regions"][0]["grouped_card_states"][0]["state"] == "accepted"
+
+    restored = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": grouped.draft.revision,
+            "operations": [
+                {
+                    "operation": "delete_pile_region",
+                    "item_id": "event-01",
+                    "pile_id": "pile-proposal",
+                }
+            ],
+        },
+    )
+    restored_states = {
+        item["card_id"]: item["state"]
+        for item in restored.draft.items[0].item["card_scene"]["card_states"]
+    }
+    assert restored_states == {"card-01": "accepted", "card-02": "pending"}
+    assert restored.draft.items[0].item["card_scene"]["reviewed"]["decision"] == "accepted"
+
+
+def test_pile_create_replace_and_ignore_conversion_commands(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    ignore = {
+        "region_id": "ignore-01",
+        "geometry": {
+            "kind": "reviewed-ignore-region/v1",
+            "polygons": [
+                [
+                    {"x": 100, "y": 100},
+                    {"x": 700, "y": 100},
+                    {"x": 700, "y": 700},
+                    {"x": 100, "y": 700},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "reason": "untidy_stack",
+        "source_candidates": [],
+    }
+    pile = {
+        "pile_id": "pile-converted",
+        "geometry": {
+            "kind": "pile-region/v1",
+            "polygons": [
+                [
+                    {"x": 120, "y": 120},
+                    {"x": 680, "y": 120},
+                    {"x": 680, "y": 680},
+                    {"x": 120, "y": 680},
+                ]
+            ],
+        },
+        "normalization": {"width": 100, "height": 100, "policy_id": "full-frame-0-1000/v1"},
+        "source_candidates": [],
+    }
+    ignored = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {
+                    "operation": "create_ignore_region",
+                    "item_id": "event-01",
+                    "region": ignore,
+                }
+            ],
+        },
+    )
+    converted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": ignored.draft.revision,
+            "operations": [
+                {
+                    "operation": "convert_ignore_region_to_pile",
+                    "item_id": "event-01",
+                    "region_id": "ignore-01",
+                    "region": pile,
+                }
+            ],
+        },
+    )
+    assert converted.draft.items[0].item["ignored_regions"] == []
+    assert converted.draft.items[0].item["pile_regions"][0]["pile_id"] == "pile-converted"
+
+    updated_pile = {
+        **pile,
+        "geometry": {
+            **pile["geometry"],
+            "polygons": [
+                [
+                    {"x": 200, "y": 200},
+                    {"x": 600, "y": 200},
+                    {"x": 600, "y": 600},
+                    {"x": 200, "y": 600},
+                ]
+            ],
+        },
+    }
+    replaced = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": converted.draft.revision,
+            "operations": [
+                {
+                    "operation": "replace_pile_region",
+                    "item_id": "event-01",
+                    "pile_id": "pile-converted",
+                    "region": updated_pile,
+                }
+            ],
+        },
+    )
+    assert replaced.draft.items[0].item["pile_regions"][0]["geometry"] == updated_pile["geometry"]
+    deleted = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": replaced.draft.revision,
+            "operations": [
+                {
+                    "operation": "delete_pile_region",
+                    "item_id": "event-01",
+                    "pile_id": "pile-converted",
+                }
+            ],
+        },
+    )
+    assert deleted.draft.items[0].item["pile_regions"] == []
 
 
 def test_visible_card_ignore_region_create_replace_delete_preserves_lineage_and_is_atomic(

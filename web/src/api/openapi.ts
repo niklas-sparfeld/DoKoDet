@@ -1992,11 +1992,51 @@ export interface components {
             } | null;
             /** Ignored Regions */
             ignored_regions: components["schemas"]["PipelineVisibleCardIgnoreRegionResponse"][];
+            /** Pile Regions */
+            pile_regions?: components["schemas"]["PipelineVisibleCardPileRegionResponse"][] | null;
             /**
              * Status
              * @enum {string}
              */
             status: "detected" | "empty" | "failed";
+        };
+        /**
+         * PipelineVisibleCardPileGeometryResponse
+         * @description The normalized polygon footprint of one pile.
+         */
+        PipelineVisibleCardPileGeometryResponse: {
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "pile-region/v1";
+            /** Polygons */
+            polygons: components["schemas"]["PipelineVisibleCardPointResponse"][][];
+        };
+        /**
+         * PipelineVisibleCardPileRegionResponse
+         * @description One reviewed pile region and its proposal-grouping lineage.
+         */
+        PipelineVisibleCardPileRegionResponse: {
+            geometry: components["schemas"]["PipelineVisibleCardPileGeometryResponse"];
+            /** Grouped Candidates */
+            grouped_candidates: {
+                [key: string]: unknown;
+            }[];
+            /** Grouped Card States */
+            grouped_card_states: {
+                [key: string]: unknown;
+            }[];
+            /** Grouped Scene Decision */
+            grouped_scene_decision: ("accepted" | "adjusted" | "manual") | null;
+            /** Normalization */
+            normalization: {
+                [key: string]: unknown;
+            };
+            /** Pile Id */
+            pile_id: string;
+            /** Source Candidates */
+            source_candidates: components["schemas"]["PipelineVisibleCardIgnoreSourceCandidateResponse"][];
         };
         /**
          * PipelineVisibleCardPointResponse
@@ -2046,9 +2086,9 @@ export interface components {
             outcomes: components["schemas"]["PipelineVisibleCardOutcomeResponse"][];
             /**
              * Schema Version
-             * @constant
+             * @enum {string}
              */
-            schema_version: "visible-card-data/v1";
+            schema_version: "visible-card-data/v1" | "visible-card-data/v2";
         };
         /**
          * PipelineVisibleCardRevisionResponse

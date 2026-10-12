@@ -229,3 +229,48 @@ def test_visible_card_data_rejects_duplicate_json_fields() -> None:
 
     with pytest.raises(PipelineDataError, match="duplicate field"):
         parse_visible_card_data_bytes(raw)
+
+
+def test_visible_card_data_round_trips_pile_only_outcome_and_reads_v1() -> None:
+    value = {
+        "schema_version": "visible-card-data/v2",
+        "outcomes": [
+            {
+                "event_id": "event-pile",
+                "frame_identity": _frame(),
+                "status": "detected",
+                "candidates": [],
+                "ignored_regions": [],
+                "pile_regions": [
+                    {
+                        "pile_id": "pile-1",
+                        "geometry": {
+                            "kind": "pile-region/v1",
+                            "polygons": [
+                                [
+                                    {"x": 100, "y": 100},
+                                    {"x": 900, "y": 100},
+                                    {"x": 900, "y": 900},
+                                    {"x": 100, "y": 900},
+                                ]
+                            ],
+                        },
+                        "normalization": {
+                            "width": 64,
+                            "height": 64,
+                            "policy_id": "full-frame-0-1000/v1",
+                        },
+                        "source_candidates": [],
+                    }
+                ],
+                "error": None,
+            }
+        ],
+    }
+    parsed = VisibleCardData.from_mapping(value)
+    assert parsed.outcomes[0].pile_regions[0].pile_id == "pile-1"
+    assert VisibleCardData.from_mapping(_content()).outcomes[0].pile_regions == ()
+    assert b'"schema_version":"visible-card-data/v1"' in canonical_visible_card_data_bytes(
+        _content()
+    )
+    assert b'"pile_regions"' in canonical_visible_card_data_bytes(value)

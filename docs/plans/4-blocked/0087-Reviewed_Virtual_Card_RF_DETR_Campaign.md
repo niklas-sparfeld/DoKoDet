@@ -26,7 +26,7 @@
 ## 1. Boundaries and evidence
 
 This campaign uses completed human-reviewed individual-card scenes and pile regions under
-[0091](../2-ready/0091-Pile_Region_Feature.md). Unreviewed proposed scenes and review drafts are
+[0091](../3-in-progress/0091-Pile_Region_Feature.md). Unreviewed proposed scenes and review drafts are
 not targets. Do not reuse the 0084 mask view as corrected training data: its inspection
 found human-hand label spill, and its geometry predates the current measured dimensions.
 

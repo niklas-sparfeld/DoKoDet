@@ -38,6 +38,7 @@ from table_evidence_analyzer.pipeline_data import (
     VisibleCardData,
     VisibleCardIgnoreRegion,
     VisibleCardIgnoreSourceCandidate,
+    VisibleCardPileRegion,
     VisualIdentityData,
     canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
@@ -550,17 +551,18 @@ class EventReferenceHandler(ReferenceContentHandler):
 class VisibleCardReferenceHandler(ReferenceContentHandler):
     content_type = "visible_cards"
     content_key = "outcomes"
-    content_schema = "visible-card-data/v1"
+    content_schema = "visible-card-data/v2"
 
     def _parse_item(self, item: Mapping[str, Any], source: RecordingVideoSource | None) -> object:
         del source
         return VisibleCardData.from_mapping(
-            {"schema_version": "visible-card-data/v1", "outcomes": [item]}
+            {"schema_version": "visible-card-data/v2", "outcomes": [item]}
         )
 
     def human_item(self, item: Mapping[str, Any]) -> dict[str, Any]:
         value = super().human_item(item)
         value.setdefault("ignored_regions", [])
+        value.setdefault("pile_regions", [])
         for candidate in value.get("candidates", []):
             candidate.pop("model_scores", None)
         return value
@@ -830,8 +832,10 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             raise PipelineReferenceInputError(
                 "card-level decisions require a proposal-backed card scene"
             )
-        if draft.proposal.status != "supported" or card_id not in draft.proposal.card_ids:
-            raise PipelineReferenceInputError(f"card was not found in the proposal: {card_id}")
+        if draft.proposal.status != "supported" or not any(
+            item.card_id == card_id for item in draft.card_states
+        ):
+            raise PipelineReferenceInputError(f"card was not found in the reviewed scene: {card_id}")
         states = tuple(
             CardReviewState.create(
                 card_id=item.card_id,
@@ -982,7 +986,8 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         for item in rebased:
             previous = previous_by_item_id.get(item.item_id)
             raw_regions = None if previous is None else previous.item.get("ignored_regions")
-            if not raw_regions:
+            raw_piles = None if previous is None else previous.item.get("pile_regions")
+            if not raw_regions and not raw_piles:
                 preserved.append(item)
                 continue
             if item.item.get("frame_identity") != previous.item.get("frame_identity"):
@@ -1005,6 +1010,25 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 source.card_id for region in regions for source in region.source_candidates
             }
             updated = self._reject_cards_in_typed_scene(updated, ignored_card_ids)
+            piles = self._pile_regions(previous)
+            grouped_ids = {
+                candidate.get("card_id")
+                for pile in piles
+                for candidate in pile.grouped_candidates
+                if isinstance(candidate.get("card_id"), str)
+            }
+            candidates = [
+                candidate
+                for candidate in updated.get("candidates", [])
+                if candidate.get("card_id") not in grouped_ids
+            ]
+            updated["candidates"] = candidates
+            updated["pile_regions"] = [pile.to_mapping() for pile in piles]
+            if grouped_ids and self._typed_scene_draft(updated) is not None:
+                raise PipelineReferenceInputError(
+                    f"cannot rebase grouped proposal cards for {item.item_id} until pile-aware "
+                    "proposal review is available"
+                )
             self.validate_item(updated, source_revision_id, recording_id)
             preserved.append(self._replace(item, item=updated))
         return preserved
@@ -1063,6 +1087,14 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             "convert_to_ignore_region",
         }:
             return self._apply_ignore_region_operation(items, operation, source_revision_id)
+        if operation.operation in {
+            "create_pile_region",
+            "replace_pile_region",
+            "delete_pile_region",
+            "group_cards_into_pile",
+            "convert_ignore_region_to_pile",
+        }:
+            return self._apply_pile_region_operation(items, operation, source_revision_id)
         if operation.operation not in {
             "set_frame_review",
             "accept_frame_suggestions",
@@ -1461,6 +1493,236 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             + items[index + 1 :]
         )
 
+    def _apply_pile_region_operation(
+        self,
+        items: list[ReferenceDraftItem],
+        operation: PipelineReferenceOperation,
+        source_revision_id: str | None,
+    ) -> list[ReferenceDraftItem]:
+        assert operation.item_id is not None
+        index = self.find_item(items, operation.item_id)
+        if index is None:
+            raise PipelineReferenceInputError(f"item was not found: {operation.item_id}")
+        existing = items[index]
+        if existing.item.get("status") != "detected":
+            raise PipelineReferenceInputError("pile regions can only be changed on detected frames")
+        if existing.review_state in {"empty", "unusable", "rejected"}:
+            raise PipelineReferenceInputError(
+                "pile regions cannot be changed on an unresolved frame"
+            )
+
+        regions = self._pile_regions(existing)
+        updated = dict(existing.item)
+        candidates = self._candidates(existing)
+        if operation.operation == "delete_pile_region":
+            assert operation.region_id is not None
+            target = next(
+                (region for region in regions if region.pile_id == operation.region_id), None
+            )
+            if target is None:
+                raise PipelineReferenceInputError(
+                    f"pile region was not found: {operation.region_id}"
+                )
+            regions.remove(target)
+            candidates.extend(target.grouped_candidates)
+            updated["candidates"] = self._deduplicate_candidates(candidates)
+            restored_item = self._replace(existing, item=updated)
+            for raw_state in target.grouped_card_states:
+                card_id = raw_state.get("card_id")
+                state = raw_state.get("state")
+                if not isinstance(card_id, str) or state not in {
+                    "pending",
+                    "accepted",
+                    "adjusted",
+                    "rejected",
+                }:
+                    raise PipelineReferenceInputError("pile group review-state backup is invalid")
+                restored_item = self._apply_typed_card_decision(restored_item, card_id, state)
+            updated = dict(restored_item.item)
+            if target.grouped_scene_decision is not None:
+                draft = self._typed_scene_draft(updated)
+                if draft is not None and draft.reviewed is not None:
+                    reviewed = ReviewedCardSceneRecord.create(
+                        proposal_id=draft.reviewed.proposal_id,
+                        scene=draft.reviewed.scene,
+                        decision=target.grouped_scene_decision,
+                    )
+                    restored_draft = CardSceneDraft.create(
+                        proposal=draft.proposal,
+                        reviewed=reviewed,
+                        card_states=draft.card_states,
+                        completion=draft.completion,
+                        draft_revision=draft.draft_revision + 1,
+                        proposal_revision_id=draft.proposal_revision_id,
+                        proposal_data_digest=draft.proposal_data_digest,
+                        projection=draft.projection,
+                        derived_region_receipt=draft.derived_region_receipt,
+                    )
+                    updated["card_scene"] = restored_draft.to_mapping()
+                    updated = self._derive_typed_pose_scene_item(updated, restored_draft)
+        elif operation.operation == "replace_pile_region":
+            assert operation.region_id is not None and operation.region is not None
+            try:
+                region = VisibleCardPileRegion.from_mapping(operation.region, "operation.region")
+            except (PipelineDataError, TypeError, ValueError) as error:
+                raise PipelineReferenceInputError("pile region is invalid") from error
+            self._validate_pile_frame(region, existing)
+            if region.pile_id != operation.region_id:
+                raise PipelineReferenceInputError("replace_pile_region cannot change the pile ID")
+            target_index = next(
+                (i for i, current in enumerate(regions) if current.pile_id == region.pile_id), None
+            )
+            if target_index is None:
+                raise PipelineReferenceInputError(
+                    f"pile region was not found: {operation.region_id}"
+                )
+            previous = regions[target_index]
+            regions[target_index] = replace(
+                region,
+                source_candidates=previous.source_candidates,
+                grouped_candidates=previous.grouped_candidates,
+                grouped_card_states=previous.grouped_card_states,
+                grouped_scene_decision=previous.grouped_scene_decision,
+            )
+        elif operation.operation == "convert_ignore_region_to_pile":
+            assert operation.region_id is not None and operation.region is not None
+            ignore_regions = self._regions(existing)
+            target = next((r for r in ignore_regions if r.region_id == operation.region_id), None)
+            if target is None:
+                raise PipelineReferenceInputError(
+                    f"ignore region was not found: {operation.region_id}"
+                )
+            raw_region = dict(operation.region)
+            raw_region["source_candidates"] = []
+            try:
+                region = VisibleCardPileRegion.from_mapping(raw_region, "operation.region")
+            except (PipelineDataError, TypeError, ValueError) as error:
+                raise PipelineReferenceInputError("pile region is invalid") from error
+            self._validate_pile_frame(region, existing)
+            region = replace(region, source_candidates=target.source_candidates)
+            if any(current.pile_id == region.pile_id for current in regions):
+                raise PipelineReferenceInputError(f"pile region already exists: {region.pile_id}")
+            regions.append(region)
+            updated["ignored_regions"] = [
+                r.to_mapping() for r in ignore_regions if r.region_id != target.region_id
+            ]
+        else:
+            assert operation.region is not None
+            raw_region = dict(operation.region)
+            try:
+                region = VisibleCardPileRegion.from_mapping(raw_region, "operation.region")
+            except (PipelineDataError, TypeError, ValueError) as error:
+                raise PipelineReferenceInputError("pile region is invalid") from error
+            self._validate_pile_frame(region, existing)
+            if any(current.pile_id == region.pile_id for current in regions):
+                raise PipelineReferenceInputError(f"pile region already exists: {region.pile_id}")
+            if operation.operation == "group_cards_into_pile":
+                if source_revision_id is None or not operation.candidate_ids:
+                    raise PipelineReferenceInputError(
+                        "grouping cards into a pile needs selected card members"
+                    )
+                by_id = {candidate.get("card_id"): candidate for candidate in candidates}
+                typed = self._typed_scene_draft(existing.item)
+                card_state_by_id = (
+                    {} if typed is None else {state.card_id: state for state in typed.card_states}
+                )
+                missing = [
+                    candidate_id
+                    for candidate_id in operation.candidate_ids
+                    if candidate_id not in by_id and candidate_id not in card_state_by_id
+                ]
+                if missing:
+                    raise PipelineReferenceInputError(
+                        "pile grouping references missing card members: " + ", ".join(missing)
+                    )
+                selected = [
+                    by_id[candidate_id]
+                    for candidate_id in operation.candidate_ids
+                    if candidate_id in by_id
+                ]
+                state_backups = tuple(
+                    card_state_by_id[candidate_id].to_mapping()
+                    for candidate_id in operation.candidate_ids
+                    if candidate_id in card_state_by_id
+                )
+                region = replace(
+                    region,
+                    source_candidates=tuple(
+                        VisibleCardIgnoreSourceCandidate(
+                            typed.proposal_revision_id
+                            if typed is not None and typed.proposal_revision_id is not None
+                            else source_revision_id,
+                            candidate_id,
+                        )
+                        for candidate_id in operation.candidate_ids
+                    ),
+                    grouped_candidates=tuple(selected),
+                    grouped_card_states=state_backups,
+                    grouped_scene_decision=(
+                        None if typed is None or typed.reviewed is None else typed.reviewed.decision
+                    ),
+                )
+                if typed is not None and state_backups:
+                    grouped_item = existing
+                    for candidate_id in operation.candidate_ids:
+                        if candidate_id in card_state_by_id:
+                            grouped_item = self._apply_typed_card_decision(
+                                grouped_item, candidate_id, "rejected"
+                            )
+                    updated = dict(grouped_item.item)
+                    updated["candidates"] = [
+                        candidate
+                        for candidate in updated.get("candidates", [])
+                        if candidate.get("card_id") not in set(operation.candidate_ids)
+                    ]
+                else:
+                    updated["candidates"] = [
+                        c
+                        for c in candidates
+                        if c.get("card_id") not in set(operation.candidate_ids)
+                    ]
+            elif region.source_candidates or region.grouped_candidates:
+                raise PipelineReferenceInputError(
+                    "pile lineage is assigned by the reference operation"
+                )
+            regions.append(region)
+
+        updated["pile_regions"] = [region.to_mapping() for region in regions]
+        if operation.operation == "delete_pile_region":
+            updated["pile_regions"] = [region.to_mapping() for region in regions]
+        self.validate_item(updated, source_revision_id)
+        return items[:index] + [self._replace(existing, item=updated)] + items[index + 1 :]
+
+    @staticmethod
+    def _deduplicate_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        by_id = {candidate.get("card_id"): candidate for candidate in candidates}
+        return list(by_id.values())
+
+    @staticmethod
+    def _validate_pile_frame(region: VisibleCardPileRegion, item: ReferenceDraftItem) -> None:
+        frame = item.item.get("frame_identity")
+        if not isinstance(frame, Mapping):
+            raise PipelineReferenceInputError("pile regions need a resolved frame identity")
+        if region.normalization["width"] != frame.get("width") or region.normalization[
+            "height"
+        ] != frame.get("height"):
+            raise PipelineReferenceInputError(
+                "pile normalization must match the resolved frame dimensions"
+            )
+
+    @staticmethod
+    def _pile_regions(item: ReferenceDraftItem) -> list[VisibleCardPileRegion]:
+        raw_regions = item.item.get("pile_regions", [])
+        if not isinstance(raw_regions, list):
+            raise PipelineReferenceInputError("visible-card pile_regions must be a list")
+        try:
+            return [
+                VisibleCardPileRegion.from_mapping(value, f"item.pile_regions[{index}]")
+                for index, value in enumerate(raw_regions)
+            ]
+        except (PipelineDataError, TypeError, ValueError) as error:
+            raise PipelineReferenceInputError("visible-card pile_regions are invalid") from error
+
     @staticmethod
     def _consume_candidates_in_regions(
         candidates: list[dict[str, Any]],
@@ -1622,6 +1884,15 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             return None
         has_candidates = bool(item.get("candidates")) or item.get("card_scene") is not None
         has_regions = bool(item.get("ignored_regions"))
+        has_piles = bool(item.get("pile_regions"))
+        if has_piles and has_candidates and has_regions:
+            return "cards_piles_and_ignored"
+        if has_piles and has_candidates:
+            return "cards_and_piles"
+        if has_piles and has_regions:
+            return "piles_and_ignored"
+        if has_piles:
+            return "piles"
         if has_candidates and has_regions:
             return "cards_and_ignored"
         if has_regions:
@@ -1844,12 +2115,16 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 "cards",
                 "ignored",
                 "cards_and_ignored",
+                "piles",
+                "cards_and_piles",
+                "piles_and_ignored",
+                "cards_piles_and_ignored",
                 "empty",
                 "unusable",
             }:
                 raise PipelineReferenceInputError(
-                    "coverage.frames[{}].decision must be cards, ignored, cards_and_ignored, "
-                    "empty, or unusable".format(index)
+                    "coverage.frames[{}].decision must declare cards, piles, ignored, or a "
+                    "supported combination".format(index)
                 )
             entry = {"frame_identity": normalized_frame, "decision": decision}
             if "item_id" in raw_frame:

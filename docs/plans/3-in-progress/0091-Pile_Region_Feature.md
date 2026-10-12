@@ -4,7 +4,7 @@
 
 - **Summary:** Review each accumulated card pile as one coarse region, support it as a separate
   RF-DETR target, and retain pile evidence through inference and table observations.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0048, 0049, 0065, 0073, 0074, and 0085 foundations. M0 and M1 can
   start now. Later milestone prerequisites are listed below.
 - **Outcome:** A usable early pile annotation workflow, reproducible two-class detector views,
@@ -14,7 +14,7 @@
 
 ## Milestone status
 
-- **M0:** Not started — persist the pile contract, atomic commands, review coverage, and API.
+- **M0:** Complete — persist the pile contract, reversible atomic commands, pile coverage, and API.
 - **M1:** Not started — deliver the complete pile annotation and publication workflow.
 - **M2:** Not started — materialize reviewed individual-card and pile training targets.
 - **M3:** Not started — support two-class trainer, evaluation, and bundle contracts.
@@ -78,6 +78,41 @@ circular prerequisite.
 Use a separate `pile_regions` collection in visible-card outcomes. Keep it distinct from
 individual-card `candidates`, `card_scene`, and `ignored_regions`. M0 freezes the exact schema
 versions, field names, normalized coordinate contract, and API before M1 starts.
+
+The stored content schema is `visible-card-data/v2`. Each outcome has `pile_regions`, including an
+empty list when there are no piles. A v1 revision remains v1 when parsed and serialized. New writes
+use v2. Do not rewrite old drafts or immutable revisions to add empty pile lists.
+
+A pile region has exactly these fields: `pile_id`, `geometry`, `normalization`,
+`source_candidates`, `grouped_candidates`, `grouped_card_states`, and `grouped_scene_decision`.
+`pile_id` is unique in its
+outcome. Geometry has kind `pile-region/v1` and one or more polygons. Each polygon has at least
+three integer points. Each x and y coordinate is from 0 through 1000 in the full-frame
+normalization `full-frame-0-1000/v1`. The containing outcome carries the exact source-frame
+identity and dimensions. `source_candidates` stores revision and card IDs. The two grouped-member
+fields retain candidate payloads and proposal-card review states so delete restores the prior
+individual-card work. Review-state records have `card_id`, `source`, `proposal_id`, and `state`;
+source is `proposal` or `manual`, and state is `pending`, `accepted`, `adjusted`, or `rejected`.
+`grouped_scene_decision` stores the prior `accepted`, `adjusted`, or `manual` scene decision, or
+null when the group came from an unreviewed proposal. Grouped-member fields are empty for a
+hand-drawn pile.
+
+A detected frame can contain cards, piles, or both. It can complete as pile-only without a
+calibration or card scene. `visible_frames` coverage uses `piles`, `cards_and_piles`,
+`piles_and_ignored`, or `cards_piles_and_ignored` when those evidence types apply. Existing card,
+ignore, empty, and unusable decisions remain unchanged.
+
+The reference API accepts `create_pile_region`, `replace_pile_region`, `delete_pile_region`,
+`group_cards_into_pile`, and `convert_ignore_region_to_pile`. Each command uses the existing
+expected-revision and idempotency checks. Grouping removes selected proposal candidates or marks
+selected proposal-scene cards as grouped in the same transaction. Deleting a grouped pile restores
+the saved candidate payloads and proposal-card review states. Rebase preserves pile geometry and
+lineage for an unchanged exact frame. A proposal refresh that would reintroduce grouped members
+fails with an actionable review error.
+
+The current identity and table-observation processors reject pile-bearing inputs with actionable
+errors. They do not silently publish partial identity or observation results. Two-class export,
+pile predictions, and observation preservation remain later milestones.
 
 Each region has a stable pile ID, source-frame footprint polygon, normalization, exact frame
 lineage, and source proposal references where available. Origin, confidence, reviewer, commands,
@@ -153,17 +188,19 @@ usable even when a downstream capability is unavailable.
 
 ### M0 — Persist the pile contract and commands
 
-Implement shared pile geometry and outcome parsing, canonical serialization, pile review
-coverage, and completion semantics. Add atomic create, replace, delete, selected-member grouping,
+Implemented shared pile geometry and outcome parsing, canonical serialization, pile review
+coverage, and completion semantics. Added atomic create, replace, delete, selected-member grouping,
 and explicit ignore-to-pile conversion commands to the maintained-reference service and API.
-Specify reversible member restoration and proposal lineage. Regenerate the Web API types.
-Inventory affected consumers and add fail-closed capability checks before exposing pile data.
+Specified reversible member restoration and proposal lineage. Regenerated the Web API types.
+Inventoried affected consumers and added fail-closed capability checks before exposing pile data.
+The live inventory contained 41 visible-card drafts and 204 immutable v1 revisions. No existing
+draft contained a pile. The change did not rewrite these drafts or revisions.
 
 Primary boundaries: `table_evidence_analyzer/pipeline_data.py`, the shared scene contract,
 `operations/pipeline_reference.py`, and backend reference handlers, store, service, and API.
 Keep geometry, command validation, and grouping transitions in focused modules.
 
-Acceptance: mixed and pile-only frames persist and complete through the existing lifecycle;
+Acceptance met: mixed and pile-only frames persist and complete through the existing lifecycle;
 pending outside cards remain pending; stale commands fail atomically; round-trip digests and
 grouping provenance reproduce; current drafts and old immutable revisions remain intact;
 unsupported downstream consumers return actionable errors instead of lossy success. No UI or

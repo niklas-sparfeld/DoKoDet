@@ -35,7 +35,7 @@ fully automatic inference. If the chosen identity crop requires reviewed geometr
 verify a separate generated-geometry execution contract or retain a compatible automatic crop
 policy. This epic cannot bypass 0085's reviewed-input authority checks.
 
-[0091](../2-ready/0091-Pile_Region_Feature.md) owns pile support at the individual boundaries.
+[0091](../3-in-progress/0091-Pile_Region_Feature.md) owns pile support at the individual boundaries.
 Freeze its capability and observation versions in the coordinator. Keep pile detections separate
 from individual cards, bypass identity and pose work for piles, and retain pile evidence through
 engine input. Distinguish retained but unused pile evidence from gameplay inference. If the

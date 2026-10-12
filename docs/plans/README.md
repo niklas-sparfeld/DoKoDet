@@ -26,8 +26,8 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-1. **0091 M0–M1:** Deliver the pile data contract and complete annotation workflow first. The
-   operator can then annotate accumulated piles while the remaining feature support is implemented.
+1. **0091 M1:** Deliver the complete pile annotation workflow. The operator can then annotate
+   accumulated piles while the remaining feature support is implemented.
 2. **0086:** Continue reviewed corpus work, with one region per accumulated pile after 0091 M1.
    Individual-card review can continue before that handoff.
 3. **0091 M2–M7:** Implement two-class export, trainer support, inference, identity isolation,
@@ -66,12 +66,12 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0091 — Pile-region feature](2-ready/0091-Pile_Region_Feature.md) | 0048, 0049, 0065, 0073, 0074, and 0085 complete; staged gates in the epic | M0–M7 not started. M0–M1 release durable pile annotation first. Later milestones implement two-class RF-DETR support, inference, identity isolation, observation and engine preservation, and complete local verification. Real model training stays in 0087. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0091 — Pile-region feature](3-in-progress/0091-Pile_Region_Feature.md) | 0048, 0049, 0065, 0073, 0074, and 0085 complete; staged gates in the epic | M0 complete: durable v2 pile contract, reversible reference commands, coverage, and API. M1–M7 not started. M1 releases pile annotation first; later milestones implement two-class RF-DETR support, inference, identity isolation, observation and engine preservation, and complete local verification. Real model training stays in 0087. |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers; pile review uses 0091 M0–M1 | M0 reconciles 52 accepted recordings and selects the 0095 pilot. M1 generates current proposals for all 53 pilot frames. M2 awaits operator review; M3–M5 not started. Continue individual-card review and use one region per accumulated pile after 0091 M1. |
 
 ### Blocked

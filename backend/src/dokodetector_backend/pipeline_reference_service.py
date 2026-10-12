@@ -76,6 +76,11 @@ _CONTENT_MUTATING_OPERATIONS = frozenset(
         "set_frame_unusable",
         "set_identity_unusable",
         "report_identity_source_problem",
+        "create_pile_region",
+        "replace_pile_region",
+        "delete_pile_region",
+        "group_cards_into_pile",
+        "convert_ignore_region_to_pile",
     }
 )
 
@@ -220,9 +225,7 @@ class PipelineReferenceService:
         source_revision = None
         items: tuple[ReferenceDraftItem, ...] = ()
         if proposal_revision_id is not None:
-            proposal_revision = self._require_proposal_revision(
-                recording_id, proposal_revision_id
-            )
+            proposal_revision = self._require_proposal_revision(recording_id, proposal_revision_id)
             proposal_source_revision_id, proposal_data = self._proposal_source(
                 recording_id, proposal_revision
             )
@@ -298,9 +301,7 @@ class PipelineReferenceService:
         except PipelineNotFound as error:
             raise PipelineReferenceInputError("proposal revision was not found") from error
         if proposal.manifest.recording_id != recording_id:
-            raise PipelineReferenceInputError(
-                "the proposal revision belongs to another recording"
-            )
+            raise PipelineReferenceInputError("the proposal revision belongs to another recording")
         if proposal.manifest.content_type != "card_scene_proposals" or not isinstance(
             proposal.content, ProposedCardSceneData
         ):
@@ -316,9 +317,7 @@ class PipelineReferenceService:
                 "visible-card-scene-proposal-reflow",
             }
         ):
-            raise PipelineReferenceInputError(
-                "the proposal revision has invalid processor lineage"
-            )
+            raise PipelineReferenceInputError("the proposal revision has invalid processor lineage")
         return proposal
 
     def plan_visible_card_reflow(
@@ -522,6 +521,22 @@ class PipelineReferenceService:
                             f"{outcome.event_id}"
                         )
                     item["ignored_regions"] = list(previous_regions)
+                previous_piles = previous.item.get("pile_regions", [])
+                if previous_piles:
+                    if previous.item.get("frame_identity") != item.get("frame_identity"):
+                        raise PipelineReferenceInputError(
+                            "cannot rebase reviewed pile regions for a changed source frame: "
+                            f"{outcome.event_id}"
+                        )
+                    item["pile_regions"] = list(previous_piles)
+                previous_piles = previous.item.get("pile_regions", [])
+                if previous_piles:
+                    if previous.item.get("frame_identity") != item.get("frame_identity"):
+                        raise PipelineReferenceInputError(
+                            "cannot rebase reviewed pile regions for a changed source frame: "
+                            f"{outcome.event_id}"
+                        )
+                    item["pile_regions"] = list(previous_piles)
             if frame.status == "supported":
                 if frame.proposal is None or outcome.frame_identity is None:
                     raise PipelineReferenceInputError(
@@ -558,12 +573,41 @@ class PipelineReferenceService:
                 item["candidates"] = []
                 item["card_scene"] = draft.to_mapping()
                 review_state = "pending"
+                if previous is not None:
+                    grouped_ids = {
+                        candidate.get("card_id")
+                        for pile in previous.item.get("pile_regions", [])
+                        if isinstance(pile, Mapping)
+                        for candidate in pile.get("grouped_candidates", [])
+                        if isinstance(candidate, Mapping)
+                    }
+                    duplicated = grouped_ids.intersection(frame.proposal.card_ids)
+                    if duplicated:
+                        raise PipelineReferenceInputError(
+                            "proposal refresh found cards already grouped into reviewed piles; "
+                            "review pile membership before refreshing this frame"
+                        )
+                if previous is not None:
+                    grouped_ids = {
+                        candidate.get("card_id")
+                        for pile in previous.item.get("pile_regions", [])
+                        if isinstance(pile, Mapping)
+                        for candidate in pile.get("grouped_candidates", [])
+                        if isinstance(candidate, Mapping)
+                    }
+                    duplicated = grouped_ids.intersection(frame.proposal.card_ids)
+                    if duplicated:
+                        raise PipelineReferenceInputError(
+                            "proposal refresh found cards already grouped into reviewed piles; "
+                            "review pile membership before refreshing this frame"
+                        )
             else:
                 reason = frame.unsupported_reason or "proposal frame is unsupported"
-                item["status"] = "failed"
+                has_reviewed_piles = bool(item.get("pile_regions"))
+                item["status"] = "detected" if has_reviewed_piles else "failed"
                 item["candidates"] = []
                 item["ignored_regions"] = []
-                item["error"] = reason
+                item["error"] = None if has_reviewed_piles else reason
                 if frame.proposal is not None:
                     draft = CardSceneDraft.create(
                         proposal=frame.proposal,
@@ -579,7 +623,7 @@ class PipelineReferenceService:
                         projection=projection,
                     )
                     item["card_scene"] = draft.to_mapping()
-                review_state = "unusable"
+                review_state = "accepted" if has_reviewed_piles else "unusable"
             items.append(
                 ReferenceDraftItem(
                     item_id=outcome.event_id,

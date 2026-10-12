@@ -61,7 +61,7 @@ decision belongs to a later reconstruction epic.
 
 ### Planned pile-region boundary
 
-[Epic 0091](plans/2-ready/0091-Pile_Region_Feature.md) specifies pile regions beside individual
+[Epic 0091](plans/3-in-progress/0091-Pile_Region_Feature.md) specifies pile regions beside individual
 cards. Its first two milestones deliver the data model and complete annotation workflow so
 corpus review can continue before downstream implementation or model training.
 

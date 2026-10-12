@@ -70,7 +70,7 @@ implement general algorithm improvements, promote bundles, or automate reconstru
 
 ## 2. Data and review rules
 
-- [0091](../2-ready/0091-Pile_Region_Feature.md) owns pile feature implementation. After its M1
+- [0091](0091-Pile_Region_Feature.md) owns pile feature implementation. After its M1
   handoff, review each accumulated pile as one coarse source-frame region. Do not require its
   component-card poses, stacking order, count, or identities. Keep normal trick overlap under
   individual-card review. Preserve genuine ignore regions for ambiguous evidence. Do not
