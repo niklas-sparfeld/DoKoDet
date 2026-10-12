@@ -200,6 +200,7 @@ export type PipelineReferenceOperation = {
   source_revision_id?: string;
   proposal_revision_id?: string;
   region_id?: string;
+  pile_id?: string;
   region?: Record<string, unknown>;
   candidate_ids?: string[];
   card_id?: string;

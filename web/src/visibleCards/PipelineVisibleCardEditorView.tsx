@@ -760,9 +760,11 @@ export function PipelineVisibleCardEditorView({
                   ? "replace_pile_region"
                   : "create_pile_region",
               item_id: frame.itemId,
-              region_id: exists ? previous.pile_id : undefined,
+              pile_id: exists ? previous.pile_id : undefined,
               region: pileRegionMapping(nextRegion),
-              candidate_ids: currentEditor.groupCandidateIds,
+              ...(currentEditor.groupCandidateIds?.length
+                ? { candidate_ids: currentEditor.groupCandidateIds }
+                : {}),
             },
             exists ? "Pile region geometry saved." : "Pile region created.",
             (current) =>
@@ -1086,7 +1088,7 @@ export function PipelineVisibleCardEditorView({
         {
           operation: "delete_pile_region",
           item_id: frame.itemId,
-          region_id: pileId,
+          pile_id: pileId,
         },
         "Pile region deleted. Grouped card work was restored.",
         (current) =>
@@ -1147,7 +1149,7 @@ export function PipelineVisibleCardEditorView({
         ...(frame.outcome.pile_regions ?? []).map((pile) => ({
           operation: "delete_pile_region" as const,
           item_id: frame.itemId,
-          region_id: pile.pile_id,
+          pile_id: pile.pile_id,
         })),
         ...copied.map((pile) => ({
           operation: "create_pile_region" as const,

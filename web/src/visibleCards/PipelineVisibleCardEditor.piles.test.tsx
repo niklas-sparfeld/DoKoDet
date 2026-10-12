@@ -89,6 +89,7 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
         },
       },
     });
+    expect(body.operations[0]).not.toHaveProperty("candidate_ids");
   });
 
   it("inserts a new pile point on the nearest edge", async () => {
@@ -176,7 +177,7 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
     );
     expect(body.operations[0]).toMatchObject({
       operation: "replace_pile_region",
-      region_id: "pile-1",
+      pile_id: "pile-1",
       region: {
         geometry: {
           polygons: [
