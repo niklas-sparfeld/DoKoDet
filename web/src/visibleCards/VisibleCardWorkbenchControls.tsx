@@ -805,7 +805,7 @@ function VirtualCardSelectionActions({
       "remove_card",
       selectedCardId === null ? "Remove card" : `Remove card ${cardTarget}`,
       "−",
-      "Click",
+      "Backspace",
       readOnly || selectedPose === null || scene?.scene.poses.length === 1,
       selectedPose === null
         ? "Select a virtual card first."

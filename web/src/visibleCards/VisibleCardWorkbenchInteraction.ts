@@ -205,6 +205,26 @@ export function useVisibleCardWorkbenchInteraction({
   ) => {
     if (readOnly || activeState.activeTool !== "virtual_cards") return;
     if (
+      event.key === "Backspace" &&
+      activeState.selection?.type === "virtual_card" &&
+      activeState.selection.id === cardId
+    ) {
+      const scene = sceneDraftRef.current;
+      if (scene === null || scene.scene.poses.length <= 1) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const nextSelection = scene.scene.poses.find(
+        (pose) => pose.card_id !== cardId,
+      );
+      applySceneAction(
+        { type: "remove", cardId },
+        "Card removed from the virtual table.",
+      );
+      if (nextSelection === undefined) clearSelection();
+      else select({ type: "virtual_card", id: nextSelection.card_id });
+      return;
+    }
+    if (
       event.key !== "ArrowLeft" &&
       event.key !== "ArrowRight" &&
       event.key !== "ArrowUp" &&
