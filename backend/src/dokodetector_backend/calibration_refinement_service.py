@@ -117,15 +117,22 @@ class CalibrationRefinementService:
                 local_result,
                 detector_revision_id=source.manifest.revision_id,
             )
-            draft = build_calibration_draft(
-                draft_id=draft_id,
-                recording_id=recording_id,
-                detector_revision_id=source.manifest.revision_id,
-                detector_revision_digest=source.manifest.content_sha256,
-                base_calibration=data.calibration,
-                anchors=anchors,
-                source_frame_digests=frame_digests,
-            )
+            try:
+                draft = build_calibration_draft(
+                    draft_id=draft_id,
+                    recording_id=recording_id,
+                    detector_revision_id=source.manifest.revision_id,
+                    detector_revision_digest=source.manifest.content_sha256,
+                    base_calibration=data.calibration,
+                    anchors=anchors,
+                    source_frame_digests=frame_digests,
+                )
+            except CalibrationRefinementError as build_error:
+                raise CalibrationRefinementInputError(
+                    "the proposal uses an unsupported calibration geometry; "
+                    "rerun the card-scene proposal with the current geometry before "
+                    "preparing calibration refinement"
+                ) from build_error
             self.store.publish_initial(draft)
             self.store.publish(draft)
         self._require_current_source(draft, source)
