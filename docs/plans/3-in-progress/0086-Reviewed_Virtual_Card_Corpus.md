@@ -2,11 +2,11 @@
 
 ## Plan status
 
-- **Summary:** Generate current proposed card scenes, complete human correction, and publish
-  reviewed geometry and visual card identities for the selected recording corpus.
+- **Summary:** Publish a detection-only handoff from current reviewed geometry, then finish proposal
+  refresh and geometry review. Complete visual identity review last.
 - **Status:** In Progress
-- **Depends on:** Completed 0073, 0074, and 0085; existing local detector and identity providers
-  Pile annotation uses 0091 M0–M1; individual-card review can continue before that handoff.
+- **Depends on:** Completed 0073, 0074, and 0085; existing local detector provider. Pile annotation
+  uses 0091 M0–M1; individual-card review can continue before that handoff.
 - **Outcome:** A recording inventory, completed maintained references, and a reproducible data
   handoff for separate RF-DETR and DINO campaigns.
 - **Target architecture:**
@@ -17,11 +17,13 @@
 - **M0:** Complete (2026-10-11) — inventory all accepted recordings, reconcile frozen partitions,
   exclude protected sources, and select the `IMG_0095` pilot.
 - **M1:** Complete (2026-10-11) — generate current proposals for all 53 `IMG_0095` event frames.
-- **M2:** In progress — refresh the pilot proposals with the corrected 59 mm by 91 mm geometry
-  before operator review; geometry and identity decisions remain pending.
-- **M3:** Not started — refresh remaining proposals in resumable recording batches.
-- **M4:** Not started — complete geometry review for the selected corpus.
-- **M5:** Not started — complete identity review and publish campaign readiness.
+- **M2:** Not started — audit completed current-schema references and publish the immutable
+  detection-only handoff needed to start 0087. Record any exact data correction that remains.
+- **M3:** Not started — refresh remaining proposals in resumable recording batches, including the
+  `IMG_0095` pilot, with corrected 59 mm by 91 mm geometry.
+- **M4:** Not started — complete geometry review for the selected corpus and update the
+  detection-only handoff as eligible references are added.
+- **M5:** Not started — complete visual identity review and publish the separate 0088 handoff.
 
 ## 1. Current evidence and scope
 
@@ -147,20 +149,25 @@ cover interrupted execution and refreshing a draft with accepted and adjusted ca
 - Focused checks passed: 52 operations tests, three backend proposed-scene pipeline tests, Ruff,
   and formatting. No review mutation or training started.
 
-### M2 — Complete the pilot review
+### M2 — Publish the detection-only handoff
 
-An operator reviews the pilot geometry, occlusion exclusions, sides, and identity usability, then
-reviews identities from the completed geometry. Inspect derived masks and identity crop previews.
-Record correction effort and any workflow blocker. Fix only bounded blockers to this review path.
-Use 0091 M1 for pile annotation when piles occur. Keep that feature's implementation outside this
-epic; do not delay ordinary individual-card review until its later milestones.
+Audit the already completed references against the current `visible-card-data/v2` contract. Select
+only eligible completed geometry; validate source and frame lineage, visible masks, ignore regions,
+frame exclusions, pile coverage, and source-group assignments. Publish an immutable detection-only
+manifest for 0087. Do not run the historical 0068 fixed-corpus validator as the acceptance gate.
+Record precise gaps if current references need correction. Do not wait for new proposal generation,
+unfinished pilot review, or visual identity labels when eligible reviewed references already meet
+the contract.
 
-Acceptance: the pilot publishes completed geometry and identity revisions with matching card and
-frame lineage; masks exclude hidden and human-hand pixels; every unusable item has a reason;
-campaign preparation can resolve the references without treating proposals as reviewed targets.
-An agent must not claim this milestone complete without recorded human review.
+Acceptance: 0087 can independently audit and freeze an eligible detection view from this handoff;
+all included masks and exclusions pass current-schema checks; source groups and prior evaluation use
+are explicit; any excluded or unresolved references have exact reasons. No identity labels or
+identity-processor runs are required.
 
-### M2 operator review handoff — 2026-10-11
+### Prior pilot review handoff — 2026-10-11
+
+This is the earlier operator handoff, before the milestone order changed. It is not the M2
+detection-only handoff and does not establish current-schema readiness.
 
 - The pilot workbench is open on `cardeventnet-IMG_0095` with the M1 proposal revision selected.
 - The workbench shows all 53 frames and 194 card proposals. The `Start review from proposed
@@ -173,9 +180,10 @@ An agent must not claim this milestone complete without recorded human review.
 
 ### M3 — Refresh the remaining proposal batches
 
-Run the frozen recording list in small resumable batches. Track current recipes, frame coverage,
-partial results, and failures. Preserve completed and corrected work as in M1. Do not silently
-expand scope when new recordings arrive.
+Run the frozen recording list, including the pilot refresh, in small resumable batches. Track current
+recipes, frame coverage, partial results, and failures. Preserve completed and corrected work as in
+M1. Do not silently expand scope when new recordings arrive. This work can continue after the M2
+detection-only handoff has unblocked 0087.
 
 Acceptance: all selected recordings have terminal receipts; unsupported frames remain visible as
 review work or exclusions; interruption resumes without duplicate runs or lost corrections.
@@ -189,26 +197,26 @@ After 0091 M1, review piles as coarse regions and complete only the remaining in
 Measure effort by pile regions and remaining cards, not by hidden component cards.
 
 Acceptance: every selected frame has a completed reference decision or exact exclusion; all
-published derived visible regions pass validation; no pending card is a training target. This
-milestone remains open until the recorded human work is complete.
+published derived visible regions pass validation; no pending card is a training target. Publish an
+updated detection-only handoff as eligible reviewed references are added. This milestone remains
+open until the recorded human work is complete.
 
-### M5 — Complete identities and publish readiness
+### M5 — Complete identities and publish the 0088 handoff
 
-Use the completed reviewed virtual-card crop input to propose identities. An operator confirms or
-corrects labels and unusable outcomes. Publish a handoff with exact reference revisions, source
-groups, class counts, geometry and identity exclusions, recipe versions, and campaign-specific gaps.
-Include reviewed pile counts, footprint policy, grouping provenance, and explicit pile-review
-coverage. Piles have no identity work. Hand two-class detector eligibility to 0087 separately
-from individual-card crop and identity eligibility for 0088.
+Use completed reviewed geometry to prepare virtual-card crops and propose identities. An operator
+confirms or corrects labels and unusable outcomes. Publish a separate 0088 handoff with exact
+reference revisions, source groups, class counts, geometry and identity exclusions, recipe versions,
+and campaign-specific gaps. Include reviewed pile counts, footprint policy, grouping provenance,
+and explicit pile-review coverage. Piles have no identity work. This milestone does not gate 0087.
 
-Acceptance: repeated readiness reports reproduce counts and digests; each training identity matches
-its reviewed geometry; unsupported classes and face-down coverage are explicit; RF-DETR and DINO
-can freeze separate views without changing the maintained references. Do not require an invented
-identity for an unusable crop. No training or promotion occurs in this epic.
+Acceptance: repeated identity-readiness reports reproduce counts and digests; each training identity
+matches its reviewed geometry; unsupported classes and face-down coverage are explicit; 0088 can
+freeze its view without changing the maintained references. Do not require an invented identity for
+an unusable crop. No training or promotion occurs in this epic.
 
 ## 4. Handoff and verification
 
-[0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
+[0087](../4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
 [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) owns identity crop preparation and
 training. Each campaign freezes its own eligibility and recipe from this handoff.
 

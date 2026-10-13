@@ -5,7 +5,7 @@
 - **Summary:** Freeze identity crops from corrected virtual-card references and train a separate
   bounded DINOv3 identity campaign with one measured synthetic-data addition.
 - **Status:** Blocked
-- **Depends on:** 0086 completed geometry and identity handoff; completed 0043 and 0085
+- **Depends on:** 0086 M4 completed geometry review and M5 identity handoff; completed 0043 and 0085
   0091 M5 identity isolation for pile-bearing references; no dependency on 0087 training.
 - **Blocker:** Reviewed identity coverage and the virtual-card training crop contract are not frozen.
 - **Outcome:** Reproducible identity crops, measured real and synthetic candidates, and a retained
@@ -42,7 +42,7 @@ pile exclusion and observation contract.
 
 This campaign does not depend on the new RF-DETR candidate. It trains from completed reviewed
 geometry and labels. RF-DETR training belongs to
-[0087](../3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md).
+[0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md).
 Model promotion and productive campaign UI remain in
 [0044](../1-backlog/0044-Productive_Local_Identity_Model_Operations.md).
 

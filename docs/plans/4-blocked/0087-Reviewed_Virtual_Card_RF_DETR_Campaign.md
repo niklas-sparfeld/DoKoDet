@@ -5,10 +5,9 @@
 - **Summary:** Train and compare RF-DETR candidates from reviewed individual-card masks and
   coarse pile targets, with one compatible synthetic-data addition where supported.
 - **Status:** Blocked
-- **Depends on:** Completed 0068 and 0070; 0091 M0–M3 for two-class preparation; an 0086
+- **Depends on:** Completed 0068 and 0070; 0091 M0–M3 for two-class preparation; 0086 M2
   detection-only handoff with reviewed geometry, visible-card masks, ignore or frame-exclusion
-  decisions, and source-group assignments; M4 before pile-capable inference checks. Visual identity
-  review is not required.
+  decisions, pile coverage, and source-group assignments. Visual identity review is not required.
 - **Supersedes:** Unstarted training in 0084; retain its M0–M2 evidence as historical inspection
 - **Outcome:** Verified segmentation views, bounded training, real evaluation, and a retained bundle
   decision. Improvement is measured, not assumed.
@@ -17,8 +16,8 @@
 
 ## Milestone status
 
-- **M0:** Blocked — the live reference store does not pass the historical 0068 validator, and 0086
-  has not published the detection-only handoff. Prior test usage is recorded in the
+- **M0:** Blocked — 0086 has not published the current-schema detection-only handoff. The historical
+  0068 validator does not certify the current reference store. Prior test usage is recorded in the
   [M0 readiness report](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md). Do not freeze
   training inputs until current references and source groups can be audited.
 - **M1:** Not started — materialize and inspect the real segmentation view.
