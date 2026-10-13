@@ -113,7 +113,9 @@ class ReferenceContentHandler:
         except (PipelineDataError, PipelineReferenceError, TypeError, ValueError) as error:
             if isinstance(error, PipelineReferenceInputError):
                 raise
-            raise PipelineReferenceInputError("reference item failed content validation") from error
+            raise PipelineReferenceInputError(
+                f"reference item failed content validation: {error}"
+            ) from error
 
     def apply_operation(
         self,
