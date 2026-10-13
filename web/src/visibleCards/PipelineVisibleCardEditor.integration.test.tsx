@@ -717,10 +717,23 @@ describe("PipelineVisibleCardEditor", () => {
       card_id: "card-3",
       center: [70, 50] as [number, number],
     };
-    scene.scene.poses.push(secondPose, thirdPose);
-    scene.scene.stacking_order.card_ids.push("card-2", "card-3");
-    scene.initialized_scene.poses.push({ ...secondPose }, { ...thirdPose });
-    scene.initialized_scene.stacking_order.card_ids.push("card-2", "card-3");
+    const fourthPose = {
+      ...secondPose,
+      card_id: "card-4",
+      center: [80, 50] as [number, number],
+    };
+    scene.scene.poses.push(secondPose, thirdPose, fourthPose);
+    scene.scene.stacking_order.card_ids.push("card-2", "card-3", "card-4");
+    scene.initialized_scene.poses.push(
+      { ...secondPose },
+      { ...thirdPose },
+      { ...fourthPose },
+    );
+    scene.initialized_scene.stacking_order.card_ids.push(
+      "card-2",
+      "card-3",
+      "card-4",
+    );
     (
       currentReference.draft.items[0]!.item as Record<string, unknown>
     ).card_scene = scene;
@@ -731,28 +744,22 @@ describe("PipelineVisibleCardEditor", () => {
         item: { card_scene: { scene: { poses: Array<{ card_id: string }> } } };
       }>;
     };
-    let resolveFirstUpdate: ((response: Response) => void) | undefined;
-    const updates: { body: SceneUpdateRequest }[] = [];
+    const updates: {
+      body: SceneUpdateRequest;
+      resolve: (response: Response) => void;
+    }[] = [];
     const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
       const url = String(input);
       if (
         url.endsWith("/pipeline/references/visible_cards/draft") &&
         init?.method === "PUT"
       ) {
-        updates.push({
-          body: JSON.parse(String(init.body)) as SceneUpdateRequest,
-        });
-        if (updates.length === 1) {
-          return new Promise<Response>((resolve) => {
-            resolveFirstUpdate = resolve;
+        return new Promise<Response>((resolve) => {
+          updates.push({
+            body: JSON.parse(String(init.body)) as SceneUpdateRequest,
+            resolve,
           });
-        }
-        const body = structuredClone(currentReference);
-        body.draft.revision = 3;
-        body.state.draft_revision = 3;
-        (body.draft.items[0]!.item as Record<string, unknown>).card_scene =
-          updates[1]!.body.operations[0]!.item.card_scene;
-        return Promise.resolve(jsonResponse(body));
+        });
       }
       if (url.endsWith("/pipeline/references/visible_cards"))
         return Promise.resolve(jsonResponse(currentReference));
@@ -786,14 +793,15 @@ describe("PipelineVisibleCardEditor", () => {
     fireEvent.keyDown(card2, { key: "Backspace" });
     expect(updates).toHaveLength(1);
 
-    const firstItem = updates[0]!.body.operations[0]!.item;
-    const firstSavedReference = structuredClone(currentReference);
-    firstSavedReference.draft.revision = 2;
-    firstSavedReference.state.draft_revision = 2;
-    (
-      firstSavedReference.draft.items[0]!.item as Record<string, unknown>
-    ).card_scene = firstItem.card_scene;
-    resolveFirstUpdate?.(jsonResponse(firstSavedReference));
+    const resolveUpdate = (index: number, revision: number) => {
+      const body = structuredClone(currentReference);
+      body.draft.revision = revision;
+      body.state.draft_revision = revision;
+      (body.draft.items[0]!.item as Record<string, unknown>).card_scene =
+        updates[index]!.body.operations[0]!.item.card_scene;
+      updates[index]!.resolve(jsonResponse(body));
+    };
+    resolveUpdate(0, 2);
 
     await waitFor(() => expect(updates).toHaveLength(2));
     expect(updates[1]!.body.expected_revision).toBe(2);
@@ -801,7 +809,23 @@ describe("PipelineVisibleCardEditor", () => {
       updates[1]!.body.operations[0]!.item.card_scene.scene.poses.map(
         (pose: { card_id: string }) => pose.card_id,
       ),
-    ).toEqual(["card-3"]);
+    ).toEqual(["card-3", "card-4"]);
+    const card3 = screen.getByRole("button", {
+      name: "Select virtual card card-3",
+    });
+    fireEvent.click(card3);
+    fireEvent.keyDown(card3, { key: "Backspace" });
+    expect(updates).toHaveLength(2);
+
+    resolveUpdate(1, 3);
+    await waitFor(() => expect(updates).toHaveLength(3));
+    expect(updates[2]!.body.expected_revision).toBe(3);
+    expect(
+      updates[2]!.body.operations[0]!.item.card_scene.scene.poses.map(
+        (pose: { card_id: string }) => pose.card_id,
+      ),
+    ).toEqual(["card-4"]);
+    resolveUpdate(2, 4);
     await waitFor(() => {
       expect(
         screen.queryByRole("button", { name: "Select virtual card card-1" }),
@@ -810,7 +834,10 @@ describe("PipelineVisibleCardEditor", () => {
         screen.queryByRole("button", { name: "Select virtual card card-2" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Select virtual card card-3" }),
+        screen.queryByRole("button", { name: "Select virtual card card-3" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Select virtual card card-4" }),
       ).toBeInTheDocument();
     });
   });

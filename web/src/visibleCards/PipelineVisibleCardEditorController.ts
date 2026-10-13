@@ -106,15 +106,22 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     };
   });
   const hydrateReference = useCallback(
-    (nextReference: PipelineReferenceResource, preserveSelection = true) => {
+    (
+      nextReference: PipelineReferenceResource,
+      preserveSelection = true,
+      preserveLocalFrames = false,
+    ) => {
       const current = inputRef.current;
       const nextFrames = nextReference.draft.items
         .map(toEditableFrame)
         .filter((frame): frame is EditableFrame => frame !== null);
+      const visibleFrames = preserveLocalFrames
+        ? current.getFrames()
+        : nextFrames;
       current.referenceRef.current = nextReference;
       current.serverRevisionRef.current = nextReference.draft.revision;
       current.setReference(nextReference);
-      current.setLocalFrames(nextFrames);
+      if (!preserveLocalFrames) current.setLocalFrames(nextFrames);
       if (!preserveSelection) {
         current.inspectedFrameKeysRef.current = new Set();
         current.setInspectedFrameKeys(new Set());
@@ -124,7 +131,7 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
           frameCoverageKeyFromIdentity(entry.frame_identity, entry.item_id),
         );
       }
-      for (const frame of nextFrames) {
+      for (const frame of visibleFrames) {
         if (frameDecision(frame) !== null) {
           current.inspectedFrameKeysRef.current.add(frameCoverageKey(frame));
         }
@@ -136,8 +143,8 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
         ? current.selectedFrameIdRef.current
         : null;
       const selected =
-        nextFrames.find((frame) => frame.itemId === selectedId) ??
-        nextFrames[0];
+        visibleFrames.find((frame) => frame.itemId === selectedId) ??
+        visibleFrames[0];
       current.setSelected(selected?.itemId ?? null);
     },
     [],
@@ -703,8 +710,8 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
           operations: command.operations,
         },
       );
-      hydrateReference(nextReference);
       queueRef.current.shift();
+      hydrateReference(nextReference, true, queueRef.current.length > 0);
       setQueueLength(queueRef.current.length);
       setFirstUnappliedCommand(
         queueRef.current.length === 0
