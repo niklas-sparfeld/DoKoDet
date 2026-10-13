@@ -80,6 +80,7 @@ type WorkbenchPointHandler = (
 type InteractionOptions = {
   readOnly: boolean;
   activeState: VisibleCardReviewWorkbenchState;
+  pileRegionEditorActive: boolean;
   viewport: WorkbenchViewport;
   width: number;
   height: number;
@@ -111,6 +112,7 @@ type InteractionOptions = {
 export function useVisibleCardWorkbenchInteraction({
   readOnly,
   activeState,
+  pileRegionEditorActive,
   viewport,
   width,
   height,
@@ -150,36 +152,39 @@ export function useVisibleCardWorkbenchInteraction({
     anchorPreviewRef.current = next;
     setAnchorPreview(next);
   };
-  const removeVirtualCard = useCallback((cardId: string) => {
-    if (
-      readOnly ||
-      activeState.activeTool !== "virtual_cards" ||
-      activeState.selection?.type !== "virtual_card" ||
-      activeState.selection.id !== cardId
-    )
-      return false;
-    const scene = sceneDraftRef.current;
-    if (scene === null) return false;
-    if (scene.scene.poses.length <= 1) return true;
-    const nextSelection = scene.scene.poses.find(
-      (pose) => pose.card_id !== cardId,
-    );
-    applySceneAction(
-      { type: "remove", cardId },
-      "Card removed from the virtual table.",
-    );
-    if (nextSelection === undefined) clearSelection();
-    else select({ type: "virtual_card", id: nextSelection.card_id });
-    return true;
-  }, [
-    activeState.activeTool,
-    activeState.selection,
-    applySceneAction,
-    clearSelection,
-    readOnly,
-    sceneDraftRef,
-    select,
-  ]);
+  const removeVirtualCard = useCallback(
+    (cardId: string) => {
+      if (
+        readOnly ||
+        activeState.activeTool !== "virtual_cards" ||
+        activeState.selection?.type !== "virtual_card" ||
+        activeState.selection.id !== cardId
+      )
+        return false;
+      const scene = sceneDraftRef.current;
+      if (scene === null) return false;
+      if (scene.scene.poses.length <= 1) return true;
+      const nextSelection = scene.scene.poses.find(
+        (pose) => pose.card_id !== cardId,
+      );
+      applySceneAction(
+        { type: "remove", cardId },
+        "Card removed from the virtual table.",
+      );
+      if (nextSelection === undefined) clearSelection();
+      else select({ type: "virtual_card", id: nextSelection.card_id });
+      return true;
+    },
+    [
+      activeState.activeTool,
+      activeState.selection,
+      applySceneAction,
+      clearSelection,
+      readOnly,
+      sceneDraftRef,
+      select,
+    ],
+  );
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
@@ -195,7 +200,12 @@ export function useVisibleCardWorkbenchInteraction({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeState.activeTool, activeState.selection, readOnly, removeVirtualCard]);
+  }, [
+    activeState.activeTool,
+    activeState.selection,
+    readOnly,
+    removeVirtualCard,
+  ]);
   const handleSurfaceKeyDown = (event: ReactKeyboardEvent<SVGSVGElement>) => {
     if (
       event.key === "Escape" &&
@@ -256,7 +266,12 @@ export function useVisibleCardWorkbenchInteraction({
     event: ReactKeyboardEvent<SVGPolygonElement>,
     cardId: string,
   ) => {
-    if (readOnly || activeState.activeTool !== "virtual_cards") return;
+    if (
+      readOnly ||
+      activeState.activeTool !== "virtual_cards" ||
+      pileRegionEditorActive
+    )
+      return;
     if (
       event.key === "Backspace" &&
       activeState.selection?.type === "virtual_card" &&
@@ -452,6 +467,7 @@ export function useVisibleCardWorkbenchInteraction({
     if (
       readOnly ||
       activeState.activeTool !== "virtual_cards" ||
+      pileRegionEditorActive ||
       sceneDraftRef.current === null
     )
       return;
@@ -743,7 +759,12 @@ export function useVisibleCardWorkbenchInteraction({
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     dispatch({ type: "commit_gesture" });
     if (gesture.kind === "pan") {
-      if (!gesture.dirty && activeState.activeTool === "visible_regions") {
+      if (
+        !gesture.dirty &&
+        (activeState.activeTool === "visible_regions" ||
+          (activeState.activeTool === "virtual_cards" &&
+            pileRegionEditorActive))
+      ) {
         onCanvasPointerDown?.(event, gesture.startPoint ?? null);
       }
       return;

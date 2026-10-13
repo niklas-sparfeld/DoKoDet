@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { PipelineVisibleCardEditor } from "./PipelineVisibleCardEditor";
 import * as fixtures from "./PipelineVisibleCardEditorFixtures";
+import { scene } from "./VisibleCardReviewWorkbenchFixtures";
 const {
   FRAME_IDENTITY,
   ITEM_ID,
@@ -20,8 +21,11 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
   });
 
   it("draws and publishes a pile footprint in the source frame", async () => {
+    const value = referenceWithTwoCandidates();
+    const item = value.draft.items[0]!.item as Record<string, unknown>;
+    item.card_scene = scene;
     const fetchImplementation = vi.fn<typeof fetch>(() =>
-      Promise.resolve(jsonResponse(referenceWithTwoCandidates())),
+      Promise.resolve(jsonResponse(value)),
     );
     vi.stubGlobal("fetch", fetchImplementation);
     render(
@@ -37,6 +41,9 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
     const user = userEvent.setup();
     await screen.findByRole("img", { name: /visible-card proposal/ });
     await user.click(screen.getByRole("button", { name: /Draw pile region/ }));
+    expect(
+      screen.getByRole("button", { name: "Edit Virtual cards" }),
+    ).toHaveAttribute("aria-pressed", "true");
     const canvas = screen.getByRole("img", {
       name: "2 visible-card proposals",
     });
@@ -95,6 +102,7 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
   it("inserts a new pile point on the nearest edge", async () => {
     const value = reference();
     const item = value.draft.items[0]!.item as Record<string, unknown>;
+    item.card_scene = scene;
     item.pile_detection_status = "supported";
     item.pile_regions = [
       {
@@ -126,7 +134,7 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
         },
       },
     ];
-    const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse(value)),
     );
     vi.stubGlobal("fetch", fetchImplementation);
@@ -145,6 +153,9 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
     await userEvent
       .setup()
       .click(screen.getByRole("button", { name: "Select pile region pile-1" }));
+    expect(
+      screen.getByRole("button", { name: "Edit Virtual cards" }),
+    ).toHaveAttribute("aria-pressed", "true");
     const canvas = screen.getByRole("img", { name: /pile region/ });
     vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
       bottom: 100,

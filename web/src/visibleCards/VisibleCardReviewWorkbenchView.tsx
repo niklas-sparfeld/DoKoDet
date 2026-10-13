@@ -358,6 +358,7 @@ export function VisibleCardReviewWorkbenchView({
     calibrationRefinement,
     mappingAnchors,
     selectedMappingAnchor,
+    pileRegionEditorActive: editor?.pileRegion != null,
     sceneDraftRef,
     setSceneDraft,
     commitScene,
@@ -472,7 +473,8 @@ export function VisibleCardReviewWorkbenchView({
         "group_selected_cards_into_pile",
         "convert_ignore_region_to_pile",
       ].includes(action) &&
-      activeState.activeTool !== "visible_regions"
+      activeState.activeTool !== "visible_regions" &&
+      activeState.activeTool !== "virtual_cards"
     ) {
       dispatch({ type: "select_tool", tool: "visible_regions" });
       onToolChange?.("visible_regions");
