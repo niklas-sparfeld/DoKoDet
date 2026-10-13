@@ -42,7 +42,7 @@ pile exclusion and observation contract.
 
 This campaign does not depend on the new RF-DETR candidate. It trains from completed reviewed
 geometry and labels. RF-DETR training belongs to
-[0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md).
+[0087](../2-ready/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md).
 Model promotion and productive campaign UI remain in
 [0044](../1-backlog/0044-Productive_Local_Identity_Model_Operations.md).
 

@@ -24,7 +24,7 @@
 
 ## Scheduling decision — 2026-10-11
 
-[0087](../3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
+[0087](../2-ready/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
 [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md) own new model campaigns.
 [0089](0089-Virtual_Card_Algorithm_Edge_Cases.md) owns bounded pose and crop integration fixes.
 [0090](0090-Local_End_to_End_Recording_Pipeline.md) owns the first composed local pilot. This epic

@@ -17,8 +17,8 @@
 - **M0:** Complete (2026-10-11) — inventory all accepted recordings, reconcile frozen partitions,
   exclude protected sources, and select the `IMG_0095` pilot.
 - **M1:** Complete (2026-10-11) — generate current proposals for all 53 `IMG_0095` event frames.
-- **M2:** Not started — audit completed current-schema references and publish the immutable
-  detection-only handoff needed to start 0087. Record any exact data correction that remains.
+- **M2:** Complete (2026-10-13) — audit completed references and publish the digest-backed
+  detection-only handoff for 0087. Three references qualify; all other candidate gaps are recorded.
 - **M3:** Not started — refresh remaining proposals in resumable recording batches, including the
   `IMG_0095` pilot, with corrected 59 mm by 91 mm geometry.
 - **M4:** Not started — complete geometry review for the selected corpus and update the
@@ -164,6 +164,27 @@ all included masks and exclusions pass current-schema checks; source groups and 
 are explicit; any excluded or unresolved references have exact reasons. No identity labels or
 identity-processor runs are required.
 
+### M2 implementation evidence — 2026-10-13
+
+- The read-only builder is `operations/scripts/build_0086_detection_handoff.py`. It reads the
+  frozen M0 inventory, verifies selected event and visible-card revision lineage, and applies the
+  current v2 geometry, ignore-region, frame-exclusion, human-review, and explicit pile-coverage
+  checks. It does not change references, extract crops, or run a model.
+- The immutable handoff is
+  [0086-M2 detection-only handoff](../../reports/0086-M2_Detection_Only_Handoff.json). Its digest
+  is `57e63ce72236f9b8585c1787df84e7f6a4704b236230522d6ec8303de3e19a92`.
+- Three of 22 candidate recordings qualify: `cardeventnet-IMG_0095`, `cardeventnet-IMG_0097`, and
+  `cardeventnet-IMG_0654`. Together they contain 154 reviewed frames, 130 retained frames, 338
+  visible-card targets, and 74 coarse pile targets. The handoff includes exact source-group,
+  selected event, and reference digests, frame-level masks and exclusions, and prior partition and
+  evaluation-use records. It assigns no training, validation, or test partitions.
+- The other 19 candidates remain excluded from this handoff with exact reasons, including stale
+  draft/reference mismatches, missing or invalid review completion, absent explicit pile coverage,
+  or no retained detection samples. Protected groups remain listed from the frozen inventory.
+- Focused validation passed: three handoff contract tests, Ruff, and deterministic report
+  regeneration. The handoff is ready for 0087's independent M0 audit; it does not itself freeze an
+  RF-DETR dataset or authorize training.
+
 ### Prior pilot review handoff — 2026-10-11
 
 This is the earlier operator handoff, before the milestone order changed. It is not the M2
@@ -216,7 +237,7 @@ an unusable crop. No training or promotion occurs in this epic.
 
 ## 4. Handoff and verification
 
-[0087](../4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
+[0087](../2-ready/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
 [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) owns identity crop preparation and
 training. Each campaign freezes its own eligibility and recipe from this handoff.
 
