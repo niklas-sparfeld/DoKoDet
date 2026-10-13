@@ -1,0 +1,402 @@
+{
+  "campaign_id": "0087-m0-reviewed-rfdetr-campaign",
+  "checkpoint": {
+    "class": "RFDETRSegMedium",
+    "package": "rfdetr==1.9.4",
+    "path": ".runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt",
+    "resolution": [
+      432,
+      432
+    ],
+    "sha256": "3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58"
+  },
+  "comparison_design": {
+    "candidate": "corrected_real_only",
+    "control": "pinned_pretrained_checkpoint",
+    "m3_candidate_count": 1,
+    "m4_candidate": "fixed_real_plus_synthetic_mixture",
+    "m4_candidate_count": 1,
+    "paired_control_reason": "No unchanged common validation partition and compatible source-group assignments exist.",
+    "paired_retraining_control": false,
+    "real_sample_exposure": "equal_to_m3_corrected_real_only"
+  },
+  "freeze_state": "frozen",
+  "identity_review_required": false,
+  "manifest_sha256": "8f98a99ef3e558d2ea8d780be82973782f12804b78369e153b5b7ccba39b9313",
+  "milestone": "M0",
+  "minimum_support": {
+    "train": {
+      "pile_targets": 30,
+      "retained_frames": 30,
+      "visible_card_targets": 100
+    },
+    "validation": {
+      "pile_targets": 30,
+      "retained_frames": 30,
+      "visible_card_targets": 100
+    }
+  },
+  "partitions": {
+    "sealed_test": {
+      "counts": {
+        "pile_reviewed_frames": 0,
+        "pile_targets": 0,
+        "retained_frames": 0,
+        "reviewed_frames": 0,
+        "visible_card_targets": 0
+      },
+      "recordings": []
+    },
+    "train": {
+      "counts": {
+        "pile_reviewed_frames": 82,
+        "pile_targets": 74,
+        "retained_frames": 82,
+        "reviewed_frames": 103,
+        "visible_card_targets": 208
+      },
+      "recordings": [
+        {
+          "allowed_uses": [
+            "train"
+          ],
+          "counts": {
+            "pile_reviewed_frames": 42,
+            "pile_targets": 38,
+            "retained_frames": 42,
+            "reviewed_frames": 53,
+            "visible_card_targets": 105
+          },
+          "event_content_sha256": "f703e2470ee5a44eb7ad7b33e5ea37d0bff154e3c8428de686724e0c9718c88f",
+          "event_revision_id": "reference-events-3e2d3b060f2719da7d4e932825b78370",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "train"
+          },
+          "recording_id": "cardeventnet-IMG_0095",
+          "reference_content_sha256": "34e823ceaafe13470920ef20026a84eab8fc8ee9828c9fd4468d48530644c215",
+          "reference_manifest_sha256": "c4e55e147d629f46a0275746bae3989932b9132493092e7e6affcdab1e18b925",
+          "reference_revision_id": "reference-visible_cards-1cb557a7cc9621c57c574a7ff275945a",
+          "source_group": {
+            "session_id": "capture-img-0095",
+            "source_asset_id": "source-cardeventnet-IMG_0095",
+            "source_group_id": "source-group-94db7dc13473c394",
+            "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+            "table_setup": "setup-img-0095"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "allowed_uses": [
+            "train"
+          ],
+          "counts": {
+            "pile_reviewed_frames": 40,
+            "pile_targets": 36,
+            "retained_frames": 40,
+            "reviewed_frames": 50,
+            "visible_card_targets": 103
+          },
+          "event_content_sha256": "94b943228fdf5ad6e5583d9b1ea1e799ce467a905308082c2743a0cfd40122f7",
+          "event_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "train",
+            "rfdetr": "train"
+          },
+          "recording_id": "cardeventnet-IMG_0097",
+          "reference_content_sha256": "005cf7384e2dfe89585b726c12bb1ceb12c3ab79e76765bc1e6324168b7e0455",
+          "reference_manifest_sha256": "dd3e34cd7bb5670c1fb458a0f16c9fc0bdd7ea2eacc3a1fce016e3494d917c50",
+          "reference_revision_id": "reference-visible_cards-b2068e9892feee08eb1ec86c52d4f2ed",
+          "source_group": {
+            "session_id": "capture-img-0097",
+            "source_asset_id": "source-cardeventnet-IMG_0097",
+            "source_group_id": "source-group-2a2a1962c2651613",
+            "source_video_sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+            "table_setup": "setup-img-0097"
+          },
+          "source_permission": "project_use"
+        }
+      ]
+    },
+    "validation": {
+      "counts": {
+        "pile_reviewed_frames": 48,
+        "pile_targets": 0,
+        "retained_frames": 48,
+        "reviewed_frames": 51,
+        "visible_card_targets": 130
+      },
+      "recordings": [
+        {
+          "allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "counts": {
+            "pile_reviewed_frames": 48,
+            "pile_targets": 0,
+            "retained_frames": 48,
+            "reviewed_frames": 51,
+            "visible_card_targets": 130
+          },
+          "event_content_sha256": "988d3991a428658338f650903906f3c2fb8126a8607e16a0f7f3f90421178e1b",
+          "event_revision_id": "reference-events-4fbcfe0c14e734b5431eaec5f8395e15",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recording_id": "cardeventnet-IMG_0654",
+          "reference_content_sha256": "0f08adacab93932f0cb33ffd3f1208d56e28ef4551593036aaef5df387f0bcb9",
+          "reference_manifest_sha256": "47f788fc1ccec20d4d9478f63a125bc888d5910fe7d494e4325ccb04841b3463",
+          "reference_revision_id": "reference-visible_cards-44e710d15fd7b579b9bf370f32e82466",
+          "source_group": {
+            "session_id": "capture-img-0654",
+            "source_asset_id": "source-cardeventnet-IMG_0654",
+            "source_group_id": "source-group-567a782fd1d5590d",
+            "source_video_sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+            "table_setup": "setup-img-0654"
+          },
+          "source_permission": "project_use"
+        }
+      ]
+    }
+  },
+  "prior_candidate_training": {
+    "cardeventnet-IMG_0095": {
+      "campaign": "0068",
+      "partition": "train"
+    },
+    "cardeventnet-IMG_0097": {
+      "campaign": "0068",
+      "partition": "train"
+    },
+    "cardeventnet-IMG_0654": {
+      "campaign": "0068",
+      "partition": "not-in-frozen-campaign"
+    }
+  },
+  "prior_evaluation_use": [
+    {
+      "campaign": "0067",
+      "purpose": "validation",
+      "recording_ids": [
+        "cardeventnet-IMG_0090",
+        "cardeventnet-IMG_0091",
+        "cardeventnet-IMG_0661"
+      ]
+    },
+    {
+      "campaign": "0068",
+      "purpose": "sealed_test_evaluation",
+      "recording_ids": [
+        "cardeventnet-IMG_0646",
+        "cardeventnet-IMG_0648",
+        "cardeventnet-IMG_0649"
+      ]
+    }
+  ],
+  "protected_exclusions": [
+    {
+      "recordings": [
+        "cardeventnet-IMG_0669",
+        "cardeventnet-IMG_0670",
+        "cardeventnet-IMG_0671",
+        "cardeventnet-IMG_0673",
+        "cardeventnet-IMG_0674"
+      ],
+      "rule": "system-holdout",
+      "source": "CardEventNet split.json"
+    },
+    {
+      "recordings": [
+        "cardeventnet-IMG_0646",
+        "cardeventnet-IMG_0648",
+        "cardeventnet-IMG_0649"
+      ],
+      "rule": "RF-DETR sealed test",
+      "source": "data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json"
+    },
+    {
+      "recordings": [
+        "cardeventnet-IMG_2777",
+        "cardeventnet-IMG_2778",
+        "cardeventnet-IMG_2779",
+        "cardeventnet-IMG_2780",
+        "cardeventnet-IMG_2781"
+      ],
+      "rule": "legacy device diagnostic only",
+      "source": "data/operations/source-exclusions/legacy-device-diagnostic.json"
+    },
+    {
+      "recordings": [
+        "cardeventnet-IMG_0090",
+        "cardeventnet-IMG_0091",
+        "cardeventnet-IMG_0635",
+        "cardeventnet-IMG_0642",
+        "cardeventnet-IMG_0644",
+        "cardeventnet-IMG_0645",
+        "cardeventnet-IMG_0652",
+        "cardeventnet-IMG_0661"
+      ],
+      "rule": "protected validation",
+      "source": "CardEventNet, 0068 RF-DETR, and 0043 DINO frozen splits"
+    },
+    {
+      "recordings": [
+        "5a1f4037-d8ad-48da-9950-2ed2272811a5",
+        "game-2026-08-20-01-001",
+        "game-2026-08-20-01-002",
+        "game-2026-08-20-01-003",
+        "game-2026-08-20-01-004",
+        "game-2026-08-20-01-005",
+        "game-2026-09-18-01-001",
+        "game-2026-09-18-01-002",
+        "game-2026-09-18-01-003"
+      ],
+      "rule": "not proven development",
+      "source": "missing or non-train partition assignment"
+    }
+  ],
+  "recipe": {
+    "augmentation": {
+      "do_random_resize_via_padding": false,
+      "expanded_scales": true,
+      "multi_scale": true,
+      "policy_id": "rfdetr-default-v1",
+      "use_ema": true
+    },
+    "budget": {
+      "candidate_count": 1,
+      "sweep": false,
+      "wall_clock_seconds": 7200
+    },
+    "data_contract": {
+      "box_source": "derived_from_same_visible_region",
+      "categories": [
+        {
+          "id": 1,
+          "name": "visible_card",
+          "supercategory": "card"
+        },
+        {
+          "id": 2,
+          "name": "card_pile",
+          "supercategory": "card"
+        }
+      ],
+      "ignore_loss": "no_custom_masked_loss",
+      "ignore_policy": "exclude_frame_on_any_reviewed_ignore_region",
+      "label": "visible_card",
+      "mask_source": "reviewed_visible_region",
+      "partition_policy": "source_group_disjoint/v1",
+      "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+      "pile_mask_source": "reviewed_coarse_pile_region",
+      "pixel_ownership": "reviewed-card-pixels-priority-v1",
+      "test_partition": "sealed_test"
+    },
+    "early_stopping": {
+      "enabled": true,
+      "min_delta": 0.001,
+      "monitor": "val/mask_ap_50_95",
+      "patience": 8
+    },
+    "model": {
+      "class": "RFDETRSegMedium",
+      "class_names": [
+        "visible_card",
+        "card_pile"
+      ],
+      "num_classes": 2,
+      "resolution": [
+        432,
+        432
+      ],
+      "variant": "rfdetr-seg-medium"
+    },
+    "package": {
+      "name": "rfdetr",
+      "version": "1.9.4"
+    },
+    "pretrained_checkpoint": {
+      "name": "rf-detr-seg-medium.pt",
+      "path": ".runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt",
+      "sha256": "3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58"
+    },
+    "schema_version": "rfdetr-segmentation-recipe/v1",
+    "training": {
+      "batch_size": 1,
+      "device": "mps",
+      "effective_batch_size": 4,
+      "epochs": 40,
+      "grad_accum_steps": 4,
+      "mixed_precision": false,
+      "num_workers": 0,
+      "output_dir_name": "rfdetr-segmentation-0087",
+      "seed": 6701
+    },
+    "validation": {
+      "confidence_threshold": 0.5,
+      "group_by": [
+        "recording_id",
+        "card_side",
+        "visible_card_count_bucket"
+      ],
+      "metrics": [
+        "per_class_mask_ap_50_95",
+        "per_class_mask_ap50",
+        "per_class_box_ap_50_95",
+        "per_class_recall",
+        "class_confusion",
+        "pile_contained_card_predictions",
+        "card_recall_near_piles",
+        "false_detections",
+        "duplicate_detections",
+        "empty_prediction_rate",
+        "per_recording_coverage"
+      ],
+      "minimum_gate": {
+        "card_pile_mask_ap_50_95": "report_when_supported; no sealed-test pile claim",
+        "card_pile_recall": "nonzero_on_validation_if_supported",
+        "duplicate_detections": "no_worse_than_pretrained_validation",
+        "empty_prediction_rate": "no_worse_than_pretrained_validation",
+        "false_detections": "no_worse_than_pretrained_validation",
+        "nonzero_visible_card_recall_per_sealed_test_recording": true,
+        "visible_card_mask_ap_50_95": "strictly_greater_than_pretrained_validation",
+        "visible_card_recall": "strictly_greater_than_pretrained_validation"
+      },
+      "slices": [
+        "ordinary_overlapping_tricks_confusion",
+        "card_pile_localization_and_classification",
+        "fragments_inside_piles",
+        "individual_card_recall_near_piles",
+        "small_cards_when_supported",
+        "frame_edges_when_supported",
+        "human_hand_pixels_when_supported"
+      ]
+    }
+  },
+  "recipe_sha256": "6084c6e50b493279917fad7fb09a8b6a7273c6828a5f2961b701dba6e82fad74",
+  "resource_budget": {
+    "m3_wall_clock_seconds": 7200,
+    "m4_wall_clock_seconds": 7200
+  },
+  "schema_version": "rfdetr-reviewed-campaign-manifest/v1",
+  "sealed_test_unavailable_reason": "IMG_0095 and IMG_0097 allow train use only. IMG_0654 is the only eligible independent group that allows validation or test use, so it is reserved for validation.",
+  "source_handoff": {
+    "content_schema": "visible-card-data/v2",
+    "eligible_recording_count": 3,
+    "path": "docs/reports/0086-M2_Detection_Only_Handoff.json",
+    "sha256": "57e63ce72236f9b8585c1787df84e7f6a4704b236230522d6ec8303de3e19a92"
+  },
+  "split_policy": "source_group_disjoint/v1; no protected group enters training",
+  "test_policy": "No sealed test is available. Record candidate test results as unavailable; do not relabel train-only groups as test data.",
+  "training_readiness": "blocked",
+  "training_readiness_gaps": [
+    "validation pile_targets support is below frozen minimum 30"
+  ]
+}

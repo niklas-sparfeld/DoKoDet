@@ -4,70 +4,67 @@ Date: 2026-10-13
 
 ## Decision
 
-M0 is blocked. Do not materialize masks or train a candidate. The current source records do not
-support a trustworthy 0087 manifest. Resume M0 after 0086 publishes its detection-only handoff and
-the selected completed references pass a current-schema audit.
+M0 is complete. The immutable campaign manifest freezes the eligible references, source groups,
+prior evaluation use, split, recipe, checkpoint, candidate counts, budgets, and quality gates.
+Two-class training is blocked because the only group that allows validation has no positive pile
+targets. Do not train until this support gap is resolved or the campaign gate changes through a
+reviewed plan update.
 
-This audit did not read source video bytes, change review data, materialize a trainer view, or run
-inference. The diagnostic used the existing 0068 read-only manifest builder with its frozen split
-and expected inventory. Its result is evidence about reuse limits, not an 0087 selection.
+No sealed test is available. The two groups that allow training only cannot be used for evaluation.
+The remaining group allows validation and test, so it is reserved for validation. Do not relabel a
+train-only group as a test group.
 
-## Evidence
+## Frozen inputs
 
-- The 2026-10-11 0086 inventory reports 25 completed visible-card references, but no detection-only
-  campaign handoff with current geometry, per-frame visible masks, ignore or frame-exclusion
-  decisions, and source-group assignments. It also records that the `IMG_0095` pilot still needs
-  refreshed proposals and human review.
-- The live completed-corrected reference discovery found 31 references. The 0068 builder only
-  selects its fixed 24 recording IDs and expects its historical totals. Against current data it
-  reports 34 expected recording assignments, 24 audited recordings, 1,190 reviewed frames, 851
-  retained frames, 226 excluded frames, 113 ineligible outcomes, 356 ignore regions, and 2,283
-  individual targets. These counts are diagnostic and are not frozen 0087 counts.
-- The 0068 diagnostic reports 571 coverage gaps, including current review outcome and schema
-  mismatches, missing selected references, and fixed-corpus count drift. Therefore, its manifest
-  validator cannot certify the current reference store for 0087.
-- The 0067 decision used `IMG_0090`, `IMG_0091`, and `IMG_0661` for validation. Treat these as
-  diagnostic evaluation data in 0087, not a fresh sealed test.
-- Epic 0068 completed its sealed-test evaluation on `IMG_0646`, `IMG_0648`, and `IMG_0649`. Do not
-  reuse those groups as a fresh sealed test. The 0086 inventory also marks its three RF-DETR sealed
-  recordings as excluded from development selection.
-- Follow-up environment verification in this main checkout confirms `rfdetr==1.9.4` is installed in
-  both local Python environments. The pretrained checkpoint exists at
-  `.runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt` with SHA-256
-  `3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58`. Package and checkpoint
-  availability are not current blockers; M0 must still record this exact initialization in its
-  frozen recipe.
-- 0091 completed two-class software support, but its handoff explicitly reports that no trained
-  pile-capable model is selected. Software fixtures do not establish training readiness or model
-  quality.
+The deterministic manifest is
+[`0087-M0_Reviewed_RF_DETR_Campaign_Manifest.json`](0087-M0_Reviewed_RF_DETR_Campaign_Manifest.json).
+It uses 0086 M2 handoff digest
+`57e63ce72236f9b8585c1787df84e7f6a4704b236230522d6ec8303de3e19a92`. Rebuilding the handoff from
+the current source and reference stores returned the same digest and three eligible recordings.
 
-## Required next inputs
+| Split | Recording | Permission | Retained frames | Visible-card targets | Pile targets |
+| --- | --- | --- | ---: | ---: | ---: |
+| Train | `cardeventnet-IMG_0095` | Train only | 42 | 105 | 38 |
+| Train | `cardeventnet-IMG_0097` | Train only | 40 | 103 | 36 |
+| Validation | `cardeventnet-IMG_0654` | Train, validation, test, evaluation | 48 | 130 | 0 |
 
-1. 0086 must publish an immutable detection-only handoff with eligible completed references,
-   current geometry and masks, per-frame ignore or exclusion receipts, exact source-group
-   assignments, and pile coverage decisions. Identity labels are not required.
-2. The 0087 audit must read the current `visible-card-data/v2` references and validate source and
-   frame lineage, target policy, and source-group isolation. It must independently select current
-   development groups and record all prior evaluation use. Do not reuse the 0067 or 0068 split as
-   the 0087 split.
-3. Freeze an unopened eligible test only if independent eligible groups remain after the prior-use
-   audit. Otherwise freeze the affected data as diagnostic evaluation and record why no sealed
-   test is available. Never move a protected group into training.
-4. Pin a retrievable RF-DETR 1.9.4 SegMedium initialization and its digest before training. Keep
-   the M3 candidate count to one real-only control and one corrected-real-only candidate at most;
-   use a paired control only when the common validation partition and source groups are unchanged.
-   M4 may add one fixed real-plus-synthetic candidate.
+The three source groups are disjoint. None was used by the recorded 0067 validation or 0068 sealed
+test. The two train groups were in the 0068 train partition. The 0087 validation group was outside
+that frozen campaign. The evaluation uses the pinned pretrained checkpoint, not the old 0068
+candidate.
 
-## Frozen limits
+The checkpoint is RF-DETR SegMedium from `rfdetr==1.9.4` at
+`.runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt`, SHA-256
+`3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58`. The artifact was verified in
+the main checkout. It is not present in this secondary worktree.
 
-- Maximum training candidates: two real-only candidates in M3 and one mixed candidate in M4.
-- No ratio, seed, model-size, threshold, or recipe sweep.
-- No protected test inference until the candidate and gate are locked.
-- M1 mask materialization, M2 synthetic preparation, M3 training, M4 mixed training, and M5 bundle
-  decision remain not started.
+## Readiness gaps
 
-The machine-readable 0086 inventory is
-[`0086-M0_Reviewed_Virtual_Card_Corpus_Inventory.json`](0086-M0_Reviewed_Virtual_Card_Corpus_Inventory.json).
-The fixed historical 0068 campaign is documented in
-[`0086`](../plans/3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) and the
-[`0068 closure record`](../plans/5-closed/0068-Reviewed_RF_DETR_Local_Visible_Card_Detector.md).
+- The validation recording has 0 reviewed `card_pile` targets. The frozen minimum is 30. The
+  two-class pile AP and recall gates cannot be measured on this validation split.
+- No independent sealed-test group remains after source permissions and the validation assignment.
+  M5 must record test evaluation as unavailable.
+- The M3 design has one corrected-real-only candidate and the pinned pretrained checkpoint as the
+  control. There is no paired retraining control because no unchanged common validation split and
+  compatible prior source-group assignments exist.
+- M4 permits one fixed synthetic mixture with equal real-sample exposure. Omit it with a recorded
+  reason if a compatible two-class synthetic pool is not available.
+
+The manifest freezes visible-card comparisons to the pretrained validation result, per-class mask
+and box metrics, recall, false detections, duplicates, empty predictions, recording coverage, and
+the supported pile and overlap slices. It requires 30 retained frames, 100 visible-card targets,
+and 30 pile targets in train and validation. It also freezes a 7,200-second budget for each
+candidate. No protected contributor is assigned to training. No training or test inference was run.
+
+## Repeat the freeze
+
+From the repository root, run:
+
+```sh
+mise exec -- uv run --project operations --group inference \
+  python operations/scripts/freeze_0087_m0.py \
+  --checkpoint /Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt
+```
+
+The command writes the deterministic manifest and reports `training_readiness: blocked` while
+validation pile support remains below the frozen minimum.

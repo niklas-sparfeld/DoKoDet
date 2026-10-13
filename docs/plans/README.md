@@ -26,8 +26,9 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-1. **0087 M0:** Independently audit the 0086 detection-only handoff, prior evaluation use, and
-   source groups. Then freeze the bounded RF-DETR campaign inputs before materialization or training.
+1. **0087 M1–M2:** Materialize and inspect the reviewed masks, then prepare the fixed synthetic
+   addition. M0 froze the campaign inputs. M3 training remains held until validation has pile-positive
+   support or the two-class quality gate changes through a reviewed plan update.
 2. **0086 M3–M5 and 0088:** Continue proposal refresh and geometry review after the detection handoff.
    Complete visual identity review last, for 0088. Use the completed 0091 annotation workflow to
    review one region per accumulated pile. RF-DETR needs 0091 M0–M3 before materialization and M4
@@ -69,12 +70,12 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0 inventory, M1 pilot proposals, and M2 detection-only handoff complete. M3 refreshes remaining proposals; M4 completes geometry review; M5 completes visual identity review for 0088. |
+| [0087 — Reviewed virtual-card RF-DETR campaign](3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0068 and 0070 complete; 0091 M0–M3 complete; 0086 M2 handoff complete | M0 froze three eligible references, permissions, source groups, split, checkpoint, recipe, budgets, and gates. Continue M1/M2. Two-class training is blocked by zero validation pile targets; no sealed-test group is available. |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0087 — Reviewed virtual-card RF-DETR campaign](2-ready/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0068 and 0070 complete; 0091 M0–M3 complete; 0086 M2 detection-only handoff with current geometry, masks, ignore/exclusion decisions, pile coverage, and source groups | Ready to start M0. Independently audit the three eligible current-schema references, source groups, and prior evaluation use before freezing the campaign. The historical 0068 validator does not certify the current store. Identity review is not required. See the [readiness report](../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md). |
 | [0088 — Reviewed virtual-card DINO campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) | 0086 M4 geometry review and M5 identity handoff; 0091 M5 for pile-bearing inputs; 0043 and 0085 complete | M0–M5 not started. Prepare individual-card crops with piles excluded, train separate bounded real and synthetic identity candidates, and publish measured class limits and a bundle decision. Does not depend on 0087 training. |
 | [0089 — Virtual-card algorithm edge cases](4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) | 0086 reviewed evidence; 0087 and 0088 bundle decisions | M0–M3 not started. Reproduce fresh failures, freeze at most two small failure families, and verify bounded pose, occlusion, or crop fixes. |
 | [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) | 0087 and 0088 bundle decisions; 0089 and 0091 M7 handoffs; 0048 and 0049 complete | M0–M3 not started. Coordinate retained automatic stages with declared pile capabilities on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion. |

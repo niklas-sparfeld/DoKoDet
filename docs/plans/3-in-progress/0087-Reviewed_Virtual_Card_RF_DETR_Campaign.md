@@ -4,7 +4,7 @@
 
 - **Summary:** Train and compare RF-DETR candidates from reviewed individual-card masks and
   coarse pile targets, with one compatible synthetic-data addition where supported.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0068 and 0070; 0091 M0–M3 for two-class preparation; 0086 M2
   detection-only handoff with reviewed geometry, visible-card masks, ignore or frame-exclusion
   decisions, pile coverage, and source-group assignments. Visual identity review is not required.
@@ -16,13 +16,16 @@
 
 ## Milestone status
 
-- **M0:** Not started — the 0086 detection-only handoff is available for an independent audit. The
-  historical 0068 validator does not certify the current reference store. Prior test usage is
-  recorded in the [M0 readiness report](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md).
-  Audit the three eligible references and source groups before freezing training inputs.
+- **M0:** Complete (2026-10-13) — audited the three eligible references, source permissions,
+  source groups, and prior evaluation use. Froze the split, checkpoint, recipe, candidate counts,
+  budgets, and gates. Two-class training readiness is blocked because validation has no pile
+  targets; no sealed-test group is available. See the [M0 readiness report](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md)
+  and [frozen manifest](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Manifest.json).
 - **M1:** Not started — materialize and inspect the real segmentation view.
 - **M2:** Not started — regenerate and inspect the synthetic addition.
-- **M3:** Not started — run the fixed real-only training comparison.
+- **M3:** Blocked — the only validation-permitted reference has zero pile targets, below the
+  frozen minimum of 30. Do not train until validation has pile-positive support or the two-class
+  quality gate changes through a reviewed plan update.
 - **M4:** Not started — train the declared synthetic mixture and compare on real validation.
 - **M5:** Not started — publish the locked evaluation and bundle decision.
 
@@ -167,11 +170,11 @@ Use focused operations materialization, mask, exclusion, split, and reproducibil
 smoke, evaluation, resume, export, and local provider checks. Run relevant Python static checks.
 No cloud infrastructure or real capture hardware is required.
 
-### M0 readiness audit — 2026-10-13
+### M0 implementation evidence — 2026-10-13
 
-See the [M0 readiness report](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md). The
-existing 0068 builder is fixed to its historical recording list and corpus totals. Its read-only
-diagnostic reports 571 coverage gaps against the current reference store. The 0067 validation groups
-are diagnostic only, and the 0068 sealed test has already been used. The current 0086 handoff and a
-retrievable pinned pretrained checkpoint are not available. No 0087 manifest was frozen and no
-training data or model run was created.
+The read-only freeze command is `operations/scripts/freeze_0087_m0.py`. It validates the 0086
+detection-handoff digest, audits source permissions and source groups, excludes prior evaluation
+groups, pins the retrievable RF-DETR 1.9.4 checkpoint, and writes the deterministic M0 manifest.
+The live 0086 handoff rebuilt to the same digest as the checked-in report. M0 is frozen, but two-class
+training readiness is blocked: the only evaluation-permitted group has no reviewed pile positives.
+No training or inference was run.
