@@ -4,9 +4,9 @@
 
 - **Summary:** Train and compare RF-DETR candidates from reviewed individual-card masks and
   coarse pile targets, with one compatible synthetic-data addition where supported.
-- **Status:** In Progress
-- **Depends on:** Completed 0068 and 0070; 0091 M0–M3 for two-class preparation; M1 requires a
-  detection-only 0086 handoff with reviewed geometry, visible-card masks, ignore or frame-exclusion
+- **Status:** Blocked
+- **Depends on:** Completed 0068 and 0070; 0091 M0–M3 for two-class preparation; an 0086
+  detection-only handoff with reviewed geometry, visible-card masks, ignore or frame-exclusion
   decisions, and source-group assignments; M4 before pile-capable inference checks. Visual identity
   review is not required.
 - **Supersedes:** Unstarted training in 0084; retain its M0–M2 evidence as historical inspection
@@ -17,9 +17,10 @@
 
 ## Milestone status
 
-- **M0:** In progress — audit detection inputs and prior evaluation use; freeze the corrected
-  visible-card view without waiting for identity labels. The existing 0067 audit has a fixed
-  recording list and is not an 0087 manifest; M0 must freeze an independent, current selection.
+- **M0:** Blocked — the live reference store does not pass the historical 0068 validator, and 0086
+  has not published the detection-only handoff. Prior test usage is recorded in the
+  [M0 readiness report](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md). Do not freeze
+  training inputs until current references and source groups can be audited.
 - **M1:** Not started — materialize and inspect the real segmentation view.
 - **M2:** Not started — regenerate and inspect the synthetic addition.
 - **M3:** Not started — run the fixed real-only training comparison.
@@ -166,3 +167,12 @@ permits a handoff.
 Use focused operations materialization, mask, exclusion, split, and reproducibility tests. Use trainer
 smoke, evaluation, resume, export, and local provider checks. Run relevant Python static checks.
 No cloud infrastructure or real capture hardware is required.
+
+### M0 readiness audit — 2026-10-13
+
+See the [M0 readiness report](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md). The
+existing 0068 builder is fixed to its historical recording list and corpus totals. Its read-only
+diagnostic reports 571 coverage gaps against the current reference store. The 0067 validation groups
+are diagnostic only, and the 0068 sealed test has already been used. The current 0086 handoff and a
+retrievable pinned pretrained checkpoint are not available. No 0087 manifest was frozen and no
+training data or model run was created.
