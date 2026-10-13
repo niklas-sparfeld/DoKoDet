@@ -17,15 +17,13 @@
 ## Milestone status
 
 - **M0:** Complete (2026-10-13) — audited the three eligible references, source permissions,
-  source groups, and prior evaluation use. Froze the split, checkpoint, recipe, candidate counts,
-  budgets, and gates. Two-class training readiness is blocked because validation has no pile
-  targets; no sealed-test group is available. See the [M0 readiness report](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md)
+  source groups, and prior evaluation use. The persisted stage-use values mirror old data splits;
+  the original `project_use` permission allows all campaign stages. Froze the split, checkpoint,
+  recipe, candidate counts, budgets, and gates. See the [M0 readiness report](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md)
   and [frozen manifest](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Manifest.json).
 - **M1:** Not started — materialize and inspect the real segmentation view.
 - **M2:** Not started — regenerate and inspect the synthetic addition.
-- **M3:** Blocked — the only validation-permitted reference has zero pile targets, below the
-  frozen minimum of 30. Do not train until validation has pile-positive support or the two-class
-  quality gate changes through a reviewed plan update.
+- **M3:** Not started — run the fixed real-only comparison after the reviewed masks are materialized.
 - **M4:** Not started — train the declared synthetic mixture and compare on real validation.
 - **M5:** Not started — publish the locked evaluation and bundle decision.
 
@@ -37,6 +35,10 @@ not targets. Do not reuse the 0084 mask view as corrected training data: its ins
 found human-hand label spill, and its geometry predates the current measured dimensions. RF-DETR
 learns visible-card regions, so visual identity labels and identity-processor runs are outside this
 campaign's inputs and gates.
+
+For imported CardEventNet sources, use M0's permission audit to resolve effective campaign uses.
+The old `allowed_uses` field can mirror a historical data split and must not replace the original
+`source_permission` value when the two conflict.
 
 Reuse the 0068 SegMedium trainer, evaluation, bundle, and provider boundaries. Reuse the 0070
 synthetic generator. Its historical 50/50 comparison improved real validation mask AP from
@@ -173,8 +175,9 @@ No cloud infrastructure or real capture hardware is required.
 ### M0 implementation evidence — 2026-10-13
 
 The read-only freeze command is `operations/scripts/freeze_0087_m0.py`. It validates the 0086
-detection-handoff digest, audits source permissions and source groups, excludes prior evaluation
-groups, pins the retrievable RF-DETR 1.9.4 checkpoint, and writes the deterministic M0 manifest.
-The live 0086 handoff rebuilt to the same digest as the checked-in report. M0 is frozen, but two-class
-training readiness is blocked: the only evaluation-permitted group has no reviewed pile positives.
-No training or inference was run.
+detection-handoff digest, compares original CardEventNet permissions with persisted stage-use
+values, audits source groups, excludes prior evaluation groups, pins the RF-DETR 1.9.4 checkpoint,
+and writes the deterministic M0 manifest. Seven imported records have stage-use values that mirror
+historical splits despite `source_permission: project_use`. The selected validation group has 36 pile
+targets and meets the two-class minimum. The sealed test has no pile targets. No training or
+inference was run.

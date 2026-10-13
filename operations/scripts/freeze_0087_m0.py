@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+import yaml
+
+from doko_operations.cardevent_migration import _allowed_uses
 from doko_operations.reviewed_visible_card_handoff import validate_reviewed_visible_card_handoff
 from doko_operations.rfdetr_segmentation_campaign import (
     default_rfdetr_segmentation_recipe,
@@ -25,6 +28,61 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _permission_audit(repository: Path) -> dict[str, Any]:
+    legacy_root = repository / "data/operations/cardeventnet-imports/legacy"
+    split_path = legacy_root / "splits/default.yaml"
+    raw_splits = yaml.safe_load(split_path.read_text(encoding="utf-8"))
+    assignments: dict[str, str] = {}
+    for split, recording_ids in raw_splits.items():
+        for recording_id in recording_ids:
+            if recording_id in assignments:
+                raise ValueError(f"legacy split repeats {recording_id}")
+            assignments[recording_id] = split
+
+    mismatches = []
+    for source_path in sorted(
+        (repository / "data/intake/recordings").glob("cardeventnet-*/source-record.json")
+    ):
+        source = _read_json(source_path)
+        permission = source.get("source_permission")
+        if not isinstance(permission, str):
+            continue
+        recorded_uses = source.get("allowed_uses", [])
+        permission_uses = _allowed_uses(permission)
+        if recorded_uses == permission_uses:
+            continue
+        recording_id = source_path.parent.name
+        legacy_recording_id = recording_id.removeprefix("cardeventnet-")
+        metadata_path = (
+            repository / "data/operations/cardeventnet-imports" / recording_id / "metadata.json"
+        )
+        metadata = _read_json(metadata_path)
+        if metadata.get("source_permission") != permission:
+            raise ValueError(f"{recording_id} permission differs from original metadata")
+        legacy_split = assignments.get(legacy_recording_id)
+        normalized_split = {"val": "validation"}.get(legacy_split, legacy_split)
+        mismatches.append(
+            {
+                "recording_id": recording_id,
+                "source_permission": permission,
+                "recorded_allowed_uses": recorded_uses,
+                "permission_allowed_uses": permission_uses,
+                "permission_metadata_path": metadata_path.relative_to(repository).as_posix(),
+                "permission_metadata_sha256": _file_sha256(metadata_path),
+                "legacy_partition": legacy_split,
+                "stage_values_match_legacy_partition": recorded_uses == [normalized_split],
+            }
+        )
+    return {
+        "permission_rule": "cardevent_migration._allowed_uses",
+        "legacy_partition_metadata": {
+            "path": "data/operations/cardeventnet-imports/legacy/splits/default.yaml",
+            "sha256": _file_sha256(split_path),
+        },
+        "recorded_stage_use_mismatches": mismatches,
+    }
+
+
 def build_manifest(repository: Path, checkpoint: Path) -> dict[str, Any]:
     handoff_path = repository / "docs/reports/0086-M2_Detection_Only_Handoff.json"
     handoff = _read_json(handoff_path)
@@ -34,9 +92,9 @@ def build_manifest(repository: Path, checkpoint: Path) -> dict[str, Any]:
 
     by_id = {item["recording_id"]: item for item in handoff["eligible_recordings"]}
     split_ids = {
-        "train": ["cardeventnet-IMG_0095", "cardeventnet-IMG_0097"],
-        "validation": ["cardeventnet-IMG_0654"],
-        "sealed_test": [],
+        "train": ["cardeventnet-IMG_0095"],
+        "validation": ["cardeventnet-IMG_0097"],
+        "sealed_test": ["cardeventnet-IMG_0654"],
     }
     if set(by_id) != {recording_id for ids in split_ids.values() for recording_id in ids}:
         raise ValueError("eligible handoff recordings changed; review the 0087 split before freeze")
@@ -68,7 +126,15 @@ def build_manifest(repository: Path, checkpoint: Path) -> dict[str, Any]:
             required_use = {"train": "train", "validation": "validation", "sealed_test": "test"}[
                 split
             ]
-            if required_use not in item["allowed_uses"]:
+            metadata_path = (
+                repository / "data/operations/cardeventnet-imports" / recording_id / "metadata.json"
+            )
+            metadata = _read_json(metadata_path)
+            permission = metadata.get("source_permission")
+            if permission != item["source_permission"]:
+                raise ValueError(f"{recording_id} source permission differs from legacy metadata")
+            permission_uses = _allowed_uses(permission)
+            if required_use not in permission_uses:
                 raise ValueError(f"{recording_id} source permission does not allow {split}")
             group = item["source_group"]["source_group_id"]
             if group in selected_groups:
@@ -94,7 +160,10 @@ def build_manifest(repository: Path, checkpoint: Path) -> dict[str, Any]:
                     "recording_id": recording_id,
                     "source_group": item["source_group"],
                     "source_permission": item["source_permission"],
-                    "allowed_uses": item["allowed_uses"],
+                    "recorded_allowed_uses": item["allowed_uses"],
+                    "permission_allowed_uses": permission_uses,
+                    "permission_metadata_path": metadata_path.relative_to(repository).as_posix(),
+                    "permission_metadata_sha256": _file_sha256(metadata_path),
                     "prior_partitions": item["prior_partitions"],
                     "reference_revision_id": reference["revision_id"],
                     "reference_manifest_sha256": reference["manifest_sha256"],
@@ -168,6 +237,7 @@ def build_manifest(repository: Path, checkpoint: Path) -> dict[str, Any]:
     minimum_support = {
         "train": {"retained_frames": 30, "visible_card_targets": 100, "pile_targets": 30},
         "validation": {"retained_frames": 30, "visible_card_targets": 100, "pile_targets": 30},
+        "sealed_test": {"retained_frames": 30, "visible_card_targets": 100},
     }
     for split, minimums in minimum_support.items():
         for metric, minimum in minimums.items():
@@ -191,6 +261,7 @@ def build_manifest(repository: Path, checkpoint: Path) -> dict[str, Any]:
         },
         "protected_exclusions": handoff["protected_exclusions"],
         "prior_evaluation_use": prior_evaluation,
+        "permission_audit": _permission_audit(repository),
         "prior_candidate_training": {
             "cardeventnet-IMG_0095": {"campaign": "0068", "partition": "train"},
             "cardeventnet-IMG_0097": {"campaign": "0068", "partition": "train"},
@@ -223,13 +294,11 @@ def build_manifest(repository: Path, checkpoint: Path) -> dict[str, Any]:
         },
         "resource_budget": {"m3_wall_clock_seconds": 7200, "m4_wall_clock_seconds": 7200},
         "test_policy": (
-            "No sealed test is available. Record candidate test results as unavailable; do not "
-            "relabel train-only groups as test data."
+            "Use the sealed test once only after the candidate and gates are locked. "
+            "Do not retune on its results."
         ),
-        "sealed_test_unavailable_reason": (
-            "IMG_0095 and IMG_0097 allow train use only. IMG_0654 is the only eligible "
-            "independent group that allows validation or test use, so it is reserved "
-            "for validation."
+        "sealed_test_pile_support": (
+            "No reviewed pile targets; do not claim pile-class test quality."
         ),
         "identity_review_required": False,
     }
