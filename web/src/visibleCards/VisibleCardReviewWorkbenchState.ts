@@ -274,8 +274,15 @@ export function visibleCardReviewWorkbenchReducer(
       const selection = isSelectionCompatible(action.tool, state.selection)
         ? state.selection
         : null;
-      const enabledLayers = availability.layers[action.tool].available
-        ? [action.tool]
+      const enabledLayers: WorkbenchLayer[] = availability.layers[action.tool]
+        .available
+        ? [
+            action.tool,
+            ...(action.tool === "virtual_cards" &&
+            availability.layers.pile_regions.available
+              ? (["pile_regions"] as const)
+              : []),
+          ]
         : [];
       return {
         ...state,

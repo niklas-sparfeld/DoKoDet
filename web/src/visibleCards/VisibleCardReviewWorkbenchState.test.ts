@@ -167,8 +167,10 @@ describe("visible-card review workbench state", () => {
     expect(switched.gesture).toBeNull();
   });
 
-  it("preselects only the view layer that belongs to the active editor", () => {
-    const state = createVisibleCardReviewWorkbenchState(capabilities());
+  it("preselects the Pile Regions view layer with Virtual Cards", () => {
+    const state = createVisibleCardReviewWorkbenchState(
+      capabilities({ hasPileRegions: false }),
+    );
 
     const visibleRegions = visibleCardReviewWorkbenchReducer(state, {
       type: "select_tool",
@@ -184,7 +186,10 @@ describe("visible-card review workbench state", () => {
     });
 
     expect(visibleRegions.enabledLayers).toEqual(["visible_regions"]);
-    expect(virtualCards.enabledLayers).toEqual(["virtual_cards"]);
+    expect(virtualCards.enabledLayers).toEqual([
+      "virtual_cards",
+      "pile_regions",
+    ]);
     expect(mapping.enabledLayers).toEqual(["mapping"]);
   });
 
