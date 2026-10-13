@@ -1145,12 +1145,17 @@ export function PipelineVisibleCardEditorView({
         grouped_scene_decision: null,
       }));
       const operations: PipelineReferenceOperation[] = [
-        { operation: "set_frame_unreviewed", item_id: frame.itemId },
         ...(frame.outcome.pile_regions ?? []).map((pile) => ({
           operation: "delete_pile_region" as const,
           item_id: frame.itemId,
           pile_id: pile.pile_id,
         })),
+        {
+          operation: "set_frame_review",
+          item_id: frame.itemId,
+          item: { ...frame.outcome, pile_regions: [] },
+        },
+        { operation: "set_frame_unreviewed", item_id: frame.itemId },
         ...copied.map((pile) => ({
           operation: "create_pile_region" as const,
           item_id: frame.itemId,

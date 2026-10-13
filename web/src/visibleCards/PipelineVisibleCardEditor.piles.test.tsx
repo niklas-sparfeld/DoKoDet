@@ -9,9 +9,11 @@ const {
   RECORDING_ID,
   REVISION_ID,
   RUN_ID,
+  SECOND_ITEM_ID,
   jsonResponse,
   reference,
   referenceWithTwoCandidates,
+  referenceWithTwoFrames,
 } = fixtures;
 
 describe("PipelineVisibleCardEditor pile workflow", () => {
@@ -316,6 +318,105 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
       candidate_ids: ["run-card-1"],
       region: { geometry: { kind: "pile-region/v1" } },
     });
+  });
+
+  it("keeps deleted candidates removed when copying pile regions", async () => {
+    const value = referenceWithTwoFrames();
+    const source = value.draft.items[0]!;
+    source.review_state = "accepted";
+    const sourceItem = source.item as Record<string, unknown>;
+    const sourcePile = {
+      pile_id: "source-pile",
+      geometry: {
+        kind: "pile-region/v1",
+        polygons: [
+          [
+            { x: 100, y: 100 },
+            { x: 800, y: 100 },
+            { x: 800, y: 800 },
+          ],
+        ],
+      },
+      normalization: {
+        width: FRAME_IDENTITY.width,
+        height: FRAME_IDENTITY.height,
+        policy_id: "full-frame-0-1000/v1",
+      },
+      source_candidates: [],
+      grouped_candidates: [],
+      grouped_card_states: [],
+      grouped_scene_decision: null,
+      origin: "model_prediction",
+      confidence: 0.87,
+      model_lineage: {
+        provider: "local-rfdetr-segmentation",
+        bundle_identity: { bundle_digest: "a".repeat(64) },
+      },
+    };
+    sourceItem.pile_detection_status = "supported";
+    sourceItem.pile_regions = [sourcePile];
+    const destination = value.draft.items[1]!;
+    const destinationItem = destination.item as Record<string, unknown>;
+    destinationItem.candidates = [];
+    destinationItem.pile_detection_status = "supported";
+    destinationItem.pile_regions = [
+      {
+        ...sourcePile,
+        pile_id: "destination-pile",
+        grouped_candidates: [fixtures.DETECTOR_CANDIDATE],
+      },
+    ];
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(jsonResponse(value)),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        selectionItemId={SECOND_ITEM_ID}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const user = userEvent.setup();
+    await screen.findByRole("img", { name: /visible-card proposal/ });
+    await user.click(screen.getByRole("button", { name: "Next frame →" }));
+    await user.click(
+      screen.getByRole("button", {
+        name: "Copy pile regions from earlier frames Click",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    const body = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.find(
+          ([, init]) => init?.method === "PUT",
+        )?.[1]?.body,
+      ),
+    );
+    expect(
+      body.operations.map(
+        (operation: { operation: string }) => operation.operation,
+      ),
+    ).toEqual([
+      "delete_pile_region",
+      "set_frame_review",
+      "set_frame_unreviewed",
+      "create_pile_region",
+    ]);
+    expect(body.operations[1].item.candidates).toEqual([]);
+    expect(body.operations[1].item.pile_regions).toEqual([]);
   });
 
   it("accepts and completes pile-only frame coverage", async () => {
