@@ -1098,6 +1098,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if operation.operation not in {
             "set_frame_review",
             "accept_frame_suggestions",
+            "set_frame_pending",
             "set_frame_unreviewed",
             "restore_frame_suggestions",
             "set_frame_empty",
@@ -1301,6 +1302,14 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                     ]
                     + items[index + 1 :]
                 )
+            return (
+                items[:index]
+                + [self._replace(existing, base_item_id=None, review_state="pending")]
+                + items[index + 1 :]
+            )
+        if operation.operation == "set_frame_pending":
+            if existing.item.get("status") != "detected":
+                raise PipelineReferenceInputError("set_frame_pending requires a detected frame")
             return (
                 items[:index]
                 + [self._replace(existing, base_item_id=None, review_state="pending")]

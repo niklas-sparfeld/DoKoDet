@@ -43,6 +43,7 @@ PIPELINE_REFERENCE_OPERATIONS = frozenset(
         "rebase",
         "set_frame_review",
         "accept_frame_suggestions",
+        "set_frame_pending",
         "set_frame_unreviewed",
         "restore_frame_suggestions",
         "set_frame_empty",
@@ -510,6 +511,7 @@ class PipelineReferenceOperation:
             )
         if operation in {
             "accept_frame_suggestions",
+            "set_frame_pending",
             "set_frame_unreviewed",
             "set_frame_empty",
             "set_frame_unusable",

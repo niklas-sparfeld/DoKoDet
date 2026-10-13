@@ -412,7 +412,7 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
     ).toEqual([
       "delete_pile_region",
       "set_frame_review",
-      "set_frame_unreviewed",
+      "set_frame_pending",
       "create_pile_region",
     ]);
     expect(body.operations[1].item.candidates).toEqual([]);

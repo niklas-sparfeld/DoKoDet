@@ -1155,7 +1155,7 @@ export function PipelineVisibleCardEditorView({
           item_id: frame.itemId,
           item: { ...frame.outcome, pile_regions: [] },
         },
-        { operation: "set_frame_unreviewed", item_id: frame.itemId },
+        { operation: "set_frame_pending", item_id: frame.itemId },
         ...copied.map((pile) => ({
           operation: "create_pile_region" as const,
           item_id: frame.itemId,

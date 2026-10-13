@@ -1034,6 +1034,46 @@ def test_pose_scene_updates_derive_candidates_and_completion_rejects_stale_views
     assert "pose scene derivation" in stale_error.value.details[0]["message"]
 
 
+def test_set_frame_pending_preserves_virtual_card_decisions(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    proposal_revision_id = _proposal_revision(revision_store, source_revision_id)
+    seeded = service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "proposal_revision_id": proposal_revision_id},
+    )
+    rejected = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": seeded.draft.revision,
+            "operations": [
+                {
+                    "operation": "reject_card",
+                    "item_id": "event-01",
+                    "card_id": "card-01",
+                }
+            ],
+        },
+    )
+    reviewed_item = rejected.draft.items[0].item
+
+    pending = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": rejected.draft.revision,
+            "operations": [{"operation": "set_frame_pending", "item_id": "event-01"}],
+        },
+    )
+
+    assert pending.draft.items[0].review_state == "pending"
+    assert pending.draft.items[0].item == reviewed_item
+
+
 def test_ignore_region_added_after_virtual_card_review_removes_covered_pose(
     tmp_path: Path,
 ) -> None:
