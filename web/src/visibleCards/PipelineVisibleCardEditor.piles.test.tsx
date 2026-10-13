@@ -99,7 +99,7 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
     expect(body.operations[0]).not.toHaveProperty("candidate_ids");
   });
 
-  it("inserts a new pile point on the nearest edge", async () => {
+  it("inserts and moves pile corners in Virtual Cards mode", async () => {
     const value = reference();
     const item = value.draft.items[0]!.item as Record<string, unknown>;
     item.card_scene = scene;
@@ -194,6 +194,52 @@ describe("PipelineVisibleCardEditor pile workflow", () => {
           polygons: [
             [
               { x: 100, y: 100 },
+              { x: 500, y: 100 },
+              { x: 900, y: 100 },
+              { x: 900, y: 800 },
+            ],
+          ],
+        },
+      },
+    });
+
+    const point = screen.getByRole("button", {
+      name: "Polygon 1, point 1 at 100, 100",
+    });
+    fireEvent.pointerDown(point, {
+      clientX: 10,
+      clientY: 10,
+      pointerId: 7,
+    });
+    fireEvent.pointerMove(canvas, {
+      clientX: 20,
+      clientY: 20,
+      pointerId: 7,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 7 });
+
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toHaveLength(2),
+    );
+    const moveBody = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        )[1]?.[1]?.body,
+      ),
+    );
+    expect(moveBody.operations[0]).toMatchObject({
+      operation: "replace_pile_region",
+      pile_id: "pile-1",
+      region: {
+        geometry: {
+          polygons: [
+            [
+              { x: 200, y: 200 },
               { x: 500, y: 100 },
               { x: 900, y: 100 },
               { x: 900, y: 800 },

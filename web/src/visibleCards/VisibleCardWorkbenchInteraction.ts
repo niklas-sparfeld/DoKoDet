@@ -638,7 +638,8 @@ export function useVisibleCardWorkbenchInteraction({
     const gesture = virtualGestureRef.current;
     if (gesture === null || gesture.pointerId !== event.pointerId) {
       if (
-        activeState.activeTool === "virtual_cards" ||
+        (activeState.activeTool === "virtual_cards" &&
+          !pileRegionEditorActive) ||
         activeState.activeTool === "mapping"
       )
         return;
