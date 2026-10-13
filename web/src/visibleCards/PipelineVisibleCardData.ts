@@ -21,6 +21,14 @@ import type {
 } from "./PipelineVisibleCardTypes";
 import { validatePolygons } from "./PipelineVisibleCardGeometry";
 
+export function toReferenceOutcome(
+  outcome: Outcome,
+): Omit<Outcome, "manual_card_scene_seed"> {
+  const referenceOutcome = { ...outcome };
+  delete referenceOutcome.manual_card_scene_seed;
+  return referenceOutcome;
+}
+
 export function readProposalInputRevisionId(
   run: PipelineProposalRunResponse,
 ): string | null {

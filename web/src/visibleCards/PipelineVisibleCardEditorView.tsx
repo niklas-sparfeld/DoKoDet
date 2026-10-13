@@ -28,6 +28,7 @@ import {
   newIgnoreRegion,
   nextManualCardId,
   nextManualRegionId,
+  toReferenceOutcome,
 } from "./PipelineVisibleCardData";
 import {
   candidateIsWithinIgnoreRegions,
@@ -430,7 +431,7 @@ export function PipelineVisibleCardEditorView({
       const operation: PipelineReferenceOperation = {
         operation: "set_frame_review",
         item_id: frame.itemId,
-        item: outcome,
+        item: toReferenceOutcome(outcome),
       };
       enqueue(operation, noticeText, (current) =>
         current.map((candidate) =>
@@ -593,7 +594,7 @@ export function PipelineVisibleCardEditorView({
         {
           operation: "restore_frame_suggestions",
           item_id: frame.itemId,
-          item: outcome,
+          item: toReferenceOutcome(outcome),
         },
         "Generated suggestions restored. Accept the frame when it is ready.",
         (current) =>
