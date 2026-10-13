@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { PipelineVisibleCardEditor } from "./PipelineVisibleCardEditor";
 import * as fixtures from "./PipelineVisibleCardEditorFixtures";
+import * as workbenchFixtures from "./VisibleCardReviewWorkbenchFixtures";
 const {
   DETECTOR_CANDIDATE,
   FRAME_IDENTITY,
@@ -700,6 +701,118 @@ describe("PipelineVisibleCardEditor", () => {
     expect(
       await screen.findByRole("button", { name: "Select proposal 1" }),
     ).toBeInTheDocument();
+  });
+
+  it("queues rapid virtual-card deletions while the first save is in flight", async () => {
+    window.localStorage.setItem("dokodetector.profile.name", "operator-01");
+    const currentReference = reference();
+    const scene = structuredClone(workbenchFixtures.scene);
+    const secondPose = {
+      ...scene.scene.poses[0]!,
+      card_id: "card-2",
+      center: [60, 50] as [number, number],
+    };
+    const thirdPose = {
+      ...secondPose,
+      card_id: "card-3",
+      center: [70, 50] as [number, number],
+    };
+    scene.scene.poses.push(secondPose, thirdPose);
+    scene.scene.stacking_order.card_ids.push("card-2", "card-3");
+    scene.initialized_scene.poses.push({ ...secondPose }, { ...thirdPose });
+    scene.initialized_scene.stacking_order.card_ids.push("card-2", "card-3");
+    (
+      currentReference.draft.items[0]!.item as Record<string, unknown>
+    ).card_scene = scene;
+
+    type SceneUpdateRequest = {
+      expected_revision: number;
+      operations: Array<{
+        item: { card_scene: { scene: { poses: Array<{ card_id: string }> } } };
+      }>;
+    };
+    let resolveFirstUpdate: ((response: Response) => void) | undefined;
+    const updates: { body: SceneUpdateRequest }[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      const url = String(input);
+      if (
+        url.endsWith("/pipeline/references/visible_cards/draft") &&
+        init?.method === "PUT"
+      ) {
+        updates.push({
+          body: JSON.parse(String(init.body)) as SceneUpdateRequest,
+        });
+        if (updates.length === 1) {
+          return new Promise<Response>((resolve) => {
+            resolveFirstUpdate = resolve;
+          });
+        }
+        const body = structuredClone(currentReference);
+        body.draft.revision = 3;
+        body.state.draft_revision = 3;
+        (body.draft.items[0]!.item as Record<string, unknown>).card_scene =
+          updates[1]!.body.operations[0]!.item.card_scene;
+        return Promise.resolve(jsonResponse(body));
+      }
+      if (url.endsWith("/pipeline/references/visible_cards"))
+        return Promise.resolve(jsonResponse(currentReference));
+      if (url.endsWith("/result"))
+        return Promise.resolve(jsonResponse(generatedResult()));
+      return Promise.resolve(new Response("not found", { status: 404 }));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    const card1 = await screen.findByRole("button", {
+      name: "Select virtual card card-1",
+    });
+    fireEvent.click(card1);
+    fireEvent.keyDown(card1, { key: "Backspace" });
+    expect(updates).toHaveLength(1);
+
+    const card2 = screen.getByRole("button", {
+      name: "Select virtual card card-2",
+    });
+    fireEvent.click(card2);
+    fireEvent.keyDown(card2, { key: "Backspace" });
+    expect(updates).toHaveLength(1);
+
+    const firstItem = updates[0]!.body.operations[0]!.item;
+    const firstSavedReference = structuredClone(currentReference);
+    firstSavedReference.draft.revision = 2;
+    firstSavedReference.state.draft_revision = 2;
+    (
+      firstSavedReference.draft.items[0]!.item as Record<string, unknown>
+    ).card_scene = firstItem.card_scene;
+    resolveFirstUpdate?.(jsonResponse(firstSavedReference));
+
+    await waitFor(() => expect(updates).toHaveLength(2));
+    expect(updates[1]!.body.expected_revision).toBe(2);
+    expect(
+      updates[1]!.body.operations[0]!.item.card_scene.scene.poses.map(
+        (pose: { card_id: string }) => pose.card_id,
+      ),
+    ).toEqual(["card-3"]);
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Select virtual card card-1" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Select virtual card card-2" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Select virtual card card-3" }),
+      ).toBeInTheDocument();
+    });
   });
 
   it("switches an existing review to the selected generated result", async () => {
