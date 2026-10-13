@@ -69,7 +69,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0 inventory, M1 pilot proposals, and M2 detection-only handoff complete. M3 refreshes remaining proposals; M4 completes geometry review; M5 completes visual identity review for 0088. |
+| [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0 inventory, M1 pilot proposals, M2 detection-only handoff, and M3 proposal refresh complete. M4 completes geometry review; M5 completes visual identity review for 0088. |
 | [0087 — Reviewed virtual-card RF-DETR campaign](3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0068 and 0070 complete; 0091 M0–M3 complete; 0086 M2 handoff complete | M0 froze three eligible references, permissions, source groups, split, checkpoint, recipe, budgets, and gates. Continue M1/M2. Two-class training is blocked by zero validation pile targets; no sealed-test group is available. |
 
 ### Blocked

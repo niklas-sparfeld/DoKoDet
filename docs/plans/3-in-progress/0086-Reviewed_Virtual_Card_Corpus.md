@@ -19,8 +19,8 @@
 - **M1:** Complete (2026-10-11) — generate current proposals for all 53 `IMG_0095` event frames.
 - **M2:** Complete (2026-10-13) — audit completed references and publish the digest-backed
   detection-only handoff for 0087. Three references qualify; all other candidate gaps are recorded.
-- **M3:** Not started — refresh remaining proposals in resumable recording batches, including the
-  `IMG_0095` pilot, with corrected 59 mm by 91 mm geometry.
+- **M3:** Complete (2026-10-13) — audit terminal receipts for the frozen 22-recording proposal
+  refresh. Twenty recordings published current proposals; two retain explicit calibration failures.
 - **M4:** Not started — complete geometry review for the selected corpus and update the
   detection-only handoff as eligible references are added.
 - **M5:** Not started — complete visual identity review and publish the separate 0088 handoff.
@@ -134,8 +134,8 @@ cover interrupted execution and refreshing a draft with accepted and adjusted ca
 
 - See [pilot proposal report](../../reports/0086-M1_Pilot_Proposal_Generation.md) for the exact
   detector, calibration, proposal, frame, and source lineage.
-- The pilot output in this report uses the previous 9.09 cm by 5.93 cm dimensions. Refresh it with
-  the current v5 pose recipe and v6 geometry before starting M2 operator review.
+- This report records the original pilot output with the previous 9.09 cm by 5.93 cm dimensions.
+  The M3 report records the later proposal refresh under the v5 pose recipe and v6 geometry.
 - Reused the selected `IMG_0095` event revision and the completed local RF-DETR result from the
   current 0068 bundle. The new `fixed-card-pose-grid-search/v4` proposals use
   `card-plane-geometry/v5`.
@@ -208,6 +208,30 @@ detection-only handoff has unblocked 0087.
 
 Acceptance: all selected recordings have terminal receipts; unsupported frames remain visible as
 review work or exclusions; interruption resumes without duplicate runs or lost corrections.
+
+### M3 implementation evidence — 2026-10-13
+
+- See [M3 proposal refresh report](../../reports/0086-M3_Proposal_Refresh.json) for each selected
+  event revision, detector revision and model, processor run, output revision, frame coverage, and
+  terminal failure. Its digest is
+  `0abbd3ab7af16d9991cc250eef53e3b171c7b5847523eea99ebcbcc360de407e`.
+- The read-only report builder is
+  `operations/scripts/build_0086_proposal_refresh_report.py`. It checks the frozen inventory
+  digest, exact event-frame scope, local RF-DETR detector lineage, proposal content digests, and
+  `card-plane-geometry/v6` plus `fixed-card-pose-grid-search/v5` before it writes the report.
+- All 22 frozen recordings have terminal proposal receipts. Eighteen runs completed; two produced
+  partial proposals; two failed before publishing proposals. The 20 published revisions cover 991
+  supported and 10 unsupported frames. The unsupported frame IDs and reasons remain in the report.
+- The 20 published results retain three exact local RF-DETR model lineages: 18 segmentation, three
+  cascade, and one fine-frame revision. The report records each detector revision and digest.
+- `cardeventnet-IMG_0092` failed with `inconsistent_card_geometry`; `cardeventnet-IMG_0096` failed
+  with `unstable_table_transform`. Their 101 event frames remain unresolved for geometry review.
+  The partial runs for `IMG_0641` and `IMG_0662` retain one and nine unsupported frames, respectively.
+- The runs were already terminal in durable storage. The backend health route responded, but
+  provider and recording-catalog checks timed out while the service process was CPU-bound. No
+  duplicate runs were started.
+- Focused report tests, Ruff, report regeneration, frame-count reconciliation, and digest checks
+  passed. No references, crops, or training inputs changed.
 
 ### M4 — Complete corpus geometry review
 

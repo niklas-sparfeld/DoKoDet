@@ -1,0 +1,951 @@
+{
+  "purpose": "proposal_refresh_audit",
+  "recordings": [
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T18:33:23.965217Z",
+          "failure": {
+            "code": "inconsistent_card_geometry",
+            "message": "the accepted calibration candidates do not describe one stable standard-card plane"
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0092-c31f0f6f",
+          "status": "failed"
+        }
+      ],
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "3c8adcf5c0fefc16e43612067d0e07db44c91b1be310d06f9aea58b824f83937",
+      "detector_revision_id": "visible-cards-ba2f2aff-c79f-44a4-b1ff-94b94f04428c-attempt-1",
+      "event_frame_count": 51,
+      "event_revision_id": "reference-events-b76ee6895345ec9d9799c3eb01826a30",
+      "failure": {
+        "code": "inconsistent_card_geometry",
+        "message": "the accepted calibration candidates do not describe one stable standard-card plane"
+      },
+      "processor_item_count": 0,
+      "proposal_content_sha256": null,
+      "proposal_revision_id": null,
+      "recording_id": "cardeventnet-IMG_0092",
+      "run_completed_at": "2026-10-11T18:33:23.965217Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0092-c31f0f6f",
+      "run_status": "failed",
+      "source_video_sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac",
+      "supported_frame_count": 0,
+      "unresolved_event_frame_ids": [
+        "cardeventnet-event-img_0092-000",
+        "cardeventnet-event-img_0092-001",
+        "cardeventnet-event-img_0092-002",
+        "cardeventnet-event-img_0092-003",
+        "cardeventnet-event-img_0092-004",
+        "cardeventnet-event-img_0092-005",
+        "cardeventnet-event-img_0092-006",
+        "cardeventnet-event-img_0092-007",
+        "cardeventnet-event-img_0092-008",
+        "cardeventnet-event-img_0092-009",
+        "cardeventnet-event-img_0092-010",
+        "cardeventnet-event-img_0092-011",
+        "cardeventnet-event-img_0092-012",
+        "cardeventnet-event-img_0092-013",
+        "cardeventnet-event-img_0092-014",
+        "cardeventnet-event-img_0092-015",
+        "cardeventnet-event-img_0092-016",
+        "cardeventnet-event-img_0092-017",
+        "cardeventnet-event-img_0092-018",
+        "cardeventnet-event-img_0092-019",
+        "cardeventnet-event-img_0092-020",
+        "cardeventnet-event-img_0092-021",
+        "cardeventnet-event-img_0092-022",
+        "cardeventnet-event-img_0092-023",
+        "cardeventnet-event-img_0092-024",
+        "cardeventnet-event-img_0092-025",
+        "cardeventnet-event-img_0092-026",
+        "cardeventnet-event-img_0092-027",
+        "cardeventnet-event-img_0092-028",
+        "cardeventnet-event-img_0092-029",
+        "cardeventnet-event-img_0092-030",
+        "cardeventnet-event-img_0092-031",
+        "cardeventnet-event-img_0092-032",
+        "cardeventnet-event-img_0092-033",
+        "cardeventnet-event-img_0092-034",
+        "cardeventnet-event-img_0092-035",
+        "cardeventnet-event-img_0092-036",
+        "cardeventnet-event-img_0092-037",
+        "cardeventnet-event-img_0092-038",
+        "cardeventnet-event-img_0092-039",
+        "cardeventnet-event-img_0092-040",
+        "cardeventnet-event-img_0092-041",
+        "cardeventnet-event-img_0092-042",
+        "cardeventnet-event-img_0092-043",
+        "cardeventnet-event-img_0092-044",
+        "cardeventnet-event-img_0092-045",
+        "cardeventnet-event-img_0092-046",
+        "cardeventnet-event-img_0092-047",
+        "cardeventnet-event-img_0092-048",
+        "cardeventnet-event-img_0092-049",
+        "cardeventnet-event-img_0092-050"
+      ],
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:02:19.414732Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0095-ea960f0e",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "214ed8d8f94ac80f32b2d8335f82a8acaf7cbbce8730f273f4f1e8a44fbaa17f",
+      "calibration_revision_id": "calibration-f7b2a5fe6eafa54fb2303792",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "cfa3c6b5cfe0eeb6d4fe420bdeabf6d1d07e105e45423e4aa6301b746a6751ff",
+      "detector_revision_id": "visible-cards-0fcc49e1-9f61-4986-90bf-2f145e325ccd-attempt-1",
+      "event_frame_count": 53,
+      "event_revision_id": "reference-events-3e2d3b060f2719da7d4e932825b78370",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 53,
+      "proposal_content_sha256": "6828c94cfed7dbc082c41400cbbf98164b8a842de8d42dc97399b653b22ce452",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0095-ea960f0e-attempt-1",
+      "recording_id": "cardeventnet-IMG_0095",
+      "run_completed_at": "2026-10-11T19:02:19.414732Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0095-ea960f0e",
+      "run_status": "complete",
+      "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+      "supported_frame_count": 53,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T18:53:20.965545Z",
+          "failure": {
+            "code": "unstable_table_transform",
+            "message": "the fitted table transform is too unstable to publish"
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0096-764f2b53",
+          "status": "failed"
+        }
+      ],
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "f958df5f14cf5073bccd382a363c717e94c937dc4f63aa531b57d4d3c96d35aa",
+      "detector_revision_id": "visible-cards-2893b516-4558-4aa8-9f85-607eae49b7de-attempt-1",
+      "event_frame_count": 50,
+      "event_revision_id": "reference-events-4643e6f10607988627190cc59ee064b3",
+      "failure": {
+        "code": "unstable_table_transform",
+        "message": "the fitted table transform is too unstable to publish"
+      },
+      "processor_item_count": 0,
+      "proposal_content_sha256": null,
+      "proposal_revision_id": null,
+      "recording_id": "cardeventnet-IMG_0096",
+      "run_completed_at": "2026-10-11T18:53:20.965545Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0096-764f2b53",
+      "run_status": "failed",
+      "source_video_sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d",
+      "supported_frame_count": 0,
+      "unresolved_event_frame_ids": [
+        "cardeventnet-event-img_0096-000",
+        "cardeventnet-event-img_0096-001",
+        "cardeventnet-event-img_0096-002",
+        "cardeventnet-event-img_0096-003",
+        "cardeventnet-event-img_0096-004",
+        "cardeventnet-event-img_0096-005",
+        "cardeventnet-event-img_0096-006",
+        "cardeventnet-event-img_0096-007",
+        "cardeventnet-event-img_0096-008",
+        "cardeventnet-event-img_0096-009",
+        "cardeventnet-event-img_0096-010",
+        "cardeventnet-event-img_0096-011",
+        "cardeventnet-event-img_0096-012",
+        "cardeventnet-event-img_0096-013",
+        "cardeventnet-event-img_0096-014",
+        "cardeventnet-event-img_0096-015",
+        "cardeventnet-event-img_0096-016",
+        "cardeventnet-event-img_0096-017",
+        "cardeventnet-event-img_0096-018",
+        "cardeventnet-event-img_0096-019",
+        "cardeventnet-event-img_0096-020",
+        "cardeventnet-event-img_0096-021",
+        "cardeventnet-event-img_0096-022",
+        "cardeventnet-event-img_0096-023",
+        "cardeventnet-event-img_0096-024",
+        "cardeventnet-event-img_0096-025",
+        "cardeventnet-event-img_0096-026",
+        "cardeventnet-event-img_0096-027",
+        "cardeventnet-event-img_0096-028",
+        "cardeventnet-event-img_0096-029",
+        "cardeventnet-event-img_0096-030",
+        "cardeventnet-event-img_0096-031",
+        "cardeventnet-event-img_0096-032",
+        "cardeventnet-event-img_0096-033",
+        "cardeventnet-event-img_0096-034",
+        "cardeventnet-event-img_0096-035",
+        "cardeventnet-event-img_0096-036",
+        "cardeventnet-event-img_0096-037",
+        "cardeventnet-event-img_0096-038",
+        "cardeventnet-event-img_0096-039",
+        "cardeventnet-event-img_0096-040",
+        "cardeventnet-event-img_0096-041",
+        "cardeventnet-event-img_0096-042",
+        "cardeventnet-event-img_0096-043",
+        "cardeventnet-event-img_0096-044",
+        "cardeventnet-event-img_0096-045",
+        "cardeventnet-event-img_0096-046",
+        "cardeventnet-event-img_0096-047",
+        "cardeventnet-event-img_0096-048",
+        "cardeventnet-event-img_0096-049"
+      ],
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T18:53:09.731688Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0097-d01f3b15",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "0e2b47a96f9a0e39cacff8eb1c9aedc08bd0ed629cc9a4e9d25d38675f4b2688",
+      "calibration_revision_id": "calibration-8732f5afcb52683bce7e50e7",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "c505c504b3d5d147970dd0647cfeac06d334b6caec64dcc94f0709cc1ca53e7d",
+      "detector_revision_id": "visible-cards-89cd0940-fd94-4e44-b07f-a4fbf96efd87-attempt-1",
+      "event_frame_count": 50,
+      "event_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 50,
+      "proposal_content_sha256": "d3d435d9f92fa7fa39c7b82ce28dfe5d78942e861cff26622c10f28c3bd39ee1",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0097-d01f3b15-attempt-1",
+      "recording_id": "cardeventnet-IMG_0097",
+      "run_completed_at": "2026-10-11T18:53:09.731688Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0097-d01f3b15",
+      "run_status": "complete",
+      "source_video_sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+      "supported_frame_count": 50,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T18:31:39.739109Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0636-4c60fb08",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "2c5ce5786899861023f9c2bc2e552370f76fc15248a4eb7b1339b69857519815",
+      "calibration_revision_id": "calibration-6640b516a1d27f53a3b1bb32",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "43d95eff7c71520e8e36f6368dc6f058673de2f8672297dab5c60ca9d56f4fa4",
+      "detector_revision_id": "visible-cards-0c0b9dbd-b919-40fa-ba9c-dba2d70d4024-attempt-1",
+      "event_frame_count": 50,
+      "event_revision_id": "reference-events-0332acf97aeef7dcc7db5e3b5774e183",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 50,
+      "proposal_content_sha256": "dc4196f8572f0a28bef84ff88c825b0e0a04a7dbb739e0623a80017d9db8da0d",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0636-4c60fb08-attempt-1",
+      "recording_id": "cardeventnet-IMG_0636",
+      "run_completed_at": "2026-10-11T18:31:39.739109Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0636-4c60fb08",
+      "run_status": "complete",
+      "source_video_sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+      "supported_frame_count": 50,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T18:33:07.166071Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0637-53ad28c6",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "5ae33ae458bf7cea2ba733ce04282db9970058a981b1bccca4b69d0b0c883793",
+      "calibration_revision_id": "calibration-3f72b3f5d44cac5680a76bbe",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "e831ef0b99d3f19ea7005b7773f4d336efcad1cf8aab400ddab83e6ca4ea8b6f",
+      "detector_revision_id": "visible-cards-8903686f-e0aa-487e-a6c8-602ecfe6725e-attempt-1",
+      "event_frame_count": 50,
+      "event_revision_id": "reference-events-95021e1921249e2f04315178295fa34a",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 50,
+      "proposal_content_sha256": "ec672f3477097aa26a1a3b7669dc7e872ba0aa53c2623747a7157f5b4b8b72c1",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0637-53ad28c6-attempt-1",
+      "recording_id": "cardeventnet-IMG_0637",
+      "run_completed_at": "2026-10-11T18:33:07.166071Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0637-53ad28c6",
+      "run_status": "complete",
+      "source_video_sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+      "supported_frame_count": 50,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T18:54:48.142910Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0638-15366a8b",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "326b8765a64506e9f56dd857fc5e32298035dc76fea955b3ae4113cad16e72ae",
+      "calibration_revision_id": "calibration-9fca5572bf74f93277e7766a",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "c762ea97b0101fd2bca64b06e605711a47e51dc6e7aa1792551797264175ec9d",
+      "detector_revision_id": "visible-cards-98cfe679-f416-4f95-b019-49e6f612e6d1-attempt-1",
+      "event_frame_count": 51,
+      "event_revision_id": "reference-events-96a83274f0a2c7673332e117aa4634a4",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 51,
+      "proposal_content_sha256": "61f052caedf2aada901070b5af72b398a2b4bd3d44add840b4bbcc2b69b4b025",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0638-15366a8b-attempt-1",
+      "recording_id": "cardeventnet-IMG_0638",
+      "run_completed_at": "2026-10-11T18:54:48.142910Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0638-15366a8b",
+      "run_status": "complete",
+      "source_video_sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+      "supported_frame_count": 51,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T18:29:58.939765Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0639-fabbe489",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "36b309be969507da9f3d59308a132f400fd372d0fe2873de1ef8360ce8a4020f",
+      "calibration_revision_id": "calibration-6dcad23ab716f109cf541a6f",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "095fbc0d0432213051d2802607c7cfe9f6f812e52443776e60a36d55eacfabd2",
+      "detector_revision_id": "visible-cards-1939f9d6-8651-45d6-a29e-c5da92d8a117-attempt-1",
+      "event_frame_count": 50,
+      "event_revision_id": "reference-events-cb2ed8f6119ff32735a45da28a189a7a",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 50,
+      "proposal_content_sha256": "8041d5b94ec1ec227538ec2e2ff861d89f0b546bc4c0195b09f3dc59d9015536",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0639-fabbe489-attempt-1",
+      "recording_id": "cardeventnet-IMG_0639",
+      "run_completed_at": "2026-10-11T18:29:58.939765Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0639-fabbe489",
+      "run_status": "complete",
+      "source_video_sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+      "supported_frame_count": 50,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:04:33.673726Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0640-0143cbf6",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "b0767d2fe3f7977774a9a36ae96079d6191ae1aa95bfae859a91ab1754e57deb",
+      "calibration_revision_id": "calibration-0d1083954dd93022987cbd2e",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "b38a67f20a84bb31c29aa9478c8fb1b0d63ac26abea8938d24114bac1abab62a",
+      "detector_revision_id": "visible-cards-defaa001-5fb8-419e-9ed4-1206c0c74574-attempt-1",
+      "event_frame_count": 50,
+      "event_revision_id": "reference-events-e7b2713881051baff4e7670071adb2a3",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 50,
+      "proposal_content_sha256": "2cf458bfdf165278ba4edbc62ecea5d80df6f1e32df680b784b03e78a86e4576",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0640-0143cbf6-attempt-1",
+      "recording_id": "cardeventnet-IMG_0640",
+      "run_completed_at": "2026-10-11T19:04:33.673726Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0640-0143cbf6",
+      "run_status": "complete",
+      "source_video_sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+      "supported_frame_count": 50,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:05:48.343766Z",
+          "failure": {
+            "code": "backend_restarted",
+            "message": "The event processor did not finish before the backend restarted."
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0641-89c22ad7",
+          "status": "failed"
+        },
+        {
+          "completed_at": "2026-10-11T19:22:15.611480Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0641-retry-1f1112ae",
+          "status": "partial"
+        }
+      ],
+      "calibration_digest": "98f649ccd40e814fb9b3b38de06a1053837afa2adba1cf26953b5276829e91b5",
+      "calibration_revision_id": "calibration-12f62c93775fa4ccda701dc7",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "32d551396afad44e9b8f2cc724b7cfb406b079fb955fd82512b75b2ab046c1d4",
+      "detector_revision_id": "visible-cards-a3377289-dc01-47a9-b4b1-263bbc8d5c6e-attempt-1",
+      "event_frame_count": 53,
+      "event_revision_id": "reference-events-2a160b004691519b79550b24f9bcb08c",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 53,
+      "proposal_content_sha256": "9b56054fc499f9f11e25f25baeff6249d442f6dd4ba70bcf2e3c4dbb0dc6325b",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0641-retry-1f1112ae-attempt-1",
+      "recording_id": "cardeventnet-IMG_0641",
+      "run_completed_at": "2026-10-11T19:22:15.611480Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0641-retry-1f1112ae",
+      "run_status": "partial",
+      "source_video_sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+      "supported_frame_count": 52,
+      "unsupported_frames": [
+        {
+          "frame_id": "manual-1789500467143-14",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        }
+      ]
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:05:48.345636Z",
+          "failure": {
+            "code": "backend_restarted",
+            "message": "The event processor did not finish before the backend restarted."
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0643-39577b5e",
+          "status": "failed"
+        },
+        {
+          "completed_at": "2026-10-11T19:23:26.739205Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0643-retry-8189b595",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "14150c7ddbd6fde427f4b2d086a5d070676c7ac3d75119ed2c0af358942a709c",
+      "calibration_revision_id": "calibration-a8ac5df6c4fecf3515b94dd1",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "c85dd90d426e3785fd1c18b25f0796a5a8eb7623acca5eab4ea3be967870d55b",
+      "detector_revision_id": "visible-cards-b423352e-0cc0-4588-bc7b-79529d8d54e5-attempt-1",
+      "event_frame_count": 52,
+      "event_revision_id": "reference-events-e091761f4d4d7dbbf586b250dfb5a4f9",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 52,
+      "proposal_content_sha256": "d5fc102298ff2040fd012c2d6899a0c7e9f1f8dc8844be7e918a72c9382cc8e2",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0643-retry-8189b595-attempt-1",
+      "recording_id": "cardeventnet-IMG_0643",
+      "run_completed_at": "2026-10-11T19:23:26.739205Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0643-retry-8189b595",
+      "run_status": "complete",
+      "source_video_sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+      "supported_frame_count": 52,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:05:48.346973Z",
+          "failure": {
+            "code": "backend_restarted",
+            "message": "The event processor did not finish before the backend restarted."
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0650-c2b06958",
+          "status": "failed"
+        },
+        {
+          "completed_at": "2026-10-11T19:17:08.492208Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0650-retry-bee19044",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "86a78b51093d74273ef71ac5179c97309052377749637fb87e8d9dff499b388d",
+      "calibration_revision_id": "calibration-a42e7af4ca70a36627095d8d",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "35102f317ddd99843763e3fb14aef82e7931d9cc16c17f421c374b9bbb7ade88",
+      "detector_revision_id": "visible-cards-721d9806-0e62-43df-a11a-ef0576b0383d-attempt-1",
+      "event_frame_count": 36,
+      "event_revision_id": "reference-events-69ca04143d361f6529379023b4c4cc88",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 36,
+      "proposal_content_sha256": "88b76d81ad2a84fe782e31d9a6c9ac7efd4bbf39b0b9f598d5f8adaadbf1e651",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0650-retry-bee19044-attempt-1",
+      "recording_id": "cardeventnet-IMG_0650",
+      "run_completed_at": "2026-10-11T19:17:08.492208Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0650-retry-bee19044",
+      "run_status": "complete",
+      "source_video_sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+      "supported_frame_count": 36,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:05:48.348253Z",
+          "failure": {
+            "code": "backend_restarted",
+            "message": "The event processor did not finish before the backend restarted."
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0651-09de8980",
+          "status": "failed"
+        },
+        {
+          "completed_at": "2026-10-11T19:12:27.262759Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0651-retry-93548a52",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "740a1ae4b202c1608c21000161638bbbb85119f9570292e420823f0163e70ab6",
+      "calibration_revision_id": "calibration-d5c11f2f2ec9a389d72f5095",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "68bb5c7b31a6f9ec7ec81d1fa440f357ffb57a78b8ac9793781734a48af3e263",
+      "detector_revision_id": "visible-cards-693f76df-3ba5-4bba-8fdd-1fb09ed085f7-attempt-1",
+      "event_frame_count": 51,
+      "event_revision_id": "reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 51,
+      "proposal_content_sha256": "c68295fa01cef4a4534b216c7dd1c0037e0b461b291306e8a8b6937ba1f5ae40",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0651-retry-93548a52-attempt-1",
+      "recording_id": "cardeventnet-IMG_0651",
+      "run_completed_at": "2026-10-11T19:12:27.262759Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0651-retry-93548a52",
+      "run_status": "complete",
+      "source_video_sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+      "supported_frame_count": 51,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:05:48.349513Z",
+          "failure": {
+            "code": "backend_restarted",
+            "message": "The event processor did not finish before the backend restarted."
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0653-793e7b90",
+          "status": "failed"
+        },
+        {
+          "completed_at": "2026-10-11T19:10:27.640169Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0653-retry-67ddc4a8",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "ea35d83a29a36ea0c07dd50682711bb00eb31f663be4f3fb7cedb74a24fc3232",
+      "calibration_revision_id": "calibration-eb8efa36920c2b3aa5e68908",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "bfc96008442b1b2fe0af3d53bf04d3aa165037173aaa68d72d16364c223775fc",
+      "detector_revision_id": "visible-cards-ce55a142-65cd-4de3-a3ff-0f0266106ca6-attempt-1",
+      "event_frame_count": 50,
+      "event_revision_id": "reference-events-726d441f95a2cd301ebdc0968532fa21",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 50,
+      "proposal_content_sha256": "8ede7d8ab3a6c2390d56f890e158c3c4c755e3ffe959cd20954e5c7641cd7030",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0653-retry-67ddc4a8-attempt-1",
+      "recording_id": "cardeventnet-IMG_0653",
+      "run_completed_at": "2026-10-11T19:10:27.640169Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0653-retry-67ddc4a8",
+      "run_status": "complete",
+      "source_video_sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+      "supported_frame_count": 50,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:05:48.350763Z",
+          "failure": {
+            "code": "backend_restarted",
+            "message": "The event processor did not finish before the backend restarted."
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0654-f793c78a",
+          "status": "failed"
+        },
+        {
+          "completed_at": "2026-10-11T19:19:10.121390Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0654-retry-906e1261",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "814a7325fb0da906ce5194a1c31398c500bf147a8ec83f0fb9e0c5c36b7ebefb",
+      "calibration_revision_id": "calibration-a8bb883d7b1c3286ebf5e322",
+      "detector_model_id": "local-rfdetr-fine-frame.local-rfdetr-fine-frame-v6",
+      "detector_revision_digest": "1ab8c21ed5b031c59f664907190d4060273f3d9e35b5360618d42989a0384959",
+      "detector_revision_id": "visible-cards-visible_cards-run-2b47ebef-c8b-attempt-1",
+      "event_frame_count": 51,
+      "event_revision_id": "reference-events-4fbcfe0c14e734b5431eaec5f8395e15",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 51,
+      "proposal_content_sha256": "96abdd1bceab215feb665421d99c4336ebdd19e5e26cbafb6c466be8c2ed5173",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0654-retry-906e1261-attempt-1",
+      "recording_id": "cardeventnet-IMG_0654",
+      "run_completed_at": "2026-10-11T19:19:10.121390Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0654-retry-906e1261",
+      "run_status": "complete",
+      "source_video_sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+      "supported_frame_count": 51,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:05:48.352380Z",
+          "failure": {
+            "code": "backend_restarted",
+            "message": "The event processor did not finish before the backend restarted."
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0655-753ce9e6",
+          "status": "failed"
+        },
+        {
+          "completed_at": "2026-10-11T19:20:25.751106Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "d487ea81607eee4390e79590b0316c5064a4f8526c20ec89eb57cabd39d0879f",
+      "calibration_revision_id": "calibration-cd1069b46e30480b057d90b0",
+      "detector_model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "detector_revision_digest": "324c6cc85a9c257541404d34de295fcb1b59f088c1734376899e563a2ef4482c",
+      "detector_revision_id": "visible-cards-visible_cards-run-6e44ce5b-753-attempt-1",
+      "event_frame_count": 51,
+      "event_revision_id": "reference-events-6fe976245fbbc3452c14decde7d85976",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 51,
+      "proposal_content_sha256": "1bc481a3b2a488f984d50b20cb2efbbb8a1866af2c3297bfe0903950251f2167",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1",
+      "recording_id": "cardeventnet-IMG_0655",
+      "run_completed_at": "2026-10-11T19:20:25.751106Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7",
+      "run_status": "complete",
+      "source_video_sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+      "supported_frame_count": 51,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:05:48.353800Z",
+          "failure": {
+            "code": "backend_restarted",
+            "message": "The event processor did not finish before the backend restarted."
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0656-31f5bd35",
+          "status": "failed"
+        },
+        {
+          "completed_at": "2026-10-11T19:08:14.765390Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0656-retry-e9792bee",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "b77e6427d7308441b7528e4e8829e423ee588e9839f7d3978ba69a00d33622bd",
+      "calibration_revision_id": "calibration-d8296ef3b3b099a286c387be",
+      "detector_model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "detector_revision_digest": "c53505689e93e5984765859052b7646c083dedd069c32f4f443fc91811ae7e2e",
+      "detector_revision_id": "visible-cards-visible_cards-run-c70927c4-e49-attempt-1",
+      "event_frame_count": 51,
+      "event_revision_id": "reference-events-4e2126dc36ea31fc69de0981e6176a12",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 51,
+      "proposal_content_sha256": "32a87f0159745199fb8101ebb1f4c556120f395212e5f08ae7f2f6f2ee2416fe",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0656-retry-e9792bee-attempt-1",
+      "recording_id": "cardeventnet-IMG_0656",
+      "run_completed_at": "2026-10-11T19:08:14.765390Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0656-retry-e9792bee",
+      "run_status": "complete",
+      "source_video_sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
+      "supported_frame_count": 51,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:25:37.983922Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0657-retry-a248d2d7",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "9c647cd3eed4728412035a061fdef9d910f6d821c748d07d17de3c17b45c215d",
+      "calibration_revision_id": "calibration-400457e0bec8477a33007473",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "1b0b1c39eb9e334b59676cd78e3c7afcc268dee025faaefba8d61c458b3ce73a",
+      "detector_revision_id": "visible-cards-visible-cards-0086-91x59-IMG_0657-74451f0a-attempt-1",
+      "event_frame_count": 51,
+      "event_revision_id": "reference-events-17e0b4ea8fc84cec099e237467798fdd",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 51,
+      "proposal_content_sha256": "ad4eb763e71bc80151a61c394972228ef74d749d6b81bd8ce50f56037ed131cd",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0657-retry-a248d2d7-attempt-1",
+      "recording_id": "cardeventnet-IMG_0657",
+      "run_completed_at": "2026-10-11T19:25:37.983922Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0657-retry-a248d2d7",
+      "run_status": "complete",
+      "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+      "supported_frame_count": 51,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:24:13.788548Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0658-retry-240ffe65",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "c46d4c62d83ec4574cfb4e2a411ca640168dba7a7424f9d7f78151c167c9f2db",
+      "calibration_revision_id": "calibration-338f7d464c8b6b3f0bf6ebd4",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "4f37a3b054b24e443a5f110440eac45f8c6d230df4b45b677ebd4d86158e90b7",
+      "detector_revision_id": "visible-cards-visible-cards-0086-91x59-IMG_0658-b44f5470-attempt-1",
+      "event_frame_count": 50,
+      "event_revision_id": "reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 50,
+      "proposal_content_sha256": "265c317a482a46542fcbf4f096dbe4bfabb724e5b7cc2154d807dcba718d9682",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0658-retry-240ffe65-attempt-1",
+      "recording_id": "cardeventnet-IMG_0658",
+      "run_completed_at": "2026-10-11T19:24:13.788548Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0658-retry-240ffe65",
+      "run_status": "complete",
+      "source_video_sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+      "supported_frame_count": 50,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:32:03.648596Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0659-retry-2d90b9d3",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "93ecd2119e989c774ce4d4a3cedaebf1471508be02bc34e1497bb3c705e5d0fb",
+      "calibration_revision_id": "calibration-7579b5c652cb180b8c10874f",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "2c213922b6ef0299d1d431de4439ad7880c6eeeab67a0d6af299b68757536346",
+      "detector_revision_id": "visible-cards-visible-cards-0086-91x59-IMG_0659-4133b581-attempt-1",
+      "event_frame_count": 52,
+      "event_revision_id": "reference-events-7ecc6c3bc903fb1228a4ab2251f32c5d",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 52,
+      "proposal_content_sha256": "1060f0a9f20a0f323825cbc4d54f7c1f1e3f93c962067dc7b3955cc34d9d353b",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0659-retry-2d90b9d3-attempt-1",
+      "recording_id": "cardeventnet-IMG_0659",
+      "run_completed_at": "2026-10-11T19:32:03.648596Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0659-retry-2d90b9d3",
+      "run_status": "complete",
+      "source_video_sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
+      "supported_frame_count": 52,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:31:20.518899Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0660-retry-b3dac0ea",
+          "status": "complete"
+        }
+      ],
+      "calibration_digest": "737d0a2263aa12bcf21c412842d040998a6d88f67ee2e1a522763623ae30634b",
+      "calibration_revision_id": "calibration-ffd514776f87ce00f8eb36dd",
+      "detector_model_id": "local-rfdetr-segmentation.local-visible-card-segmentation-v1",
+      "detector_revision_digest": "98db3566e36eadedd0ed54e9335cb9a2a5a32e8de3e30c690d1f17369d80f1ed",
+      "detector_revision_id": "visible-cards-visible-cards-0086-91x59-IMG_0660-64db7e8c-attempt-1",
+      "event_frame_count": 49,
+      "event_revision_id": "reference-events-964d49a8d059082ea0ae3017c4dd69d7",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 49,
+      "proposal_content_sha256": "3f05f2ce4fb24716ff7e38f28c3cd0d419aa574aee7831dde9f8e4c9ab3895d7",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0660-retry-b3dac0ea-attempt-1",
+      "recording_id": "cardeventnet-IMG_0660",
+      "run_completed_at": "2026-10-11T19:31:20.518899Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0660-retry-b3dac0ea",
+      "run_status": "complete",
+      "source_video_sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
+      "supported_frame_count": 49,
+      "unsupported_frames": []
+    },
+    {
+      "attempts": [
+        {
+          "completed_at": "2026-10-11T19:05:48.355037Z",
+          "failure": {
+            "code": "backend_restarted",
+            "message": "The event processor did not finish before the backend restarted."
+          },
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0662-cc1683b7",
+          "status": "failed"
+        },
+        {
+          "completed_at": "2026-10-11T19:28:06.796969Z",
+          "failure": null,
+          "run_id": "card-scene-proposal-0086-91x59-IMG_0662-retry-b4a71957",
+          "status": "partial"
+        }
+      ],
+      "calibration_digest": "36e535bd04a1282375740d3ff30a802e608d270a6936eb8b27ecc2c8a54c35be",
+      "calibration_revision_id": "calibration-4cc0f5c45e4a56314a3cfedc",
+      "detector_model_id": "local-rfdetr-cascade-0070.local-rfdetr-cascade-0070-v1",
+      "detector_revision_digest": "81e9eb558201ded871a75bbebd1c4807da785b6dc3a9dcdaddbbe3dff0ca19ad",
+      "detector_revision_id": "visible-cards-visible_cards-run-58a11cf2-2d0-attempt-1",
+      "event_frame_count": 50,
+      "event_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
+      "failure": null,
+      "geometry_version": "card-plane-geometry/v6",
+      "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+      "processor_item_count": 50,
+      "proposal_content_sha256": "07e863311a4df4c405151cc07da63f76d752a2d0870b69d55742888b5813f7b8",
+      "proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0662-retry-b4a71957-attempt-1",
+      "recording_id": "cardeventnet-IMG_0662",
+      "run_completed_at": "2026-10-11T19:28:06.796969Z",
+      "run_id": "card-scene-proposal-0086-91x59-IMG_0662-retry-b4a71957",
+      "run_status": "partial",
+      "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+      "supported_frame_count": 41,
+      "unsupported_frames": [
+        {
+          "frame_id": "cardeventnet-event-img_0662-018",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        },
+        {
+          "frame_id": "cardeventnet-event-img_0662-019",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        },
+        {
+          "frame_id": "cardeventnet-event-img_0662-022",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        },
+        {
+          "frame_id": "cardeventnet-event-img_0662-026",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        },
+        {
+          "frame_id": "cardeventnet-event-img_0662-027",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        },
+        {
+          "frame_id": "cardeventnet-event-img_0662-029",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        },
+        {
+          "frame_id": "cardeventnet-event-img_0662-034",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        },
+        {
+          "frame_id": "cardeventnet-event-img_0662-042",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        },
+        {
+          "frame_id": "cardeventnet-event-img_0662-043",
+          "reason": "no model polygon produced an initial fixed-size card pose"
+        }
+      ]
+    }
+  ],
+  "report_sha256": "0abbd3ab7af16d9991cc250eef53e3b171c7b5847523eea99ebcbcc360de407e",
+  "schema_version": "reviewed-virtual-card-proposal-refresh/v1",
+  "scope": {
+    "event_frame_count": 1102,
+    "geometry_version": "card-plane-geometry/v6",
+    "pose_recipe_version": "fixed-card-pose-grid-search/v5",
+    "recording_count": 22,
+    "recording_ids": [
+      "cardeventnet-IMG_0092",
+      "cardeventnet-IMG_0095",
+      "cardeventnet-IMG_0096",
+      "cardeventnet-IMG_0097",
+      "cardeventnet-IMG_0636",
+      "cardeventnet-IMG_0637",
+      "cardeventnet-IMG_0638",
+      "cardeventnet-IMG_0639",
+      "cardeventnet-IMG_0640",
+      "cardeventnet-IMG_0641",
+      "cardeventnet-IMG_0643",
+      "cardeventnet-IMG_0650",
+      "cardeventnet-IMG_0651",
+      "cardeventnet-IMG_0653",
+      "cardeventnet-IMG_0654",
+      "cardeventnet-IMG_0655",
+      "cardeventnet-IMG_0656",
+      "cardeventnet-IMG_0657",
+      "cardeventnet-IMG_0658",
+      "cardeventnet-IMG_0659",
+      "cardeventnet-IMG_0660",
+      "cardeventnet-IMG_0662"
+    ]
+  },
+  "source_inventory": {
+    "manifest_sha256": "d1e4a2de8e8fcea1d4bd73f25d2b0fd687dfd2d30ccb5e83884819ff94b5f601",
+    "path": "docs/reports/0086-M0_Reviewed_Virtual_Card_Corpus_Inventory.json"
+  },
+  "status": "complete",
+  "summary": {
+    "event_frame_count_reconciles": true,
+    "failed_run_frame_count": 101,
+    "published_proposal_revision_count": 20,
+    "status_counts": {
+      "complete": 18,
+      "failed": 2,
+      "partial": 2
+    },
+    "supported_frame_count": 991,
+    "terminal_receipt_count": 22,
+    "unresolved_failure_recording_ids": [
+      "cardeventnet-IMG_0092",
+      "cardeventnet-IMG_0096"
+    ],
+    "unsupported_frame_count": 10
+  }
+}
