@@ -571,13 +571,28 @@ describe("PipelineVisibleCardEditor", () => {
       `/recordings/${RECORDING_ID}/pipeline/visible_cards?view=generated&start_review=proposal&item=${ITEM_ID}`,
     );
     const proposalRun = {
-      run_id: "proposal-complete-1",
+      run_id: "card-scene-proposal-0086-latest",
       recording_id: RECORDING_ID,
       processor_type: "visible-card-scene-proposal",
       status: "complete",
       attempt: 1,
       request: { visible_card_revision_id: REVISION_ID },
-      state: { output_revision_ids: [fixtures.PROPOSAL_REVISION_ID] },
+      state: {
+        output_revision_ids: [fixtures.PROPOSAL_REVISION_ID],
+        updated_at: "2026-10-11T19:02:19.414732Z",
+      },
+    };
+    const olderProposalRun = {
+      run_id: "card-scene-proposal-aea76436",
+      recording_id: RECORDING_ID,
+      processor_type: "visible-card-scene-proposal",
+      status: "complete",
+      attempt: 1,
+      request: { visible_card_revision_id: REVISION_ID },
+      state: {
+        output_revision_ids: ["proposal-old"],
+        updated_at: "2026-10-11T11:46:22.374658Z",
+      },
     };
     const currentReference = reference();
     const proposalReference = {
@@ -591,7 +606,10 @@ describe("PipelineVisibleCardEditor", () => {
       const url = String(input);
       if (url.endsWith("/pipeline/proposed-card-scenes"))
         return Promise.resolve(
-          jsonResponse({ recording_id: RECORDING_ID, runs: [proposalRun] }),
+          jsonResponse({
+            recording_id: RECORDING_ID,
+            runs: [proposalRun, olderProposalRun],
+          }),
         );
       if (
         url.endsWith("/pipeline/references/visible_cards") &&

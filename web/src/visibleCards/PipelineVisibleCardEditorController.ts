@@ -591,6 +591,18 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
             readProposalInputRevisionId(run) ===
             current.generatedSourceRevisionId,
         )
+        .sort((left, right) => {
+          const leftUpdatedAt = left.state.updated_at;
+          const rightUpdatedAt = right.state.updated_at;
+          const leftTimestamp =
+            typeof leftUpdatedAt === "string" ? leftUpdatedAt : "";
+          const rightTimestamp =
+            typeof rightUpdatedAt === "string" ? rightUpdatedAt : "";
+          return (
+            leftTimestamp.localeCompare(rightTimestamp) ||
+            left.run_id.localeCompare(right.run_id)
+          );
+        })
         .at(-1);
       if (matching === undefined) {
         if (!signal?.aborted) {
