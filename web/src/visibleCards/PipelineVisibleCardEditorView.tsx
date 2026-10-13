@@ -620,6 +620,7 @@ export function PipelineVisibleCardEditorView({
         status: outcome === "empty" ? "empty" : "failed",
         candidates: [],
         ignored_regions: [],
+        pile_regions: [],
         card_scene: undefined,
         error: outcome === "empty" ? null : "Reviewed unusable frame.",
       };

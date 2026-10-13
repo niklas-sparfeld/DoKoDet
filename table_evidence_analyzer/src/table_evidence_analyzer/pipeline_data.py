@@ -1454,7 +1454,7 @@ class VisibleCardOutcome:
             )
         if status == "failed" and (candidates or ignored_regions or pile_regions or error is None):
             raise PipelineDataError(
-                f"{context}.failed outcome needs an error and no candidates or ignored regions"
+                f"{context}.failed outcome needs an error and no candidates, ignored regions, or pile regions"
             )
         if status in {"detected", "empty"} and frame is None:
             raise PipelineDataError(f"{context}.{status} outcome needs a frame identity")

@@ -1320,6 +1320,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         replacement = dict(existing.item)
         replacement["candidates"] = []
         replacement["ignored_regions"] = []
+        replacement["pile_regions"] = []
         typed = self._typed_scene_draft(existing.item)
         if typed is None:
             replacement.pop("card_scene", None)
