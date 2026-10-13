@@ -875,12 +875,10 @@ class VisualIdentityPipelineService:
         calibration_revision_ids: set[str] = set()
         calibration_digests: set[str] = set()
         for outcome in content.outcomes:
+            if outcome.status != "detected":
+                continue
             if outcome.card_scene is None:
                 continue
-            if outcome.status != "detected":
-                raise VisualIdentityCropInputError(
-                    "reviewed virtual-card scenes must contain detected card frames"
-                )
             if outcome.frame_identity is None:
                 raise VisualIdentityCropInputError(
                     "a reviewed virtual-card frame has no exact source identity"
@@ -999,6 +997,8 @@ class VisualIdentityPipelineService:
         """Reject candidate geometry that is not the current scene derivation."""
 
         for outcome in content.outcomes:
+            if outcome.status != "detected":
+                continue
             cls._validate_outcome_scene_derived_view(outcome)
 
     @classmethod

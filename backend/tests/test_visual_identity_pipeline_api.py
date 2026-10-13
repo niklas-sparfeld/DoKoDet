@@ -1022,44 +1022,50 @@ def test_visual_identity_accepts_typed_card_scene_draft_views(tmp_path: Any) -> 
         derived_region_receipt=derivation.receipt.to_mapping(),
     )
     region = derivation.regions[0]
-    content = VisibleCardData(
-        outcomes=(
-            VisibleCardOutcome(
-                event_id="event-01",
-                frame_identity=VisibleCardFrameIdentity.from_mapping(
-                    {
-                        "schema_version": "exact-event/v1",
-                        "policy": "exact-event/v1",
-                        "source_video_sha256": digest,
-                        "requested_time_us": 1_000_000,
-                        "presentation_timestamp_us": 1_000_000,
-                        "frame_index": 0,
-                        "width": 100,
-                        "height": 100,
-                        "image_sha256": digest,
-                        "content_type": "image/jpeg",
-                        "decoder_version": "ffmpeg/test",
-                        "transform_version": "ffmpeg-mjpeg/test",
-                        "output_encoding": "jpeg",
-                    }
-                ),
-                status="detected",
-                candidates=(
-                    VisibleCardCandidate.from_mapping(
-                        {
-                            "card_id": region["card_id"],
-                            "geometry": region["geometry"],
-                            "normalization": region["normalization"],
-                            "side": "unknown",
-                        }
-                    ),
-                ),
-                ignored_regions=(),
-                error=None,
-                card_scene=draft,
+    detected_outcome = VisibleCardOutcome(
+        event_id="event-01",
+        frame_identity=VisibleCardFrameIdentity.from_mapping(
+            {
+                "schema_version": "exact-event/v1",
+                "policy": "exact-event/v1",
+                "source_video_sha256": digest,
+                "requested_time_us": 1_000_000,
+                "presentation_timestamp_us": 1_000_000,
+                "frame_index": 0,
+                "width": 100,
+                "height": 100,
+                "image_sha256": digest,
+                "content_type": "image/jpeg",
+                "decoder_version": "ffmpeg/test",
+                "transform_version": "ffmpeg-mjpeg/test",
+                "output_encoding": "jpeg",
+            }
+        ),
+        status="detected",
+        candidates=(
+            VisibleCardCandidate.from_mapping(
+                {
+                    "card_id": region["card_id"],
+                    "geometry": region["geometry"],
+                    "normalization": region["normalization"],
+                    "side": "unknown",
+                }
             ),
-        )
+        ),
+        ignored_regions=(),
+        error=None,
+        card_scene=draft,
     )
+    unusable_outcome = VisibleCardOutcome(
+        event_id="event-unusable",
+        frame_identity=detected_outcome.frame_identity,
+        status="failed",
+        candidates=(),
+        error="operator marked this frame unusable",
+        ignored_regions=(),
+        card_scene=draft,
+    )
+    content = VisibleCardData(outcomes=(detected_outcome, unusable_outcome))
 
     VisualIdentityPipelineService._validate_scene_derived_views(content)
 
