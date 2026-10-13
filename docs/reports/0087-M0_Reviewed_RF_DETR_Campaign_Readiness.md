@@ -31,9 +31,12 @@ and expected inventory. Its result is evidence about reuse limits, not an 0087 s
 - Epic 0068 completed its sealed-test evaluation on `IMG_0646`, `IMG_0648`, and `IMG_0649`. Do not
   reuse those groups as a fresh sealed test. The 0086 inventory also marks its three RF-DETR sealed
   recordings as excluded from development selection.
-- The local operations and table-analyzer Python environments do not have `rfdetr` installed. The
-  historical `.runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt` checkpoint path is absent. The retained
-  0068 candidate checkpoint is not a substitute for the pinned pretrained initialization.
+- Follow-up environment verification in this main checkout confirms `rfdetr==1.9.4` is installed in
+  both local Python environments. The pretrained checkpoint exists at
+  `.runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt` with SHA-256
+  `3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58`. Package and checkpoint
+  availability are not current blockers; M0 must still record this exact initialization in its
+  frozen recipe.
 - 0091 completed two-class software support, but its handoff explicitly reports that no trained
   pile-capable model is selected. Software fixtures do not establish training readiness or model
   quality.
