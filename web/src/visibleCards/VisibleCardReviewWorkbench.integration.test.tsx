@@ -312,6 +312,55 @@ describe("VisibleCardReviewWorkbench", () => {
     );
   });
 
+  it("keeps Virtual Cards mode when selecting a pile region", async () => {
+    const user = userEvent.setup();
+    const frameWithPile = structuredClone(frame);
+    frameWithPile.outcome.pile_regions = [
+      {
+        pile_id: "pile-1",
+        geometry: {
+          kind: "pile-region/v1",
+          polygons: [
+            [
+              { x: 5, y: 5 },
+              { x: 25, y: 5 },
+              { x: 25, y: 25 },
+              { x: 5, y: 25 },
+            ],
+          ],
+        },
+        normalization: { width: 100, height: 100, policy_id: "test" },
+        source_candidates: [],
+        grouped_candidates: [],
+        grouped_card_states: [],
+        grouped_scene_decision: null,
+      },
+    ];
+
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={frameWithPile}
+        readOnly={false}
+        enabledEditTools={["visible_regions", "virtual_cards", "mapping"]}
+      />,
+    );
+
+    const virtualCardsMode = screen.getByRole("button", {
+      name: "Edit Virtual cards",
+    });
+    expect(virtualCardsMode).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(
+      screen.getByRole("button", { name: "Select pile region pile-1" }),
+    );
+
+    expect(virtualCardsMode).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Edit Visible regions" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("shows source detector cards in every edit mode", async () => {
     const user = userEvent.setup();
     const virtualTableFrame = structuredClone(frame);

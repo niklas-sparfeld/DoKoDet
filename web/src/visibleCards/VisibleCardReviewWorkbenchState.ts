@@ -304,13 +304,18 @@ export function visibleCardReviewWorkbenchReducer(
             ? "pile_regions"
             : "ignore_regions";
         if (!availability.layers[layer].available) return state;
+        const keepVirtualCardsMode =
+          action.selection.type === "pile_region" &&
+          state.activeTool === "virtual_cards";
         return {
           ...state,
-          activeTool: "visible_regions",
+          activeTool: keepVirtualCardsMode
+            ? state.activeTool
+            : "visible_regions",
           enabledLayers: uniqueLayers([
             ...state.enabledLayers,
             layer,
-            "visible_regions",
+            ...(keepVirtualCardsMode ? [] : (["visible_regions"] as const)),
           ]),
           selection: action.selection,
           visualFocus: true,
