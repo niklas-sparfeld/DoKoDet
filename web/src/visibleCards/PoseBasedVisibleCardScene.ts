@@ -527,6 +527,12 @@ export function projectImagePointToTable(
 export async function withSceneDigest(
   envelope: PoseSceneEnvelope,
 ): Promise<PoseSceneEnvelope> {
+  return withSceneDigestSync(envelope);
+}
+
+export function withSceneDigestSync(
+  envelope: PoseSceneEnvelope,
+): PoseSceneEnvelope {
   const scene = cloneScene(envelope.scene);
   // Hash the same six-decimal values that we send. JSON loses negative zero,
   // and the backend otherwise rounds the unrounded payload independently.

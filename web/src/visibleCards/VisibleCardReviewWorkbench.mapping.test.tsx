@@ -169,6 +169,72 @@ describe("VisibleCardReviewWorkbench", () => {
     ).toBeDisabled();
   });
 
+  it("queues each virtual-card deletion before the next delete can race it", () => {
+    const onSceneChange = vi.fn();
+    const multiCardFrame: EditableFrame = structuredClone(frame);
+    const cardScene = multiCardFrame.outcome.card_scene!;
+    const secondPose = {
+      ...cardScene.scene.poses[0]!,
+      card_id: "card-2",
+      center: [60, 50] as [number, number],
+    };
+    const thirdPose = {
+      ...secondPose,
+      card_id: "card-3",
+      center: [70, 50] as [number, number],
+    };
+    const fourthPose = {
+      ...secondPose,
+      card_id: "card-4",
+      center: [80, 50] as [number, number],
+    };
+    for (const pose of [secondPose, thirdPose, fourthPose]) {
+      cardScene.scene.poses.push(pose);
+      cardScene.scene.stacking_order.card_ids.push(pose.card_id);
+      cardScene.initialized_scene.poses.push({ ...pose });
+      cardScene.initialized_scene.stacking_order.card_ids.push(pose.card_id);
+    }
+
+    render(
+      <VisibleCardReviewWorkbench
+        recordingId="recording-1"
+        frame={multiCardFrame}
+        readOnly={false}
+        onSceneChange={onSceneChange}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select virtual card card-1" }),
+    );
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Select virtual card card-1" }),
+      { key: "Backspace" },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select virtual card card-2" }),
+    );
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Select virtual card card-2" }),
+      {
+        key: "Backspace",
+      },
+    );
+
+    expect(onSceneChange).toHaveBeenCalledTimes(2);
+    expect(onSceneChange.mock.calls[0]?.[0].scene.poses).toMatchObject([
+      { card_id: "card-2" },
+      { card_id: "card-3" },
+      { card_id: "card-4" },
+    ]);
+    expect(onSceneChange.mock.calls[0]?.[0].scene.poses).toHaveLength(3);
+    expect(onSceneChange.mock.calls[1]?.[0].scene.poses).toMatchObject([
+      { card_id: "card-3" },
+      { card_id: "card-4" },
+    ]);
+    expect(onSceneChange.mock.calls[1]?.[0].scene.poses).toHaveLength(2);
+  });
+
   it("rotates a selected virtual card with the keyboard shortcut", async () => {
     const onSceneChange = vi.fn();
     render(

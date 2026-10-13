@@ -36,7 +36,7 @@ import {
   applyPoseSceneAction,
   createManualCardScene,
   nextManualPoseId,
-  withSceneDigest,
+  withSceneDigestSync,
   type CalibrationAnchorCommand,
   type PoseSceneEnvelope,
 } from "./PoseBasedVisibleCardScene";
@@ -243,16 +243,10 @@ export function VisibleCardReviewWorkbenchView({
   }, [frameScene, sceneIdentity]);
 
   const commitScene = (next: PoseSceneEnvelope, notice: string) => {
-    sceneDraftRef.current = next;
-    setSceneDraft(next);
-    void withSceneDigest(next).then(
-      (digested) => {
-        sceneDraftRef.current = digested;
-        setSceneDraft(digested);
-        onSceneChange?.(digested, notice);
-      },
-      () => onSceneChange?.(next, notice),
-    );
+    const digested = withSceneDigestSync(next);
+    sceneDraftRef.current = digested;
+    setSceneDraft(digested);
+    onSceneChange?.(digested, notice);
   };
 
   const applySceneAction = (
