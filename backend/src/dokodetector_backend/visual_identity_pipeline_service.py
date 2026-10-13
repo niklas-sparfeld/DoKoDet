@@ -513,29 +513,10 @@ class VisualIdentityPipelineService:
             source=accepted_source,
             requested=run.request.crop_input,
         )
-        expected = self._crop_input_provenance(
-            frozen_input,
-            next(
-                (
-                    item
-                    for item in frozen_input.items
-                    if item.card_id == outcome.card_id
-                    and item.frame_identity.to_mapping() == outcome.frame_identity.to_mapping()
-                ),
-                None,
-            ),
-        )
+        item = self._identity_crop_item_for_outcome(frozen_input, outcome)
+        expected = self._crop_input_provenance(frozen_input, item)
         if expected is None or provenance != expected:
             raise DerivedViewError("the identity crop input lineage changed")
-        item = next(
-            (
-                item
-                for item in frozen_input.items
-                if item.card_id == outcome.card_id
-                and item.frame_identity.to_mapping() == outcome.frame_identity.to_mapping()
-            ),
-            None,
-        )
         if item is None or item.geometry.to_mapping() != outcome.geometry.to_mapping():
             raise DerivedViewError("the identity crop geometry changed")
         try:
@@ -1048,6 +1029,57 @@ class VisualIdentityPipelineService:
                 "The visible-card scene-derived view is stale or invalid."
             ) from error
 
+    @staticmethod
+    def _identity_item_ids(items: tuple[VisualIdentityCropInputItem, ...]) -> tuple[str, ...]:
+        """Keep output IDs unique when source card IDs are only unique within a frame."""
+
+        counts: dict[str, int] = {}
+        for item in items:
+            counts[item.card_id] = counts.get(item.card_id, 0) + 1
+        reserved = set(counts)
+        assigned: set[str] = set()
+        result: list[str] = []
+        for item in items:
+            if counts[item.card_id] == 1:
+                item_id = item.card_id
+            else:
+                digest = hashlib.sha256(
+                    f"{item.frame_identity.frame_index}:{item.card_id}".encode("utf-8")
+                ).hexdigest()
+                item_id = ""
+                for length in range(12, len(digest) + 1, 4):
+                    suffix = f"-frame-{item.frame_identity.frame_index}-{digest[:length]}"
+                    item_id = f"{item.card_id[: 128 - len(suffix)]}{suffix}"
+                    if item_id not in reserved and item_id not in assigned:
+                        break
+                else:
+                    raise VisualIdentityPipelineError(
+                        "The visual identity input cannot produce unique item IDs."
+                    )
+            if item_id in assigned:
+                raise VisualIdentityPipelineError(
+                    "The visual identity input cannot produce unique item IDs."
+                )
+            assigned.add(item_id)
+            result.append(item_id)
+        return tuple(result)
+
+    @classmethod
+    def _identity_crop_item_for_outcome(
+        cls,
+        crop_input: VisualIdentityCropInput,
+        outcome: VisualIdentityOutcome,
+    ) -> VisualIdentityCropInputItem | None:
+        for item, item_id in zip(
+            crop_input.items, cls._identity_item_ids(crop_input.items), strict=True
+        ):
+            if (
+                item_id == outcome.card_id
+                and item.frame_identity.to_mapping() == outcome.frame_identity.to_mapping()
+            ):
+                return item
+        return None
+
     def _execute(self, run_id: str) -> None:
         try:
             run = self.run_store.require(run_id)
@@ -1071,8 +1103,9 @@ class VisualIdentityPipelineService:
                 if outcome.status == "detected" and outcome.frame_identity is not None
                 for candidate in outcome.candidates
             }
-            candidates: list[tuple[Any, Any, VisualIdentityCropInputItem]] = []
-            for crop_item in frozen_input.items:
+            item_ids = self._identity_item_ids(frozen_input.items)
+            candidates: list[tuple[Any, Any, VisualIdentityCropInputItem, str]] = []
+            for crop_item, item_id in zip(frozen_input.items, item_ids, strict=True):
                 key = (crop_item.frame_identity.frame_index, crop_item.card_id)
                 pair = candidate_lookup.get(key)
                 if (
@@ -1084,24 +1117,26 @@ class VisualIdentityPipelineService:
                     raise VisualIdentityPipelineError(
                         "The frozen crop input no longer matches its source."
                     )
-                candidates.append((pair[0], pair[1], crop_item))
+                candidates.append((pair[0], pair[1], crop_item, item_id))
             self._validate_scene_derived_views(visible_revision.content)
             outcomes_by_index: list[VisualIdentityOutcome | None] = [None] * len(candidates)
             prior_items = {item.item_id: item for item in run.state.items}
-            candidate_ids = {candidate.card_id for _, candidate, _ in candidates}
+            candidate_ids = {item_id for _, _, _, item_id in candidates}
             if not set(prior_items).issubset(candidate_ids):
                 raise VisualIdentityPipelineError(
                     "The retry contains an item that is not in the frozen card input."
                 )
             items_by_index: list[RunItemOutcome | None] = [
-                prior_items.get(candidate.card_id) for _, candidate, _ in candidates
+                prior_items.get(item_id) for _, _, _, item_id in candidates
             ]
-            pending_candidates: list[tuple[int, Any, Any]] = []
+            pending_candidates: list[tuple[int, Any, Any, VisualIdentityCropInputItem, str]] = []
             completed = 0
-            for index, (visible_outcome, candidate, crop_item) in enumerate(candidates):
+            for index, (visible_outcome, candidate, crop_item, item_id) in enumerate(candidates):
                 item = items_by_index[index]
                 if item is None or item.status != "succeeded":
-                    pending_candidates.append((index, visible_outcome, candidate, crop_item))
+                    pending_candidates.append(
+                        (index, visible_outcome, candidate, crop_item, item_id)
+                    )
                     continue
                 if item.result is None:
                     raise VisualIdentityPipelineError(
@@ -1113,9 +1148,9 @@ class VisualIdentityPipelineService:
                     raise VisualIdentityPipelineError(
                         f"The retained outcome for card {candidate.card_id} is invalid."
                     ) from error
-                if result.card_id != candidate.card_id:
+                if result.card_id != item_id:
                     raise VisualIdentityPipelineError(
-                        f"The retained outcome for card {candidate.card_id} has the wrong ID."
+                        f"The retained outcome for card {item_id} has the wrong ID."
                     )
                 outcomes_by_index[index] = result
                 completed += 1
@@ -1129,22 +1164,27 @@ class VisualIdentityPipelineService:
             ) as executor:
                 futures: dict[Future[VisualIdentityOutcome], int] = {
                     executor.submit(
-                        self._process_card_timed, run, outcome, candidate, crop_item
+                        self._process_card_timed,
+                        run,
+                        outcome,
+                        candidate,
+                        crop_item,
+                        item_id,
                     ): index
-                    for index, outcome, candidate, crop_item in pending_candidates
+                    for index, outcome, candidate, crop_item, item_id in pending_candidates
                 }
                 for future in as_completed(futures):
                     index = futures[future]
-                    outcome, candidate, crop_item = candidates[index]
+                    outcome, candidate, crop_item, item_id = candidates[index]
                     try:
                         result = future.result()
                     except Exception:
                         LOGGER.exception(
                             "visual_identity_card_failed",
-                            extra={"run_id": run.run_id, "card_id": candidate.card_id},
+                            extra={"run_id": run.run_id, "card_id": item_id},
                         )
                         result = VisualIdentityOutcome(
-                            card_id=candidate.card_id,
+                            card_id=item_id,
                             frame_identity=outcome.frame_identity,
                             geometry=candidate.geometry,
                             crop_identity=None,
@@ -1158,7 +1198,7 @@ class VisualIdentityPipelineService:
                         )
                     outcomes_by_index[index] = result
                     item = RunItemOutcome(
-                        item_id=candidate.card_id,
+                        item_id=item_id,
                         status="succeeded",
                         result=result.to_mapping(),
                         failure=None,
@@ -1201,6 +1241,7 @@ class VisualIdentityPipelineService:
         visible_outcome: Any,
         card: Any,
         crop_item: VisualIdentityCropInputItem,
+        item_id: str,
         *,
         timings: dict[str, float | None] | None = None,
     ) -> VisualIdentityOutcome:
@@ -1229,7 +1270,7 @@ class VisualIdentityPipelineService:
                 raise DerivedViewError("the resolved frame identity changed")
         except (DerivedViewError, OSError, RuntimeError):
             return VisualIdentityOutcome(
-                card_id=card.card_id,
+                card_id=item_id,
                 frame_identity=frame_identity,
                 geometry=geometry,
                 crop_identity=None,
@@ -1265,7 +1306,7 @@ class VisualIdentityPipelineService:
             )
         except (DerivedViewError, OSError, RuntimeError, ValueError):
             return VisualIdentityOutcome(
-                card_id=card.card_id,
+                card_id=item_id,
                 frame_identity=frame_identity,
                 geometry=geometry,
                 crop_identity=None,
@@ -1280,7 +1321,7 @@ class VisualIdentityPipelineService:
                 timings["crop_ms"] = round(max(0.0, time.monotonic() - started) * 1000.0, 3)
         if card.side == "face_down":
             return VisualIdentityOutcome(
-                card_id=card.card_id,
+                card_id=item_id,
                 frame_identity=frame_identity,
                 geometry=geometry,
                 crop_identity=crop_identity,
@@ -1291,7 +1332,7 @@ class VisualIdentityPipelineService:
             )
         if not crop_item.identity_usable:
             return VisualIdentityOutcome(
-                card_id=card.card_id,
+                card_id=item_id,
                 frame_identity=frame_identity,
                 geometry=geometry,
                 crop_identity=crop_identity,
@@ -1306,7 +1347,7 @@ class VisualIdentityPipelineService:
             )
         if crop.status == "unusable":
             return VisualIdentityOutcome(
-                card_id=card.card_id,
+                card_id=item_id,
                 frame_identity=frame_identity,
                 geometry=geometry,
                 crop_identity=crop_identity,
@@ -1323,7 +1364,7 @@ class VisualIdentityPipelineService:
             if classifier is None:
                 raise VisualIdentityPipelineError("The visual identity classifier is unavailable.")
             request = VisualIdentityRequest(
-                card_id=card.card_id,
+                card_id=item_id,
                 provider=classifier.name,
                 model=run.request.model.name if run.request.model is not None else "unknown",
                 crop_bytes=crop.image_bytes,
@@ -1334,7 +1375,7 @@ class VisualIdentityPipelineService:
                 timings["classifier_latency_ms"] = _result_latency_ms(result)
             if result.status == "unavailable":
                 return VisualIdentityOutcome(
-                    card_id=card.card_id,
+                    card_id=item_id,
                     frame_identity=frame_identity,
                     geometry=geometry,
                     crop_identity=crop_identity,
@@ -1346,7 +1387,7 @@ class VisualIdentityPipelineService:
                 )
             if result.classification == "face_down":
                 return VisualIdentityOutcome(
-                    card_id=card.card_id,
+                    card_id=item_id,
                     frame_identity=frame_identity,
                     geometry=geometry,
                     crop_identity=crop_identity,
@@ -1357,7 +1398,7 @@ class VisualIdentityPipelineService:
                 )
             if result.classification == "unknown" or not result.candidates:
                 return VisualIdentityOutcome(
-                    card_id=card.card_id,
+                    card_id=item_id,
                     frame_identity=frame_identity,
                     geometry=geometry,
                     crop_identity=crop_identity,
@@ -1383,7 +1424,7 @@ class VisualIdentityPipelineService:
             )
         except Exception:
             return VisualIdentityOutcome(
-                card_id=card.card_id,
+                card_id=item_id,
                 frame_identity=frame_identity,
                 geometry=geometry,
                 crop_identity=crop_identity,
@@ -1399,7 +1440,7 @@ class VisualIdentityPipelineService:
                     max(0.0, time.monotonic() - classifier_started) * 1000.0, 3
                 )
         return VisualIdentityOutcome(
-            card_id=card.card_id,
+            card_id=item_id,
             frame_identity=frame_identity,
             geometry=geometry,
             crop_identity=crop_identity,
@@ -1415,18 +1456,21 @@ class VisualIdentityPipelineService:
         visible_outcome: Any,
         card: Any,
         crop_item: VisualIdentityCropInputItem,
+        item_id: str,
     ) -> VisualIdentityOutcome:
         started = time.monotonic()
         timings: dict[str, float | None] = {}
         try:
-            return self._process_card(run, visible_outcome, card, crop_item, timings=timings)
+            return self._process_card(
+                run, visible_outcome, card, crop_item, item_id, timings=timings
+            )
         finally:
             LOGGER.info(
                 "visual_identity_card_timing",
                 extra={
                     "event_name": "visual_identity_card_timing",
                     "run_id": run.run_id,
-                    "card_id": card.card_id,
+                    "card_id": item_id,
                     "item_wall_time_ms": round(max(0.0, time.monotonic() - started) * 1000.0, 3),
                     **timings,
                     "timing_scope": (

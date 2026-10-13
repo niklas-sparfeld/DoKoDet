@@ -105,6 +105,31 @@ def test_auto_approval_reason_requires_matching_classified_outcomes() -> None:
     )
 
 
+def test_duplicate_source_card_ids_get_stable_frame_scoped_identity_ids() -> None:
+    items = (
+        SimpleNamespace(
+            card_id="manual-card-1",
+            frame_identity=SimpleNamespace(frame_index=2671),
+        ),
+        SimpleNamespace(
+            card_id="manual-card-1",
+            frame_identity=SimpleNamespace(frame_index=3285),
+        ),
+        SimpleNamespace(
+            card_id="pose-card-1",
+            frame_identity=SimpleNamespace(frame_index=3285),
+        ),
+    )
+
+    item_ids = VisualIdentityPipelineService._identity_item_ids(items)
+
+    assert item_ids == VisualIdentityPipelineService._identity_item_ids(items)
+    assert len(item_ids) == len(set(item_ids))
+    assert item_ids[0].startswith("manual-card-1-frame-2671-")
+    assert item_ids[1].startswith("manual-card-1-frame-3285-")
+    assert item_ids[2] == "pose-card-1"
+
+
 def test_visual_identity_run_listing_uses_recording_scoped_storage(
     tmp_path: Any, monkeypatch: Any
 ) -> None:
