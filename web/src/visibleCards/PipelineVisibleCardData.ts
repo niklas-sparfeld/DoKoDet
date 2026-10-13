@@ -3,7 +3,10 @@ import type {
   PipelineReferenceItem,
   PipelineVisibleCardResult,
 } from "../api/client";
-import { readPoseScene } from "./PoseBasedVisibleCardScene";
+import {
+  readManualCardSceneSeed,
+  readPoseScene,
+} from "./PoseBasedVisibleCardScene";
 import type {
   Candidate,
   EditableFrame,
@@ -113,6 +116,11 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
   )
     return null;
   const cardScene = readPoseScene(value.card_scene);
+  const parsedManualCardSceneSeed = readManualCardSceneSeed(value.card_scene);
+  const manualCardSceneSeed =
+    parsedManualCardSceneSeed?.source_frame_id === eventId
+      ? parsedManualCardSceneSeed
+      : null;
   return {
     event_id: eventId,
     frame_identity: frame,
@@ -123,6 +131,9 @@ function readOutcome(value: Record<string, unknown>): Outcome | null {
     pile_detection_status:
       pileDetectionStatus === "supported" ? "supported" : "unsupported",
     ...(cardScene === null ? {} : { card_scene: cardScene }),
+    ...(manualCardSceneSeed === null
+      ? {}
+      : { manual_card_scene_seed: manualCardSceneSeed }),
     error: typeof value.error === "string" ? value.error : null,
   };
 }

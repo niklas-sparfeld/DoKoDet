@@ -10,7 +10,10 @@ export type {
   PipelineReferenceOperation,
   PipelineReferenceResource,
 };
-import type { PoseSceneEnvelope } from "./PoseBasedVisibleCardScene";
+import type {
+  ManualCardSceneSeed,
+  PoseSceneEnvelope,
+} from "./PoseBasedVisibleCardScene";
 
 export type Point = { x: number; y: number };
 
@@ -82,6 +85,7 @@ export type Outcome = {
   pile_regions?: PileRegion[];
   pile_detection_status?: "supported" | "unsupported";
   card_scene?: PoseSceneEnvelope;
+  manual_card_scene_seed?: ManualCardSceneSeed;
   error: string | null;
 };
 

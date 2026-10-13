@@ -502,6 +502,7 @@ export type WorkbenchTimelineSelectionViewModel = {
   canRestoreSuggestion: boolean;
   frameDecision?: VisibleCardFrameDecision;
   scene: PoseSceneEnvelope | null;
+  manualSceneAvailable?: boolean;
   calibrationRefinement: WorkbenchCalibrationRefinement | null;
   mappingAnchors: WorkbenchCalibrationAnchor[];
   mappingLoading: boolean;
@@ -540,6 +541,7 @@ export function WorkbenchTimelineSelectionActions({
     canRestoreSuggestion,
     frameDecision,
     scene,
+    manualSceneAvailable = false,
     calibrationRefinement,
     mappingAnchors,
     mappingLoading,
@@ -587,6 +589,7 @@ export function WorkbenchTimelineSelectionActions({
         <VirtualCardSelectionActions
           readOnly={readOnly}
           scene={scene}
+          manualSceneAvailable={manualSceneAvailable}
           selection={selection}
           onAction={onAction}
           onCardDecision={onCardDecision}
@@ -698,6 +701,7 @@ function FrameDecisionActions({
 function VirtualCardSelectionActions({
   readOnly,
   scene,
+  manualSceneAvailable,
   selection,
   onAction,
   onCardDecision,
@@ -706,6 +710,7 @@ function VirtualCardSelectionActions({
 }: {
   readOnly: boolean;
   scene: PoseSceneEnvelope | null;
+  manualSceneAvailable: boolean;
   selection: WorkbenchSelection | null;
   onAction: (action: VisibleCardReviewWorkbenchAction) => void;
   onCardDecision?: (cardId: string, decision: "accept" | "reject") => void;
@@ -725,7 +730,7 @@ function VirtualCardSelectionActions({
     scene?.card_review_states?.filter((state) => state.state === "pending")
       .length ?? 0;
   const selectedCardId = selectedPose?.card_id ?? null;
-  const sceneAvailable = scene !== null;
+  const sceneAvailable = scene !== null || manualSceneAvailable;
   const cardTarget = selectedCardId ?? "selected card";
   const actionControl = (
     action: VirtualCardWorkbenchAction,
@@ -770,7 +775,9 @@ function VirtualCardSelectionActions({
       readOnly || !sceneAvailable,
       readOnly
         ? "Generated visible-card results are read-only."
-        : "A proposed card scene is required to add a virtual card.",
+        : manualSceneAvailable && scene === null
+          ? "Add a manual card scene from the calibrated table mapping."
+          : "A proposed card scene is required to add a virtual card.",
     ),
     actionControl(
       "accept_card",

@@ -447,6 +447,7 @@ export function getWorkbenchAvailability(
 ): WorkbenchAvailability {
   const source = capabilities.hasSourceFrame;
   const calibration = source && capabilities.hasCalibration;
+  const rectified = calibration && capabilities.hasCardScene;
   const editableReason = capabilities.readOnly
     ? WORKBENCH_DISABLED_REASONS.readOnly
     : null;
@@ -457,8 +458,8 @@ export function getWorkbenchAvailability(
         source ? null : WORKBENCH_DISABLED_REASONS.noSourceFrame,
       ),
       rectified: control(
-        calibration,
-        calibration ? null : WORKBENCH_DISABLED_REASONS.noCalibration,
+        rectified,
+        rectified ? null : WORKBENCH_DISABLED_REASONS.noCalibration,
       ),
     },
     layers: {
@@ -614,7 +615,9 @@ function defaultPreferences(
   return {
     viewpoint: "camera",
     enabledLayers,
-    activeTool: hasRectifiedScene ? "virtual_cards" : "visible_regions",
+    activeTool: capabilities.hasCalibration
+      ? "virtual_cards"
+      : "visible_regions",
   };
 }
 
@@ -709,7 +712,9 @@ export function workbenchCapabilitiesFromFrame(
         (candidate.geometry.visible_region?.polygons.length ?? 0) > 0,
     ),
     hasCardScene: frame.outcome.card_scene !== undefined,
-    hasCalibration: frame.outcome.card_scene !== undefined,
+    hasCalibration:
+      frame.outcome.card_scene !== undefined ||
+      frame.outcome.manual_card_scene_seed !== undefined,
     hasProposals: displayedCandidates.length > 0,
     hasIgnoreRegions: frame.outcome.ignored_regions.length > 0,
     hasPileRegions: (frame.outcome.pile_regions?.length ?? 0) > 0,

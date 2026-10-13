@@ -753,6 +753,10 @@ export function PipelineVisibleCardEditorView({
           const exists = (frame.outcome.pile_regions ?? []).some(
             (pile) => pile.pile_id === previous.pile_id,
           );
+          const reopensFrame =
+            !exists &&
+            (frame.outcome.status !== "detected" ||
+              ["empty", "unusable", "rejected"].includes(frame.reviewState));
           enqueue(
             {
               operation: currentEditor.groupCandidateIds?.length
@@ -774,6 +778,7 @@ export function PipelineVisibleCardEditorView({
                   ? candidate
                   : {
                       ...candidate,
+                      ...(reopensFrame ? { reviewState: "corrected" as const } : {}),
                       outcome: {
                         ...candidate.outcome,
                         status: "detected",
@@ -2153,7 +2158,8 @@ export function PipelineVisibleCardEditorView({
                 frameDecision={activeFrameDecision}
                 initialPreferences={{
                   activeTool:
-                    activeFrame.outcome.card_scene === undefined
+                    activeFrame.outcome.card_scene === undefined &&
+                    activeFrame.outcome.manual_card_scene_seed === undefined
                       ? "visible_regions"
                       : "virtual_cards",
                 }}

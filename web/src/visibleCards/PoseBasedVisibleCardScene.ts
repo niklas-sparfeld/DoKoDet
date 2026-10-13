@@ -68,6 +68,13 @@ export type CardSceneProjection = {
   card_long_size: number;
 };
 
+export type ManualCardSceneSeed = {
+  source_frame_id: string;
+  calibration_revision_id: string;
+  calibration_digest: string;
+  projection: CardSceneProjection;
+};
+
 export type CardReviewState = {
   card_id: string;
   source: "proposal" | "manual";
@@ -273,6 +280,78 @@ export function readPoseScene(value: unknown): PoseSceneEnvelope | null {
           )!,
         }),
   };
+}
+
+export function readManualCardSceneSeed(
+  value: unknown,
+): ManualCardSceneSeed | null {
+  if (
+    !isRecord(value) ||
+    value.schema_version !== "card-scene-draft/v1" ||
+    !isRecord(value.proposal) ||
+    value.proposal.status !== "unsupported" ||
+    typeof value.proposal.source_frame_id !== "string" ||
+    typeof value.proposal.calibration_revision_id !== "string" ||
+    typeof value.proposal.calibration_digest !== "string"
+  )
+    return null;
+  const projection = readProjection(value.projection);
+  if (projection === null) return null;
+  return {
+    source_frame_id: value.proposal.source_frame_id,
+    calibration_revision_id: value.proposal.calibration_revision_id,
+    calibration_digest: value.proposal.calibration_digest,
+    projection,
+  };
+}
+
+export async function createManualCardScene(input: {
+  frameId: string;
+  width: number;
+  height: number;
+  cardId: string;
+  seed: ManualCardSceneSeed;
+}): Promise<PoseSceneEnvelope> {
+  const center = projectImagePointToTable(
+    [input.width / 2, input.height / 2],
+    input.seed.projection.table_to_image_homography,
+  ) ?? [0, 0];
+  const scene: ReviewedCardScene = {
+    schema_version: REVIEWED_CARD_SCENE_SCHEMA,
+    source_frame_id: input.frameId,
+    source_frame_width: input.width,
+    source_frame_height: input.height,
+    calibration_revision_id: input.seed.calibration_revision_id,
+    calibration_digest: input.seed.calibration_digest,
+    poses: [
+      {
+        schema_version: "card-pose/v1",
+        card_id: input.cardId,
+        center,
+        rotation_degrees: 0,
+        source_suggestion_id: null,
+        fit_diagnostics_digest: null,
+      },
+    ],
+    stacking_order: {
+      schema_version: "card-stacking-order/v1",
+      card_ids: [input.cardId],
+      uncertain_edges: [],
+      contradictions: [],
+    },
+    derivation_recipe_version: "card-plane-derived-regions/v2",
+    scene_digest: "",
+  };
+  const envelope = await withSceneDigest({
+    schema_version: REVIEWED_CARD_SCENE_EDITOR_SCHEMA,
+    scene,
+    initialized_scene: scene,
+    projection: input.seed.projection,
+    card_review_states: [],
+    completion_state: "complete",
+    completion_reason: null,
+  });
+  return { ...envelope, initialized_scene: envelope.scene };
 }
 
 function readCardReviewStates(value: unknown): CardReviewState[] | null {

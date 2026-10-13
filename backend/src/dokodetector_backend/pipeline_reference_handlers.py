@@ -910,6 +910,26 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                 raise PipelineReferenceInputError(
                     "corrected proposal scene changes immutable frame or calibration lineage"
                 )
+            if existing_draft.proposal.status == "unsupported":
+                if projection != existing_draft.projection:
+                    raise PipelineReferenceInputError(
+                        "manual scene changes the calibrated projection"
+                    )
+                if any(
+                    pose.source_suggestion_id is not None
+                    or pose.fit_diagnostics_digest is not None
+                    for pose in reviewed_scene.poses
+                ):
+                    raise PipelineReferenceInputError(
+                        "manual scene cannot add proposal lineage to a frame without proposals"
+                    )
+                reviewed_item = cls._derive_pose_scene_item(dict(item))
+                return ReferenceDraftItem(
+                    item_id=existing.item_id,
+                    base_item_id=existing.item_id,
+                    review_state="corrected",
+                    item=reviewed_item,
+                )
             reviewed_ids = set(reviewed_scene.stacking_order.card_ids)
             proposal_ids = set(existing_draft.proposal.card_ids)
             manual_ids = reviewed_ids - proposal_ids
@@ -1516,9 +1536,15 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if index is None:
             raise PipelineReferenceInputError(f"item was not found: {operation.item_id}")
         existing = items[index]
-        if existing.item.get("status") != "detected":
+        empty_candidate_frame = (
+            operation.operation == "create_pile_region"
+            and existing.item.get("status") in {"empty", "failed"}
+            and not self._candidates(existing)
+            and isinstance(existing.item.get("frame_identity"), Mapping)
+        )
+        if existing.item.get("status") != "detected" and not empty_candidate_frame:
             raise PipelineReferenceInputError("pile regions can only be changed on detected frames")
-        if existing.review_state in {"empty", "unusable", "rejected"}:
+        if existing.review_state in {"empty", "unusable", "rejected"} and not empty_candidate_frame:
             raise PipelineReferenceInputError(
                 "pile regions cannot be changed on an unresolved frame"
             )
@@ -1700,10 +1726,19 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             regions.append(region)
 
         updated["pile_regions"] = [region.to_mapping() for region in regions]
+        if empty_candidate_frame:
+            updated["status"] = "detected"
+            updated["error"] = None
         if operation.operation == "delete_pile_region":
             updated["pile_regions"] = [region.to_mapping() for region in regions]
         self.validate_item(updated, source_revision_id)
-        return items[:index] + [self._replace(existing, item=updated)] + items[index + 1 :]
+        return items[:index] + [
+            self._replace(
+                existing,
+                item=updated,
+                review_state="corrected" if empty_candidate_frame else existing.review_state,
+            )
+        ] + items[index + 1 :]
 
     @staticmethod
     def _deduplicate_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1894,7 +1929,17 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             return "unusable"
         if status != "detected":
             return None
-        has_candidates = bool(item.get("candidates")) or item.get("card_scene") is not None
+        typed_scene = VisibleCardReferenceHandler._typed_scene_draft(item)
+        raw_scene = item.get("card_scene")
+        if typed_scene is not None:
+            has_scene_cards = typed_scene.reviewed is not None and bool(
+                typed_scene.reviewed.card_ids
+            )
+        else:
+            scene = raw_scene.get("scene") if isinstance(raw_scene, Mapping) else None
+            poses = scene.get("poses") if isinstance(scene, Mapping) else None
+            has_scene_cards = isinstance(poses, list) and bool(poses)
+        has_candidates = bool(item.get("candidates")) or has_scene_cards
         has_regions = bool(item.get("ignored_regions"))
         has_piles = bool(item.get("pile_regions"))
         if has_piles and has_candidates and has_regions:

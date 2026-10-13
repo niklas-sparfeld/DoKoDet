@@ -34,6 +34,7 @@ import {
 } from "./VisibleCardWorkbenchGeometry";
 import {
   applyPoseSceneAction,
+  createManualCardScene,
   nextManualPoseId,
   withSceneDigest,
   type CalibrationAnchorCommand,
@@ -415,6 +416,24 @@ export function VisibleCardReviewWorkbenchView({
           },
           "Standard-size card added to the virtual table.",
         );
+      } else if (
+        frame.outcome.manual_card_scene_seed !== undefined &&
+        frame.outcome.frame_identity !== null
+      ) {
+        const cardId = `manual-${frame.itemId}-${Date.now()}`;
+        select({ type: "virtual_card", id: cardId });
+        void createManualCardScene({
+          frameId: frame.outcome.event_id,
+          width: frame.outcome.frame_identity.width,
+          height: frame.outcome.frame_identity.height,
+          cardId,
+          seed: frame.outcome.manual_card_scene_seed,
+        }).then((manualScene) => {
+          commitScene(
+            manualScene,
+            "First manual virtual card added to the calibrated table.",
+          );
+        });
       }
       return;
     }
@@ -503,6 +522,8 @@ export function VisibleCardReviewWorkbenchView({
         canRestoreSuggestion,
         frameDecision,
         scene,
+        manualSceneAvailable:
+          frame.outcome.manual_card_scene_seed !== undefined,
         calibrationRefinement,
         mappingAnchors,
         mappingLoading,
