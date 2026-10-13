@@ -41,7 +41,8 @@ See the [0091 capability handoff](../../reports/0091-Pile_Region_Capability_Hand
 pile exclusion and observation contract.
 
 This campaign does not depend on the new RF-DETR candidate. It trains from completed reviewed
-geometry and labels. RF-DETR training belongs to [0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md).
+geometry and labels. RF-DETR training belongs to
+[0087](../3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md).
 Model promotion and productive campaign UI remain in
 [0044](../1-backlog/0044-Productive_Local_Identity_Model_Operations.md).
 

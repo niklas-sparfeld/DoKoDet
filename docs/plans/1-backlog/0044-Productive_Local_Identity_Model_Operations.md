@@ -38,7 +38,7 @@ default. Device evidence packages are not an input to campaigns or normal record
 ## Scheduling decision — 2026-10-11
 
 Defer the productive campaign UI until the current corpus and model work have been exercised.
-[0086](../2-ready/0086-Reviewed_Virtual_Card_Corpus.md) owns current review work.
+[0086](../3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) owns current review work.
 [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) owns the new identity training
 campaign and provides the preferred later report. Reuse that report if available; 0043 remains a
 valid development input, so 0088 is not a hard prerequisite for this backlog epic. This scheduling

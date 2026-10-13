@@ -28,9 +28,11 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 1. **0086:** Continue reviewed corpus work. Use the completed 0091 annotation workflow to review
    one region per accumulated pile.
-2. **0087 and 0088:** Run separate RF-DETR and DINO campaigns after their corpus and feature gates.
-   Neither campaign requires the other to improve its model. 0087 preparation needs 0091 M0–M3;
-   pile-capable inference checks need M4. Pile-aware identity preparation needs M5.
+2. **0087 and 0088:** Run separate RF-DETR and DINO campaigns. RF-DETR M0 can start while 0086
+   identity review continues. RF-DETR needs reviewed geometry, visible-card masks, ignore/exclusion
+   decisions, and 0091 M0–M3 preparation before materialization. Pile-capable inference checks need
+   0091 M4. Pile-aware identity preparation needs M5. Neither campaign requires the other to improve
+   its model.
 3. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
 4. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
 
@@ -67,12 +69,12 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local providers; pile review uses 0091 M0–M1 | M0 reconciles 52 accepted recordings and selects the 0095 pilot. M1 generates current proposals for all 53 pilot frames. M2 awaits operator review; M3–M5 not started. Continue individual-card review and use one region per accumulated pile after 0091 M1. |
+| [0087 — Reviewed virtual-card RF-DETR campaign](3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0068 and 0070 complete; 0091 M0–M3 complete; M1 requires detection-only 0086 geometry/mask handoff and source groups | M0 in progress. Freeze corrected visible-card masks, ignore/exclusion policy, and source groups. Identity review is not a dependency. Then train bounded real and synthetic candidates and publish segmentation metrics and an exact bundle decision. |
 
 ### Blocked
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0087 — Reviewed virtual-card RF-DETR campaign](4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 reviewed corpus; 0091 M0–M3 for preparation and M4 for inference; 0068 and 0070 complete | M0–M5 not started. Freeze individual-card masks and coarse pile targets, train bounded real and synthetic candidates, and publish per-class metrics and an exact bundle decision. Replaces unstarted 0084 training. |
 | [0088 — Reviewed virtual-card DINO campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) | 0086 geometry and identity handoff; 0091 M5 for pile-bearing inputs; 0043 and 0085 complete | M0–M5 not started. Prepare individual-card crops with piles excluded, train separate bounded real and synthetic identity candidates, and publish measured class limits and a bundle decision. Does not depend on 0087 training. |
 | [0089 — Virtual-card algorithm edge cases](4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) | 0086 reviewed evidence; 0087 and 0088 bundle decisions | M0–M3 not started. Reproduce fresh failures, freeze at most two small failure families, and verify bounded pose, occlusion, or crop fixes. |
 | [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) | 0087 and 0088 bundle decisions; 0089 and 0091 M7 handoffs; 0048 and 0049 complete | M0–M3 not started. Coordinate retained automatic stages with declared pile capabilities on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion. |

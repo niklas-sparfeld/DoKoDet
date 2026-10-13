@@ -231,7 +231,7 @@ and tracking improve independently.
   campaigns, promotion, and rollback.
 - [0086](plans/3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) owns the current reviewed geometry
   and identity corpus.
-- [0087](plans/4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
+- [0087](plans/3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
   [0088](plans/4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) own separate segmentation
   and identity training campaigns.
 - [0089](plans/4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) owns measured algorithm fixes.

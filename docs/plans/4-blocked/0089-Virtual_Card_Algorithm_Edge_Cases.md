@@ -21,7 +21,7 @@
 ## 1. Scope and selection
 
 Use fresh runs with the exact bundle and crop-policy decisions from
-[0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
+[0087](../3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
 [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md). A campaign can select a retained baseline;
 it need not produce a better model to unblock this epic.
 

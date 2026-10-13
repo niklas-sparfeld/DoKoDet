@@ -54,7 +54,7 @@ This epic owns feature implementation from annotation through reconstruction inp
 run a new model campaign, train DINO, change model defaults, implement temporal pile association,
 infer played-card counts, or redesign reconstruction search. Real RF-DETR training, candidate
 selection, synthetic-mixture measurement, and bundle decisions remain in
-[0087](../4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md). Corpus review remains in
+[0087](../3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md). Corpus review remains in
 [0086](../3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md).
 
 ## 2. Delivery order and independent annotation

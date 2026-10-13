@@ -4,10 +4,11 @@
 
 - **Summary:** Train and compare RF-DETR candidates from reviewed individual-card masks and
   coarse pile targets, with one compatible synthetic-data addition where supported.
-- **Status:** Blocked
-- **Depends on:** 0086 completed reviewed corpus and source-group handoff; completed 0068 and 0070
-  0091 M0–M3 for two-class preparation; M4 before pile-capable inference checks.
-- **Blocker:** The corrected corpus, pile feature support, and target eligibility are not frozen.
+- **Status:** In Progress
+- **Depends on:** Completed 0068 and 0070; 0091 M0–M3 for two-class preparation; M1 requires a
+  detection-only 0086 handoff with reviewed geometry, visible-card masks, ignore or frame-exclusion
+  decisions, and source-group assignments; M4 before pile-capable inference checks. Visual identity
+  review is not required.
 - **Supersedes:** Unstarted training in 0084; retain its M0–M2 evidence as historical inspection
 - **Outcome:** Verified segmentation views, bounded training, real evaluation, and a retained bundle
   decision. Improvement is measured, not assumed.
@@ -16,7 +17,9 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze reviewed inputs, comparison recipe, budgets, and gates.
+- **M0:** In progress — audit detection inputs and prior evaluation use; freeze the corrected
+  visible-card view without waiting for identity labels. The existing 0067 audit has a fixed
+  recording list and is not an 0087 manifest; M0 must freeze an independent, current selection.
 - **M1:** Not started — materialize and inspect the real segmentation view.
 - **M2:** Not started — regenerate and inspect the synthetic addition.
 - **M3:** Not started — run the fixed real-only training comparison.
@@ -28,7 +31,9 @@
 This campaign uses completed human-reviewed individual-card scenes and pile regions under
 [0091](../5-closed/0091-Pile_Region_Feature.md). Unreviewed proposed scenes and review drafts are
 not targets. Do not reuse the 0084 mask view as corrected training data: its inspection
-found human-hand label spill, and its geometry predates the current measured dimensions.
+found human-hand label spill, and its geometry predates the current measured dimensions. RF-DETR
+learns visible-card regions, so visual identity labels and identity-processor runs are outside this
+campaign's inputs and gates.
 
 Reuse the 0068 SegMedium trainer, evaluation, bundle, and provider boundaries. Reuse the 0070
 synthetic generator. Its historical 50/50 comparison improved real validation mask AP from
@@ -36,7 +41,8 @@ synthetic generator. Its historical 50/50 comparison improved real validation ma
 promotion or prove a new mixture will improve the corrected corpus.
 
 This epic does not train DINO, tune pose fitting, change runtime defaults, or implement end-to-end
-automation. [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md) is independent of its training result.
+automation. [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) is independent of its
+training result.
 
 ## 2. Campaign rules
 
@@ -90,12 +96,14 @@ candidate with a recorded reason if this campaign cannot define a compatible poo
 
 ## 3. Delivery milestones
 
-### M0 — Freeze inputs and decisions
+### M0 — Freeze detection inputs and decisions
 
-Audit the 0086 handoff and prior evaluation usage. Freeze the comparison design, candidates, counts,
-minimum support, recipes, budgets, and numerical gates. Include mask AP, recall, false detections,
-duplicates, empty predictions, and per-recording coverage. Freeze overlap, small-card, frame-edge,
-and human-hand slices where real support exists.
+Audit the detection-only 0086 handoff and prior evaluation usage. Select only completed, eligible
+visible-card references and source groups. Record per-frame ignore-region masks or explicit frame
+exclusions. Freeze the comparison design, candidates, counts, minimum support, recipes, budgets, and
+numerical gates. Include mask AP, recall, false detections, duplicates, empty predictions, and
+per-recording coverage. Freeze overlap, small-card, frame-edge, and human-hand slices where real
+support exists. Do not wait for visual identity completion.
 Freeze individual-card metrics separately from pile localization and classification, pile/card
 confusion, fragments predicted inside piles, and individual-card recall near piles. Include
 ordinary overlapping tricks as a confusion slice. Aggregate AP is not a sufficient gate.
@@ -149,8 +157,9 @@ only if M0's gates permit it; retain a failed candidate as an experiment. Leave 
 
 Acceptance: decision report, predictions, bundle digests, evaluation history, limitations, and next
 actions are reproducible. Hand the exact selected bundle or retained baseline to
-[0089](0089-Virtual_Card_Algorithm_Edge_Cases.md) and
-[0090](0090-Local_End_to_End_Recording_Pipeline.md). A negative campaign outcome still permits a handoff.
+[0089](../4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) and
+[0090](../4-blocked/0090-Local_End_to_End_Recording_Pipeline.md). A negative campaign outcome still
+permits a handoff.
 
 ## 4. Verification
 

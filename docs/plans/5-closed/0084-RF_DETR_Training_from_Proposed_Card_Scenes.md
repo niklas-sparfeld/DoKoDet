@@ -105,8 +105,8 @@
 
 ## Closure decision — 2026-10-11
 
-[0086](../2-ready/0086-Reviewed_Virtual_Card_Corpus.md) owns human correction and corpus
-readiness. [0087](../4-blocked/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns the new
+[0086](../3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) owns human correction and corpus
+readiness. [0087](../3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns the new
 segmentation campaign. The remaining specification below records the former generated-label
 experiment. It is not an instruction to resume training. Retain frozen M0–M2 artifacts unchanged.
 
