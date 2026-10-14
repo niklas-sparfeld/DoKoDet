@@ -401,6 +401,44 @@ def test_m0_reports_item_level_reference_drift(
     )
 
 
+@pytest.mark.parametrize("published_status", ["unsupported", "supported"])
+def test_pile_reference_audit_compares_default_detection_status(
+    tmp_path: Path, published_status: str
+) -> None:
+    root = _fixture_corpus(tmp_path, include_piles=True)
+    recording_id = campaign.TRAIN_RECORDING_IDS[0]
+    content_path = root / "data/operations/pipeline/revisions/revision-0/content.json"
+    manifest_path = content_path.with_name("manifest.json")
+    content = json.loads(content_path.read_text())
+    content["outcomes"][0]["pile_detection_status"] = published_status
+    content_path.write_text(json.dumps(content), encoding="utf-8")
+    revision_manifest = json.loads(manifest_path.read_text())
+    revision_manifest["content_sha256"] = campaign.sha256_json(content)
+    manifest_path.write_text(json.dumps(revision_manifest), encoding="utf-8")
+
+    bundle, bundle_gaps = campaign._bundle_audit(
+        recording_id,
+        "train",
+        intake_root=root / "data/intake/recordings",
+        repository_root=root,
+        verify_source_bytes=False,
+    )
+    assert not bundle_gaps
+    assert bundle is not None
+    audit, gaps = campaign._reference_audit(
+        bundle,
+        operations_root=root / "data/operations",
+        repository_root=root,
+        include_piles=True,
+    )
+
+    if published_status == "unsupported":
+        assert not gaps
+        assert audit["pile_target_count"] == 1
+    else:
+        assert any("selected revision differs from maintained draft" in gap for gap in gaps)
+
+
 def test_cli_does_not_write_an_immutable_manifest_when_preflight_is_blocked(
     tmp_path: Path, fixture_expected_counts: None
 ) -> None:

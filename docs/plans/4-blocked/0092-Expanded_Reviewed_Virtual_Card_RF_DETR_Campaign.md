@@ -9,8 +9,10 @@
 - **Depends on:** 0086 M4 current-schema detection-only handoff with completed reviewed geometry,
   visible-card masks, pile coverage, source groups, and permissions for at least 18 recordings;
   completed 0087 candidate bundle as the measured comparison baseline.
-- **Blocker:** The 0086 handoff used by 0087 has completed references for only three recordings.
-  The wider candidate pool does not yet meet the 18-recording reviewed-reference requirement.
+- **Blocker:** The 2026-10-14 [0086 M4 audit](../../reports/0086-M4_Geometry_Review_Audit.json)
+  finds 14 eligible recordings after correcting default-field comparison. Six older references
+  need explicit pile coverage, and two drafts need coverage or publication. The pool remains below
+  the 18-recording reviewed-reference requirement. The original handoff used by 0087 had three.
 - **Outcome:** A source-group-separated evaluation of an expanded real-only candidate, followed by a
   digest-pinned final bundle trained on all eligible reviewed recordings. The runtime default remains
   unchanged.

@@ -21,8 +21,8 @@
   detection-only handoff for 0087. Three references qualify; all other candidate gaps are recorded.
 - **M3:** Complete (2026-10-13) — audit terminal receipts for the frozen 22-recording proposal
   refresh. Twenty recordings published current proposals; two retain explicit calibration failures.
-- **M4:** Not started — complete geometry review for the selected corpus and update the
-  detection-only handoff as eligible references are added.
+- **M4:** In progress (2026-10-14) — all 1,102 draft frames have saved decisions. Fourteen
+  recordings qualify for the detection handoff; eight need explicit pile coverage or publication.
 - **M5:** Not started — complete visual identity review and publish the separate 0088 handoff.
 
 ## 1. Current evidence and scope
@@ -248,6 +248,48 @@ campaign in [0092](../4-blocked/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Camp
 completed current-schema references and source groups for at least 18 recordings. Keep that campaign
 blocked until its M0 confirms the handoff meets this target. This milestone remains open until the
 recorded human work is complete.
+
+### M4 saved-decision audit — 2026-10-14
+
+The [M4 audit](../../reports/0086-M4_Geometry_Review_Audit.json) reconciles the frozen 22 recordings
+with the current maintained references. All 1,102 draft items have terminal review states. Twenty
+references are completed; `IMG_0641` and `IMG_0660` remain drafts. This confirms that the broad
+frame review has been done. It does not establish current-schema eligibility for every recording.
+
+The audit found a comparison defect: publication adds the optional `pile_detection_status` field
+with its contract default, `unsupported`. Eleven completed references differed from their drafts
+only by that default field. The comparison now normalizes it. Explicit pile coverage still requires
+the `pile_regions` field; a missing field is not converted into a reviewed negative. Regression
+tests cover default equivalence and rejection of a real supported/unsupported difference.
+
+The corrected detection handoff has 14 eligible recordings, 697 reviewed frames, 626 retained
+frames, 1,671 visible-card targets, and 257 pile targets. Its digest is
+`2313806c0aaffa05e173bafed2eda50ebcf78fc0f91965b30067534ac6d1c01e`. The original M2 snapshot
+remains unchanged because 0087 used it. The expanded handoff is stored locally at
+`.runtime/0086-m4/detection-handoff.json`. Rebuild it from the repository root with:
+
+```sh
+mise exec -- uv run --project operations python operations/scripts/build_0086_detection_handoff.py \
+  --repository-root . --output .runtime/0086-m4/detection-handoff.json
+mise exec -- uv run --project operations python operations/scripts/build_0086_geometry_review_report.py \
+  --repository-root .
+```
+
+Remaining work:
+
+| Recording                                                              | Saved state                                            | Required next action                                                                                                                         |
+| ---------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IMG_0092`, `IMG_0096`, `IMG_0639`, `IMG_0640`, `IMG_0643`, `IMG_0653` | Completed v1 card-only references                      | Confirm pile presence or absence on 271 accepted frames, then complete v2 references. Preserve existing card decisions and exact exclusions. |
+| `IMG_0641`                                                             | Draft; 46 accepted, seven unusable frames              | Confirm missing pile coverage on 44 accepted frames, then complete the 53-frame reference. The selected revision still contains older work.  |
+| `IMG_0660`                                                             | Draft; 42 accepted, one corrected, six unusable frames | Confirm pile coverage on event frames `000`, `001`, and `002`, then complete the 49-frame reference. No completed revision is selected.      |
+
+The audit lists exact item IDs and input digests. Missing pile coverage is separate from missing
+card review. Do not ask the operator to redo all card poses. The recorded M3 calibration failures
+for `IMG_0092` and `IMG_0096` remain proposal limitations; they do not erase saved review decisions.
+No references or human decisions changed in this audit. Source video bytes were not rehashed.
+Focused validation passed: 27 operations tests, Ruff, formatting, and deterministic audit rebuild.
+M4 remains open. The 14-recording handoff is below 0092's minimum of 18 recordings. M5 identity
+review remains separate.
 
 ### M5 — Complete identities and publish the 0088 handoff
 

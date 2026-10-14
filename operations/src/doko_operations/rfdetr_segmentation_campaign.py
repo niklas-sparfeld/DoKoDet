@@ -616,6 +616,9 @@ def _validate_pile_region(
 def _normalize_outcome(value: Mapping[str, Any]) -> dict[str, Any]:
     result = dict(value)
     result.setdefault("ignored_regions", [])
+    # Publication serializes this optional field with the contract's default.
+    # Keep pile_regions presence intact: it records explicit pile-review coverage.
+    result.setdefault("pile_detection_status", "unsupported")
     return result
 
 

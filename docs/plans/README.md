@@ -68,7 +68,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0 inventory, M1 pilot proposals, M2 detection-only handoff, and M3 proposal refresh complete. M4 completes geometry review; M5 completes visual identity review for 0088. |
+| [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0–M3 complete. M4 in progress: all 1,102 frames have saved decisions; 14 recordings qualify, six older references need pile coverage, and two drafts need coverage or publication. M5 completes visual identity review for 0088. |
 
 ### Blocked
 
