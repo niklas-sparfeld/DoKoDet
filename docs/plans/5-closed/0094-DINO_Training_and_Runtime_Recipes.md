@@ -4,12 +4,13 @@
 
 - **Summary:** Deliver reproducible multi-resolution DINO recipes, bounded encoder adaptation,
   25-class evaluation, and reloadable confidence-aware local bundles.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Completed [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md)
   annotation/crop handoff; existing materialized and licensed 0043 pretrained assets and local
   training/runtime infrastructure. No dependency on completed 0086 M5 or new 0088 model results.
 - **Outcome:** Tested software recipes and exact local runtime/bundle contracts for
   [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md), without a model-quality claim.
+- **Closure reason:** Complete
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -34,7 +35,10 @@
   digest-checked paired Gemini receipts. See the [M7 verification report](../../reports/0094-M7_All_Class_and_Paired_Evaluation.md).
 - **M8:** Complete — fit and retain scalar confidence calibration on an explicit disjoint view;
   version bundle and provider score metadata. See the [M8 verification report](../../reports/0094-M8_Confidence_Calibration.md).
-- **M9:** Not started — verify a small local lifecycle and publish the recipe handoff.
+- **M9:** Complete — verify train/resume/calibrate/export/reload/classify for the frozen and adapted
+  paths, both feature layouts, and 384-pixel input. The [M9 handoff](../../reports/0094-M9_Local_Recipe_Handoff.md)
+  records commands, asset and dependency identities, resource results, and limits. The local asset
+  passed a CPU forward smoke. No model-quality claim follows.
 
 ## 1. Evidence and boundaries
 

@@ -236,7 +236,7 @@ and tracking improve independently.
   and identity training campaigns.
 - [0093](plans/5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) owns annotation
   without identity predictions and all-class native crop preparation, including FACE_DOWN.
-- [0094](plans/3-in-progress/0094-DINO_Training_and_Runtime_Recipes.md) owns reusable multi-resolution
+- [0094](plans/5-closed/0094-DINO_Training_and_Runtime_Recipes.md) owns reusable multi-resolution
   DINO training, adapted-weight bundles and confidence contracts used by 0088.
 - [0089](plans/4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) owns measured algorithm fixes.
 - [0090](plans/4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) owns the composed local pilot.

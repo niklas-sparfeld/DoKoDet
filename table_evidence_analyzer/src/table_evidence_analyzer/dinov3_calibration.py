@@ -231,13 +231,15 @@ def fit_dinov3_confidence_calibration(
         Path(view_path).expanduser().resolve(), run, source_checkpoint_sha256
     )
     config = run.get("config", {})
-    campaign_path = Path(config.get("campaign_manifest", "")).expanduser().resolve()
-    try:
-        campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise DinoV3CalibrationError("frozen campaign manifest is not readable") from error
-    if not isinstance(campaign, dict) or campaign.get("state") != "frozen":
-        raise DinoV3CalibrationError("DINOv3 campaign is not frozen")
+    campaign_value = config.get("campaign_manifest") if isinstance(config, dict) else None
+    if campaign_value is not None:
+        campaign_path = Path(campaign_value).expanduser().resolve()
+        try:
+            campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise DinoV3CalibrationError("frozen campaign manifest is not readable") from error
+        if not isinstance(campaign, dict) or campaign.get("state") != "frozen":
+            raise DinoV3CalibrationError("DINOv3 campaign is not frozen")
     split_path = Path(config.get("split", "")).expanduser().resolve()
     try:
         from .data import load_dataset_manifest, load_split_manifest

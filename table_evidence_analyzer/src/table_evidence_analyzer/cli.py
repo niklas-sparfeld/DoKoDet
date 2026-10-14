@@ -169,6 +169,12 @@ def build_parser() -> argparse.ArgumentParser:
     dinov3_train_parser.add_argument("--batch-size", type=int, default=1)
     dinov3_train_parser.add_argument("--learning-rate", type=float, default=0.001)
     dinov3_train_parser.add_argument("--weight-decay", type=float, default=0.0)
+    dinov3_train_parser.add_argument(
+        "--encoder-training",
+        choices=("frozen", "last_two_blocks"),
+        default="frozen",
+        help="Train the identity head only or also the final two encoder blocks and final norm.",
+    )
     dinov3_train_parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default="cpu")
     dinov3_train_parser.add_argument("--precision", choices=("fp32",), default="fp32")
 
@@ -1045,6 +1051,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     batch_size=args.batch_size,
                     learning_rate=args.learning_rate,
                     weight_decay=args.weight_decay,
+                    encoder_training=args.encoder_training,
                     device=args.device,
                     precision=args.precision,
                     resume=args.resume,

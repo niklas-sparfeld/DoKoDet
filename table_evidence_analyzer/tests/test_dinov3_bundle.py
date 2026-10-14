@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -21,6 +22,10 @@ from table_evidence_analyzer.dinov3_bundle import (
     export_dinov3_identity_bundle,
     load_dinov3_identity_bundle,
 )
+from table_evidence_analyzer.dinov3_calibration import (
+    CALIBRATION_VIEW_SCHEMA,
+    fit_dinov3_confidence_calibration,
+)
 from table_evidence_analyzer.dinov3_evaluation import (
     DinoV3EvaluationConfig,
     DinoV3EvaluationError,
@@ -31,7 +36,11 @@ from table_evidence_analyzer.dinov3_inference import (
     DinoV3IdentityClassifier,
     DinoV3InferenceError,
 )
-from table_evidence_analyzer.dinov3_training import DinoV3TrainConfig, train_dinov3_identity
+from table_evidence_analyzer.dinov3_training import (
+    DinoV3TrainConfig,
+    DinoV3TrainingInterrupted,
+    train_dinov3_identity,
+)
 from table_evidence_analyzer.local_identity import (
     DINOV3_LICENSE_ID,
     VISUAL_IDENTITY_TARGETS,
@@ -265,7 +274,7 @@ def test_calibrated_bundle_reloads_scores_and_retains_ranked_candidates(tmp_path
     expected_raw = torch.softmax(logits, dim=0).tolist()
     expected_calibrated = torch.softmax(logits / 2.0, dim=0).tolist()
 
-    assert result.status == "ok"
+    assert result.status == "ok", result.error
     assert result.raw_response["raw_probabilities"] == pytest.approx(expected_raw)
     assert result.raw_response["probabilities"] == pytest.approx(expected_calibrated)
     expected_ranking = [
@@ -351,6 +360,94 @@ def test_adapted_encoder_bundle_reloads_exact_checkpoint_weights(
     result = classifier.classify_ppm(fixture.frame_paths[0].read_bytes())
     assert result.status == "ok"
     assert len(result.raw_response["probabilities"]) == 25
+
+
+@pytest.mark.parametrize("encoder_training", ["frozen", "last_two_blocks"])
+@pytest.mark.parametrize("feature_layout", ["cls", "cls_mean_patch"])
+def test_384_calibrated_recipe_lifecycle_resumes_and_classifies_all_targets(
+    tmp_path: Path, encoder_training: str, feature_layout: str
+) -> None:
+    fixture = build_smoke_fixture(tmp_path / "fixture")
+    identity = _identity_config(tmp_path, input_size=384, feature_layout=feature_layout)
+    run = tmp_path / "run"
+    config = DinoV3TrainConfig(
+        dataset=fixture.dataset_path,
+        split=fixture.split_path,
+        artifacts=fixture.artifact_index_path,
+        identity_config=identity,
+        output=run,
+        seed=17,
+        epochs=2,
+        batch_size=1,
+        learning_rate=0.05,
+        encoder_training=encoder_training,
+        max_steps=1,
+    )
+    with pytest.raises(DinoV3TrainingInterrupted):
+        train_dinov3_identity(config, encoder_factory=_factory)
+    train_dinov3_identity(
+        replace(config, max_steps=None, resume=run / "checkpoint-last.pt"),
+        encoder_factory=_factory,
+    )
+
+    run_record = json.loads((run / "run.json").read_text(encoding="utf-8"))
+    checkpoint_path = run / run_record["checkpoints"]["best"]
+    rows = []
+    for index, target in enumerate(VISUAL_IDENTITY_TARGETS):
+        logits = [-1.0] * len(VISUAL_IDENTITY_TARGETS)
+        logits[index] = 2.0
+        rows.append(
+            {
+                "sample_id": f"calibration-{index:02d}",
+                "source_lineage_group": {"recording": "calibration-only"},
+                "target": target,
+                "logits": logits,
+            }
+        )
+    view = tmp_path / "calibration-view.json"
+    view.write_text(
+        json.dumps(
+            {
+                "schema_version": CALIBRATION_VIEW_SCHEMA,
+                "view_id": "synthetic-disjoint-25-class-view",
+                "run_id": run_record["run_id"],
+                "source_checkpoint_sha256": hashlib.sha256(
+                    checkpoint_path.read_bytes()
+                ).hexdigest(),
+                "rows": rows,
+            }
+        ),
+        encoding="utf-8",
+    )
+    calibration = tmp_path / "calibration.json"
+    fit_dinov3_confidence_calibration(run, view, calibration)
+    bundle_path = export_dinov3_identity_bundle(
+        run,
+        tmp_path / "bundle",
+        identity_config=identity,
+        calibration=calibration,
+    )
+    bundle = load_dinov3_identity_bundle(bundle_path)
+    classifier = DinoV3IdentityClassifier(
+        bundle,
+        encoder_loader=lambda _bundle: _FakeEncoder(384),
+    )
+
+    result = classifier.classify_ppm(fixture.frame_paths[0].read_bytes())
+
+    assert run_record["status"] == "completed"
+    assert run_record["progress"]["step"] > 1
+    assert bundle.identity.input_size == 384
+    assert run_record["training"]["feature_layout"] == feature_layout
+    assert run_record["training"]["encoder_training"] == encoder_training
+    assert bundle.manifest["head"]["class_count"] == 25
+    calibration_record = json.loads(
+        (bundle_path / bundle.manifest["calibration"]["file"]).read_text(encoding="utf-8")
+    )
+    assert calibration_record["sample_count"] == 25
+    assert result.status == "ok", result.error
+    assert len(result.raw_response["probabilities"]) == 25
+    assert "face_down_probability" in result.raw_response["score_metadata"]
 
 
 def test_export_rejects_head_width_incompatible_with_feature_layout(tmp_path: Path) -> None:

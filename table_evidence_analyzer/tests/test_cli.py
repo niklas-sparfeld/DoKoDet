@@ -75,6 +75,8 @@ def test_dinov3_training_parser_has_explicit_local_inputs() -> None:
             "weights",
             "--output",
             "run",
+            "--encoder-training",
+            "last_two_blocks",
             "--device",
             "mps",
         ]
@@ -87,6 +89,7 @@ def test_dinov3_training_parser_has_explicit_local_inputs() -> None:
     assert args.identity_config == Path("identity.json")
     assert args.weights_root == Path("weights")
     assert args.output == Path("run")
+    assert args.encoder_training == "last_two_blocks"
     assert args.device == "mps"
 
 

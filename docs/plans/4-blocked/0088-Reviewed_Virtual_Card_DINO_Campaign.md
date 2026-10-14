@@ -7,12 +7,12 @@
 - **Status:** Blocked
 - **Depends on:** 0086 M4 geometry review and M5 identity handoff; completed
   [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) and
-  [0094](../3-in-progress/0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091
+  [0094](../5-closed/0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091
   identity isolation.
   No dependency on 0092 training.
 - **Blocker:** Complete reviewed class coverage and campaign inputs are not available. The 0093
   software handoff is complete, but the current eligible development snapshot has no positive
-  annotation crops. The 0094 recipe handoff is not complete.
+  annotation crops. The 0094 recipe handoff is complete.
 - **Outcome:** A quality-qualified local model and its exact preprocessing and confidence policy,
   or an explicit report that the useful-model objective remains unmet.
 - **Target architecture:**
