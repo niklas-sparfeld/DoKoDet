@@ -26,9 +26,10 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-1. **0087 M1–M2:** Materialize and inspect the reviewed masks, then prepare the fixed synthetic
-   addition. M0 resolved the legacy stage-use metadata from source permission. Its validation split
-   has pile-positive support, so M3 can follow the materialization milestones.
+1. **0087 M2:** Prepare the fixed synthetic addition from the materialized reviewed masks. M0
+   resolved legacy stage-use metadata from source permission; M1 materialized the three current
+   completed references. The broader 22-recording development pool remains a corpus target, not a
+   source of labels until its references pass the review handoff.
 2. **0086 M3–M5 and 0088:** Continue proposal refresh and geometry review after the detection handoff.
    Complete visual identity review last, for 0088. Use the completed 0091 annotation workflow to
    review one region per accumulated pile. RF-DETR needs 0091 M0–M3 before materialization and M4
@@ -70,7 +71,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0 inventory, M1 pilot proposals, M2 detection-only handoff, and M3 proposal refresh complete. M4 completes geometry review; M5 completes visual identity review for 0088. |
-| [0087 — Reviewed virtual-card RF-DETR campaign](3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0068 and 0070 complete; 0091 M0–M3 complete; 0086 M2 handoff complete | M0 froze train/validation/sealed-test groups after resolving stage-use values that mirrored historical splits. Continue M1/M2; validation has 36 pile targets. The sealed test has no pile targets. |
+| [0087 — Reviewed virtual-card RF-DETR campaign](3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0068 and 0070 complete; 0091 M0–M3 complete; 0086 M2 handoff complete | M0 corrected source permissions; M1 materialized 130 reviewed frames from three completed references. Validation has 36 pile targets; the sealed test has none. Broader corpus references remain an 0086 review task. |
 
 ### Blocked
 

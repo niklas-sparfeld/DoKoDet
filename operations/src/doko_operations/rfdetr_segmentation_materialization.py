@@ -27,6 +27,7 @@ from .reviewed_rfdetr_detector_campaign import (
     ReviewedRfdetrDetectorCampaignError,
     validate_reviewed_rfdetr_detector_manifest,
 )
+from .reviewed_visible_card_handoff import validate_reviewed_visible_card_handoff
 from .rfdetr_pile_targets import RfdetrPileTargetError, project_pile_masks
 from .rfdetr_segmentation_campaign import (
     RfdetrSegmentationCampaignError,
@@ -39,6 +40,7 @@ RFDETR_SEGMENTATION_MATERIALIZATION_SCHEMA_VERSION = "rfdetr-segmentation-materi
 RFDETR_SEGMENTATION_MATERIALIZER_VERSION = "rfdetr-segmentation-materializer/v1"
 RFDETR_SEGMENTATION_SPLIT_SCHEMA_VERSION = "rfdetr-segmentation-split/v1"
 RFDETR_SEGMENTATION_EXCLUSIONS_SCHEMA_VERSION = "rfdetr-segmentation-exclusions/v1"
+RFDETR_REVIEWED_CAMPAIGN_MANIFEST_SCHEMA_VERSION = "rfdetr-reviewed-campaign-manifest/v1"
 COCO_VERSION = "coco-2017"
 TARGET_CATEGORY = {"id": 1, "name": "visible_card", "supercategory": "card"}
 PILE_CATEGORY = {"id": 2, "name": "card_pile", "supercategory": "card"}
@@ -101,9 +103,18 @@ def materialize_rfdetr_segmentation_dataset(
 
     repository = Path(repository_root).expanduser().resolve()
     source_manifest_path = _resolve_input_path(manifest_path, repository, "M0 manifest")
-    manifest = _read_json(source_manifest_path, "M0 manifest")
+    source_manifest = _read_json(source_manifest_path, "M0 manifest")
     try:
-        _validate_campaign_manifest(manifest)
+        if (
+            source_manifest.get("schema_version")
+            == RFDETR_REVIEWED_CAMPAIGN_MANIFEST_SCHEMA_VERSION
+        ):
+            manifest = _prepare_reviewed_campaign_materialization(
+                source_manifest, repository_root=repository
+            )
+        else:
+            _validate_campaign_manifest(source_manifest)
+            manifest = source_manifest
     except (
         RfdetrSegmentationCampaignError,
         ReviewedRfdetrDetectorCampaignError,
@@ -677,8 +688,210 @@ def _validate_campaign_manifest(manifest: Mapping[str, Any]) -> None:
         validate_rfdetr_segmentation_manifest(manifest)
 
 
+def _prepare_reviewed_campaign_materialization(
+    manifest: Mapping[str, Any], *, repository_root: Path
+) -> dict[str, Any]:
+    """Join the frozen 0087 split to its exact reviewed 0086 handoff inputs."""
+
+    source_manifest = dict(manifest)
+    manifest_digest = source_manifest.get("manifest_sha256")
+    core = {key: value for key, value in source_manifest.items() if key != "manifest_sha256"}
+    if not isinstance(manifest_digest, str) or sha256_json(core) != manifest_digest:
+        raise RfdetrSegmentationMaterializationError("0087 M0 manifest digest is invalid")
+    if source_manifest.get("freeze_state") != "frozen":
+        raise RfdetrSegmentationMaterializationError("0087 M1 requires a frozen M0 manifest")
+
+    handoff_info = _mapping(source_manifest.get("source_handoff"), "0087 source_handoff")
+    handoff_path = _resolve_input_path(
+        handoff_info.get("path", ""), repository_root, "0086 detection handoff"
+    )
+    handoff = _read_json(handoff_path, "0086 detection handoff")
+    try:
+        validate_reviewed_visible_card_handoff(handoff)
+    except (TypeError, ValueError) as error:
+        raise RfdetrSegmentationMaterializationError(
+            f"0086 detection handoff is invalid: {error}"
+        ) from error
+    if (
+        handoff.get("handoff_sha256") != handoff_info.get("sha256")
+        or handoff.get("schema_version") != "reviewed-visible-card-detection-handoff/v1"
+        or handoff.get("status") != "ready"
+        or len(handoff.get("eligible_recordings", []))
+        != handoff_info.get("eligible_recording_count")
+    ):
+        raise RfdetrSegmentationMaterializationError(
+            "0086 handoff differs from the frozen 0087 source handoff"
+        )
+
+    eligible_by_id = {
+        item["recording_id"]: item
+        for item in handoff["eligible_recordings"]
+        if isinstance(item, Mapping) and isinstance(item.get("recording_id"), str)
+    }
+    partitions = _mapping(source_manifest.get("partitions"), "0087 partitions")
+    split: dict[str, dict[str, list[str]]] = {}
+    recordings: list[dict[str, Any]] = []
+    references: list[dict[str, Any]] = []
+    samples: list[dict[str, Any]] = []
+    excluded_frames: list[dict[str, Any]] = []
+    ineligible_outcomes: list[dict[str, Any]] = []
+    selected_ids: set[str] = set()
+
+    for split_name in ("train", "validation", "sealed_test"):
+        partition = _mapping(partitions.get(split_name), f"partitions.{split_name}")
+        raw_recordings = partition.get("recordings")
+        if not isinstance(raw_recordings, list):
+            raise RfdetrSegmentationMaterializationError(
+                f"0087 partition {split_name} has no recording list"
+            )
+        recording_ids: list[str] = []
+        for row in raw_recordings:
+            selected = _mapping(row, f"partitions.{split_name}.recording")
+            recording_id = _identifier(selected.get("recording_id"), "recording_id")
+            if recording_id in selected_ids:
+                raise RfdetrSegmentationMaterializationError(
+                    f"0087 recording {recording_id} appears in more than one split"
+                )
+            selected_ids.add(recording_id)
+            recording_ids.append(recording_id)
+            reviewed = eligible_by_id.get(recording_id)
+            if reviewed is None:
+                raise RfdetrSegmentationMaterializationError(
+                    f"0087 recording {recording_id} is missing from the frozen handoff"
+                )
+            if (
+                reviewed.get("source_group") != selected.get("source_group")
+                or reviewed.get("source_permission") != selected.get("source_permission")
+                or reviewed.get("reference", {}).get("revision_id")
+                != selected.get("reference_revision_id")
+                or reviewed.get("reference", {}).get("manifest_sha256")
+                != selected.get("reference_manifest_sha256")
+                or reviewed.get("reference", {}).get("content_sha256")
+                != selected.get("reference_content_sha256")
+                or reviewed.get("event_reference", {}).get("revision_id")
+                != selected.get("event_revision_id")
+                or reviewed.get("event_reference", {}).get("content_sha256")
+                != selected.get("event_content_sha256")
+            ):
+                raise RfdetrSegmentationMaterializationError(
+                    f"0087 recording {recording_id} differs from its frozen handoff lineage"
+                )
+
+            source = _mapping(reviewed.get("source"), f"{recording_id}.source")
+            bundle_manifest_path = _relative_path(
+                source.get("bundle_manifest_path"), f"{recording_id}.bundle_manifest_path"
+            )
+            bundle_path = repository_root / bundle_manifest_path
+            bundle = _read_json(bundle_path, f"{recording_id} source bundle manifest")
+            if sha256_json(bundle) != source.get("bundle_manifest_sha256"):
+                raise RfdetrSegmentationMaterializationError(
+                    f"{recording_id} source bundle manifest digest differs"
+                )
+            if (
+                bundle.get("recording_id") != recording_id
+                or bundle.get("session_id") != selected["source_group"].get("session_id")
+                or bundle.get("source_asset_id") != selected["source_group"].get("source_asset_id")
+                or bundle.get("source_sha256")
+                != selected["source_group"].get("source_video_sha256")
+            ):
+                raise RfdetrSegmentationMaterializationError(
+                    f"{recording_id} source bundle differs from frozen source-group lineage"
+                )
+            files = _mapping(bundle.get("files"), f"{recording_id}.bundle.files")
+            video = _mapping(files.get("video"), f"{recording_id}.bundle.video")
+            video_relative_path = _relative_path(
+                video.get("relative_path"), f"{recording_id}.video.relative_path"
+            )
+            video_path = PurePosixPath(bundle_manifest_path).parent / video_relative_path
+            source_sha256 = _digest(
+                selected["source_group"].get("source_video_sha256"),
+                f"{recording_id}.source_video_sha256",
+            )
+            if video.get("sha256") != source_sha256:
+                raise RfdetrSegmentationMaterializationError(
+                    f"{recording_id} source bundle video digest differs"
+                )
+            source_record_path = _relative_path(
+                source.get("source_record_path"), f"{recording_id}.source_record_path"
+            )
+            source_record = _read_json(
+                repository_root / source_record_path, f"{recording_id} source record"
+            )
+            if (
+                sha256_json(source_record) != source.get("source_record_sha256")
+                or source_record.get("source_permission") != selected.get("source_permission")
+                or source_record.get("sha256") != source_sha256
+            ):
+                raise RfdetrSegmentationMaterializationError(
+                    f"{recording_id} source record differs from frozen permission or source lineage"
+                )
+            group = dict(selected["source_group"])
+            recordings.append(
+                {
+                    "recording_id": recording_id,
+                    "source_video_path": video_path.as_posix(),
+                    "source_sha256": source_sha256,
+                    "source_byte_length": video.get("byte_length"),
+                    "split": split_name,
+                    "session_id": group["session_id"],
+                    "table_setup": group["table_setup"],
+                    "source_asset_id": group["source_asset_id"],
+                }
+            )
+            reference = _mapping(reviewed.get("reference"), f"{recording_id}.reference")
+            references.append(
+                {
+                    "recording_id": recording_id,
+                    "revision_id": reference["revision_id"],
+                    "samples": reference["samples"],
+                }
+            )
+            for raw_sample in reference["samples"]:
+                sample = _mapping(raw_sample, f"{recording_id}.sample")
+                samples.append(
+                    {
+                        **dict(sample),
+                        "split": split_name,
+                        "source_group": group,
+                    }
+                )
+            for excluded in reference["excluded_frames"]:
+                excluded_frames.append({**dict(excluded), "recording_id": recording_id})
+            for outcome in reference["ineligible_outcomes"]:
+                ineligible_outcomes.append({**dict(outcome), "recording_id": recording_id})
+        split[split_name] = {"recording_ids": recording_ids}
+
+    if selected_ids != set(eligible_by_id):
+        raise RfdetrSegmentationMaterializationError(
+            "0087 frozen partitions do not cover the exact eligible handoff recordings"
+        )
+    return {
+        "schema_version": RFDETR_REVIEWED_CAMPAIGN_MANIFEST_SCHEMA_VERSION,
+        "campaign_id": source_manifest["campaign_id"],
+        "milestone": source_manifest["milestone"],
+        "freeze_state": source_manifest["freeze_state"],
+        "manifest_digest": manifest_digest,
+        "split": split,
+        "recordings": recordings,
+        "references": references,
+        "samples": samples,
+        "excluded_frames": excluded_frames,
+        "ineligible_outcomes": ineligible_outcomes,
+        "inventory": {
+            "pile_reviewed_frame_count": sum(
+                len(reference["samples"])
+                for reference in references
+                if all(sample.get("pile_reviewed") is True for sample in reference["samples"])
+            )
+        },
+    }
+
+
 def _partition_names(manifest: Mapping[str, Any]) -> tuple[str, ...]:
-    if manifest.get("schema_version") == RFDETR_DETECTOR_MANIFEST_SCHEMA_VERSION:
+    if manifest.get("schema_version") in {
+        RFDETR_DETECTOR_MANIFEST_SCHEMA_VERSION,
+        RFDETR_REVIEWED_CAMPAIGN_MANIFEST_SCHEMA_VERSION,
+    }:
         return ("train", "validation", "sealed_test")
     return ("train", "validation")
 
@@ -692,8 +905,8 @@ def _partition_directories(manifest: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _materialization_partition_directories(manifest: Mapping[str, Any]) -> dict[str, str]:
-    split = _mapping(manifest.get("split"), "materialization.split")
-    if "sealed_test" in split:
+    counts = _mapping(manifest.get("counts"), "materialization.counts")
+    if "sealed_test_images" in counts:
         return {"train": "train", "validation": "valid", "sealed_test": "sealed_test"}
     return {"train": "train", "validation": "valid"}
 
@@ -1254,6 +1467,8 @@ def _coco_payload(
 
 
 def _target_categories(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
+    if manifest.get("schema_version") == RFDETR_REVIEWED_CAMPAIGN_MANIFEST_SCHEMA_VERSION:
+        return [TARGET_CATEGORY, PILE_CATEGORY]
     inventory = manifest.get("inventory")
     if isinstance(inventory, Mapping) and "pile_reviewed_frame_count" in inventory:
         return [TARGET_CATEGORY, PILE_CATEGORY]

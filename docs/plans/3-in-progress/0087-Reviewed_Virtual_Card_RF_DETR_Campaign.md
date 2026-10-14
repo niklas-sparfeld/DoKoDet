@@ -21,7 +21,9 @@
   the original `project_use` permission allows all campaign stages. Froze the split, checkpoint,
   recipe, candidate counts, budgets, and gates. See the [M0 readiness report](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Readiness.md)
   and [frozen manifest](../../reports/0087-M0_Reviewed_RF_DETR_Campaign_Manifest.json).
-- **M1:** Not started — materialize and inspect the real segmentation view.
+- **M1:** Complete (2026-10-14) — materialized and inspected 130 frames from the three current
+  reviewed references. Validation has 36 pile targets; the sealed test has none. See the
+  [M1 materialization report](../../reports/0087-M1_Reviewed_Real_Mask_Materialization.md).
 - **M2:** Not started — regenerate and inspect the synthetic addition.
 - **M3:** Not started — run the fixed real-only comparison after the reviewed masks are materialized.
 - **M4:** Not started — train the declared synthetic mixture and compare on real validation.
@@ -39,6 +41,12 @@ campaign's inputs and gates.
 For imported CardEventNet sources, use M0's permission audit to resolve effective campaign uses.
 The old `allowed_uses` field can mirror a historical data split and must not replace the original
 `source_permission` value when the two conflict.
+
+The 0086 inventory has 22 `project_use` development candidates. The current M0 freeze uses the
+three candidates with completed references in the detection handoff. Keep the wider pool as the
+target for later corpus updates. Do not use incomplete references or mutable drafts to reach a
+recording count. If 0086 adds eligible references, review the source-group split and freeze a new
+M0 manifest before rematerialization or training.
 
 Reuse the 0068 SegMedium trainer, evaluation, bundle, and provider boundaries. Reuse the 0070
 synthetic generator. Its historical 50/50 comparison improved real validation mask AP from
@@ -181,3 +189,20 @@ and writes the deterministic M0 manifest. Seven imported records have stage-use 
 historical splits despite `source_permission: project_use`. The selected validation group has 36 pile
 targets and meets the two-class minimum. The sealed test has no pile targets. No training or
 inference was run.
+
+### M1 implementation evidence — 2026-10-14
+
+- `operations/scripts/materialize_0087_m1.py` joins the frozen M0 split to its digest-pinned 0086
+  handoff, verifies source bundles and permission metadata, then uses the shared exact-frame and
+  mask materializer.
+- The view contains 42 train frames, 40 validation frames, and 48 sealed-test frames. It has 338
+  reviewed visible-card targets and 74 pile targets. The sealed test has zero pile targets.
+- COCO validation accepted every card polygon and pile RLE mask. The verified local view digest is
+  `cc0891f04f8e9e4a59790e9f3eac52d91bdaeaf85b43a5a84a7aa563de119e29`.
+- Eleven overlays covered beginning, middle, end, and pile-dense frames across all selected
+  recordings. Full-resolution overlays were inspected for each recording. Human-hand pixels were
+  not included in card masks.
+- The pinned RF-DETR 1.9.4 checkpoint loaded with the frozen two-class configuration. Its 90-class
+  detection head was reinitialized to two classes. No training or inference ran.
+- See the [M1 materialization report](../../reports/0087-M1_Reviewed_Real_Mask_Materialization.md)
+  for the digests and repeatable command. The generated view is disposable under `.runtime`.
