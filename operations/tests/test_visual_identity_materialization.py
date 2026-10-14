@@ -55,7 +55,7 @@ def _recording(
     geometry = _geometry()
     frame_identity = frame.identity_mapping()
     visible = {
-        "schema_version": "visible-card-data/v1",
+        "schema_version": "visible-card-data/v2",
         "outcomes": [
             {
                 "event_id": "event-01",
@@ -227,15 +227,159 @@ def test_excludes_wrong_frame_stale_geometry_unreadable_and_piles(tmp_path: Path
     ).hexdigest()
     third, _ = _recording("unusable")
     third["recording_id"] = "recording-03"
+    fourth, _ = _recording("face_down")
+    fourth["recording_id"] = "recording-04"
+    visible_outcome = fourth["visible_card_revision"]["content"]["outcomes"][0]
+    grouped_candidate = visible_outcome["candidates"][0]
+    visible_outcome["candidates"] = []
+    visible_outcome["pile_regions"] = [
+        {
+            "pile_id": "pile-01",
+            "geometry": {
+                "kind": "pile-region/v1",
+                "polygons": [
+                    [
+                        {"x": 100, "y": 100},
+                        {"x": 700, "y": 100},
+                        {"x": 700, "y": 700},
+                        {"x": 100, "y": 700},
+                    ]
+                ],
+            },
+            "normalization": {
+                "width": 100,
+                "height": 100,
+                "policy_id": "full-frame-0-1000/v1",
+            },
+            "source_candidates": [],
+            "grouped_candidates": [grouped_candidate],
+        }
+    ]
+    fourth["visible_card_revision"]["content_digest"] = hashlib.sha256(
+        json.dumps(
+            fourth["visible_card_revision"]["content"],
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    fifth, _ = _recording("face_down")
+    fifth["recording_id"] = "recording-05"
+    duplicate_visible_outcome = fifth["visible_card_revision"]["content"]["outcomes"][0]
+    duplicate_visible_outcome["pile_regions"] = [
+        {
+            "pile_id": "pile-02",
+            "grouped_candidates": [duplicate_visible_outcome["candidates"][0]],
+        }
+    ]
+    fifth["visible_card_revision"]["content_digest"] = hashlib.sha256(
+        json.dumps(
+            fifth["visible_card_revision"]["content"],
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
     report = materialize_reviewed_visual_identity_crops(
-        [recording, second, third], tmp_path / "out", lambda _identity: frame
+        [recording, second, third, fourth, fifth], tmp_path / "out", lambda _identity: frame
     )
     assert report["samples"] == []
     assert {item["reason"] for item in report["exclusions"]} >= {
         "wrong_frame",
         "stale_geometry",
         "unreadable_evidence",
+        "pile_member",
     }
+
+
+def test_requires_current_input_schemas(tmp_path: Path) -> None:
+    recording, frame = _recording("face_down")
+    recording["visible_card_revision"]["content"]["schema_version"] = "visible-card-data/v1"
+    recording["visible_card_revision"]["content_digest"] = hashlib.sha256(
+        json.dumps(
+            recording["visible_card_revision"]["content"],
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+
+    report = materialize_reviewed_visual_identity_crops(
+        [recording], tmp_path / "out", lambda _identity: frame
+    )
+
+    assert report["samples"] == []
+    assert report["exclusion_counts"] == {"unsupported_visible_card_schema": 1}
+
+    second, second_frame = _recording("face_down")
+    second["visual_identity_revision"]["content"]["schema_version"] = "visual-identity-data/v1"
+    second["visual_identity_revision"]["content_digest"] = hashlib.sha256(
+        json.dumps(
+            second["visual_identity_revision"]["content"],
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    second_report = materialize_reviewed_visual_identity_crops(
+        [second], tmp_path / "second-out", lambda _identity: second_frame
+    )
+
+    assert second_report["samples"] == []
+    assert second_report["exclusion_counts"] == {"unsupported_visual_identity_schema": 1}
+
+
+def test_face_down_correction_replays_with_same_native_crop_and_lineage(tmp_path: Path) -> None:
+    recording, frame = _recording("face_down")
+    outcome = recording["visual_identity_revision"]["content"]["outcomes"][0]
+    visible_outcome = recording["visible_card_revision"]["content"]["outcomes"][0]
+    visible_outcome["candidates"][0]["side"] = "face_up"
+    visible_content = recording["visible_card_revision"]["content"]
+    visible_digest = hashlib.sha256(
+        json.dumps(
+            visible_content,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    recording["visible_card_revision"]["content_digest"] = visible_digest
+    outcome["status"] = "classified"
+    outcome["candidates"] = [{"identity": "HEARTS_QUEEN"}]
+    outcome["annotation_provenance"]["visible_card_revision_digest"] = visible_digest
+    original_provenance = dict(outcome["annotation_provenance"])
+    identity_content = recording["visual_identity_revision"]["content"]
+    recording["visual_identity_revision"]["content_digest"] = hashlib.sha256(
+        json.dumps(
+            identity_content,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+
+    report = materialize_reviewed_visual_identity_crops(
+        [recording], tmp_path / "corrected", lambda _identity: frame
+    )
+
+    assert len(report["samples"]) == 1
+    sample = report["samples"][0]
+    assert sample["target"] == "HEARTS_QUEEN"
+    assert outcome["annotation_provenance"] == original_provenance
+    assert (
+        sample["visible_card_revision_digest"]
+        == original_provenance["visible_card_revision_digest"]
+    )
+    expected_crop = resolve_visible_region_crop(
+        frame,
+        _geometry(),
+        crop_policy="oracle_visible_region",
+        output_encoding="ppm",
+    )
+    assert expected_crop.image_bytes is not None
+    assert (tmp_path / "corrected" / sample["crop_path"]).read_bytes() == (
+        expected_crop.image_bytes
+    )
 
 
 def test_source_frame_resolver_must_return_exact_identity(tmp_path: Path) -> None:

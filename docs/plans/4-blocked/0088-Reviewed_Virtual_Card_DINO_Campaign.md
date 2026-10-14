@@ -6,11 +6,13 @@
   crops. Compare input resolution and a bounded sequence of model improvements against Gemini.
 - **Status:** Blocked
 - **Depends on:** 0086 M4 geometry review and M5 identity handoff; completed
-  [0093](../2-ready/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) and
-  [0094](0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091 identity isolation.
+  [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) and
+  [0094](../2-ready/0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091
+  identity isolation.
   No dependency on 0092 training.
-- **Blocker:** Complete reviewed class coverage, campaign inputs, and the 0093/0094 software
-  handoffs are not available.
+- **Blocker:** Complete reviewed class coverage and campaign inputs are not available. The 0093
+  software handoff is complete, but the current eligible development snapshot has no positive
+  annotation crops. The 0094 recipe handoff is not complete.
 - **Outcome:** A quality-qualified local model and its exact preprocessing and confidence policy,
   or an explicit report that the useful-model objective remains unmet.
 - **Target architecture:**

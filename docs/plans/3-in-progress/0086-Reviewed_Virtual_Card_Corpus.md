@@ -328,7 +328,7 @@ and fresh unopened test. M5 identity review is not part of this completion.
 ### M5 — Complete identities and publish the 0088 handoff
 
 Use completed reviewed geometry and
-[0093 M2–M3](../2-ready/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) to prepare crops
+[0093 M2–M5](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) to prepare crops
 and pending annotation items without requiring a successful classifier prediction. Consume the
 `reviewed-visual-identity-materialization/v1` manifest for class, recording, back-design, duplicate,
 and exclusion support. Existing model
@@ -350,8 +350,8 @@ No training or promotion occurs in this epic.
 ## 4. Handoff and verification
 
 [0087](../5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
-[0093](../2-ready/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) owns reusable annotation
-and native crop preparation. [0094](../4-blocked/0094-DINO_Training_and_Runtime_Recipes.md) owns
+[0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) owns reusable annotation
+and native crop preparation. [0094](../2-ready/0094-DINO_Training_and_Runtime_Recipes.md) owns
 training/runtime recipe implementation. [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md)
 owns the measured identity quality campaign. Each campaign freezes its own eligibility and recipe
 from this handoff.

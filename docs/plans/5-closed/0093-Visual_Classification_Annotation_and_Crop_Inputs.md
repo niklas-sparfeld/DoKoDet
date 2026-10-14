@@ -4,11 +4,15 @@
 
 - **Summary:** Complete prediction-independent individual-card annotation and reproducible
   25-class crop preparation, including positively visible card backs.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M5 deliver the prediction-independent annotation and reviewed crop handoff.
+  The current eligible development snapshot has zero positive annotation crops; this does not
+  change capability readiness or establish training-data readiness.
 - **Depends on:** Completed 0048/0049 review foundation, 0085 crop-input lineage, and 0091 pile
   isolation. Use fixtures and existing reviewed development examples; no dependency on 0086 M5.
 - **Outcome:** A working annotation-to-crop path and versioned input handoff for 0086 M5,
-  [0094](../4-blocked/0094-DINO_Training_and_Runtime_Recipes.md), and
+  [0094](../2-ready/0094-DINO_Training_and_Runtime_Recipes.md), and
   [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md).
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
@@ -24,7 +28,8 @@
   class-readiness report adapter.
 - **M4:** Complete (2026-10-14) — audit 24 development crops and retain native crops/Lanczos;
   keep rectification offline.
-- **M5:** Not started — verify annotation/crop parity and publish the capability handoff.
+- **M5:** Complete (2026-10-14) — verify annotation/crop parity, pile isolation, and publish the
+  input handoff. The current development snapshot has no eligible positive annotation crops.
 
 ## 1. Evidence and scope
 
@@ -82,15 +87,15 @@ Freeze these contract changes before M1:
 
 Freeze these M1 fixture outcomes:
 
-| Fixture | Seed or label behavior | Positive target |
-| --- | --- | --- |
-| Face-up card with known identity | Seed pending; accept or correct the canonical identity | Yes |
-| Positively visible card back | Seed pending; set or correct `FACE_DOWN` | Yes, `FACE_DOWN` |
-| Unreadable face | Keep actionable for review or source diagnosis | No |
-| Missing source pixels | Keep actionable as a source problem; preserve exact lineage | No |
-| Changed reviewed geometry | Mark affected work for review; retain unchanged human decisions | No until current geometry is reviewed |
-| Calibrated manual individual card | Seed from the exact reviewed reference without a detector proposal | Same rule as a face-up card or back |
-| Pile or consumed pile member | Do not create an identity item | No |
+| Fixture                           | Seed or label behavior                                             | Positive target                       |
+| --------------------------------- | ------------------------------------------------------------------ | ------------------------------------- |
+| Face-up card with known identity  | Seed pending; accept or correct the canonical identity             | Yes                                   |
+| Positively visible card back      | Seed pending; set or correct `FACE_DOWN`                           | Yes, `FACE_DOWN`                      |
+| Unreadable face                   | Keep actionable for review or source diagnosis                     | No                                    |
+| Missing source pixels             | Keep actionable as a source problem; preserve exact lineage        | No                                    |
+| Changed reviewed geometry         | Mark affected work for review; retain unchanged human decisions    | No until current geometry is reviewed |
+| Calibrated manual individual card | Seed from the exact reviewed reference without a detector proposal | Same rule as a face-up card or back   |
+| Pile or consumed pile member      | Do not create an identity item                                     | No                                    |
 
 M1 must also reject a source revision, frame, card, or geometry mismatch; repeated seeding must be
 idempotent; and an unavailable classifier must not block annotation. M0 does not authorize a
@@ -234,6 +239,23 @@ class/back-design support and duplicates; cold/warm digests match. Publish the 0
   [the M4 audit](../../reports/0093-M4_Crop_Fidelity_Audit.md) and its
   [machine-readable receipt](../../reports/0093-M4_Crop_Fidelity_Audit.json).
 
+### M5 implementation evidence — 2026-10-14
+
+- Published the exact revision, digest, annotation-provenance, crop-receipt, target, mask, and
+  source-lineage requirements in the [input handoff](../../reports/0093-M5_Visual_Identity_Input_Handoff.md).
+- Extended materialization regressions to cover a card removed into a reviewed pile and a
+  malformed input that still lists a grouped card, current v2 schemas, and a face-down-to-face-up
+  correction. The correction refreshes the visible-side revision digest and keeps native crop bytes
+  stable when frame and geometry remain unchanged.
+- Replayed the current development references for IMG_0095, IMG_0097, and IMG_0654 read-only. No
+  source outside the eligible M4 set was used. The replay produced zero eligible samples: IMG_0095
+  has only generated identity outcomes in a draft, IMG_0097 has older prediction-backed identity
+  data without annotation provenance or current card matches, and IMG_0654 has no identity
+  reference. The resolver was not called for these ineligible items.
+- Focused materialization tests passed (5). Annotation reference/API tests passed (2). The report
+  separates the fixture-proven software capability from the current zero-sample corpus support.
+- No training, provider default, or maintained reference changed.
+
 ### M4 — Audit crop fidelity and rectification risk
 
 Use at most 24 eligible development crops from at most three recordings, including incomplete
@@ -251,7 +273,7 @@ native source-image crops/Lanczos by default. Specify any justified decoder/filt
 separate bounded implementation before campaign fitting. No classifier-quality claim follows
 from appearance alone, and no runtime rectification policy or mandatory geometry gate is added.
 
-### M5 — Verify and publish the input handoff
+### M5 — Verify and publish the input handoff — Complete
 
 Replay the annotation-to-materialization path on fixtures and a few existing reviewed development
 items. Verify source/frame/geometry lineage, correction persistence, native crop integrity, and
@@ -259,7 +281,8 @@ individual-card/pile isolation. Publish exact contracts, class support limits an
 
 Acceptance: 0086 can finish face-down review; 0094 can consume eligible back crops and targets;
 0088 can audit and freeze its corpus. Capability readiness is separate from the amount of reviewed
-data. No training or default/provider change occurs.
+data. No training or default/provider change occurs. The exact contracts, support limits, and
+reproduction commands are published in the [M5 input handoff](../../reports/0093-M5_Visual_Identity_Input_Handoff.md).
 
 ## 5. Verification
 

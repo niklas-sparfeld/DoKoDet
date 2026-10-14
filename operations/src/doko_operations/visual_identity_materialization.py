@@ -19,6 +19,7 @@ from .derived_view import (
     parse_geometry,
     resolve_visible_region_crop,
 )
+from .pipeline_data import VISIBLE_CARD_DATA_SCHEMA_VERSION, VISUAL_IDENTITY_DATA_SCHEMA_VERSION
 
 SCHEMA = "reviewed-visual-identity-materialization/v1"
 TARGETS = frozenset((*CARD_IDENTITIES, FACE_DOWN_TARGET))
@@ -92,6 +93,19 @@ def materialize_reviewed_visual_identity_crops(
                 {"recording_id": recording_id, **_reject("invalid_reference_content")}
             )
             continue
+        if visible_content.get("schema_version") != VISIBLE_CARD_DATA_SCHEMA_VERSION:
+            exclusions.append(
+                {"recording_id": recording_id, **_reject("unsupported_visible_card_schema")}
+            )
+            continue
+        if identity_content.get("schema_version") != VISUAL_IDENTITY_DATA_SCHEMA_VERSION:
+            exclusions.append(
+                {
+                    "recording_id": recording_id,
+                    **_reject("unsupported_visual_identity_schema"),
+                }
+            )
+            continue
         if visible_digest != _sha256(_canonical(visible_content)) or identity_digest != _sha256(
             _canonical(identity_content)
         ):
@@ -105,9 +119,19 @@ def materialize_reviewed_visual_identity_crops(
             )
             continue
         visible_cards: dict[str, dict[str, Any]] = {}
+        pile_members: set[str] = set()
         for outcome in visible_outcomes:
             if not isinstance(outcome, Mapping) or outcome.get("status") != "detected":
                 continue
+            for pile in outcome.get("pile_regions", []):
+                if not isinstance(pile, Mapping):
+                    continue
+                for member in pile.get("grouped_candidates", []):
+                    if isinstance(member, Mapping) and isinstance(member.get("card_id"), str):
+                        pile_members.add(member["card_id"])
+                for member in pile.get("grouped_card_states", []):
+                    if isinstance(member, Mapping) and isinstance(member.get("card_id"), str):
+                        pile_members.add(member["card_id"])
             for candidate in outcome.get("candidates", []):
                 if isinstance(candidate, Mapping) and isinstance(candidate.get("card_id"), str):
                     visible_cards[candidate["card_id"]] = {
@@ -123,7 +147,9 @@ def materialize_reviewed_visual_identity_crops(
         for card_id, visible in sorted(visible_cards.items()):
             identity = identity_by_card.get(card_id)
             reason: str | None = None
-            if identity is None:
+            if card_id in pile_members:
+                reason = "pile_member"
+            elif identity is None:
                 reason = "missing_identity_outcome"
             elif identity.get("frame_identity") != visible["frame_identity"]:
                 reason = "wrong_frame"
@@ -258,11 +284,12 @@ def materialize_reviewed_visual_identity_crops(
                 }
             )
         for card_id in sorted(set(identity_by_card) - set(visible_cards)):
+            reason = "pile_member" if card_id in pile_members else "no_matching_visible_card"
             exclusions.append(
                 {
                     "recording_id": recording_id,
                     "card_id": card_id,
-                    "reason": "no_matching_visible_card",
+                    "reason": reason,
                 }
             )
 

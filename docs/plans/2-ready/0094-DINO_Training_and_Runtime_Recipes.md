@@ -4,13 +4,12 @@
 
 - **Summary:** Deliver reproducible multi-resolution DINO recipes, bounded encoder adaptation,
   25-class evaluation, and reloadable confidence-aware local bundles.
-- **Status:** Blocked
-- **Depends on:** [0093](../2-ready/0093-Visual_Classification_Annotation_and_Crop_Inputs.md)
+- **Status:** Ready
+- **Depends on:** Completed [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md)
   annotation/crop handoff; existing materialized and licensed 0043 pretrained assets and local
   training/runtime infrastructure. No dependency on completed 0086 M5 or new 0088 model results.
-- **Blocker:** The 0093 positive-class and crop-input contracts are not delivered.
 - **Outcome:** Tested software recipes and exact local runtime/bundle contracts for
-  [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md), without a model-quality claim.
+  [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md), without a model-quality claim.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
