@@ -246,10 +246,10 @@ Measure effort by pile regions and remaining cards, not by hidden component card
 Acceptance: every selected frame has a completed reference decision or exact exclusion; all
 published derived visible regions pass validation; no pending card is a training target. Publish an
 updated detection-only handoff as eligible reviewed references are added. The expanded RF-DETR
-campaign in [0092](../2-ready/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) requires
-completed current-schema references and source groups for at least 18 recordings. Keep that campaign
-blocked until its M0 confirms the handoff meets this target. This milestone remains open until the
-recorded human work is complete.
+campaign in [0092](0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) requires
+completed current-schema references and source groups for at least 18 recordings. Its M0 must
+confirm the handoff and freeze the partitions before materialization or training. This milestone
+remains open until the recorded human work is complete.
 
 ### M4 saved-decision audit — 2026-10-14
 
@@ -322,8 +322,8 @@ is `.runtime/0086-m4/detection-handoff.json`; use the commands above to reproduc
 
 Fifty focused operations tests, Ruff, Python formatting, local Markdown links, and deterministic
 report regeneration passed. Source video bytes were not rehashed. M4 is complete for the revised
-scope. The 0092 recording-count prerequisite is met; its M0 must independently freeze the eligible
-pool and a fresh unopened test. M5 identity review is not part of this completion.
+scope. The 0092 recording-count prerequisite is met. 0092 M0 has since frozen the eligible pool
+and fresh unopened test. M5 identity review is not part of this completion.
 
 ### M5 — Complete identities and publish the 0088 handoff
 

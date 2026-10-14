@@ -1,0 +1,1249 @@
+{
+  "campaign_id": "0092-m0-expanded-reviewed-rfdetr-campaign",
+  "candidate_dispositions": [
+    {
+      "disposition": "permanently_excluded",
+      "reasons": [
+        "Staged round was not recorded on a flat surface. The user explicitly excluded it from all future consideration."
+      ],
+      "recording_id": "cardeventnet-IMG_0092"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0095",
+      "split": "train"
+    },
+    {
+      "disposition": "deferred",
+      "reasons": [
+        "Calibration failed. The user will fix it and requested that it be ignored for now."
+      ],
+      "recording_id": "cardeventnet-IMG_0096"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0097",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0636",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0637",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0638",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0639",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0640",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0641",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0643",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0650",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0651",
+      "split": "validation"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0653",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0654",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0655",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0656",
+      "split": "sealed_test"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0657",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0658",
+      "split": "validation"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0659",
+      "split": "train"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0660",
+      "split": "sealed_test"
+    },
+    {
+      "disposition": "included",
+      "recording_id": "cardeventnet-IMG_0662",
+      "split": "train"
+    }
+  ],
+  "checkpoint": {
+    "class": "RFDETRSegMedium",
+    "package": "rfdetr==1.9.4",
+    "path": ".runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt",
+    "resolution": [
+      432,
+      432
+    ],
+    "sha256": "3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58"
+  },
+  "comparison_design": {
+    "baseline": {
+      "bundle_digest": "018715420524a62335abd30c628382a1caba344f3bb98e1cbab884dfb4590fd9",
+      "checkpoint_sha256": "d89c5502b3ff01ed673c2ba04e0a8169c9d1efe3d99c064dcafefdc314aea3fa",
+      "decision_path": "docs/reports/0087-M5_Pretest_Decision.json",
+      "decision_sha256": "b386f8f403a8da30874c0cdd6a9812ba4357b7ac8e5457e2a9f613abb4379e9d",
+      "manifest_path": "manifest.json",
+      "manifest_sha256": "413868cfe5ac7b981408a1363784bb708e25b4e02b3332e9828ee7516fb8807f",
+      "path": ".runtime/rfdetr-segmentation-0087-m3-training/bundle"
+    },
+    "candidate": "expanded_real_only",
+    "candidate_count": 1,
+    "pretrained_baseline": {
+      "package": "rfdetr==1.9.4",
+      "path": ".runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt",
+      "sha256": "3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58"
+    },
+    "runtime_default": "gemini",
+    "synthetic_data": "excluded"
+  },
+  "freeze_state": "frozen",
+  "identity_review_required": false,
+  "inventory": {
+    "manifest_sha256": "d1e4a2de8e8fcea1d4bd73f25d2b0fd687dfd2d30ccb5e83884819ff94b5f601",
+    "path": "docs/reports/0086-M0_Reviewed_Virtual_Card_Corpus_Inventory.json"
+  },
+  "manifest_sha256": "bd452cc3f904007ed481af1f13b56e3910374c0d9392dfbf42de900379e741fa",
+  "milestone": "M0",
+  "minimum_support": {
+    "sealed_test": {
+      "pile_targets": 30,
+      "retained_frames": 30,
+      "visible_card_targets": 100
+    },
+    "train": {
+      "pile_targets": 30,
+      "retained_frames": 30,
+      "visible_card_targets": 100
+    },
+    "validation": {
+      "pile_targets": 30,
+      "retained_frames": 30,
+      "visible_card_targets": 100
+    }
+  },
+  "partitions": {
+    "sealed_test": {
+      "counts": {
+        "pile_reviewed_frames": 92,
+        "pile_targets": 105,
+        "retained_frames": 92,
+        "reviewed_frames": 100,
+        "visible_card_targets": 247
+      },
+      "recordings": [
+        {
+          "counts": {
+            "pile_reviewed_frames": 49,
+            "pile_targets": 0,
+            "retained_frames": 49,
+            "reviewed_frames": 51,
+            "visible_card_targets": 133
+          },
+          "event_content_sha256": "a8c9e43fda9716e4fe5f78c423a740765962166eaf83b7420e52bc47e2b267fe",
+          "event_revision_id": "reference-events-4e2126dc36ea31fc69de0981e6176a12",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0656/metadata.json",
+          "permission_metadata_sha256": "91e498681a31460e817d21cb0323105f7a1b3687d61494241611b6d62f789b0e",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0656",
+          "reference_content_sha256": "7cb10d7fefa1ff50498ba03fdf6bc2d8623b6aeaed908a4033d842c9435abf2a",
+          "reference_manifest_sha256": "c609635e3ba2362defd73092e8eeff4a9d5d9c9edb4ccd9eeca0fc33a04427e0",
+          "reference_revision_id": "reference-visible_cards-ee8687dd9e4620dfba423d9b8ba11cb8",
+          "source_group": {
+            "session_id": "capture-img-0656",
+            "source_asset_id": "source-cardeventnet-IMG_0656",
+            "source_group_id": "source-group-a63c681491009569",
+            "source_video_sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
+            "table_setup": "setup-img-0656"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 43,
+            "pile_targets": 105,
+            "retained_frames": 43,
+            "reviewed_frames": 49,
+            "visible_card_targets": 114
+          },
+          "event_content_sha256": "84ce6ac3e302325eb6427bf8f33b3e1ca02adf51e21a094dfadcc2354cfd3a16",
+          "event_revision_id": "reference-events-964d49a8d059082ea0ae3017c4dd69d7",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0660/metadata.json",
+          "permission_metadata_sha256": "62ac86bceb479a5a4529a9f619a5d14ff9cee7c46bcb304e6ea7d11c00ae364a",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0660",
+          "reference_content_sha256": "bcc2c6b6915f84b17bc10beb30921080f0cc7911bb6eb06789dc7392a10bf5c6",
+          "reference_manifest_sha256": "232ffc8dac7cfdd93133ab9fc63cc5fa9935adaff2efb8844a10e08d015417a6",
+          "reference_revision_id": "reference-visible_cards-314d94c1547364459b48839d55f2fa3d",
+          "source_group": {
+            "session_id": "capture-img-0660",
+            "source_asset_id": "source-cardeventnet-IMG_0660",
+            "source_group_id": "source-group-8b83603668ec6ca9",
+            "source_video_sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
+            "table_setup": "setup-img-0660"
+          },
+          "source_permission": "project_use"
+        }
+      ]
+    },
+    "train": {
+      "counts": {
+        "pile_reviewed_frames": 684,
+        "pile_targets": 170,
+        "retained_frames": 684,
+        "reviewed_frames": 800,
+        "visible_card_targets": 1835
+      },
+      "recordings": [
+        {
+          "counts": {
+            "pile_reviewed_frames": 42,
+            "pile_targets": 38,
+            "retained_frames": 42,
+            "reviewed_frames": 53,
+            "visible_card_targets": 105
+          },
+          "event_content_sha256": "f703e2470ee5a44eb7ad7b33e5ea37d0bff154e3c8428de686724e0c9718c88f",
+          "event_revision_id": "reference-events-3e2d3b060f2719da7d4e932825b78370",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0095/metadata.json",
+          "permission_metadata_sha256": "54afc77800b1713654a55fe3ad506034576257fdde6ce47d5429fa337372f4ed",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "train"
+          ],
+          "recording_id": "cardeventnet-IMG_0095",
+          "reference_content_sha256": "34e823ceaafe13470920ef20026a84eab8fc8ee9828c9fd4468d48530644c215",
+          "reference_manifest_sha256": "c4e55e147d629f46a0275746bae3989932b9132493092e7e6affcdab1e18b925",
+          "reference_revision_id": "reference-visible_cards-1cb557a7cc9621c57c574a7ff275945a",
+          "source_group": {
+            "session_id": "capture-img-0095",
+            "source_asset_id": "source-cardeventnet-IMG_0095",
+            "source_group_id": "source-group-94db7dc13473c394",
+            "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+            "table_setup": "setup-img-0095"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 40,
+            "pile_targets": 36,
+            "retained_frames": 40,
+            "reviewed_frames": 50,
+            "visible_card_targets": 103
+          },
+          "event_content_sha256": "94b943228fdf5ad6e5583d9b1ea1e799ce467a905308082c2743a0cfd40122f7",
+          "event_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0097/metadata.json",
+          "permission_metadata_sha256": "6f72bc7f02d0f55af211c28fa6d1074e0f9655e92d0daa4789fce781c3805e38",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "train",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "train"
+          ],
+          "recording_id": "cardeventnet-IMG_0097",
+          "reference_content_sha256": "005cf7384e2dfe89585b726c12bb1ceb12c3ab79e76765bc1e6324168b7e0455",
+          "reference_manifest_sha256": "dd3e34cd7bb5670c1fb458a0f16c9fc0bdd7ea2eacc3a1fce016e3494d917c50",
+          "reference_revision_id": "reference-visible_cards-b2068e9892feee08eb1ec86c52d4f2ed",
+          "source_group": {
+            "session_id": "capture-img-0097",
+            "source_asset_id": "source-cardeventnet-IMG_0097",
+            "source_group_id": "source-group-2a2a1962c2651613",
+            "source_video_sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+            "table_setup": "setup-img-0097"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 48,
+            "pile_targets": 0,
+            "retained_frames": 48,
+            "reviewed_frames": 50,
+            "visible_card_targets": 131
+          },
+          "event_content_sha256": "e90b32470ceb2fedf611602caaab78de63417369c11fe08138f2b02f403ebcb4",
+          "event_revision_id": "reference-events-0332acf97aeef7dcc7db5e3b5774e183",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0636/metadata.json",
+          "permission_metadata_sha256": "064e15bcca3e2ca16e68fafbe90190ed398e33675c02ca8778e677c977128bd8",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0636",
+          "reference_content_sha256": "82218e0dca636d310636be521384842ae2cd0cf39799821e5350c823b4436db6",
+          "reference_manifest_sha256": "80ede22d9373c80ca4fc0261709336139a9196aba2f3137493de99804ff4b695",
+          "reference_revision_id": "reference-visible_cards-b9843c3ba31e18e6254c8c3a42981896",
+          "source_group": {
+            "session_id": "capture-img-0636",
+            "source_asset_id": "source-cardeventnet-IMG_0636",
+            "source_group_id": "source-group-78be3628c945da39",
+            "source_video_sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+            "table_setup": "setup-img-0636"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 46,
+            "pile_targets": 0,
+            "retained_frames": 46,
+            "reviewed_frames": 50,
+            "visible_card_targets": 124
+          },
+          "event_content_sha256": "7985d1c370dc6d25e182a32e326a8e54f3d9f14437ce6f2de30206bab03cbbc7",
+          "event_revision_id": "reference-events-95021e1921249e2f04315178295fa34a",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0637/metadata.json",
+          "permission_metadata_sha256": "db9b9f8cfb9efa385dd83a42a2f232ae9a5d75a4b65de1d974186d6fc4a988bf",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "train",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0637",
+          "reference_content_sha256": "ad4b0554d581c3426fa74eacd153410af20c7bc0aa7e80c731920331f7425b00",
+          "reference_manifest_sha256": "74bcfca7d018cbef9e70a45a1d5c5a7ae2048c0794bc0e158c4883b119e9ffd1",
+          "reference_revision_id": "reference-visible_cards-88e4c25892e31f10ed7e2fbc84c46c86",
+          "source_group": {
+            "session_id": "capture-img-0637",
+            "source_asset_id": "source-cardeventnet-IMG_0637",
+            "source_group_id": "source-group-ab000f6f3cbb10a1",
+            "source_video_sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+            "table_setup": "setup-img-0637"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 49,
+            "pile_targets": 0,
+            "retained_frames": 49,
+            "reviewed_frames": 51,
+            "visible_card_targets": 131
+          },
+          "event_content_sha256": "619d360a90d6da36a19732b8003d68e0695044d09e9a90bf36ee918c111d62f4",
+          "event_revision_id": "reference-events-96a83274f0a2c7673332e117aa4634a4",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0638/metadata.json",
+          "permission_metadata_sha256": "eb615ec808fbe176294681534c5e109a7ce6b51f9b1dfa289b5362b4a8f87eb0",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "train",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0638",
+          "reference_content_sha256": "23ad84a877b0cfd718b50d68bb7a029b71ccf22c6e5b2de6c90b0d23ebcd6476",
+          "reference_manifest_sha256": "600262cdf4f6820ac46daada25a91469d2789f72745e2082f9193b1868353a68",
+          "reference_revision_id": "reference-visible_cards-bf5a260ebb760cadbe6c390757afef0f",
+          "source_group": {
+            "session_id": "capture-img-0638",
+            "source_asset_id": "source-cardeventnet-IMG_0638",
+            "source_group_id": "source-group-310b6a289a2f2956",
+            "source_video_sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+            "table_setup": "setup-img-0638"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 45,
+            "pile_targets": 0,
+            "retained_frames": 45,
+            "reviewed_frames": 50,
+            "visible_card_targets": 120
+          },
+          "event_content_sha256": "a4ffedd1f8ae062baa9f68d9921f3b4f73d8582a7a4cd66357245ce28a35218f",
+          "event_revision_id": "reference-events-cb2ed8f6119ff32735a45da28a189a7a",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0639/metadata.json",
+          "permission_metadata_sha256": "ab12d7350ffe5d09dfc4b1055c7262ff01a637374ee54503eb8e48374eb6c765",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0639",
+          "reference_content_sha256": "4a2cbc5dcf830ed11887d42448c1d9a3bc374a37d02ec5588a6282f23d34e819",
+          "reference_manifest_sha256": "eec3d3888fd96b9dd54ef243a90e743a3db67adff56f64b85db27a02f843764b",
+          "reference_revision_id": "reference-visible_cards-4a83e73d098ee5c30aec26eb8fa6977c",
+          "source_group": {
+            "session_id": "capture-img-0639",
+            "source_asset_id": "source-cardeventnet-IMG_0639",
+            "source_group_id": "source-group-a51871a5c395907e",
+            "source_video_sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+            "table_setup": "setup-img-0639"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 47,
+            "pile_targets": 0,
+            "retained_frames": 47,
+            "reviewed_frames": 50,
+            "visible_card_targets": 128
+          },
+          "event_content_sha256": "ce30cc7b74954a3c864e6a8de334adfaec382e2572d42ef29773c595a935ea01",
+          "event_revision_id": "reference-events-e7b2713881051baff4e7670071adb2a3",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0640/metadata.json",
+          "permission_metadata_sha256": "95f375b47e7fadda07cc567a0c8154579beb709c8827e5bd5174a42e44168d46",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0640",
+          "reference_content_sha256": "4ad9649615cff89d627a6ff8f924bf40b0ba32b7ece2300cb30e66f90cffa938",
+          "reference_manifest_sha256": "af2f0b6da84c6dff91d33c1d76787e7a125d14246f7ae08eb9771a221f2b101c",
+          "reference_revision_id": "reference-visible_cards-15efd47f2e3a422e85047f11f646365f",
+          "source_group": {
+            "session_id": "capture-img-0640",
+            "source_asset_id": "source-cardeventnet-IMG_0640",
+            "source_group_id": "source-group-e4feeb0f21b69c4b",
+            "source_video_sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+            "table_setup": "setup-img-0640"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 44,
+            "pile_targets": 0,
+            "retained_frames": 44,
+            "reviewed_frames": 53,
+            "visible_card_targets": 121
+          },
+          "event_content_sha256": "344ef5ec9a8b2903f21860de69a24866e6a3b4033290e2bcd3ee46b108d1661f",
+          "event_revision_id": "reference-events-2a160b004691519b79550b24f9bcb08c",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0641/metadata.json",
+          "permission_metadata_sha256": "e5d8870b6c0b3a6f743b5ca3357806e29681eccea0ba1dfe5d670ce27c3c2990",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "train",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0641",
+          "reference_content_sha256": "fc15e243776e03ab6d44bd180c06c8233064f2d4f496218c029277b542e96d51",
+          "reference_manifest_sha256": "0287a8581c9df90899b7da33a7aa88a8c6a124a278299d79561cad4163892e4c",
+          "reference_revision_id": "reference-visible_cards-05bd5532cc236f13869f93ce15770352",
+          "source_group": {
+            "session_id": "capture-img-0641",
+            "source_asset_id": "source-cardeventnet-IMG_0641",
+            "source_group_id": "source-group-661af35269891b9b",
+            "source_video_sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+            "table_setup": "setup-img-0641"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 22,
+            "pile_targets": 0,
+            "retained_frames": 22,
+            "reviewed_frames": 52,
+            "visible_card_targets": 67
+          },
+          "event_content_sha256": "25b0fb8dfd565a8db5e8e8c8de5768932572884db3abdc7ee78c252df95f9fe1",
+          "event_revision_id": "reference-events-e091761f4d4d7dbbf586b250dfb5a4f9",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0643/metadata.json",
+          "permission_metadata_sha256": "f1fb29d4d689fa99c812aac1cf7758f8b7d58b22a7fd5673180290af42ceed28",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0643",
+          "reference_content_sha256": "c3d410377240ee37615c86d5401bece74933d0896be167e564e1be234e6278d4",
+          "reference_manifest_sha256": "2fce09f9557513dc7104d64547004fd9cae544741beea491001a222df8787f95",
+          "reference_revision_id": "reference-visible_cards-0f1b4beac01d8888506578e0c0457fa4",
+          "source_group": {
+            "session_id": "capture-img-0643",
+            "source_asset_id": "source-cardeventnet-IMG_0643",
+            "source_group_id": "source-group-8b3ea6e40f9f7584",
+            "source_video_sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+            "table_setup": "setup-img-0643"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 31,
+            "pile_targets": 26,
+            "retained_frames": 31,
+            "reviewed_frames": 36,
+            "visible_card_targets": 79
+          },
+          "event_content_sha256": "dd27729e0e29845c329866de36f3318d77d2ebd0359c50217ed5fcc734888816",
+          "event_revision_id": "reference-events-69ca04143d361f6529379023b4c4cc88",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0650/metadata.json",
+          "permission_metadata_sha256": "3c9b018dcb190bb5a960bbe961004b2b4d3bfc163d9d68e59fd8b4045895d2e5",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0650",
+          "reference_content_sha256": "3c53ff5f238b2a0068d793adbb2a976b38cbd46299824a3a2fcfe5a3dfc322af",
+          "reference_manifest_sha256": "87bcd64891ecf9652960ab4897ae39123fa0d52df8ce4d940189394c5c112166",
+          "reference_revision_id": "reference-visible_cards-65f00d4dd35bf93b4ee0af3f3eb95e39",
+          "source_group": {
+            "session_id": "capture-img-0650",
+            "source_asset_id": "source-cardeventnet-IMG_0650",
+            "source_group_id": "source-group-f3594ecde1b64592",
+            "source_video_sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+            "table_setup": "setup-img-0650"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 47,
+            "pile_targets": 0,
+            "retained_frames": 47,
+            "reviewed_frames": 50,
+            "visible_card_targets": 131
+          },
+          "event_content_sha256": "c92653b4bee14595b001c9ab1a1d03e2505b24f9712f1f5927ec4bc893cccc8f",
+          "event_revision_id": "reference-events-726d441f95a2cd301ebdc0968532fa21",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0653/metadata.json",
+          "permission_metadata_sha256": "210707d0eb9ef6a8285e96c1dd055370f09ced82c5bc0db12fbe3428bda3d1b6",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0653",
+          "reference_content_sha256": "84f5cd9a3343b4b8f19035bd256e9744cb1f123591086ad10b748cb923360436",
+          "reference_manifest_sha256": "4f8e34c883526b2c91fa0909b515ca5460bcd86858510fe4acd814b0bc0a9f79",
+          "reference_revision_id": "reference-visible_cards-b5049e9183c8e25e298156c8b4855ca4",
+          "source_group": {
+            "session_id": "capture-img-0653",
+            "source_asset_id": "source-cardeventnet-IMG_0653",
+            "source_group_id": "source-group-f862b0dd4644e0a4",
+            "source_video_sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+            "table_setup": "setup-img-0653"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 48,
+            "pile_targets": 0,
+            "retained_frames": 48,
+            "reviewed_frames": 51,
+            "visible_card_targets": 130
+          },
+          "event_content_sha256": "988d3991a428658338f650903906f3c2fb8126a8607e16a0f7f3f90421178e1b",
+          "event_revision_id": "reference-events-4fbcfe0c14e734b5431eaec5f8395e15",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0654/metadata.json",
+          "permission_metadata_sha256": "1c883872a206b180041c380f297799ea3774280a228d1186d2d7a2dcba9d4035",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0654",
+          "reference_content_sha256": "0f08adacab93932f0cb33ffd3f1208d56e28ef4551593036aaef5df387f0bcb9",
+          "reference_manifest_sha256": "47f788fc1ccec20d4d9478f63a125bc888d5910fe7d494e4325ccb04841b3463",
+          "reference_revision_id": "reference-visible_cards-44e710d15fd7b579b9bf370f32e82466",
+          "source_group": {
+            "session_id": "capture-img-0654",
+            "source_asset_id": "source-cardeventnet-IMG_0654",
+            "source_group_id": "source-group-567a782fd1d5590d",
+            "source_video_sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+            "table_setup": "setup-img-0654"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 43,
+            "pile_targets": 0,
+            "retained_frames": 43,
+            "reviewed_frames": 51,
+            "visible_card_targets": 124
+          },
+          "event_content_sha256": "156069aceef8af6e6cf041f877e9d927b78d1d38bf6a1c84fc5ebab92bd7e216",
+          "event_revision_id": "reference-events-6fe976245fbbc3452c14decde7d85976",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0655/metadata.json",
+          "permission_metadata_sha256": "0ecde207c7022f88141ed5f92b6da72a6b042878ded26b98ecae87ce6a5d66b6",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "train"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0655",
+          "reference_content_sha256": "8d527c44456b252e7c1fec2f774a969f420c67a2b0cfbddbf8f4896c3879a684",
+          "reference_manifest_sha256": "6f8b2a31a73b3fb48b8154230c385c30c9d3f08bb0069238161760d3eedccc3d",
+          "reference_revision_id": "reference-visible_cards-6da6c6c1468afcd2a5f7587a941528be",
+          "source_group": {
+            "session_id": "capture-img-0655",
+            "source_asset_id": "source-cardeventnet-IMG_0655",
+            "source_group_id": "source-group-02678145fee64ad8",
+            "source_video_sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+            "table_setup": "setup-img-0655"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 45,
+            "pile_targets": 0,
+            "retained_frames": 45,
+            "reviewed_frames": 51,
+            "visible_card_targets": 117
+          },
+          "event_content_sha256": "b7b928f5e1738af2343dba68e83a4edee10c2e7dcd7141d03282b9d4971fa4f3",
+          "event_revision_id": "reference-events-17e0b4ea8fc84cec099e237467798fdd",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0657/metadata.json",
+          "permission_metadata_sha256": "9df79100f995c9b2030cd159e6c487423465d22a75d34f74944fadfd9473bde2",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0657",
+          "reference_content_sha256": "cd87d26bddae0677f7646b5084d8832bdf668d7a9277ee144715db236b31b058",
+          "reference_manifest_sha256": "56238273dc9aa14ac950e3a6646a884c205b1492d9842dea91e3499c0b59d133",
+          "reference_revision_id": "reference-visible_cards-9825ffb099bab16c735b114ec4c4050a",
+          "source_group": {
+            "session_id": "capture-img-0657",
+            "source_asset_id": "source-cardeventnet-IMG_0657",
+            "source_group_id": "source-group-9d6d4824b53bc4a9",
+            "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+            "table_setup": "setup-img-0657"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 44,
+            "pile_targets": 0,
+            "retained_frames": 44,
+            "reviewed_frames": 52,
+            "visible_card_targets": 115
+          },
+          "event_content_sha256": "29bee4070c2554e307de97702281888589bd37be81006e67953c36c74c58cbad",
+          "event_revision_id": "reference-events-7ecc6c3bc903fb1228a4ab2251f32c5d",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0659/metadata.json",
+          "permission_metadata_sha256": "9c8f1b529d6d14e54f4f0902b9021f74dba0fe2551ae9e5fc0a962237f1c212a",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0659",
+          "reference_content_sha256": "85dc1aa20fe3ff5667589248b140a52d0a97a76d809131bd48618cc7f5f89cf1",
+          "reference_manifest_sha256": "345e2c1508f8442279deecdf64a13b82f0232a7b42cc7af811c68967f01cab0e",
+          "reference_revision_id": "reference-visible_cards-66c6d076726185dcf2b6ba46be466bfb",
+          "source_group": {
+            "session_id": "capture-img-0659",
+            "source_asset_id": "source-cardeventnet-IMG_0659",
+            "source_group_id": "source-group-3840f6e17e00e1e4",
+            "source_video_sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
+            "table_setup": "setup-img-0659"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 43,
+            "pile_targets": 70,
+            "retained_frames": 43,
+            "reviewed_frames": 50,
+            "visible_card_targets": 109
+          },
+          "event_content_sha256": "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5",
+          "event_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0662/metadata.json",
+          "permission_metadata_sha256": "0b2bf9e305797ca054dc522f47e525f85769e92eaf8a0570e8972acd5aaf6c14",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0662",
+          "reference_content_sha256": "d098847ee1ee68d6a3e9a3977d7b254bfff762008f9ffccf0ad0ae90625f147d",
+          "reference_manifest_sha256": "7de9a0cdf18676e0e319f8f66dfc467203c417ecbebd9c43117c1dfa7d2433c4",
+          "reference_revision_id": "reference-visible_cards-bf287d3bff82dec774f16be1ccc736f0",
+          "source_group": {
+            "session_id": "capture-img-0662",
+            "source_asset_id": "source-cardeventnet-IMG_0662",
+            "source_group_id": "source-group-d4543cb23cc73b35",
+            "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+            "table_setup": "setup-img-0662"
+          },
+          "source_permission": "project_use"
+        }
+      ]
+    },
+    "validation": {
+      "counts": {
+        "pile_reviewed_frames": 98,
+        "pile_targets": 87,
+        "retained_frames": 98,
+        "reviewed_frames": 101,
+        "visible_card_targets": 270
+      },
+      "recordings": [
+        {
+          "counts": {
+            "pile_reviewed_frames": 51,
+            "pile_targets": 45,
+            "retained_frames": 51,
+            "reviewed_frames": 51,
+            "visible_card_targets": 142
+          },
+          "event_content_sha256": "538025e40adc198061696a67e041ac859415a11cc9df8c58d2e5c3f063a41b0d",
+          "event_revision_id": "reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0651/metadata.json",
+          "permission_metadata_sha256": "013591c1e2533cd37d2be4b61dd29d9d5a7b7c1cfb7066670673b7cafb571790",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0651",
+          "reference_content_sha256": "4906376963976d4f2e87f53c50d29af3420dad313a05392665a7a5ff97220260",
+          "reference_manifest_sha256": "462ddaa1c64bab7c88bcc697adb867a5cfc6493d8b36eaa105a150a9c15eadf2",
+          "reference_revision_id": "reference-visible_cards-b443be01bde99abca02c47bf64c49cd5",
+          "source_group": {
+            "session_id": "capture-img-0651",
+            "source_asset_id": "source-cardeventnet-IMG_0651",
+            "source_group_id": "source-group-36e848a99cdde7b6",
+            "source_video_sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+            "table_setup": "setup-img-0651"
+          },
+          "source_permission": "project_use"
+        },
+        {
+          "counts": {
+            "pile_reviewed_frames": 47,
+            "pile_targets": 42,
+            "retained_frames": 47,
+            "reviewed_frames": 50,
+            "visible_card_targets": 128
+          },
+          "event_content_sha256": "488c17855d168da02d32fc5735148c66e25c9a3fc6a07a185f96321464f58702",
+          "event_revision_id": "reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7",
+          "permission_allowed_uses": [
+            "train",
+            "validation",
+            "test",
+            "evaluation"
+          ],
+          "permission_metadata_path": "data/operations/cardeventnet-imports/cardeventnet-IMG_0658/metadata.json",
+          "permission_metadata_sha256": "6467ce9c7a4d2119488137b69ace2d4839f9b4807468782d6991789784acf511",
+          "prior_partitions": {
+            "cardeventnet": "train",
+            "dino": "not-in-frozen-campaign",
+            "rfdetr": "not-in-frozen-campaign"
+          },
+          "recorded_allowed_uses": [
+            "evaluation",
+            "test",
+            "train",
+            "validation"
+          ],
+          "recording_id": "cardeventnet-IMG_0658",
+          "reference_content_sha256": "fcb7042e16ec75dc457018c92e45bd433a97d756cbca927e0594c78ca4ea30ce",
+          "reference_manifest_sha256": "3f828080be1f4376c87499798c491ef3586f11b16756c51668ddfb96a2f3020a",
+          "reference_revision_id": "reference-visible_cards-4fdd4d2c48275e22bde5040c5b0f0d88",
+          "source_group": {
+            "session_id": "capture-img-0658",
+            "source_asset_id": "source-cardeventnet-IMG_0658",
+            "source_group_id": "source-group-2b810ac8d5dc1281",
+            "source_video_sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+            "table_setup": "setup-img-0658"
+          },
+          "source_permission": "project_use"
+        }
+      ]
+    }
+  },
+  "prior_candidate_training": {
+    "0087": {
+      "manifest_sha256": "a14ae7c3b96408c652ee7e1d78fc1bc209c9771bf5a70ef26432114a2acd2114",
+      "recording_ids": [
+        "cardeventnet-IMG_0095"
+      ]
+    }
+  },
+  "prior_evaluated_groups_assigned_to_training": [
+    "cardeventnet-IMG_0097",
+    "cardeventnet-IMG_0654"
+  ],
+  "prior_evaluation_use": [
+    {
+      "campaign": "0067",
+      "purpose": "validation",
+      "recording_ids": [
+        "cardeventnet-IMG_0090",
+        "cardeventnet-IMG_0091",
+        "cardeventnet-IMG_0661"
+      ]
+    },
+    {
+      "campaign": "0068",
+      "purpose": "sealed_test_evaluation",
+      "recording_ids": [
+        "cardeventnet-IMG_0646",
+        "cardeventnet-IMG_0648",
+        "cardeventnet-IMG_0649"
+      ]
+    },
+    {
+      "campaign": "0087",
+      "purpose": "validation",
+      "recording_ids": [
+        "cardeventnet-IMG_0097"
+      ]
+    },
+    {
+      "campaign": "0087",
+      "purpose": "sealed_test_evaluation",
+      "recording_ids": [
+        "cardeventnet-IMG_0654"
+      ]
+    }
+  ],
+  "quality_gates": {
+    "card_pile_mask_ap_50_95": "strictly_greater_than_0087_candidate_validation",
+    "card_pile_recall": "strictly_greater_than_0087_candidate_validation",
+    "duplicate_detections": "no_worse_than_0087_candidate_validation",
+    "empty_prediction_rate": "no_worse_than_0087_candidate_validation",
+    "false_detections": "no_worse_than_0087_candidate_validation",
+    "nonzero_visible_card_recall_per_sealed_test_recording": true,
+    "sealed_test_pile_metrics": "report; no claim if target support is absent",
+    "visible_card_mask_ap_50_95": "strictly_greater_than_0087_candidate_validation",
+    "visible_card_recall": "strictly_greater_than_0087_candidate_validation"
+  },
+  "recipe": {
+    "augmentation": {
+      "do_random_resize_via_padding": false,
+      "expanded_scales": true,
+      "multi_scale": true,
+      "policy_id": "rfdetr-default-v1",
+      "use_ema": true
+    },
+    "budget": {
+      "candidate_count": 1,
+      "sweep": false,
+      "wall_clock_seconds": 144000
+    },
+    "data_contract": {
+      "box_source": "derived_from_same_visible_region",
+      "categories": [
+        {
+          "id": 1,
+          "name": "visible_card",
+          "supercategory": "card"
+        },
+        {
+          "id": 2,
+          "name": "card_pile",
+          "supercategory": "card"
+        }
+      ],
+      "ignore_loss": "no_custom_masked_loss",
+      "ignore_policy": "exclude_frame_on_any_reviewed_ignore_region",
+      "label": "visible_card",
+      "mask_source": "reviewed_visible_region",
+      "partition_policy": "source_group_disjoint/v1",
+      "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+      "pile_mask_source": "reviewed_coarse_pile_region",
+      "pixel_ownership": "reviewed-card-pixels-priority-v1",
+      "test_partition": "sealed_test"
+    },
+    "early_stopping": {
+      "enabled": true,
+      "min_delta": 0.001,
+      "monitor": "val/mask_ap_50_95",
+      "patience": 8
+    },
+    "model": {
+      "class": "RFDETRSegMedium",
+      "class_names": [
+        "visible_card",
+        "card_pile"
+      ],
+      "num_classes": 2,
+      "resolution": [
+        432,
+        432
+      ],
+      "variant": "rfdetr-seg-medium"
+    },
+    "package": {
+      "name": "rfdetr",
+      "version": "1.9.4"
+    },
+    "pretrained_checkpoint": {
+      "name": "rf-detr-seg-medium.pt",
+      "path": ".runtime/rfdetr/1.9.4/rf-detr-seg-medium.pt",
+      "sha256": "3ad325094735f431aee9962a8d204d68eb5bfc393d53e7e836e70998fef5ea58"
+    },
+    "schema_version": "rfdetr-segmentation-recipe/v1",
+    "training": {
+      "batch_size": 1,
+      "device": "mps",
+      "effective_batch_size": 4,
+      "epochs": 40,
+      "grad_accum_steps": 4,
+      "mixed_precision": false,
+      "num_workers": 0,
+      "output_dir_name": "rfdetr-segmentation-0092",
+      "seed": 6701
+    },
+    "validation": {
+      "confidence_threshold": 0.5,
+      "group_by": [
+        "recording_id",
+        "card_side",
+        "visible_card_count_bucket"
+      ],
+      "metrics": [
+        "per_class_mask_ap_50_95",
+        "per_class_mask_ap50",
+        "per_class_box_ap_50_95",
+        "per_class_recall",
+        "class_confusion",
+        "pile_contained_card_predictions",
+        "card_recall_near_piles",
+        "false_detections",
+        "duplicate_detections",
+        "empty_prediction_rate",
+        "per_recording_coverage"
+      ],
+      "minimum_gate": {
+        "card_pile_mask_ap_50_95": "strictly_greater_than_0087_candidate_validation",
+        "card_pile_recall": "strictly_greater_than_0087_candidate_validation",
+        "duplicate_detections": "no_worse_than_0087_candidate_validation",
+        "empty_prediction_rate": "no_worse_than_0087_candidate_validation",
+        "false_detections": "no_worse_than_0087_candidate_validation",
+        "nonzero_visible_card_recall_per_sealed_test_recording": true,
+        "sealed_test_pile_metrics": "report; no claim if target support is absent",
+        "visible_card_mask_ap_50_95": "strictly_greater_than_0087_candidate_validation",
+        "visible_card_recall": "strictly_greater_than_0087_candidate_validation"
+      },
+      "slices": [
+        "ordinary_overlapping_tricks_confusion",
+        "card_pile_localization_and_classification",
+        "fragments_inside_piles",
+        "individual_card_recall_near_piles",
+        "small_cards_when_supported",
+        "frame_edges_when_supported",
+        "human_hand_pixels_when_supported"
+      ]
+    }
+  },
+  "recipe_sha256": "d53fde93d4bc3ea30330e64cc55ca95aa405e4226adadec6dc17f4cadcc30b96",
+  "resource_budget": {
+    "candidate_count": 1,
+    "candidate_linear_estimate_seconds": 105918.05,
+    "candidate_wall_clock_seconds": 144000,
+    "estimate_basis": "0087 used 6503.74 seconds for 42 retained training frames. Scale by 0092 partition frame counts, then add about 35 percent.",
+    "final_refit_wall_clock_seconds": 180000,
+    "refit_linear_estimate_seconds": 135339.73,
+    "sweeps": false
+  },
+  "schema_version": "rfdetr-reviewed-campaign-manifest/v1",
+  "sealed_test_policy": "Lock the decision after validation; evaluate baseline and candidate once. Do not revise gates or recipes from sealed-test results.",
+  "source_bytes_verified": false,
+  "source_handoff": {
+    "candidate_count": 22,
+    "content_schema": "visible-card-data/v2",
+    "distinct_source_group_count": 20,
+    "eligible_recording_count": 20,
+    "file_sha256": "d96ada17eca5c5f77aada6c7f3cc78e00b13f10776493d9fbf8530c78cc65231",
+    "handoff_sha256": "503408822bc123b2ebb0f8388f8aed7d9378479b196b9f2e1cd244dbae89c1e6",
+    "path": ".runtime/0086-m4/detection-handoff.json"
+  },
+  "split_policy": "source_group_disjoint/v1; validation and sealed test have no prior evaluation use; previously evaluated groups may enter training only",
+  "split_rationale": {
+    "prior_evaluation_groups": "IMG_0097 and IMG_0654 are assigned to training only.",
+    "sealed_test": "Two fresh groups with reviewed pile targets; neither was opened by 0087 or another campaign.",
+    "validation": "Two fresh groups with reviewed pile targets; neither was used by a prior evaluation."
+  },
+  "training_readiness": "ready",
+  "training_readiness_gaps": []
+}

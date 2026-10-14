@@ -5,15 +5,14 @@
 - **Summary:** Train and evaluate an RF-DETR segmentation candidate with reviewed references from at
   least 18 distinct recordings, then refit the final candidate using every eligible reviewed
   recording in the frozen campaign pool.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0086 M4 current-schema detection-only handoff with completed reviewed geometry,
   visible-card masks, pile coverage, source groups, and permissions for at least 18 recordings;
   completed 0087 candidate bundle as the measured comparison baseline.
-- **Readiness:** The completed [0086 M4 audit](../../reports/0086-M4_Geometry_Review_Audit.json)
-  has 20 eligible current-schema recordings, above the minimum of 18. `IMG_0092` is permanently
-  excluded because the surface was not flat. `IMG_0096` is temporarily deferred for calibration
-  repair. M0 must independently freeze source groups, prior use, and a fresh unopened test before
-  materialization or training.
+- **Readiness:** M0 froze 20 eligible current-schema recordings and 20 source groups. `IMG_0092`
+  remains permanently excluded because the surface was not flat. `IMG_0096` remains deferred for
+  calibration repair. The fresh validation and sealed-test groups have no prior campaign evaluation
+  use. See the [M0 readiness report](../../reports/0092-M0_Expanded_Reviewed_RF_DETR_Campaign_Readiness.md).
 - **Outcome:** A source-group-separated evaluation of an expanded real-only candidate, followed by a
   digest-pinned final bundle trained on all eligible reviewed recordings. The runtime default remains
   unchanged.
@@ -22,8 +21,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — audit the expanded pool, define the exact eligible cohort, and freeze splits,
-  baseline, recipe, budgets, and gates.
+- **M0:** Complete (2026-10-14) — froze 20 eligible source groups, the fresh source-group holdouts,
+  the 0087 candidate baseline, one real-only recipe, budgets, and quality gates.
 - **M1:** Not started — materialize and inspect the expanded reviewed two-class data.
 - **M2:** Not started — train one bounded real-only candidate on the frozen training groups.
 - **M3:** Not started — evaluate validation and one fresh sealed holdout, then decide whether the
@@ -93,6 +92,19 @@ Acceptance: at least 18 recording groups have completed references; minimum supp
 partition; the sealed test is fresh; no source group leaks across partitions; a deterministic manifest
 pins every source, reference, recipe, and decision. Otherwise record exact missing references and
 keep the campaign blocked before materialization or training.
+
+### M0 implementation evidence — 2026-10-14
+
+The frozen [M0 manifest](../../reports/0092-M0_Expanded_Reviewed_RF_DETR_Campaign_Manifest.json)
+contains all 22 candidate dispositions and all 20 eligible current-schema references. It assigns 16
+recordings to training, two to validation, and two to a fresh sealed test. The prior 0087 validation
+and sealed-test recordings are training-only. Source-group, session, table, asset, and video lineage
+are disjoint across partitions. Every partition meets its frozen frame, card, and pile support.
+
+The selectable 0087 candidate bundle and pinned pretrained checkpoint are digest-verified. The
+manifest freezes one real-only candidate and the final-refit policy. It does not authorize training
+before M1 materialization and inspection. The [readiness report](../../reports/0092-M0_Expanded_Reviewed_RF_DETR_Campaign_Readiness.md)
+records the exact split, support, budget basis, and reproduction commands.
 
 ### M1 — Materialize and inspect reviewed masks
 
