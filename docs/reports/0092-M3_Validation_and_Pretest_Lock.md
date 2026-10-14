@@ -1,4 +1,4 @@
-# 0092 M3 validation and pretest lock
+# 0092 M3 validation and sealed-test decision
 
 Date: 2026-10-14
 
@@ -41,7 +41,43 @@ manifest, repaired M2 run receipt, M3 validation report, and bundle manifest. It
 evaluation of the pinned pretrained baseline and the 0092 candidate. It selects the candidate only
 if every sealed recording has nonzero visible-card recall. `gemini` remains the runtime default.
 
-The single sealed evaluation started in the background after this lock was verified. Its output
-directory is `.runtime/rfdetr-segmentation-0092-m3-sealed-test`; its log is
-`.runtime/rfdetr-segmentation-0092-m3-sealed-test.log`. Leave the run undisturbed. Do not rerun it
-after a completed report exists.
+The single sealed evaluation completed after the lock was verified. The retained report is
+`.runtime/rfdetr-segmentation-0092-m3-sealed-test/report.json`. Its baseline is the pinned pretrained
+checkpoint named in M0. It verified the same M2 bundle and checkpoint hashes as the pretest lock.
+
+| Sealed metric | Pinned pretrained baseline | 0092 candidate |
+| --- | ---: | ---: |
+| Visible-card mask AP 50:95 | 0.000000 | 0.794444 |
+| Visible-card recall | 0.000000 | 0.959514 |
+| Card-pile mask AP 50:95 | 0.000000 | 0.473179 |
+| Card-pile recall | 0.000000 | 0.533333 |
+| False detections | 63 | 19 |
+| Duplicate detections | 0 | 1 |
+| Empty-prediction rate | 0.326087 | 0.000000 |
+
+| Sealed recording | Visible-card targets | Candidate visible-card recall | Pile targets | Candidate pile AP / recall |
+| --- | ---: | ---: | ---: | --- |
+| `cardeventnet-IMG_0656` | 133 | 0.992481 | 0 | No pile targets |
+| `cardeventnet-IMG_0660` | 114 | 0.921053 | 105 | 0.473179 / 0.533333 |
+
+Both recordings pass the frozen nonzero visible-card recall condition. The sealed gate passes, so
+the decision is `selected_selectable_candidate`. The measured pile metrics cover the one recording
+with pile targets; they do not establish broader pile performance. The candidate produced 17 visible
+card-to-pile confusions at mask IoU 0.50 and 17 visible-card fragments inside piles. Its recall for
+six cards near piles was 1.0; the pretrained baseline recall was 0.0.
+
+Inference took 492.589 ms per frame for the pretrained baseline and 2,647.981 ms per frame for the
+candidate on MPS. Model load took 3,997.774 ms and 532.105 ms, respectively. M4 must report this
+latency for the final refit. No latency threshold was frozen in M0. The provider registry keeps
+`gemini` as the default and lists the exact 0092 bundle as selectable.
+
+The baseline and candidate predictions and provider registry passed their recorded SHA-256 checks.
+The sealed report SHA-256 is
+`fcf6f6c3e522e41f54f194d27ba77b596d2747ad8b8d99cf43b3395bab327302`. The test was opened once.
+Do not rerun it or use these recordings as a fresh holdout.
+
+| Runtime artifact | SHA-256 |
+| --- | --- |
+| `sealed-test-baseline-predictions.json` | `6ed41079d72f3d0674d1f6e54f7fce0cbf82851828813fd83faccdb9c1380c53` |
+| `sealed-test-candidate-predictions.json` | `d739aa3c36672bbeeb319767ffe853e9ac10f077b77fe2807b58a985dd1b7aae` |
+| `provider-registry.json` | `4b75f05df94340bf9f368ae6a7d7fe8e13b43b8af157c8d2c18b35cc35c49e5f` |

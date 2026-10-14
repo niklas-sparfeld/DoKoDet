@@ -27,9 +27,9 @@
 - **M2:** Complete (2026-10-14) — the candidate trained on the frozen M0/M1 inputs. Finalization
   reused the saved checkpoint after the missing 0092 receipt was added and the bundle validated.
   See the [M2 report](../../reports/0092-M2_Expanded_Reviewed_RF_DETR_Training.md).
-- **M3:** In Progress (2026-10-14) — the saved candidate passed all frozen 0092 validation gates
-  against the 0087 bundle. The digest-pinned pretest decision is locked, and the one permitted
-  sealed evaluation is running in the background. M3 remains open until its report is reviewed.
+- **M3:** Complete (2026-10-14) — the saved candidate passed the frozen validation gates and the
+  one sealed evaluation. The candidate is selectable. See the
+  [M3 report](../../reports/0092-M3_Validation_and_Pretest_Lock.md).
 - **M4:** Not started — refit the selected recipe on all eligible reviewed recordings and publish
   the exact final bundle.
 
@@ -140,7 +140,7 @@ The campaign runner now accepts the 0092 materialization and verifies its frozen
 The 0092 verifier checks the two-class recipe, checkpoint digest, budget, M1 manifest receipt, and
 all three source-group partitions before training starts.
 
-### M3 implementation progress — 2026-10-14
+### M3 implementation evidence — 2026-10-14
 
 The validation evaluator accepts the frozen 0087 bundle as the comparison model. For 0092, it checks
 that bundle digest against M0 and assesses the frozen visible-card and pile quality gates, false
@@ -148,7 +148,15 @@ detections, duplicate detections, and empty-prediction rate. The MPS validation 
 seconds. All gates pass. The [M3 report](../../reports/0092-M3_Validation_and_Pretest_Lock.md)
 records aggregate and per-recording metrics. The digest-pinned
 [pretest lock](../../reports/0092-M3_Pretest_Decision.json) records M0 support and authorization
-checks. The single sealed evaluation started after the lock was verified. Its report is pending.
+checks. The single sealed evaluation ran after the lock was verified. Both sealed recordings have
+nonzero visible-card recall. The pinned pretrained baseline has zero visible-card recall on this
+partition. The evaluator selected the 0092 candidate as a selectable bundle and kept `gemini` as the
+runtime default. The [M3 report](../../reports/0092-M3_Validation_and_Pretest_Lock.md) records the
+sealed metrics, per-recording recall, artifacts, and MPS latency. M3 is complete.
+
+The sealed partition contains pile targets in one recording. The candidate's pile recall there is
+0.533333. The other recording has no pile targets. Do not use this result as a broad pile-quality
+claim. Candidate MPS inference averaged 2,647.981 ms per frame. M4 must report final-refit latency.
 
 The saved-checkpoint finalizer also repaired the persisted M2 run receipt. The run now records all
 stages as complete and `training_invoked: false`; no weight changed. The sealed evaluator accepts the
