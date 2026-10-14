@@ -26,10 +26,11 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-1. **0087 M3:** Run the fixed real-only comparison from the materialized reviewed masks. M2 found
-   no compatible synthetic pool in the frozen training group, so M4 is not applicable. The broader
-   22-recording development pool remains a corpus target until its references pass the review
-   handoff.
+1. **0087 M5:** Publish the validation decision and bundle outcome. M3 trained one real-only
+   candidate and passed aggregate validation gates. Two false predictions shifted from pile to card.
+   M2 found no compatible synthetic pool, so M4 is not applicable. Keep the sealed test closed until
+   the frozen M5 gate and authorization allow it. The broader 22-recording development pool remains
+   a corpus target until its references pass the review handoff.
 2. **0086 M3–M5 and 0088:** Continue proposal refresh and geometry review after the detection handoff.
    Complete visual identity review last, for 0088. Use the completed 0091 annotation workflow to
    review one region per accumulated pile. RF-DETR needs 0091 M0–M3 before materialization and M4
@@ -71,7 +72,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0 inventory, M1 pilot proposals, M2 detection-only handoff, and M3 proposal refresh complete. M4 completes geometry review; M5 completes visual identity review for 0088. |
-| [0087 — Reviewed virtual-card RF-DETR campaign](3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0068 and 0070 complete; 0091 M0–M3 complete; 0086 M2 handoff complete | M0 corrected source permissions; M1 materialized 130 reviewed frames from three completed references; M2 omitted synthetic data because the sole training group lacks a compatible reviewed background. M3 is next. Validation has 36 pile targets; the sealed test has none. Broader corpus references remain an 0086 review task. |
+| [0087 — Reviewed virtual-card RF-DETR campaign](3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0068 and 0070 complete; 0091 M0–M3 complete; 0086 M2 handoff complete | M0 corrected source permissions; M1 materialized 130 reviewed frames from three completed references; M2 omitted synthetic data because the sole training group lacks a compatible reviewed background; M3 trained one real-only candidate and passed aggregate validation gates. False predictions shifted by class (20 pile to 2 card). M5 publishes the bundle decision. The sealed test is unopened and has no pile targets. Broader corpus references remain an 0086 review task. |
 
 ### Blocked
 

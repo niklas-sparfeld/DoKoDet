@@ -619,7 +619,7 @@ def _slice_metrics(frames: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         return _filtered_frames(frames, lambda frame, _target: frame["recording_id"] == value)
 
     def by_side(value: str) -> list[dict[str, Any]]:
-        return _filtered_frames(frames, lambda _frame, target: target["card_side"] == value)
+        return _filtered_frames(frames, lambda _frame, target: target.get("card_side") == value)
 
     def by_bucket(value: str) -> list[dict[str, Any]]:
         return _filtered_frames(
@@ -633,7 +633,7 @@ def _slice_metrics(frames: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             str(target["card_side"])
             for frame in frames
             for target in frame["targets"]
-            if target["card_side"] in _CARD_SIDES
+            if target.get("card_side") in _CARD_SIDES
         }
     )
     buckets = sorted({str(frame["visible_card_count_bucket"]) for frame in frames})
@@ -646,7 +646,7 @@ def _slice_metrics(frames: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                     lambda frame, target, recording_id=recording_id, side=side, bucket=bucket: (
                         frame["recording_id"] == recording_id
                         and frame["visible_card_count_bucket"] == bucket
-                        and target["card_side"] == side
+                        and target.get("card_side") == side
                     ),
                 )
                 if selected:
@@ -875,7 +875,11 @@ def run_rfdetr_segmentation_campaign_validation(
         baseline_overall = baseline["metrics"]["overall"]
         validation_gate = {"candidate_reloads": True, "metrics_reproducible": True}
         if pile_mode:
-            validation_gate["quality_assessment"] = "deferred_to_0087"
+            validation_gate["quality_assessment"] = (
+                "awaiting_0087_m5_decision"
+                if manifest_receipt.get("campaign_id") == "0087-m0-reviewed-rfdetr-campaign"
+                else "deferred_to_0087"
+            )
         else:
             validation_gate.update(
                 {
@@ -896,7 +900,9 @@ def run_rfdetr_segmentation_campaign_validation(
         sealed_gate: dict[str, Any] = {
             "evaluated": False,
             "reason": (
-                "0091 M2 view has no sealed_test partition"
+                "0087 M5 decides whether to open the sealed test"
+                if manifest_receipt.get("campaign_id") == "0087-m0-reviewed-rfdetr-campaign"
+                else "0091 M2 view has no sealed_test partition"
                 if pile_mode
                 else "validation_gate_failed"
             ),
@@ -979,7 +985,13 @@ def run_rfdetr_segmentation_campaign_validation(
                 "rfdetr": RFDETR_SEGMENTATION_PACKAGE_VERSION,
             },
             "campaign_manifest": manifest_receipt,
-            "quality_state": "not_assessed_by_0091_m3" if pile_mode else "evaluated",
+            "quality_state": (
+                "awaiting_0087_m5_decision"
+                if manifest_receipt.get("campaign_id") == "0087-m0-reviewed-rfdetr-campaign"
+                else "not_assessed_by_0091_m3"
+                if pile_mode
+                else "evaluated"
+            ),
             "evaluation_policy": {
                 "grouped_member_candidates_are_individual_ground_truth": False,
                 "class_map": view.get("class_map", {"1": "visible_card"}),

@@ -27,7 +27,10 @@
 - **M2:** Complete with a declared gap (2026-10-14) — omit the synthetic candidate because the
   frozen training group has no approved empty background, and the available 0070 pools use other
   source groups or obsolete geometry. See the [M2 readiness report](../../reports/0087-M2_Synthetic_Addition_Readiness.md).
-- **M3:** Not started — run the fixed real-only comparison after the reviewed masks are materialized.
+- **M3:** Complete (2026-10-14) — trained one real-only candidate for 6,503.74 seconds and
+  evaluated 40 validation frames. Aggregate validation gates passed; visible-card false predictions
+  rose from 0 to 2 while pile false predictions fell from 20 to 0. The sealed test remains unopened.
+  See the [M3 training report](../../reports/0087-M3_Real_Only_Training.md).
 - **M4:** Not applicable — M2 found no eligible synthetic pool; do not train a mixed candidate.
 - **M5:** Not started — publish the locked evaluation and bundle decision.
 
@@ -158,6 +161,27 @@ environment, timings, source and recipe digests, bundles, and real validation pr
 
 Acceptance: selection uses only frozen validation; metrics reproduce from retained predictions;
 the report distinguishes added reviewed-data effects from comparison limits; no test or promotion.
+
+### M3 implementation evidence — 2026-10-14
+
+- The shared campaign trainer now validates the 0087 frozen manifest, M1 split, two-class labels,
+  checkpoint pin, and 7,200-second budget. It retains the 0087 identity in the run record and bundle.
+- One candidate trained on 42 frames from `IMG_0095`. RF-DETR stopped at epoch 15 by the frozen
+  patience-8 rule. The run took 6,503.74 seconds. Checkpoint SHA-256 is
+  `d89c5502b3ff01ed673c2ba04e0a8168c9d1efe3d99c064dcafefdc314aea3fa`; bundle digest is
+  `018715420524a62335abd30c628382a1caba344f3bb98e1cbab884dfb4590fd9`.
+- Validation used the pinned pretrained baseline and the candidate on the unchanged 40-frame
+  validation partition. Visible-card mask AP and recall were `0.870065` and `0.961165`; pile mask
+  AP and recall were `0.958076` and `1.000000`. False predictions fell from 20 to 2, duplicate
+  predictions stayed at 0, and the empty prediction rate fell from 0.500 to 0.000. The two false
+  candidate predictions are visible cards; the baseline's 20 false predictions are piles.
+- The 0087 evaluator now retains two-class validation predictions with missing `card_side` values
+  on pile targets treated as unknown to side slices. It does not open the 0087 sealed test during
+  M3. Validation report and prediction digests are in the
+  [M3 training report](../../reports/0087-M3_Real_Only_Training.md).
+- This result uses one eligible training reference and has no paired retraining control. The other
+  19 development candidates with incomplete references were not added. No bundle promotion or
+  runtime-default change occurred.
 
 ### M4 — Measure the synthetic mixture
 
