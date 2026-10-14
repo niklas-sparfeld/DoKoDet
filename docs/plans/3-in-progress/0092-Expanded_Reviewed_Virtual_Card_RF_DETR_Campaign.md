@@ -23,7 +23,7 @@
 
 - **M0:** Complete (2026-10-14) — froze 20 eligible source groups, the fresh source-group holdouts,
   the 0087 candidate baseline, one real-only recipe, budgets, and quality gates.
-- **M1:** Not started — materialize and inspect the expanded reviewed two-class data.
+- **M1:** Complete (2026-10-14) — materialized and inspected 874 frames and 2,714 reviewed masks.
 - **M2:** Not started — train one bounded real-only candidate on the frozen training groups.
 - **M3:** Not started — evaluate validation and one fresh sealed holdout, then decide whether the
   recipe passes.
@@ -102,9 +102,21 @@ and sealed-test recordings are training-only. Source-group, session, table, asse
 are disjoint across partitions. Every partition meets its frozen frame, card, and pile support.
 
 The selectable 0087 candidate bundle and pinned pretrained checkpoint are digest-verified. The
-manifest freezes one real-only candidate and the final-refit policy. It does not authorize training
-before M1 materialization and inspection. The [readiness report](../../reports/0092-M0_Expanded_Reviewed_RF_DETR_Campaign_Readiness.md)
+manifest freezes one real-only candidate and the final-refit policy. M1 materialization and inspection
+are complete. The [readiness report](../../reports/0092-M0_Expanded_Reviewed_RF_DETR_Campaign_Readiness.md)
 records the exact split, support, budget basis, and reproduction commands.
+
+### M1 implementation evidence — 2026-10-14
+
+The deterministic [M1 report](../../reports/0092-M1_Reviewed_Mask_Materialization.md) covers 874
+frames and 2,714 masks: 2,352 visible-card masks and 362 pile masks. Its materialization digest is
+`9fa0992bccab325a8fbadecb9bf375fbb783ea3b943a10e56b52cca92248e942`. A warm rebuild produced the
+same digest and generated-file receipts. The view retains M0 source and reference lineage, omits 35
+reviewed frame exclusions and 92 ineligible outcomes, and is ready for M2.
+
+All masks decoded at source dimensions. Overlay sheets cover all 20 recordings and include dense,
+small-card, pile, and supported frame-edge examples. RF-DETR 1.9.4 loaded all three COCO partitions.
+No model inference or training ran in M1.
 
 ### M1 — Materialize and inspect reviewed masks
 

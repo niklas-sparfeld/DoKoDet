@@ -1,0 +1,393 @@
+{
+  "image_count": 874,
+  "mask_count": 2714,
+  "materialization_digest": "9fa0992bccab325a8fbadecb9bf375fbb783ea3b943a10e56b52cca92248e942",
+  "recording_count": 20,
+  "recordings": [
+    {
+      "image_count": 42,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0095.png",
+      "recording_id": "cardeventnet-IMG_0095",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0095-008",
+        "pile_and_near_pile_cards": "cardeventnet-event-img_0095-005",
+        "small_cards": "cardeventnet-event-img_0095-031"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0095-000",
+        "cardeventnet-event-img_0095-005",
+        "cardeventnet-event-img_0095-008",
+        "cardeventnet-event-img_0095-026",
+        "cardeventnet-event-img_0095-031",
+        "cardeventnet-event-img_0095-051"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 40,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0097.png",
+      "recording_id": "cardeventnet-IMG_0097",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0097-008",
+        "frame_edge": "cardeventnet-event-img_0097-008",
+        "pile_and_near_pile_cards": "cardeventnet-event-img_0097-005",
+        "small_cards": "cardeventnet-event-img_0097-012"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0097-000",
+        "cardeventnet-event-img_0097-005",
+        "cardeventnet-event-img_0097-008",
+        "cardeventnet-event-img_0097-012",
+        "cardeventnet-event-img_0097-025",
+        "cardeventnet-event-img_0097-048"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 48,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0636.png",
+      "recording_id": "cardeventnet-IMG_0636",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0636-003",
+        "frame_edge": "cardeventnet-event-img_0636-003",
+        "small_cards": "cardeventnet-event-img_0636-038"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0636-000",
+        "cardeventnet-event-img_0636-003",
+        "cardeventnet-event-img_0636-025",
+        "cardeventnet-event-img_0636-038",
+        "manual-1789564968721-3"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 46,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0637.png",
+      "recording_id": "cardeventnet-IMG_0637",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0637-003",
+        "small_cards": "cardeventnet-event-img_0637-036"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0637-000",
+        "cardeventnet-event-img_0637-003",
+        "cardeventnet-event-img_0637-026",
+        "cardeventnet-event-img_0637-036",
+        "cardeventnet-event-img_0637-048"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 49,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0638.png",
+      "recording_id": "cardeventnet-IMG_0638",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0638-003",
+        "small_cards": "cardeventnet-event-img_0638-018"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0638-000",
+        "cardeventnet-event-img_0638-003",
+        "cardeventnet-event-img_0638-018",
+        "cardeventnet-event-img_0638-025",
+        "cardeventnet-event-img_0638-050"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 45,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0639.png",
+      "recording_id": "cardeventnet-IMG_0639",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0639-003",
+        "small_cards": "cardeventnet-event-img_0639-044"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0639-000",
+        "cardeventnet-event-img_0639-003",
+        "cardeventnet-event-img_0639-024",
+        "cardeventnet-event-img_0639-044",
+        "cardeventnet-event-img_0639-049"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 47,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0640.png",
+      "recording_id": "cardeventnet-IMG_0640",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0640-003",
+        "small_cards": "cardeventnet-event-img_0640-015"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0640-000",
+        "cardeventnet-event-img_0640-003",
+        "cardeventnet-event-img_0640-015",
+        "cardeventnet-event-img_0640-025",
+        "cardeventnet-event-img_0640-049"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 44,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0641.png",
+      "recording_id": "cardeventnet-IMG_0641",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0641-003",
+        "frame_edge": "cardeventnet-event-img_0641-028",
+        "small_cards": "cardeventnet-event-img_0641-039"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0641-000",
+        "cardeventnet-event-img_0641-003",
+        "cardeventnet-event-img_0641-026",
+        "cardeventnet-event-img_0641-028",
+        "cardeventnet-event-img_0641-039",
+        "cardeventnet-event-img_0641-050"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 22,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0643.png",
+      "recording_id": "cardeventnet-IMG_0643",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0643-009",
+        "small_cards": "cardeventnet-event-img_0643-020"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0643-000",
+        "cardeventnet-event-img_0643-009",
+        "cardeventnet-event-img_0643-020",
+        "cardeventnet-event-img_0643-027",
+        "cardeventnet-event-img_0643-051"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 31,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0650.png",
+      "recording_id": "cardeventnet-IMG_0650",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0650-009",
+        "frame_edge": "cardeventnet-event-img_0650-000",
+        "pile_and_near_pile_cards": "cardeventnet-event-img_0650-006",
+        "small_cards": "cardeventnet-event-img_0650-019"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0650-000",
+        "cardeventnet-event-img_0650-006",
+        "cardeventnet-event-img_0650-009",
+        "cardeventnet-event-img_0650-018",
+        "cardeventnet-event-img_0650-019",
+        "cardeventnet-event-img_0650-034"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 47,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0653.png",
+      "recording_id": "cardeventnet-IMG_0653",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0653-003",
+        "small_cards": "cardeventnet-event-img_0653-038"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0653-000",
+        "cardeventnet-event-img_0653-003",
+        "cardeventnet-event-img_0653-023",
+        "cardeventnet-event-img_0653-038",
+        "cardeventnet-event-img_0653-049"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 48,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0654.png",
+      "recording_id": "cardeventnet-IMG_0654",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0654-003",
+        "frame_edge": "cardeventnet-event-img_0654-000",
+        "small_cards": "cardeventnet-event-img_0654-030"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0654-000",
+        "cardeventnet-event-img_0654-003",
+        "cardeventnet-event-img_0654-024",
+        "cardeventnet-event-img_0654-030",
+        "cardeventnet-event-img_0654-050"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 43,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0655.png",
+      "recording_id": "cardeventnet-IMG_0655",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0655-003",
+        "frame_edge": "cardeventnet-event-img_0655-020",
+        "small_cards": "cardeventnet-event-img_0655-029"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0655-000",
+        "cardeventnet-event-img_0655-003",
+        "cardeventnet-event-img_0655-020",
+        "cardeventnet-event-img_0655-024",
+        "cardeventnet-event-img_0655-029",
+        "cardeventnet-event-img_0655-049"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 45,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0657.png",
+      "recording_id": "cardeventnet-IMG_0657",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0657-003",
+        "frame_edge": "cardeventnet-event-img_0657-048",
+        "small_cards": "cardeventnet-event-img_0657-029"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0657-000",
+        "cardeventnet-event-img_0657-003",
+        "cardeventnet-event-img_0657-026",
+        "cardeventnet-event-img_0657-029",
+        "cardeventnet-event-img_0657-048",
+        "cardeventnet-event-img_0657-049"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 44,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0659.png",
+      "recording_id": "cardeventnet-IMG_0659",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0659-003",
+        "small_cards": "cardeventnet-event-img_0659-019"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0659-000",
+        "cardeventnet-event-img_0659-003",
+        "cardeventnet-event-img_0659-019",
+        "cardeventnet-event-img_0659-024",
+        "cardeventnet-event-img_0659-049"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 43,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0662.png",
+      "recording_id": "cardeventnet-IMG_0662",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0662-042",
+        "frame_edge": "cardeventnet-event-img_0662-017",
+        "pile_and_near_pile_cards": "cardeventnet-event-img_0662-039",
+        "small_cards": "cardeventnet-event-img_0662-023"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0662-000",
+        "cardeventnet-event-img_0662-017",
+        "cardeventnet-event-img_0662-022",
+        "cardeventnet-event-img_0662-023",
+        "cardeventnet-event-img_0662-039",
+        "cardeventnet-event-img_0662-042",
+        "manual-1789567503801-13"
+      ],
+      "split": "train"
+    },
+    {
+      "image_count": 51,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0651.png",
+      "recording_id": "cardeventnet-IMG_0651",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0651-009",
+        "pile_and_near_pile_cards": "cardeventnet-event-img_0651-006",
+        "small_cards": "cardeventnet-event-img_0651-013"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0651-000",
+        "cardeventnet-event-img_0651-006",
+        "cardeventnet-event-img_0651-009",
+        "cardeventnet-event-img_0651-013",
+        "cardeventnet-event-img_0651-025",
+        "cardeventnet-event-img_0651-050"
+      ],
+      "split": "validation"
+    },
+    {
+      "image_count": 47,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0658.png",
+      "recording_id": "cardeventnet-IMG_0658",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0658-008",
+        "pile_and_near_pile_cards": "cardeventnet-event-img_0658-005",
+        "small_cards": "cardeventnet-event-img_0658-037"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0658-000",
+        "cardeventnet-event-img_0658-005",
+        "cardeventnet-event-img_0658-008",
+        "cardeventnet-event-img_0658-023",
+        "cardeventnet-event-img_0658-037",
+        "cardeventnet-event-img_0658-048"
+      ],
+      "split": "validation"
+    },
+    {
+      "image_count": 49,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0656.png",
+      "recording_id": "cardeventnet-IMG_0656",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0656-003",
+        "frame_edge": "cardeventnet-event-img_0656-035",
+        "small_cards": "cardeventnet-event-img_0656-037"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0656-000",
+        "cardeventnet-event-img_0656-003",
+        "cardeventnet-event-img_0656-025",
+        "cardeventnet-event-img_0656-035",
+        "cardeventnet-event-img_0656-037",
+        "cardeventnet-event-img_0656-049"
+      ],
+      "split": "sealed_test"
+    },
+    {
+      "image_count": 43,
+      "overlay_path": ".runtime/rfdetr-segmentation-0092-m1-overlays/cardeventnet-IMG_0660.png",
+      "recording_id": "cardeventnet-IMG_0660",
+      "risk_examples": {
+        "dense_overlap_candidate": "cardeventnet-event-img_0660-048",
+        "pile_and_near_pile_cards": "cardeventnet-event-img_0660-030",
+        "small_cards": "cardeventnet-event-img_0660-008"
+      },
+      "sample_event_ids": [
+        "cardeventnet-event-img_0660-000",
+        "cardeventnet-event-img_0660-008",
+        "cardeventnet-event-img_0660-025",
+        "cardeventnet-event-img_0660-030",
+        "cardeventnet-event-img_0660-048"
+      ],
+      "split": "sealed_test"
+    }
+  ],
+  "rfdetr_package": {
+    "loaded_partitions": {
+      "sealed_test": {
+        "first_sample_masks": 1,
+        "images": 92
+      },
+      "train": {
+        "first_sample_masks": 1,
+        "images": 684
+      },
+      "validation": {
+        "first_sample_masks": 1,
+        "images": 98
+      }
+    },
+    "version": "1.9.4"
+  },
+  "schema_version": "0092-m1-overlay-inspection/v1"
+}

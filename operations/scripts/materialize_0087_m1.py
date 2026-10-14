@@ -12,7 +12,7 @@ from doko_operations.rfdetr_segmentation_materialization import (
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Materialize and verify the frozen Epic 0087 M1 real mask view."
+        description="Materialize and verify a frozen RF-DETR campaign M1 mask view."
     )
     parser.add_argument("--repository-root", type=Path, default=Path.cwd())
     parser.add_argument(

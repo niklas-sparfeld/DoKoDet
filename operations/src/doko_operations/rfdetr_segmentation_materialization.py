@@ -691,17 +691,19 @@ def _validate_campaign_manifest(manifest: Mapping[str, Any]) -> None:
 def _prepare_reviewed_campaign_materialization(
     manifest: Mapping[str, Any], *, repository_root: Path
 ) -> dict[str, Any]:
-    """Join the frozen 0087 split to its exact reviewed 0086 handoff inputs."""
+    """Join a frozen reviewed campaign split to its exact 0086 handoff inputs."""
 
     source_manifest = dict(manifest)
     manifest_digest = source_manifest.get("manifest_sha256")
     core = {key: value for key, value in source_manifest.items() if key != "manifest_sha256"}
     if not isinstance(manifest_digest, str) or sha256_json(core) != manifest_digest:
-        raise RfdetrSegmentationMaterializationError("0087 M0 manifest digest is invalid")
+        raise RfdetrSegmentationMaterializationError(
+            "reviewed campaign M0 manifest digest is invalid"
+        )
     if source_manifest.get("freeze_state") != "frozen":
-        raise RfdetrSegmentationMaterializationError("0087 M1 requires a frozen M0 manifest")
+        raise RfdetrSegmentationMaterializationError("M1 requires a frozen M0 manifest")
 
-    handoff_info = _mapping(source_manifest.get("source_handoff"), "0087 source_handoff")
+    handoff_info = _mapping(source_manifest.get("source_handoff"), "source_handoff")
     handoff_path = _resolve_input_path(
         handoff_info.get("path", ""), repository_root, "0086 detection handoff"
     )
@@ -712,15 +714,21 @@ def _prepare_reviewed_campaign_materialization(
         raise RfdetrSegmentationMaterializationError(
             f"0086 detection handoff is invalid: {error}"
         ) from error
+    expected_handoff_digest = handoff_info.get("handoff_sha256", handoff_info.get("sha256"))
+    expected_handoff_file_digest = handoff_info.get("file_sha256")
     if (
-        handoff.get("handoff_sha256") != handoff_info.get("sha256")
+        handoff.get("handoff_sha256") != expected_handoff_digest
+        or (
+            expected_handoff_file_digest is not None
+            and _sha256_file(handoff_path) != expected_handoff_file_digest
+        )
         or handoff.get("schema_version") != "reviewed-visible-card-detection-handoff/v1"
         or handoff.get("status") != "ready"
         or len(handoff.get("eligible_recordings", []))
         != handoff_info.get("eligible_recording_count")
     ):
         raise RfdetrSegmentationMaterializationError(
-            "0086 handoff differs from the frozen 0087 source handoff"
+            "0086 handoff differs from the frozen reviewed campaign source handoff"
         )
 
     eligible_by_id = {
@@ -728,7 +736,7 @@ def _prepare_reviewed_campaign_materialization(
         for item in handoff["eligible_recordings"]
         if isinstance(item, Mapping) and isinstance(item.get("recording_id"), str)
     }
-    partitions = _mapping(source_manifest.get("partitions"), "0087 partitions")
+    partitions = _mapping(source_manifest.get("partitions"), "partitions")
     split: dict[str, dict[str, list[str]]] = {}
     recordings: list[dict[str, Any]] = []
     references: list[dict[str, Any]] = []
@@ -742,7 +750,7 @@ def _prepare_reviewed_campaign_materialization(
         raw_recordings = partition.get("recordings")
         if not isinstance(raw_recordings, list):
             raise RfdetrSegmentationMaterializationError(
-                f"0087 partition {split_name} has no recording list"
+                f"M0 partition {split_name} has no recording list"
             )
         recording_ids: list[str] = []
         for row in raw_recordings:
@@ -750,14 +758,14 @@ def _prepare_reviewed_campaign_materialization(
             recording_id = _identifier(selected.get("recording_id"), "recording_id")
             if recording_id in selected_ids:
                 raise RfdetrSegmentationMaterializationError(
-                    f"0087 recording {recording_id} appears in more than one split"
+                    f"M0 recording {recording_id} appears in more than one split"
                 )
             selected_ids.add(recording_id)
             recording_ids.append(recording_id)
             reviewed = eligible_by_id.get(recording_id)
             if reviewed is None:
                 raise RfdetrSegmentationMaterializationError(
-                    f"0087 recording {recording_id} is missing from the frozen handoff"
+                    f"M0 recording {recording_id} is missing from the frozen handoff"
                 )
             if (
                 reviewed.get("source_group") != selected.get("source_group")
@@ -774,7 +782,7 @@ def _prepare_reviewed_campaign_materialization(
                 != selected.get("event_content_sha256")
             ):
                 raise RfdetrSegmentationMaterializationError(
-                    f"0087 recording {recording_id} differs from its frozen handoff lineage"
+                    f"M0 recording {recording_id} differs from its frozen handoff lineage"
                 )
 
             source = _mapping(reviewed.get("source"), f"{recording_id}.source")
@@ -863,7 +871,7 @@ def _prepare_reviewed_campaign_materialization(
 
     if selected_ids != set(eligible_by_id):
         raise RfdetrSegmentationMaterializationError(
-            "0087 frozen partitions do not cover the exact eligible handoff recordings"
+            "frozen partitions do not cover the exact eligible handoff recordings"
         )
     return {
         "schema_version": RFDETR_REVIEWED_CAMPAIGN_MANIFEST_SCHEMA_VERSION,

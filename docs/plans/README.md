@@ -28,9 +28,9 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 1. **0086 M4:** Complete. The handoff has 20 eligible recordings. `IMG_0092` is permanently
    excluded; `IMG_0096` is deferred for calibration repair.
-2. **0092 M1:** Materialize and inspect the frozen 20-recording view. Then train and evaluate one
-   expanded real-only candidate, followed by a refit on all eligible reviewed recordings. Do not
-   reuse 0087's opened sealed test as a fresh holdout.
+2. **0092 M2:** Train one expanded real-only candidate on the 16 frozen training groups. M3 owns
+   validation and one fresh sealed-test evaluation; M4 owns the all-recording refit. Do not reuse
+   0087's opened sealed test as a fresh holdout.
 3. **0093 and 0086 M5:** Deliver prediction-independent annotation and all-class crop preparation,
    then complete human identity review, including FACE_DOWN. 0093 uses fixtures and existing reviewed
    examples; it does not wait for 0086 M5. This work does not gate 0092.
@@ -79,7 +79,7 @@ The shared target architecture is
 | Epic                                                                                      | Depends on                                                                                   | Outcome                                                                                                                                                                                                                            |
 | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0–M4 complete. Twenty current-schema recordings qualify; IMG_0092 is permanently excluded and IMG_0096 is deferred for calibration repair. M5 uses 0093 M2/M3 to complete all-class visual review, including FACE_DOWN, for 0088. |
-| [0092 — Expanded reviewed virtual-card RF-DETR campaign](3-in-progress/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 M4 current-schema detection-only handoff with at least 18 eligible recordings; completed 0087 candidate bundle | M0 complete. The frozen split has 16 training, two validation, and two fresh sealed-test recordings. Materialize and inspect the real-reviewed view before training one candidate. |
+| [0092 — Expanded reviewed virtual-card RF-DETR campaign](3-in-progress/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 M4 current-schema detection-only handoff with at least 18 eligible recordings; completed 0087 candidate bundle | M0–M1 complete. The 874-frame view has 16 training, two validation, and two fresh sealed-test recordings. M2 trains one bounded real-only candidate. |
 
 ### Blocked
 
