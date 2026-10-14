@@ -1255,6 +1255,10 @@ def build_dinov3_identity_preflight(
         "optimizer": {"name": "AdamW", "learning_rate": 0.001, "weight_decay": 0.0},
         "max_epochs": DINOV3_MAX_EPOCHS,
         "batch_size": mps_probe.get("selected_batch_size"),
+        "sampling": {
+            "policy": "class_source_weighted_with_replacement",
+            "samples_per_epoch": "train_split_size",
+        },
         "crop_policy": DINOV3_REQUIRED_CROP_POLICY,
     }
 

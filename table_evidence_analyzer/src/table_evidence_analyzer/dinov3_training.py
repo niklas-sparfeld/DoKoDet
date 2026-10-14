@@ -49,7 +49,7 @@ from .local_identity import (
 )
 
 DINOV3_TASK_ADAPTER = "dinov3-frozen-linear-v1"
-DINOV3_CHECKPOINT_SCHEMA = "dinov3-identity-checkpoint/v1"
+DINOV3_CHECKPOINT_SCHEMA = "dinov3-identity-checkpoint/v2"
 DINOV3_PREDICTION_SCHEMA = "dinov3-identity-predictions/v1"
 DINOV3_PREPARATION_SCHEMA = "dinov3-identity-preparation/v1"
 
@@ -211,6 +211,8 @@ class DinoV3TrainConfig:
     precision: str = "fp32"
     resume: Path | None = None
     max_steps: int | None = None
+    sampling_policy: str = "class_source_weighted_with_replacement"
+    samples_per_epoch: int | None = None
     weights_root: Path | None = None
 
     def __post_init__(self) -> None:
@@ -228,6 +230,10 @@ class DinoV3TrainConfig:
             raise DinoV3TrainingError("the DINOv3 smoke task supports fp32 only")
         if self.max_steps is not None and self.max_steps <= 0:
             raise DinoV3TrainingError("max_steps must be positive when set")
+        if self.sampling_policy != "class_source_weighted_with_replacement":
+            raise DinoV3TrainingError(f"unsupported sampling policy: {self.sampling_policy}")
+        if self.samples_per_epoch is not None and self.samples_per_epoch <= 0:
+            raise DinoV3TrainingError("samples_per_epoch must be positive when set")
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any], *, base: Path) -> "DinoV3TrainConfig":
@@ -257,6 +263,14 @@ class DinoV3TrainConfig:
             precision=str(value.get("precision", "fp32")),
             resume=(base / str(value["resume"]) if value.get("resume") else None),
             max_steps=(int(value["max_steps"]) if value.get("max_steps") is not None else None),
+            sampling_policy=str(
+                value.get("sampling_policy", "class_source_weighted_with_replacement")
+            ),
+            samples_per_epoch=(
+                int(value["samples_per_epoch"])
+                if value.get("samples_per_epoch") is not None
+                else None
+            ),
             weights_root=weights_root,
         )
 
@@ -310,13 +324,24 @@ def load_dinov3_checkpoint(path: str | Path) -> Mapping[str, Any]:
         raise ValueError(f"could not load DINOv3 checkpoint: {checkpoint_path}") from error
     if not isinstance(value, Mapping) or value.get("schema_version") != DINOV3_CHECKPOINT_SCHEMA:
         raise ValueError("DINOv3 checkpoint has an unsupported checkpoint schema")
-    required = {"config", "model_state", "optimizer_state", "progress", "best"}
+    required = {
+        "config",
+        "model_state",
+        "optimizer_state",
+        "progress",
+        "best",
+        "sampling_receipts",
+    }
     if not required <= set(value):
         raise ValueError("DINOv3 checkpoint is incomplete")
     if not isinstance(value["model_state"], Mapping) or not isinstance(
         value["optimizer_state"], Mapping
     ):
         raise ValueError("DINOv3 checkpoint state is invalid")
+    if not isinstance(value["sampling_receipts"], Sequence) or isinstance(
+        value["sampling_receipts"], (str, bytes)
+    ) or not all(isinstance(receipt, Mapping) for receipt in value["sampling_receipts"]):
+        raise ValueError("DINOv3 checkpoint sampling receipts are invalid")
     return value
 
 
@@ -402,6 +427,8 @@ def _config_record(config: DinoV3TrainConfig) -> dict[str, Any]:
         "device": config.device,
         "precision": config.precision,
         "max_steps": config.max_steps,
+        "sampling_policy": config.sampling_policy,
+        "samples_per_epoch": config.samples_per_epoch,
     }
 
 
@@ -458,7 +485,11 @@ def _input_record(
 
 
 def _semantic_config(
-    config: DinoV3TrainConfig, identity: DinoV3IdentityConfig, inputs: Mapping[str, Any]
+    config: DinoV3TrainConfig,
+    identity: DinoV3IdentityConfig,
+    inputs: Mapping[str, Any],
+    *,
+    samples_per_epoch: int,
 ) -> dict[str, Any]:
     return {
         "task_adapter": DINOV3_TASK_ADAPTER,
@@ -474,6 +505,8 @@ def _semantic_config(
         "batch_size": config.batch_size,
         "learning_rate": config.learning_rate,
         "weight_decay": config.weight_decay,
+        "sampling_policy": config.sampling_policy,
+        "samples_per_epoch": samples_per_epoch,
         "precision": config.precision,
         "campaign_id": inputs.get("campaign_id"),
         "campaign_manifest_digest": inputs.get("campaign_manifest_digest"),
@@ -491,6 +524,12 @@ def _validate_resume(checkpoint: Mapping[str, Any], expected: Mapping[str, Any])
             raise DinoV3TrainingError("DINOv3 resume checkpoint progress is invalid")
     if progress["step"] < 0 or progress["next_epoch"] < 0 or progress["next_batch"] < 0:
         raise DinoV3TrainingError("DINOv3 resume checkpoint progress is invalid")
+    if progress["next_batch"] and (
+        not isinstance(progress.get("schedule_digest"), str)
+        or isinstance(progress.get("next_sample_cursor"), bool)
+        or not isinstance(progress.get("next_sample_cursor"), int)
+    ):
+        raise DinoV3TrainingError("DINOv3 resume checkpoint schedule cursor is invalid")
 
 
 def _apply_augmentation(tensor: Any, *, seed: int, epoch: int, sample_id: str) -> Any:
@@ -518,6 +557,67 @@ def _batches(samples: Sequence[LoadedCrop], batch_size: int) -> list[tuple[Loade
     return [
         tuple(samples[start : start + batch_size]) for start in range(0, len(samples), batch_size)
     ]
+
+
+def _epoch_schedule(
+    samples: Sequence[LoadedCrop], *, seed: int, epoch: int, sample_count: int
+) -> tuple[list[LoadedCrop], dict[str, Any]]:
+    """Draw a reproducible class/source-balanced schedule with an explicit exposure budget."""
+
+    if not samples:
+        raise DinoV3TrainingError("cannot sample an empty training split")
+    class_counts: dict[str, int] = {}
+    class_sources: dict[str, set[str]] = {}
+    cell_counts: dict[tuple[str, str], int] = {}
+    for sample in samples:
+        class_counts[sample.target] = class_counts.get(sample.target, 0) + 1
+        class_sources.setdefault(sample.target, set()).add(sample.source_frame_sha256)
+        cell = (sample.target, sample.source_frame_sha256)
+        cell_counts[cell] = cell_counts.get(cell, 0) + 1
+    rng = random.Random(f"dinov3-sampler-v1:{seed}:{epoch}")
+    classes = sorted(class_counts)
+    class_order = classes.copy()
+    rng.shuffle(class_order)
+    base_count, remainder = divmod(sample_count, len(classes))
+    quotas = {identity: base_count for identity in classes}
+    for identity in class_order[:remainder]:
+        quotas[identity] += 1
+    by_class: dict[str, list[LoadedCrop]] = {identity: [] for identity in classes}
+    for sample in samples:
+        by_class[sample.target].append(sample)
+    schedule: list[LoadedCrop] = []
+    for identity in classes:
+        class_samples = by_class[identity]
+        class_weights = [
+            1.0
+            / len(class_sources[identity])
+            / cell_counts[(sample.target, sample.source_frame_sha256)]
+            for sample in class_samples
+        ]
+        schedule.extend(rng.choices(class_samples, weights=class_weights, k=quotas[identity]))
+    rng.shuffle(schedule)
+    class_exposure: dict[str, int] = {}
+    source_exposure: dict[str, int] = {}
+    for sample in schedule:
+        class_exposure[sample.target] = class_exposure.get(sample.target, 0) + 1
+        source_exposure[sample.source_frame_sha256] = (
+            source_exposure.get(sample.source_frame_sha256, 0) + 1
+        )
+    receipt = {
+        "schema_version": "dinov3-epoch-sampling-receipt/v1",
+        "policy": "class_source_weighted_with_replacement",
+        "seed": seed,
+        "epoch": epoch,
+        "source_group_field": "source_frame_sha256",
+        "source_group_count": len(source_exposure),
+        "schedule_sample_count": len(schedule),
+        "schedule_sample_ids": [sample.dataset_item_id for sample in schedule],
+        "schedule_digest": _digest([sample.dataset_item_id for sample in schedule]),
+        "class_exposure": dict(sorted(class_exposure.items())),
+        "source_exposure": dict(sorted(source_exposure.items())),
+        "class_population": dict(sorted(class_counts.items())),
+    }
+    return schedule, receipt
 
 
 def _batch_tensors(
@@ -590,8 +690,9 @@ def _checkpoint_payload(
     task: DinoV3FrozenLinearTask,
     optimizer: Any,
     semantic_config: Mapping[str, Any],
-    progress: Mapping[str, int],
+    progress: Mapping[str, Any],
     best: Mapping[str, Any],
+    sampling_receipts: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     return {
         "schema_version": DINOV3_CHECKPOINT_SCHEMA,
@@ -600,6 +701,7 @@ def _checkpoint_payload(
         "optimizer_state": optimizer.state_dict(),
         "progress": dict(progress),
         "best": dict(best),
+        "sampling_receipts": [dict(receipt) for receipt in sampling_receipts],
         "rng_state": {"torch_cpu": torch.get_rng_state()},
     }
 
@@ -730,6 +832,12 @@ def _load_campaign_inputs(
         raise DinoV3TrainingError(
             "DINOv3 training arguments differ from the frozen campaign recipe"
         )
+    sampling = recipe.get("sampling")
+    if sampling != {
+        "policy": config.sampling_policy,
+        "samples_per_epoch": "train_split_size" if config.samples_per_epoch is None else config.samples_per_epoch,
+    }:
+        raise DinoV3TrainingError("DINOv3 sampling arguments differ from the frozen campaign recipe")
     identity_reference = preflight.get("checks", {}).get("identity_config")
     if isinstance(identity_reference, Mapping) and isinstance(config.identity_config, Path):
         declared_path = Path(str(identity_reference.get("path", "")))
@@ -801,8 +909,11 @@ def train_dinov3_identity(
         validation_samples = tuple(MaterializedCropDataset(cache, partition="validation"))
         if not train_samples:
             raise DinoV3TrainingError("DINOv3 training split is empty")
+        samples_per_epoch = config.samples_per_epoch or len(train_samples)
         inputs = _input_record(identity, dataset, split, cache.digest, campaign)
-        semantic_config = _semantic_config(config, identity, inputs)
+        semantic_config = _semantic_config(
+            config, identity, inputs, samples_per_epoch=samples_per_epoch
+        )
         record.update(
             {
                 "identity_config": identity.to_mapping(),
@@ -849,28 +960,65 @@ def train_dinov3_identity(
             "encoder_loader": (
                 "injected_factory" if encoder_factory is not None else "transformers_local_files"
             ),
+            "sampling": {
+                "policy": config.sampling_policy,
+                "samples_per_epoch": samples_per_epoch,
+                "source_group_field": "source_frame_sha256",
+            },
         }
         if config.resume is not None:
             record["resumed_from"] = str(config.resume.expanduser().resolve())
         _write_json(run_path, record)
         progress = {"epoch": 0, "batch_index": 0, "step": 0, "next_epoch": 0, "next_batch": 0}
+        resume_schedule_digest = None
         best: dict[str, Any] = {"metric": "validation_top_1_accuracy", "value": -1.0, "epoch": 0}
         if config.resume is not None:
             checkpoint = load_dinov3_checkpoint(config.resume)
             _validate_resume(checkpoint, semantic_config)
             progress, best = _load_checkpoint_state(torch, task, optimizer, checkpoint)
+            resume_schedule_digest = progress.get("schedule_digest")
+            prior_receipts = checkpoint["sampling_receipts"]
+            if not isinstance(prior_receipts, Sequence) or isinstance(prior_receipts, (str, bytes)):
+                raise DinoV3TrainingError("DINOv3 resume checkpoint sampling receipts are invalid")
+            record["sampling"] = {
+                "policy": config.sampling_policy,
+                "samples_per_epoch": samples_per_epoch,
+                "source_group_field": "source_frame_sha256",
+                "epoch_receipts": [dict(receipt) for receipt in prior_receipts],
+            }
         if progress["next_epoch"] > config.epochs:
             raise DinoV3TrainingError(
                 "DINOv3 resume checkpoint is past the configured epoch budget"
             )
 
-        batches = _batches(train_samples, config.batch_size)
         epoch = progress["next_epoch"]
         batch_start = progress["next_batch"]
         last_train_loss = 0.0
         while epoch < config.epochs:
+            schedule, sampling_receipt = _epoch_schedule(
+                train_samples,
+                seed=config.seed,
+                epoch=epoch,
+                sample_count=samples_per_epoch,
+            )
+            if batch_start and resume_schedule_digest != sampling_receipt["schedule_digest"]:
+                raise DinoV3TrainingError("DINOv3 resume epoch schedule does not match checkpoint")
+            schedule_digest = sampling_receipt["schedule_digest"]
+            receipts = record.setdefault("sampling", {}).setdefault("epoch_receipts", [])
+            prior = next(
+                (item for item in receipts if item.get("epoch") == epoch), None
+            )
+            if prior is not None and prior != sampling_receipt:
+                raise DinoV3TrainingError("DINOv3 saved sampling receipt does not match schedule")
+            if prior is None:
+                receipts.append(sampling_receipt)
+            _write_json(run_path, record)
+            batches = _batches(schedule, config.batch_size)
             if batch_start > len(batches):
                 raise DinoV3TrainingError("DINOv3 resume checkpoint batch progress is invalid")
+            expected_cursor = min(batch_start * config.batch_size, len(schedule))
+            if batch_start and progress.get("next_sample_cursor") != expected_cursor:
+                raise DinoV3TrainingError("DINOv3 resume sample cursor does not match its batch")
             task.train()
             for batch_index in range(batch_start, len(batches)):
                 batch = batches[batch_index]
@@ -893,11 +1041,21 @@ def train_dinov3_identity(
                     "step": progress["step"] + 1,
                     "next_epoch": epoch + 1 if batch_index + 1 == len(batches) else epoch,
                     "next_batch": 0 if batch_index + 1 == len(batches) else batch_index + 1,
+                    "next_sample_cursor": min((batch_index + 1) * config.batch_size, len(schedule)),
+                    "schedule_digest": schedule_digest,
                 }
                 last_train_loss = float(loss.item())
                 _atomic_torch_save(
                     torch,
-                    _checkpoint_payload(torch, task, optimizer, semantic_config, progress, best),
+                    _checkpoint_payload(
+                        torch,
+                        task,
+                        optimizer,
+                        semantic_config,
+                        progress,
+                        best,
+                        record["sampling"]["epoch_receipts"],
+                    ),
                     output / "checkpoint-last.pt",
                 )
                 record["progress"] = progress
@@ -934,16 +1092,33 @@ def train_dinov3_identity(
                 }
                 _atomic_torch_save(
                     torch,
-                    _checkpoint_payload(torch, task, optimizer, semantic_config, progress, best),
+                    _checkpoint_payload(
+                        torch,
+                        task,
+                        optimizer,
+                        semantic_config,
+                        progress,
+                        best,
+                        record["sampling"]["epoch_receipts"],
+                    ),
                     output / "checkpoint-best.pt",
                 )
             _atomic_torch_save(
                 torch,
-                _checkpoint_payload(torch, task, optimizer, semantic_config, progress, best),
+                _checkpoint_payload(
+                    torch,
+                    task,
+                    optimizer,
+                    semantic_config,
+                    progress,
+                    best,
+                    record["sampling"]["epoch_receipts"],
+                ),
                 output / "checkpoint-last.pt",
             )
             epoch += 1
             batch_start = 0
+            resume_schedule_digest = None
 
         if not (output / "checkpoint-best.pt").exists():
             _atomic_torch_save(

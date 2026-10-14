@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from table_evidence_analyzer.data import (
+    LoadedCrop,
     build_smoke_fixture,
     load_artifact_index,
     load_dataset_manifest,
@@ -21,6 +22,7 @@ from table_evidence_analyzer.dinov3_training import (
     DinoV3FrozenLinearTask,
     DinoV3TrainConfig,
     DinoV3TrainingInterrupted,
+    _epoch_schedule,
     load_dinov3_checkpoint,
     train_dinov3_identity,
 )
@@ -133,6 +135,12 @@ def _campaign_fixture(tmp_path: Path, fixture, config: DinoV3TrainConfig) -> Pat
             "name": "AdamW",
             "learning_rate": config.learning_rate,
             "weight_decay": config.weight_decay,
+        },
+        "sampling": {
+            "policy": config.sampling_policy,
+            "samples_per_epoch": "train_split_size"
+            if config.samples_per_epoch is None
+            else config.samples_per_epoch,
         },
     }
     preflight = {
@@ -270,6 +278,51 @@ def test_interrupted_training_resumes_from_frozen_inputs_and_same_progress(tmp_p
     assert resumed["progress"] == uninterrupted["progress"]
     assert resumed["metrics"]["train_top_1_accuracy"] == 1.0
     assert resumed["inputs"] == uninterrupted["inputs"]
+    assert resumed["sampling"]["epoch_receipts"] == uninterrupted["sampling"]["epoch_receipts"]
+    resumed_checkpoint = load_dinov3_checkpoint(interrupted_output / "checkpoint-last.pt")
+    uninterrupted_checkpoint = load_dinov3_checkpoint(uninterrupted_output / "checkpoint-last.pt")
+    for name, value in uninterrupted_checkpoint["model_state"].items():
+        assert torch.equal(resumed_checkpoint["model_state"][name], value)
+    resumed_optimizer = resumed_checkpoint["optimizer_state"]
+    uninterrupted_optimizer = uninterrupted_checkpoint["optimizer_state"]
+    assert resumed_optimizer["param_groups"] == uninterrupted_optimizer["param_groups"]
+    assert resumed_optimizer["state"].keys() == uninterrupted_optimizer["state"].keys()
+    for parameter_id, state in uninterrupted_optimizer["state"].items():
+        for field, value in state.items():
+            actual = resumed_optimizer["state"][parameter_id][field]
+            if torch.is_tensor(value):
+                assert torch.equal(actual, value)
+            else:
+                assert actual == value
+
+
+def test_epoch_schedule_is_seeded_and_records_class_source_exposure() -> None:
+    samples = (
+        LoadedCrop("a1", b"a1", "CARD_A", "train", "frame-a"),
+        LoadedCrop("a2", b"a2", "CARD_A", "train", "frame-a"),
+        LoadedCrop("a3", b"a3", "CARD_A", "train", "frame-b"),
+        LoadedCrop("b1", b"b1", "CARD_B", "train", "frame-c"),
+    )
+
+    first, receipt = _epoch_schedule(samples, seed=17, epoch=0, sample_count=40)
+    replay, replay_receipt = _epoch_schedule(samples, seed=17, epoch=0, sample_count=40)
+    changed_seed, _ = _epoch_schedule(samples, seed=18, epoch=0, sample_count=40)
+    changed_epoch, _ = _epoch_schedule(samples, seed=17, epoch=1, sample_count=40)
+
+    assert [sample.dataset_item_id for sample in first] == [
+        sample.dataset_item_id for sample in replay
+    ]
+    assert receipt == replay_receipt
+    assert [sample.dataset_item_id for sample in first] != [
+        sample.dataset_item_id for sample in changed_seed
+    ]
+    assert [sample.dataset_item_id for sample in first] != [
+        sample.dataset_item_id for sample in changed_epoch
+    ]
+    assert receipt["schedule_sample_count"] == 40
+    assert receipt["class_exposure"] == {"CARD_A": 20, "CARD_B": 20}
+    assert receipt["source_group_count"] == 3
+    assert receipt["schedule_digest"]
 
 
 def test_training_failure_writes_complete_failure_record(tmp_path: Path) -> None:

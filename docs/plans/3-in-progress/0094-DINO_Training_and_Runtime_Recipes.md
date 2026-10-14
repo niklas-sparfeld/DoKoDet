@@ -19,7 +19,8 @@
   [the M0 contract](../../reports/0094-M0_Recipe_Contract.md).
 - **M1:** Complete — implement resolution-aware preprocessing and frozen-model bundles. See
   [the M1 verification report](../../reports/0094-M1_Preprocessing_and_Frozen_Bundles.md).
-- **M2:** Not started — implement reproducible epoch sampling and exact resume.
+- **M2:** Complete — add deterministic class/source-weighted epoch schedules, exposure receipts, and
+  exact sample-cursor resume. See the [M2 verification report](../../reports/0094-M2_Epoch_Sampling_and_Resume.md).
 - **M3:** Not started — implement source-space, epoch-varying safe augmentation.
 - **M4:** Not started — add the CLS-plus-mean-patch feature recipe.
 - **M5:** Not started — add targeted final-block training and checkpoint resume.
@@ -109,6 +110,10 @@ the exact schedule and next-batch cursor. Keep fitting and exposure budgets expl
 Acceptance: uninterrupted and interrupted/resumed fixture fits reproduce ordered sample receipts
 and final state within the declared deterministic tolerance; seeds/epochs change ordering; source
 and class balance is measured rather than assumed. No full dataset or quality benchmark is needed.
+**Complete:** the trainer now uses a class- and source-frame-weighted schedule with an explicit
+per-epoch sample budget. It saves ordered sample IDs, exposure counts, schedule digests, and the
+next-sample cursor in run records and checkpoints. Checkpoint v2 regenerates and checks a partial
+epoch schedule before resume. Campaign recipes declare this sampling policy.
 
 ### M3 — Implement safe changing augmentations
 
