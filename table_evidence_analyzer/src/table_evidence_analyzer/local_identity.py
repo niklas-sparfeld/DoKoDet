@@ -43,7 +43,7 @@ DINOV3_WEIGHTS_SCHEMA = "dinov3-pretrained-materialization/v1"
 DINOV3_TRANSFORM_VERSION = "dinov3-identity-letterbox-v2"
 DINOV3_AUGMENTATION_SCHEMA = "dinov3-identity-augmentation/v2"
 DINOV3_RUN_SCHEMA = "dinov3-identity-training-run/v1"
-DINOV3_BUNDLE_SCHEMA = "dinov3-identity-bundle/v3"
+DINOV3_BUNDLE_SCHEMA = "dinov3-identity-bundle/v4"
 
 FACE_DOWN_TARGET = "FACE_DOWN"
 VISUAL_IDENTITY_TARGETS: tuple[str, ...] = (*CARD_IDENTITIES, FACE_DOWN_TARGET)

@@ -64,6 +64,22 @@ def _load_encoder(bundle: DinoV3IdentityBundle) -> Any:
         raise DinoV3InferenceError(f"could not load the bundled DINOv3 encoder: {error}") from error
 
 
+def _load_encoder_state(torch: Any, bundle: DinoV3IdentityBundle, encoder: Any) -> Any:
+    try:
+        state = torch.load(bundle.encoder_state_path, map_location="cpu", weights_only=True)
+    except Exception as error:
+        raise DinoV3InferenceError(
+            f"could not load the bundled DINOv3 encoder state: {error}"
+        ) from error
+    if not isinstance(state, Mapping) or not state:
+        raise DinoV3InferenceError("bundled DINOv3 encoder state is incomplete")
+    try:
+        encoder.load_state_dict(dict(state), strict=True)
+    except (RuntimeError, TypeError) as error:
+        raise DinoV3InferenceError("bundled DINOv3 encoder state is invalid") from error
+    return encoder
+
+
 def _load_head(torch: Any, bundle: DinoV3IdentityBundle) -> Any:
     try:
         payload = torch.load(bundle.head_path, map_location="cpu", weights_only=True)
@@ -192,6 +208,7 @@ class DinoV3IdentityClassifier:
             encoder = (encoder_loader or _load_encoder)(self.bundle)
             if not isinstance(encoder, torch.nn.Module):
                 raise DinoV3InferenceError("DINOv3 encoder loader did not return a PyTorch module")
+            encoder = _load_encoder_state(torch, self.bundle, encoder)
             hidden_size = getattr(getattr(encoder, "config", None), "hidden_size", None)
             feature_factor = (
                 2 if self.bundle.identity.recipe["feature_layout"] == "cls_mean_patch" else 1

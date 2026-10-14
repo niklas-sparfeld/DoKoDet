@@ -27,7 +27,9 @@
   inference. See the [M4 verification report](../../reports/0094-M4_Alternate_Frozen_Features.md).
 - **M5:** Complete — add targeted final-block training and checkpoint resume. See the
   [M5 verification report](../../reports/0094-M5_Targeted_Encoder_Adaptation.md).
-- **M6:** Not started — export and load adapted encoder weights locally.
+- **M6:** Complete — export exact encoder and head states with separate pretrained provenance,
+  recipe metadata, and file digests. The runtime loads adapted weights from the local bundle. See
+  the [M6 verification report](../../reports/0094-M6_Adapted_Encoder_Bundles.md).
 - **M7:** Not started — evaluate all classes, source groups, and paired provider outcomes.
 - **M8:** Not started — fit and retain scalar confidence calibration and review thresholds.
 - **M9:** Not started — verify a small local lifecycle and publish the recipe handoff.

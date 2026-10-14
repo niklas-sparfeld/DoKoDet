@@ -54,6 +54,7 @@ def _write_bundle(root: Path, *, input_size: int) -> None:
         json.dumps(identity.to_mapping()["target"], sort_keys=True), encoding="utf-8"
     )
     (root / "head.pt").write_bytes(b"model-free head fixture")
+    (root / "encoder-state.pt").write_bytes(b"model-free encoder fixture")
     files = {
         path.name: hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(root.iterdir(), key=lambda item: item.name)
@@ -66,6 +67,12 @@ def _write_bundle(root: Path, *, input_size: int) -> None:
         "quality_state": "unusable_smoke_artifact",
         "calibration": "uncalibrated",
         "identity": identity.to_mapping(),
+        "pretrained_provenance": {
+            "model_id": identity.weights.model_id,
+            "model_revision": identity.weights.model_revision,
+            "weight_file": identity.weights.weight_file,
+            "weight_sha256": identity.weights.weight_sha256,
+        },
         "recipe_digest": identity.recipe_digest,
         "transform_digest": identity.transform_digest,
         "target_map_file": "target-map.json",
@@ -80,6 +87,25 @@ def _write_bundle(root: Path, *, input_size: int) -> None:
             "feature_layout": "cls",
             "input_size": input_size,
             "transform_digest": identity.transform_digest,
+        },
+        "encoder": {
+            "file": "encoder-state.pt",
+            "sha256": files["encoder-state.pt"],
+            "initialization": "pretrained",
+            "training_mode": "frozen",
+            "trainable_parameter_names": [],
+        },
+        "inference_recipe": {
+            "feature_layout": "cls",
+            "input_size": input_size,
+            "transform_digest": identity.transform_digest,
+            "class_count": 25,
+        },
+        "training_recipe": {
+            "task_adapter": "dinov3-frozen-linear-v1",
+            "identity_digest": identity.identity_digest,
+            "feature_layout": identity.recipe["feature_layout"],
+            "encoder_training": "frozen",
         },
         "run_id": "fixture-run",
         "source_checkpoint_sha256": "a" * 64,

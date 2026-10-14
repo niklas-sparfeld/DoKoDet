@@ -98,6 +98,10 @@ class DinoV3IdentityBundle:
         return self.root / self.manifest["head"]["file"]
 
     @property
+    def encoder_state_path(self) -> Path:
+        return self.root / self.manifest["encoder"]["file"]
+
+    @property
     def encoder_path(self) -> Path:
         return self.root
 
@@ -141,6 +145,7 @@ def _head_from_checkpoint(
     *,
     checkpoint_digest: str,
     identity: DinoV3IdentityConfig,
+    adapter: str,
 ) -> tuple[Any, int]:
     try:
         state = checkpoint["model_state"]
@@ -166,7 +171,7 @@ def _head_from_checkpoint(
     return (
         {
             "schema_version": DINOV3_HEAD_SCHEMA,
-            "adapter": "dinov3-frozen-linear-v1",
+            "adapter": adapter,
             "class_count": class_count,
             "hidden_size": hidden_size,
             "feature_layout": identity.recipe["feature_layout"],
@@ -198,8 +203,11 @@ def export_dinov3_identity_bundle(
         raise
     if run.get("status") != "completed":
         raise DinoV3BundleError("only a completed DINOv3 run can be exported")
-    if run.get("task") != "dinov3-frozen-linear-v1":
-        raise DinoV3BundleError("run is not the frozen DINOv3 identity task")
+    from .dinov3_training import DINOV3_ADAPTED_TASK_ADAPTER, DINOV3_TASK_ADAPTER
+
+    adapter = run.get("task")
+    if adapter not in {DINOV3_TASK_ADAPTER, DINOV3_ADAPTED_TASK_ADAPTER}:
+        raise DinoV3BundleError("run is not a supported DINOv3 identity task")
     if run.get("quality_state") != "unusable_smoke_artifact":
         raise DinoV3BundleError("run has an invalid DINOv3 quality state")
     identity = _resolve_export_identity(run, identity_config, weights_root)
@@ -222,8 +230,46 @@ def export_dinov3_identity_bundle(
         raise DinoV3BundleError("checkpoint identity digest does not match the export identity")
 
     head_payload, hidden_size = _head_from_checkpoint(
-        checkpoint, checkpoint_digest=checkpoint_digest, identity=identity
+        checkpoint, checkpoint_digest=checkpoint_digest, identity=identity, adapter=adapter
     )
+    model_state = checkpoint.get("model_state")
+    if not isinstance(model_state, Mapping):
+        raise DinoV3BundleError("DINOv3 checkpoint has no model state")
+    encoder_state = {
+        key.removeprefix("encoder."): value.detach().cpu()
+        for key, value in model_state.items()
+        if isinstance(key, str) and key.startswith("encoder.")
+    }
+    if not encoder_state:
+        raise DinoV3BundleError("DINOv3 checkpoint has no encoder weights")
+    training = run.get("training")
+    if not isinstance(training, Mapping) or training.get("encoder_training") not in {
+        "frozen",
+        "last_two_blocks",
+    }:
+        raise DinoV3BundleError("DINOv3 run has no supported encoder training recipe")
+    expected_mode = "last_two_blocks" if adapter == DINOV3_ADAPTED_TASK_ADAPTER else "frozen"
+    if training["encoder_training"] != expected_mode:
+        raise DinoV3BundleError("DINOv3 task adapter does not match its encoder training recipe")
+    semantic_config = training.get("semantic_config")
+    if (
+        not isinstance(semantic_config, Mapping)
+        or semantic_config.get("task_adapter") != adapter
+        or semantic_config.get("identity_digest") != identity.identity_digest
+        or semantic_config.get("feature_layout") != identity.recipe["feature_layout"]
+        or semantic_config.get("encoder_training") != expected_mode
+        or checkpoint.get("config") != dict(semantic_config)
+    ):
+        raise DinoV3BundleError("DINOv3 checkpoint and run recipes do not match")
+    trainable_names = training.get("trainable_encoder_parameters")
+    if not isinstance(trainable_names, list) or not all(
+        isinstance(name, str) and name for name in trainable_names
+    ):
+        raise DinoV3BundleError("DINOv3 run has invalid trainable encoder parameter names")
+    if expected_mode == "last_two_blocks" and not trainable_names:
+        raise DinoV3BundleError("adapted DINOv3 run has no trainable encoder parameters")
+    if expected_mode == "frozen" and trainable_names:
+        raise DinoV3BundleError("frozen DINOv3 run declares trainable encoder parameters")
     source_files = (
         identity.weights.weight_file,
         identity.weights.config_file,
@@ -231,7 +277,8 @@ def export_dinov3_identity_bundle(
     )
     target_map_file = "target-map.json"
     head_file = "head.pt"
-    if len(set((*source_files, target_map_file, head_file, "manifest.json"))) != 6:
+    encoder_file = "encoder-state.pt"
+    if len(set((*source_files, target_map_file, head_file, encoder_file, "manifest.json"))) != 7:
         raise DinoV3BundleError("DINOv3 bundle file names must be unique")
 
     destination = Path(output).expanduser().resolve()
@@ -247,6 +294,7 @@ def export_dinov3_identity_bundle(
     import torch
 
     torch.save(head_payload, destination / head_file)
+    torch.save(encoder_state, destination / encoder_file)
     _write_json(destination / target_map_file, identity.to_mapping()["target"])
     files = {
         path.name: _file_digest(path)
@@ -261,13 +309,19 @@ def export_dinov3_identity_bundle(
         "quality_state": "unusable_smoke_artifact",
         "calibration": "uncalibrated",
         "identity": identity.to_mapping(),
+        "pretrained_provenance": {
+            "model_id": identity.weights.model_id,
+            "model_revision": identity.weights.model_revision,
+            "weight_file": identity.weights.weight_file,
+            "weight_sha256": identity.weights.weight_sha256,
+        },
         "recipe_digest": identity.recipe_digest,
         "transform_digest": identity.transform_digest,
         "target_map_file": target_map_file,
         "target_map_sha256": files[target_map_file],
         "head": {
             "schema_version": DINOV3_HEAD_SCHEMA,
-            "adapter": "dinov3-frozen-linear-v1",
+            "adapter": adapter,
             "file": head_file,
             "sha256": files[head_file],
             "hidden_size": hidden_size,
@@ -276,6 +330,22 @@ def export_dinov3_identity_bundle(
             "transform_digest": identity.transform_digest,
             "class_count": 25,
         },
+        "encoder": {
+            "file": encoder_file,
+            "sha256": files[encoder_file],
+            "initialization": "adapted_checkpoint"
+            if expected_mode == "last_two_blocks"
+            else "pretrained",
+            "training_mode": expected_mode,
+            "trainable_parameter_names": trainable_names,
+        },
+        "inference_recipe": {
+            "feature_layout": identity.recipe["feature_layout"],
+            "input_size": identity.input_size,
+            "transform_digest": identity.transform_digest,
+            "class_count": 25,
+        },
+        "training_recipe": dict(semantic_config),
         "run_id": _text(run.get("run_id"), "run_id"),
         "source_checkpoint_sha256": checkpoint_digest,
         "files": files,
@@ -294,11 +364,15 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
         "quality_state",
         "calibration",
         "identity",
+        "pretrained_provenance",
         "recipe_digest",
         "transform_digest",
         "target_map_file",
         "target_map_sha256",
         "head",
+        "encoder",
+        "inference_recipe",
+        "training_recipe",
         "run_id",
         "source_checkpoint_sha256",
         "files",
@@ -322,6 +396,18 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
         raise DinoV3BundleError("DINOv3 bundle has an invalid quality state")
     if manifest["calibration"] != "uncalibrated":
         raise DinoV3BundleError("DINOv3 identity bundle must remain uncalibrated")
+    provenance = manifest["pretrained_provenance"]
+    if not isinstance(provenance, Mapping) or set(provenance) != {
+        "model_id",
+        "model_revision",
+        "weight_file",
+        "weight_sha256",
+    }:
+        raise DinoV3BundleError("DINOv3 pretrained provenance is incomplete")
+    _text(provenance["model_id"], "pretrained model ID")
+    _text(provenance["model_revision"], "pretrained model revision")
+    _safe_file(provenance["weight_file"], "pretrained weight file")
+    _sha256(provenance["weight_sha256"], "pretrained weight digest")
     _text(manifest["run_id"], "run_id")
     _sha256(manifest["source_checkpoint_sha256"], "source checkpoint digest")
     if manifest["bundle_digest"] != _digest(
@@ -359,6 +445,15 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
         raise DinoV3BundleError(f"DINOv3 bundle identity config is invalid: {error}") from error
     if identity.to_mapping() != dict(identity_payload):
         raise DinoV3BundleError("DINOv3 bundle identity config is not canonical")
+    provenance = manifest["pretrained_provenance"]
+    expected_provenance = {
+        "model_id": identity.weights.model_id,
+        "model_revision": identity.weights.model_revision,
+        "weight_file": identity.weights.weight_file,
+        "weight_sha256": identity.weights.weight_sha256,
+    }
+    if dict(provenance) != expected_provenance:
+        raise DinoV3BundleError("DINOv3 pretrained provenance does not match its identity")
     if (
         manifest["recipe_digest"] != identity.recipe_digest
         or manifest["transform_digest"] != identity.transform_digest
@@ -389,7 +484,7 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
     head_file = _safe_file(head["file"], "head file")
     if (
         head["schema_version"] != DINOV3_HEAD_SCHEMA
-        or head["adapter"] != "dinov3-frozen-linear-v1"
+        or head["adapter"] not in {"dinov3-frozen-linear-v1", "dinov3-last-two-blocks-v1"}
         or head["class_count"] != 25
         or head["feature_layout"] != identity.recipe["feature_layout"]
         or head["input_size"] != identity.input_size
@@ -405,12 +500,58 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
     if files.get(head_file) != head_digest:
         raise DinoV3BundleError("DINOv3 identity head digest is inconsistent")
 
+    encoder = manifest["encoder"]
+    if not isinstance(encoder, Mapping) or set(encoder) != {
+        "file",
+        "sha256",
+        "initialization",
+        "training_mode",
+        "trainable_parameter_names",
+    }:
+        raise DinoV3BundleError("DINOv3 encoder state manifest is incomplete")
+    encoder_file = _safe_file(encoder["file"], "encoder state file")
+    encoder_digest = _sha256(encoder["sha256"], "encoder state digest")
+    if files.get(encoder_file) != encoder_digest:
+        raise DinoV3BundleError("DINOv3 encoder state digest is inconsistent")
+    mode = encoder["training_mode"]
+    names = encoder["trainable_parameter_names"]
+    if (
+        mode not in {"frozen", "last_two_blocks"}
+        or encoder["initialization"]
+        != ("adapted_checkpoint" if mode == "last_two_blocks" else "pretrained")
+        or not isinstance(names, list)
+        or not all(isinstance(name, str) and name for name in names)
+        or (mode == "last_two_blocks" and not names)
+        or (mode == "frozen" and names)
+        or head["adapter"]
+        != ("dinov3-last-two-blocks-v1" if mode == "last_two_blocks" else "dinov3-frozen-linear-v1")
+    ):
+        raise DinoV3BundleError("DINOv3 encoder state recipe is invalid")
+    recipe = manifest["inference_recipe"]
+    if not isinstance(recipe, Mapping) or dict(recipe) != {
+        "feature_layout": identity.recipe["feature_layout"],
+        "input_size": identity.input_size,
+        "transform_digest": identity.transform_digest,
+        "class_count": 25,
+    }:
+        raise DinoV3BundleError("DINOv3 inference recipe does not match the identity config")
+    training_recipe = manifest["training_recipe"]
+    if (
+        not isinstance(training_recipe, Mapping)
+        or training_recipe.get("encoder_training") != mode
+        or training_recipe.get("task_adapter") != head["adapter"]
+        or training_recipe.get("feature_layout") != identity.recipe["feature_layout"]
+        or training_recipe.get("identity_digest") != identity.identity_digest
+    ):
+        raise DinoV3BundleError("DINOv3 training recipe is missing")
+
     model = identity.to_mapping()["model"]
     expected_files = {
         model["weights"]["file"],
         model["config_file"],
         model["processor_file"],
         head_file,
+        encoder_file,
         target_file,
     }
     if set(files) != expected_files:

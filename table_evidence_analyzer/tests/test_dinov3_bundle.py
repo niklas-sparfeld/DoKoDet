@@ -75,11 +75,15 @@ class _FakeEncoder(torch.nn.Module):
         super().__init__()
         self.config = SimpleNamespace(hidden_size=4, patch_size=16, num_register_tokens=2)
         self.input_size = input_size
+        self.scale = torch.nn.Parameter(torch.ones(()))
+        self.model = torch.nn.Module()
+        self.model.layer = torch.nn.ModuleList([torch.nn.Linear(4, 4) for _ in range(4)])
+        self.norm = torch.nn.LayerNorm(4)
 
     def forward(self, *, pixel_values):
         if self.input_size is not None:
             assert tuple(pixel_values.shape[-2:]) == (self.input_size, self.input_size)
-        pooled = pixel_values.mean(dim=(2, 3))
+        pooled = pixel_values.mean(dim=(2, 3)) * self.scale
         cls = torch.cat((pooled, pooled[:, :1]), dim=1)
         patch_count = (pixel_values.shape[-1] // self.config.patch_size) ** 2
         patches = cls.unsqueeze(1).expand(-1, patch_count, -1)
@@ -87,7 +91,10 @@ class _FakeEncoder(torch.nn.Module):
             (len(pooled), self.config.num_register_tokens, 4), 99.0, device=pooled.device
         )
         tokens = torch.cat((cls.unsqueeze(1), registers, patches), dim=1)
-        return SimpleNamespace(pooler_output=cls, last_hidden_state=tokens)
+        for block in self.model.layer:
+            tokens = block(tokens)
+        tokens = self.norm(tokens)
+        return SimpleNamespace(pooler_output=tokens[:, 0, :], last_hidden_state=tokens)
 
 
 def _factory(_identity):
@@ -95,7 +102,13 @@ def _factory(_identity):
     return _FakeEncoder(identity.input_size)
 
 
-def _train_run(tmp_path: Path, *, input_size: int = 224, feature_layout: str = "cls"):
+def _train_run(
+    tmp_path: Path,
+    *,
+    input_size: int = 224,
+    feature_layout: str = "cls",
+    encoder_training: str = "frozen",
+):
     fixture = build_smoke_fixture(tmp_path / "fixture")
     identity = _identity_config(tmp_path, input_size=input_size, feature_layout=feature_layout)
     run = tmp_path / "run"
@@ -110,6 +123,7 @@ def _train_run(tmp_path: Path, *, input_size: int = 224, feature_layout: str = "
             epochs=4,
             batch_size=1,
             learning_rate=0.5,
+            encoder_training=encoder_training,
         ),
         encoder_factory=_factory,
     )
@@ -157,6 +171,7 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
         "model.safetensors",
         "preprocessor_config.json",
         "head.pt",
+        "encoder-state.pt",
         "target-map.json",
     } == set(bundle.manifest["files"])
 
@@ -238,6 +253,39 @@ def test_cls_mean_patch_training_export_reload_and_runtime_agree(
     assert len(result.raw_response["probabilities"]) == 25
 
 
+@pytest.mark.parametrize("input_size", [224, 384, 448])
+@pytest.mark.parametrize("feature_layout", ["cls", "cls_mean_patch"])
+def test_adapted_encoder_bundle_reloads_exact_checkpoint_weights(
+    tmp_path: Path, input_size: int, feature_layout: str
+) -> None:
+    fixture, identity, run = _train_run(
+        tmp_path,
+        input_size=input_size,
+        feature_layout=feature_layout,
+        encoder_training="last_two_blocks",
+    )
+    checkpoint = torch.load(run / "checkpoint-best.pt", map_location="cpu", weights_only=False)
+    bundle_path = export_dinov3_identity_bundle(run, tmp_path / "bundle", identity_config=identity)
+    bundle = load_dinov3_identity_bundle(bundle_path)
+    run_record = json.loads((run / "run.json").read_text(encoding="utf-8"))
+    assert bundle.manifest["encoder"]["training_mode"] == "last_two_blocks"
+    assert bundle.manifest["encoder"]["initialization"] == "adapted_checkpoint"
+    assert (
+        bundle.manifest["encoder"]["trainable_parameter_names"]
+        == run_record["training"]["trainable_encoder_parameters"]
+    )
+    classifier = DinoV3IdentityClassifier(
+        bundle_path,
+        device="cpu",
+        encoder_loader=lambda _bundle: _FakeEncoder(input_size),
+    )
+    for name, value in classifier._encoder.state_dict().items():
+        assert torch.equal(value.cpu(), checkpoint["model_state"][f"encoder.{name}"])
+    result = classifier.classify_ppm(fixture.frame_paths[0].read_bytes())
+    assert result.status == "ok"
+    assert len(result.raw_response["probabilities"]) == 25
+
+
 def test_export_rejects_head_width_incompatible_with_feature_layout(tmp_path: Path) -> None:
     _fixture, identity, run = _train_run(tmp_path, feature_layout="cls_mean_patch")
     checkpoint_path = run / "checkpoint-best.pt"
@@ -263,6 +311,40 @@ def test_corrupt_weight_is_rejected_before_encoder_construction(tmp_path: Path) 
     with pytest.raises(DinoV3BundleError, match="hash"):
         DinoV3IdentityClassifier(bundle_path, encoder_loader=loader)
     assert constructed is False
+
+
+@pytest.mark.parametrize("change", ["missing", "changed"])
+def test_corrupt_encoder_state_is_rejected_before_encoder_construction(
+    tmp_path: Path, change: str
+) -> None:
+    _fixture, identity, run = _train_run(tmp_path, encoder_training="last_two_blocks")
+    bundle_path = export_dinov3_identity_bundle(run, tmp_path / "bundle", identity_config=identity)
+    encoder_state = bundle_path / "encoder-state.pt"
+    if change == "missing":
+        encoder_state.unlink()
+    else:
+        encoder_state.write_bytes(b"changed adapted encoder")
+    constructed = False
+
+    def loader(_bundle):
+        nonlocal constructed
+        constructed = True
+        return _FakeEncoder(_bundle.identity.input_size)
+
+    with pytest.raises(DinoV3BundleError, match="encoder-state.pt"):
+        DinoV3IdentityClassifier(bundle_path, encoder_loader=loader)
+    assert constructed is False
+
+
+def test_inference_export_rejects_interrupted_resume_run(tmp_path: Path) -> None:
+    _fixture, identity, run = _train_run(tmp_path, encoder_training="last_two_blocks")
+    run_record_path = run / "run.json"
+    run_record = json.loads(run_record_path.read_text(encoding="utf-8"))
+    run_record["status"] = "interrupted"
+    run_record_path.write_text(json.dumps(run_record), encoding="utf-8")
+
+    with pytest.raises(DinoV3BundleError, match="completed DINOv3 run"):
+        export_dinov3_identity_bundle(run, tmp_path / "bundle", identity_config=identity)
 
 
 def test_bundle_rejects_transform_digest_mismatch_even_with_rewritten_manifest(
