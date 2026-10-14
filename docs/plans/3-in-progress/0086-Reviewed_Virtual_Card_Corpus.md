@@ -6,7 +6,8 @@
   refresh and geometry review. Complete visual identity review last.
 - **Status:** In Progress
 - **Depends on:** Completed 0073, 0074, and 0085; existing local detector provider. Pile annotation
-  uses 0091 M0–M1; individual-card review can continue before that handoff.
+  uses 0091 M0–M1; individual-card review can continue before that handoff. M5 uses 0093 M2
+  prediction-independent annotation and M3 all-class readiness reporting; M4 does not wait for them.
 - **Outcome:** A recording inventory, completed maintained references, and a reproducible data
   handoff for separate RF-DETR and DINO campaigns.
 - **Target architecture:**
@@ -23,7 +24,8 @@
   refresh. Twenty recordings published current proposals; two retain explicit calibration failures.
 - **M4:** Complete (2026-10-14) — 20 current-schema references qualify. `IMG_0092` is permanently
   excluded; `IMG_0096` is deferred for calibration repair. The active scope has no review gaps.
-- **M5:** Not started — complete visual identity review and publish the separate 0088 handoff.
+- **M5:** Not started — use 0093 to complete all-class visual review, including FACE_DOWN, and
+  publish the separate 0088 handoff.
 
 ## 1. Current evidence and scope
 
@@ -192,7 +194,7 @@ detection-only handoff and does not establish current-schema readiness.
 
 - The pilot workbench is open on `cardeventnet-IMG_0095` with the M1 proposal revision selected.
 - The workbench shows all 53 frames and 194 card proposals. The `Start review from proposed
-  scenes` control is ready. It will rebase the maintained draft to the M1 proposal and preserve
+scenes` control is ready. It will rebase the maintained draft to the M1 proposal and preserve
   existing corrections.
 - The operator must set a profile name before starting the review. No geometry or identity
   decisions have been recorded. Do not count the proposal output as reviewed work.
@@ -325,22 +327,32 @@ pool and a fresh unopened test. M5 identity review is not part of this completio
 
 ### M5 — Complete identities and publish the 0088 handoff
 
-Use completed reviewed geometry to prepare virtual-card crops and propose identities. An operator
-confirms or corrects labels and unusable outcomes. Publish a separate 0088 handoff with exact
+Use completed reviewed geometry and
+[0093 M2–M3](../2-ready/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) to prepare crops
+and pending annotation items without requiring a successful classifier prediction. Existing model
+suggestions remain optional review evidence. An operator confirms or corrects all 24 face-up
+identities, positive FACE_DOWN classifications, unusable outcomes, and source problems. A missing
+identity prediction must not prevent annotation. Publish a separate 0088 handoff with exact
 reference revisions, source groups, class counts, geometry and identity exclusions, recipe versions,
 and campaign-specific gaps. Include reviewed pile counts, footprint policy, grouping provenance,
 and explicit pile-review coverage. Piles have no identity work. This milestone does not gate 0087.
 
 Acceptance: repeated identity-readiness reports reproduce counts and digests; each training identity
-matches its reviewed geometry; unsupported classes and face-down coverage are explicit; 0088 can
-freeze its view without changing the maintained references. Do not require an invented identity for
-an unusable crop. No training or promotion occurs in this epic.
+matches its reviewed geometry; independent class/recording support, back-design coverage and all
+exclusions are explicit. Face-down crops are positive visual-class training evidence where usable,
+not silently excluded or credited as pixel-based classifier success. 0088 can freeze its view
+without changing maintained references. Do not invent an identity for an unusable crop. The 0093
+software work has no dependency on this M5 handoff, and 0094/0088 training does not gate review.
+No training or promotion occurs in this epic.
 
 ## 4. Handoff and verification
 
 [0087](../5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
-[0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) owns identity crop preparation and
-training. Each campaign freezes its own eligibility and recipe from this handoff.
+[0093](../2-ready/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) owns reusable annotation
+and native crop preparation. [0094](../4-blocked/0094-DINO_Training_and_Runtime_Recipes.md) owns
+training/runtime recipe implementation. [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md)
+owns the measured identity quality campaign. Each campaign freezes its own eligibility and recipe
+from this handoff.
 
 Use deterministic inventory, geometry derivation, exclusion, reference completion, and lineage
 fixtures. Run relevant operations and backend tests and static checks. Run focused web checks

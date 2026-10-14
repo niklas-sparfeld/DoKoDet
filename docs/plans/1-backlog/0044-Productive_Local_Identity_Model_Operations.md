@@ -44,6 +44,10 @@ campaign and provides the preferred later report. Reuse that report if available
 valid development input, so 0088 is not a hard prerequisite for this backlog epic. This scheduling
 decision adds no training implementation or default change to 0044.
 
+The revised 0088 quality campaign consumes 0093 annotation/crop support and 0094 training/runtime
+recipes. Reuse its explicit qualification and confidence report here. Retaining a diagnostic PoC
+or failing a campaign quality gate does not establish readiness for productive promotion.
+
 ## 1. Purpose
 
 Turn the measured local identity path into routine local operations. Keep human review, immutable

@@ -346,6 +346,10 @@ describe the inferred full-card extent.
 The reviewed decision that a visible-card crop contains enough evidence for visual card identity.
 An identity-unusable crop can still be a valid visible-card detection target.
 
+A crop showing the card back cannot supply a suit-and-rank identity. It can still supply a positive
+`FACE_DOWN` visual classification. Training eligibility for that class requires reviewed card-back
+evidence and a usable crop; it must not be inferred from identity usability alone.
+
 ### Visual identity outcome
 
 The result of applying one visual identity processor to one visible-card proposal. A classified

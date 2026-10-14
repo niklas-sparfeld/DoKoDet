@@ -27,6 +27,10 @@ a local CLI or application coordinator; add UI only for a measured blocker. Free
 CardEventNet, RF-DETR, DINO, crop policy, and algorithm versions. Do not silently choose the newest
 bundle, fall back to Gemini, retrain, or promote a model.
 
+Retain 0088's model qualification result beside its bundle decision. An unqualified bundle is an
+explicit diagnostic condition, not evidence that the composed pipeline is ready for productive use.
+0093/0094 implementation remains outside this coordinator.
+
 The primary pilot uses automatic upstream outputs from the accepted video: event proposals,
 visible-card detection, required calibration and proposed card scenes, visual identity,
 table observations, and reconstruction. M0 must specify exactly which stages consume which

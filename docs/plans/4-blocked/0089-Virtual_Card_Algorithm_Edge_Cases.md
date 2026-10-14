@@ -25,6 +25,11 @@ Use fresh runs with the exact bundle and crop-policy decisions from
 [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md). A campaign can select a retained baseline;
 it need not produce a better model to unblock this epic.
 
+0088 must report whether its useful-model quality gates passed. A retained or unqualified diagnostic
+bundle can support failure reproduction here, but does not establish successful model delivery.
+Annotation/crop preparation belongs to 0093; training/runtime recipes belong to 0094. Do not defer
+those prerequisites to this epic or introduce a dependency from 0088 back to 0089.
+
 The [0091 capability handoff](../../reports/0091-Pile_Region_Capability_Handoff.md) records the
 current boundary: piles are preserved in engine input but do not affect search or gameplay claims.
 
