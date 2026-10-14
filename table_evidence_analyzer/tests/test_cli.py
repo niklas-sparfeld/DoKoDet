@@ -17,6 +17,7 @@ def test_root_help_lists_the_training_command_shape_without_analyze() -> None:
     assert "export-dinov3-identity" in help_text
     assert "classify-dinov3-identity" in help_text
     assert "evaluate-dinov3-identity" in help_text
+    assert "calibrate-dinov3-identity" in help_text
     assert "evaluate" in help_text
     assert "export" in help_text
     assert "classify-crop" in help_text
@@ -101,6 +102,8 @@ def test_dinov3_bundle_commands_have_explicit_paths_and_device() -> None:
             "identity.json",
             "--weights-root",
             "weights",
+            "--calibration",
+            "calibration.json",
         ]
     )
     classify_args = build_parser().parse_args(
@@ -127,18 +130,35 @@ def test_dinov3_bundle_commands_have_explicit_paths_and_device() -> None:
             "gemini.json",
         ]
     )
+    calibrate_args = build_parser().parse_args(
+        [
+            "calibrate-dinov3-identity",
+            "--run",
+            "run",
+            "--view",
+            "view.json",
+            "--output",
+            "calibration.json",
+            "--review-precision-target",
+            "0.95",
+        ]
+    )
 
     assert export_args.command == "export-dinov3-identity"
     assert export_args.run == Path("run")
     assert export_args.output == Path("bundle")
     assert export_args.identity_config == Path("identity.json")
     assert export_args.weights_root == Path("weights")
+    assert export_args.calibration == Path("calibration.json")
     assert classify_args.command == "classify-dinov3-identity"
     assert classify_args.bundle == Path("bundle")
     assert classify_args.image == Path("crop.ppm")
     assert classify_args.device == "mps"
     assert evaluate_args.command == "evaluate-dinov3-identity"
     assert evaluate_args.provider_receipts == Path("gemini.json")
+    assert calibrate_args.command == "calibrate-dinov3-identity"
+    assert calibrate_args.view == Path("view.json")
+    assert calibrate_args.review_precision_target == 0.95
 
 
 def test_visible_card_prompt_pilot_command_writes_paired_report(tmp_path: Path) -> None:

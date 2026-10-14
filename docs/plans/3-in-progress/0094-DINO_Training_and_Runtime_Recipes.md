@@ -32,7 +32,8 @@
   the [M6 verification report](../../reports/0094-M6_Adapted_Encoder_Bundles.md).
 - **M7:** Complete — report all-class support and confusion, source-group/slice outcomes, and
   digest-checked paired Gemini receipts. See the [M7 verification report](../../reports/0094-M7_All_Class_and_Paired_Evaluation.md).
-- **M8:** Not started — fit and retain scalar confidence calibration and review thresholds.
+- **M8:** Complete — fit and retain scalar confidence calibration on an explicit disjoint view;
+  version bundle and provider score metadata. See the [M8 verification report](../../reports/0094-M8_Confidence_Calibration.md).
 - **M9:** Not started — verify a small local lifecycle and publish the recipe handoff.
 
 ## 1. Evidence and boundaries
@@ -209,6 +210,16 @@ Acceptance: positive temperature preserves class ranking; missing/overlapping ca
 fail; T=1 retains uncalibrated behavior; fit/export/reload scores agree; thresholds cannot silently
 discard candidates or manufacture a new positive UNKNOWN class. Tests cover face-down outputs and
 reviewer corrections with confidence metadata retained.
+
+**Complete:** the calibration command fits a bounded positive scalar temperature from an explicit
+25-logit view tied to the exact run checkpoint. It rejects missing samples, sample overlap, and source
+lineage overlap with the frozen data set. It writes calibration loss, reliability bins, precision and
+coverage, and an optional review threshold selected for a caller-supplied precision target. The
+threshold applies to human review routing. Runtime keeps every ranked candidate. Bundle schema v5
+retains the calibration artifact and digest. Runtime v2 reports raw and calibrated probabilities,
+confidence metadata, and FACE_DOWN confidence. Paired provider receipt schema v2 retains explicit
+uncalibrated confidence and FACE_DOWN confidence. No review or promotion default is set. See the M8
+report for focused fixture evidence and limits.
 
 ### M9 — Verify and publish the recipe handoff
 

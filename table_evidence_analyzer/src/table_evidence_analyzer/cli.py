@@ -189,6 +189,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resolved identity config when the training run used an in-memory config.",
     )
     dinov3_export_parser.add_argument("--weights-root", type=Path)
+    dinov3_export_parser.add_argument(
+        "--calibration", type=Path, help="Explicit disjoint DINOv3 calibration artifact."
+    )
+
+    dinov3_calibrate_parser = commands.add_parser(
+        "calibrate-dinov3-identity",
+        help="Fit scalar confidence calibration from an explicit disjoint logit view.",
+    )
+    dinov3_calibrate_parser.add_argument("--run", type=Path, required=True)
+    dinov3_calibrate_parser.add_argument("--view", type=Path, required=True)
+    dinov3_calibrate_parser.add_argument("--output", type=Path, required=True)
+    dinov3_calibrate_parser.add_argument(
+        "--review-precision-target",
+        type=float,
+        help="Optional precision target for an explicit human-review routing threshold.",
+    )
 
     dinov3_classify_parser = commands.add_parser(
         "classify-dinov3-identity",
@@ -1047,6 +1063,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.output,
                 identity_config=args.identity_config,
                 weights_root=args.weights_root,
+                calibration=args.calibration,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(output)
+        return 0
+    if args.command == "calibrate-dinov3-identity":
+        from .dinov3_calibration import fit_dinov3_confidence_calibration
+
+        try:
+            output = fit_dinov3_confidence_calibration(
+                args.run,
+                args.view,
+                args.output,
+                review_precision_target=args.review_precision_target,
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.exit(1, f"error: {exc}\n")

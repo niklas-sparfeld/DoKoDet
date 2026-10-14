@@ -17,7 +17,7 @@ from .local_identity import (
     transform_identity_crop,
 )
 
-DINOV3_RUNTIME_VERSION = "dinov3-local-identity-v1"
+DINOV3_RUNTIME_VERSION = "dinov3-local-identity-v2"
 DINOV3_RUNTIME_DEVICES = frozenset({"cpu", "mps", "cuda"})
 
 
@@ -177,7 +177,6 @@ class DinoV3IdentityClassifier:
 
     name = "local-dinov3"
     version = DINOV3_RUNTIME_VERSION
-    calibration = "uncalibrated"
 
     def __init__(
         self,
@@ -235,7 +234,13 @@ class DinoV3IdentityClassifier:
             "head_sha256": self.bundle.manifest["head"]["sha256"],
             "model_id": self.bundle.identity.weights.model_id,
             "model_revision": self.bundle.identity.weights.model_revision,
+            "score_schema_version": self.bundle.manifest["calibration"]["score_schema_version"],
+            "calibration_sha256": self.bundle.manifest["calibration"]["sha256"],
         }
+
+    @property
+    def calibration(self) -> dict[str, Any]:
+        return dict(self.bundle.manifest["calibration"])
 
     def classify_ppm(self, crop_bytes: bytes) -> CardClassificationResult:
         """Return identity candidates or FACE_DOWN in deterministic probability order."""
@@ -262,16 +267,22 @@ class DinoV3IdentityClassifier:
                 raise DinoV3InferenceError("DINOv3 visual head output must have shape [1, 25]")
             if not bool(self._torch.isfinite(logits).all().item()):
                 raise DinoV3InferenceError("DINOv3 inference produced non-finite logits")
-            probabilities = self._torch.softmax(logits, dim=1)[0].detach().cpu().tolist()
+            raw_probabilities = self._torch.softmax(logits, dim=1)[0].detach().cpu().tolist()
+            temperature = float(self.bundle.manifest["calibration"]["temperature"])
+            probabilities = (
+                self._torch.softmax(logits / temperature, dim=1)[0].detach().cpu().tolist()
+            )
             if len(probabilities) != 25 or not all(
                 isinstance(value, (int, float)) and math.isfinite(value) and value > 0
-                for value in probabilities
+                for value in (*probabilities, *raw_probabilities)
             ):
                 raise DinoV3InferenceError("DINOv3 inference produced invalid probabilities")
             total = sum(float(value) for value in probabilities)
             if not math.isfinite(total) or total <= 0:
                 raise DinoV3InferenceError("DINOv3 inference probabilities are not normalizable")
             probabilities = [float(value) / total for value in probabilities]
+            raw_total = sum(float(value) for value in raw_probabilities)
+            raw_probabilities = [float(value) / raw_total for value in raw_probabilities]
             ranked = sorted(range(25), key=lambda index: (-probabilities[index], index))
             top_identity = identity_from_target_index(ranked[0])
             if top_identity == FACE_DOWN_TARGET:
@@ -302,8 +313,38 @@ class DinoV3IdentityClassifier:
                     "bundle_digest": self.bundle.manifest["bundle_digest"],
                     "input_tensor_digest": transformed.tensor_digest,
                     "probabilities": probabilities,
+                    "raw_probabilities": raw_probabilities,
+                    "logits": [float(value) for value in logits[0].detach().cpu().tolist()],
                     "ranked_targets": [identity_from_target_index(index) for index in ranked],
                     "ranked_probabilities": [probabilities[index] for index in ranked],
+                    "raw_ranked_probabilities": [raw_probabilities[index] for index in ranked],
+                    "score_metadata": {
+                        "schema_version": self.bundle.manifest["calibration"][
+                            "score_schema_version"
+                        ],
+                        "calibration_schema_version": self.bundle.manifest["calibration"][
+                            "schema_version"
+                        ],
+                        "method": self.bundle.manifest["calibration"]["method"],
+                        "temperature": temperature,
+                        "calibration_sha256": self.bundle.manifest["calibration"]["sha256"],
+                        "face_down_probability": probabilities[
+                            next(
+                                index
+                                for index in ranked
+                                if identity_from_target_index(index) == FACE_DOWN_TARGET
+                            )
+                        ],
+                        "raw_face_down_probability": raw_probabilities[
+                            next(
+                                index
+                                for index in ranked
+                                if identity_from_target_index(index) == FACE_DOWN_TARGET
+                            )
+                        ],
+                        "review_threshold": self.bundle.manifest["calibration"]["review_threshold"],
+                        "candidates_preserved": True,
+                    },
                 },
             )
         except DinoV3InferenceError as error:

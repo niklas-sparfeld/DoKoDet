@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import shutil
 from collections.abc import Mapping
@@ -16,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .dinov3_calibration import CALIBRATION_SCHEMA, SCORE_SCHEMA
 from .local_identity import (
     DINOV3_BUNDLE_SCHEMA,
     DinoV3IdentityConfig,
@@ -83,6 +85,16 @@ def _read_json(path: Path, field: str) -> dict[str, Any]:
 
 def _write_json(path: Path, value: Mapping[str, Any]) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _review_threshold(calibration: Mapping[str, Any]) -> float | None:
+    report = calibration.get("confidence_report")
+    selection = report.get("review_threshold_selection") if isinstance(report, Mapping) else None
+    selected = selection.get("selected_threshold") if isinstance(selection, Mapping) else None
+    threshold = selected.get("threshold") if isinstance(selected, Mapping) else None
+    if isinstance(threshold, (int, float)) and not isinstance(threshold, bool):
+        return float(threshold)
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +205,7 @@ def export_dinov3_identity_bundle(
     *,
     identity_config: DinoV3IdentityConfig | str | Path | None = None,
     weights_root: str | Path | None = None,
+    calibration: str | Path | None = None,
 ) -> Path:
     """Copy verified encoder files and a trained linear head into one native bundle."""
 
@@ -220,6 +233,40 @@ def export_dinov3_identity_bundle(
     if not checkpoint_path.is_file():
         raise DinoV3BundleError(f"best DINOv3 checkpoint is missing: {checkpoint_name}")
     checkpoint_digest = _file_digest(checkpoint_path)
+    calibration_payload: dict[str, Any]
+    if calibration is None:
+        calibration_payload = {
+            "schema_version": CALIBRATION_SCHEMA,
+            "score_schema_version": SCORE_SCHEMA,
+            "method": "scalar_temperature_scaling",
+            "temperature": 1.0,
+            "temperature_bounds": [0.05, 20.0],
+            "run_id": run.get("run_id"),
+            "source_checkpoint_sha256": checkpoint_digest,
+            "view_id": None,
+            "view_sha256": None,
+            "sample_ids_sha256": None,
+            "source_lineage_groups_sha256": None,
+            "sample_count": 0,
+            "nll_before": None,
+            "nll_after": None,
+            "confidence_report": None,
+        }
+    else:
+        calibration_path = Path(calibration).expanduser().resolve()
+        calibration_payload = _read_json(calibration_path, "DINOv3 confidence calibration")
+        if (
+            calibration_payload.get("schema_version") != CALIBRATION_SCHEMA
+            or calibration_payload.get("score_schema_version") != SCORE_SCHEMA
+            or calibration_payload.get("method") != "scalar_temperature_scaling"
+            or calibration_payload.get("run_id") != run.get("run_id")
+            or calibration_payload.get("source_checkpoint_sha256") != checkpoint_digest
+            or isinstance(calibration_payload.get("temperature"), bool)
+            or not isinstance(calibration_payload.get("temperature"), (int, float))
+            or not 0.05 <= float(calibration_payload["temperature"]) <= 20.0
+            or not isinstance(calibration_payload.get("view_sha256"), str)
+        ):
+            raise DinoV3BundleError("DINOv3 calibration does not match the source checkpoint")
     try:
         from .dinov3_training import load_dinov3_checkpoint
 
@@ -278,7 +325,16 @@ def export_dinov3_identity_bundle(
     target_map_file = "target-map.json"
     head_file = "head.pt"
     encoder_file = "encoder-state.pt"
-    if len(set((*source_files, target_map_file, head_file, encoder_file, "manifest.json"))) != 7:
+    calibration_file = "calibration.json"
+    declared_names = (
+        *source_files,
+        target_map_file,
+        head_file,
+        encoder_file,
+        calibration_file,
+        "manifest.json",
+    )
+    if len(set(declared_names)) != 8:
         raise DinoV3BundleError("DINOv3 bundle file names must be unique")
 
     destination = Path(output).expanduser().resolve()
@@ -296,6 +352,7 @@ def export_dinov3_identity_bundle(
     torch.save(head_payload, destination / head_file)
     torch.save(encoder_state, destination / encoder_file)
     _write_json(destination / target_map_file, identity.to_mapping()["target"])
+    _write_json(destination / calibration_file, calibration_payload)
     files = {
         path.name: _file_digest(path)
         for path in sorted(destination.iterdir(), key=lambda item: item.name)
@@ -307,7 +364,16 @@ def export_dinov3_identity_bundle(
         "capability": "visual-card-identity",
         "capabilities": ["identity_candidates"],
         "quality_state": "unusable_smoke_artifact",
-        "calibration": "uncalibrated",
+        "calibration": {
+            "schema_version": calibration_payload["schema_version"],
+            "score_schema_version": calibration_payload["score_schema_version"],
+            "method": calibration_payload["method"],
+            "temperature": float(calibration_payload["temperature"]),
+            "file": calibration_file,
+            "sha256": files[calibration_file],
+            "view_id": calibration_payload.get("view_id"),
+            "review_threshold": _review_threshold(calibration_payload),
+        },
         "identity": identity.to_mapping(),
         "pretrained_provenance": {
             "model_id": identity.weights.model_id,
@@ -394,8 +460,46 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
         raise DinoV3BundleError("DINOv3 bundle must declare only identity_candidates")
     if manifest["quality_state"] != "unusable_smoke_artifact":
         raise DinoV3BundleError("DINOv3 bundle has an invalid quality state")
-    if manifest["calibration"] != "uncalibrated":
-        raise DinoV3BundleError("DINOv3 identity bundle must remain uncalibrated")
+    calibration = manifest["calibration"]
+    if not isinstance(calibration, Mapping) or set(calibration) != {
+        "schema_version",
+        "score_schema_version",
+        "method",
+        "temperature",
+        "file",
+        "sha256",
+        "view_id",
+        "review_threshold",
+    }:
+        raise DinoV3BundleError("DINOv3 confidence calibration metadata is incomplete")
+    calibration_file = _safe_file(calibration["file"], "calibration file")
+    calibration_digest = _sha256(calibration["sha256"], "calibration digest")
+    declared_files = manifest["files"]
+    if (
+        not isinstance(declared_files, Mapping)
+        or declared_files.get(calibration_file) != calibration_digest
+    ):
+        raise DinoV3BundleError("DINOv3 confidence calibration digest is inconsistent")
+    if (
+        calibration["schema_version"] != CALIBRATION_SCHEMA
+        or calibration["score_schema_version"] != SCORE_SCHEMA
+        or calibration["method"] != "scalar_temperature_scaling"
+        or isinstance(calibration["temperature"], bool)
+        or not isinstance(calibration["temperature"], (int, float))
+        or not math.isfinite(float(calibration["temperature"]))
+        or not 0.05 <= float(calibration["temperature"]) <= 20.0
+    ):
+        raise DinoV3BundleError("DINOv3 confidence calibration metadata is invalid")
+    if not (calibration["view_id"] is None or isinstance(calibration["view_id"], str)):
+        raise DinoV3BundleError("DINOv3 calibration view ID is invalid")
+    threshold = calibration["review_threshold"]
+    if threshold is not None and (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, (int, float))
+        or not math.isfinite(float(threshold))
+        or not 0 <= float(threshold) <= 1
+    ):
+        raise DinoV3BundleError("DINOv3 review threshold is invalid")
     provenance = manifest["pretrained_provenance"]
     if not isinstance(provenance, Mapping) or set(provenance) != {
         "model_id",
@@ -435,6 +539,20 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
             raise DinoV3BundleError(f"DINOv3 bundle file is missing: {name}")
         if _file_digest(file_path) != expected:
             raise DinoV3BundleError(f"DINOv3 bundle file hash does not match: {name}")
+
+    calibration = manifest["calibration"]
+    if files.get(calibration["file"]) != calibration["sha256"]:
+        raise DinoV3BundleError("DINOv3 confidence calibration digest is inconsistent")
+    calibration_artifact = _read_json(root / calibration["file"], "DINOv3 calibration")
+    if (
+        calibration_artifact.get("schema_version") != calibration["schema_version"]
+        or calibration_artifact.get("score_schema_version") != calibration["score_schema_version"]
+        or calibration_artifact.get("method") != calibration["method"]
+        or calibration_artifact.get("temperature") != calibration["temperature"]
+        or calibration_artifact.get("view_id") != calibration["view_id"]
+        or _review_threshold(calibration_artifact) != calibration["review_threshold"]
+    ):
+        raise DinoV3BundleError("DINOv3 calibration file does not match its manifest")
 
     identity_payload = manifest["identity"]
     if not isinstance(identity_payload, Mapping):
@@ -553,6 +671,7 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
         head_file,
         encoder_file,
         target_file,
+        manifest["calibration"]["file"],
     }
     if set(files) != expected_files:
         raise DinoV3BundleError("DINOv3 bundle file list does not match its manifest")

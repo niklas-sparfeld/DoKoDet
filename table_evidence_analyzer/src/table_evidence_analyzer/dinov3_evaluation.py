@@ -21,10 +21,11 @@ from .data import (
     load_split_manifest,
 )
 from .dinov3_bundle import DinoV3IdentityBundle, load_dinov3_identity_bundle
+from .dinov3_calibration import SCORE_SCHEMA, _confidence_report
 from .dinov3_inference import DinoV3IdentityClassifier
 from .local_identity import VISUAL_IDENTITY_TARGETS
 
-DINOV3_EVALUATION_SCHEMA = "dinov3-identity-bundle-evaluation/v2"
+DINOV3_EVALUATION_SCHEMA = "dinov3-identity-bundle-evaluation/v3"
 DINOV3_REPRODUCTION_TOLERANCE = 1e-5
 _UNAVAILABLE_TARGET = "__UNAVAILABLE__"
 
@@ -186,7 +187,7 @@ def _provider_receipt_index(
     receipt = _read_json(path.expanduser().resolve(), "provider receipts")
     if set(receipt) != {"schema_version", "provider", "outcomes"}:
         raise DinoV3EvaluationError("provider receipt has unexpected fields")
-    if receipt.get("schema_version") != "dinov3-paired-provider-receipts/v1":
+    if receipt.get("schema_version") != "dinov3-paired-provider-receipts/v2":
         raise DinoV3EvaluationError("provider receipt schema is unsupported")
     if receipt.get("provider") != "gemini":
         raise DinoV3EvaluationError("provider receipts must identify Gemini")
@@ -198,7 +199,14 @@ def _provider_receipt_index(
     for row in rows:
         if not isinstance(row, Mapping):
             raise DinoV3EvaluationError("provider receipt outcome must be an object")
-        if set(row) != {"sample_id", "crop_sha256", "status", "prediction", "request_identity"}:
+        if set(row) != {
+            "sample_id",
+            "crop_sha256",
+            "status",
+            "prediction",
+            "request_identity",
+            "score_metadata",
+        }:
             raise DinoV3EvaluationError("provider receipt outcome has unexpected fields")
         sample_id = row.get("sample_id")
         if not isinstance(sample_id, str) or sample_id not in expected:
@@ -253,6 +261,39 @@ def _provider_receipt_index(
         if status != "classified" and prediction is not None:
             raise DinoV3EvaluationError(
                 f"non-classified provider outcome has a prediction for {sample_id}"
+            )
+        score_metadata = row.get("score_metadata")
+        if status == "classified":
+            if (
+                not isinstance(score_metadata, Mapping)
+                or set(score_metadata)
+                != {"schema_version", "calibrated", "method", "confidence", "face_down_confidence"}
+                or score_metadata.get("schema_version") != SCORE_SCHEMA
+                or score_metadata.get("calibrated") is not False
+                or score_metadata.get("method") != "provider_reported"
+            ):
+                raise DinoV3EvaluationError(
+                    f"classified provider outcome has invalid score metadata for {sample_id}"
+                )
+            for field in ("confidence", "face_down_confidence"):
+                value = score_metadata.get(field)
+                if (
+                    isinstance(value, bool)
+                    or not isinstance(value, (int, float))
+                    or not math.isfinite(float(value))
+                    or not 0 <= float(value) <= 1
+                ):
+                    raise DinoV3EvaluationError(f"provider {field} is invalid for {sample_id}")
+            if (
+                prediction == "FACE_DOWN"
+                and score_metadata["confidence"] != score_metadata["face_down_confidence"]
+            ):
+                raise DinoV3EvaluationError(
+                    f"FACE_DOWN confidence does not match the prediction for {sample_id}"
+                )
+        elif score_metadata is not None:
+            raise DinoV3EvaluationError(
+                f"non-classified provider outcome has score metadata for {sample_id}"
             )
         indexed[sample_id] = row
     return indexed, receipt
@@ -310,7 +351,9 @@ def _classification_metrics(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _runtime_prediction(result: Any) -> tuple[str, list[str], list[float], list[float]]:
+def _runtime_prediction(
+    result: Any,
+) -> tuple[str, list[str], list[float], list[float], list[float]]:
     if result.status != "ok":
         raise DinoV3EvaluationError(f"bundle inference failed: {result.error or 'unknown error'}")
     raw = result.raw_response
@@ -319,6 +362,8 @@ def _runtime_prediction(result: Any) -> tuple[str, list[str], list[float], list[
     targets = raw.get("ranked_targets")
     probabilities = raw.get("probabilities")
     ranked_probabilities = raw.get("ranked_probabilities")
+    raw_probabilities = raw.get("raw_probabilities")
+    raw_ranked_probabilities = raw.get("raw_ranked_probabilities")
     if (
         not isinstance(targets, list)
         or len(targets) != len(VISUAL_IDENTITY_TARGETS)
@@ -327,13 +372,17 @@ def _runtime_prediction(result: Any) -> tuple[str, list[str], list[float], list[
         or len(probabilities) != len(VISUAL_IDENTITY_TARGETS)
         or not isinstance(ranked_probabilities, list)
         or len(ranked_probabilities) != len(VISUAL_IDENTITY_TARGETS)
+        or not isinstance(raw_probabilities, list)
+        or len(raw_probabilities) != len(VISUAL_IDENTITY_TARGETS)
+        or not isinstance(raw_ranked_probabilities, list)
+        or len(raw_ranked_probabilities) != len(VISUAL_IDENTITY_TARGETS)
         or any(
             not isinstance(item, (int, float)) or not math.isfinite(float(item)) or item <= 0
             for item in probabilities
         )
         or any(
             not isinstance(item, (int, float)) or not math.isfinite(float(item)) or item <= 0
-            for item in ranked_probabilities
+            for item in (*ranked_probabilities, *raw_probabilities, *raw_ranked_probabilities)
         )
     ):
         raise DinoV3EvaluationError("bundle inference returned incomplete ranked probabilities")
@@ -342,8 +391,9 @@ def _runtime_prediction(result: Any) -> tuple[str, list[str], list[float], list[
     return (
         targets[0],
         targets,
-        [float(item) for item in probabilities],
+        [float(item) for item in raw_probabilities],
         [float(item) for item in ranked_probabilities],
+        [float(item) for item in raw_ranked_probabilities],
     )
 
 
@@ -457,7 +507,13 @@ def evaluate_dinov3_identity_bundle(
     latencies: list[float] = []
     for sample in validation_samples:
         result = classifier.classify_ppm(sample.crop_bytes)
-        prediction, ranked, _probabilities, ranked_probabilities = _runtime_prediction(result)
+        (
+            prediction,
+            ranked,
+            _raw_probabilities,
+            ranked_probabilities,
+            raw_ranked_probabilities,
+        ) = _runtime_prediction(result)
         latencies.append(float(result.latency_ms))
         item = campaign_items.get(sample.dataset_item_id, {})
         actual_rows.append(
@@ -469,6 +525,12 @@ def evaluate_dinov3_identity_bundle(
                 "top_1_correct": prediction == sample.target,
                 "top_3_correct": sample.target in ranked[:3],
                 "top_1_probability": ranked_probabilities[0],
+                "face_down_probability": result.raw_response["score_metadata"][
+                    "face_down_probability"
+                ],
+                "raw_face_down_probability": result.raw_response["score_metadata"][
+                    "raw_face_down_probability"
+                ],
                 "latency_ms": float(result.latency_ms),
                 "source_frame_sha256": sample.source_frame_sha256,
                 "source_frame_id": item.get("source_frame_id"),
@@ -477,7 +539,9 @@ def evaluate_dinov3_identity_bundle(
                 "source_lineage_group": item.get("source_lineage_group", {}),
                 "card_side": item.get("card_side", "unknown"),
                 "crop_policy": item.get("crop_policy"),
-                "probabilities": ranked_probabilities,
+                "probabilities": raw_ranked_probabilities,
+                "calibrated_probabilities": ranked_probabilities,
+                "score_probabilities": result.raw_response["probabilities"],
             }
         )
     actual_rows.sort(key=lambda row: row["sample_id"])
@@ -489,6 +553,14 @@ def evaluate_dinov3_identity_bundle(
         )
 
     metrics = _classification_metrics(actual_rows)
+    score_rows = [
+        {
+            "target": row["target"],
+            "logits": [math.log(max(value, 1e-300)) for value in row["score_probabilities"]],
+        }
+        for row in actual_rows
+    ]
+    confidence_report = _confidence_report(score_rows, 1.0, None)
     unsupported = {
         identity: {
             "support": 0,
@@ -559,6 +631,9 @@ def evaluate_dinov3_identity_bundle(
                     "request_identity": (
                         None if provider_row is None else provider_row.get("request_identity")
                     ),
+                    "score_metadata": (
+                        None if provider_row is None else provider_row.get("score_metadata")
+                    ),
                 }
                 for row, provider_row in paired
             ],
@@ -592,6 +667,7 @@ def evaluate_dinov3_identity_bundle(
         "bundle_digest": bundle.bundle_digest,
         "quality_state": bundle.manifest["quality_state"],
         "calibration": bundle.manifest["calibration"],
+        "score_schema_version": bundle.manifest["calibration"]["score_schema_version"],
         "device": config.device,
         "precision": run.get("precision"),
         "dataset_version_digest": campaign["dataset"]["digest"],
@@ -616,6 +692,7 @@ def evaluate_dinov3_identity_bundle(
         },
         "per_class": metrics["per_class"],
         "confusion_matrix": metrics["confusion_matrix"],
+        "confidence": confidence_report,
         "slice_summaries": slice_report,
         "paired_provider": provider_report,
         "face_down_errors": [
@@ -633,7 +710,11 @@ def evaluate_dinov3_identity_bundle(
         "excluded_class_coverage": excluded,
         "checkpoint_reproduction": reproduction,
         "predictions": [
-            {key: value for key, value in row.items() if key != "probabilities"}
+            {
+                key: value
+                for key, value in row.items()
+                if key not in {"probabilities", "calibrated_probabilities", "score_probabilities"}
+            }
             for row in actual_rows
         ],
     }

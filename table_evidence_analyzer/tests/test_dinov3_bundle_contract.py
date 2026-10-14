@@ -55,6 +55,28 @@ def _write_bundle(root: Path, *, input_size: int) -> None:
     )
     (root / "head.pt").write_bytes(b"model-free head fixture")
     (root / "encoder-state.pt").write_bytes(b"model-free encoder fixture")
+    (root / "calibration.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "dinov3-confidence-calibration/v1",
+                "score_schema_version": "dinov3-visual-score/v1",
+                "method": "scalar_temperature_scaling",
+                "temperature": 1.0,
+                "temperature_bounds": [0.05, 20.0],
+                "run_id": "fixture-run",
+                "source_checkpoint_sha256": "a" * 64,
+                "view_id": None,
+                "view_sha256": None,
+                "sample_ids_sha256": None,
+                "source_lineage_groups_sha256": None,
+                "sample_count": 0,
+                "nll_before": None,
+                "nll_after": None,
+                "confidence_report": None,
+            }
+        ),
+        encoding="utf-8",
+    )
     files = {
         path.name: hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(root.iterdir(), key=lambda item: item.name)
@@ -65,7 +87,16 @@ def _write_bundle(root: Path, *, input_size: int) -> None:
         "capability": "visual-card-identity",
         "capabilities": ["identity_candidates"],
         "quality_state": "unusable_smoke_artifact",
-        "calibration": "uncalibrated",
+        "calibration": {
+            "schema_version": "dinov3-confidence-calibration/v1",
+            "score_schema_version": "dinov3-visual-score/v1",
+            "method": "scalar_temperature_scaling",
+            "temperature": 1.0,
+            "file": "calibration.json",
+            "sha256": files["calibration.json"],
+            "view_id": None,
+            "review_threshold": None,
+        },
         "identity": identity.to_mapping(),
         "pretrained_provenance": {
             "model_id": identity.weights.model_id,

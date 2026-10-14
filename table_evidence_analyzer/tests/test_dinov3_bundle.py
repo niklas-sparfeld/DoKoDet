@@ -34,6 +34,7 @@ from table_evidence_analyzer.dinov3_inference import (
 from table_evidence_analyzer.dinov3_training import DinoV3TrainConfig, train_dinov3_identity
 from table_evidence_analyzer.local_identity import (
     DINOV3_LICENSE_ID,
+    VISUAL_IDENTITY_TARGETS,
     build_dinov3_identity_config,
     materialize_dinov3_weights,
 )
@@ -160,7 +161,8 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     )
     bundle = load_dinov3_identity_bundle(bundle_path)
     assert bundle.manifest["quality_state"] == "unusable_smoke_artifact"
-    assert bundle.manifest["calibration"] == "uncalibrated"
+    assert bundle.manifest["calibration"]["temperature"] == 1.0
+    assert bundle.manifest["calibration"]["score_schema_version"] == "dinov3-visual-score/v1"
     assert bundle.manifest["capabilities"] == ["identity_candidates"]
     assert bundle.manifest["head"]["schema_version"] == DINOV3_HEAD_SCHEMA
     assert bundle.manifest["head"]["class_count"] == 25
@@ -173,6 +175,7 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
         "model.safetensors",
         "preprocessor_config.json",
         "head.pt",
+        "calibration.json",
         "encoder-state.pt",
         "target-map.json",
     } == set(bundle.manifest["files"])
@@ -201,6 +204,9 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     assert first.raw_response["ranked_targets"][0] == first.candidates[0].card
     assert first.raw_response["ranked_probabilities"][0] == first.candidates[0].probability
     assert len(first.raw_response["probabilities"]) == 25
+    assert first.raw_response["probabilities"] == first.raw_response["raw_probabilities"]
+    assert first.raw_response["score_metadata"]["temperature"] == 1.0
+    assert 0 <= first.raw_response["score_metadata"]["face_down_probability"] <= 1
 
     with torch.no_grad():
         classifier._head.weight.zero_()
@@ -210,6 +216,65 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     assert face_down.status == "ok"
     assert face_down.classification == "face_down"
     assert face_down.candidates == ()
+    assert face_down.raw_response["score_metadata"]["face_down_probability"] > 0.9
+
+
+def test_calibrated_bundle_reloads_scores_and_retains_ranked_candidates(tmp_path: Path) -> None:
+    fixture, identity, run = _train_run(tmp_path)
+    run_record = json.loads((run / "run.json").read_text())
+    checkpoint_path = run / run_record["checkpoints"]["best"]
+    calibration_path = tmp_path / "calibration.json"
+    calibration_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "dinov3-confidence-calibration/v1",
+                "score_schema_version": "dinov3-visual-score/v1",
+                "method": "scalar_temperature_scaling",
+                "temperature": 2.0,
+                "temperature_bounds": [0.05, 20.0],
+                "run_id": run_record["run_id"],
+                "source_checkpoint_sha256": hashlib.sha256(
+                    checkpoint_path.read_bytes()
+                ).hexdigest(),
+                "view_id": "disjoint-calibration-view",
+                "view_sha256": "e" * 64,
+                "sample_ids_sha256": "f" * 64,
+                "source_lineage_groups_sha256": "a" * 64,
+                "sample_count": 4,
+                "nll_before": 3.0,
+                "nll_after": 2.0,
+                "confidence_report": {
+                    "review_threshold_selection": {"selected_threshold": {"threshold": 0.8}}
+                },
+            }
+        )
+    )
+    bundle_path = export_dinov3_identity_bundle(
+        run,
+        tmp_path / "calibrated-bundle",
+        identity_config=identity,
+        calibration=calibration_path,
+    )
+    bundle = load_dinov3_identity_bundle(bundle_path)
+    classifier = DinoV3IdentityClassifier(
+        bundle,
+        encoder_loader=lambda _bundle: _FakeEncoder(identity.input_size),
+    )
+    result = classifier.classify_ppm(fixture.frame_paths[0].read_bytes())
+    logits = torch.tensor(result.raw_response["logits"])
+    expected_raw = torch.softmax(logits, dim=0).tolist()
+    expected_calibrated = torch.softmax(logits / 2.0, dim=0).tolist()
+
+    assert result.status == "ok"
+    assert result.raw_response["raw_probabilities"] == pytest.approx(expected_raw)
+    assert result.raw_response["probabilities"] == pytest.approx(expected_calibrated)
+    expected_ranking = [
+        VISUAL_IDENTITY_TARGETS[index]
+        for index in sorted(range(25), key=lambda index: (-expected_raw[index], index))
+    ]
+    assert result.raw_response["ranked_targets"] == expected_ranking
+    assert result.raw_response["score_metadata"]["review_threshold"] == 0.8
+    assert len(result.candidates) == 24
 
 
 @pytest.mark.parametrize("input_size", [224, 384, 448])
@@ -417,14 +482,31 @@ def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(
     provider_receipts = tmp_path / "gemini-receipts.json"
     validation_crops = [crop for crop in cache.crops if crop.partition == "validation"]
     provider_outcomes = []
-    for index, crop in enumerate(validation_crops[:-1]):
+    for index, crop in enumerate(validation_crops):
         status = ("classified", "failed", "unusable", "side_bypassed")[index % 4]
         provider_outcomes.append(
             {
                 "sample_id": crop.dataset_item_id,
                 "crop_sha256": crop.sha256,
                 "status": status,
-                "prediction": crop.visual_card_identity if status == "classified" else None,
+                "prediction": (
+                    VISUAL_IDENTITY_TARGETS[
+                        0 if crop.visual_card_identity != VISUAL_IDENTITY_TARGETS[0] else 1
+                    ]
+                    if status == "classified"
+                    else None
+                ),
+                "score_metadata": (
+                    {
+                        "schema_version": "dinov3-visual-score/v1",
+                        "calibrated": False,
+                        "method": "provider_reported",
+                        "confidence": 0.91,
+                        "face_down_confidence": 0.03,
+                    }
+                    if status == "classified"
+                    else None
+                ),
                 "request_identity": {
                     "request_id": f"request-{index}",
                     "model_id": "gemini-test-model",
@@ -437,7 +519,7 @@ def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(
     provider_receipts.write_text(
         json.dumps(
             {
-                "schema_version": "dinov3-paired-provider-receipts/v1",
+                "schema_version": "dinov3-paired-provider-receipts/v2",
                 "provider": "gemini",
                 "outcomes": provider_outcomes,
             }
@@ -469,6 +551,7 @@ def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(
 
     assert report["state"] == "completed"
     assert report["checkpoint_reproduction"]["state"] == "passed"
+    assert report["schema_version"] == "dinov3-identity-bundle-evaluation/v3"
     assert report["summary"]["sample_count"] > 0
     assert len(report["per_class"]) == 25
     assert report["summary"]["unsupported_class_count"] >= 1
@@ -476,8 +559,23 @@ def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(
         report["slice_summaries"]["source_lineage_group"]["session:session-a"]["sample_count"]
         == report["summary"]["sample_count"]
     )
-    assert report["paired_provider"]["outcome_counts"]["missing"] == 1
+    assert report["paired_provider"]["outcome_counts"].get("classified", 0) >= 1
     assert report["paired_provider"]["outcome_counts"].get("failed", 0) >= 0
+    retained_score = next(
+        row["score_metadata"]
+        for row in report["paired_provider"]["paired_rows"]
+        if row["score_metadata"] is not None
+    )
+    assert retained_score["face_down_confidence"] == 0.03
+    assert retained_score["calibrated"] is False
+    assert report["confidence"]["schema_version"] == "dinov3-visual-score/v1"
+    corrected_pair = next(
+        row
+        for row in report["paired_provider"]["paired_rows"]
+        if row["gemini_prediction"] is not None
+    )
+    assert corrected_pair["gemini_prediction"] != corrected_pair["target"]
+    assert corrected_pair["score_metadata"]["confidence"] == 0.91
     assert report["paired_provider"]["side_bypassed_excluded_from_classifier_metrics"] >= 0
     assert len(report["paired_provider"]["paired_rows"]) == report["summary"]["sample_count"]
     assert "frame" in report["slice_summaries"]
