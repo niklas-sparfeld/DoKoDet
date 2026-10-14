@@ -24,9 +24,11 @@
 - **M1:** Complete (2026-10-14) — materialized and inspected 130 frames from the three current
   reviewed references. Validation has 36 pile targets; the sealed test has none. See the
   [M1 materialization report](../../reports/0087-M1_Reviewed_Real_Mask_Materialization.md).
-- **M2:** Not started — regenerate and inspect the synthetic addition.
+- **M2:** Complete with a declared gap (2026-10-14) — omit the synthetic candidate because the
+  frozen training group has no approved empty background, and the available 0070 pools use other
+  source groups or obsolete geometry. See the [M2 readiness report](../../reports/0087-M2_Synthetic_Addition_Readiness.md).
 - **M3:** Not started — run the fixed real-only comparison after the reviewed masks are materialized.
-- **M4:** Not started — train the declared synthetic mixture and compare on real validation.
+- **M4:** Not applicable — M2 found no eligible synthetic pool; do not train a mixed candidate.
 - **M5:** Not started — publish the locked evaluation and bundle decision.
 
 ## 1. Boundaries and evidence
@@ -145,6 +147,10 @@ the merged view. Record generator coverage gaps, including card sides and appear
 Acceptance: deterministic rendering and exact mask ownership; unchanged real evaluation views;
 no held-out contributor; inspected pool and mixture digests match the training manifest.
 
+If the frozen training groups have no compatible synthetic source, omit the candidate under the M0
+rule. Record the missing assets and the reasons that existing pools cannot be reused. M4 then does
+not run.
+
 ### M3 — Run real-only training
 
 Run only the declared M0 real-only candidates with resumable checkpoints and durable logs. Retain
@@ -206,3 +212,19 @@ inference was run.
   detection head was reinitialized to two classes. No training or inference ran.
 - See the [M1 materialization report](../../reports/0087-M1_Reviewed_Real_Mask_Materialization.md)
   for the digests and repeatable command. The generated view is disposable under `.runtime`.
+
+### M2 implementation evidence — 2026-10-14
+
+- The frozen M0 split assigns only `cardeventnet-IMG_0095` to training. Its M1 view contains 42
+  reviewed frames. The 0070 approved empty-table set contains no `IMG_0095` background.
+- The 0070 planar production pool uses nine other recordings. Its manifest is digest-pinned, but
+  those backgrounds and geometry do not belong to the frozen 0087 training group. The older
+  all-recordings pool has an `IMG_0095` scene, but it uses the superseded card-region inpainting
+  background strategy.
+- The planar pool freezes card aspect ratio `1.5`. Current card-plane geometry uses `91/59`
+  (`1.542373`). Reusing those scenes would violate M2's current-geometry requirement.
+- M0 permits omission when no compatible two-class pool is available. No synthetic images were
+  added, and no mixed training view was created. The unchanged real validation and sealed-test
+  partitions remain the M1 views. M4 is therefore not applicable.
+- See the [M2 readiness report](../../reports/0087-M2_Synthetic_Addition_Readiness.md) for the
+  source manifests, digests, and reproducible audit facts.
