@@ -25,7 +25,8 @@
   augmentation with paired mask handling. See the [M3 verification report](../../reports/0094-M3_Source_Space_Augmentation.md).
 - **M4:** Complete — add CLS-plus-mean-patch features to frozen training, checkpoints, bundles, and
   inference. See the [M4 verification report](../../reports/0094-M4_Alternate_Frozen_Features.md).
-- **M5:** Not started — add targeted final-block training and checkpoint resume.
+- **M5:** Complete — add targeted final-block training and checkpoint resume. See the
+  [M5 verification report](../../reports/0094-M5_Targeted_Encoder_Adaptation.md).
 - **M6:** Not started — export and load adapted encoder weights locally.
 - **M7:** Not started — evaluate all classes, source groups, and paired provider outcomes.
 - **M8:** Not started — fit and retain scalar confidence calibration and review thresholds.
@@ -156,6 +157,13 @@ resume metadata. Use a small fixture fit to verify gradients and frozen paramete
 Acceptance: only declared parameters change; frozen layers remain equal; adapted layers receive
 finite gradients; interrupted/resumed training follows the same schedule. Bound memory and retain
 a precise local resource limitation instead of silently widening scope or switching hardware.
+
+**Complete:** the training adapter can train the final two `model.layer` blocks, the encoder's
+final `norm`, and the identity head. All earlier encoder parameters remain frozen. The encoder
+learning rate is 0.1 times the head learning rate. `CosineAnnealingLR` advances once per optimizer
+step. Checkpoint v3 records and restores its state with the optimizer and model. Adapted runs require
+batch size 1 and record device, precision, input size, and any step limit. Fixture evidence and
+resource limits are in the M5 report.
 
 ### M6 — Export and load adapted weights
 

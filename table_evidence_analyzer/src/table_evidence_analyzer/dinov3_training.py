@@ -52,7 +52,9 @@ from .local_identity import (
 )
 
 DINOV3_TASK_ADAPTER = "dinov3-frozen-linear-v1"
-DINOV3_CHECKPOINT_SCHEMA = "dinov3-identity-checkpoint/v2"
+DINOV3_ADAPTED_TASK_ADAPTER = "dinov3-last-two-blocks-v1"
+DINOV3_CHECKPOINT_SCHEMA = "dinov3-identity-checkpoint/v3"
+DINOV3_ENCODER_LEARNING_RATE_RATIO = 0.1
 DINOV3_PREDICTION_SCHEMA = "dinov3-identity-predictions/v1"
 DINOV3_PREPARATION_SCHEMA = "dinov3-identity-preparation/v1"
 
@@ -148,9 +150,16 @@ def _feature_output(outputs: Any, encoder: Any, feature_layout: str, input_size:
 
 
 class DinoV3FrozenLinearTask:
-    """A frozen DINOv3 encoder with one trainable linear 25-class visual head."""
+    """A DINOv3 visual head with an optional bounded final-block encoder adapter."""
 
-    def __init__(self, encoder: Any, *, class_count: int = 25, feature_layout: str = "cls") -> None:
+    def __init__(
+        self,
+        encoder: Any,
+        *,
+        class_count: int = 25,
+        feature_layout: str = "cls",
+        encoder_training: str = "frozen",
+    ) -> None:
         torch, nn = _torch_modules()
         if class_count != 25:
             raise DinoV3TrainingError("the DINOv3 visual head must have 25 classes")
@@ -161,10 +170,36 @@ class DinoV3FrozenLinearTask:
             raise DinoV3TrainingError("DINOv3 encoder must be a PyTorch module")
         if feature_layout not in {"cls", "cls_mean_patch"}:
             raise DinoV3TrainingError(f"unsupported DINOv3 feature layout: {feature_layout}")
+        if encoder_training not in {"frozen", "last_two_blocks"}:
+            raise DinoV3TrainingError(f"unsupported DINOv3 encoder training: {encoder_training}")
         self.encoder = encoder
         self.encoder.eval()
         for parameter in self.encoder.parameters():
             parameter.requires_grad_(False)
+        self.encoder_training = encoder_training
+        self.trainable_encoder_names: tuple[str, ...] = ()
+        if encoder_training == "last_two_blocks":
+            encoder_layers = getattr(getattr(encoder, "model", None), "layer", None)
+            final_norm = getattr(encoder, "norm", None)
+            if not isinstance(encoder_layers, nn.ModuleList) or len(encoder_layers) < 2:
+                raise DinoV3TrainingError(
+                    "DINOv3 encoder must expose model.layer with at least two blocks"
+                )
+            if not isinstance(final_norm, nn.Module):
+                raise DinoV3TrainingError("DINOv3 encoder must expose its final norm module")
+            selected_names: list[str] = []
+            for index in range(len(encoder_layers) - 2, len(encoder_layers)):
+                for name, parameter in encoder_layers[index].named_parameters():
+                    parameter.requires_grad_(True)
+                    selected_names.append(f"encoder.model.layer.{index}.{name}")
+            for name, parameter in final_norm.named_parameters():
+                parameter.requires_grad_(True)
+                selected_names.append(f"encoder.norm.{name}")
+            if not selected_names:
+                raise DinoV3TrainingError(
+                    "DINOv3 final blocks and norm have no trainable parameters"
+                )
+            self.trainable_encoder_names = tuple(selected_names)
         self.feature_layout = feature_layout
         feature_size = hidden_size * (2 if feature_layout == "cls_mean_patch" else 1)
         self.head = nn.Linear(feature_size, class_count)
@@ -187,7 +222,13 @@ class DinoV3FrozenLinearTask:
 
     def forward(self, pixel_values: Any) -> Any:
         self.encoder.eval()
-        with self._torch.no_grad():
+        if self.encoder_training == "frozen":
+            with self._torch.no_grad():
+                outputs = self.encoder(pixel_values=pixel_values)
+                features = _feature_output(
+                    outputs, self.encoder, self.feature_layout, int(pixel_values.shape[-1])
+                )
+        else:
             outputs = self.encoder(pixel_values=pixel_values)
             features = _feature_output(
                 outputs, self.encoder, self.feature_layout, int(pixel_values.shape[-1])
@@ -202,7 +243,18 @@ class DinoV3FrozenLinearTask:
         return self._torch.nn.functional.cross_entropy(self.forward(pixel_values), targets)
 
     def trainable_parameters(self) -> Any:
-        return self.head.parameters()
+        return (parameter for parameter in self.parameters() if parameter.requires_grad)
+
+    def parameters(self) -> Any:
+        return (*self.encoder.parameters(), *self.head.parameters())
+
+    def named_trainable_parameters(self) -> dict[str, list[Any]]:
+        return {
+            "encoder": [
+                parameter for parameter in self.encoder.parameters() if parameter.requires_grad
+            ],
+            "head": list(self.head.parameters()),
+        }
 
     def state_dict(self) -> dict[str, Any]:
         return {
@@ -249,6 +301,7 @@ class DinoV3TrainConfig:
     batch_size: int = 1
     learning_rate: float = 0.001
     weight_decay: float = 0.0
+    encoder_training: str = "frozen"
     device: str = "cpu"
     precision: str = "fp32"
     resume: Path | None = None
@@ -266,6 +319,12 @@ class DinoV3TrainConfig:
             raise DinoV3TrainingError("learning_rate must be positive")
         if self.weight_decay < 0:
             raise DinoV3TrainingError("weight_decay must not be negative")
+        if self.encoder_training not in {"frozen", "last_two_blocks"}:
+            raise DinoV3TrainingError(
+                f"unsupported DINOv3 encoder training: {self.encoder_training}"
+            )
+        if self.encoder_training == "last_two_blocks" and self.batch_size != 1:
+            raise DinoV3TrainingError("DINOv3 encoder adaptation requires batch_size=1")
         if self.device not in {"cpu", "mps", "cuda"}:
             raise DinoV3TrainingError(f"unsupported device request: {self.device}")
         if self.precision != "fp32":
@@ -301,6 +360,7 @@ class DinoV3TrainConfig:
             batch_size=int(value.get("batch_size", 1)),
             learning_rate=float(value.get("learning_rate", 0.001)),
             weight_decay=float(value.get("weight_decay", 0.0)),
+            encoder_training=str(value.get("encoder_training", "frozen")),
             device=str(value.get("device", "cpu")),
             precision=str(value.get("precision", "fp32")),
             resume=(base / str(value["resume"]) if value.get("resume") else None),
@@ -370,14 +430,17 @@ def load_dinov3_checkpoint(path: str | Path) -> Mapping[str, Any]:
         "config",
         "model_state",
         "optimizer_state",
+        "scheduler_state",
         "progress",
         "best",
         "sampling_receipts",
     }
     if not required <= set(value):
         raise ValueError("DINOv3 checkpoint is incomplete")
-    if not isinstance(value["model_state"], Mapping) or not isinstance(
-        value["optimizer_state"], Mapping
+    if (
+        not isinstance(value["model_state"], Mapping)
+        or not isinstance(value["optimizer_state"], Mapping)
+        or not isinstance(value["scheduler_state"], Mapping)
     ):
         raise ValueError("DINOv3 checkpoint state is invalid")
     if (
@@ -468,6 +531,7 @@ def _config_record(config: DinoV3TrainConfig) -> dict[str, Any]:
         "batch_size": config.batch_size,
         "learning_rate": config.learning_rate,
         "weight_decay": config.weight_decay,
+        "encoder_training": config.encoder_training,
         "device": config.device,
         "precision": config.precision,
         "max_steps": config.max_steps,
@@ -536,7 +600,11 @@ def _semantic_config(
     samples_per_epoch: int,
 ) -> dict[str, Any]:
     return {
-        "task_adapter": DINOV3_TASK_ADAPTER,
+        "task_adapter": (
+            DINOV3_ADAPTED_TASK_ADAPTER
+            if config.encoder_training == "last_two_blocks"
+            else DINOV3_TASK_ADAPTER
+        ),
         "identity_digest": identity.identity_digest,
         "feature_layout": identity.recipe["feature_layout"],
         "dataset_version_digest": inputs["dataset_version_digest"],
@@ -550,6 +618,9 @@ def _semantic_config(
         "batch_size": config.batch_size,
         "learning_rate": config.learning_rate,
         "weight_decay": config.weight_decay,
+        "encoder_training": config.encoder_training,
+        "encoder_learning_rate_ratio": DINOV3_ENCODER_LEARNING_RATE_RATIO,
+        "scheduler": {"name": "CosineAnnealingLR", "unit": "optimizer_step"},
         "sampling_policy": config.sampling_policy,
         "samples_per_epoch": samples_per_epoch,
         "precision": config.precision,
@@ -793,6 +864,7 @@ def _checkpoint_payload(
     torch: Any,
     task: DinoV3FrozenLinearTask,
     optimizer: Any,
+    scheduler: Any,
     semantic_config: Mapping[str, Any],
     progress: Mapping[str, Any],
     best: Mapping[str, Any],
@@ -803,6 +875,7 @@ def _checkpoint_payload(
         "config": dict(semantic_config),
         "model_state": task.state_dict(),
         "optimizer_state": optimizer.state_dict(),
+        "scheduler_state": scheduler.state_dict(),
         "progress": dict(progress),
         "best": dict(best),
         "sampling_receipts": [dict(receipt) for receipt in sampling_receipts],
@@ -811,11 +884,16 @@ def _checkpoint_payload(
 
 
 def _load_checkpoint_state(
-    torch: Any, task: DinoV3FrozenLinearTask, optimizer: Any, checkpoint: Mapping[str, Any]
+    torch: Any,
+    task: DinoV3FrozenLinearTask,
+    optimizer: Any,
+    scheduler: Any,
+    checkpoint: Mapping[str, Any],
 ) -> tuple[dict[str, int], dict[str, Any]]:
     task.load_state_dict(checkpoint["model_state"])
     try:
         optimizer.load_state_dict(checkpoint["optimizer_state"])
+        scheduler.load_state_dict(checkpoint["scheduler_state"])
         rng_state = checkpoint.get("rng_state", {}).get("torch_cpu")
         if rng_state is not None:
             torch.set_rng_state(rng_state)
@@ -920,6 +998,7 @@ def _load_campaign_inputs(
         "batch_size": recipe.get("batch_size"),
         "learning_rate": optimizer.get("learning_rate"),
         "weight_decay": optimizer.get("weight_decay"),
+        "encoder_training": recipe.get("encoder_training", "frozen"),
         "device": recipe.get("device"),
         "precision": recipe.get("precision"),
     }
@@ -929,6 +1008,7 @@ def _load_campaign_inputs(
         "batch_size": config.batch_size,
         "learning_rate": config.learning_rate,
         "weight_decay": config.weight_decay,
+        "encoder_training": config.encoder_training,
         "device": config.device,
         "precision": config.precision,
     }
@@ -1059,17 +1139,55 @@ def train_dinov3_identity(
             if encoder_factory is not None
             else load_dinov3_encoder(identity)
         )
-        task = DinoV3FrozenLinearTask(encoder, feature_layout=identity.recipe["feature_layout"]).to(
-            device
-        )
+        task = DinoV3FrozenLinearTask(
+            encoder,
+            feature_layout=identity.recipe["feature_layout"],
+            encoder_training=config.encoder_training,
+        ).to(device)
         record["model"]["head"]["input_size"] = task.hidden_size
-        optimizer = torch.optim.AdamW(
-            task.trainable_parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
-        )
+        record["task"] = semantic_config["task_adapter"]
+        record["model"]["adapter"] = semantic_config["task_adapter"]
+        trainable = task.named_trainable_parameters()
+        optimizer_groups = [{"params": trainable["head"], "lr": config.learning_rate}]
+        if trainable["encoder"]:
+            optimizer_groups.insert(
+                0,
+                {
+                    "params": trainable["encoder"],
+                    "lr": config.learning_rate * DINOV3_ENCODER_LEARNING_RATE_RATIO,
+                },
+            )
+        optimizer = torch.optim.AdamW(optimizer_groups, weight_decay=config.weight_decay)
+        total_steps = (
+            (samples_per_epoch + config.batch_size - 1) // config.batch_size
+        ) * config.epochs
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps)
         record["training"] = {
             "semantic_config": semantic_config,
             "hidden_size": task.hidden_size,
             "feature_layout": task.feature_layout,
+            "encoder_training": task.encoder_training,
+            "trainable_encoder_parameters": list(task.trainable_encoder_names),
+            "optimizer": {
+                "name": "AdamW",
+                "groups": [
+                    {
+                        "name": "encoder",
+                        "learning_rate": config.learning_rate * DINOV3_ENCODER_LEARNING_RATE_RATIO,
+                    },
+                    {"name": "head", "learning_rate": config.learning_rate},
+                ]
+                if trainable["encoder"]
+                else [{"name": "head", "learning_rate": config.learning_rate}],
+            },
+            "scheduler": {"name": "CosineAnnealingLR", "total_steps": total_steps},
+            "resource_limits": {
+                "device": config.device,
+                "precision": config.precision,
+                "batch_size": config.batch_size,
+                "max_steps": config.max_steps,
+                "input_size": identity.input_size,
+            },
             "encoder_loader": (
                 "injected_factory" if encoder_factory is not None else "transformers_local_files"
             ),
@@ -1088,7 +1206,7 @@ def train_dinov3_identity(
         if config.resume is not None:
             checkpoint = load_dinov3_checkpoint(config.resume)
             _validate_resume(checkpoint, semantic_config)
-            progress, best = _load_checkpoint_state(torch, task, optimizer, checkpoint)
+            progress, best = _load_checkpoint_state(torch, task, optimizer, scheduler, checkpoint)
             resume_schedule_digest = progress.get("schedule_digest")
             prior_receipts = checkpoint["sampling_receipts"]
             if not isinstance(prior_receipts, Sequence) or isinstance(prior_receipts, (str, bytes)):
@@ -1146,6 +1264,7 @@ def train_dinov3_identity(
                     raise DinoV3TrainingError("DINOv3 training produced a non-finite loss")
                 loss.backward()
                 optimizer.step()
+                scheduler.step()
                 progress = {
                     "epoch": epoch + 1 if batch_index + 1 == len(batches) else epoch,
                     "batch_index": batch_index + 1,
@@ -1162,6 +1281,7 @@ def train_dinov3_identity(
                         torch,
                         task,
                         optimizer,
+                        scheduler,
                         semantic_config,
                         progress,
                         best,
@@ -1207,6 +1327,7 @@ def train_dinov3_identity(
                         torch,
                         task,
                         optimizer,
+                        scheduler,
                         semantic_config,
                         progress,
                         best,
@@ -1220,6 +1341,7 @@ def train_dinov3_identity(
                     torch,
                     task,
                     optimizer,
+                    scheduler,
                     semantic_config,
                     progress,
                     best,
@@ -1234,13 +1356,15 @@ def train_dinov3_identity(
         if not (output / "checkpoint-best.pt").exists():
             _atomic_torch_save(
                 torch,
-                _checkpoint_payload(torch, task, optimizer, semantic_config, progress, best),
+                _checkpoint_payload(
+                    torch, task, optimizer, scheduler, semantic_config, progress, best, []
+                ),
                 output / "checkpoint-best.pt",
             )
         final_progress = dict(progress)
         best_checkpoint = load_dinov3_checkpoint(output / "checkpoint-best.pt")
         _validate_resume(best_checkpoint, semantic_config)
-        _load_checkpoint_state(torch, task, optimizer, best_checkpoint)
+        _load_checkpoint_state(torch, task, optimizer, scheduler, best_checkpoint)
         train_rows, train_loss, train_accuracy = _predict(
             task,
             train_samples,
@@ -1323,6 +1447,7 @@ def train_dinov3_identity(
 
 
 __all__ = [
+    "DINOV3_ADAPTED_TASK_ADAPTER",
     "DINOV3_CHECKPOINT_SCHEMA",
     "DINOV3_PREDICTION_SCHEMA",
     "DINOV3_PREPARATION_SCHEMA",

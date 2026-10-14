@@ -77,6 +77,12 @@ class _FakeEncoder(torch.nn.Module):
         super().__init__()
         self.scale = torch.nn.Parameter(torch.ones(()))
         self.config = SimpleNamespace(hidden_size=4, patch_size=16, num_register_tokens=2)
+        self.model = torch.nn.Module()
+        self.model.layer = torch.nn.ModuleList([torch.nn.Linear(4, 4) for _ in range(4)])
+        self.norm = torch.nn.LayerNorm(4)
+        for block in self.model.layer:
+            torch.nn.init.eye_(block.weight)
+            torch.nn.init.zeros_(block.bias)
 
     def forward(self, *, pixel_values):
         pooled = pixel_values.mean(dim=(2, 3)) * self.scale
@@ -87,7 +93,10 @@ class _FakeEncoder(torch.nn.Module):
             (len(pooled), self.config.num_register_tokens, 4), 99.0, device=pooled.device
         )
         tokens = torch.cat((cls.unsqueeze(1), registers, patches), dim=1)
-        return SimpleNamespace(pooler_output=cls, last_hidden_state=tokens)
+        for block in self.model.layer:
+            tokens = block(tokens)
+        tokens = self.norm(tokens)
+        return SimpleNamespace(pooler_output=tokens[:, 0, :], last_hidden_state=tokens)
 
 
 def _factory(_identity):
@@ -194,6 +203,57 @@ def test_task_freezes_encoder_and_exposes_only_linear_head() -> None:
     assert all(not parameter.requires_grad for parameter in encoder.parameters())
     assert task.head.weight.shape == (25, 4)
     assert sum(parameter.numel() for parameter in task.trainable_parameters()) == 25 * 4 + 25
+
+
+def test_last_two_block_adapter_only_trains_declared_encoder_parameters() -> None:
+    encoder = _FakeEncoder()
+    task = DinoV3FrozenLinearTask(encoder, encoder_training="last_two_blocks")
+    before = {name: value.detach().clone() for name, value in encoder.named_parameters()}
+    pixels = torch.rand((2, 3, 224, 224))
+    loss = task.compute_loss(pixels, torch.tensor([0, 1]))
+    loss.backward()
+
+    expected_trainable = {
+        name
+        for name, _parameter in encoder.named_parameters()
+        if name.startswith("model.layer.2.")
+        or name.startswith("model.layer.3.")
+        or name.startswith("norm.")
+    }
+    actual_trainable = {
+        name for name, parameter in encoder.named_parameters() if parameter.requires_grad
+    }
+    assert actual_trainable == expected_trainable
+    for name, parameter in encoder.named_parameters():
+        if name in expected_trainable:
+            assert parameter.grad is not None
+            assert torch.isfinite(parameter.grad).all()
+        else:
+            assert parameter.grad is None
+
+    optimizer = torch.optim.SGD(task.trainable_parameters(), lr=0.01)
+    optimizer.step()
+    changed_names = set()
+    for name, value in encoder.named_parameters():
+        if name in expected_trainable:
+            if not torch.equal(value.detach(), before[name]):
+                changed_names.add(name)
+        else:
+            assert torch.equal(value.detach(), before[name])
+    assert changed_names
+
+
+def test_last_two_block_adapter_has_batch_one_resource_limit(tmp_path: Path) -> None:
+    fixture = build_smoke_fixture(tmp_path / "fixture")
+    identity = _identity_config(tmp_path)
+    with pytest.raises(ValueError, match="batch_size=1"):
+        _config(
+            fixture,
+            identity,
+            tmp_path / "run",
+            batch_size=2,
+            encoder_training="last_two_blocks",
+        )
 
 
 def test_cls_mean_patch_excludes_cls_and_register_tokens() -> None:
@@ -326,6 +386,52 @@ def test_interrupted_training_resumes_from_frozen_inputs_and_same_progress(tmp_p
                 assert torch.equal(actual, value)
             else:
                 assert actual == value
+
+
+def test_adapted_training_resume_restores_scheduler_and_encoder_state(tmp_path: Path) -> None:
+    fixture = build_smoke_fixture(tmp_path / "fixture")
+    identity = _identity_config(tmp_path)
+    interrupted_output = tmp_path / "adapted-interrupted"
+    with pytest.raises(DinoV3TrainingInterrupted):
+        train_dinov3_identity(
+            _config(
+                fixture,
+                identity,
+                interrupted_output,
+                epochs=2,
+                encoder_training="last_two_blocks",
+                max_steps=1,
+            ),
+            encoder_factory=_factory,
+        )
+    train_dinov3_identity(
+        _config(
+            fixture,
+            identity,
+            interrupted_output,
+            epochs=2,
+            encoder_training="last_two_blocks",
+            resume=interrupted_output / "checkpoint-last.pt",
+        ),
+        encoder_factory=_factory,
+    )
+
+    uninterrupted_output = tmp_path / "adapted-uninterrupted"
+    train_dinov3_identity(
+        _config(
+            fixture,
+            identity,
+            uninterrupted_output,
+            epochs=2,
+            encoder_training="last_two_blocks",
+        ),
+        encoder_factory=_factory,
+    )
+    resumed_checkpoint = load_dinov3_checkpoint(interrupted_output / "checkpoint-last.pt")
+    uninterrupted_checkpoint = load_dinov3_checkpoint(uninterrupted_output / "checkpoint-last.pt")
+    assert resumed_checkpoint["scheduler_state"] == uninterrupted_checkpoint["scheduler_state"]
+    for name, value in uninterrupted_checkpoint["model_state"].items():
+        assert torch.equal(resumed_checkpoint["model_state"][name], value)
 
 
 def test_epoch_schedule_is_seeded_and_records_class_source_exposure() -> None:
