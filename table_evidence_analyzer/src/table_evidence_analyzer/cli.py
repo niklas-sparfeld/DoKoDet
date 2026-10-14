@@ -358,6 +358,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--device", choices=("cpu", "mps", "cuda"), default="mps"
     )
 
+    segmentation_sealed_parser = commands.add_parser(
+        "evaluate-rfdetr-segmentation-sealed-test",
+        help="Run the one sealed-test pass authorized by a frozen 0087 M5 decision.",
+        description=(
+            "Verify the immutable M5 pretest decision, then evaluate the pretrained baseline "
+            "and its frozen candidate on the sealed-test partition once."
+        ),
+    )
+    segmentation_sealed_parser.add_argument("--dataset-dir", type=Path, required=True)
+    segmentation_sealed_parser.add_argument("--manifest", type=Path, required=True)
+    segmentation_sealed_parser.add_argument("--pretrained-checkpoint", type=Path, required=True)
+    segmentation_sealed_parser.add_argument("--training-run", type=Path, required=True)
+    segmentation_sealed_parser.add_argument("--validation-report", type=Path, required=True)
+    segmentation_sealed_parser.add_argument("--candidate-bundle", type=Path, required=True)
+    segmentation_sealed_parser.add_argument("--pretest-decision", type=Path, required=True)
+    segmentation_sealed_parser.add_argument("--output-dir", type=Path, required=True)
+    segmentation_sealed_parser.add_argument(
+        "--device", choices=("cpu", "mps", "cuda"), default="mps"
+    )
+
     segmentation_decision_parser = commands.add_parser(
         "decide-rfdetr-visible-card-detector",
         help="Record the M4 RF-DETR local availability decision.",
@@ -867,6 +887,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                     campaign_manifest=args.manifest,
                     pretrained_checkpoint=args.pretrained_checkpoint,
                     candidate_bundle=args.candidate_bundle,
+                    output_dir=args.output_dir,
+                    device=args.device,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "evaluate-rfdetr-segmentation-sealed-test":
+        from .rfdetr_segmentation_evaluation import (
+            RfdetrSegmentationSealedTestConfig,
+            run_rfdetr_segmentation_sealed_test,
+        )
+
+        try:
+            report = run_rfdetr_segmentation_sealed_test(
+                RfdetrSegmentationSealedTestConfig(
+                    dataset_dir=args.dataset_dir,
+                    campaign_manifest=args.manifest,
+                    pretrained_checkpoint=args.pretrained_checkpoint,
+                    training_run=args.training_run,
+                    validation_report=args.validation_report,
+                    candidate_bundle=args.candidate_bundle,
+                    pretest_decision=args.pretest_decision,
                     output_dir=args.output_dir,
                     device=args.device,
                 )

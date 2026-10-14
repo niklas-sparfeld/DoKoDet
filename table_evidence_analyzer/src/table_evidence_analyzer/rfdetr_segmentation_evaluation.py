@@ -67,6 +67,21 @@ class RfdetrSegmentationEvaluationConfig:
     device: Literal["cpu", "mps", "cuda"] = "mps"
 
 
+@dataclass(frozen=True, slots=True)
+class RfdetrSegmentationSealedTestConfig:
+    """Inputs for the one sealed-test pass authorized by a frozen M5 decision."""
+
+    dataset_dir: Path
+    campaign_manifest: Path
+    pretrained_checkpoint: Path
+    training_run: Path
+    validation_report: Path
+    candidate_bundle: Path
+    pretest_decision: Path
+    output_dir: Path
+    device: Literal["cpu", "mps", "cuda"] = "mps"
+
+
 def _canonical(value: Any) -> bytes:
     try:
         return json.dumps(
@@ -776,6 +791,266 @@ def _evaluate_model(
     finally:
         del model
         _clear_device_cache(device)
+
+
+def _timed_evaluate_model(
+    checkpoint: Path,
+    view: Mapping[str, Any],
+    device: str,
+    *,
+    model_id: str,
+    pretrained: bool,
+) -> tuple[dict[str, Any], dict[str, float]]:
+    load_started = time.monotonic()
+    model = _load_model(
+        checkpoint,
+        device,
+        pretrained=pretrained,
+        num_classes=len(view.get("class_map", {})),
+    )
+    load_ms = (time.monotonic() - load_started) * 1000
+    inference_started = time.monotonic()
+    try:
+        artifact = _prediction_artifact(
+            model=model,
+            view=view,
+            model_id=model_id,
+            partition="sealed_test",
+        )
+        inference_ms = (time.monotonic() - inference_started) * 1000
+        frame_count = len(artifact["frames"])
+        return artifact, {
+            "load_ms": round(load_ms, 3),
+            "inference_total_ms": round(inference_ms, 3),
+            "inference_mean_ms_per_frame": round(inference_ms / max(frame_count, 1), 3),
+            "frame_count": frame_count,
+        }
+    finally:
+        del model
+        _clear_device_cache(device)
+
+
+def run_rfdetr_segmentation_sealed_test(
+    config: RfdetrSegmentationSealedTestConfig,
+) -> dict[str, Any]:
+    """Evaluate the frozen candidate and baseline once after verifying the M5 lock."""
+
+    output = config.output_dir.expanduser().resolve()
+    report_path = output / "report.json"
+    expected_config = {
+        "dataset_dir": str(config.dataset_dir.expanduser().resolve()),
+        "campaign_manifest": str(config.campaign_manifest.expanduser().resolve()),
+        "pretrained_checkpoint": str(config.pretrained_checkpoint.expanduser().resolve()),
+        "training_run": str(config.training_run.expanduser().resolve()),
+        "validation_report": str(config.validation_report.expanduser().resolve()),
+        "candidate_bundle": str(config.candidate_bundle.expanduser().resolve()),
+        "pretest_decision": str(config.pretest_decision.expanduser().resolve()),
+        "output_dir": str(output),
+        "device": config.device,
+    }
+    if report_path.is_file():
+        report = _read_json(report_path, "M5 sealed-test report")
+        if report.get("config") != expected_config:
+            raise RfdetrSegmentationEvaluationError("M5 output belongs to another evaluation")
+        for key, metadata in report.get("artifacts", {}).items():
+            artifact_path = output / metadata["path"]
+            if not artifact_path.is_file() or _file_digest(artifact_path) != metadata.get("sha256"):
+                raise RfdetrSegmentationEvaluationError(f"M5 artifact drifted: {key}")
+        registry_metadata = report.get("provider_registry")
+        if isinstance(registry_metadata, Mapping):
+            registry_path = output / str(registry_metadata.get("path"))
+            if not registry_path.is_file() or _file_digest(registry_path) != registry_metadata.get(
+                "sha256"
+            ):
+                raise RfdetrSegmentationEvaluationError("M5 provider registry has drifted")
+        return report
+    if output.exists() and any(output.iterdir()):
+        raise RfdetrSegmentationEvaluationError("M5 output directory is not empty")
+
+    decision_path = config.pretest_decision.expanduser().resolve()
+    decision = _read_json(decision_path, "frozen M5 pretest decision")
+    decision_digest = decision.get("decision_sha256")
+    unsigned_decision = {key: value for key, value in decision.items() if key != "decision_sha256"}
+    if (
+        decision.get("schema_version") != "0087-m5-pretest-decision/v1"
+        or decision.get("state") != "locked_before_sealed_test"
+        or decision_digest != _digest(unsigned_decision)
+        or decision.get("action") != "evaluate_candidate_and_baseline_once"
+    ):
+        raise RfdetrSegmentationEvaluationError("M5 pretest decision is not a valid frozen lock")
+
+    manifest_path = config.campaign_manifest.expanduser().resolve()
+    validation_path = config.validation_report.expanduser().resolve()
+    training_path = config.training_run.expanduser().resolve()
+    bundle_path = config.candidate_bundle.expanduser().resolve()
+    manifest = _read_json(manifest_path, "M0 campaign manifest")
+    validation = _read_json(validation_path, "M3 validation report")
+    training = _read_json(training_path, "M3 training run")
+    bundle = load_rfdetr_segmentation_bundle(bundle_path)
+    if training.get("status") != "completed":
+        raise RfdetrSegmentationEvaluationError("M3 training run is not completed")
+    expected_receipts = decision.get("input_sha256", {})
+    actual_receipts = {
+        "campaign_manifest": _file_digest(manifest_path),
+        "validation_report": _file_digest(validation_path),
+        "training_run": _file_digest(training_path),
+        "bundle_manifest": _file_digest(bundle_path / "manifest.json"),
+    }
+    if expected_receipts != actual_receipts:
+        raise RfdetrSegmentationEvaluationError("M5 frozen input digests do not match")
+    if bundle.manifest.get("bundle_digest") != decision.get("candidate_bundle_digest"):
+        raise RfdetrSegmentationEvaluationError("M5 candidate bundle differs from the frozen lock")
+    if validation.get("gate", {}).get("validation", {}).get("passes") is not True:
+        raise RfdetrSegmentationEvaluationError("M3 validation gate did not pass")
+    m0_digest = manifest.get("manifest_sha256")
+    view = _load_materialization_view(config.dataset_dir)
+    _verify_campaign_manifest(
+        view,
+        manifest_path,
+        _file_digest(config.pretrained_checkpoint.expanduser().resolve()),
+    )
+    if view["manifest"].get("materialization_digest") != decision.get("materialization_digest"):
+        raise RfdetrSegmentationEvaluationError("M1 materialization differs from the frozen lock")
+    if bundle.manifest.get("materialization_digest") != decision.get("materialization_digest"):
+        raise RfdetrSegmentationEvaluationError("candidate bundle lineage differs from M1")
+
+    validation_metrics = validation.get("metrics", {}).get("validation", {})
+    baseline = validation_metrics.get("baseline", {}).get("overall", {})
+    candidate = validation_metrics.get("candidate", {}).get("overall", {})
+    baseline_recordings = validation_metrics.get("baseline", {}).get("by_recording", {})
+    candidate_recordings = validation_metrics.get("candidate", {}).get("by_recording", {})
+    if not baseline_recordings or baseline_recordings.keys() != candidate_recordings.keys():
+        raise RfdetrSegmentationEvaluationError("M3 visible-card recording metrics are incomplete")
+    baseline_duplicates = baseline.get("duplicate_predictions")
+    candidate_duplicates = candidate.get("duplicate_predictions")
+    baseline_empty = baseline.get("empty_prediction_rate")
+    candidate_empty = candidate.get("empty_prediction_rate")
+    baseline_false = baseline.get("false_predictions")
+    candidate_false = candidate.get("false_predictions")
+    pile_recordings = [
+        recording_id
+        for recording_id, metrics in candidate_recordings.items()
+        if metrics.get("by_class", {}).get("card_pile", {}).get("target_count", 0) > 0
+    ]
+    validation_gates = {
+        "visible_card_mask_ap_improved": all(
+            candidate_recordings[recording_id]["by_class"]["visible_card"].get("mask_ap_50_95", 0)
+            > baseline_recordings[recording_id]["by_class"]["visible_card"].get("mask_ap_50_95", 0)
+            for recording_id in baseline_recordings
+        ),
+        "visible_card_recall_improved": all(
+            candidate_recordings[recording_id]["by_class"]["visible_card"].get("recall", 0)
+            > baseline_recordings[recording_id]["by_class"]["visible_card"].get("recall", 0)
+            for recording_id in baseline_recordings
+        ),
+        "card_pile_recall_nonzero_when_supported": bool(pile_recordings)
+        and all(
+            candidate_recordings[recording_id]["by_class"]["card_pile"].get("recall", 0) > 0
+            for recording_id in pile_recordings
+        ),
+        "false_predictions_no_worse": candidate_false <= baseline_false,
+        "duplicate_predictions_no_worse": candidate_duplicates <= baseline_duplicates,
+        "empty_prediction_rate_no_worse": candidate_empty <= baseline_empty,
+    }
+    if not all(validation_gates.values()):
+        raise RfdetrSegmentationEvaluationError("M0 validation gates do not permit sealed-test use")
+
+    minimum = manifest.get("minimum_support", {}).get("sealed_test", {})
+    partition = manifest.get("partitions", {}).get("sealed_test", {}).get("counts", {})
+    if partition.get("retained_frames", 0) < minimum.get("retained_frames", 0) or partition.get(
+        "visible_card_targets", 0
+    ) < minimum.get("visible_card_targets", 0):
+        raise RfdetrSegmentationEvaluationError("sealed-test support is below the frozen minimum")
+
+    output.mkdir(parents=True, exist_ok=True)
+    started = time.monotonic()
+    checkpoint = config.pretrained_checkpoint.expanduser().resolve()
+    baseline_predictions, baseline_timing = _timed_evaluate_model(
+        checkpoint, view, config.device, model_id="pretrained-baseline", pretrained=True
+    )
+    candidate_predictions, candidate_timing = _timed_evaluate_model(
+        bundle.checkpoint_path, view, config.device, model_id="candidate", pretrained=False
+    )
+    candidate_by_recording = candidate_predictions["metrics"]["by_recording"]
+    candidate_card_by_recording = {
+        recording_id: metrics.get("by_class", {}).get("visible_card", {})
+        for recording_id, metrics in candidate_by_recording.items()
+    }
+    sealed_gate = {
+        "every_recording_has_nonzero_visible_card_recall": bool(candidate_card_by_recording)
+        and all(metrics.get("recall", 0) > 0 for metrics in candidate_card_by_recording.values()),
+        "no_pile_quality_claim": partition.get("pile_targets", 0) == 0,
+    }
+    gate_passes = (
+        all(validation_gates.values())
+        and sealed_gate["every_recording_has_nonzero_visible_card_recall"]
+    )
+    decision_result = (
+        "selected_selectable_candidate" if gate_passes else "retained_experiment_baseline_selected"
+    )
+    prediction_artifacts = {
+        "sealed_test_baseline": baseline_predictions,
+        "sealed_test_candidate": candidate_predictions,
+    }
+    artifact_metadata: dict[str, dict[str, str]] = {}
+    for key, artifact in prediction_artifacts.items():
+        path = _artifact_path(output, key)
+        _write_json(path, artifact)
+        artifact_metadata[key] = {
+            "path": path.name,
+            "sha256": _file_digest(path),
+        }
+    report: dict[str, Any] = {
+        "schema_version": "0087-m5-sealed-test-report/v1",
+        "status": "completed",
+        "decision": decision_result,
+        "config": expected_config,
+        "pretest_decision_sha256": decision_digest,
+        "campaign_manifest_sha256": m0_digest,
+        "materialization_digest": decision.get("materialization_digest"),
+        "candidate_bundle_digest": bundle.manifest.get("bundle_digest"),
+        "candidate_checkpoint_sha256": bundle.manifest.get("checkpoint_sha256"),
+        "validation_gates": validation_gates,
+        "sealed_test_gate": sealed_gate,
+        "metrics": {
+            "baseline": baseline_predictions["metrics"],
+            "candidate": candidate_predictions["metrics"],
+        },
+        "latency": {"baseline": baseline_timing, "candidate": candidate_timing},
+        "duration_seconds": round(time.monotonic() - started, 3),
+        "lineage": {
+            **actual_receipts,
+            "candidate_materialization_digest": bundle.manifest.get("materialization_digest"),
+            "pretrained_checkpoint_sha256": _file_digest(checkpoint),
+        },
+        "limitations": {
+            "sealed_test_pile_targets": partition.get("pile_targets", 0),
+            "pile_quality_claim": False,
+            "one_training_recording": True,
+            "no_empty_background_validation": True,
+            "unavailable_slices": ["ordinary_trick_overlap", "human_hand_pixels", "pile_edges"],
+        },
+        "artifacts": artifact_metadata,
+        "provider_registry": None,
+    }
+    if gate_passes:
+        from .rfdetr_segmentation_decision import _provider_registry
+
+        registry_path = output / "provider-registry.json"
+        registry = _provider_registry(
+            bundle_path=bundle_path,
+            manifest=bundle.manifest,
+            decision_report=str(report_path),
+        )
+        _write_json(registry_path, registry)
+        report["provider_registry"] = {
+            "path": registry_path.name,
+            "sha256": _file_digest(registry_path),
+            "default_provider": "gemini",
+            "selectable": True,
+        }
+    _write_json(report_path, report)
+    return report
 
 
 def run_rfdetr_segmentation_campaign_validation(

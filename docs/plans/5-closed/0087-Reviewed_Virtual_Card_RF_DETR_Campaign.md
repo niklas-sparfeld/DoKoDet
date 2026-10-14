@@ -4,13 +4,14 @@
 
 - **Summary:** Train and compare RF-DETR candidates from reviewed individual-card masks and
   coarse pile targets, with one compatible synthetic-data addition where supported.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** Completed 0068 and 0070; 0091 M0–M3 for two-class preparation; 0086 M2
   detection-only handoff with reviewed geometry, visible-card masks, ignore or frame-exclusion
   decisions, pile coverage, and source-group assignments. Visual identity review is not required.
 - **Supersedes:** Unstarted training in 0084; retain its M0–M2 evidence as historical inspection
-- **Outcome:** Verified segmentation views, bounded training, real evaluation, and a retained bundle
-  decision. Improvement is measured, not assumed.
+- **Outcome:** Verified segmentation views, bounded training, one sealed-test evaluation, and a
+  selectable candidate bundle. The runtime default remains unchanged.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -32,7 +33,10 @@
   rose from 0 to 2 while pile false predictions fell from 20 to 0. The sealed test remains unopened.
   See the [M3 training report](../../reports/0087-M3_Real_Only_Training.md).
 - **M4:** Not applicable — M2 found no eligible synthetic pool; do not train a mixed candidate.
-- **M5:** Not started — publish the locked evaluation and bundle decision.
+- **M5:** Complete (2026-10-14) — locked the candidate decision before opening the sealed test,
+  evaluated the candidate and baseline once, and registered the candidate as selectable. See the
+  [M5 decision report](../../reports/0087-M5_Sealed_Test_and_Bundle_Decision.md) and
+  [pretest decision lock](../../reports/0087-M5_Pretest_Decision.json).
 
 ## 1. Boundaries and evidence
 
@@ -252,3 +256,28 @@ inference was run.
   partitions remain the M1 views. M4 is therefore not applicable.
 - See the [M2 readiness report](../../reports/0087-M2_Synthetic_Addition_Readiness.md) for the
   source manifests, digests, and reproducible audit facts.
+
+### M5 implementation evidence — 2026-10-14
+
+- The pretest decision lock pins the M0 manifest, M1 materialization, M3 validation report, training
+  run, and candidate bundle. It permits one baseline/candidate pass and makes candidate selection
+  conditional on nonzero visible-card recall for every sealed-test recording.
+- The lock passed M0's measured validation gates. The sealed test had 48 retained frames and 130
+  visible-card targets, above the frozen minimum. It had no pile targets.
+- One sealed-test pass used the baseline and candidate on all 48 frames. Candidate visible-card
+  mask AP 50:95 was `0.858450`, recall was `1.000000`, false predictions were 0, and duplicate
+  predictions were 0. Baseline recall was 0 with 35 false predictions. Every target was detected.
+- The candidate passed the frozen recall gate and is registered as a selectable
+  `local-rfdetr-segmentation` provider. The registry keeps `gemini` as default. No automatic provider
+  or runtime default changed.
+- The local bundle loader verified the exported bundle, M0/M1 lineage, and checkpoint digest before
+  inference. Mean candidate inference time was `1,311.377 ms/frame` on MPS; model load time was
+  `435.727 ms`. Baseline means were `267.462 ms/frame` and `3,425.909 ms` load time.
+- The selected bundle digest is
+  `018715420524a62335abd30c628382a1caba344f3bb98e1cbab884dfb4590fd9`; checkpoint SHA-256 is
+  `d89c5502b3ff01ed673c2ba04e0a8168c9d1efe3d99c064dcafefdc314aea3fa`. Its local path and the
+  retained one-time prediction artifacts are in the [M5 decision report](../../reports/0087-M5_Sealed_Test_and_Bundle_Decision.md).
+- This result covers one training recording and one sealed-test recording. The sealed test has no
+  pile targets, and the reviewed data has no empty-background frames. It makes no pile-quality,
+  empty-scene, or broad recording-generalization claim. Human-hand, ordinary-overlap, and pile-edge
+  slices remain unavailable.

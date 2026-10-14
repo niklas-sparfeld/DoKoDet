@@ -26,16 +26,14 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-1. **0087 M5:** Publish the validation decision and bundle outcome. M3 trained one real-only
-   candidate and passed aggregate validation gates. Two false predictions shifted from pile to card.
-   M2 found no compatible synthetic pool, so M4 is not applicable. Keep the sealed test closed until
-   the frozen M5 gate and authorization allow it. The broader 22-recording development pool remains
-   a corpus target until its references pass the review handoff.
-2. **0086 M3–M5 and 0088:** Continue proposal refresh and geometry review after the detection handoff.
+1. **0086 M4–M5:** Complete geometry review after the detection handoff, then finish identity review
+   for the 0088 handoff.
    Complete visual identity review last, for 0088. Use the completed 0091 annotation workflow to
    review one region per accumulated pile. RF-DETR needs 0091 M0–M3 before materialization and M4
    before pile-capable inference checks. Pile-aware identity preparation needs M5. Neither campaign
    requires the other to improve its model.
+2. **0088:** Train and evaluate the reviewed virtual-card identity candidates after the 0086 identity
+   handoff and 0091 M5.
 3. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
 4. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
 
@@ -72,7 +70,6 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0 inventory, M1 pilot proposals, M2 detection-only handoff, and M3 proposal refresh complete. M4 completes geometry review; M5 completes visual identity review for 0088. |
-| [0087 — Reviewed virtual-card RF-DETR campaign](3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0068 and 0070 complete; 0091 M0–M3 complete; 0086 M2 handoff complete | M0 corrected source permissions; M1 materialized 130 reviewed frames from three completed references; M2 omitted synthetic data because the sole training group lacks a compatible reviewed background; M3 trained one real-only candidate and passed aggregate validation gates. False predictions shifted by class (20 pile to 2 card). M5 publishes the bundle decision. The sealed test is unopened and has no pile targets. Broader corpus references remain an 0086 review task. |
 
 ### Blocked
 
@@ -87,6 +84,7 @@ The shared target architecture is
 
 | Epic | Closure reason | Outcome |
 | --- | --- | --- |
+| [0087 — Reviewed virtual-card RF-DETR campaign](5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) | Complete | M0–M5 complete. M2 omitted synthetic data because no compatible training-group background exists; M4 was not applicable. M5 selected the candidate after one sealed-test pass and published it as selectable. `gemini` remains the default; the test had no pile targets. |
 | [0091 — Pile-region feature](5-closed/0091-Pile_Region_Feature.md) | Complete | M0–M7 complete: durable annotation, two-class training support, pile inference, identity isolation, separate observation evidence, engine inspection, fixture verification, and capability handoff. Annotation and software are ready; no trained pile model is selected. See the [handoff report](../reports/0091-Pile_Region_Capability_Handoff.md). |
 | [0085 — Visual identity crop inputs from virtual cards](5-closed/0085-Visual_Identity_Crop_Inputs_from_Virtual_Cards.md) | Complete | M0–M3 complete. Exact generated or reviewed virtual-card crop selection and inference provenance are delivered. Training preparation follows in 0088. |
 | [0084 — RF-DETR training from proposed card scenes](5-closed/0084-RF_DETR_Training_from_Proposed_Card_Scenes.md) | Superseded | M0–M2 retain audit, 483-mask loading, and human-hand label-spill evidence. M3 did not run. 0086 and 0087 replace the unreviewed-label training direction with human-corrected inputs. |
