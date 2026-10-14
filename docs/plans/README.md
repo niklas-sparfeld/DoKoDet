@@ -26,16 +26,15 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-1. **0086 M4–M5:** Complete geometry review after the detection handoff, then finish identity review
-   for the 0088 handoff.
-   Complete visual identity review last, for 0088. Use the completed 0091 annotation workflow to
-   review one region per accumulated pile. RF-DETR needs 0091 M0–M3 before materialization and M4
-   before pile-capable inference checks. Pile-aware identity preparation needs M5. Neither campaign
-   requires the other to improve its model.
-2. **0088:** Train and evaluate the reviewed virtual-card identity candidates after the 0086 identity
-   handoff and 0091 M5.
-3. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
-4. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
+1. **0086 M4:** Complete geometry review and publish current-schema reviewed references and source
+   groups for at least 18 recordings. Use the completed 0091 annotation workflow for pile regions.
+2. **0092:** Train on the expanded real-reviewed pool after its M0 confirms the 0086 handoff. The
+   campaign will evaluate a source-group holdout, then refit the final candidate on all eligible
+   reviewed recordings. Do not reuse 0087's opened sealed test as a fresh holdout.
+3. **0086 M5 and 0088:** Complete identity review and train the separate DINO campaign. Identity work
+   does not gate 0092.
+4. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
+5. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
 
 Fix bounded annotation blockers during 0086. Keep broader algorithm work in 0089. Retain explicit
 bundle decisions even when training does not improve quality. Productive campaign UI and promotion
@@ -76,6 +75,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0088 — Reviewed virtual-card DINO campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) | 0086 M4 geometry review and M5 identity handoff; 0091 M5 for pile-bearing inputs; 0043 and 0085 complete | M0–M5 not started. Prepare individual-card crops with piles excluded, train separate bounded real and synthetic identity candidates, and publish measured class limits and a bundle decision. Does not depend on 0087 training. |
+| [0092 — Expanded reviewed virtual-card RF-DETR campaign](4-blocked/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 M4 current-schema detection-only handoff with completed reviewed references for at least 18 recordings; completed 0087 candidate bundle | M0–M4 not started. Freeze a source-group holdout, train one expanded real-only candidate, evaluate it once, then refit on all eligible reviewed recordings. Keep exact per-recording limits and the runtime default unchanged. |
 | [0089 — Virtual-card algorithm edge cases](4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) | 0086 reviewed evidence; 0087 and 0088 bundle decisions | M0–M3 not started. Reproduce fresh failures, freeze at most two small failure families, and verify bounded pose, occlusion, or crop fixes. |
 | [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) | 0087 and 0088 bundle decisions; 0089 and 0091 M7 handoffs; 0048 and 0049 complete | M0–M3 not started. Coordinate retained automatic stages with declared pile capabilities on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion. |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0086 reviewed evidence, 0087 and 0088 decisions, and 0090 composed report; 0048 and 0049 complete | M0–M3 not started. Use the later reports to select at most one new optional analyzer capability. Do not repeat the campaigns, bounded algorithm fixes, or composed pilot. |
