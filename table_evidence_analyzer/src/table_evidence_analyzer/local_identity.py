@@ -41,7 +41,7 @@ DINOV3_PROCESSOR_SCHEMA = "dinov3-identity-processor/v2"
 DINOV3_TARGET_MAP_SCHEMA = "dinov3-identity-target-map/v2"
 DINOV3_WEIGHTS_SCHEMA = "dinov3-pretrained-materialization/v1"
 DINOV3_TRANSFORM_VERSION = "dinov3-identity-letterbox-v2"
-DINOV3_AUGMENTATION_SCHEMA = "dinov3-identity-augmentation/v1"
+DINOV3_AUGMENTATION_SCHEMA = "dinov3-identity-augmentation/v2"
 DINOV3_RUN_SCHEMA = "dinov3-identity-training-run/v1"
 DINOV3_BUNDLE_SCHEMA = "dinov3-identity-bundle/v3"
 
@@ -90,10 +90,22 @@ def dinov3_processor_config(input_size: int) -> dict[str, Any]:
 DINOV3_AUGMENTATION_CONFIG: dict[str, Any] = {
     "schema_version": DINOV3_AUGMENTATION_SCHEMA,
     "train_only": True,
-    "color_and_exposure": {"brightness": 0.15, "contrast": 0.15, "saturation": 0.10},
-    "orientation": {"allowed": ["identity", "rotate_180"], "arbitrary_rotation": False},
+    "coordinate_space": "source_crop",
+    "operations": {
+        "rotation_degrees": [-15.0, 15.0],
+        "brightness_factor": [0.9, 1.1],
+        "contrast_factor": [0.9, 1.1],
+        "gaussian_blur_sigma_source_pixels": [0.0, 1.0],
+        "crop_fraction_per_edge": [0.0, 0.02],
+    },
+    "mask_policy": {
+        "transform_with_image": True,
+        "fill_outside_visible_support_rgb": [128, 128, 128],
+        "minimum_retained_support": 0.95,
+        "missing_mask": "full_source_crop",
+    },
+    "random_key": ["seed", "epoch", "sample_id", "operation"],
     "mirror": False,
-    "identity_mark_mirroring": False,
 }
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")

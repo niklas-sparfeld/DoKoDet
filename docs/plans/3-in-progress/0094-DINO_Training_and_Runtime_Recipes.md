@@ -21,7 +21,8 @@
   [the M1 verification report](../../reports/0094-M1_Preprocessing_and_Frozen_Bundles.md).
 - **M2:** Complete — add deterministic class/source-weighted epoch schedules, exposure receipts, and
   exact sample-cursor resume. See the [M2 verification report](../../reports/0094-M2_Epoch_Sampling_and_Resume.md).
-- **M3:** Not started — implement source-space, epoch-varying safe augmentation.
+- **M3:** Complete — implement deterministic source-space rotation, color, blur, and crop
+  augmentation with paired mask handling. See the [M3 verification report](../../reports/0094-M3_Source_Space_Augmentation.md).
 - **M4:** Not started — add the CLS-plus-mean-patch feature recipe.
 - **M5:** Not started — add targeted final-block training and checkpoint resume.
 - **M6:** Not started — export and load adapted encoder weights locally.
@@ -124,6 +125,12 @@ same deterministic input preparation for every recipe.
 Acceptance: epochs change the view; replay/resume repeats it exactly; masks/fill and card marks
 remain valid in focused examples; mirrors and undeclared transforms are rejected. Failure cases
 do not become FACE_DOWN examples merely because the face is unreadable.
+
+**Complete:** training now applies bounded source-space transforms before the shared letterbox
+transform. Per-operation randomness uses seed, epoch, sample ID, and operation. The augmentation
+helper transforms an optional visible mask with nearest-neighbor geometry and rejects empty,
+mismatched, or overly cropped support. Missing masks are declared as full-crop support. See the
+verification report for the current crop-cache mask limitation.
 
 ### M4 — Implement the alternate frozen feature recipe
 

@@ -20,8 +20,11 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any
+
+from PIL import Image, ImageEnhance, ImageFilter
 
 from .data import (
     CropCache,
@@ -338,9 +341,11 @@ def load_dinov3_checkpoint(path: str | Path) -> Mapping[str, Any]:
         value["optimizer_state"], Mapping
     ):
         raise ValueError("DINOv3 checkpoint state is invalid")
-    if not isinstance(value["sampling_receipts"], Sequence) or isinstance(
-        value["sampling_receipts"], (str, bytes)
-    ) or not all(isinstance(receipt, Mapping) for receipt in value["sampling_receipts"]):
+    if (
+        not isinstance(value["sampling_receipts"], Sequence)
+        or isinstance(value["sampling_receipts"], (str, bytes))
+        or not all(isinstance(receipt, Mapping) for receipt in value["sampling_receipts"])
+    ):
         raise ValueError("DINOv3 checkpoint sampling receipts are invalid")
     return value
 
@@ -532,25 +537,79 @@ def _validate_resume(checkpoint: Mapping[str, Any], expected: Mapping[str, Any])
         raise DinoV3TrainingError("DINOv3 resume checkpoint schedule cursor is invalid")
 
 
-def _apply_augmentation(tensor: Any, *, seed: int, epoch: int, sample_id: str) -> Any:
-    """Apply only the declared deterministic identity-preserving train transforms."""
+def _augmentation_rng(seed: int, epoch: int, sample_id: str, operation: str) -> random.Random:
+    key = f"dinov3-augmentation-v2:{seed}:{epoch}:{sample_id}:{operation}"
+    return random.Random(hashlib.sha256(key.encode()).hexdigest())
 
-    torch, _ = _torch_modules()
-    selector = int(hashlib.sha256(f"{seed}:{epoch}:{sample_id}".encode()).hexdigest()[:8], 16)
-    if selector & 1:
-        tensor = torch.flip(tensor, dims=(-1, -2))
 
-    means = tensor.new_tensor([0.485, 0.456, 0.406]).reshape(3, 1, 1)
-    standard_deviations = tensor.new_tensor([0.229, 0.224, 0.225]).reshape(3, 1, 1)
-    pixels = tensor * standard_deviations + means
-    brightness = 1.0 + (((selector >> 1) % 3) - 1) * 0.15
-    contrast = 1.0 + (((selector >> 3) % 3) - 1) * 0.15
-    saturation = 1.0 + (((selector >> 5) % 3) - 1) * 0.10
-    pixels = (pixels - 0.5) * contrast + 0.5
-    gray = pixels.mean(dim=0, keepdim=True)
-    pixels = gray + (pixels - gray) * saturation
-    pixels = (pixels * brightness).clamp(0.0, 1.0)
-    return (pixels - means) / standard_deviations
+def _apply_source_augmentation(
+    image_bytes: bytes,
+    *,
+    seed: int,
+    epoch: int,
+    sample_id: str,
+    visible_mask_bytes: bytes | None = None,
+) -> tuple[bytes, bytes]:
+    """Apply bounded train transforms to a source crop and its visible-support mask."""
+
+    try:
+        with Image.open(BytesIO(image_bytes)) as source:
+            image = source.convert("RGB")
+        if visible_mask_bytes is None:
+            mask = Image.new("L", image.size, 255)
+        else:
+            with Image.open(BytesIO(visible_mask_bytes)) as source_mask:
+                mask = source_mask.convert("L")
+        if image.size != mask.size:
+            raise DinoV3TrainingError("DINOv3 augmentation image and visible mask sizes differ")
+    except DinoV3TrainingError:
+        raise
+    except (OSError, ValueError) as error:
+        raise DinoV3TrainingError(
+            "DINOv3 augmentation input is not a valid image and mask"
+        ) from error
+
+    initial_support = sum(mask.histogram()[1:])
+    if initial_support <= 0:
+        raise DinoV3TrainingError("DINOv3 augmentation visible mask has no support")
+
+    rotation = _augmentation_rng(seed, epoch, sample_id, "rotation").uniform(-15.0, 15.0)
+    image = image.rotate(
+        rotation,
+        resample=Image.Resampling.BICUBIC,
+        expand=True,
+        fillcolor=(128, 128, 128),
+    )
+    mask = mask.rotate(rotation, resample=Image.Resampling.NEAREST, expand=True, fillcolor=0)
+
+    crop_rng = _augmentation_rng(seed, epoch, sample_id, "crop")
+    max_x = max(0, int(image.width * 0.02))
+    max_y = max(0, int(image.height * 0.02))
+    left = crop_rng.randint(0, max_x) if max_x else 0
+    right = crop_rng.randint(0, max_x) if max_x else 0
+    top = crop_rng.randint(0, max_y) if max_y else 0
+    bottom = crop_rng.randint(0, max_y) if max_y else 0
+    box = (left, top, image.width - right, image.height - bottom)
+    image = image.crop(box)
+    mask = mask.crop(box)
+    retained_support = sum(mask.histogram()[1:])
+    if retained_support / initial_support < 0.95:
+        raise DinoV3TrainingError(
+            "DINOv3 augmentation removed more than 5% of visible-mask support"
+        )
+
+    color_rng = _augmentation_rng(seed, epoch, sample_id, "color")
+    image = ImageEnhance.Brightness(image).enhance(color_rng.uniform(0.9, 1.1))
+    image = ImageEnhance.Contrast(image).enhance(color_rng.uniform(0.9, 1.1))
+    blur_sigma = _augmentation_rng(seed, epoch, sample_id, "blur").uniform(0.0, 1.0)
+    if blur_sigma > 0:
+        image = image.filter(ImageFilter.GaussianBlur(radius=blur_sigma))
+
+    image_buffer = BytesIO()
+    image.save(image_buffer, format="PPM")
+    mask_buffer = BytesIO()
+    mask.save(mask_buffer, format="PNG")
+    return image_buffer.getvalue(), mask_buffer.getvalue()
 
 
 def _batches(samples: Sequence[LoadedCrop], batch_size: int) -> list[tuple[LoadedCrop, ...]]:
@@ -628,11 +687,16 @@ def _batch_tensors(
     targets = []
 
     for sample in samples:
-        tensor = transform_identity_crop(sample.crop_bytes, input_size=input_size).to_torch()
+        source_bytes = sample.crop_bytes
         if train:
-            tensor = _apply_augmentation(
-                tensor, seed=seed, epoch=epoch, sample_id=sample.dataset_item_id
+            source_bytes, _ = _apply_source_augmentation(
+                source_bytes,
+                seed=seed,
+                epoch=epoch,
+                sample_id=sample.dataset_item_id,
+                visible_mask_bytes=sample.visible_mask_bytes,
             )
+        tensor = transform_identity_crop(source_bytes, input_size=input_size).to_torch()
         tensors.append(tensor)
         targets.append(identity_target_index(sample.target))
     return torch.stack(tensors), torch.tensor(targets, dtype=torch.long)
@@ -836,9 +900,7 @@ def _load_campaign_inputs(
     if sampling != {
         "policy": config.sampling_policy,
         "samples_per_epoch": (
-            "train_split_size"
-            if config.samples_per_epoch is None
-            else config.samples_per_epoch
+            "train_split_size" if config.samples_per_epoch is None else config.samples_per_epoch
         ),
     }:
         raise DinoV3TrainingError(
@@ -1011,9 +1073,7 @@ def train_dinov3_identity(
                 raise DinoV3TrainingError("DINOv3 resume epoch schedule does not match checkpoint")
             schedule_digest = sampling_receipt["schedule_digest"]
             receipts = record.setdefault("sampling", {}).setdefault("epoch_receipts", [])
-            prior = next(
-                (item for item in receipts if item.get("epoch") == epoch), None
-            )
+            prior = next((item for item in receipts if item.get("epoch") == epoch), None)
             if prior is not None and prior != sampling_receipt:
                 raise DinoV3TrainingError("DINOv3 saved sampling receipt does not match schedule")
             if prior is None:

@@ -887,6 +887,7 @@ class LoadedCrop:
     target: str
     partition: str
     source_frame_sha256: str
+    visible_mask_bytes: bytes | None = None
 
 
 class MaterializedCropDataset(Sequence[LoadedCrop]):
