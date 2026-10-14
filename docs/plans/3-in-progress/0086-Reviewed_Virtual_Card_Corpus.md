@@ -21,8 +21,8 @@
   detection-only handoff for 0087. Three references qualify; all other candidate gaps are recorded.
 - **M3:** Complete (2026-10-13) — audit terminal receipts for the frozen 22-recording proposal
   refresh. Twenty recordings published current proposals; two retain explicit calibration failures.
-- **M4:** In progress (2026-10-14) — all 1,102 draft frames have saved decisions. Fourteen
-  recordings qualify for the detection handoff; eight need explicit pile coverage or publication.
+- **M4:** Complete (2026-10-14) — 20 current-schema references qualify. `IMG_0092` is permanently
+  excluded; `IMG_0096` is deferred for calibration repair. The active scope has no review gaps.
 - **M5:** Not started — complete visual identity review and publish the separate 0088 handoff.
 
 ## 1. Current evidence and scope
@@ -244,7 +244,7 @@ Measure effort by pile regions and remaining cards, not by hidden component card
 Acceptance: every selected frame has a completed reference decision or exact exclusion; all
 published derived visible regions pass validation; no pending card is a training target. Publish an
 updated detection-only handoff as eligible reviewed references are added. The expanded RF-DETR
-campaign in [0092](../4-blocked/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) requires
+campaign in [0092](../2-ready/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) requires
 completed current-schema references and source groups for at least 18 recordings. Keep that campaign
 blocked until its M0 confirms the handoff meets this target. This milestone remains open until the
 recorded human work is complete.
@@ -290,6 +290,38 @@ No references or human decisions changed in this audit. Source video bytes were 
 Focused validation passed: 27 operations tests, Ruff, formatting, and deterministic audit rebuild.
 M4 remains open. The 14-recording handoff is below 0092's minimum of 18 recordings. M5 identity
 review remains separate.
+
+### M4 completion — 2026-10-14
+
+The operator confirmed that `IMG_0639`, `IMG_0640`, `IMG_0641`, `IMG_0643`, `IMG_0653`, and
+`IMG_0660` have no unannotated piles. The newly published `IMG_0641` and `IMG_0660` references
+pass the audit. Four other recordings still selected v1 revisions. They were republished through
+normal reference completion using this explicit operator confirmation. Their card geometry, card
+scenes, ignore regions, frame identities, and review states remain identical. The only content
+addition is explicit empty pile coverage. See the
+[publication receipts](../../reports/0086-M4_Publication_Receipts.json).
+
+The [recording dispositions](../../reports/0086-M4_Recording_Dispositions.json) supersede the
+original M0 selection for two recordings:
+
+- Permanently exclude `IMG_0092` from all future consideration. The staged round was recorded on a
+  non-flat surface. The shared source-selection guard rejects its recording ID, source asset ID,
+  and source digest, including renamed copies. Existing evidence is retained.
+- Defer `IMG_0096` from this handoff while the operator repairs calibration. It does not block M4
+  completion for the remaining scope. Repair and re-audit its reference before removing the deferral.
+
+The final [audit](../../reports/0086-M4_Geometry_Review_Audit.json) has 20 eligible recordings,
+1,001 reviewed frames, 874 retained frames, 2,352 visible-card targets, and 362 pile targets. Every
+active recording has a completed v2 reference. No active frame lacks a saved decision or explicit
+pile coverage. All published target geometry passes the detection-handoff checks. The full handoff
+is `.runtime/0086-m4/detection-handoff.json`; use the commands above to reproduce it. Its digest is
+`503408822bc123b2ebb0f8388f8aed7d9378479b196b9f2e1cd244dbae89c1e6`. The handoff also records
+0087's validation use of `IMG_0097` and opened sealed-test use of `IMG_0654`.
+
+Fifty focused operations tests, Ruff, Python formatting, local Markdown links, and deterministic
+report regeneration passed. Source video bytes were not rehashed. M4 is complete for the revised
+scope. The 0092 recording-count prerequisite is met; its M0 must independently freeze the eligible
+pool and a fresh unopened test. M5 identity review is not part of this completion.
 
 ### M5 — Complete identities and publish the 0088 handoff
 

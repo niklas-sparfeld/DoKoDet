@@ -5,14 +5,15 @@
 - **Summary:** Train and evaluate an RF-DETR segmentation candidate with reviewed references from at
   least 18 distinct recordings, then refit the final candidate using every eligible reviewed
   recording in the frozen campaign pool.
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** 0086 M4 current-schema detection-only handoff with completed reviewed geometry,
   visible-card masks, pile coverage, source groups, and permissions for at least 18 recordings;
   completed 0087 candidate bundle as the measured comparison baseline.
-- **Blocker:** The 2026-10-14 [0086 M4 audit](../../reports/0086-M4_Geometry_Review_Audit.json)
-  finds 14 eligible recordings after correcting default-field comparison. Six older references
-  need explicit pile coverage, and two drafts need coverage or publication. The pool remains below
-  the 18-recording reviewed-reference requirement. The original handoff used by 0087 had three.
+- **Readiness:** The completed [0086 M4 audit](../../reports/0086-M4_Geometry_Review_Audit.json)
+  has 20 eligible current-schema recordings, above the minimum of 18. `IMG_0092` is permanently
+  excluded because the surface was not flat. `IMG_0096` is temporarily deferred for calibration
+  repair. M0 must independently freeze source groups, prior use, and a fresh unopened test before
+  materialization or training.
 - **Outcome:** A source-group-separated evaluation of an expanded real-only candidate, followed by a
   digest-pinned final bundle trained on all eligible reviewed recordings. The runtime default remains
   unchanged.

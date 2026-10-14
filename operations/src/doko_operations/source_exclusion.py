@@ -43,6 +43,10 @@ LEGACY_DEVICE_RECORDING_ID_SET = frozenset(LEGACY_DEVICE_RECORDING_IDS)
 DEFAULT_SOURCE_EXCLUSION_PATH = Path(
     "data/operations/source-exclusions/legacy-device-diagnostic.json"
 )
+NONPLANAR_RECORDING_ID = "cardeventnet-IMG_0092"
+NONPLANAR_SOURCE_ASSET_ID = "source-cardeventnet-IMG_0092"
+NONPLANAR_SOURCE_SHA256 = "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac"
+NONPLANAR_EXCLUSION_REASON = "staged round was recorded on a non-flat surface"
 
 
 class SourceExclusionError(ValueError):
@@ -68,7 +72,17 @@ def ensure_source_allowed(
     recording_id: str | None = None,
     context: str = "dataset source",
 ) -> None:
-    """Reject a legacy-device source in every future dataset partition."""
+    """Reject permanently excluded sources in every future dataset partition."""
+
+    if (
+        recording_id == NONPLANAR_RECORDING_ID
+        or source_asset_id == NONPLANAR_SOURCE_ASSET_ID
+        or source_sha256 == NONPLANAR_SOURCE_SHA256
+    ):
+        raise SourceExclusionError(
+            f"{context} is permanently excluded: {NONPLANAR_RECORDING_ID}; "
+            f"{NONPLANAR_EXCLUSION_REASON}"
+        )
 
     reason = legacy_device_exclusion_reason(
         source_asset_id=source_asset_id, recording_id=recording_id

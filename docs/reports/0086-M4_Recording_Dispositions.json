@@ -1,0 +1,21 @@
+{
+  "authority": "direct user instruction in 0086 M4 review",
+  "decision_date": "2026-10-14",
+  "receipt_sha256": "6047ddedaf21d2889af0dc4558f31a0eb1692aa24f7937d5c48f542a8147e647",
+  "recordings": {
+    "cardeventnet-IMG_0092": {
+      "disposition": "permanently_excluded",
+      "reason": "Staged round was not recorded on a flat surface. The user explicitly excluded it from all future consideration.",
+      "scope": "all future consideration, datasets, training, evaluation, and promotion",
+      "source_asset_id": "source-cardeventnet-IMG_0092",
+      "source_sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac"
+    },
+    "cardeventnet-IMG_0096": {
+      "disposition": "deferred",
+      "reason": "Calibration failed. The user will fix it and requested that it be ignored for now.",
+      "resume_condition": "Calibration is repaired; re-audit and publish an eligible current-schema reference before removing this temporary deferral.",
+      "scope": "current 0086 M4 and its downstream handoffs"
+    }
+  },
+  "schema_version": "0086-recording-dispositions/v1"
+}

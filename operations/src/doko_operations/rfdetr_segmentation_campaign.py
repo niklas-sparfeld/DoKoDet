@@ -20,6 +20,7 @@ from typing import Any
 from table_evidence_analyzer.rfdetr_import import block_pyav_import
 
 from .holdout import load_system_holdout_registry, sealed_group_keys
+from .source_exclusion import SourceExclusionError, ensure_source_allowed
 
 RFDETR_SEGMENTATION_MANIFEST_SCHEMA_VERSION = "rfdetr-segmentation-campaign-manifest/v1"
 RFDETR_PILE_SEGMENTATION_MANIFEST_SCHEMA_VERSION = "rfdetr-pile-segmentation-manifest/v1"
@@ -322,6 +323,15 @@ def _bundle_audit(
         manifest = _read_json(manifest_path, f"recording bundle manifest for {recording_id}")
         source_record = _read_json(source_record_path, f"source record for {recording_id}")
     except RfdetrSegmentationCampaignError as error:
+        return None, [str(error)]
+    try:
+        ensure_source_allowed(
+            recording_id=recording_id,
+            source_asset_id=manifest.get("source_asset_id"),
+            source_sha256=manifest.get("source_sha256"),
+            context="recording bundle",
+        )
+    except SourceExclusionError as error:
         return None, [str(error)]
     if manifest.get("schema_version") != "repository-bundle/v1":
         gaps.append(f"{recording_id}: recording bundle schema is not repository-bundle/v1")

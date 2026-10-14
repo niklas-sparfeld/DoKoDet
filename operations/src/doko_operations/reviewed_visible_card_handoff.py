@@ -16,6 +16,7 @@ from .rfdetr_segmentation_campaign import (
 
 HANDOFF_SCHEMA_VERSION = "reviewed-visible-card-detection-handoff/v1"
 DEFAULT_INVENTORY = Path("docs/reports/0086-M0_Reviewed_Virtual_Card_Corpus_Inventory.json")
+DEFAULT_DISPOSITIONS = Path("docs/reports/0086-M4_Recording_Dispositions.json")
 
 
 def build_reviewed_visible_card_handoff(
@@ -47,10 +48,36 @@ def build_reviewed_visible_card_handoff(
     if len(records_by_id) != len(recordings) or set(candidate_ids) - set(records_by_id):
         raise ValueError("0086 M0 candidate recordings do not match its inventory")
 
+    disposition_path = repository / DEFAULT_DISPOSITIONS
+    dispositions = (
+        _read_json(disposition_path, "0086 M4 dispositions") if disposition_path.exists() else None
+    )
+    if dispositions is not None:
+        core = {key: value for key, value in dispositions.items() if key != "receipt_sha256"}
+        if dispositions.get(
+            "schema_version"
+        ) != "0086-recording-dispositions/v1" or dispositions.get("receipt_sha256") != sha256_json(
+            core
+        ):
+            raise ValueError("0086 M4 dispositions schema or digest is invalid")
+    decisions = {} if dispositions is None else dispositions["recordings"]
+
     operations = repository / "data" / "operations"
     eligible: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
     for recording_id in candidate_ids:
+        if recording_id in decisions:
+            decision = decisions[recording_id]
+            if decision["disposition"] not in {"permanently_excluded", "deferred"}:
+                raise ValueError("0086 M4 disposition is invalid")
+            excluded.append(
+                {
+                    "recording_id": recording_id,
+                    "disposition": decision["disposition"],
+                    "reasons": [decision["reason"]],
+                }
+            )
+            continue
         inventory_record = records_by_id[recording_id]
         source_group_id = inventory_record.get("source_group_id")
         if not isinstance(source_group_id, str) or not source_group_id:
@@ -216,6 +243,7 @@ def build_reviewed_visible_card_handoff(
         "schema_version": HANDOFF_SCHEMA_VERSION,
         "status": "ready" if eligible else "blocked",
         "purpose": "detection_only",
+        "recording_dispositions": dispositions,
         "identity_labels_included": False,
         "source_inventory": {
             "path": _relative(inventory_file, repository),
@@ -245,6 +273,16 @@ def build_reviewed_visible_card_handoff(
                         "cardeventnet-IMG_0648",
                         "cardeventnet-IMG_0649",
                     ],
+                },
+                {
+                    "campaign": "0087",
+                    "purpose": "validation",
+                    "recording_ids": ["cardeventnet-IMG_0097"],
+                },
+                {
+                    "campaign": "0087",
+                    "purpose": "sealed_test_evaluation",
+                    "recording_ids": ["cardeventnet-IMG_0654"],
                 },
             ],
             "partition_policy": "handoff does not assign train, validation, or test partitions",

@@ -71,6 +71,7 @@ def main() -> int:
                 "unfinished_item_ids": unfinished,
                 "accepted_items_without_explicit_pile_coverage": missing_piles,
                 "detection_handoff_eligible": recording_id in eligible_ids,
+                "disposition": excluded.get(recording_id, {}).get("disposition", "active"),
                 "handoff_exclusion_reasons": excluded.get(recording_id, {}).get("reasons", []),
             }
         )
@@ -93,6 +94,12 @@ def main() -> int:
             "accepted_items_without_explicit_pile_coverage": sum(
                 len(row["accepted_items_without_explicit_pile_coverage"]) for row in rows
             ),
+            "active_accepted_items_without_explicit_pile_coverage": sum(
+                len(row["accepted_items_without_explicit_pile_coverage"])
+                for row in rows
+                if row["disposition"] == "active"
+            ),
+            "active_recording_count": sum(row["disposition"] == "active" for row in rows),
         },
         "recordings": rows,
     }

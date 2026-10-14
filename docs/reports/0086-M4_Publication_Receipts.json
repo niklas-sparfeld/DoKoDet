@@ -1,0 +1,38 @@
+[
+  {
+    "recording_id": "cardeventnet-IMG_0639",
+    "previous_revision_id": "reference-visible_cards-487b442463982e9dd028935151dcda0b",
+    "published_revision_id": "reference-visible_cards-4a83e73d098ee5c30aec26eb8fa6977c",
+    "frame_count": 50,
+    "operator_confirmation": "No piles/all piles annotated. Result is published.",
+    "operator_id": "Niklas",
+    "card_geometry_preserved": true
+  },
+  {
+    "recording_id": "cardeventnet-IMG_0640",
+    "previous_revision_id": "reference-visible_cards-8c44eafd5e72c19f242023e1e878a307",
+    "published_revision_id": "reference-visible_cards-15efd47f2e3a422e85047f11f646365f",
+    "frame_count": 50,
+    "operator_confirmation": "No piles/all piles annotated. Result is published.",
+    "operator_id": "Niklas",
+    "card_geometry_preserved": true
+  },
+  {
+    "recording_id": "cardeventnet-IMG_0643",
+    "previous_revision_id": "reference-visible_cards-75404dc35db14ada5e5e9a915101ec5b",
+    "published_revision_id": "reference-visible_cards-0f1b4beac01d8888506578e0c0457fa4",
+    "frame_count": 52,
+    "operator_confirmation": "No piles/all piles annotated. Result is published.",
+    "operator_id": "Niklas",
+    "card_geometry_preserved": true
+  },
+  {
+    "recording_id": "cardeventnet-IMG_0653",
+    "previous_revision_id": "reference-visible_cards-4a281c17ccdb4f41dcb6751ba6407717",
+    "published_revision_id": "reference-visible_cards-b5049e9183c8e25e298156c8b4855ca4",
+    "frame_count": 50,
+    "operator_confirmation": "No piles/all piles annotated. Result is published.",
+    "operator_id": "Niklas",
+    "card_geometry_preserved": true
+  }
+]
