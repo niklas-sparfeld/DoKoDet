@@ -81,7 +81,8 @@ class _FakeEncoder(torch.nn.Module):
 
 
 def _factory(_identity):
-    return _FakeEncoder(_identity.input_size)
+    identity = getattr(_identity, "identity", _identity)
+    return _FakeEncoder(identity.input_size)
 
 
 def _train_run(tmp_path: Path, *, input_size: int = 224):
