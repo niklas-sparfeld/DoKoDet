@@ -41,5 +41,7 @@ manifest, repaired M2 run receipt, M3 validation report, and bundle manifest. It
 evaluation of the pinned pretrained baseline and the 0092 candidate. It selects the candidate only
 if every sealed recording has nonzero visible-card recall. `gemini` remains the runtime default.
 
-At this report revision, the sealed evaluation has not run. Do not rerun it after a completed report
-exists.
+The single sealed evaluation started in the background after this lock was verified. Its output
+directory is `.runtime/rfdetr-segmentation-0092-m3-sealed-test`; its log is
+`.runtime/rfdetr-segmentation-0092-m3-sealed-test.log`. Leave the run undisturbed. Do not rerun it
+after a completed report exists.

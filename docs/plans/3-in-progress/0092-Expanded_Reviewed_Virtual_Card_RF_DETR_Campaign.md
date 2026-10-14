@@ -28,8 +28,8 @@
   reused the saved checkpoint after the missing 0092 receipt was added and the bundle validated.
   See the [M2 report](../../reports/0092-M2_Expanded_Reviewed_RF_DETR_Training.md).
 - **M3:** In Progress (2026-10-14) — the saved candidate passed all frozen 0092 validation gates
-  against the 0087 bundle. The digest-pinned pretest decision is locked. The one permitted sealed
-  evaluation is the next action; M3 remains open until its report is reviewed.
+  against the 0087 bundle. The digest-pinned pretest decision is locked, and the one permitted
+  sealed evaluation is running in the background. M3 remains open until its report is reviewed.
 - **M4:** Not started — refit the selected recipe on all eligible reviewed recordings and publish
   the exact final bundle.
 
@@ -148,7 +148,7 @@ detections, duplicate detections, and empty-prediction rate. The MPS validation 
 seconds. All gates pass. The [M3 report](../../reports/0092-M3_Validation_and_Pretest_Lock.md)
 records aggregate and per-recording metrics. The digest-pinned
 [pretest lock](../../reports/0092-M3_Pretest_Decision.json) records M0 support and authorization
-checks. The sealed evaluation is permitted once and remains pending.
+checks. The single sealed evaluation started after the lock was verified. Its report is pending.
 
 The saved-checkpoint finalizer also repaired the persisted M2 run receipt. The run now records all
 stages as complete and `training_invoked: false`; no weight changed. The sealed evaluator accepts the
