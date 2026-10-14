@@ -119,6 +119,39 @@ def _pooler_output(outputs: Any) -> Any:
     return features
 
 
+def _feature_output(outputs: Any, encoder: Any, feature_layout: str, input_size: int) -> Any:
+    if feature_layout == "cls":
+        return _pooler_output(outputs)
+    if feature_layout != "cls_mean_patch":
+        raise DinoV3InferenceError(f"unsupported DINOv3 feature layout: {feature_layout}")
+    tokens = getattr(outputs, "last_hidden_state", None)
+    if tokens is None and isinstance(outputs, Mapping):
+        tokens = outputs.get("last_hidden_state")
+    if getattr(tokens, "ndim", None) != 3:
+        raise DinoV3InferenceError(
+            "DINOv3 token output must have shape [batch, tokens, hidden_size]"
+        )
+    config = getattr(encoder, "config", None)
+    register_count = getattr(config, "num_register_tokens", None)
+    patch_size = getattr(config, "patch_size", None)
+    if any(
+        isinstance(value, bool) or not isinstance(value, int)
+        for value in (register_count, patch_size)
+    ):
+        raise DinoV3InferenceError("DINOv3 config must declare patch size and register tokens")
+    if register_count < 0 or patch_size <= 0 or input_size <= 0 or input_size % patch_size:
+        raise DinoV3InferenceError("DINOv3 config declares an invalid patch grid")
+    patch_count = (input_size // patch_size) ** 2
+    if tokens.shape[1] != 1 + register_count + patch_count:
+        raise DinoV3InferenceError("DINOv3 token count does not match its patch grid")
+    patches = tokens[:, 1 + register_count :, :]
+    if patches.shape[1] != patch_count or patches.shape[2] != getattr(config, "hidden_size", None):
+        raise DinoV3InferenceError("DINOv3 spatial patch tokens have an invalid shape")
+    import torch
+
+    return torch.cat((tokens[:, 0, :], patches.mean(dim=1)), dim=1)
+
+
 def _elapsed_ms(started: float) -> float:
     return round(max(0.0, time.monotonic() - started) * 1000.0, 3)
 
@@ -160,7 +193,10 @@ class DinoV3IdentityClassifier:
             if not isinstance(encoder, torch.nn.Module):
                 raise DinoV3InferenceError("DINOv3 encoder loader did not return a PyTorch module")
             hidden_size = getattr(getattr(encoder, "config", None), "hidden_size", None)
-            if hidden_size != self.bundle.manifest["head"]["hidden_size"]:
+            feature_factor = (
+                2 if self.bundle.identity.recipe["feature_layout"] == "cls_mean_patch" else 1
+            )
+            if hidden_size * feature_factor != self.bundle.manifest["head"]["hidden_size"]:
                 raise DinoV3InferenceError(
                     "DINOv3 encoder hidden size does not match the bundle head"
                 )
@@ -197,7 +233,14 @@ class DinoV3IdentityClassifier:
         try:
             tensor = transformed.to_torch().unsqueeze(0).to(self.device)
             with self._torch.no_grad():
-                logits = self._head(_pooler_output(self._encoder(pixel_values=tensor)))
+                logits = self._head(
+                    _feature_output(
+                        self._encoder(pixel_values=tensor),
+                        self._encoder,
+                        self.bundle.identity.recipe["feature_layout"],
+                        self.bundle.identity.input_size,
+                    )
+                )
             if getattr(logits, "shape", None) != (1, 25):
                 raise DinoV3InferenceError("DINOv3 visual head output must have shape [1, 25]")
             if not bool(self._torch.isfinite(logits).all().item()):

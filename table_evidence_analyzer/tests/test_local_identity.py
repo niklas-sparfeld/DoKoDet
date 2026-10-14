@@ -219,6 +219,21 @@ def test_config_round_trips_resolution_and_rejects_transform_digest_mismatch(
         DinoV3IdentityConfig.from_mapping(changed, root=root)
 
 
+def test_config_round_trips_cls_mean_patch_feature_recipe(tmp_path: Path) -> None:
+    root, *_ = _write_materialized_weights(tmp_path / "weights")
+    weights = materialize_dinov3_weights(
+        root, model_revision="revision-abc123", license_record=_license()
+    )
+    config = build_dinov3_identity_config(
+        weights, license_record=_license(), feature_layout="cls_mean_patch"
+    )
+
+    restored = DinoV3IdentityConfig.from_mapping(config.to_mapping(), root=root)
+
+    assert restored.recipe["feature_layout"] == "cls_mean_patch"
+    assert restored.identity_digest == config.identity_digest
+
+
 def test_materialized_weights_mapping_round_trips_without_a_local_path(tmp_path: Path) -> None:
     root, *_ = _write_materialized_weights(tmp_path / "weights")
     weights = materialize_dinov3_weights(

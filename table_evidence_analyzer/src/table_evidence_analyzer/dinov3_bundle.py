@@ -158,6 +158,11 @@ def _head_from_checkpoint(
             "DINOv3 checkpoint uses the obsolete 24-class head; the FACE_DOWN "
             "target contract has 25 classes"
         )
+    expected_size = _config_hidden_size(identity.weights.root / identity.weights.config_file)
+    if identity.recipe["feature_layout"] == "cls_mean_patch":
+        expected_size *= 2
+    if hidden_size != expected_size:
+        raise DinoV3BundleError("DINOv3 checkpoint head does not match its feature layout")
     return (
         {
             "schema_version": DINOV3_HEAD_SCHEMA,
@@ -410,9 +415,10 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
     }
     if set(files) != expected_files:
         raise DinoV3BundleError("DINOv3 bundle file list does not match its manifest")
-    if head["hidden_size"] != _config_hidden_size(root / model["config_file"]):
+    feature_factor = 2 if identity.recipe["feature_layout"] == "cls_mean_patch" else 1
+    if head["hidden_size"] != feature_factor * _config_hidden_size(root / model["config_file"]):
         raise DinoV3BundleError(
-            "DINOv3 identity head hidden size does not match the encoder config"
+            "DINOv3 identity head input size does not match the encoder feature layout"
         )
     return DinoV3IdentityBundle(root=root, manifest=dict(manifest), identity=identity)
 

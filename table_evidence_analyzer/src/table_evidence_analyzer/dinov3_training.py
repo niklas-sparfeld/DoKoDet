@@ -112,10 +112,45 @@ def _pooler_output(outputs: Any) -> Any:
     return features
 
 
+def _feature_output(outputs: Any, encoder: Any, feature_layout: str, input_size: int) -> Any:
+    if feature_layout == "cls":
+        return _pooler_output(outputs)
+    if feature_layout != "cls_mean_patch":
+        raise DinoV3TrainingError(f"unsupported DINOv3 feature layout: {feature_layout}")
+    tokens = getattr(outputs, "last_hidden_state", None)
+    if tokens is None and isinstance(outputs, Mapping):
+        tokens = outputs.get("last_hidden_state")
+    if getattr(tokens, "ndim", None) != 3:
+        raise DinoV3TrainingError(
+            "DINOv3 token output must have shape [batch, tokens, hidden_size]"
+        )
+    config = getattr(encoder, "config", None)
+    register_count = getattr(config, "num_register_tokens", None)
+    patch_size = getattr(config, "patch_size", None)
+    if (
+        isinstance(register_count, bool)
+        or not isinstance(register_count, int)
+        or register_count < 0
+    ):
+        raise DinoV3TrainingError("DINOv3 config must declare num_register_tokens")
+    if isinstance(patch_size, bool) or not isinstance(patch_size, int) or patch_size <= 0:
+        raise DinoV3TrainingError("DINOv3 config must declare patch_size")
+    if input_size % patch_size:
+        raise DinoV3TrainingError("DINOv3 input size must be divisible by patch_size")
+    expected_patches = (input_size // patch_size) ** 2
+    if tokens.shape[1] != 1 + register_count + expected_patches:
+        raise DinoV3TrainingError("DINOv3 token count does not match its patch grid")
+    patches = tokens[:, 1 + register_count :, :]
+    if patches.shape[1] <= 0 or patches.shape[2] != getattr(config, "hidden_size", None):
+        raise DinoV3TrainingError("DINOv3 spatial patch tokens have an invalid shape")
+    torch, _ = _torch_modules()
+    return torch.cat((tokens[:, 0, :], patches.mean(dim=1)), dim=1)
+
+
 class DinoV3FrozenLinearTask:
     """A frozen DINOv3 encoder with one trainable linear 25-class visual head."""
 
-    def __init__(self, encoder: Any, *, class_count: int = 25) -> None:
+    def __init__(self, encoder: Any, *, class_count: int = 25, feature_layout: str = "cls") -> None:
         torch, nn = _torch_modules()
         if class_count != 25:
             raise DinoV3TrainingError("the DINOv3 visual head must have 25 classes")
@@ -124,13 +159,17 @@ class DinoV3FrozenLinearTask:
             raise DinoV3TrainingError("DINOv3 encoder config must declare hidden_size")
         if not isinstance(encoder, nn.Module):
             raise DinoV3TrainingError("DINOv3 encoder must be a PyTorch module")
+        if feature_layout not in {"cls", "cls_mean_patch"}:
+            raise DinoV3TrainingError(f"unsupported DINOv3 feature layout: {feature_layout}")
         self.encoder = encoder
         self.encoder.eval()
         for parameter in self.encoder.parameters():
             parameter.requires_grad_(False)
-        self.head = nn.Linear(hidden_size, class_count)
+        self.feature_layout = feature_layout
+        feature_size = hidden_size * (2 if feature_layout == "cls_mean_patch" else 1)
+        self.head = nn.Linear(feature_size, class_count)
         self.class_count = class_count
-        self.hidden_size = hidden_size
+        self.hidden_size = feature_size
         self._torch = torch
 
     def train(self, mode: bool = True) -> "DinoV3FrozenLinearTask":
@@ -150,11 +189,11 @@ class DinoV3FrozenLinearTask:
         self.encoder.eval()
         with self._torch.no_grad():
             outputs = self.encoder(pixel_values=pixel_values)
-            features = _pooler_output(outputs)
-        if features.shape[1] != self.hidden_size:
-            raise DinoV3TrainingError(
-                "DINOv3 pooler_output hidden size does not match the identity head"
+            features = _feature_output(
+                outputs, self.encoder, self.feature_layout, int(pixel_values.shape[-1])
             )
+        if features.shape[1] != self.hidden_size:
+            raise DinoV3TrainingError("DINOv3 feature size does not match the identity head")
         return self.head(features)
 
     def compute_loss(self, pixel_values: Any, targets: Any) -> Any:
@@ -499,6 +538,7 @@ def _semantic_config(
     return {
         "task_adapter": DINOV3_TASK_ADAPTER,
         "identity_digest": identity.identity_digest,
+        "feature_layout": identity.recipe["feature_layout"],
         "dataset_version_digest": inputs["dataset_version_digest"],
         "split_version_digest": inputs["split_version_digest"],
         "crop_cache_digest": inputs["crop_cache_digest"],
@@ -989,6 +1029,7 @@ def train_dinov3_identity(
                 "inputs": inputs,
                 "model": {
                     "adapter": DINOV3_TASK_ADAPTER,
+                    "feature_layout": identity.recipe["feature_layout"],
                     "encoder": identity.to_mapping()["model"],
                     "head": {"type": "linear", "class_count": 25},
                 },
@@ -1018,13 +1059,17 @@ def train_dinov3_identity(
             if encoder_factory is not None
             else load_dinov3_encoder(identity)
         )
-        task = DinoV3FrozenLinearTask(encoder).to(device)
+        task = DinoV3FrozenLinearTask(encoder, feature_layout=identity.recipe["feature_layout"]).to(
+            device
+        )
+        record["model"]["head"]["input_size"] = task.hidden_size
         optimizer = torch.optim.AdamW(
             task.trainable_parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
         )
         record["training"] = {
             "semantic_config": semantic_config,
             "hidden_size": task.hidden_size,
+            "feature_layout": task.feature_layout,
             "encoder_loader": (
                 "injected_factory" if encoder_factory is not None else "transformers_local_files"
             ),

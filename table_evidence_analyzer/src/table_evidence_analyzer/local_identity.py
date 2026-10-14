@@ -464,6 +464,7 @@ class DinoV3IdentityConfig:
     dependency_versions: Mapping[str, str]
     target_map: Mapping[str, str]
     input_size: int = DINOV3_IMAGE_SIZE
+    feature_layout: str = "cls"
 
     def __post_init__(self) -> None:
         if not self.license_record.accepted:
@@ -475,6 +476,8 @@ class DinoV3IdentityConfig:
             raise LocalIdentityContractError("DINOv3 augmentation configuration is not frozen")
         if self.dependency_versions != DINOV3_DEPENDENCY_VERSIONS:
             raise LocalIdentityContractError("DINOv3 dependency versions are not pinned")
+        if self.feature_layout not in {"cls", "cls_mean_patch"}:
+            raise LocalIdentityContractError("DINOv3 feature layout is not supported")
         validate_identity_target_map(self.target_map)
         verify_materialized_dinov3_weights(self.weights)
 
@@ -483,7 +486,7 @@ class DinoV3IdentityConfig:
         return {
             "schema_version": DINOV3_RECIPE_SCHEMA,
             "input_size": self.input_size,
-            "feature_layout": "cls",
+            "feature_layout": self.feature_layout,
             "encoder_training": "frozen",
         }
 
@@ -552,10 +555,10 @@ class DinoV3IdentityConfig:
             raise LocalIdentityContractError("DINOv3 recipe declaration is incomplete")
         if (
             recipe["schema_version"] != DINOV3_RECIPE_SCHEMA
-            or recipe["feature_layout"] != "cls"
+            or recipe["feature_layout"] not in {"cls", "cls_mean_patch"}
             or recipe["encoder_training"] != "frozen"
         ):
-            raise LocalIdentityContractError("DINOv3 frozen CLS recipe is invalid")
+            raise LocalIdentityContractError("DINOv3 frozen feature recipe is invalid")
         input_size = recipe["input_size"]
         expected_processor = dinov3_processor_config(input_size)
         if value["processor"] != expected_processor:
@@ -652,6 +655,7 @@ class DinoV3IdentityConfig:
             dependency_versions=DINOV3_DEPENDENCY_VERSIONS,
             target_map=target_map,
             input_size=input_size,
+            feature_layout=recipe["feature_layout"],
         )
         if config.to_mapping() != dict(value):
             raise LocalIdentityContractError("DINOv3 identity config is not canonical")
@@ -699,6 +703,7 @@ def build_dinov3_identity_config(
     *,
     license_record: DinoV3LicenseRecord | Mapping[str, Any],
     input_size: int = DINOV3_IMAGE_SIZE,
+    feature_layout: str = "cls",
 ) -> DinoV3IdentityConfig:
     """Build the complete M0 configuration after local weights pass validation."""
 
@@ -715,6 +720,7 @@ def build_dinov3_identity_config(
         dependency_versions=DINOV3_DEPENDENCY_VERSIONS,
         target_map=canonical_identity_target_map(),
         input_size=input_size,
+        feature_layout=feature_layout,
         processor_config=dinov3_processor_config(input_size),
     )
 

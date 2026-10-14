@@ -39,7 +39,7 @@ from table_evidence_analyzer.local_identity import (
 torch = pytest.importorskip("torch")
 
 
-def _identity_config(root: Path, *, input_size: int = 224):
+def _identity_config(root: Path, *, input_size: int = 224, feature_layout: str = "cls"):
     weights_root = root / "weights"
     weights_root.mkdir()
     (weights_root / "config.json").write_text(
@@ -63,21 +63,31 @@ def _identity_config(root: Path, *, input_size: int = 224):
         license_record=license_record,
     )
     return build_dinov3_identity_config(
-        weights, license_record=license_record, input_size=input_size
+        weights,
+        license_record=license_record,
+        input_size=input_size,
+        feature_layout=feature_layout,
     )
 
 
 class _FakeEncoder(torch.nn.Module):
     def __init__(self, input_size: int | None = None) -> None:
         super().__init__()
-        self.config = SimpleNamespace(hidden_size=4)
+        self.config = SimpleNamespace(hidden_size=4, patch_size=16, num_register_tokens=2)
         self.input_size = input_size
 
     def forward(self, *, pixel_values):
         if self.input_size is not None:
             assert tuple(pixel_values.shape[-2:]) == (self.input_size, self.input_size)
         pooled = pixel_values.mean(dim=(2, 3))
-        return SimpleNamespace(pooler_output=torch.cat((pooled, pooled[:, :1]), dim=1))
+        cls = torch.cat((pooled, pooled[:, :1]), dim=1)
+        patch_count = (pixel_values.shape[-1] // self.config.patch_size) ** 2
+        patches = cls.unsqueeze(1).expand(-1, patch_count, -1)
+        registers = torch.full(
+            (len(pooled), self.config.num_register_tokens, 4), 99.0, device=pooled.device
+        )
+        tokens = torch.cat((cls.unsqueeze(1), registers, patches), dim=1)
+        return SimpleNamespace(pooler_output=cls, last_hidden_state=tokens)
 
 
 def _factory(_identity):
@@ -85,9 +95,9 @@ def _factory(_identity):
     return _FakeEncoder(identity.input_size)
 
 
-def _train_run(tmp_path: Path, *, input_size: int = 224):
+def _train_run(tmp_path: Path, *, input_size: int = 224, feature_layout: str = "cls"):
     fixture = build_smoke_fixture(tmp_path / "fixture")
-    identity = _identity_config(tmp_path, input_size=input_size)
+    identity = _identity_config(tmp_path, input_size=input_size, feature_layout=feature_layout)
     run = tmp_path / "run"
     train_dinov3_identity(
         DinoV3TrainConfig(
@@ -183,6 +193,60 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     assert face_down.status == "ok"
     assert face_down.classification == "face_down"
     assert face_down.candidates == ()
+
+
+@pytest.mark.parametrize("input_size", [224, 384, 448])
+def test_cls_mean_patch_training_export_reload_and_runtime_agree(
+    tmp_path: Path, input_size: int
+) -> None:
+    fixture, identity, run = _train_run(
+        tmp_path, input_size=input_size, feature_layout="cls_mean_patch"
+    )
+    checkpoint = torch.load(run / "checkpoint-best.pt", map_location="cpu", weights_only=False)
+    assert checkpoint["config"]["feature_layout"] == "cls_mean_patch"
+    assert checkpoint["model_state"]["head.weight"].shape == (25, 8)
+
+    bundle_path = export_dinov3_identity_bundle(run, tmp_path / "bundle", identity_config=identity)
+    bundle = load_dinov3_identity_bundle(bundle_path)
+    assert bundle.manifest["head"]["hidden_size"] == 8
+    assert bundle.manifest["head"]["feature_layout"] == "cls_mean_patch"
+    classifier = DinoV3IdentityClassifier(
+        bundle_path, device="cpu", encoder_loader=lambda _bundle: _FakeEncoder(input_size)
+    )
+    checkpoint_weight = checkpoint["model_state"]["head.weight"]
+    checkpoint_bias = checkpoint["model_state"]["head.bias"]
+    assert torch.equal(classifier._head.weight.detach().cpu(), checkpoint_weight)
+    assert torch.equal(classifier._head.bias.detach().cpu(), checkpoint_bias)
+    from table_evidence_analyzer.dinov3_inference import _feature_output
+    from table_evidence_analyzer.local_identity import transform_identity_crop
+
+    encoder = _FakeEncoder(input_size)
+    transformed = (
+        transform_identity_crop(fixture.frame_paths[0].read_bytes(), input_size=input_size)
+        .to_torch()
+        .unsqueeze(0)
+    )
+    with torch.no_grad():
+        features = _feature_output(
+            encoder(pixel_values=transformed), encoder, "cls_mean_patch", input_size
+        )
+        expected_logits = torch.nn.functional.linear(features, checkpoint_weight, checkpoint_bias)
+        reloaded_logits = classifier._head(features)
+    assert torch.equal(reloaded_logits, expected_logits)
+    result = classifier.classify_ppm(fixture.frame_paths[0].read_bytes())
+    assert result.status == "ok"
+    assert len(result.raw_response["probabilities"]) == 25
+
+
+def test_export_rejects_head_width_incompatible_with_feature_layout(tmp_path: Path) -> None:
+    _fixture, identity, run = _train_run(tmp_path, feature_layout="cls_mean_patch")
+    checkpoint_path = run / "checkpoint-best.pt"
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    checkpoint["model_state"]["head.weight"] = checkpoint["model_state"]["head.weight"][:, :4]
+    torch.save(checkpoint, checkpoint_path)
+
+    with pytest.raises(DinoV3BundleError, match="feature layout"):
+        export_dinov3_identity_bundle(run, tmp_path / "bundle", identity_config=identity)
 
 
 def test_corrupt_weight_is_rejected_before_encoder_construction(tmp_path: Path) -> None:

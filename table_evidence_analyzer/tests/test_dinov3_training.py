@@ -35,7 +35,7 @@ from table_evidence_analyzer.local_identity import (
 torch = pytest.importorskip("torch")
 
 
-def _identity_config(root: Path):
+def _identity_config(root: Path, *, feature_layout: str = "cls"):
     weights_root = root / "weights"
     weights_root.mkdir()
     (weights_root / "config.json").write_text(
@@ -68,17 +68,26 @@ def _identity_config(root: Path):
             "accepted": True,
             "accepted_at_utc": "2026-09-01T12:00:00Z",
         },
+        feature_layout=feature_layout,
     )
 
 
 class _FakeEncoder(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.config = SimpleNamespace(hidden_size=4)
+        self.scale = torch.nn.Parameter(torch.ones(()))
+        self.config = SimpleNamespace(hidden_size=4, patch_size=16, num_register_tokens=2)
 
     def forward(self, *, pixel_values):
-        pooled = pixel_values.mean(dim=(2, 3))
-        return SimpleNamespace(pooler_output=torch.cat((pooled, pooled[:, :1]), dim=1))
+        pooled = pixel_values.mean(dim=(2, 3)) * self.scale
+        cls = torch.cat((pooled, pooled[:, :1]), dim=1)
+        patch_count = (pixel_values.shape[-1] // self.config.patch_size) ** 2
+        patches = cls.unsqueeze(1).expand(-1, patch_count, -1)
+        registers = torch.full(
+            (len(pooled), self.config.num_register_tokens, 4), 99.0, device=pooled.device
+        )
+        tokens = torch.cat((cls.unsqueeze(1), registers, patches), dim=1)
+        return SimpleNamespace(pooler_output=cls, last_hidden_state=tokens)
 
 
 def _factory(_identity):
@@ -185,6 +194,29 @@ def test_task_freezes_encoder_and_exposes_only_linear_head() -> None:
     assert all(not parameter.requires_grad for parameter in encoder.parameters())
     assert task.head.weight.shape == (25, 4)
     assert sum(parameter.numel() for parameter in task.trainable_parameters()) == 25 * 4 + 25
+
+
+def test_cls_mean_patch_excludes_cls_and_register_tokens() -> None:
+    encoder = _FakeEncoder()
+    task = DinoV3FrozenLinearTask(encoder, feature_layout="cls_mean_patch")
+    pixels = torch.zeros((1, 3, 224, 224))
+    with torch.no_grad():
+        outputs = encoder(pixel_values=pixels)
+        from table_evidence_analyzer.dinov3_training import _feature_output
+
+        actual = _feature_output(outputs, encoder, "cls_mean_patch", 224)
+
+    expected_cls = outputs.pooler_output
+    expected_mean = outputs.last_hidden_state[:, 3:, :].mean(dim=1)
+    assert task.head.in_features == 8
+    assert torch.equal(actual, torch.cat((expected_cls, expected_mean), dim=1))
+    assert torch.equal(actual[:, 4:], torch.zeros((1, 4)))
+    assert all(not parameter.requires_grad for parameter in encoder.parameters())
+    encoder_before = encoder.scale.detach().clone()
+    task.compute_loss(pixels, torch.tensor([0])).backward()
+    assert torch.equal(encoder.scale.detach(), encoder_before)
+    assert encoder.scale.grad is None
+    assert task.head.weight.grad is not None
 
 
 def test_generated_cpu_training_overfits_and_writes_loadable_checkpoint(tmp_path: Path) -> None:

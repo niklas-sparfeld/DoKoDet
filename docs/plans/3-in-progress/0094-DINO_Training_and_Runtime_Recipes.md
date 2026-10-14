@@ -23,7 +23,8 @@
   exact sample-cursor resume. See the [M2 verification report](../../reports/0094-M2_Epoch_Sampling_and_Resume.md).
 - **M3:** Complete — implement deterministic source-space rotation, color, blur, and crop
   augmentation with paired mask handling. See the [M3 verification report](../../reports/0094-M3_Source_Space_Augmentation.md).
-- **M4:** Not started — add the CLS-plus-mean-patch feature recipe.
+- **M4:** Complete — add CLS-plus-mean-patch features to frozen training, checkpoints, bundles, and
+  inference. See the [M4 verification report](../../reports/0094-M4_Alternate_Frozen_Features.md).
 - **M5:** Not started — add targeted final-block training and checkpoint resume.
 - **M6:** Not started — export and load adapted encoder weights locally.
 - **M7:** Not started — evaluate all classes, source groups, and paired provider outcomes.
@@ -139,6 +140,13 @@ and frozen-encoder bundle/runtime dispatch. Keep the original CLS recipe as an e
 
 Acceptance: token selection and feature shape fixtures pass; frozen encoder parameters do not
 change; training/export/reload/inference features and logits agree; incompatible heads fail.
+
+**Complete:** both frozen layouts are explicit in the identity recipe. `cls_mean_patch` joins the
+final CLS token with the mean of final spatial patch tokens. It excludes CLS and register tokens
+from the mean and checks the patch count for the selected input resolution. Training records the
+layout and head width; checkpoint resume, export, bundle loading, and runtime reject incompatible
+layouts or head widths. The existing CLS layout remains the default control. Fixture evidence and
+the focused verification results are in the M4 report.
 
 ### M5 — Implement targeted encoder adaptation
 
