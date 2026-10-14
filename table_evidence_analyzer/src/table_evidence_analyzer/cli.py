@@ -368,6 +368,7 @@ def build_parser() -> argparse.ArgumentParser:
     segmentation_validation_parser.add_argument("--manifest", type=Path, required=True)
     segmentation_validation_parser.add_argument("--pretrained-checkpoint", type=Path, required=True)
     segmentation_validation_parser.add_argument("--candidate-bundle", type=Path, required=True)
+    segmentation_validation_parser.add_argument("--comparison-bundle", type=Path)
     segmentation_validation_parser.add_argument("--output-dir", type=Path, required=True)
     segmentation_validation_parser.add_argument(
         "--device", choices=("cpu", "mps", "cuda"), default="mps"
@@ -924,6 +925,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     pretrained_checkpoint=args.pretrained_checkpoint,
                     candidate_bundle=args.candidate_bundle,
                     output_dir=args.output_dir,
+                    comparison_bundle=args.comparison_bundle,
                     device=args.device,
                 )
             )

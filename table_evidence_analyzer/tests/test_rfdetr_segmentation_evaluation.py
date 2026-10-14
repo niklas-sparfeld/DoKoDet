@@ -176,6 +176,33 @@ def test_two_class_metrics_report_each_class_and_cross_class_confusion() -> None
     assert metrics["visible_card_fragments_inside_piles"] == 1
 
 
+def test_expanded_validation_gates_apply_frozen_0087_comparison() -> None:
+    baseline = {
+        "by_class": {
+            "visible_card": {"mask_ap_50_95": 0.4, "recall": 0.5},
+            "card_pile": {"mask_ap_50_95": 0.1, "recall": 0.2},
+        },
+        "false_predictions": 4,
+        "duplicate_predictions": 2,
+        "empty_prediction_rate": 0.1,
+    }
+    candidate = {
+        "by_class": {
+            "visible_card": {"mask_ap_50_95": 0.5, "recall": 0.6},
+            "card_pile": {"mask_ap_50_95": 0.2, "recall": 0.3},
+        },
+        "false_predictions": 4,
+        "duplicate_predictions": 1,
+        "empty_prediction_rate": 0.1,
+    }
+
+    assert all(evaluation._expanded_validation_gates(candidate, baseline).values())
+    candidate["by_class"]["card_pile"]["recall"] = 0.2
+    assert not evaluation._expanded_validation_gates(candidate, baseline)[
+        "card_pile_recall_strictly_greater"
+    ]
+
+
 def test_pile_validation_reports_metrics_without_a_sealed_test_partition(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

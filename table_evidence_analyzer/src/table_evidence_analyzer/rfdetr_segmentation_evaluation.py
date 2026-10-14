@@ -64,6 +64,7 @@ class RfdetrSegmentationEvaluationConfig:
     pretrained_checkpoint: Path
     candidate_bundle: Path
     output_dir: Path
+    comparison_bundle: Path | None = None
     device: Literal["cpu", "mps", "cuda"] = "mps"
 
 
@@ -766,6 +767,35 @@ def _clear_device_cache(device: str) -> None:
         torch.cuda.empty_cache()
 
 
+def _expanded_validation_gates(
+    candidate: Mapping[str, Any], baseline: Mapping[str, Any]
+) -> dict[str, bool]:
+    candidate_classes = candidate.get("by_class", {})
+    baseline_classes = baseline.get("by_class", {})
+    candidate_card = candidate_classes.get("visible_card", {})
+    baseline_card = baseline_classes.get("visible_card", {})
+    candidate_pile = candidate_classes.get("card_pile", {})
+    baseline_pile = baseline_classes.get("card_pile", {})
+    return {
+        "visible_card_mask_ap_50_95_strictly_greater": candidate_card.get(
+            "mask_ap_50_95", 0
+        )
+        > baseline_card.get("mask_ap_50_95", 0),
+        "visible_card_recall_strictly_greater": candidate_card.get("recall", 0)
+        > baseline_card.get("recall", 0),
+        "card_pile_mask_ap_50_95_strictly_greater": candidate_pile.get("mask_ap_50_95", 0)
+        > baseline_pile.get("mask_ap_50_95", 0),
+        "card_pile_recall_strictly_greater": candidate_pile.get("recall", 0)
+        > baseline_pile.get("recall", 0),
+        "false_detections_no_worse": candidate.get("false_predictions", 0)
+        <= baseline.get("false_predictions", 0),
+        "duplicate_detections_no_worse": candidate.get("duplicate_predictions", 0)
+        <= baseline.get("duplicate_predictions", 0),
+        "empty_prediction_rate_no_worse": candidate.get("empty_prediction_rate", 0)
+        <= baseline.get("empty_prediction_rate", 0),
+    }
+
+
 def _artifact_path(output: Path, key: str) -> Path:
     return output / f"{key.replace('_', '-')}-predictions.json"
 
@@ -1067,6 +1097,11 @@ def run_rfdetr_segmentation_campaign_validation(
         "candidate_bundle": str(config.candidate_bundle.expanduser().resolve()),
         "output_dir": str(output),
         "device": config.device,
+        "comparison_bundle": (
+            str(config.comparison_bundle.expanduser().resolve())
+            if config.comparison_bundle is not None
+            else None
+        ),
     }
     if report_path.is_file():
         report = _read_json(report_path, "locked validation report")
@@ -1125,14 +1160,56 @@ def run_rfdetr_segmentation_campaign_validation(
             raise RfdetrSegmentationEvaluationError(
                 "candidate bundle does not contain the frozen 0068 manifest receipt"
             )
-        baseline = _evaluate_model(
-            pretrained,
-            view,
-            config.device,
-            model_id="pretrained-baseline",
-            pretrained=True,
-            partition="valid",
+        comparison_bundle = (
+            load_rfdetr_segmentation_bundle(config.comparison_bundle)
+            if config.comparison_bundle is not None
+            else None
         )
+        if manifest_receipt.get("campaign_id") == "0092-m0-expanded-reviewed-rfdetr-campaign":
+            if comparison_bundle is None:
+                raise RfdetrSegmentationEvaluationError(
+                    "0092 validation requires the frozen 0087 comparison bundle"
+                )
+            manifest = _read_json(config.campaign_manifest, "M0 campaign manifest")
+            expected_baseline = manifest.get("comparison_design", {}).get("baseline", {})
+            if comparison_bundle.manifest.get("bundle_digest") != expected_baseline.get(
+                "bundle_digest"
+            ):
+                raise RfdetrSegmentationEvaluationError(
+                    "comparison bundle differs from the frozen 0087 baseline"
+                )
+            if comparison_bundle.manifest.get("checkpoint_sha256") != expected_baseline.get(
+                "checkpoint_sha256"
+            ):
+                raise RfdetrSegmentationEvaluationError(
+                    "comparison checkpoint differs from the frozen 0087 baseline"
+                )
+        if comparison_bundle is not None:
+            comparison_class_count = len(comparison_bundle.manifest.get("class_map", {}))
+            comparison_model = _load_model(
+                comparison_bundle.checkpoint_path,
+                config.device,
+                num_classes=comparison_class_count,
+            )
+            try:
+                baseline = _prediction_artifact(
+                    model_id="0087-candidate-baseline",
+                    model=comparison_model,
+                    view=view,
+                    partition="valid",
+                )
+            finally:
+                del comparison_model
+                _clear_device_cache(config.device)
+        else:
+            baseline = _evaluate_model(
+                pretrained,
+                view,
+                config.device,
+                model_id="pretrained-baseline",
+                pretrained=True,
+                partition="valid",
+            )
         candidate_predictions = _evaluate_model(
             candidate.checkpoint_path,
             view,
@@ -1149,7 +1226,11 @@ def run_rfdetr_segmentation_campaign_validation(
         candidate_overall = candidate_predictions["metrics"]["overall"]
         baseline_overall = baseline["metrics"]["overall"]
         validation_gate = {"candidate_reloads": True, "metrics_reproducible": True}
-        if pile_mode:
+        if manifest_receipt.get("campaign_id") == "0092-m0-expanded-reviewed-rfdetr-campaign":
+            validation_gate.update(
+                _expanded_validation_gates(candidate_overall, baseline_overall)
+            )
+        elif pile_mode:
             validation_gate["quality_assessment"] = (
                 "awaiting_0087_m5_decision"
                 if manifest_receipt.get("campaign_id") == "0087-m0-reviewed-rfdetr-campaign"
@@ -1177,6 +1258,9 @@ def run_rfdetr_segmentation_campaign_validation(
             "reason": (
                 "0087 M5 decides whether to open the sealed test"
                 if manifest_receipt.get("campaign_id") == "0087-m0-reviewed-rfdetr-campaign"
+                else "0092 M3 requires a locked pretest decision before the sealed test"
+                if manifest_receipt.get("campaign_id")
+                == "0092-m0-expanded-reviewed-rfdetr-campaign"
                 else "0091 M2 view has no sealed_test partition"
                 if pile_mode
                 else "validation_gate_failed"

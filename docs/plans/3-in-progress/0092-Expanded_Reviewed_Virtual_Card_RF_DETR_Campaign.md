@@ -27,8 +27,9 @@
 - **M2:** Complete (2026-10-14) — the candidate trained on the frozen M0/M1 inputs. Finalization
   reused the saved checkpoint after the missing 0092 receipt was added and the bundle validated.
   See the [M2 report](../../reports/0092-M2_Expanded_Reviewed_RF_DETR_Training.md).
-- **M3:** Not started — evaluate validation and one fresh sealed holdout, then decide whether the
-  recipe passes.
+- **M3:** In Progress (2026-10-14) — add the frozen 0087 bundle comparison to validation. The
+  validation run is the next action. Keep the fresh sealed test closed until the validation result
+  and decision are locked.
 - **M4:** Not started — refit the selected recipe on all eligible reviewed recordings and publish
   the exact final bundle.
 
@@ -138,6 +139,14 @@ unopened.
 The campaign runner now accepts the 0092 materialization and verifies its frozen partition receipt.
 The 0092 verifier checks the two-class recipe, checkpoint digest, budget, M1 manifest receipt, and
 all three source-group partitions before training starts.
+
+### M3 implementation progress — 2026-10-14
+
+The validation evaluator now accepts the frozen 0087 bundle as the comparison model. For 0092, it
+checks that bundle digest against M0 and assesses the frozen visible-card and pile quality gates,
+false detections, duplicate detections, and empty-prediction rate. It does not evaluate the sealed
+partition. The focused evaluator tests and Ruff pass. The MPS validation run is pending; M3 remains
+in progress until its report and the locked pretest decision are reviewed.
 
 ### M1 — Materialize and inspect reviewed masks
 
