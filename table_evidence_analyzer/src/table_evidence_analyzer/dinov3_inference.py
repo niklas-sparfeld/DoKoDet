@@ -76,6 +76,9 @@ def _load_head(torch: Any, bundle: DinoV3IdentityBundle) -> Any:
         "adapter",
         "class_count",
         "hidden_size",
+        "feature_layout",
+        "input_size",
+        "transform_digest",
         "source_checkpoint_sha256",
         "state_dict",
     }:
@@ -86,6 +89,9 @@ def _load_head(torch: Any, bundle: DinoV3IdentityBundle) -> Any:
         or payload["adapter"] != head_metadata["adapter"]
         or payload["class_count"] != head_metadata["class_count"]
         or payload["hidden_size"] != head_metadata["hidden_size"]
+        or payload["feature_layout"] != head_metadata["feature_layout"]
+        or payload["input_size"] != head_metadata["input_size"]
+        or payload["transform_digest"] != head_metadata["transform_digest"]
         or payload["source_checkpoint_sha256"] != bundle.manifest["source_checkpoint_sha256"]
     ):
         raise DinoV3InferenceError(
@@ -183,7 +189,9 @@ class DinoV3IdentityClassifier:
 
         started = time.monotonic()
         try:
-            transformed = transform_identity_crop(crop_bytes)
+            transformed = transform_identity_crop(
+                crop_bytes, input_size=self.bundle.identity.input_size
+            )
         except LocalIdentityContractError as error:
             raise DinoV3InferenceError(str(error)) from error
         try:

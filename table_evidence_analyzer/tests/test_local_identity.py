@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import struct
 from pathlib import Path
 
 import pytest
@@ -11,6 +13,7 @@ from table_evidence_analyzer.local_identity import (
     DINOV3_LICENSE_ID,
     DINOV3_MODEL_ID,
     DINOV3_PROCESSOR_CONFIG,
+    DINOV3_SUPPORTED_IMAGE_SIZES,
     FACE_DOWN_TARGET,
     VISUAL_IDENTITY_TARGETS,
     DinoV3IdentityConfig,
@@ -18,6 +21,7 @@ from table_evidence_analyzer.local_identity import (
     MaterializedDinoV3Weights,
     build_dinov3_identity_config,
     canonical_identity_target_map,
+    dinov3_processor_config,
     materialize_dinov3_weights,
     transform_identity_crop,
     validate_identity_target_map,
@@ -82,8 +86,8 @@ def test_target_map_rejects_the_obsolete_24_class_contract() -> None:
 def test_transform_is_repeatable_and_letterboxes_the_ppm_crop() -> None:
     crop = b"P6\n8 4\n255\n" + bytes((255, 0, 0) * 32)
 
-    first = transform_identity_crop(crop)
-    second = transform_identity_crop(crop)
+    first = transform_identity_crop(crop, input_size=224)
+    second = transform_identity_crop(crop, input_size=224)
 
     assert first == second
     assert first.shape == (3, 224, 224)
@@ -94,9 +98,31 @@ def test_transform_is_repeatable_and_letterboxes_the_ppm_crop() -> None:
     assert first.pixel_rgb(112, 112) == (255, 0, 0)
 
 
+@pytest.mark.parametrize("input_size", DINOV3_SUPPORTED_IMAGE_SIZES)
+def test_transform_supports_each_declared_resolution_and_is_repeatable(input_size: int) -> None:
+    crop = b"P6\n8 4\n255\n" + bytes((255, 0, 0) * 32)
+
+    first = transform_identity_crop(crop, input_size=input_size)
+    second = transform_identity_crop(crop, input_size=input_size)
+
+    assert first == second
+    assert first.shape == (3, input_size, input_size)
+    assert first.transformed_ppm.startswith(f"P6\n{input_size} {input_size}\n255\n".encode())
+    assert first.processor_digest
+    assert all(math.isfinite(value) for (value,) in struct.iter_unpack("<f", first.tensor_bytes))
+    assert first.pixel_rgb(0, 0) == (128, 128, 128)
+    assert first.pixel_rgb(input_size // 2, input_size // 2) == (255, 0, 0)
+
+
+@pytest.mark.parametrize("input_size", [0, 16, 225, 320, True, "384"])
+def test_transform_rejects_unsupported_input_size(input_size: object) -> None:
+    with pytest.raises(LocalIdentityContractError, match="input size"):
+        transform_identity_crop(b"P6\n8 4\n255\n" + bytes((0, 0, 0) * 32), input_size=input_size)  # type: ignore[arg-type]
+
+
 def test_transform_rejects_invalid_ppm_bytes() -> None:
     with pytest.raises(LocalIdentityContractError, match="PPM"):
-        transform_identity_crop(b"not an image")
+        transform_identity_crop(b"not an image", input_size=224)
 
 
 def test_materialization_records_and_rechecks_all_frozen_file_digests(tmp_path: Path) -> None:
@@ -155,6 +181,8 @@ def test_config_identity_contains_pretrained_revision_digest_processor_and_depen
     assert mapping["model"]["config_sha256"] == config_digest
     assert mapping["model"]["processor_sha256"] == processor_digest
     assert mapping["processor"] == DINOV3_PROCESSOR_CONFIG
+    assert mapping["recipe"]["input_size"] == 224
+    assert mapping["transform_digest"] == config.transform_digest
     assert mapping["target"]["class_count"] == 25
     assert mapping["license"]["license_id"] == DINOV3_LICENSE_ID
     assert mapping["quality_state"] == "unusable_smoke_artifact"
@@ -166,6 +194,28 @@ def test_config_identity_contains_pretrained_revision_digest_processor_and_depen
     changed = json.loads(json.dumps(mapping))
     changed["processor"]["padding"]["fill_rgb"][0] = 127
     with pytest.raises(LocalIdentityContractError, match="processor"):
+        DinoV3IdentityConfig.from_mapping(changed, root=root)
+
+
+@pytest.mark.parametrize("input_size", [224, 384, 448])
+def test_config_round_trips_resolution_and_rejects_transform_digest_mismatch(
+    tmp_path: Path, input_size: int
+) -> None:
+    root, *_ = _write_materialized_weights(tmp_path / "weights")
+    weights = materialize_dinov3_weights(
+        root, model_revision="revision-abc123", license_record=_license()
+    )
+    config = build_dinov3_identity_config(weights, license_record=_license(), input_size=input_size)
+    mapping = config.to_mapping()
+
+    assert config.processor_config == dinov3_processor_config(input_size)
+    assert config.recipe_digest
+    assert DinoV3IdentityConfig.from_mapping(mapping, root=root).identity_digest == (
+        config.identity_digest
+    )
+    changed = json.loads(json.dumps(mapping))
+    changed["transform_digest"] = "0" * 64
+    with pytest.raises(LocalIdentityContractError, match="transform digest"):
         DinoV3IdentityConfig.from_mapping(changed, root=root)
 
 

@@ -17,7 +17,10 @@
 
 - **M0:** Complete — freeze supported recipe, feature, checkpoint, and bundle contracts in
   [the M0 contract](../../reports/0094-M0_Recipe_Contract.md).
-- **M1:** Not started — implement resolution-aware preprocessing and frozen-model bundles.
+- **M1:** In progress — implement resolution-aware preprocessing and frozen-model bundles. The
+  software and fixture checks are complete; the local DINOv3 backbone smoke remains pending because
+  this host has no optional model runtime or materialized licensed weights. See
+  [the M1 verification report](../../reports/0094-M1_Preprocessing_and_Frozen_Bundles.md).
 - **M2:** Not started — implement reproducible epoch sampling and exact resume.
 - **M3:** Not started — implement source-space, epoch-varying safe augmentation.
 - **M4:** Not started — add the CLS-plus-mean-patch feature recipe.

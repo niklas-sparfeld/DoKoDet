@@ -40,16 +40,17 @@ from table_evidence_analyzer.local_identity import (
     DINOV3_ARCHITECTURE,
     DINOV3_AUGMENTATION_CONFIG,
     DINOV3_CONFIG_FILENAME,
+    DINOV3_CONFIG_SCHEMA,
     DINOV3_DEPENDENCY_VERSIONS,
     DINOV3_FEATURE,
     DINOV3_IMAGE_SIZE,
     DINOV3_MODEL_ID,
     DINOV3_PATCH_SIZE,
-    DINOV3_PROCESSOR_CONFIG,
     DINOV3_PROCESSOR_FILENAME,
     DINOV3_TRANSFORM_VERSION,
     DinoV3LicenseRecord,
     LocalIdentityContractError,
+    dinov3_processor_config,
     load_dinov3_identity_config,
 )
 from table_evidence_analyzer.pipeline_data import (
@@ -69,7 +70,7 @@ DINOV3_PREPARATION_SCHEMA_VERSION = "dinov3-identity-preparation/v1"
 DINOV3_TRAINING_PREFLIGHT_SCHEMA_VERSION = "dinov3-identity-training-handoff/v1"
 DINOV3_CAMPAIGN_ID = "0043-m0-first-local-dinov3-card-identifier"
 DINOV3_CAMPAIGN_ID_PREFIX = "0043-m1-dinov3-identity"
-DINOV3_IDENTITY_CONFIG_SCHEMA = "dinov3-identity-config/v1"
+DINOV3_IDENTITY_CONFIG_SCHEMA = DINOV3_CONFIG_SCHEMA
 DINOV3_REQUIRED_CROP_POLICY = "predicted_visible_region"
 DINOV3_CROP_TRANSFORM_VERSION = DERIVED_VIEW_TRANSFORM_VERSION
 DINOV3_TRAINING_DEVICE = "mps"
@@ -227,24 +228,34 @@ def _empty_prerequisite_probe() -> dict[str, Any]:
     }
 
 
-def probe_dinov3_mps(*, batch_sizes: Sequence[int] = DINOV3_INITIAL_BATCH_SIZES) -> dict[str, Any]:
+def probe_dinov3_mps(
+    *,
+    input_size: int = DINOV3_IMAGE_SIZE,
+    batch_sizes: Sequence[int] = DINOV3_INITIAL_BATCH_SIZES,
+) -> dict[str, Any]:
     """Probe MPS and allocate only input tensors; never load model weights."""
 
     try:
+        dinov3_processor_config(input_size)
+    except LocalIdentityContractError as error:
+        return {**_empty_prerequisite_probe(), "input_size": input_size, "error": str(error)}
+    try:
         import torch
     except ImportError:
-        return _empty_prerequisite_probe()
+        return {**_empty_prerequisite_probe(), "input_size": input_size}
     try:
         built = bool(torch.backends.mps.is_built())
         available = bool(torch.backends.mps.is_available())
     except (AttributeError, RuntimeError) as error:
         return {
             **_empty_prerequisite_probe(),
+            "input_size": input_size,
             "torch_version": getattr(torch, "__version__", None),
             "error": f"could not inspect MPS: {error}",
         }
     result: dict[str, Any] = {
         "status": "blocked",
+        "input_size": input_size,
         "torch_version": getattr(torch, "__version__", None),
         "mps_built": built,
         "mps_available": available,
@@ -260,7 +271,7 @@ def probe_dinov3_mps(*, batch_sizes: Sequence[int] = DINOV3_INITIAL_BATCH_SIZES)
             continue
         try:
             tensor = torch.empty(
-                (value, 3, DINOV3_IMAGE_SIZE, DINOV3_IMAGE_SIZE),
+                (value, 3, input_size, input_size),
                 dtype=torch.float32,
                 device="mps",
             )
@@ -440,6 +451,13 @@ def _license_and_weights(
                 ):
                     gaps.append("DINOv3 license record does not match the identity config")
                 result["pretrained"]["revision"] = identity_config.weights.model_revision
+                result["identity_config"].update(
+                    {
+                        "input_size": identity_config.input_size,
+                        "recipe_digest": identity_config.recipe_digest,
+                        "transform_digest": identity_config.transform_digest,
+                    }
+                )
                 result["pretrained"]["materialization_digest"] = (
                     identity_config.weights.materialization_digest
                 )
@@ -1197,7 +1215,12 @@ def build_dinov3_identity_preflight(
     prerequisite_gaps.extend(model_gaps)
     package_lock, lock_gaps = _package_lock_check(repository)
     prerequisite_gaps.extend(lock_gaps)
-    mps_probe = dict(prerequisite_probe) if prerequisite_probe is not None else probe_dinov3_mps()
+    recipe_input_size = prerequisites["identity_config"].get("input_size", DINOV3_IMAGE_SIZE)
+    mps_probe = (
+        dict(prerequisite_probe)
+        if prerequisite_probe is not None
+        else probe_dinov3_mps(input_size=recipe_input_size)
+    )
     if mps_probe.get("status") != "ready":
         prerequisite_gaps.append(
             f"MPS batch preflight is not ready: {mps_probe.get('error') or 'unknown error'}"
@@ -1205,6 +1228,12 @@ def build_dinov3_identity_preflight(
     prerequisites["package_lock"] = package_lock
     prerequisites["mps_batch_probe"] = mps_probe
     prerequisites["recipe"] = {
+        "schema_version": "dinov3-identity-recipe/v1",
+        "input_size": recipe_input_size,
+        "feature_layout": "cls",
+        "encoder_training": "frozen",
+        "recipe_digest": prerequisites["identity_config"].get("recipe_digest"),
+        "transform_digest": prerequisites["identity_config"].get("transform_digest"),
         "model": {
             "id": DINOV3_MODEL_ID,
             "architecture": DINOV3_ARCHITECTURE,
@@ -1212,7 +1241,9 @@ def build_dinov3_identity_preflight(
             "patch_size": DINOV3_PATCH_SIZE,
             "revision": prerequisites["pretrained"].get("revision"),
         },
-        "processor": DINOV3_PROCESSOR_CONFIG,
+        "processor": dinov3_processor_config(
+            recipe_input_size
+        ),
         "augmentation": DINOV3_AUGMENTATION_CONFIG,
         "transform_version": DINOV3_TRANSFORM_VERSION,
         "target_map": {

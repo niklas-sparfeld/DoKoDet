@@ -23,7 +23,7 @@ from .local_identity import (
     load_dinov3_identity_config,
 )
 
-DINOV3_HEAD_SCHEMA = "dinov3-identity-linear-head/v1"
+DINOV3_HEAD_SCHEMA = "dinov3-identity-linear-head/v2"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -137,7 +137,10 @@ def _resolve_export_identity(
 
 
 def _head_from_checkpoint(
-    checkpoint: Mapping[str, Any], *, checkpoint_digest: str
+    checkpoint: Mapping[str, Any],
+    *,
+    checkpoint_digest: str,
+    identity: DinoV3IdentityConfig,
 ) -> tuple[Any, int]:
     try:
         state = checkpoint["model_state"]
@@ -161,6 +164,9 @@ def _head_from_checkpoint(
             "adapter": "dinov3-frozen-linear-v1",
             "class_count": class_count,
             "hidden_size": hidden_size,
+            "feature_layout": identity.recipe["feature_layout"],
+            "input_size": identity.input_size,
+            "transform_digest": identity.transform_digest,
             "source_checkpoint_sha256": checkpoint_digest,
             "state_dict": {
                 "weight": weight.detach().cpu(),
@@ -211,7 +217,7 @@ def export_dinov3_identity_bundle(
         raise DinoV3BundleError("checkpoint identity digest does not match the export identity")
 
     head_payload, hidden_size = _head_from_checkpoint(
-        checkpoint, checkpoint_digest=checkpoint_digest
+        checkpoint, checkpoint_digest=checkpoint_digest, identity=identity
     )
     source_files = (
         identity.weights.weight_file,
@@ -250,6 +256,8 @@ def export_dinov3_identity_bundle(
         "quality_state": "unusable_smoke_artifact",
         "calibration": "uncalibrated",
         "identity": identity.to_mapping(),
+        "recipe_digest": identity.recipe_digest,
+        "transform_digest": identity.transform_digest,
         "target_map_file": target_map_file,
         "target_map_sha256": files[target_map_file],
         "head": {
@@ -278,6 +286,8 @@ def _validate_manifest(manifest: Mapping[str, Any]) -> None:
         "quality_state",
         "calibration",
         "identity",
+        "recipe_digest",
+        "transform_digest",
         "target_map_file",
         "target_map_sha256",
         "head",
@@ -341,6 +351,11 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
         raise DinoV3BundleError(f"DINOv3 bundle identity config is invalid: {error}") from error
     if identity.to_mapping() != dict(identity_payload):
         raise DinoV3BundleError("DINOv3 bundle identity config is not canonical")
+    if (
+        manifest["recipe_digest"] != identity.recipe_digest
+        or manifest["transform_digest"] != identity.transform_digest
+    ):
+        raise DinoV3BundleError("DINOv3 bundle recipe or transform digest does not match identity")
 
     target_file = _safe_file(manifest["target_map_file"], "target map file")
     target_digest = _sha256(manifest["target_map_sha256"], "target map digest")
@@ -357,6 +372,9 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
         "file",
         "sha256",
         "hidden_size",
+        "feature_layout",
+        "input_size",
+        "transform_digest",
         "class_count",
     }:
         raise DinoV3BundleError("DINOv3 identity head manifest is incomplete")
@@ -365,6 +383,9 @@ def load_dinov3_identity_bundle(path: str | Path) -> DinoV3IdentityBundle:
         head["schema_version"] != DINOV3_HEAD_SCHEMA
         or head["adapter"] != "dinov3-frozen-linear-v1"
         or head["class_count"] != 25
+        or head["feature_layout"] != identity.recipe["feature_layout"]
+        or head["input_size"] != identity.input_size
+        or head["transform_digest"] != identity.transform_digest
         or isinstance(head["hidden_size"], bool)
         or not isinstance(head["hidden_size"], int)
         or head["hidden_size"] <= 0

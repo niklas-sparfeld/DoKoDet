@@ -521,14 +521,14 @@ def _batches(samples: Sequence[LoadedCrop], batch_size: int) -> list[tuple[Loade
 
 
 def _batch_tensors(
-    samples: Sequence[LoadedCrop], *, train: bool, epoch: int, seed: int
+    samples: Sequence[LoadedCrop], *, train: bool, epoch: int, seed: int, input_size: int
 ) -> tuple[Any, Any]:
     torch, _ = _torch_modules()
     tensors = []
     targets = []
 
     for sample in samples:
-        tensor = transform_identity_crop(sample.crop_bytes).to_torch()
+        tensor = transform_identity_crop(sample.crop_bytes, input_size=input_size).to_torch()
         if train:
             tensor = _apply_augmentation(
                 tensor, seed=seed, epoch=epoch, sample_id=sample.dataset_item_id
@@ -544,6 +544,7 @@ def _predict(
     *,
     device: Any,
     seed: int,
+    input_size: int,
 ) -> tuple[list[dict[str, Any]], float, float]:
     torch, _ = _torch_modules()
     task.eval()
@@ -553,7 +554,9 @@ def _predict(
     batches = _batches(samples, max(1, len(samples))) if samples else []
     with torch.no_grad():
         for batch in batches:
-            tensors, targets = _batch_tensors(batch, train=False, epoch=0, seed=seed)
+            tensors, targets = _batch_tensors(
+                batch, train=False, epoch=0, seed=seed, input_size=input_size
+            )
             logits = task.forward(tensors.to(device))
             if not torch.isfinite(logits).all():
                 raise DinoV3TrainingError("DINOv3 prediction produced non-finite logits")
@@ -872,7 +875,11 @@ def train_dinov3_identity(
             for batch_index in range(batch_start, len(batches)):
                 batch = batches[batch_index]
                 pixel_values, targets = _batch_tensors(
-                    batch, train=True, epoch=epoch, seed=config.seed
+                    batch,
+                    train=True,
+                    epoch=epoch,
+                    seed=config.seed,
+                    input_size=identity.input_size,
                 )
                 optimizer.zero_grad(set_to_none=True)
                 loss = task.compute_loss(pixel_values.to(device), targets.to(device))
@@ -905,10 +912,18 @@ def train_dinov3_identity(
                         f"DINOv3 training stopped after {config.max_steps} step(s)"
                     )
             train_rows, epoch_train_loss, train_accuracy = _predict(
-                task, train_samples, device=device, seed=config.seed
+                task,
+                train_samples,
+                device=device,
+                seed=config.seed,
+                input_size=identity.input_size,
             )
             validation_rows, validation_loss, validation_accuracy = _predict(
-                task, validation_samples, device=device, seed=config.seed
+                task,
+                validation_samples,
+                device=device,
+                seed=config.seed,
+                input_size=identity.input_size,
             )
             last_train_loss = epoch_train_loss
             if validation_accuracy > float(best["value"]):
@@ -941,13 +956,25 @@ def train_dinov3_identity(
         _validate_resume(best_checkpoint, semantic_config)
         _load_checkpoint_state(torch, task, optimizer, best_checkpoint)
         train_rows, train_loss, train_accuracy = _predict(
-            task, train_samples, device=device, seed=config.seed
+            task,
+            train_samples,
+            device=device,
+            seed=config.seed,
+            input_size=identity.input_size,
         )
         validation_rows, validation_loss, validation_accuracy = _predict(
-            task, validation_samples, device=device, seed=config.seed
+            task,
+            validation_samples,
+            device=device,
+            seed=config.seed,
+            input_size=identity.input_size,
         )
         reloaded_validation_rows, _, _ = _predict(
-            task, validation_samples, device=device, seed=config.seed
+            task,
+            validation_samples,
+            device=device,
+            seed=config.seed,
+            input_size=identity.input_size,
         )
         validation_digest = _digest(validation_rows)
         if reloaded_validation_rows != validation_rows:

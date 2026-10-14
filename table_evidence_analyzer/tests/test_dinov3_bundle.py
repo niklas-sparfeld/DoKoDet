@@ -39,7 +39,7 @@ from table_evidence_analyzer.local_identity import (
 torch = pytest.importorskip("torch")
 
 
-def _identity_config(root: Path):
+def _identity_config(root: Path, *, input_size: int = 224):
     weights_root = root / "weights"
     weights_root.mkdir()
     (weights_root / "config.json").write_text(
@@ -62,26 +62,31 @@ def _identity_config(root: Path):
         model_revision="revision-bundle-abc123",
         license_record=license_record,
     )
-    return build_dinov3_identity_config(weights, license_record=license_record)
+    return build_dinov3_identity_config(
+        weights, license_record=license_record, input_size=input_size
+    )
 
 
 class _FakeEncoder(torch.nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, input_size: int | None = None) -> None:
         super().__init__()
         self.config = SimpleNamespace(hidden_size=4)
+        self.input_size = input_size
 
     def forward(self, *, pixel_values):
+        if self.input_size is not None:
+            assert tuple(pixel_values.shape[-2:]) == (self.input_size, self.input_size)
         pooled = pixel_values.mean(dim=(2, 3))
         return SimpleNamespace(pooler_output=torch.cat((pooled, pooled[:, :1]), dim=1))
 
 
 def _factory(_identity):
-    return _FakeEncoder()
+    return _FakeEncoder(_identity.input_size)
 
 
-def _train_run(tmp_path: Path):
+def _train_run(tmp_path: Path, *, input_size: int = 224):
     fixture = build_smoke_fixture(tmp_path / "fixture")
-    identity = _identity_config(tmp_path)
+    identity = _identity_config(tmp_path, input_size=input_size)
     run = tmp_path / "run"
     train_dinov3_identity(
         DinoV3TrainConfig(
@@ -115,10 +120,11 @@ def _rewrite_manifest(bundle_path: Path) -> None:
     manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
 
 
+@pytest.mark.parametrize("input_size", [224, 384, 448])
 def test_exported_bundle_is_self_contained_and_runtime_classifier_is_deterministic(
-    tmp_path: Path,
+    tmp_path: Path, input_size: int
 ) -> None:
-    fixture, identity, run = _train_run(tmp_path)
+    fixture, identity, run = _train_run(tmp_path, input_size=input_size)
 
     bundle_path = export_dinov3_identity_bundle(
         run,
@@ -131,6 +137,10 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     assert bundle.manifest["capabilities"] == ["identity_candidates"]
     assert bundle.manifest["head"]["schema_version"] == DINOV3_HEAD_SCHEMA
     assert bundle.manifest["head"]["class_count"] == 25
+    assert bundle.identity.input_size == input_size
+    assert bundle.manifest["recipe_digest"] == identity.recipe_digest
+    assert bundle.manifest["transform_digest"] == identity.transform_digest
+    assert bundle.manifest["head"]["input_size"] == input_size
     assert {
         "config.json",
         "model.safetensors",
@@ -142,7 +152,7 @@ def test_exported_bundle_is_self_contained_and_runtime_classifier_is_determinist
     classifier = DinoV3IdentityClassifier(
         bundle_path,
         device="cpu",
-        encoder_loader=lambda _bundle: _FakeEncoder(),
+        encoder_loader=lambda _bundle: _FakeEncoder(input_size),
     )
     assert isinstance(classifier, CardIdentityClassifier)
     first = classifier.classify_ppm(fixture.frame_paths[0].read_bytes())
@@ -183,11 +193,28 @@ def test_corrupt_weight_is_rejected_before_encoder_construction(tmp_path: Path) 
     def loader(_bundle):
         nonlocal constructed
         constructed = True
-        return _FakeEncoder()
+        return _FakeEncoder(_bundle.identity.input_size)
 
     with pytest.raises(DinoV3BundleError, match="hash"):
         DinoV3IdentityClassifier(bundle_path, encoder_loader=loader)
     assert constructed is False
+
+
+def test_bundle_rejects_transform_digest_mismatch_even_with_rewritten_manifest(
+    tmp_path: Path,
+) -> None:
+    _fixture, identity, run = _train_run(tmp_path, input_size=384)
+    bundle_path = export_dinov3_identity_bundle(run, tmp_path / "bundle", identity_config=identity)
+    manifest_path = bundle_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["transform_digest"] = "0" * 64
+    manifest["bundle_digest"] = _digest(
+        {key: value for key, value in manifest.items() if key != "bundle_digest"}
+    )
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
+
+    with pytest.raises(DinoV3BundleError, match="transform digest"):
+        load_dinov3_identity_bundle(bundle_path)
 
 
 def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(tmp_path: Path) -> None:

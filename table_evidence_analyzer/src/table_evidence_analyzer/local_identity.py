@@ -26,6 +26,7 @@ DINOV3_ARCHITECTURE = "DINOv3 ViT-S/16"
 DINOV3_FEATURE = "pooler_output"
 DINOV3_PATCH_SIZE = 16
 DINOV3_IMAGE_SIZE = 224
+DINOV3_SUPPORTED_IMAGE_SIZES = (224, 384, 448)
 DINOV3_LICENSE_ID = "dinov3-license"
 DINOV3_LICENSE_NAME = "DINOv3 License"
 DINOV3_LICENSE_VERSION = "2025-08-19"
@@ -34,14 +35,15 @@ DINOV3_WEIGHTS_FILENAME = "model.safetensors"
 DINOV3_CONFIG_FILENAME = "config.json"
 DINOV3_PROCESSOR_FILENAME = "preprocessor_config.json"
 
-DINOV3_CONFIG_SCHEMA = "dinov3-identity-config/v1"
-DINOV3_PROCESSOR_SCHEMA = "dinov3-identity-processor/v1"
+DINOV3_CONFIG_SCHEMA = "dinov3-identity-config/v2"
+DINOV3_RECIPE_SCHEMA = "dinov3-identity-recipe/v1"
+DINOV3_PROCESSOR_SCHEMA = "dinov3-identity-processor/v2"
 DINOV3_TARGET_MAP_SCHEMA = "dinov3-identity-target-map/v2"
 DINOV3_WEIGHTS_SCHEMA = "dinov3-pretrained-materialization/v1"
-DINOV3_TRANSFORM_VERSION = "dinov3-identity-letterbox-224-v1"
+DINOV3_TRANSFORM_VERSION = "dinov3-identity-letterbox-v2"
 DINOV3_AUGMENTATION_SCHEMA = "dinov3-identity-augmentation/v1"
 DINOV3_RUN_SCHEMA = "dinov3-identity-training-run/v1"
-DINOV3_BUNDLE_SCHEMA = "dinov3-identity-bundle/v2"
+DINOV3_BUNDLE_SCHEMA = "dinov3-identity-bundle/v3"
 
 FACE_DOWN_TARGET = "FACE_DOWN"
 VISUAL_IDENTITY_TARGETS: tuple[str, ...] = (*CARD_IDENTITIES, FACE_DOWN_TARGET)
@@ -55,21 +57,35 @@ DINOV3_DEPENDENCY_VERSIONS = {
     "safetensors": "0.8.0",
 }
 
-DINOV3_PROCESSOR_CONFIG: dict[str, Any] = {
-    "schema_version": DINOV3_PROCESSOR_SCHEMA,
-    "input_size": {"height": DINOV3_IMAGE_SIZE, "width": DINOV3_IMAGE_SIZE},
-    "resize": {"method": "aspect_ratio_preserving", "resampling": "lanczos"},
-    "padding": {"mode": "constant", "fill_rgb": [128, 128, 128], "anchor": "center"},
-    "channels": "RGB",
-    "layout": "CHW",
-    "dtype": "float32",
-    "rescale": {"enabled": True, "factor": 1 / 255},
-    "normalize": {
-        "enabled": True,
-        "mean": [0.485, 0.456, 0.406],
-        "std": [0.229, 0.224, 0.225],
-    },
-}
+
+def dinov3_processor_config(input_size: int) -> dict[str, Any]:
+    """Return the explicit preprocessing contract for one supported square input size."""
+
+    if (
+        isinstance(input_size, bool)
+        or not isinstance(input_size, int)
+        or input_size not in DINOV3_SUPPORTED_IMAGE_SIZES
+        or input_size % DINOV3_PATCH_SIZE
+    ):
+        raise LocalIdentityContractError(
+            "DINOv3 input size must be one of 224, 384, or 448 and divisible by patch size 16"
+        )
+    return {
+        "schema_version": DINOV3_PROCESSOR_SCHEMA,
+        "input_size": {"height": input_size, "width": input_size},
+        "resize": {"method": "aspect_ratio_preserving", "resampling": "lanczos"},
+        "padding": {"mode": "constant", "fill_rgb": [128, 128, 128], "anchor": "center"},
+        "channels": "RGB",
+        "layout": "CHW",
+        "dtype": "float32",
+        "rescale": {"enabled": True, "factor": 1 / 255},
+        "normalize": {
+            "enabled": True,
+            "mean": [0.485, 0.456, 0.406],
+            "std": [0.229, 0.224, 0.225],
+        },
+    }
+
 
 DINOV3_AUGMENTATION_CONFIG: dict[str, Any] = {
     "schema_version": DINOV3_AUGMENTATION_SCHEMA,
@@ -85,6 +101,9 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 class LocalIdentityContractError(ValueError):
     """Raised when a local identity proof input does not match its frozen contract."""
+
+
+DINOV3_PROCESSOR_CONFIG: dict[str, Any] = dinov3_processor_config(DINOV3_IMAGE_SIZE)
 
 
 def _canonical(value: Any) -> bytes:
@@ -432,11 +451,13 @@ class DinoV3IdentityConfig:
     augmentation_config: Mapping[str, Any]
     dependency_versions: Mapping[str, str]
     target_map: Mapping[str, str]
+    input_size: int = DINOV3_IMAGE_SIZE
 
     def __post_init__(self) -> None:
         if not self.license_record.accepted:
             raise LocalIdentityContractError("explicit DINOv3 license acceptance is required")
-        if self.processor_config != DINOV3_PROCESSOR_CONFIG:
+        expected_processor = dinov3_processor_config(self.input_size)
+        if self.processor_config != expected_processor:
             raise LocalIdentityContractError("DINOv3 processor configuration is not frozen")
         if self.augmentation_config != DINOV3_AUGMENTATION_CONFIG:
             raise LocalIdentityContractError("DINOv3 augmentation configuration is not frozen")
@@ -444,6 +465,36 @@ class DinoV3IdentityConfig:
             raise LocalIdentityContractError("DINOv3 dependency versions are not pinned")
         validate_identity_target_map(self.target_map)
         verify_materialized_dinov3_weights(self.weights)
+
+    @property
+    def recipe(self) -> dict[str, Any]:
+        return {
+            "schema_version": DINOV3_RECIPE_SCHEMA,
+            "input_size": self.input_size,
+            "feature_layout": "cls",
+            "encoder_training": "frozen",
+        }
+
+    @property
+    def transform_digest(self) -> str:
+        return _digest(
+            {"transform_version": DINOV3_TRANSFORM_VERSION, "processor": self.processor_config}
+        )
+
+    @property
+    def target_map_digest(self) -> str:
+        return _digest(
+            {
+                "schema_version": DINOV3_TARGET_MAP_SCHEMA,
+                "card_set_id": CARD_SET_ID,
+                "class_count": len(VISUAL_IDENTITY_TARGETS),
+                "class_map": dict(self.target_map),
+            }
+        )
+
+    @property
+    def recipe_digest(self) -> str:
+        return _digest({"recipe": self.recipe, "transform_digest": self.transform_digest})
 
     @property
     def identity_digest(self) -> str:
@@ -455,6 +506,9 @@ class DinoV3IdentityConfig:
 
         fields = {
             "schema_version",
+            "recipe",
+            "transform_digest",
+            "target_map_digest",
             "component",
             "capability",
             "quality_state",
@@ -476,8 +530,29 @@ class DinoV3IdentityConfig:
             raise LocalIdentityContractError("DINOv3 identity config has the wrong capability")
         if value["quality_state"] != "unusable_smoke_artifact":
             raise LocalIdentityContractError("DINOv3 identity config has an invalid quality state")
-        if value["processor"] != DINOV3_PROCESSOR_CONFIG:
+        recipe = value["recipe"]
+        if not isinstance(recipe, Mapping) or set(recipe) != {
+            "schema_version",
+            "input_size",
+            "feature_layout",
+            "encoder_training",
+        }:
+            raise LocalIdentityContractError("DINOv3 recipe declaration is incomplete")
+        if (
+            recipe["schema_version"] != DINOV3_RECIPE_SCHEMA
+            or recipe["feature_layout"] != "cls"
+            or recipe["encoder_training"] != "frozen"
+        ):
+            raise LocalIdentityContractError("DINOv3 frozen CLS recipe is invalid")
+        input_size = recipe["input_size"]
+        expected_processor = dinov3_processor_config(input_size)
+        if value["processor"] != expected_processor:
             raise LocalIdentityContractError("DINOv3 processor configuration is not frozen")
+        transform_digest = _digest(
+            {"transform_version": DINOV3_TRANSFORM_VERSION, "processor": expected_processor}
+        )
+        if value["transform_digest"] != transform_digest:
+            raise LocalIdentityContractError("DINOv3 transform digest does not match its processor")
         if value["augmentation"] != DINOV3_AUGMENTATION_CONFIG:
             raise LocalIdentityContractError("DINOv3 augmentation configuration is not frozen")
         if value["dependency_versions"] != DINOV3_DEPENDENCY_VERSIONS:
@@ -508,6 +583,16 @@ class DinoV3IdentityConfig:
                 "DINOv3 target declaration is not the 25-class visual identity set"
             )
         target_map = validate_identity_target_map(target["class_map"])
+        target_map_digest = _digest(
+            {
+                "schema_version": target["schema_version"],
+                "card_set_id": target["card_set_id"],
+                "class_count": target["class_count"],
+                "class_map": target_map,
+            }
+        )
+        if value["target_map_digest"] != target_map_digest:
+            raise LocalIdentityContractError("DINOv3 target map digest does not match its map")
 
         model = value["model"]
         if not isinstance(model, Mapping) or set(model) != {
@@ -550,10 +635,11 @@ class DinoV3IdentityConfig:
         config = cls(
             weights=weights,
             license_record=license_value,
-            processor_config=DINOV3_PROCESSOR_CONFIG,
+            processor_config=expected_processor,
             augmentation_config=DINOV3_AUGMENTATION_CONFIG,
             dependency_versions=DINOV3_DEPENDENCY_VERSIONS,
             target_map=target_map,
+            input_size=input_size,
         )
         if config.to_mapping() != dict(value):
             raise LocalIdentityContractError("DINOv3 identity config is not canonical")
@@ -578,6 +664,9 @@ class DinoV3IdentityConfig:
             "component": "table-evidence-analyzer",
             "capability": "visual-card-identity",
             "quality_state": "unusable_smoke_artifact",
+            "recipe": self.recipe,
+            "transform_digest": self.transform_digest,
+            "target_map_digest": self.target_map_digest,
             "model": model,
             "processor": json.loads(json.dumps(self.processor_config, sort_keys=True)),
             "augmentation": json.loads(json.dumps(self.augmentation_config, sort_keys=True)),
@@ -597,6 +686,7 @@ def build_dinov3_identity_config(
     weights: MaterializedDinoV3Weights,
     *,
     license_record: DinoV3LicenseRecord | Mapping[str, Any],
+    input_size: int = DINOV3_IMAGE_SIZE,
 ) -> DinoV3IdentityConfig:
     """Build the complete M0 configuration after local weights pass validation."""
 
@@ -609,10 +699,11 @@ def build_dinov3_identity_config(
     return DinoV3IdentityConfig(
         weights=weights,
         license_record=license_value,
-        processor_config=DINOV3_PROCESSOR_CONFIG,
         augmentation_config=DINOV3_AUGMENTATION_CONFIG,
         dependency_versions=DINOV3_DEPENDENCY_VERSIONS,
         target_map=canonical_identity_target_map(),
+        input_size=input_size,
+        processor_config=dinov3_processor_config(input_size),
     )
 
 
@@ -645,14 +736,16 @@ class TransformedIdentityCrop:
     crop_sha256: str
     tensor_digest: str
     processor_digest: str
+    input_size: int
 
     def pixel_rgb(self, x: int, y: int) -> tuple[int, int, int]:
-        if not 0 <= x < DINOV3_IMAGE_SIZE or not 0 <= y < DINOV3_IMAGE_SIZE:
+        if not 0 <= x < self.input_size or not 0 <= y < self.input_size:
             raise LocalIdentityContractError(
-                "transformed pixel coordinate is outside the 224x224 image"
+                "transformed pixel coordinate is outside the "
+                f"{self.input_size}x{self.input_size} image"
             )
-        offset = len(f"P6\n{DINOV3_IMAGE_SIZE} {DINOV3_IMAGE_SIZE}\n255\n".encode())
-        pixel = offset + (y * DINOV3_IMAGE_SIZE + x) * 3
+        offset = len(f"P6\n{self.input_size} {self.input_size}\n255\n".encode())
+        pixel = offset + (y * self.input_size + x) * 3
         return tuple(self.transformed_ppm[pixel : pixel + 3])  # type: ignore[return-value]
 
     def to_torch(self) -> Any:
@@ -669,8 +762,10 @@ class TransformedIdentityCrop:
         )
 
 
-def transform_identity_crop(crop_bytes: bytes) -> TransformedIdentityCrop:
-    """Decode a binary PPM crop, letterbox it to 224x224, and normalize CHW float32 values."""
+def transform_identity_crop(crop_bytes: bytes, *, input_size: int) -> TransformedIdentityCrop:
+    """Decode a PPM crop and apply the declared letterbox and normalization contract."""
+
+    processor_config = dinov3_processor_config(input_size)
 
     if not isinstance(crop_bytes, bytes) or not crop_bytes:
         raise LocalIdentityContractError("identity crop bytes must be non-empty bytes")
@@ -685,41 +780,44 @@ def transform_identity_crop(crop_bytes: bytes) -> TransformedIdentityCrop:
             if image.size != (source_width, source_height):
                 raise LocalIdentityContractError("PPM dimensions do not match decoded image")
             source = image.convert("RGB")
-            scale = min(DINOV3_IMAGE_SIZE / source_width, DINOV3_IMAGE_SIZE / source_height)
+            scale = min(input_size / source_width, input_size / source_height)
             resized_width = max(1, round(source_width * scale))
             resized_height = max(1, round(source_height * scale))
             resized = source.resize((resized_width, resized_height), Image.Resampling.LANCZOS)
-            canvas = Image.new("RGB", (DINOV3_IMAGE_SIZE, DINOV3_IMAGE_SIZE), (128, 128, 128))
+            canvas = Image.new("RGB", (input_size, input_size), (128, 128, 128))
             canvas.paste(
                 resized,
                 (
-                    (DINOV3_IMAGE_SIZE - resized_width) // 2,
-                    (DINOV3_IMAGE_SIZE - resized_height) // 2,
+                    (input_size - resized_width) // 2,
+                    (input_size - resized_height) // 2,
                 ),
             )
             pixels = canvas.tobytes()
     except (UnidentifiedImageError, OSError, ValueError) as error:
         raise LocalIdentityContractError("identity crop is not a valid binary PPM image") from error
 
-    tensor = bytearray(3 * DINOV3_IMAGE_SIZE * DINOV3_IMAGE_SIZE * 4)
-    means = DINOV3_PROCESSOR_CONFIG["normalize"]["mean"]
-    standard_deviations = DINOV3_PROCESSOR_CONFIG["normalize"]["std"]
-    pixel_count = DINOV3_IMAGE_SIZE * DINOV3_IMAGE_SIZE
+    tensor = bytearray(3 * input_size * input_size * 4)
+    means = processor_config["normalize"]["mean"]
+    standard_deviations = processor_config["normalize"]["std"]
+    pixel_count = input_size * input_size
     for channel in range(3):
         for index in range(pixel_count):
             value = pixels[index * 3 + channel] / 255.0
             normalized = (value - means[channel]) / standard_deviations[channel]
             struct.pack_into("<f", tensor, (channel * pixel_count + index) * 4, normalized)
-    transformed_ppm = f"P6\n{DINOV3_IMAGE_SIZE} {DINOV3_IMAGE_SIZE}\n255\n".encode() + pixels
+    transformed_ppm = f"P6\n{input_size} {input_size}\n255\n".encode() + pixels
     return TransformedIdentityCrop(
         transformed_ppm=transformed_ppm,
         tensor_bytes=bytes(tensor),
-        shape=(3, DINOV3_IMAGE_SIZE, DINOV3_IMAGE_SIZE),
+        shape=(3, input_size, input_size),
         source_width=source_width,
         source_height=source_height,
         crop_sha256=hashlib.sha256(crop_bytes).hexdigest(),
         tensor_digest=hashlib.sha256(tensor).hexdigest(),
-        processor_digest=_digest(DINOV3_PROCESSOR_CONFIG),
+        processor_digest=_digest(
+            {"transform_version": DINOV3_TRANSFORM_VERSION, "processor": processor_config}
+        ),
+        input_size=input_size,
     )
 
 
@@ -747,6 +845,8 @@ __all__ = [
     "DINOV3_PROCESSOR_FILENAME",
     "DINOV3_PROCESSOR_SCHEMA",
     "DINOV3_RUN_SCHEMA",
+    "DINOV3_RECIPE_SCHEMA",
+    "DINOV3_SUPPORTED_IMAGE_SIZES",
     "DINOV3_TARGET_MAP_SCHEMA",
     "DINOV3_TRANSFORM_VERSION",
     "DINOV3_WEIGHTS_FILENAME",
@@ -760,6 +860,7 @@ __all__ = [
     "TransformedIdentityCrop",
     "build_dinov3_identity_config",
     "canonical_identity_target_map",
+    "dinov3_processor_config",
     "check_dinov3_weight_materialization",
     "identity_from_target_index",
     "identity_target_index",
