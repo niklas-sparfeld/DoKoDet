@@ -366,8 +366,11 @@ def test_bundle_rejects_transform_digest_mismatch_even_with_rewritten_manifest(
         load_dinov3_identity_bundle(bundle_path)
 
 
-def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(tmp_path: Path) -> None:
-    fixture, identity, run = _train_run(tmp_path)
+@pytest.mark.parametrize("encoder_training", ["frozen", "last_two_blocks"])
+def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(
+    tmp_path: Path, encoder_training: str
+) -> None:
+    fixture, identity, run = _train_run(tmp_path, encoder_training=encoder_training)
     dataset = load_dataset_manifest(fixture.dataset_path)
     split = load_split_manifest(fixture.split_path)
     artifacts = load_artifact_index(fixture.artifact_index_path)

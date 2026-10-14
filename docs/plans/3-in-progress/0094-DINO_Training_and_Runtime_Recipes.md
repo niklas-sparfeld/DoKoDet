@@ -189,8 +189,8 @@ Acceptance: small fixtures reproduce metrics and denominators; side-bypassed out
 from classifier-credit metrics; confidently wrong back predictions are visible; unsupported classes
 stay unmeasured; labels and input information never leak between provider/target views.
 
-**Complete:** evaluation schema v2 emits support and confusion entries for all 25 visual classes,
-including unmeasured classes. It reports raw top-1/top-3, coverage, and per-class metrics, with
+**Complete:** frozen and adapted runs use evaluation schema v2, which emits support and confusion
+entries for all 25 visual classes, including unmeasured classes. It reports raw top-1/top-3, coverage, and per-class metrics, with
 source-lineage-group, recording, frame, card-side, and crop-policy summaries. Optional retained
 Gemini receipts require an exact sample ID, crop digest, and request identity. Paired output retains
 classified, failed, unusable, side-bypassed, and missing outcomes. Side-bypassed rows do not receive

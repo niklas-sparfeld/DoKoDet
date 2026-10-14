@@ -415,8 +415,11 @@ def evaluate_dinov3_identity_bundle(
     run = _read_json(run_root / "run.json", "DINOv3 training run")
     if run.get("status") != "completed":
         raise DinoV3EvaluationError("only a completed DINOv3 run can be evaluated")
-    if run.get("task") != "dinov3-frozen-linear-v1":
-        raise DinoV3EvaluationError("run is not the frozen DINOv3 identity task")
+    if run.get("task") not in {
+        "dinov3-frozen-linear-v1",
+        "dinov3-last-two-blocks-v1",
+    }:
+        raise DinoV3EvaluationError("run is not a supported DINOv3 identity task")
     bundle = load_dinov3_identity_bundle(config.bundle)
     if bundle.manifest.get("run_id") != run.get("run_id"):
         raise DinoV3EvaluationError("bundle and run IDs do not match")

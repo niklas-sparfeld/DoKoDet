@@ -2,7 +2,7 @@
 
 ## Result
 
-The local DINOv3 evaluator now writes report schema v2. The report includes support, measured
+The local DINOv3 evaluator now accepts frozen and adapted runs and writes report schema v2. The report includes support, measured
 state, precision, recall, F1, and confusion entries for all 25 visual classes. A class with no
 validation examples stays unmeasured. The summary reports raw top-1, top-3, and prediction
 coverage. Per-class results remain separate from model selection or promotion.
@@ -24,7 +24,7 @@ Command, run from `table_evidence_analyzer`:
 mise exec -- uv run --project . --group training pytest -q tests/test_dinov3_bundle.py tests/test_cli.py
 ```
 
-Result: 35 passed. The fixture checks checkpoint reproduction, all 25 class entries, source and
+Result: 36 passed. The fixtures check frozen and adapted checkpoint reproduction, all 25 class entries, source and
 frame summaries, paired outcome retention, rejection of a request whose input digest does not match
 the evaluated crop, and the CLI receipt option.
 
