@@ -20,11 +20,13 @@ does not claim model quality or campaign performance.
 - `test_local_identity.py` and `test_dinov3_bundle_contract.py`: 25 passed. The fixtures cover all
   three sizes, finite CHW values, deterministic pixels, config round trips, and model-free bundle
   reload and digest rejection.
+- The full `test_dinov3_bundle.py` and `test_dinov3_training.py` suites passed in the configured
+  project environment. They exercise train, export, reload, evaluation, and runtime with injected
+  fixture encoders.
 - `operations/tests/test_dinov3_identity_campaign.py`: 7 passed.
 - Ruff checks and `git diff --check`: passed.
-- The full training/export/runtime integration modules were skipped because PyTorch is not
-  installed. Transformers is also absent. The local materialized DINOv3 weights are not present at
-  `data/models/dinov3-vits16-pretrain-lvd1689m`, so a batch-one real-backbone latency and memory
+- The local materialized DINOv3 weights are not present at
+  `data/models/dinov3-vits16-pretrain-lvd1689m`, so the batch-one real-backbone latency and memory
   smoke could not run on this host.
 
 M1 remains in progress until the real local-backbone smoke can run with the declared optional
