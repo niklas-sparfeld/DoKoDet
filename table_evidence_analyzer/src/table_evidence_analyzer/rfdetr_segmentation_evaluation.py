@@ -15,6 +15,15 @@ from typing import Any, Literal
 
 from PIL import Image, ImageChops, ImageDraw
 
+from .rfdetr_segmentation_pretest import (
+    CAMPAIGN_ID as RFDETR_0092_CAMPAIGN_ID,
+)
+from .rfdetr_segmentation_pretest import (
+    PRETEST_SCHEMA as RFDETR_0092_PRETEST_SCHEMA,
+)
+from .rfdetr_segmentation_pretest import (
+    _validation_gates as _expanded_frozen_validation_gates,
+)
 from .rfdetr_segmentation_training import (
     RFDETR_SEGMENTATION_INPUT_SIZE,
     RFDETR_SEGMENTATION_PACKAGE_VERSION,
@@ -777,9 +786,7 @@ def _expanded_validation_gates(
     candidate_pile = candidate_classes.get("card_pile", {})
     baseline_pile = baseline_classes.get("card_pile", {})
     return {
-        "visible_card_mask_ap_50_95_strictly_greater": candidate_card.get(
-            "mask_ap_50_95", 0
-        )
+        "visible_card_mask_ap_50_95_strictly_greater": candidate_card.get("mask_ap_50_95", 0)
         > baseline_card.get("mask_ap_50_95", 0),
         "visible_card_recall_strictly_greater": candidate_card.get("recall", 0)
         > baseline_card.get("recall", 0),
@@ -901,19 +908,24 @@ def run_rfdetr_segmentation_sealed_test(
     decision = _read_json(decision_path, "frozen M5 pretest decision")
     decision_digest = decision.get("decision_sha256")
     unsigned_decision = {key: value for key, value in decision.items() if key != "decision_sha256"}
-    if (
-        decision.get("schema_version") != "0087-m5-pretest-decision/v1"
-        or decision.get("state") != "locked_before_sealed_test"
-        or decision_digest != _digest(unsigned_decision)
-        or decision.get("action") != "evaluate_candidate_and_baseline_once"
-    ):
-        raise RfdetrSegmentationEvaluationError("M5 pretest decision is not a valid frozen lock")
-
     manifest_path = config.campaign_manifest.expanduser().resolve()
     validation_path = config.validation_report.expanduser().resolve()
     training_path = config.training_run.expanduser().resolve()
     bundle_path = config.candidate_bundle.expanduser().resolve()
     manifest = _read_json(manifest_path, "M0 campaign manifest")
+    is_0092 = manifest.get("campaign_id") == RFDETR_0092_CAMPAIGN_ID
+    expected_decision_schema = (
+        RFDETR_0092_PRETEST_SCHEMA if is_0092 else "0087-m5-pretest-decision/v1"
+    )
+    if (
+        decision.get("schema_version") != expected_decision_schema
+        or (is_0092 and decision.get("campaign_id") != RFDETR_0092_CAMPAIGN_ID)
+        or decision.get("state") != "locked_before_sealed_test"
+        or decision_digest != _digest(unsigned_decision)
+        or decision.get("action") != "evaluate_candidate_and_baseline_once"
+    ):
+        raise RfdetrSegmentationEvaluationError("pretest decision is not a valid frozen lock")
+
     validation = _read_json(validation_path, "M3 validation report")
     training = _read_json(training_path, "M3 training run")
     bundle = load_rfdetr_segmentation_bundle(bundle_path)
@@ -947,50 +959,72 @@ def run_rfdetr_segmentation_sealed_test(
     validation_metrics = validation.get("metrics", {}).get("validation", {})
     baseline = validation_metrics.get("baseline", {}).get("overall", {})
     candidate = validation_metrics.get("candidate", {}).get("overall", {})
-    baseline_recordings = validation_metrics.get("baseline", {}).get("by_recording", {})
-    candidate_recordings = validation_metrics.get("candidate", {}).get("by_recording", {})
-    if not baseline_recordings or baseline_recordings.keys() != candidate_recordings.keys():
-        raise RfdetrSegmentationEvaluationError("M3 visible-card recording metrics are incomplete")
-    baseline_duplicates = baseline.get("duplicate_predictions")
-    candidate_duplicates = candidate.get("duplicate_predictions")
-    baseline_empty = baseline.get("empty_prediction_rate")
-    candidate_empty = candidate.get("empty_prediction_rate")
-    baseline_false = baseline.get("false_predictions")
-    candidate_false = candidate.get("false_predictions")
-    pile_recordings = [
-        recording_id
-        for recording_id, metrics in candidate_recordings.items()
-        if metrics.get("by_class", {}).get("card_pile", {}).get("target_count", 0) > 0
-    ]
-    validation_gates = {
-        "visible_card_mask_ap_improved": all(
-            candidate_recordings[recording_id]["by_class"]["visible_card"].get("mask_ap_50_95", 0)
-            > baseline_recordings[recording_id]["by_class"]["visible_card"].get("mask_ap_50_95", 0)
-            for recording_id in baseline_recordings
-        ),
-        "visible_card_recall_improved": all(
-            candidate_recordings[recording_id]["by_class"]["visible_card"].get("recall", 0)
-            > baseline_recordings[recording_id]["by_class"]["visible_card"].get("recall", 0)
-            for recording_id in baseline_recordings
-        ),
-        "card_pile_recall_nonzero_when_supported": bool(pile_recordings)
-        and all(
-            candidate_recordings[recording_id]["by_class"]["card_pile"].get("recall", 0) > 0
-            for recording_id in pile_recordings
-        ),
-        "false_predictions_no_worse": candidate_false <= baseline_false,
-        "duplicate_predictions_no_worse": candidate_duplicates <= baseline_duplicates,
-        "empty_prediction_rate_no_worse": candidate_empty <= baseline_empty,
-    }
+    if is_0092:
+        validation_gates = _expanded_frozen_validation_gates(validation, manifest)
+        if validation_gates != decision.get("validation_gates"):
+            raise RfdetrSegmentationEvaluationError("M3 gates differ from the frozen pretest lock")
+    else:
+        baseline_recordings = validation_metrics.get("baseline", {}).get("by_recording", {})
+        candidate_recordings = validation_metrics.get("candidate", {}).get("by_recording", {})
+        if not baseline_recordings or baseline_recordings.keys() != candidate_recordings.keys():
+            raise RfdetrSegmentationEvaluationError(
+                "M3 visible-card recording metrics are incomplete"
+            )
+        baseline_duplicates = baseline.get("duplicate_predictions")
+        candidate_duplicates = candidate.get("duplicate_predictions")
+        baseline_empty = baseline.get("empty_prediction_rate")
+        candidate_empty = candidate.get("empty_prediction_rate")
+        baseline_false = baseline.get("false_predictions")
+        candidate_false = candidate.get("false_predictions")
+        pile_recordings = [
+            recording_id
+            for recording_id, metrics in candidate_recordings.items()
+            if metrics.get("by_class", {}).get("card_pile", {}).get("target_count", 0) > 0
+        ]
+        validation_gates = {
+            "visible_card_mask_ap_improved": all(
+                candidate_recordings[recording_id]["by_class"]["visible_card"].get(
+                    "mask_ap_50_95", 0
+                )
+                > baseline_recordings[recording_id]["by_class"]["visible_card"].get(
+                    "mask_ap_50_95", 0
+                )
+                for recording_id in baseline_recordings
+            ),
+            "visible_card_recall_improved": all(
+                candidate_recordings[recording_id]["by_class"]["visible_card"].get("recall", 0)
+                > baseline_recordings[recording_id]["by_class"]["visible_card"].get("recall", 0)
+                for recording_id in baseline_recordings
+            ),
+            "card_pile_recall_nonzero_when_supported": bool(pile_recordings)
+            and all(
+                candidate_recordings[recording_id]["by_class"]["card_pile"].get("recall", 0) > 0
+                for recording_id in pile_recordings
+            ),
+            "false_predictions_no_worse": candidate_false <= baseline_false,
+            "duplicate_predictions_no_worse": candidate_duplicates <= baseline_duplicates,
+            "empty_prediction_rate_no_worse": candidate_empty <= baseline_empty,
+        }
     if not all(validation_gates.values()):
         raise RfdetrSegmentationEvaluationError("M0 validation gates do not permit sealed-test use")
 
     minimum = manifest.get("minimum_support", {}).get("sealed_test", {})
     partition = manifest.get("partitions", {}).get("sealed_test", {}).get("counts", {})
-    if partition.get("retained_frames", 0) < minimum.get("retained_frames", 0) or partition.get(
-        "visible_card_targets", 0
-    ) < minimum.get("visible_card_targets", 0):
+    if any(
+        partition.get(key, 0) < minimum.get(key, 0)
+        for key in ("retained_frames", "visible_card_targets", "pile_targets")
+    ):
         raise RfdetrSegmentationEvaluationError("sealed-test support is below the frozen minimum")
+    if is_0092:
+        recordings = manifest.get("partitions", {}).get("sealed_test", {}).get("recordings", [])
+        if not recordings or any(
+            not {"test", "evaluation"}.issubset(set(row.get("permission_allowed_uses", [])))
+            or not {"test", "evaluation"}.issubset(set(row.get("recorded_allowed_uses", [])))
+            for row in recordings
+        ):
+            raise RfdetrSegmentationEvaluationError(
+                "sealed-test recording permissions are incomplete"
+            )
 
     output.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
@@ -1015,6 +1049,7 @@ def run_rfdetr_segmentation_sealed_test(
         all(validation_gates.values())
         and sealed_gate["every_recording_has_nonzero_visible_card_recall"]
     )
+    sealed_gate["passes"] = gate_passes
     decision_result = (
         "selected_selectable_candidate" if gate_passes else "retained_experiment_baseline_selected"
     )
@@ -1031,7 +1066,9 @@ def run_rfdetr_segmentation_sealed_test(
             "sha256": _file_digest(path),
         }
     report: dict[str, Any] = {
-        "schema_version": "0087-m5-sealed-test-report/v1",
+        "schema_version": (
+            "0092-m3-sealed-test-report/v1" if is_0092 else "0087-m5-sealed-test-report/v1"
+        ),
         "status": "completed",
         "decision": decision_result,
         "config": expected_config,
@@ -1056,7 +1093,9 @@ def run_rfdetr_segmentation_sealed_test(
         "limitations": {
             "sealed_test_pile_targets": partition.get("pile_targets", 0),
             "pile_quality_claim": False,
-            "one_training_recording": True,
+            "training_recording_count": len(
+                manifest.get("partitions", {}).get("train", {}).get("recordings", [])
+            ),
             "no_empty_background_validation": True,
             "unavailable_slices": ["ordinary_trick_overlap", "human_hand_pixels", "pile_edges"],
         },
@@ -1227,9 +1266,7 @@ def run_rfdetr_segmentation_campaign_validation(
         baseline_overall = baseline["metrics"]["overall"]
         validation_gate = {"candidate_reloads": True, "metrics_reproducible": True}
         if manifest_receipt.get("campaign_id") == "0092-m0-expanded-reviewed-rfdetr-campaign":
-            validation_gate.update(
-                _expanded_validation_gates(candidate_overall, baseline_overall)
-            )
+            validation_gate.update(_expanded_validation_gates(candidate_overall, baseline_overall))
         elif pile_mode:
             validation_gate["quality_assessment"] = (
                 "awaiting_0087_m5_decision"
@@ -1345,7 +1382,9 @@ def run_rfdetr_segmentation_campaign_validation(
             },
             "campaign_manifest": manifest_receipt,
             "quality_state": (
-                "awaiting_0087_m5_decision"
+                "evaluated_against_frozen_0087"
+                if manifest_receipt.get("campaign_id") == RFDETR_0092_CAMPAIGN_ID
+                else "awaiting_0087_m5_decision"
                 if manifest_receipt.get("campaign_id") == "0087-m0-reviewed-rfdetr-campaign"
                 else "not_assessed_by_0091_m3"
                 if pile_mode
@@ -1354,7 +1393,13 @@ def run_rfdetr_segmentation_campaign_validation(
             "evaluation_policy": {
                 "grouped_member_candidates_are_individual_ground_truth": False,
                 "class_map": view.get("class_map", {"1": "visible_card"}),
-                "numerical_quality_gates": "owned_by_0087" if pile_mode else "0068_campaign",
+                "numerical_quality_gates": (
+                    "0092_m0_frozen_manifest"
+                    if manifest_receipt.get("campaign_id") == RFDETR_0092_CAMPAIGN_ID
+                    else "owned_by_0087"
+                    if pile_mode
+                    else "0068_campaign"
+                ),
             },
             "materialization_digest": view["manifest"]["materialization_digest"],
             "pretrained_checkpoint": {"sha256": pretrained_sha256, "path": str(pretrained)},

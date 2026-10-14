@@ -394,6 +394,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--device", choices=("cpu", "mps", "cuda"), default="mps"
     )
 
+    segmentation_pretest_parser = commands.add_parser(
+        "lock-rfdetr-segmentation-pretest",
+        help="Lock the 0092 M3 decision after frozen validation and support checks.",
+    )
+    segmentation_pretest_parser.add_argument("--manifest", type=Path, required=True)
+    segmentation_pretest_parser.add_argument("--validation-report", type=Path, required=True)
+    segmentation_pretest_parser.add_argument("--training-run", type=Path, required=True)
+    segmentation_pretest_parser.add_argument("--candidate-bundle", type=Path, required=True)
+    segmentation_pretest_parser.add_argument("--output", type=Path, required=True)
+
     segmentation_decision_parser = commands.add_parser(
         "decide-rfdetr-visible-card-detector",
         help="Record the M4 RF-DETR local availability decision.",
@@ -956,6 +966,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.exit(1, f"error: {exc}\n")
         print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "lock-rfdetr-segmentation-pretest":
+        from .rfdetr_segmentation_pretest import (
+            RfdetrSegmentationPretestConfig,
+            lock_rfdetr_segmentation_pretest,
+        )
+
+        try:
+            decision = lock_rfdetr_segmentation_pretest(
+                RfdetrSegmentationPretestConfig(
+                    campaign_manifest=args.manifest,
+                    validation_report=args.validation_report,
+                    training_run=args.training_run,
+                    candidate_bundle=args.candidate_bundle,
+                    output_path=args.output,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(decision, sort_keys=True))
         return 0
     if args.command == "decide-rfdetr-visible-card-detector":
         from .rfdetr_segmentation_decision import (

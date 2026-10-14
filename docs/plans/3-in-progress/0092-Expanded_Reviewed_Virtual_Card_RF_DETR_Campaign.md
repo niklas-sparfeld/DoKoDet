@@ -27,9 +27,9 @@
 - **M2:** Complete (2026-10-14) — the candidate trained on the frozen M0/M1 inputs. Finalization
   reused the saved checkpoint after the missing 0092 receipt was added and the bundle validated.
   See the [M2 report](../../reports/0092-M2_Expanded_Reviewed_RF_DETR_Training.md).
-- **M3:** In Progress (2026-10-14) — add the frozen 0087 bundle comparison to validation. The
-  validation run is the next action. Keep the fresh sealed test closed until the validation result
-  and decision are locked.
+- **M3:** In Progress (2026-10-14) — the saved candidate passed all frozen 0092 validation gates
+  against the 0087 bundle. The digest-pinned pretest decision is locked. The one permitted sealed
+  evaluation is the next action; M3 remains open until its report is reviewed.
 - **M4:** Not started — refit the selected recipe on all eligible reviewed recordings and publish
   the exact final bundle.
 
@@ -142,11 +142,17 @@ all three source-group partitions before training starts.
 
 ### M3 implementation progress — 2026-10-14
 
-The validation evaluator now accepts the frozen 0087 bundle as the comparison model. For 0092, it
-checks that bundle digest against M0 and assesses the frozen visible-card and pile quality gates,
-false detections, duplicate detections, and empty-prediction rate. It does not evaluate the sealed
-partition. The focused evaluator tests and Ruff pass. The MPS validation run is pending; M3 remains
-in progress until its report and the locked pretest decision are reviewed.
+The validation evaluator accepts the frozen 0087 bundle as the comparison model. For 0092, it checks
+that bundle digest against M0 and assesses the frozen visible-card and pile quality gates, false
+detections, duplicate detections, and empty-prediction rate. The MPS validation completed in 491
+seconds. All gates pass. The [M3 report](../../reports/0092-M3_Validation_and_Pretest_Lock.md)
+records aggregate and per-recording metrics. The digest-pinned
+[pretest lock](../../reports/0092-M3_Pretest_Decision.json) records M0 support and authorization
+checks. The sealed evaluation is permitted once and remains pending.
+
+The saved-checkpoint finalizer also repaired the persisted M2 run receipt. The run now records all
+stages as complete and `training_invoked: false`; no weight changed. The sealed evaluator accepts the
+0092 lock and applies the frozen 0092 gates. Focused tests and Ruff pass.
 
 ### M1 — Materialize and inspect reviewed masks
 
