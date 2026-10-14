@@ -46,6 +46,7 @@ RFDETR_PILE_CLASS_MAP = {"1": "visible_card", "2": "card_pile"}
 RFDETR_REVIEWED_CAMPAIGN_0087_ID = "0087-m0-reviewed-rfdetr-campaign"
 RFDETR_REVIEWED_CAMPAIGN_0087_MANIFEST_SCHEMA = "rfdetr-reviewed-campaign-manifest/v1"
 RFDETR_REVIEWED_CAMPAIGN_0087_RUN_SCHEMA = "rfdetr-reviewed-campaign-training-run/v1"
+RFDETR_REVIEWED_CAMPAIGN_0092_ID = "0092-m0-expanded-reviewed-rfdetr-campaign"
 RFDETR_PILE_MASK_POLICY = {
     "normalization": "full-frame-0-1000/v1",
     "pixel_point_rounding": "six_decimal_places",
@@ -208,6 +209,7 @@ def _load_materialization_view(root_value: str | Path) -> dict[str, Any]:
         "0067-m0-rfdetr-segmentation",
         RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID,
         RFDETR_REVIEWED_CAMPAIGN_0087_ID,
+        RFDETR_REVIEWED_CAMPAIGN_0092_ID,
         RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID,
     }:
         raise RfdetrSegmentationTrainingError(
@@ -236,6 +238,7 @@ def _load_materialization_view(root_value: str | Path) -> dict[str, Any]:
     if campaign_id in {
         RFDETR_REVIEWED_DETECTOR_CAMPAIGN_ID,
         RFDETR_REVIEWED_CAMPAIGN_0087_ID,
+        RFDETR_REVIEWED_CAMPAIGN_0092_ID,
     }:
         partition_names += ("sealed_test",)
     for partition in partition_names:
@@ -313,6 +316,7 @@ def _load_materialization_view(root_value: str | Path) -> dict[str, Any]:
         not in {
             RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID,
             RFDETR_REVIEWED_CAMPAIGN_0087_ID,
+            RFDETR_REVIEWED_CAMPAIGN_0092_ID,
         }
         or materialization.get("review_readiness", {}).get("two_class_ready") is not True
     ):
@@ -766,7 +770,10 @@ def _verify_campaign_manifest(
     if not path.is_file():
         raise RfdetrSegmentationTrainingError(f"campaign manifest does not exist: {path}")
     manifest = _read_json(path, "M0 campaign manifest")
-    if manifest.get("schema_version") == RFDETR_REVIEWED_CAMPAIGN_0087_MANIFEST_SCHEMA:
+    if (
+        manifest.get("schema_version") == RFDETR_REVIEWED_CAMPAIGN_0087_MANIFEST_SCHEMA
+        and manifest.get("campaign_id") == RFDETR_REVIEWED_CAMPAIGN_0087_ID
+    ):
         declared_digest = _assert_sha256(manifest.get("manifest_sha256"), "M0 manifest_sha256")
         core = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
         if declared_digest != _digest(core):
@@ -923,6 +930,134 @@ def _verify_campaign_manifest(
             "path": str(path),
             "campaign_id": RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID,
             "schema_version": RFDETR_PILE_CAMPAIGN_MANIFEST_SCHEMA,
+            "manifest_digest": declared_digest,
+            "file_sha256": _file_digest(path),
+            "recipe_sha256": manifest["recipe_sha256"],
+            "class_map": dict(RFDETR_PILE_CLASS_MAP),
+        }
+    if (
+        manifest.get("schema_version") == RFDETR_REVIEWED_CAMPAIGN_0087_MANIFEST_SCHEMA
+        and manifest.get("campaign_id") == RFDETR_REVIEWED_CAMPAIGN_0092_ID
+    ):
+        declared_digest = _assert_sha256(manifest.get("manifest_sha256"), "M0 manifest_sha256")
+        core = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+        if declared_digest != _digest(core):
+            raise RfdetrSegmentationTrainingError("0092 M0 manifest digest does not match contents")
+        if (
+            manifest.get("milestone") != "M0"
+            or manifest.get("freeze_state") != "frozen"
+            or manifest.get("training_readiness") != "ready"
+        ):
+            raise RfdetrSegmentationTrainingError(
+                "0092 M0 campaign manifest is not frozen and ready"
+            )
+        recipe = manifest.get("recipe")
+        if not isinstance(recipe, Mapping) or manifest.get("recipe_sha256") != _digest(recipe):
+            raise RfdetrSegmentationTrainingError("0092 M0 recipe digest does not match contents")
+        if recipe.get("package") != {
+            "name": "rfdetr",
+            "version": RFDETR_SEGMENTATION_PACKAGE_VERSION,
+        }:
+            raise RfdetrSegmentationTrainingError("0092 M0 RF-DETR package pin changed")
+        model = recipe.get("model")
+        if not isinstance(model, Mapping) or {
+            "class": model.get("class"),
+            "variant": model.get("variant"),
+            "num_classes": model.get("num_classes"),
+            "class_names": model.get("class_names"),
+            "resolution": model.get("resolution"),
+        } != {
+            "class": RFDETR_SEGMENTATION_MODEL_CLASS,
+            "variant": RFDETR_SEGMENTATION_MODEL_VARIANT,
+            "num_classes": 2,
+            "class_names": ["visible_card", "card_pile"],
+            "resolution": [RFDETR_SEGMENTATION_INPUT_SIZE, RFDETR_SEGMENTATION_INPUT_SIZE],
+        }:
+            raise RfdetrSegmentationTrainingError("0092 M0 two-class model recipe changed")
+        checkpoint = recipe.get("pretrained_checkpoint")
+        if not isinstance(checkpoint, Mapping) or checkpoint.get("sha256") != pretrained_sha256:
+            raise RfdetrSegmentationTrainingError(
+                "pretrained checkpoint does not match the frozen 0092 M0 checkpoint digest"
+            )
+        training = recipe.get("training")
+        if not isinstance(training, Mapping) or {
+            key: training.get(key)
+            for key in (
+                "batch_size",
+                "grad_accum_steps",
+                "epochs",
+                "seed",
+                "num_workers",
+                "mixed_precision",
+            )
+        } != {
+            "batch_size": 1,
+            "grad_accum_steps": 4,
+            "epochs": 40,
+            "seed": 6701,
+            "num_workers": 0,
+            "mixed_precision": False,
+        }:
+            raise RfdetrSegmentationTrainingError("0092 M0 training recipe is not locked")
+        augmentation = recipe.get("augmentation")
+        if not isinstance(augmentation, Mapping) or {
+            key: augmentation.get(key)
+            for key in ("multi_scale", "expanded_scales", "do_random_resize_via_padding", "use_ema")
+        } != {
+            "multi_scale": True,
+            "expanded_scales": True,
+            "do_random_resize_via_padding": False,
+            "use_ema": True,
+        }:
+            raise RfdetrSegmentationTrainingError("0092 M0 augmentation recipe is not locked")
+        early_stopping = recipe.get("early_stopping")
+        if not isinstance(early_stopping, Mapping) or {
+            "enabled": early_stopping.get("enabled"),
+            "patience": early_stopping.get("patience"),
+            "min_delta": early_stopping.get("min_delta"),
+        } != {"enabled": True, "patience": 8, "min_delta": 0.001}:
+            raise RfdetrSegmentationTrainingError("0092 M0 early-stopping recipe is not locked")
+        budget = recipe.get("budget")
+        if not isinstance(budget, Mapping) or {
+            "candidate_count": budget.get("candidate_count"),
+            "sweep": budget.get("sweep"),
+            "wall_clock_seconds": budget.get("wall_clock_seconds"),
+        } != {"candidate_count": 1, "sweep": False, "wall_clock_seconds": 144000}:
+            raise RfdetrSegmentationTrainingError("0092 M0 candidate budget or design changed")
+        data_contract = recipe.get("data_contract")
+        if not isinstance(data_contract, Mapping) or data_contract.get("categories") != [
+            {"id": 1, "name": "visible_card", "supercategory": "card"},
+            {"id": 2, "name": "card_pile", "supercategory": "card"},
+        ]:
+            raise RfdetrSegmentationTrainingError("0092 M0 two-class data contract changed")
+        if view.get("class_map") != RFDETR_PILE_CLASS_MAP:
+            raise RfdetrSegmentationTrainingError("0092 M1 class map differs from frozen recipe")
+        campaign_reference = view["manifest"].get("campaign_manifest")
+        if (
+            not isinstance(campaign_reference, Mapping)
+            or campaign_reference.get("manifest_digest") != declared_digest
+            or campaign_reference.get("file_sha256") != _file_digest(path)
+        ):
+            raise RfdetrSegmentationTrainingError("0092 M1 manifest receipt does not match M0")
+        split = _read_json(view["root"] / "split.json", "0092 M1 split")
+        if split.get("campaign_manifest_digest") != declared_digest:
+            raise RfdetrSegmentationTrainingError("0092 M1 split points to another M0 manifest")
+        partitions = manifest.get("partitions")
+        if not isinstance(partitions, Mapping):
+            raise RfdetrSegmentationTrainingError("0092 M0 partitions are invalid")
+        expected_recordings = {
+            "train": [item["recording_id"] for item in partitions["train"]["recordings"]],
+            "validation": [item["recording_id"] for item in partitions["validation"]["recordings"]],
+            "sealed_test": [
+                item["recording_id"] for item in partitions["sealed_test"]["recordings"]
+            ],
+        }
+        if any(split.get(name) != recordings for name, recordings in expected_recordings.items()):
+            raise RfdetrSegmentationTrainingError("0092 M1 split differs from frozen M0 groups")
+        return {
+            "path": str(path),
+            "campaign_id": RFDETR_REVIEWED_CAMPAIGN_0092_ID,
+            "schema_version": RFDETR_REVIEWED_CAMPAIGN_0087_MANIFEST_SCHEMA,
             "manifest_digest": declared_digest,
             "file_sha256": _file_digest(path),
             "recipe_sha256": manifest["recipe_sha256"],

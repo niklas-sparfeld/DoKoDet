@@ -24,7 +24,7 @@
 - **M0:** Complete (2026-10-14) — froze 20 eligible source groups, the fresh source-group holdouts,
   the 0087 candidate baseline, one real-only recipe, budgets, and quality gates.
 - **M1:** Complete (2026-10-14) — materialized and inspected 874 frames and 2,714 reviewed masks.
-- **M2:** Not started — train one bounded real-only candidate on the frozen training groups.
+- **M2:** In progress (2026-10-14) — the one frozen real-only candidate is training on MPS.
 - **M3:** Not started — evaluate validation and one fresh sealed holdout, then decide whether the
   recipe passes.
 - **M4:** Not started — refit the selected recipe on all eligible reviewed recordings and publish
@@ -118,6 +118,19 @@ All masks decoded at source dimensions. Overlay sheets cover all 20 recordings a
 small-card, pile, and supported frame-edge examples. RF-DETR 1.9.4 loaded all three COCO partitions.
 No model inference or training ran in M1.
 
+### M2 implementation evidence — 2026-10-14
+
+The single candidate started from the frozen M0 manifest and M1 materialization. Its run directory is
+`.runtime/rfdetr-segmentation-0092`. The runner verified the M0 digest, pinned checkpoint, M1 receipt,
+class map, and exact split before it staged training data. RF-DETR 1.9.4 started on MPS with seed
+6701, 40 epochs, batch size 1, and gradient accumulation 4. The sealed-test partition was not staged.
+The validation partition is loaded only for the frozen early-stopping rule; it is not used for
+gradient updates. Training remains in progress, so no checkpoint or candidate bundle is reported yet.
+
+The campaign runner now accepts the 0092 materialization and verifies its frozen partition receipt.
+The 0092 verifier checks the two-class recipe, checkpoint digest, budget, M1 manifest receipt, and
+all three source-group partitions before training starts.
+
 ### M1 — Materialize and inspect reviewed masks
 
 Build the expanded two-class dataset from the frozen manifest. Preserve source frames, calibration
@@ -136,7 +149,8 @@ and data digests, checkpoint selection, and exported bundle. Do not add syntheti
 candidates after observing training results.
 
 Acceptance: training completes within its frozen budget; the candidate reloads; the bundle preserves
-the exact M0/M1 lineage; the validation and sealed-test partitions remain unopened during training.
+the exact M0/M1 lineage; validation is used only for the frozen early-stopping rule and the sealed-test
+partition remains unopened during training.
 
 ### M3 — Evaluate and decide once
 
