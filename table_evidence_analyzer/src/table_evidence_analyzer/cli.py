@@ -209,12 +209,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Evaluate an exported local DINOv3 identity bundle.",
         description=(
             "Re-run every frozen validation crop through an exported DINOv3 bundle and "
-            "publish metrics plus checkpoint reproducibility."
+            "publish class, source-slice, paired-provider, and checkpoint metrics."
         ),
     )
     dinov3_evaluate_parser.add_argument("--run", type=Path, required=True)
     dinov3_evaluate_parser.add_argument("--bundle", type=Path, required=True)
     dinov3_evaluate_parser.add_argument("--output", type=Path, required=True)
+    dinov3_evaluate_parser.add_argument(
+        "--provider-receipts",
+        type=Path,
+        help="Optional retained Gemini receipt JSON for exact-crop paired comparison.",
+    )
     dinov3_evaluate_parser.add_argument("--device", choices=("cpu", "mps", "cuda"), default="cpu")
     dinov3_evaluate_parser.add_argument("--probability-tolerance", type=float, default=1e-5)
 
@@ -1069,6 +1074,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     run=args.run,
                     bundle=args.bundle,
                     output=args.output,
+                    provider_receipts=args.provider_receipts,
                     device=args.device,
                     probability_tolerance=args.probability_tolerance,
                 )

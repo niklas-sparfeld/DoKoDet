@@ -114,6 +114,19 @@ def test_dinov3_bundle_commands_have_explicit_paths_and_device() -> None:
             "mps",
         ]
     )
+    evaluate_args = build_parser().parse_args(
+        [
+            "evaluate-dinov3-identity",
+            "--run",
+            "run",
+            "--bundle",
+            "bundle",
+            "--output",
+            "evaluation.json",
+            "--provider-receipts",
+            "gemini.json",
+        ]
+    )
 
     assert export_args.command == "export-dinov3-identity"
     assert export_args.run == Path("run")
@@ -124,6 +137,8 @@ def test_dinov3_bundle_commands_have_explicit_paths_and_device() -> None:
     assert classify_args.bundle == Path("bundle")
     assert classify_args.image == Path("crop.ppm")
     assert classify_args.device == "mps"
+    assert evaluate_args.command == "evaluate-dinov3-identity"
+    assert evaluate_args.provider_receipts == Path("gemini.json")
 
 
 def test_visible_card_prompt_pilot_command_writes_paired_report(tmp_path: Path) -> None:

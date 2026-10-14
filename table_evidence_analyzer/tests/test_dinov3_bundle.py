@@ -23,6 +23,8 @@ from table_evidence_analyzer.dinov3_bundle import (
 )
 from table_evidence_analyzer.dinov3_evaluation import (
     DinoV3EvaluationConfig,
+    DinoV3EvaluationError,
+    _provider_receipt_index,
     evaluate_dinov3_identity_bundle,
 )
 from table_evidence_analyzer.dinov3_inference import (
@@ -385,6 +387,19 @@ def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(tmp_path: 
                     "digest": cache.digest,
                 },
                 "unsupported_identities": ["CLUBS_NINE"],
+                "items": [
+                    {
+                        "sample_id": crop.dataset_item_id,
+                        "source_frame_id": crop.source_frame_id,
+                        "recording_id": "recording-a",
+                        "source_lineage_group": {"session": "session-a"},
+                        "card_side": "face_up",
+                        "crop_policy": "reviewed_visible_region",
+                        "materialized_crop_sha256": crop.sha256,
+                    }
+                    for crop in cache.crops
+                    if crop.partition == "validation"
+                ],
             }
         ),
         encoding="utf-8",
@@ -396,15 +411,73 @@ def test_exported_bundle_evaluation_reproduces_checkpoint_predictions(tmp_path: 
     run_path.write_text(json.dumps(run_record), encoding="utf-8")
     bundle_path = export_dinov3_identity_bundle(run, tmp_path / "bundle", identity_config=identity)
 
+    provider_receipts = tmp_path / "gemini-receipts.json"
+    validation_crops = [crop for crop in cache.crops if crop.partition == "validation"]
+    provider_outcomes = []
+    for index, crop in enumerate(validation_crops[:-1]):
+        status = ("classified", "failed", "unusable", "side_bypassed")[index % 4]
+        provider_outcomes.append(
+            {
+                "sample_id": crop.dataset_item_id,
+                "crop_sha256": crop.sha256,
+                "status": status,
+                "prediction": crop.visual_card_identity if status == "classified" else None,
+                "request_identity": {
+                    "request_id": f"request-{index}",
+                    "model_id": "gemini-test-model",
+                    "prompt_sha256": "a" * 64,
+                    "input_sha256": crop.sha256,
+                    "generation_config_sha256": "b" * 64,
+                },
+            }
+        )
+    provider_receipts.write_text(
+        json.dumps(
+            {
+                "schema_version": "dinov3-paired-provider-receipts/v1",
+                "provider": "gemini",
+                "outcomes": provider_outcomes,
+            }
+        ),
+        encoding="utf-8",
+    )
+    if provider_outcomes:
+        invalid_receipts = json.loads(provider_receipts.read_text(encoding="utf-8"))
+        invalid_receipts["outcomes"][0]["request_identity"]["input_sha256"] = "0" * 64
+        invalid_path = tmp_path / "invalid-gemini-receipts.json"
+        invalid_path.write_text(json.dumps(invalid_receipts), encoding="utf-8")
+        with pytest.raises(DinoV3EvaluationError, match="request input digest"):
+            _provider_receipt_index(
+                invalid_path,
+                expected={
+                    crop.dataset_item_id: {"crop_sha256": crop.sha256} for crop in validation_crops
+                },
+            )
+
     report = evaluate_dinov3_identity_bundle(
-        DinoV3EvaluationConfig(run=run, bundle=bundle_path, output=tmp_path / "evaluation.json"),
+        DinoV3EvaluationConfig(
+            run=run,
+            bundle=bundle_path,
+            output=tmp_path / "evaluation.json",
+            provider_receipts=provider_receipts,
+        ),
         encoder_loader=_factory,
     )
 
     assert report["state"] == "completed"
     assert report["checkpoint_reproduction"]["state"] == "passed"
     assert report["summary"]["sample_count"] > 0
-    assert report["summary"]["unsupported_class_count"] == 1
+    assert len(report["per_class"]) == 25
+    assert report["summary"]["unsupported_class_count"] >= 1
+    assert (
+        report["slice_summaries"]["source_lineage_group"]["session:session-a"]["sample_count"]
+        == report["summary"]["sample_count"]
+    )
+    assert report["paired_provider"]["outcome_counts"]["missing"] == 1
+    assert report["paired_provider"]["outcome_counts"].get("failed", 0) >= 0
+    assert report["paired_provider"]["side_bypassed_excluded_from_classifier_metrics"] >= 0
+    assert len(report["paired_provider"]["paired_rows"]) == report["summary"]["sample_count"]
+    assert "frame" in report["slice_summaries"]
 
 
 def test_target_map_mismatch_is_explicit_even_when_file_digests_are_rewritten(

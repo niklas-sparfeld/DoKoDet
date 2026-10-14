@@ -30,7 +30,8 @@
 - **M6:** Complete — export exact encoder and head states with separate pretrained provenance,
   recipe metadata, and file digests. The runtime loads adapted weights from the local bundle. See
   the [M6 verification report](../../reports/0094-M6_Adapted_Encoder_Bundles.md).
-- **M7:** Not started — evaluate all classes, source groups, and paired provider outcomes.
+- **M7:** Complete — report all-class support and confusion, source-group/slice outcomes, and
+  digest-checked paired Gemini receipts. See the [M7 verification report](../../reports/0094-M7_All_Class_and_Paired_Evaluation.md).
 - **M8:** Not started — fit and retain scalar confidence calibration and review thresholds.
 - **M9:** Not started — verify a small local lifecycle and publish the recipe handoff.
 
@@ -187,6 +188,14 @@ identities; do not run live Gemini calls in this implementation milestone.
 Acceptance: small fixtures reproduce metrics and denominators; side-bypassed outcomes are excluded
 from classifier-credit metrics; confidently wrong back predictions are visible; unsupported classes
 stay unmeasured; labels and input information never leak between provider/target views.
+
+**Complete:** evaluation schema v2 emits support and confusion entries for all 25 visual classes,
+including unmeasured classes. It reports raw top-1/top-3, coverage, and per-class metrics, with
+source-lineage-group, recording, frame, card-side, and crop-policy summaries. Optional retained
+Gemini receipts require an exact sample ID, crop digest, and request identity. Paired output retains
+classified, failed, unusable, side-bypassed, and missing outcomes. Side-bypassed rows do not receive
+classifier credit. No live provider request is made. See the M7 report for fixture evidence and
+limits.
 
 ### M8 — Implement confidence calibration contracts
 

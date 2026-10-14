@@ -22,9 +22,9 @@ from .data import (
 )
 from .dinov3_bundle import DinoV3IdentityBundle, load_dinov3_identity_bundle
 from .dinov3_inference import DinoV3IdentityClassifier
-from .local_identity import FACE_DOWN_TARGET, VISUAL_IDENTITY_TARGETS
+from .local_identity import VISUAL_IDENTITY_TARGETS
 
-DINOV3_EVALUATION_SCHEMA = "dinov3-identity-bundle-evaluation/v1"
+DINOV3_EVALUATION_SCHEMA = "dinov3-identity-bundle-evaluation/v2"
 DINOV3_REPRODUCTION_TOLERANCE = 1e-5
 _UNAVAILABLE_TARGET = "__UNAVAILABLE__"
 
@@ -40,16 +40,14 @@ class DinoV3EvaluationConfig:
     run: Path
     bundle: Path
     output: Path
+    provider_receipts: Path | None = None
     device: str = "cpu"
     probability_tolerance: float = DINOV3_REPRODUCTION_TOLERANCE
 
     def __post_init__(self) -> None:
         if self.device not in {"cpu", "mps", "cuda"}:
             raise DinoV3EvaluationError(f"unsupported DINOv3 evaluation device: {self.device}")
-        if (
-            not math.isfinite(self.probability_tolerance)
-            or self.probability_tolerance <= 0
-        ):
+        if not math.isfinite(self.probability_tolerance) or self.probability_tolerance <= 0:
             raise DinoV3EvaluationError("probability_tolerance must be finite and positive")
 
 
@@ -164,6 +162,154 @@ def _load_campaign_inputs(
     return campaign, [*validation_samples], expected_rows
 
 
+def _campaign_item_index(campaign: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    items = campaign.get("items")
+    if not isinstance(items, list):
+        return {}
+    result: dict[str, Mapping[str, Any]] = {}
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        sample_id = item.get("sample_id")
+        if isinstance(sample_id, str):
+            if sample_id in result:
+                raise DinoV3EvaluationError("campaign contains duplicate sample IDs")
+            result[sample_id] = item
+    return result
+
+
+def _provider_receipt_index(
+    path: Path,
+    *,
+    expected: Mapping[str, Mapping[str, Any]],
+) -> tuple[dict[str, Mapping[str, Any]], dict[str, Any]]:
+    receipt = _read_json(path.expanduser().resolve(), "provider receipts")
+    if set(receipt) != {"schema_version", "provider", "outcomes"}:
+        raise DinoV3EvaluationError("provider receipt has unexpected fields")
+    if receipt.get("schema_version") != "dinov3-paired-provider-receipts/v1":
+        raise DinoV3EvaluationError("provider receipt schema is unsupported")
+    if receipt.get("provider") != "gemini":
+        raise DinoV3EvaluationError("provider receipts must identify Gemini")
+    rows = receipt.get("outcomes")
+    if not isinstance(rows, list):
+        raise DinoV3EvaluationError("provider receipt outcomes must be a list")
+    indexed: dict[str, Mapping[str, Any]] = {}
+    allowed_statuses = {"classified", "unusable", "failed", "side_bypassed"}
+    for row in rows:
+        if not isinstance(row, Mapping):
+            raise DinoV3EvaluationError("provider receipt outcome must be an object")
+        if set(row) != {"sample_id", "crop_sha256", "status", "prediction", "request_identity"}:
+            raise DinoV3EvaluationError("provider receipt outcome has unexpected fields")
+        sample_id = row.get("sample_id")
+        if not isinstance(sample_id, str) or sample_id not in expected:
+            raise DinoV3EvaluationError("provider receipt contains an unknown sample ID")
+        if sample_id in indexed:
+            raise DinoV3EvaluationError("provider receipt contains duplicate sample IDs")
+        expected_digest = expected[sample_id].get("crop_sha256")
+        if not isinstance(expected_digest, str) or row.get("crop_sha256") != expected_digest:
+            raise DinoV3EvaluationError(
+                f"provider receipt crop digest does not match sample {sample_id}"
+            )
+        status = row.get("status")
+        if status not in allowed_statuses:
+            raise DinoV3EvaluationError(f"provider receipt has unsupported status for {sample_id}")
+        request_identity = row.get("request_identity")
+        required_request_fields = {
+            "request_id",
+            "model_id",
+            "prompt_sha256",
+            "input_sha256",
+            "generation_config_sha256",
+        }
+        if (
+            not isinstance(request_identity, Mapping)
+            or set(request_identity) != required_request_fields
+        ):
+            raise DinoV3EvaluationError(
+                f"provider receipt has no exact request identity for {sample_id}"
+            )
+        if any(
+            not isinstance(request_identity[field], str) or not request_identity[field]
+            for field in required_request_fields
+        ):
+            raise DinoV3EvaluationError(
+                f"provider receipt request identity is incomplete for {sample_id}"
+            )
+        for field in ("prompt_sha256", "input_sha256", "generation_config_sha256"):
+            digest = request_identity[field]
+            if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+                raise DinoV3EvaluationError(
+                    f"provider receipt {field} is not a SHA-256 digest for {sample_id}"
+                )
+        if request_identity["input_sha256"] != expected_digest:
+            raise DinoV3EvaluationError(
+                f"provider request input digest does not match sample {sample_id}"
+            )
+        prediction = row.get("prediction")
+        if status == "classified" and prediction not in VISUAL_IDENTITY_TARGETS:
+            raise DinoV3EvaluationError(
+                f"provider receipt has an invalid prediction for {sample_id}"
+            )
+        if status != "classified" and prediction is not None:
+            raise DinoV3EvaluationError(
+                f"non-classified provider outcome has a prediction for {sample_id}"
+            )
+        indexed[sample_id] = row
+    return indexed, receipt
+
+
+def _classification_metrics(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
+    targets = tuple(VISUAL_IDENTITY_TARGETS)
+    classified = [row for row in rows if row.get("status", "classified") == "classified"]
+    per_class: dict[str, dict[str, Any]] = {}
+    confusion: dict[str, dict[str, int]] = {}
+    for target in targets:
+        support = sum(row.get("target") == target for row in rows)
+        tp = sum(row.get("target") == target and row.get("prediction") == target for row in rows)
+        fp = sum(row.get("target") != target and row.get("prediction") == target for row in rows)
+        fn = sum(row.get("target") == target and row.get("prediction") != target for row in rows)
+        f1 = _f1(tp, fp, fn)
+        per_class[target] = {
+            "support": support,
+            "measured": support > 0,
+            "top_1_correct": tp,
+            "top_1_accuracy": tp / support if support else None,
+            "precision": tp / (tp + fp) if tp + fp else None,
+            "recall": tp / (tp + fn) if tp + fn else None,
+            "f1": f1 if support else None,
+        }
+        confusion[target] = dict(
+            sorted(
+                Counter(
+                    str(row["prediction"])
+                    for row in rows
+                    if row.get("target") == target and isinstance(row.get("prediction"), str)
+                ).items()
+            )
+        )
+    total = len(rows)
+    top_1 = sum(row.get("prediction") == row.get("target") for row in classified)
+    top_3 = sum(
+        row.get("target") in row.get("top_k", [])[:3]
+        for row in classified
+        if isinstance(row.get("top_k"), list)
+    )
+    scored_classes = [target for target in targets if per_class[target]["measured"]]
+    f1_values = [per_class[target]["f1"] for target in scored_classes]
+    return {
+        "sample_count": total,
+        "classified_count": len(classified),
+        "coverage": len(classified) / total if total else 0.0,
+        "top_1_accuracy": top_1 / len(classified) if classified else 0.0,
+        "top_3_accuracy": top_3 / len(classified) if classified else 0.0,
+        "macro_f1": statistics.fmean(f1_values) if f1_values else 0.0,
+        "scored_classes": scored_classes,
+        "unsupported_class_count": len(targets) - len(scored_classes),
+        "per_class": per_class,
+        "confusion_matrix": confusion,
+    }
+
+
 def _runtime_prediction(result: Any) -> tuple[str, list[str], list[float], list[float]]:
     if result.status != "ok":
         raise DinoV3EvaluationError(f"bundle inference failed: {result.error or 'unknown error'}")
@@ -232,9 +378,7 @@ def _reproduction_report(
         if left.get("top_k", [])[:3] != right["top_k"][:3]:
             mismatches.append({"sample_id": sample_id, "kind": "top_3"})
         probabilities = left.get("probabilities")
-        if not isinstance(probabilities, list) or len(probabilities) != len(
-            right["probabilities"]
-        ):
+        if not isinstance(probabilities, list) or len(probabilities) != len(right["probabilities"]):
             mismatches.append({"sample_id": sample_id, "kind": "probabilities"})
             continue
         for index, (expected_value, actual_value) in enumerate(
@@ -246,9 +390,7 @@ def _reproduction_report(
             delta = abs(float(expected_value) - actual_value)
             max_delta = max(max_delta, delta)
             if delta > tolerance:
-                mismatches.append(
-                    {"sample_id": sample_id, "kind": "probability", "index": index}
-                )
+                mismatches.append({"sample_id": sample_id, "kind": "probability", "index": index})
                 break
     return {
         "state": "passed" if not mismatches else "failed",
@@ -286,6 +428,22 @@ def evaluate_dinov3_identity_bundle(
         raise DinoV3EvaluationError("bundle does not contain the recorded best checkpoint")
 
     campaign, validation_samples, expected_rows = _load_campaign_inputs(run, run_root)
+    campaign_items = _campaign_item_index(campaign)
+    missing_items = [
+        sample.dataset_item_id
+        for sample in validation_samples
+        if sample.dataset_item_id not in campaign_items
+        or not isinstance(
+            campaign_items[sample.dataset_item_id].get("materialized_crop_sha256"), str
+        )
+        or campaign_items[sample.dataset_item_id].get("materialized_crop_sha256")
+        != hashlib.sha256(sample.crop_bytes).hexdigest()
+    ]
+    if missing_items:
+        raise DinoV3EvaluationError(
+            "frozen campaign item metadata is missing for validation sample(s): "
+            + ", ".join(missing_items[:10])
+        )
     classifier = DinoV3IdentityClassifier(
         bundle,
         device=config.device,
@@ -294,12 +452,11 @@ def evaluate_dinov3_identity_bundle(
     )
     actual_rows: list[dict[str, Any]] = []
     latencies: list[float] = []
-    confusion: dict[str, Counter[str]] = {}
     for sample in validation_samples:
         result = classifier.classify_ppm(sample.crop_bytes)
         prediction, ranked, _probabilities, ranked_probabilities = _runtime_prediction(result)
         latencies.append(float(result.latency_ms))
-        confusion.setdefault(sample.target, Counter())[prediction] += 1
+        item = campaign_items.get(sample.dataset_item_id, {})
         actual_rows.append(
             {
                 "sample_id": sample.dataset_item_id,
@@ -311,6 +468,12 @@ def evaluate_dinov3_identity_bundle(
                 "top_1_probability": ranked_probabilities[0],
                 "latency_ms": float(result.latency_ms),
                 "source_frame_sha256": sample.source_frame_sha256,
+                "source_frame_id": item.get("source_frame_id"),
+                "crop_sha256": item.get("materialized_crop_sha256"),
+                "recording_id": item.get("recording_id"),
+                "source_lineage_group": item.get("source_lineage_group", {}),
+                "card_side": item.get("card_side", "unknown"),
+                "crop_policy": item.get("crop_policy"),
                 "probabilities": ranked_probabilities,
             }
         )
@@ -322,52 +485,101 @@ def evaluate_dinov3_identity_bundle(
             f"{reproduction['mismatch_count']} mismatch(es)"
         )
 
-    labels = tuple(sorted({row["target"] for row in actual_rows}))
-    sample_count = len(actual_rows)
-    top_1 = sum(row["top_1_correct"] for row in actual_rows) / sample_count
-    top_3 = sum(row["top_3_correct"] for row in actual_rows) / sample_count
-    per_class: dict[str, dict[str, Any]] = {}
-    f1_values: list[float] = []
-    for label in labels:
-        true_positive = sum(
-            row["target"] == label and row["prediction"] == label for row in actual_rows
-        )
-        false_positive = sum(
-            row["target"] != label and row["prediction"] == label for row in actual_rows
-        )
-        false_negative = sum(
-            row["target"] == label and row["prediction"] != label for row in actual_rows
-        )
-        f1 = _f1(true_positive, false_positive, false_negative)
-        f1_values.append(f1)
-        per_class[label] = {
-            "support": sum(row["target"] == label for row in actual_rows),
-            "top_1_correct": true_positive,
-            "top_1_accuracy": true_positive
-            / sum(row["target"] == label for row in actual_rows),
-            "precision": true_positive / (true_positive + false_positive)
-            if true_positive + false_positive
-            else 0.0,
-            "recall": true_positive / (true_positive + false_negative)
-            if true_positive + false_negative
-            else 0.0,
-            "f1": f1,
-        }
+    metrics = _classification_metrics(actual_rows)
     unsupported = {
         identity: {
             "support": 0,
             "measured": False,
-            "reason": "absent from the frozen train and validation corpus",
+            "reason": "absent from the frozen validation corpus",
         }
-        for identity in campaign.get("unsupported_identities", [])
+        for identity in VISUAL_IDENTITY_TARGETS
+        if not any(row["target"] == identity for row in actual_rows)
     }
-    unsupported.pop(FACE_DOWN_TARGET, None)
-    excluded = {
-        FACE_DOWN_TARGET: {
-            "support": 0,
-            "measured": False,
-            "reason": "intentionally excluded from the first campaign",
+    excluded: dict[str, dict[str, Any]] = {}
+    if config.provider_receipts is None:
+        provider_report = None
+    else:
+        expected_provider_rows = {
+            row["sample_id"]: row for row in actual_rows if isinstance(row.get("crop_sha256"), str)
         }
+        provider_rows, provider_manifest = _provider_receipt_index(
+            config.provider_receipts,
+            expected=expected_provider_rows,
+        )
+        paired = [
+            (row, provider_rows.get(row["sample_id"]))
+            for row in actual_rows
+            if row["sample_id"] in expected_provider_rows
+        ]
+        status_counts = Counter(
+            "missing" if provider_row is None else str(provider_row["status"])
+            for _, provider_row in paired
+        )
+        comparable = [
+            (row, provider_row)
+            for row, provider_row in paired
+            if provider_row is not None and provider_row["status"] == "classified"
+        ]
+        provider_report = {
+            "schema_version": provider_manifest["schema_version"],
+            "provider": "gemini",
+            "request_identity_count": len(provider_rows),
+            "paired_sample_count": len(paired),
+            "outcome_counts": dict(sorted(status_counts.items())),
+            "classified_count": len(comparable),
+            "coverage": len(comparable) / len(paired) if paired else 0.0,
+            "human_target_top_1_accuracy": (
+                sum(provider_row["prediction"] == row["target"] for row, provider_row in comparable)
+                / len(comparable)
+                if comparable
+                else 0.0
+            ),
+            "dino_agreement": (
+                sum(
+                    provider_row["prediction"] == row["prediction"]
+                    for row, provider_row in comparable
+                )
+                / len(comparable)
+                if comparable
+                else 0.0
+            ),
+            "side_bypassed_excluded_from_classifier_metrics": status_counts["side_bypassed"],
+            "paired_rows": [
+                {
+                    "sample_id": row["sample_id"],
+                    "target": row["target"],
+                    "dino_prediction": row["prediction"],
+                    "gemini_status": "missing" if provider_row is None else provider_row["status"],
+                    "gemini_prediction": (
+                        None if provider_row is None else provider_row.get("prediction")
+                    ),
+                    "request_identity": (
+                        None if provider_row is None else provider_row.get("request_identity")
+                    ),
+                }
+                for row, provider_row in paired
+            ],
+        }
+
+    def grouped_metrics(field: str) -> dict[str, Any]:
+        groups: dict[str, list[Mapping[str, Any]]] = {}
+        for row in actual_rows:
+            raw = row.get(field)
+            if field == "source_lineage_group" and isinstance(raw, Mapping):
+                values = [f"{key}:{value}" for key, value in sorted(raw.items())]
+                keys = values or ["unassigned"]
+            else:
+                keys = [str(raw) if raw is not None else "unknown"]
+            for key in keys:
+                groups.setdefault(key, []).append(row)
+        return {key: _classification_metrics(rows) for key, rows in sorted(groups.items())}
+
+    slice_report = {
+        "source_lineage_group": grouped_metrics("source_lineage_group"),
+        "recording": grouped_metrics("recording_id"),
+        "frame": grouped_metrics("source_frame_id"),
+        "card_side": grouped_metrics("card_side"),
+        "crop_policy": grouped_metrics("crop_policy"),
     }
     report = {
         "schema_version": DINOV3_EVALUATION_SCHEMA,
@@ -383,12 +595,11 @@ def evaluate_dinov3_identity_bundle(
         "split_version_digest": campaign["split"]["digest"],
         "crop_cache_digest": campaign["crop_inventory"]["digest"],
         "summary": {
-            "sample_count": sample_count,
-            "top_1_accuracy": top_1,
-            "top_3_accuracy": top_3,
-            "macro_f1": statistics.fmean(f1_values) if f1_values else 0.0,
-            "scored_classes": list(labels),
-            "unsupported_class_count": len(unsupported),
+            **{
+                key: value
+                for key, value in metrics.items()
+                if key not in {"per_class", "confusion_matrix"}
+            },
             "excluded_class_count": len(excluded),
         },
         "latency": {
@@ -400,11 +611,21 @@ def evaluate_dinov3_identity_bundle(
             "min_ms": round(min(latencies), 6),
             "max_ms": round(max(latencies), 6),
         },
-        "per_class": per_class,
-        "confusion_matrix": {
-            target: dict(sorted(confusion.get(target, Counter()).items()))
-            for target in labels
-        },
+        "per_class": metrics["per_class"],
+        "confusion_matrix": metrics["confusion_matrix"],
+        "slice_summaries": slice_report,
+        "paired_provider": provider_report,
+        "face_down_errors": [
+            {
+                "sample_id": row["sample_id"],
+                "recording_id": row["recording_id"],
+                "source_frame_id": row["source_frame_id"],
+                "prediction": row["prediction"],
+                "top_1_probability": row["top_1_probability"],
+            }
+            for row in actual_rows
+            if row["target"] == "FACE_DOWN" and row["prediction"] != "FACE_DOWN"
+        ],
         "unsupported_class_coverage": unsupported,
         "excluded_class_coverage": excluded,
         "checkpoint_reproduction": reproduction,
