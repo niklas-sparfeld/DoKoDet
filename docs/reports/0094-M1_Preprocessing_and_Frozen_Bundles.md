@@ -25,9 +25,11 @@ does not claim model quality or campaign performance.
   fixture encoders.
 - `operations/tests/test_dinov3_identity_campaign.py`: 7 passed.
 - Ruff checks and `git diff --check`: passed.
-- The local materialized DINOv3 weights are not present at
-  `data/models/dinov3-vits16-pretrain-lvd1689m`, so the batch-one real-backbone latency and memory
-  smoke could not run on this host.
+- The local materialized weights and existing accepted license record passed all three declared
+  file-digest checks. No pretrained file or source config was changed.
+- Batch-one MPS smoke at 384 pixels passed with feature shape `(1, 384)` and finite values. After
+  one warm-up forward, the measured forward took 19.77 ms. MPS reported 84.93 MiB current allocated
+  and 146.69 MiB driver allocated after the measured forward.
 
-M1 remains in progress until the real local-backbone smoke can run with the declared optional
-runtime and materialized licensed weights. No model weights were downloaded or modified.
+The timing and memory values are feasibility evidence for this host only. They do not measure
+classifier quality or claim campaign performance.
