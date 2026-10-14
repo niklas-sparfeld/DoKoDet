@@ -261,7 +261,7 @@ def test_run_request_freezes_exact_inputs_and_complete_policy_values() -> None:
     assert parsed.extraction_policy["policy_id"] == "exact-event/v1"
 
     crop_input = {
-        "schema_version": "visual-identity-crop-input/v1",
+        "schema_version": "visual-identity-crop-input/v2",
         "input_kind": "gemini_polygon",
         "manifest_digest": DIGEST,
         "source_revision_id": "revision-01",

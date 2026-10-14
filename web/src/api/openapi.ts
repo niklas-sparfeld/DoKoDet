@@ -2188,6 +2188,10 @@ export interface components {
          * @description One persisted visual identity classification returned by the pipeline API.
          */
         PipelineVisualIdentityOutcomeResponse: {
+            /** Annotation Provenance */
+            annotation_provenance: {
+                [key: string]: unknown;
+            } | null;
             /** Candidates */
             candidates: {
                 [key: string]: unknown;
@@ -2197,7 +2201,7 @@ export interface components {
             /** Classifier */
             classifier: {
                 [key: string]: unknown;
-            };
+            } | null;
             /** Crop Identity */
             crop_identity: {
                 [key: string]: unknown;
@@ -2264,7 +2268,7 @@ export interface components {
              * Schema Version
              * @constant
              */
-            schema_version: "visual-identity-data/v1";
+            schema_version: "visual-identity-data/v2";
         };
         /**
          * PipelineVisualIdentityRevisionResponse

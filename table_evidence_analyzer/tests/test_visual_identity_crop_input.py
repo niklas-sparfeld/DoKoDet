@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from copy import deepcopy
 
 import pytest
 
+from table_evidence_analyzer.pipeline_data import canonical_json_bytes
 from table_evidence_analyzer.visual_identity_crop_input import (
     ReviewedVirtualCardLineage,
     VisualIdentityCropInput,
@@ -76,10 +78,12 @@ def _item(
     failure_tags: list[str] | None = None,
     video_digest: str = VIDEO_DIGEST,
 ) -> dict[str, object]:
+    geometry = _geometry(geometry_kind)
     return {
         "card_id": card_id,
         "frame_identity": _frame(frame_index, video_digest=video_digest),
-        "geometry": _geometry(geometry_kind),
+        "geometry": geometry,
+        "geometry_digest": hashlib.sha256(canonical_json_bytes(geometry)).hexdigest(),
         "side": side,
         "identity_usable": identity_usable,
         "failure_tags": [] if failure_tags is None else failure_tags,
@@ -99,7 +103,7 @@ def _virtual_lineage() -> dict[str, str]:
 
 def _mapping(kind: str = "gemini_polygon") -> dict[str, object]:
     value: dict[str, object] = {
-        "schema_version": "visual-identity-crop-input/v1",
+        "schema_version": "visual-identity-crop-input/v2",
         "input_kind": kind,
         "recording_id": "recording-01",
         "accepted_video_sha256": VIDEO_DIGEST,
@@ -127,6 +131,8 @@ def _mapping(kind: str = "gemini_polygon") -> dict[str, object]:
             )
         ]
         value["virtual_card_lineage"] = _virtual_lineage()
+    if kind == "reviewed_visible_card":
+        value["items"] = [_item("card-01", 0, geometry_kind="reviewed-visible-region/v1")]
     # The contract computes the digest from the manifest.  Build once without a
     # supplied digest, then freeze the resulting canonical mapping.
     value["manifest_digest"] = None
@@ -151,7 +157,10 @@ def _mapping(kind: str = "gemini_polygon") -> dict[str, object]:
     return built.to_mapping()
 
 
-@pytest.mark.parametrize("kind", ["gemini_polygon", "rfdetr_segment", "reviewed_virtual_card"])
+@pytest.mark.parametrize(
+    "kind",
+    ["gemini_polygon", "rfdetr_segment", "reviewed_virtual_card", "reviewed_visible_card"],
+)
 def test_supported_inputs_round_trip_with_stable_manifest_digest(kind: str) -> None:
     raw = _mapping(kind)
     first = canonical_visual_identity_crop_input_bytes(raw)

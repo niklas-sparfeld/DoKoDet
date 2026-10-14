@@ -22,7 +22,7 @@ from .table_observation import TableObservation, parse_observation_bytes
 VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v2"
 LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
 PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION = "proposed-card-scene-data/v1"
-VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v1"
+VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v2"
 TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 EXACT_EVENT_FRAME_SCHEMA_VERSION = "exact-event/v1"
 DETECTOR_BOX_GEOMETRY_KIND = "detector-box/v1"
@@ -1046,10 +1046,15 @@ class VisualIdentityCropInputProvenance:
             },
             context,
         )
-        if data["schema_version"] != "visual-identity-crop-input-provenance/v1":
+        if data["schema_version"] != "visual-identity-crop-input-provenance/v2":
             raise PipelineDataError(f"{context}.schema_version is unsupported")
         kind = data["input_kind"]
-        if kind not in {"gemini_polygon", "rfdetr_segment", "reviewed_virtual_card"}:
+        if kind not in {
+            "gemini_polygon",
+            "rfdetr_segment",
+            "reviewed_virtual_card",
+            "reviewed_visible_card",
+        }:
             raise PipelineDataError(f"{context}.input_kind is unsupported")
         return cls(
             input_kind=kind,
@@ -1065,12 +1070,67 @@ class VisualIdentityCropInputProvenance:
 
     def to_mapping(self) -> dict[str, str]:
         return {
-            "schema_version": "visual-identity-crop-input-provenance/v1",
+            "schema_version": "visual-identity-crop-input-provenance/v2",
             "input_kind": self.input_kind,
             "manifest_digest": self.manifest_digest,
             "source_revision_id": self.source_revision_id,
             "source_revision_digest": self.source_revision_digest,
             "source_view_digest": self.source_view_digest,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class VisualIdentityAnnotationProvenance:
+    """Exact reviewed geometry that permits annotation without a classifier."""
+
+    visible_card_revision_id: str
+    visible_card_revision_digest: str
+    card_id: str
+    frame_identity: VisibleCardFrameIdentity
+    geometry_digest: str
+
+    @classmethod
+    def from_mapping(
+        cls, raw: Mapping[str, Any], context: str = "annotation_provenance"
+    ) -> "VisualIdentityAnnotationProvenance":
+        data = _mapping(raw, context)
+        _strict(
+            data,
+            {
+                "schema_version",
+                "visible_card_revision_id",
+                "visible_card_revision_digest",
+                "card_id",
+                "frame_identity",
+                "geometry_digest",
+            },
+            context,
+        )
+        if data["schema_version"] != "visual-identity-annotation-provenance/v1":
+            raise PipelineDataError(f"{context}.schema_version is unsupported")
+        return cls(
+            visible_card_revision_id=_identifier(
+                data["visible_card_revision_id"], f"{context}.visible_card_revision_id"
+            ),
+            visible_card_revision_digest=_digest(
+                data["visible_card_revision_digest"],
+                f"{context}.visible_card_revision_digest",
+            ),
+            card_id=_identifier(data["card_id"], f"{context}.card_id"),
+            frame_identity=VisibleCardFrameIdentity.from_mapping(
+                _mapping(data["frame_identity"], f"{context}.frame_identity")
+            ),
+            geometry_digest=_digest(data["geometry_digest"], f"{context}.geometry_digest"),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "schema_version": "visual-identity-annotation-provenance/v1",
+            "visible_card_revision_id": self.visible_card_revision_id,
+            "visible_card_revision_digest": self.visible_card_revision_digest,
+            "card_id": self.card_id,
+            "frame_identity": self.frame_identity.to_mapping(),
+            "geometry_digest": self.geometry_digest,
         }
 
 
@@ -1122,12 +1182,13 @@ class VisualIdentityOutcome:
     frame_identity: VisibleCardFrameIdentity
     geometry: PipelineGeometry
     crop_identity: VisualIdentityCropIdentity | None
-    classifier: VisualIdentityClassifierIdentity
+    classifier: VisualIdentityClassifierIdentity | None
     status: Literal["classified", "face_down", "unusable", "failed"]
     candidates: tuple[VisualIdentityCandidate, ...]
     unusable_reason: str | None = None
     error: str | None = None
     crop_input_provenance: VisualIdentityCropInputProvenance | None = None
+    annotation_provenance: VisualIdentityAnnotationProvenance | None = None
 
     @classmethod
     def from_mapping(
@@ -1147,8 +1208,9 @@ class VisualIdentityOutcome:
                 "unusable_reason",
                 "error",
                 "crop_input_provenance",
+                "annotation_provenance",
             }
-            if "crop_input_provenance" in data
+            if "crop_input_provenance" in data or "annotation_provenance" in data
             else {
                 "card_id",
                 "frame_identity",
@@ -1206,6 +1268,14 @@ class VisualIdentityOutcome:
                 _mapping(raw_provenance, f"{context}.crop_input_provenance")
             )
         )
+        raw_annotation = data.get("annotation_provenance")
+        annotation = (
+            None
+            if raw_annotation is None
+            else VisualIdentityAnnotationProvenance.from_mapping(
+                _mapping(raw_annotation, f"{context}.annotation_provenance")
+            )
+        )
         if status == "classified" and (
             not candidates or unusable_reason is not None or error is not None
         ):
@@ -1220,19 +1290,40 @@ class VisualIdentityOutcome:
             raise PipelineDataError(f"{context}.unusable outcome is invalid")
         if status == "failed" and (candidates or error is None or unusable_reason is not None):
             raise PipelineDataError(f"{context}.failed outcome is invalid")
+        classifier = (
+            None
+            if data["classifier"] is None
+            else VisualIdentityClassifierIdentity.from_mapping(
+                _mapping(data["classifier"], f"{context}.classifier")
+            )
+        )
+        if classifier is None and annotation is None:
+            raise PipelineDataError(
+                f"{context} cannot omit classifier metadata without annotation provenance"
+            )
+        if classifier is not None and annotation is not None:
+            raise PipelineDataError(
+                f"{context} cannot combine classifier and annotation provenance"
+            )
+        if annotation is not None and (
+            annotation.card_id != data["card_id"]
+            or annotation.frame_identity.to_mapping() != frame.to_mapping()
+            or annotation.geometry_digest
+            != sha256_bytes(canonical_json_bytes(geometry.to_mapping()))
+        ):
+            raise PipelineDataError(f"{context}.annotation_provenance does not match the outcome")
         return cls(
             card_id=_identifier(data["card_id"], f"{context}.card_id"),
             frame_identity=frame,
             geometry=geometry,
             crop_identity=crop,
-            classifier=VisualIdentityClassifierIdentity.from_mapping(
-                _mapping(data["classifier"], f"{context}.classifier")
-            ),
+            classifier=classifier,
             status=status,
             candidates=candidates,
             unusable_reason=unusable_reason,
             error=error,
             crop_input_provenance=provenance,
+            annotation_provenance=annotation,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -1243,7 +1334,7 @@ class VisualIdentityOutcome:
             "crop_identity": None
             if self.crop_identity is None
             else self.crop_identity.to_mapping(),
-            "classifier": self.classifier.to_mapping(),
+            "classifier": None if self.classifier is None else self.classifier.to_mapping(),
             "status": self.status,
             "candidates": [candidate.to_mapping() for candidate in self.candidates],
             "unusable_reason": self.unusable_reason,
@@ -1252,6 +1343,11 @@ class VisualIdentityOutcome:
                 None
                 if self.crop_input_provenance is None
                 else self.crop_input_provenance.to_mapping()
+            ),
+            "annotation_provenance": (
+                None
+                if self.annotation_provenance is None
+                else self.annotation_provenance.to_mapping()
             ),
         }
 

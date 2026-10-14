@@ -89,7 +89,7 @@ def _publish(
         content_schema = "visible-card-data/v1"
     else:
         content_bytes = canonical_visual_identity_data_bytes(content)
-        content_schema = "visual-identity-data/v1"
+        content_schema = "visual-identity-data/v2"
     producer: Any = (
         ProcessorProducer(
             run_id=run_id or "fixture-run",

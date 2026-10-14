@@ -21,15 +21,17 @@ from table_evidence_analyzer.pipeline_data import (
     parse_pipeline_geometry,
 )
 
-VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION = "visual-identity-crop-input/v1"
+VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION = "visual-identity-crop-input/v2"
 VISUAL_IDENTITY_CROP_INPUT_KINDS = frozenset(
-    {"gemini_polygon", "rfdetr_segment", "reviewed_virtual_card"}
+    {"gemini_polygon", "rfdetr_segment", "reviewed_virtual_card", "reviewed_visible_card"}
 )
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 
-CropInputKind = Literal["gemini_polygon", "rfdetr_segment", "reviewed_virtual_card"]
+CropInputKind = Literal[
+    "gemini_polygon", "rfdetr_segment", "reviewed_virtual_card", "reviewed_visible_card"
+]
 CropInputFailurePhase = Literal["pre_queue", "per_item"]
 
 # A generic policy is allowed to resolve to the item's geometry-specific policy.  The
@@ -202,7 +204,15 @@ class VisualIdentityCropInputItem:
         data = _mapping(raw, context)
         _strict(
             data,
-            {"card_id", "frame_identity", "geometry", "side", "identity_usable", "failure_tags"},
+            {
+                "card_id",
+                "frame_identity",
+                "geometry",
+                "geometry_digest",
+                "side",
+                "identity_usable",
+                "failure_tags",
+            },
             context,
         )
         side = data["side"]
@@ -211,14 +221,19 @@ class VisualIdentityCropInputItem:
         identity_usable = data["identity_usable"]
         if not isinstance(identity_usable, bool):
             raise VisualIdentityCropInputError(f"{context}.identity_usable must be a boolean")
+        geometry = parse_pipeline_geometry(
+            _mapping(data["geometry"], f"{context}.geometry"), f"{context}.geometry"
+        )
+        if _digest(data["geometry_digest"], f"{context}.geometry_digest") != _sha256_mapping(
+            geometry.to_mapping()
+        ):
+            raise VisualIdentityCropInputError(f"{context}.geometry_digest does not match geometry")
         return cls(
             card_id=_identifier(data["card_id"], f"{context}.card_id"),
             frame_identity=VisibleCardFrameIdentity.from_mapping(
                 _mapping(data["frame_identity"], f"{context}.frame_identity")
             ),
-            geometry=parse_pipeline_geometry(
-                _mapping(data["geometry"], f"{context}.geometry"), f"{context}.geometry"
-            ),
+            geometry=geometry,
             side=side,
             identity_usable=identity_usable,
             failure_tags=_failure_tags(data["failure_tags"], f"{context}.failure_tags"),
@@ -229,6 +244,7 @@ class VisualIdentityCropInputItem:
             "card_id": self.card_id,
             "frame_identity": self.frame_identity.to_mapping(),
             "geometry": self.geometry.to_mapping(),
+            "geometry_digest": _sha256_mapping(self.geometry.to_mapping()),
             "side": self.side,
             "identity_usable": self.identity_usable,
             "failure_tags": list(self.failure_tags),
@@ -282,7 +298,7 @@ class VisualIdentityCropInput:
             )
         expected_geometry_kind = (
             "reviewed-visible-region/v1"
-            if self.input_kind == "reviewed_virtual_card"
+            if self.input_kind in {"reviewed_virtual_card", "reviewed_visible_card"}
             else "visible-region/v1"
         )
         if any(

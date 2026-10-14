@@ -139,7 +139,7 @@ def _vision_revision(
         schema = "visible-card-data/v1"
     else:
         content_bytes = canonical_visual_identity_data_bytes(content)
-        schema = "visual-identity-data/v1"
+        schema = "visual-identity-data/v2"
     manifest = DataRevision(
         revision_id=revision_id,
         content_type=content_type,
@@ -219,7 +219,7 @@ def _identity_reference() -> StoredRevision:
     }
     content = VisualIdentityData.from_mapping(
         {
-            "schema_version": "visual-identity-data/v1",
+            "schema_version": "visual-identity-data/v2",
             "outcomes": [
                 {
                     "card_id": "card-01",

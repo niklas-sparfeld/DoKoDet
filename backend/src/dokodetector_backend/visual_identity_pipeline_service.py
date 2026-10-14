@@ -451,6 +451,47 @@ class VisualIdentityPipelineService:
             raise DerivedViewError("The identity crop is unavailable.")
         return crop
 
+    def resolve_reviewed_annotation_crops(
+        self, recording_id: str, visible_revision_id: str
+    ) -> dict[str, dict[str, Any] | str]:
+        """Resolve native crops for exact reviewed visible-card geometry, without a classifier."""
+
+        _, source = self._accepted_source(recording_id)
+        revision = self.revision_store.require(visible_revision_id)
+        crop_input = self._freeze_crop_input(
+            recording_id,
+            revision,
+            source=source,
+            requested_kind="reviewed_visible_card",
+            require_current_reference=True,
+        )
+        resolved: dict[str, dict[str, Any] | str] = {}
+        for item in crop_input.items:
+            try:
+                with self._derived_view_lock:
+                    frame = resolve_exact_event(
+                        self._video_path(recording_id),
+                        source=source,
+                        requested_time_us=item.frame_identity.requested_time_us,
+                        cache=self.storage.derived_views_root,
+                        resolver=self.frame_resolver,
+                        output_encoding=item.frame_identity.output_encoding,
+                    )
+                if frame.identity_mapping() != item.frame_identity.to_mapping():
+                    raise DerivedViewError("the resolved reviewed frame changed")
+                with self._derived_view_lock:
+                    crop = resolve_visible_region_crop(
+                        frame,
+                        item.geometry.to_mapping(),
+                        crop_policy="oracle_visible_region",
+                        output_encoding="ppm",
+                        cache=self.storage.derived_views_root,
+                    )
+                resolved[item.card_id] = _pipeline_crop_identity_mapping(crop)
+            except (DerivedViewError, OSError, RuntimeError, ValueError) as error:
+                resolved[item.card_id] = str(error) or "The reviewed crop is unavailable."
+        return resolved
+
     def resolve_identity_crop(
         self, recording_id: str, revision_id: str, item_id: str
     ) -> ResolvedCrop:
@@ -732,7 +773,11 @@ class VisualIdentityPipelineService:
                 provider = str(producer_run.request.configuration.get("provider", "gemini"))
                 source_kind = "rfdetr_segment" if "rfdetr" in provider.lower() else "gemini_polygon"
             elif isinstance(producer, HumanProducer):
-                source_kind = "reviewed_virtual_card"
+                source_kind = requested_kind or (
+                    "reviewed_virtual_card"
+                    if any(outcome.card_scene is not None for outcome in revision.content.outcomes)
+                    else "reviewed_visible_card"
+                )
             else:
                 raise VisualIdentityCropInputError(
                     "the selected revision is not a generated or maintained crop input"
@@ -742,6 +787,67 @@ class VisualIdentityPipelineService:
                     "the selected input kind does not match its processor source"
                 )
             kind = source_kind
+
+            if kind == "reviewed_visible_card":
+                if not isinstance(producer, HumanProducer):
+                    raise VisualIdentityCropInputError(
+                        "reviewed visible-card input needs a completed maintained reference"
+                    )
+                if require_current_reference:
+                    reference = (
+                        None
+                        if self.reference_store is None
+                        else self.reference_store.get(recording_id, "visible_cards")
+                    )
+                    if (
+                        reference is None
+                        or reference.state.draft_state != "completed"
+                        or reference.state.selected_completed_revision_id
+                        != revision.manifest.revision_id
+                    ):
+                        raise VisualIdentityCropInputError(
+                            "the selected revision is not the completed maintained "
+                            "visible-card reference"
+                        )
+                items: list[VisualIdentityCropInputItem] = []
+                for outcome in revision.content.outcomes:
+                    if outcome.status != "detected" or outcome.frame_identity is None:
+                        continue
+                    for card in outcome.candidates:
+                        if not isinstance(card.geometry, ReviewedVisibleRegionGeometry):
+                            continue
+                        items.append(
+                            VisualIdentityCropInputItem(
+                                card_id=card.card_id,
+                                frame_identity=outcome.frame_identity,
+                                geometry=card.geometry,
+                                side=card.side,
+                                identity_usable=card.side != "face_down",
+                            )
+                        )
+                items.sort(key=lambda item: (item.frame_identity.frame_index, item.card_id))
+                input_value = VisualIdentityCropInput(
+                    input_kind=kind,
+                    recording_id=recording_id,
+                    accepted_video_sha256=source.video_sha256,
+                    accepted_video_byte_length=source.byte_length,
+                    source_revision_id=revision.manifest.revision_id,
+                    source_revision_digest=sha256_bytes(
+                        json.dumps(
+                            revision.manifest.to_mapping(), sort_keys=True, separators=(",", ":")
+                        ).encode("utf-8")
+                    ),
+                    source_view_digest=source_view_digest,
+                    items=tuple(items),
+                )
+                input_value = VisualIdentityCropInput.from_mapping(input_value.to_mapping())
+                if requested is not None:
+                    supplied = VisualIdentityCropInput.from_mapping(requested)
+                    if supplied.to_mapping() != input_value.to_mapping():
+                        raise VisualIdentityCropInputError(
+                            "the selected crop-input descriptor does not match its source revision"
+                        )
+                return input_value
 
             if kind == "reviewed_virtual_card":
                 if not isinstance(producer, HumanProducer):
@@ -1552,7 +1658,7 @@ class VisualIdentityPipelineService:
         manifest = DataRevision(
             revision_id=f"visual-identities-{_safe(run.run_id)}-attempt-{run.state.attempt}",
             content_type="visual_identities",
-            content_schema="visual-identity-data/v1",
+            content_schema="visual-identity-data/v2",
             recording_id=run.request.source.recording_id,
             source=run.request.source,
             content_sha256=sha256_bytes(canonical_visual_identity_data_bytes(content)),

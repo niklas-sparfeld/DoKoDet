@@ -17,7 +17,8 @@
 
 - **M0:** Complete (2026-10-14) — froze annotation provenance, positive-class eligibility, and
   contract changes.
-- **M1:** Not started — seed and persist backend review items from reviewed geometry.
+- **M1:** Complete (2026-10-14) — seed backend review items from exact reviewed geometry and
+  crops, and preserve unchanged labels when annotation sources change.
 - **M2:** Not started — expose annotation and correction without classifier predictions.
 - **M3:** Not started — materialize all 25 reviewed visual classes and readiness receipts.
 - **M4:** Not started — audit source fidelity and record the rectification decision.
@@ -143,6 +144,21 @@ resolution, repeated seeding, unavailable providers, and stale sources explicitl
 Acceptance: API fixtures create and correct a back label without a classifier run; repeated requests
 do not duplicate cards; conflicts are visible; existing human decisions and crop lineage survive;
 piles create no items. Run focused backend/operations tests and schema checks.
+
+### M1 implementation evidence — 2026-10-14
+
+- Visual-identity drafts now bind to an exact completed visible-card revision and content digest.
+  Seeded items carry frame, card, and reviewed-geometry digests. Native crop resolution can seed
+  items without classifier output; missing crops remain actionable source problems.
+- Annotation-source rebasing rejects stale or non-current visible-card revisions. It preserves
+  decisions and verified crop lineage when frame and geometry remain unchanged, and marks changed
+  or removed items as affected.
+- The API regression seeds a visible back, corrects it to a face-up identity without classifier
+  metadata, reports a missing crop, rejects a stale digest, and verifies source-change behavior.
+- Focused backend reference/API tests passed (52 tests). Table-evidence crop/data tests passed
+  (20 tests), operations pipeline-data tests passed (14 tests), and the web typecheck plus focused
+  review tests passed (32 tests). The full web lint still reports existing errors in
+  `CardEventFrameSurface.tsx` and a warning in `VisibleCardReviewWorkbenchView.tsx`.
 
 ### M2 — Connect the annotation controls
 

@@ -2221,12 +2221,12 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
 class VisualIdentityReferenceHandler(ReferenceContentHandler):
     content_type = "visual_identities"
     content_key = "outcomes"
-    content_schema = "visual-identity-data/v1"
+    content_schema = "visual-identity-data/v2"
 
     def _parse_item(self, item: Mapping[str, Any], source: RecordingVideoSource | None) -> object:
         del source
         return VisualIdentityData.from_mapping(
-            {"schema_version": "visual-identity-data/v1", "outcomes": [item]}
+            {"schema_version": "visual-identity-data/v2", "outcomes": [item]}
         )
 
     def human_item(self, item: Mapping[str, Any]) -> dict[str, Any]:

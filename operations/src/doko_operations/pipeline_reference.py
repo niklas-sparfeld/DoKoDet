@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 PIPELINE_REFERENCE_STATE_SCHEMA_VERSION = "pipeline-reference-state/v1"
-PIPELINE_REFERENCE_DRAFT_SCHEMA_VERSION = "pipeline-reference-draft/v1"
+PIPELINE_REFERENCE_DRAFT_SCHEMA_VERSION = "pipeline-reference-draft/v2"
 PIPELINE_REFERENCE_COVERAGE_SCHEMA_VERSION = "pipeline-reference-coverage/v1"
 PIPELINE_REFERENCE_IMPACT_SCHEMA_VERSION = "pipeline-reference-impact/v1"
 PIPELINE_REFERENCE_CONTENT_TYPES = frozenset({"events", "visible_cards", "visual_identities"})
@@ -41,6 +41,7 @@ PIPELINE_REFERENCE_OPERATIONS = frozenset(
         "correct",
         "decide",
         "rebase",
+        "rebase_annotation_source",
         "set_frame_review",
         "accept_frame_suggestions",
         "set_frame_pending",
@@ -78,6 +79,7 @@ PIPELINE_REFERENCE_DECISIONS = frozenset(
 )
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+_DIGEST = re.compile(r"^[0-9a-f]{64}$")
 
 
 class PipelineReferenceContractError(ValueError):
@@ -113,6 +115,13 @@ def _identifier(value: Any, field: str) -> str:
     result = _text(value, field)
     if len(result) > 128 or _IDENTIFIER.fullmatch(result) is None:
         raise PipelineReferenceContractError(f"{field} must be a safe identifier")
+    return result
+
+
+def _digest(value: Any, field: str) -> str:
+    result = _text(value, field)
+    if _DIGEST.fullmatch(result) is None:
+        raise PipelineReferenceContractError(f"{field} must be a lower-case SHA-256 digest")
     return result
 
 
@@ -280,6 +289,7 @@ class PipelineReferenceDraft:
     impact: tuple[dict[str, Any], ...]
     updated_at: str
     proposal_revision_id: str | None = None
+    annotation_source: dict[str, str] | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> PipelineReferenceDraft:
@@ -297,7 +307,9 @@ class PipelineReferenceDraft:
         }
         _strict(
             data,
-            expected | ({"proposal_revision_id"} if "proposal_revision_id" in data else set()),
+            expected
+            | ({"proposal_revision_id"} if "proposal_revision_id" in data else set())
+            | ({"annotation_source"} if "annotation_source" in data else set()),
             "pipeline reference draft",
         )
         if data["schema_version"] != PIPELINE_REFERENCE_DRAFT_SCHEMA_VERSION:
@@ -319,6 +331,26 @@ class PipelineReferenceDraft:
             coverage = _mapping(coverage, "pipeline reference draft.coverage")
             _validate_json(coverage, "pipeline reference draft.coverage")
             coverage = json.loads(canonical_json_bytes(coverage).decode("utf-8"))
+        annotation_source = data.get("annotation_source")
+        if annotation_source is not None:
+            annotation_source = _mapping(
+                annotation_source, "pipeline reference draft.annotation_source"
+            )
+            _strict(
+                annotation_source,
+                {"visible_card_revision_id", "visible_card_revision_digest"},
+                "pipeline reference draft.annotation_source",
+            )
+            annotation_source = {
+                "visible_card_revision_id": _identifier(
+                    annotation_source["visible_card_revision_id"],
+                    "annotation_source.visible_card_revision_id",
+                ),
+                "visible_card_revision_digest": _digest(
+                    annotation_source["visible_card_revision_digest"],
+                    "annotation_source.visible_card_revision_digest",
+                ),
+            }
         raw_impact = data["impact"]
         if not isinstance(raw_impact, list):
             raise PipelineReferenceContractError("pipeline reference draft.impact must be a list")
@@ -382,6 +414,7 @@ class PipelineReferenceDraft:
                 if data.get("proposal_revision_id") is None
                 else _identifier(data["proposal_revision_id"], "proposal_revision_id")
             ),
+            annotation_source=annotation_source,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -398,6 +431,8 @@ class PipelineReferenceDraft:
         }
         if self.proposal_revision_id is not None:
             value["proposal_revision_id"] = self.proposal_revision_id
+        if self.annotation_source is not None:
+            value["annotation_source"] = self.annotation_source
         return value
 
 
@@ -479,6 +514,7 @@ class PipelineReferenceOperation:
     region_id: str | None = None
     region: dict[str, Any] | None = None
     candidate_ids: tuple[str, ...] | None = None
+    annotation_source: dict[str, str] | None = None
 
     @classmethod
     def from_mapping(
@@ -670,6 +706,27 @@ class PipelineReferenceOperation:
                 ),
                 proposal_revision_id=proposal_revision_id,
             )
+        if operation == "rebase_annotation_source":
+            _strict(data, {"operation", "annotation_source"}, context)
+            source = _mapping(data["annotation_source"], f"{context}.annotation_source")
+            _strict(
+                source,
+                {"visible_card_revision_id", "visible_card_revision_digest"},
+                f"{context}.annotation_source",
+            )
+            return cls(
+                operation=operation,
+                annotation_source={
+                    "visible_card_revision_id": _identifier(
+                        source["visible_card_revision_id"],
+                        f"{context}.annotation_source.visible_card_revision_id",
+                    ),
+                    "visible_card_revision_digest": _digest(
+                        source["visible_card_revision_digest"],
+                        f"{context}.annotation_source.visible_card_revision_digest",
+                    ),
+                },
+            )
         _strict(data, {"operation", "item"}, context)
         item_value = _mapping(data["item"], f"{context}.item")
         _validate_json(item_value, f"{context}.item")
@@ -698,6 +755,8 @@ class PipelineReferenceOperation:
             value["region"] = self.region
         if self.candidate_ids is not None:
             value["candidate_ids"] = list(self.candidate_ids)
+        if self.annotation_source is not None:
+            value["annotation_source"] = self.annotation_source
         return value
 
 

@@ -33,6 +33,7 @@ from table_evidence_analyzer.card_scene_contract import (
 )
 from table_evidence_analyzer.pipeline_data import (
     ProposedCardSceneData,
+    ReviewedVisibleRegionGeometry,
     VisibleCardData,
     canonical_proposed_card_scene_data_bytes,
 )
@@ -132,6 +133,7 @@ class PipelineReferenceService:
         # Pipeline revisions are immutable. Cache their source metadata because validating a
         # multi-item reference must not reparse the complete source revision for every item.
         self._source_revision_sources: dict[str, RecordingVideoSource] = {}
+        self.annotation_crop_resolver: Any | None = None
         self._handlers = build_reference_handlers(
             source_for=lambda recording_id, source_revision_id: self._source_for(
                 recording_id, source_revision_id
@@ -171,6 +173,7 @@ class PipelineReferenceService:
             "seed",
             "source_revision_id",
             "proposal_revision_id",
+            "annotation_source",
         }
         if unknown:
             raise PipelineReferenceInputError(
@@ -179,10 +182,62 @@ class PipelineReferenceService:
         operator_id = identifier(payload.get("operator_id"), "operator_id")
         del operator_id
         existing = self.reference_store.get(recording_id, content_type)
-        if existing is not None:
-            raise PipelineReferenceConflict("a maintained reference already exists", existing)
 
         proposal_revision_id = payload.get("proposal_revision_id")
+        annotation_source = payload.get("annotation_source")
+        if annotation_source is not None:
+            if content_type != "visual_identities" or not isinstance(annotation_source, Mapping):
+                raise PipelineReferenceInputError(
+                    "annotation_source can only seed a visual identity reference"
+                )
+            if set(annotation_source) != {
+                "visible_card_revision_id",
+                "visible_card_revision_digest",
+            }:
+                raise PipelineReferenceInputError(
+                    "annotation_source must contain visible_card_revision_id and "
+                    "visible_card_revision_digest"
+                )
+            visible_revision_id = identifier(
+                annotation_source["visible_card_revision_id"],
+                "annotation_source.visible_card_revision_id",
+            )
+            visible_revision_digest = annotation_source["visible_card_revision_digest"]
+            if (
+                not isinstance(visible_revision_digest, str)
+                or len(visible_revision_digest) != 64
+                or any(character not in "0123456789abcdef" for character in visible_revision_digest)
+            ):
+                raise PipelineReferenceInputError(
+                    "annotation_source.visible_card_revision_digest must be a SHA-256 digest"
+                )
+            visible_reference = self.reference_store.get(recording_id, "visible_cards")
+            if (
+                visible_reference is None
+                or visible_reference.state.draft_state != "completed"
+                or visible_reference.state.selected_completed_revision_id != visible_revision_id
+            ):
+                raise PipelineReferenceInputError(
+                    "annotation_source must name the exact completed visible-card reference"
+                )
+            visible_revision = self._require_source_revision(
+                recording_id, "visible_cards", visible_revision_id
+            )
+            if visible_revision.manifest.content_sha256 != visible_revision_digest:
+                raise PipelineReferenceInputError(
+                    "annotation_source digest does not match the reviewed visible-card revision"
+                )
+            annotation_source = {
+                "visible_card_revision_id": visible_revision_id,
+                "visible_card_revision_digest": visible_revision_digest,
+            }
+        if existing is not None:
+            if (
+                annotation_source is not None
+                and existing.draft.annotation_source == annotation_source
+            ):
+                return existing
+            raise PipelineReferenceConflict("a maintained reference already exists", existing)
         if proposal_revision_id is not None:
             if content_type != "visible_cards":
                 raise PipelineReferenceInputError(
@@ -198,7 +253,8 @@ class PipelineReferenceService:
         if source_revision_id is not None:
             source_revision_id = identifier(source_revision_id, "source_revision_id")
         elif proposal_revision_id is None:
-            seed = payload.get("seed", "selected_generated")
+            default_seed = "empty" if annotation_source is not None else "selected_generated"
+            seed = payload.get("seed", default_seed)
             if seed not in {"selected_generated", "selected_completed", "empty"}:
                 raise PipelineReferenceInputError(
                     "seed must be selected_generated, selected_completed, or empty"
@@ -224,7 +280,80 @@ class PipelineReferenceService:
 
         source_revision = None
         items: tuple[ReferenceDraftItem, ...] = ()
-        if proposal_revision_id is not None:
+        if annotation_source is not None:
+            visible_revision = self._require_source_revision(
+                recording_id, "visible_cards", annotation_source["visible_card_revision_id"]
+            )
+            if not isinstance(visible_revision.content, VisibleCardData):
+                raise PipelineReferenceInputError("annotation source is not visible-card data")
+            crops: Mapping[str, Any] = {}
+            if self.annotation_crop_resolver is not None:
+                crops = self.annotation_crop_resolver(
+                    recording_id, annotation_source["visible_card_revision_id"]
+                )
+            seeded: list[ReferenceDraftItem] = []
+            for frame in visible_revision.content.outcomes:
+                if frame.status != "detected" or frame.frame_identity is None:
+                    continue
+                for card in frame.candidates:
+                    if not isinstance(card.geometry, ReviewedVisibleRegionGeometry):
+                        continue
+                    # Pile members are removed from the maintained candidate view when the
+                    # pile is reviewed. Do not infer identity items from pile regions.
+                    geometry = card.geometry
+                    geometry_digest = sha256_bytes(
+                        json.dumps(
+                            geometry.to_mapping(), sort_keys=True, separators=(",", ":")
+                        ).encode("utf-8")
+                    )
+                    annotation_provenance = {
+                        "schema_version": "visual-identity-annotation-provenance/v1",
+                        **annotation_source,
+                        "card_id": card.card_id,
+                        "frame_identity": frame.frame_identity.to_mapping(),
+                        "geometry_digest": geometry_digest,
+                    }
+                    crop_value = crops.get(card.card_id)
+                    crop_identity = crop_value if isinstance(crop_value, Mapping) else None
+                    error = (
+                        None
+                        if crop_identity is not None
+                        else str(crop_value or "The reviewed source crop is unavailable.")
+                    )
+                    outcome = {
+                        "card_id": card.card_id,
+                        "frame_identity": frame.frame_identity.to_mapping(),
+                        "geometry": geometry.to_mapping(),
+                        "crop_identity": crop_identity,
+                        "classifier": None,
+                        "status": (
+                            "face_down"
+                            if card.side == "face_down" and crop_identity is not None
+                            else "failed"
+                        ),
+                        "candidates": [],
+                        "unusable_reason": None,
+                        "error": error or "Human identity review is pending.",
+                        "crop_input_provenance": None,
+                        "annotation_provenance": annotation_provenance,
+                    }
+                    if outcome["status"] == "face_down":
+                        outcome["error"] = None
+                    seeded.append(
+                        ReferenceDraftItem(
+                            item_id=card.card_id,
+                            base_item_id=None,
+                            review_state="pending",
+                            item=outcome,
+                        )
+                    )
+            items = tuple(seeded)
+            self._handler(content_type).validate_draft_items(
+                recording_id,
+                source_revision_id or annotation_source["visible_card_revision_id"],
+                list(items),
+            )
+        elif proposal_revision_id is not None:
             proposal_revision = self._require_proposal_revision(recording_id, proposal_revision_id)
             proposal_source_revision_id, proposal_data = self._proposal_source(
                 recording_id, proposal_revision
@@ -273,6 +402,7 @@ class PipelineReferenceService:
             impact=(),
             updated_at=timestamp,
             proposal_revision_id=proposal_revision_id,
+            annotation_source=annotation_source,
         )
         state = PipelineReferenceState(
             recording_id=recording_id,
@@ -669,6 +799,7 @@ class PipelineReferenceService:
             "item_id",
             "item",
             "source_revision_id",
+            "annotation_source",
         }
         if unknown:
             raise PipelineReferenceInputError(
@@ -691,7 +822,15 @@ class PipelineReferenceService:
                 {
                     key: value
                     for key, value in payload.items()
-                    if key in {"operation", "item_id", "item", "decision", "source_revision_id"}
+                    if key
+                    in {
+                        "operation",
+                        "item_id",
+                        "item",
+                        "decision",
+                        "source_revision_id",
+                        "annotation_source",
+                    }
                 }
             ]
         if requested_source_revision_id is not None:
@@ -739,6 +878,149 @@ class PipelineReferenceService:
             changed_item_ids: set[str] = set()
             requires_full_validation = False
             for operation in operations:
+                if operation.operation == "rebase_annotation_source":
+                    if content_type != "visual_identities":
+                        raise PipelineReferenceInputError(
+                            "annotation source rebase is only supported for visual identities"
+                        )
+                    assert operation.annotation_source is not None
+                    annotation_source = operation.annotation_source
+                    visible_reference = self.reference_store.get(recording_id, "visible_cards")
+                    if (
+                        visible_reference is None
+                        or visible_reference.state.draft_state != "completed"
+                        or visible_reference.state.selected_completed_revision_id
+                        != annotation_source["visible_card_revision_id"]
+                    ):
+                        raise PipelineReferenceInputError(
+                            "annotation_source must name the exact completed visible-card reference"
+                        )
+                    visible_revision = self._require_source_revision(
+                        recording_id,
+                        "visible_cards",
+                        annotation_source["visible_card_revision_id"],
+                    )
+                    if (
+                        visible_revision.manifest.content_sha256
+                        != annotation_source["visible_card_revision_digest"]
+                    ):
+                        raise PipelineReferenceInputError(
+                            "annotation_source digest does not match the reviewed "
+                            "visible-card revision"
+                        )
+                    if not isinstance(visible_revision.content, VisibleCardData):
+                        raise PipelineReferenceInputError(
+                            "annotation source is not visible-card data"
+                        )
+                    crops: Mapping[str, Any] = {}
+                    if self.annotation_crop_resolver is not None:
+                        crops = self.annotation_crop_resolver(
+                            recording_id, annotation_source["visible_card_revision_id"]
+                        )
+                    seeded: list[ReferenceDraftItem] = []
+                    previous_by_id = {item.item_id: item for item in items}
+                    for frame in visible_revision.content.outcomes:
+                        if frame.status != "detected" or frame.frame_identity is None:
+                            continue
+                        for card in frame.candidates:
+                            if not isinstance(card.geometry, ReviewedVisibleRegionGeometry):
+                                continue
+                            geometry = card.geometry
+                            geometry_digest = sha256_bytes(
+                                json.dumps(
+                                    geometry.to_mapping(),
+                                    sort_keys=True,
+                                    separators=(",", ":"),
+                                ).encode("utf-8")
+                            )
+                            provenance = {
+                                "schema_version": "visual-identity-annotation-provenance/v1",
+                                **annotation_source,
+                                "card_id": card.card_id,
+                                "frame_identity": frame.frame_identity.to_mapping(),
+                                "geometry_digest": geometry_digest,
+                            }
+                            crop_value = crops.get(card.card_id)
+                            crop_identity = crop_value if isinstance(crop_value, Mapping) else None
+                            error = (
+                                None
+                                if crop_identity is not None
+                                else str(crop_value or "The reviewed source crop is unavailable.")
+                            )
+                            outcome = {
+                                "card_id": card.card_id,
+                                "frame_identity": frame.frame_identity.to_mapping(),
+                                "geometry": geometry.to_mapping(),
+                                "crop_identity": crop_identity,
+                                "classifier": None,
+                                "status": (
+                                    "face_down"
+                                    if card.side == "face_down" and crop_identity is not None
+                                    else "failed"
+                                ),
+                                "candidates": [],
+                                "unusable_reason": None,
+                                "error": error or "Human identity review is pending.",
+                                "crop_input_provenance": None,
+                                "annotation_provenance": provenance,
+                            }
+                            if outcome["status"] == "face_down":
+                                outcome["error"] = None
+                            previous = previous_by_id.pop(card.card_id, None)
+                            if previous is None:
+                                state = "pending"
+                                base_item_id = None
+                            else:
+                                old_provenance = previous.item.get("annotation_provenance")
+                                same_geometry = (
+                                    isinstance(old_provenance, Mapping)
+                                    and old_provenance.get("geometry_digest") == geometry_digest
+                                    and old_provenance.get("frame_identity")
+                                    == frame.frame_identity.to_mapping()
+                                )
+                                if same_geometry:
+                                    old_item = previous.item
+                                    if crop_identity is None and isinstance(
+                                        old_item.get("crop_identity"), Mapping
+                                    ):
+                                        # The exact frame and geometry still match, so a cold
+                                        # resolver can reuse the already verified native crop.
+                                        outcome["crop_identity"] = old_item["crop_identity"]
+                                        outcome["crop_input_provenance"] = old_item.get(
+                                            "crop_input_provenance"
+                                        )
+                                    outcome.update(
+                                        status=old_item["status"],
+                                        candidates=old_item["candidates"],
+                                        unusable_reason=old_item["unusable_reason"],
+                                        error=old_item["error"],
+                                    )
+                                    state = previous.review_state
+                                    base_item_id = previous.base_item_id
+                                else:
+                                    state = "affected"
+                                    base_item_id = None
+                            seeded.append(
+                                ReferenceDraftItem(
+                                    item_id=card.card_id,
+                                    base_item_id=base_item_id,
+                                    review_state=state,
+                                    item=outcome,
+                                )
+                            )
+                    seeded.extend(
+                        replace(item, review_state="affected", base_item_id=None)
+                        for item in previous_by_id.values()
+                    )
+                    items = seeded
+                    working_current = replace(
+                        working_current,
+                        draft=replace(
+                            working_current.draft, annotation_source=dict(annotation_source)
+                        ),
+                    )
+                    requires_full_validation = True
+                    continue
                 if operation.operation == "rebase":
                     assert operation.source_revision_id is not None
                     if operation.proposal_revision_id is not None:
@@ -818,7 +1100,12 @@ class PipelineReferenceService:
             if requires_full_validation:
                 handler.validate_draft_items(
                     recording_id,
-                    working_current.draft.source_revision_id,
+                    working_current.draft.source_revision_id
+                    or (
+                        None
+                        if working_current.draft.annotation_source is None
+                        else working_current.draft.annotation_source["visible_card_revision_id"]
+                    ),
                     items,
                 )
             else:
@@ -828,7 +1115,12 @@ class PipelineReferenceService:
                         raise PipelineReferenceInputError(f"item was not found: {item_id}")
                     handler.validate_item(
                         items[index].item,
-                        working_current.draft.source_revision_id,
+                        working_current.draft.source_revision_id
+                        or (
+                            None
+                            if working_current.draft.annotation_source is None
+                            else working_current.draft.annotation_source["visible_card_revision_id"]
+                        ),
                         recording_id,
                     )
             timestamp = _now()
@@ -837,6 +1129,7 @@ class PipelineReferenceService:
                 revision=current.draft.revision + 1,
                 source_revision_id=working_current.draft.source_revision_id,
                 proposal_revision_id=working_current.draft.proposal_revision_id,
+                annotation_source=working_current.draft.annotation_source,
                 items=tuple(items),
                 coverage=None,
                 impact=tuple(impacts),
@@ -893,7 +1186,20 @@ class PipelineReferenceService:
                     recording_id, content_type, current.draft.source_revision_id
                 )
             )
-            source = self._source_for(recording_id, current.draft.source_revision_id)
+            annotation_revision = (
+                None
+                if current.draft.annotation_source is None
+                else self._require_source_revision(
+                    recording_id,
+                    "visible_cards",
+                    current.draft.annotation_source["visible_card_revision_id"],
+                )
+            )
+            source = (
+                annotation_revision.manifest.source
+                if annotation_revision is not None
+                else self._source_for(recording_id, current.draft.source_revision_id)
+            )
             handler = self._handler(content_type)
             ordered_items = handler.order_items(current.draft.items)
             coverage = self._validate_coverage(
@@ -906,14 +1212,26 @@ class PipelineReferenceService:
             content = handler.human_content(active_items)
             content_bytes = handler.canonical_content_bytes(content)
             content_sha256 = sha256_bytes(content_bytes)
-            origin = "manual" if source_revision is None else "corrected"
-            input_revision_ids = (
-                () if source_revision is None else (source_revision.manifest.revision_id,)
+            origin = (
+                "manual" if source_revision is None and annotation_revision is None else "corrected"
+            )
+            input_revision_ids = tuple(
+                dict.fromkeys(
+                    revision.manifest.revision_id
+                    for revision in (source_revision, annotation_revision)
+                    if revision is not None
+                )
             )
             if current.draft.proposal_revision_id is not None:
                 input_revision_ids = (*input_revision_ids, current.draft.proposal_revision_id)
             base_revision_id = (
-                None if source_revision is None else source_revision.manifest.revision_id
+                None
+                if source_revision is None and annotation_revision is None
+                else (
+                    source_revision.manifest.revision_id
+                    if source_revision is not None
+                    else annotation_revision.manifest.revision_id
+                )
             )
             revision_id = self._revision_id(
                 recording_id,

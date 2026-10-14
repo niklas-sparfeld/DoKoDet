@@ -117,7 +117,7 @@ def _identity_content(*, status: str) -> dict[str, object]:
         "unusable_reason": None,
     }
     return {
-        "schema_version": "visual-identity-data/v1",
+        "schema_version": "visual-identity-data/v2",
         "outcomes": [
             {
                 "card_id": "card-01",
@@ -409,9 +409,7 @@ def test_m1_excludes_unassigned_preflight_items_from_training_campaign(tmp_path:
     assert result["state"] == "completed"
     campaign = tmp_path / result["campaign_path"]
     dataset = json.loads((campaign / "dataset.json").read_text())
-    assert [entry["dataset_item_id"] for entry in dataset["entries"]] == [
-        "recording-01:card-01"
-    ]
+    assert [entry["dataset_item_id"] for entry in dataset["entries"]] == ["recording-01:card-01"]
 
 
 def test_m2_handoff_validates_frozen_campaign_and_prints_exact_command(tmp_path: Path) -> None:

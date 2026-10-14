@@ -139,6 +139,9 @@ def build_pipeline_composition(
         selection_store=selection_store,
         reference_store=reference_store,
     )
+    reference_service.annotation_crop_resolver = (
+        visual_identity_service.resolve_reviewed_annotation_crops
+    )
     observation_service = ObservationPipelineService(
         revision_store=revision_store,
         run_store=run_store,

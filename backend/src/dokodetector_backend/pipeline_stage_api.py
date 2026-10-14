@@ -91,7 +91,8 @@ class PipelineVisualIdentityOutcomeResponse(ContractModel):
     geometry: dict[str, Any]
     crop_identity: dict[str, Any] | None
     crop_input_provenance: dict[str, Any] | None
-    classifier: dict[str, Any]
+    annotation_provenance: dict[str, Any] | None
+    classifier: dict[str, Any] | None
     status: Literal["classified", "face_down", "unusable", "failed"]
     candidates: list[dict[str, Any]]
     unusable_reason: str | None
@@ -101,7 +102,7 @@ class PipelineVisualIdentityOutcomeResponse(ContractModel):
 class PipelineVisualIdentityRevisionContentResponse(ContractModel):
     """The typed visual identity content inside one pipeline revision response."""
 
-    schema_version: Literal["visual-identity-data/v1"]
+    schema_version: Literal["visual-identity-data/v2"]
     outcomes: list[PipelineVisualIdentityOutcomeResponse]
 
 

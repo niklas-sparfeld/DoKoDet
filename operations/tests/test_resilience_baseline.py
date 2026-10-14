@@ -166,7 +166,7 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
         ],
     }
     reviewed_identity = {
-        "schema_version": "visual-identity-data/v1",
+        "schema_version": "visual-identity-data/v2",
         "outcomes": [
             {
                 "card_id": "card-01",
@@ -249,7 +249,7 @@ def test_m0_pairs_corrected_visible_regions_with_identity_targets(tmp_path: Path
                     "operator": "fixture",
                     "created_at_utc": "2026-09-01T00:00:00Z",
                     "reason": None,
-                }
+                },
             ],
         }
         enrollment_bytes = json.dumps(enrollment).encode("utf-8")

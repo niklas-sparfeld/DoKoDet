@@ -268,7 +268,7 @@ def _vision_source_revision(
             ]
         )
         content = {
-            "schema_version": "visual-identity-data/v1",
+            "schema_version": "visual-identity-data/v2",
             "outcomes": [
                 {
                     "card_id": "card-01",
@@ -289,7 +289,7 @@ def _vision_source_revision(
         }
         content_sha256 = sha256_bytes(canonical_visual_identity_data_bytes(content))
         content_bytes = canonical_visual_identity_data_bytes(content)
-        schema = "visual-identity-data/v1"
+        schema = "visual-identity-data/v2"
     published_revision_id = revision_id or f"generated-{content_type}-01"
     manifest = DataRevision(
         revision_id=published_revision_id,
@@ -3292,3 +3292,422 @@ def test_reference_http_api_exposes_conflicts_and_completed_selection(tmp_path: 
         response = client.get("/api/recordings/recording-01/pipeline/references/events")
         assert response.status_code == 200
         assert response.json()["state"]["selected_completed_revision_id"] == revision_id
+
+
+def test_annotation_reference_seeds_exact_reviewed_back_without_classifier(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    visible_source_id = _vision_source_revision(
+        revision_store,
+        "visible_cards",
+        visible_candidate_ids=("card-01", "card-02"),
+    )
+    visible = service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": visible_source_id},
+    )
+    visible_item = dict(visible.draft.items[0].item)
+    geometry = {
+        "kind": "reviewed-visible-region/v1",
+        "visible_region": {
+            "polygons": [
+                [
+                    {"x": 5, "y": 5},
+                    {"x": 60, "y": 5},
+                    {"x": 60, "y": 60},
+                    {"x": 5, "y": 60},
+                ]
+            ]
+        },
+    }
+    for candidate in visible_item["candidates"]:
+        candidate["geometry"] = geometry
+    service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {
+                    "operation": "set_frame_review",
+                    "item_id": "event-01",
+                    "item": visible_item,
+                }
+            ],
+        },
+    )
+    service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "operations": [{"operation": "accept_frame_suggestions", "item_id": "event-01"}],
+        },
+    )
+    completed = service.complete_reference(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 2,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": visible_item["frame_identity"],
+                        "decision": "cards",
+                        "item_id": "event-01",
+                    }
+                ],
+            },
+        },
+    )
+    visible_revision_id = completed.state.selected_completed_revision_id
+    assert visible_revision_id is not None
+    revision = revision_store.require(visible_revision_id)
+    assert isinstance(revision.content, VisibleCardData)
+    frame = revision.content.outcomes[0].frame_identity
+    assert frame is not None
+    crop = {
+        "schema_version": "visible-region-crop/v1",
+        "status": "usable",
+        "frame_identity": frame.to_mapping(),
+        "geometry": geometry,
+        "pixel_bounds": {"x_min": 5, "y_min": 5, "x_max": 60, "y_max": 60},
+        "crop_policy": "oracle_visible_region",
+        "output_encoding": "ppm",
+        "content_type": "image/x-portable-pixmap",
+        "decoder_version": "decoder.v1",
+        "transform_version": "transform.v1",
+        "image_sha256": DIGEST,
+        "unusable_reason": None,
+    }
+    service.annotation_crop_resolver = lambda recording_id, revision_id: {
+        "card-01": crop,
+        "card-02": "The exact source frame is unavailable.",
+    }
+    source = {
+        "visible_card_revision_id": visible_revision_id,
+        "visible_card_revision_digest": revision.manifest.content_sha256,
+    }
+    with pytest.raises(PipelineReferenceInputError, match="digest does not match"):
+        service.create_reference(
+            "recording-01",
+            "visual_identities",
+            {
+                "operator_id": "operator-01",
+                "annotation_source": {
+                    **source,
+                    "visible_card_revision_digest": "0" * 64,
+                },
+            },
+        )
+    reference = service.create_reference(
+        "recording-01",
+        "visual_identities",
+        {"operator_id": "operator-01", "annotation_source": source},
+    )
+    assert reference.draft.annotation_source == source
+    assert reference.draft.source_revision_id is None
+    assert len(reference.draft.items) == 2
+    item = reference.draft.items[0]
+    assert item.review_state == "pending"
+    assert item.item["classifier"] is None
+    assert item.item["status"] == "face_down"
+    assert item.item["crop_identity"] == crop
+    assert item.item["annotation_provenance"]["visible_card_revision_id"] == visible_revision_id
+    missing_crop = reference.draft.items[1]
+    assert missing_crop.item_id == "card-02"
+    assert missing_crop.review_state == "pending"
+    assert missing_crop.item["status"] == "failed"
+    assert missing_crop.item["crop_identity"] is None
+    assert missing_crop.item["annotation_provenance"]["visible_card_revision_id"] == (
+        visible_revision_id
+    )
+    repeated = service.create_reference(
+        "recording-01",
+        "visual_identities",
+        {"operator_id": "operator-01", "annotation_source": source},
+    )
+    assert [draft_item.item_id for draft_item in repeated.draft.items] == ["card-01", "card-02"]
+
+    corrected = service.update_draft(
+        "recording-01",
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {
+                    "operation": "select_identity",
+                    "item_id": "card-01",
+                    "identity": "CLUBS_NINE",
+                }
+            ],
+        },
+    )
+    corrected_item = corrected.draft.items[0].item
+    assert corrected_item["status"] == "classified"
+    assert corrected_item["classifier"] is None
+    assert corrected_item["annotation_provenance"] == item.item["annotation_provenance"]
+    source_problem = service.update_draft(
+        "recording-01",
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "operations": [{"operation": "report_identity_source_problem", "item_id": "card-02"}],
+        },
+    )
+    assert source_problem.draft.items[1].review_state == "source_problem"
+    assert (
+        source_problem.draft.items[1].item["annotation_provenance"]
+        == (missing_crop.item["annotation_provenance"])
+    )
+
+    visible_current = service.reference_store.get("recording-01", "visible_cards")
+    assert visible_current is not None
+    changed_visible_item = dict(visible_current.draft.items[0].item)
+    changed_geometry = {
+        "kind": "reviewed-visible-region/v1",
+        "visible_region": {
+            "polygons": [
+                [
+                    {"x": 6, "y": 5},
+                    {"x": 60, "y": 5},
+                    {"x": 60, "y": 60},
+                    {"x": 6, "y": 60},
+                ]
+            ]
+        },
+    }
+    changed_visible_item["candidates"][1]["geometry"] = changed_geometry
+    service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": visible_current.draft.revision,
+            "operations": [
+                {
+                    "operation": "set_frame_review",
+                    "item_id": "event-01",
+                    "item": changed_visible_item,
+                }
+            ],
+        },
+    )
+    service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": visible_current.draft.revision + 1,
+            "operations": [{"operation": "accept_frame_suggestions", "item_id": "event-01"}],
+        },
+    )
+    changed_visible = service.complete_reference(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": visible_current.draft.revision + 2,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": visible_item["frame_identity"],
+                        "decision": "cards",
+                        "item_id": "event-01",
+                    }
+                ],
+            },
+        },
+    )
+    changed_visible_revision_id = changed_visible.state.selected_completed_revision_id
+    assert changed_visible_revision_id is not None
+    changed_revision = revision_store.require(changed_visible_revision_id)
+    changed_crop = dict(crop, geometry=changed_geometry, image_sha256="1" * 64)
+    service.annotation_crop_resolver = lambda recording_id, revision_id: {
+        "card-01": crop,
+        "card-02": changed_crop,
+    }
+    with pytest.raises(PipelineReferenceInputError, match="digest does not match"):
+        service.update_draft(
+            "recording-01",
+            "visual_identities",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": source_problem.draft.revision,
+                "operations": [
+                    {
+                        "operation": "rebase_annotation_source",
+                        "annotation_source": {
+                            "visible_card_revision_id": changed_visible_revision_id,
+                            "visible_card_revision_digest": "0" * 64,
+                        },
+                    }
+                ],
+            },
+        )
+    rebased = service.update_draft(
+        "recording-01",
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": source_problem.draft.revision,
+            "operations": [
+                {
+                    "operation": "rebase_annotation_source",
+                    "annotation_source": {
+                        "visible_card_revision_id": changed_visible_revision_id,
+                        "visible_card_revision_digest": changed_revision.manifest.content_sha256,
+                    },
+                }
+            ],
+        },
+    )
+    assert rebased.draft.items[0].review_state == "accepted"
+    assert rebased.draft.items[0].item["status"] == "classified"
+    assert (
+        rebased.draft.items[0].item["annotation_provenance"]["visible_card_revision_id"]
+        == changed_visible_revision_id
+    )
+    assert rebased.draft.items[1].review_state == "affected"
+    assert rebased.draft.items[1].item["crop_identity"] == changed_crop
+
+
+def test_annotation_reference_http_api_creates_and_corrects_back_without_classifier(
+    tmp_path: Path,
+) -> None:
+    app = create_test_app(_settings(tmp_path))
+    service = app.state.pipeline_reference_service
+    revision_store = app.state.pipeline_revision_store
+    visible_source_id = _vision_source_revision(revision_store, "visible_cards")
+    with TestClient(app) as client:
+        visible_path = "/api/recordings/recording-01/pipeline/references/visible_cards"
+        created = client.post(
+            visible_path,
+            json={"operator_id": "operator-01", "source_revision_id": visible_source_id},
+        )
+        assert created.status_code == 201
+        visible_item = created.json()["draft"]["items"][0]["item"]
+        geometry = {
+            "kind": "reviewed-visible-region/v1",
+            "visible_region": {
+                "polygons": [
+                    [
+                        {"x": 5, "y": 5},
+                        {"x": 60, "y": 5},
+                        {"x": 60, "y": 60},
+                        {"x": 5, "y": 60},
+                    ]
+                ]
+            },
+        }
+        visible_item["candidates"][0]["geometry"] = geometry
+        reviewed = client.put(
+            visible_path + "/draft",
+            json={
+                "operator_id": "operator-01",
+                "expected_revision": 0,
+                "operations": [
+                    {
+                        "operation": "set_frame_review",
+                        "item_id": "event-01",
+                        "item": visible_item,
+                    }
+                ],
+            },
+        )
+        assert reviewed.status_code == 200, reviewed.text
+        accepted = client.put(
+            visible_path + "/draft",
+            json={
+                "operator_id": "operator-01",
+                "expected_revision": 1,
+                "operations": [
+                    {
+                        "operation": "accept_frame_suggestions",
+                        "item_id": "event-01",
+                    }
+                ],
+            },
+        )
+        assert accepted.status_code == 200, accepted.text
+        completed = client.post(
+            visible_path + "/complete",
+            json={
+                "operator_id": "operator-01",
+                "expected_revision": 2,
+                "coverage": {
+                    "kind": "visible_frames",
+                    "frames": [
+                        {
+                            "frame_identity": visible_item["frame_identity"],
+                            "decision": "cards",
+                            "item_id": "event-01",
+                        }
+                    ],
+                },
+            },
+        )
+        assert completed.status_code == 201, completed.text
+        visible_revision_id = completed.json()["state"]["selected_completed_revision_id"]
+        revision = revision_store.require(visible_revision_id)
+        frame = revision.content.outcomes[0].frame_identity
+        assert frame is not None
+        crop = {
+            "schema_version": "visible-region-crop/v1",
+            "status": "usable",
+            "frame_identity": frame.to_mapping(),
+            "geometry": geometry,
+            "pixel_bounds": {"x_min": 5, "y_min": 5, "x_max": 60, "y_max": 60},
+            "crop_policy": "oracle_visible_region",
+            "output_encoding": "ppm",
+            "content_type": "image/x-portable-pixmap",
+            "decoder_version": "decoder.v1",
+            "transform_version": "transform.v1",
+            "image_sha256": DIGEST,
+            "unusable_reason": None,
+        }
+        service.annotation_crop_resolver = lambda recording_id, revision_id: {"card-01": crop}
+        identity_path = "/api/recordings/recording-01/pipeline/references/visual_identities"
+        seeded = client.post(
+            identity_path,
+            json={
+                "operator_id": "operator-01",
+                "annotation_source": {
+                    "visible_card_revision_id": visible_revision_id,
+                    "visible_card_revision_digest": revision.manifest.content_sha256,
+                },
+            },
+        )
+        assert seeded.status_code == 201, seeded.text
+        item = seeded.json()["draft"]["items"][0]
+        assert item["review_state"] == "pending"
+        assert item["item"]["status"] == "face_down"
+        assert item["item"]["classifier"] is None
+        corrected = client.put(
+            identity_path + "/draft",
+            json={
+                "operator_id": "operator-01",
+                "expected_revision": 0,
+                "operations": [
+                    {
+                        "operation": "select_identity",
+                        "item_id": "card-01",
+                        "identity": "CLUBS_NINE",
+                    }
+                ],
+            },
+        )
+        assert corrected.status_code == 200, corrected.text
+        outcome = corrected.json()["draft"]["items"][0]["item"]
+        assert outcome["status"] == "classified"
+        assert outcome["classifier"] is None
+        assert outcome["annotation_provenance"]["visible_card_revision_id"] == (visible_revision_id)

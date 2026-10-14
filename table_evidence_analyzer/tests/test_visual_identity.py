@@ -56,7 +56,7 @@ def _crop() -> dict[str, object]:
 
 def _content() -> dict[str, object]:
     return {
-        "schema_version": "visual-identity-data/v1",
+        "schema_version": "visual-identity-data/v2",
         "outcomes": [
             {
                 "card_id": "run-1-card-0000",
