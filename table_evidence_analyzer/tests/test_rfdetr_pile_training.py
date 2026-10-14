@@ -187,6 +187,37 @@ def test_two_class_campaign_fixture_preserves_category_contract(tmp_path: Path) 
     assert bundle.manifest["mask_policy"] == RFDETR_PILE_MASK_POLICY
 
 
+def test_two_class_bundle_accepts_frozen_0092_receipt(tmp_path: Path) -> None:
+    view, manifest = _build_pile_view(tmp_path / "view")
+    pretrained = tmp_path / "pretrained.pt"
+    pretrained.write_bytes(b"pinned fixture checkpoint")
+    record = run_rfdetr_segmentation_campaign_training(
+        RfdetrSegmentationCampaignTrainingConfig(
+            dataset_dir=view,
+            campaign_manifest=manifest,
+            pretrained_checkpoint=pretrained,
+            output_dir=tmp_path / "campaign",
+            runner="fixture",
+            device="cpu",
+        )
+    )
+    path = Path(record["bundle"]["path"]) / "manifest.json"
+    bundle_manifest = json.loads(path.read_text())
+    bundle_manifest["campaign_id"] = "0092-m0-expanded-reviewed-rfdetr-campaign"
+    bundle_manifest["campaign_manifest"] = {
+        "manifest_digest": "a" * 64,
+        "file_sha256": "b" * 64,
+    }
+    bundle_manifest["bundle_digest"] = segmentation_training._digest(
+        segmentation_training._stable_bundle_manifest(bundle_manifest)
+    )
+    path.write_bytes(_canonical(bundle_manifest) + b"\n")
+
+    loaded = load_rfdetr_segmentation_bundle(path.parent)
+
+    assert loaded.manifest["campaign_id"] == "0092-m0-expanded-reviewed-rfdetr-campaign"
+
+
 def test_segmentation_provider_keeps_pile_predictions_separate(tmp_path: Path, monkeypatch) -> None:
     bundle = SimpleNamespace(
         manifest={

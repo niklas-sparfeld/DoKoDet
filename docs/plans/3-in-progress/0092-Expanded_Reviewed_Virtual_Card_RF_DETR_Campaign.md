@@ -24,7 +24,9 @@
 - **M0:** Complete (2026-10-14) — froze 20 eligible source groups, the fresh source-group holdouts,
   the 0087 candidate baseline, one real-only recipe, budgets, and quality gates.
 - **M1:** Complete (2026-10-14) — materialized and inspected 874 frames and 2,714 reviewed masks.
-- **M2:** In progress (2026-10-14) — the one frozen real-only candidate is training on MPS.
+- **M2:** Complete (2026-10-14) — the candidate trained on the frozen M0/M1 inputs. Finalization
+  reused the saved checkpoint after the missing 0092 receipt was added and the bundle validated.
+  See the [M2 report](../../reports/0092-M2_Expanded_Reviewed_RF_DETR_Training.md).
 - **M3:** Not started — evaluate validation and one fresh sealed holdout, then decide whether the
   recipe passes.
 - **M4:** Not started — refit the selected recipe on all eligible reviewed recordings and publish
@@ -120,12 +122,18 @@ No model inference or training ran in M1.
 
 ### M2 implementation evidence — 2026-10-14
 
-The single candidate started from the frozen M0 manifest and M1 materialization. Its run directory is
-`.runtime/rfdetr-segmentation-0092`. The runner verified the M0 digest, pinned checkpoint, M1 receipt,
-class map, and exact split before it staged training data. RF-DETR 1.9.4 started on MPS with seed
-6701, 40 epochs, batch size 1, and gradient accumulation 4. The sealed-test partition was not staged.
-The validation partition is loaded only for the frozen early-stopping rule; it is not used for
-gradient updates. Training remains in progress, so no checkpoint or candidate bundle is reported yet.
+The single candidate trained from the frozen M0 manifest and M1 materialization in
+`.runtime/rfdetr-segmentation-0092`. RF-DETR 1.9.4 ran on MPS with seed 6701, 40 epochs, batch size 1,
+and gradient accumulation 4. Training and metrics completed in about 3 hours and 9 minutes. The
+sealed-test partition was not staged. The validation partition was used only for the frozen
+early-stopping rule. The exported checkpoint SHA-256 is
+`7cf0d649bdb2d4a488a8035961a43e05fdc4f5e458a11721b007f71f501e292c`.
+
+Initial bundle finalization failed because the two-class bundle omitted the frozen 0092 M0 receipt.
+The finalization-only recovery verified the saved training stages, frozen M0/M1 lineage, and matching
+checkpoint hashes, then repaired and validated the bundle without training. See the
+[M2 report](../../reports/0092-M2_Expanded_Reviewed_RF_DETR_Training.md). The sealed test remains
+unopened.
 
 The campaign runner now accepts the 0092 materialization and verifies its frozen partition receipt.
 The 0092 verifier checks the two-class recipe, checkpoint digest, budget, M1 manifest receipt, and

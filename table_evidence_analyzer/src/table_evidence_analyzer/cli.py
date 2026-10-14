@@ -296,6 +296,21 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    segmentation_finalize_parser = commands.add_parser(
+        "finalize-rfdetr-segmentation-campaign",
+        help="Finalize a completed 0092 run from its saved checkpoint without training.",
+    )
+    segmentation_finalize_parser.add_argument("--dataset-dir", type=Path, required=True)
+    segmentation_finalize_parser.add_argument("--manifest", type=Path, required=True)
+    segmentation_finalize_parser.add_argument("--pretrained-checkpoint", type=Path, required=True)
+    segmentation_finalize_parser.add_argument("--output-dir", type=Path, required=True)
+    segmentation_finalize_parser.add_argument(
+        "--runner", choices=("rfdetr", "fixture"), default="rfdetr"
+    )
+    segmentation_finalize_parser.add_argument(
+        "--device", choices=("cpu", "mps", "cuda"), default="mps"
+    )
+
     cluster_crop_campaign_parser = commands.add_parser(
         "train-rfdetr-cluster-crop-campaign",
         aliases=("train-rfdetr-cluster-crop",),
@@ -820,6 +835,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                 RfdetrClusterCropTrainingConfig(
                     dataset_dir=args.dataset_dir,
                     initializer_bundle=args.initializer_bundle,
+                    output_dir=args.output_dir,
+                    runner=args.runner,
+                    device=args.device,
+                )
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"error: {exc}\n")
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if args.command == "finalize-rfdetr-segmentation-campaign":
+        from .rfdetr_segmentation_training import (
+            RfdetrSegmentationCampaignTrainingConfig,
+            finalize_rfdetr_segmentation_campaign,
+        )
+
+        try:
+            report = finalize_rfdetr_segmentation_campaign(
+                RfdetrSegmentationCampaignTrainingConfig(
+                    dataset_dir=args.dataset_dir,
+                    campaign_manifest=args.manifest,
+                    pretrained_checkpoint=args.pretrained_checkpoint,
                     output_dir=args.output_dir,
                     runner=args.runner,
                     device=args.device,

@@ -1978,7 +1978,7 @@ def run_rfdetr_segmentation_campaign_training(
                             and record.get("pretrained_checkpoint", {}).get("sha256")
                             == _file_digest(pretrained)
                             and (
-                                not (reviewed or pile_mode)
+                                len(view.get("class_map", {})) != 2
                                 or bundle.manifest.get("campaign_manifest", {}).get(
                                     "manifest_digest"
                                 )
@@ -2089,7 +2089,7 @@ def run_rfdetr_segmentation_campaign_training(
             checkpoint=checkpoint,
             checkpoint_sha256=checkpoint_sha256,
             run_id=record["run_id"],
-            campaign_receipt=campaign_receipt if reviewed or pile_mode else None,
+            campaign_receipt=campaign_receipt if num_classes == 2 else None,
         )
         bundle = load_rfdetr_segmentation_bundle(output / "bundle")
         _mark_stage(record, "bundle", "completed")
@@ -2142,6 +2142,94 @@ def run_rfdetr_segmentation_campaign_training(
     return record
 
 
+def finalize_rfdetr_segmentation_campaign(
+    config: RfdetrSegmentationCampaignTrainingConfig,
+) -> dict[str, Any]:
+    """Finalize a completed 0092 run from its saved checkpoint without training."""
+
+    output = config.output_dir.expanduser().resolve()
+    run_path = output / "run.json"
+    record = _read_json(run_path, "RF-DETR campaign run record")
+    if (
+        record.get("status") != "failed"
+        or record.get("stages", {}).get("training") != "completed"
+        or record.get("stages", {}).get("metrics") != "completed"
+        or record.get("failure", {}).get("message")
+        != "two-class segmentation bundle lacks a recognized frozen campaign receipt"
+    ):
+        raise RfdetrSegmentationTrainingError(
+            "run is not the recognized 0092 bundle-finalization failure"
+        )
+    view = _load_materialization_view(config.dataset_dir)
+    pretrained = config.pretrained_checkpoint.expanduser().resolve()
+    receipt = _verify_campaign_manifest(view, config.campaign_manifest, _file_digest(pretrained))
+    if receipt.get("campaign_id") != RFDETR_REVIEWED_CAMPAIGN_0092_ID:
+        raise RfdetrSegmentationTrainingError("finalization requires the frozen 0092 M0 receipt")
+    recorded_manifest = Path(record.get("config", {}).get("campaign_manifest", ""))
+    if recorded_manifest.is_file() and _file_digest(recorded_manifest) == receipt["file_sha256"]:
+        receipt["path"] = str(recorded_manifest.resolve())
+
+    bundle_root = output / "bundle"
+    bundle_manifest_path = bundle_root / "manifest.json"
+    manifest = _read_json(bundle_manifest_path, "segmentation bundle manifest")
+    checkpoint = output / "rfdetr" / RFDETR_SEGMENTATION_FINAL_CHECKPOINT
+    bundled_checkpoint = bundle_root / RFDETR_SEGMENTATION_FINAL_CHECKPOINT
+    checkpoint_sha256 = _file_digest(checkpoint)
+    recorded_config = dict(record.get("config", {}))
+    expected_config = _campaign_config(config, output)
+    recorded_config.pop("campaign_manifest", None)
+    expected_config.pop("campaign_manifest", None)
+    if (
+        checkpoint_sha256 != _file_digest(bundled_checkpoint)
+        or manifest.get("checkpoint_sha256") != checkpoint_sha256
+        or manifest.get("files", {}).get(bundled_checkpoint.name) != checkpoint_sha256
+        or manifest.get("materialization_digest") != view["manifest"].get("materialization_digest")
+        or manifest.get("class_map") != RFDETR_PILE_CLASS_MAP
+        or recorded_config != expected_config
+    ):
+        raise RfdetrSegmentationTrainingError(
+            "saved checkpoint or bundle does not match the frozen 0092 run inputs"
+        )
+    if checkpoint_sha256 == _file_digest(pretrained):
+        raise RfdetrSegmentationTrainingError("saved checkpoint matches pretrained weights")
+    manifest["campaign_id"] = receipt["campaign_id"]
+    manifest["campaign_manifest"] = {
+        "manifest_digest": receipt["manifest_digest"],
+        "file_sha256": receipt["file_sha256"],
+    }
+    manifest["bundle_digest"] = _digest(_stable_bundle_manifest(manifest))
+    _write_json(bundle_manifest_path, manifest)
+    bundle = load_rfdetr_segmentation_bundle(bundle_root)
+
+    record["status"] = "completed"
+    record["campaign_id"] = receipt["campaign_id"]
+    record["campaign_manifest"] = receipt
+    record["checkpoint"] = {
+        "file": checkpoint.name,
+        "sha256": checkpoint_sha256,
+        "pretrained_sha256": _file_digest(pretrained),
+        "weights_differ": checkpoint_sha256 != _file_digest(pretrained),
+    }
+    record["bundle"] = {
+        "path": str(bundle.root),
+        "schema_version": manifest["schema_version"],
+        "bundle_digest": manifest["bundle_digest"],
+        "manifest_sha256": _file_digest(bundle_manifest_path),
+    }
+    record["stages"]["bundle"] = "completed"
+    record["resumable"]["next_stage"] = None
+    record["finalization"] = {
+        "method": "saved-checkpoint-bundle-repair/v1",
+        "training_invoked": False,
+        "checkpoint_sha256": checkpoint_sha256,
+        "bundle_digest": manifest["bundle_digest"],
+    }
+    record.pop("failure", None)
+    record["finished_at"] = datetime.now(UTC).isoformat()
+    _write_json(run_path, record)
+    return record
+
+
 def load_rfdetr_segmentation_bundle(path: str | Path) -> RfdetrSegmentationBundle:
     """Validate a segmentation bundle before a provider loads its native checkpoint."""
 
@@ -2178,6 +2266,7 @@ def load_rfdetr_segmentation_bundle(path: str | Path) -> RfdetrSegmentationBundl
     if len(class_map) == 2 and manifest.get("campaign_id") not in {
         RFDETR_PILE_MATERIALIZATION_CAMPAIGN_ID,
         RFDETR_REVIEWED_CAMPAIGN_0087_ID,
+        RFDETR_REVIEWED_CAMPAIGN_0092_ID,
     }:
         raise RfdetrSegmentationTrainingError(
             "two-class segmentation bundle lacks a recognized frozen campaign receipt"
@@ -2240,6 +2329,7 @@ __all__ = [
     "RfdetrSegmentationCampaignTrainingConfig",
     "RfdetrSegmentationTrainingConfig",
     "RfdetrSegmentationTrainingError",
+    "finalize_rfdetr_segmentation_campaign",
     "load_rfdetr_segmentation_bundle",
     "run_rfdetr_segmentation_campaign_training",
     "run_rfdetr_segmentation_training",
