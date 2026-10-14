@@ -78,6 +78,8 @@ export type IdentityInspectorProps = {
   completionBlocker: string | null;
   creatingReference: boolean;
   selectedGeneratedRevisionId: string | null;
+  selectedVisibleCardRevisionId: string | null;
+  selectedVisibleCardRevisionDigest: string | null;
   rebasingReference: boolean;
   autoApprovalPlan: VisualIdentityAutoApprovalPlan | null;
   autoApprovalBusy: boolean;
@@ -130,6 +132,19 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
       <>
         <p className={styles.statusLabel}>Maintained reference</p>
         <h2>Start visual identity review</h2>
+        {props.selectedVisibleCardRevisionId !== null &&
+        props.selectedVisibleCardRevisionDigest !== null ? (
+          <p className={styles.pipelineInspectorEmpty} role="status">
+            Source: reviewed visible cards ·{" "}
+            {props.selectedVisibleCardRevisionId}. This creates pending items
+            from reviewed geometry. A classifier run is not required.
+          </p>
+        ) : (
+          <p className={styles.pipelineInspectorEmpty}>
+            Select a completed reviewed visible-card reference in Visible Cards
+            to start identity annotation without classifier predictions.
+          </p>
+        )}
         <label className={identityStyles.reviewer}>
           Operator ID
           <input
@@ -144,7 +159,12 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
           onClick={() => void props.createReference()}
           disabled={props.creatingReference || props.operatorId.trim() === ""}
         >
-          {props.creatingReference ? "Starting review…" : "Start review"}
+          {props.creatingReference
+            ? "Starting review…"
+            : props.selectedVisibleCardRevisionId !== null &&
+                props.selectedVisibleCardRevisionDigest !== null
+              ? "Start review from reviewed cards"
+              : "Start review"}
         </button>
       </>
     );
@@ -164,7 +184,39 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
         Choose the canonical identity in the central area. Use the review
         controls below. Changes save automatically.
       </p>
+      {props.reference.draft.annotation_source != null ? (
+        <>
+          <p className={styles.pipelineInspectorEmpty}>
+            Reviewed visible-card source:{" "}
+            {props.reference.draft.annotation_source.visible_card_revision_id}
+          </p>
+          {props.selectedVisibleCardRevisionId !== null &&
+          props.selectedVisibleCardRevisionDigest !== null &&
+          (props.reference.draft.annotation_source.visible_card_revision_id !==
+            props.selectedVisibleCardRevisionId ||
+            props.reference.draft.annotation_source
+              .visible_card_revision_digest !==
+              props.selectedVisibleCardRevisionDigest) ? (
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={() => void props.rebaseReference()}
+              disabled={
+                props.rebasingReference ||
+                props.queueLength > 0 ||
+                props.saveState !== "saved" ||
+                props.operatorId.trim() === ""
+              }
+            >
+              {props.rebasingReference
+                ? "Refreshing reviewed source…"
+                : "Refresh from selected reviewed cards"}
+            </button>
+          ) : null}
+        </>
+      ) : null}
       {props.selectedGeneratedRevisionId !== null &&
+      props.reference.draft.annotation_source == null &&
       props.reference.draft.source_revision_id !==
         props.selectedGeneratedRevisionId ? (
         <>
@@ -190,20 +242,24 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
           </button>
         </>
       ) : null}
-      <button
-        className={styles.secondaryButton}
-        type="button"
-        onClick={() => void props.autoApprove()}
-        disabled={!props.autoApprovalAvailable || props.autoApprovalBusy}
-      >
-        {props.autoApprovalBusy
-          ? "Checking identity results…"
-          : props.autoApprovalPlan?.local_run?.status === "queued" ||
-              props.autoApprovalPlan?.local_run?.status === "running"
-            ? "Local identity check running…"
-            : "Auto-approve matching identities"}
-      </button>
-      <AutoApprovalStatus plan={props.autoApprovalPlan} />
+      {props.reference.draft.annotation_source == null ? (
+        <>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={() => void props.autoApprove()}
+            disabled={!props.autoApprovalAvailable || props.autoApprovalBusy}
+          >
+            {props.autoApprovalBusy
+              ? "Checking identity results…"
+              : props.autoApprovalPlan?.local_run?.status === "queued" ||
+                  props.autoApprovalPlan?.local_run?.status === "running"
+                ? "Local identity check running…"
+                : "Auto-approve matching identities"}
+          </button>
+          <AutoApprovalStatus plan={props.autoApprovalPlan} />
+        </>
+      ) : null}
     </>
   );
 }
@@ -298,7 +354,14 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
           <dd>
             {item === null
               ? "None"
-              : formatIdentityOutcomeStatus(item.outcome.status)}
+              : item.outcome.annotation_provenance !== null &&
+                  item.outcome.annotation_provenance !== undefined &&
+                  (item.reviewState === "pending" ||
+                    item.reviewState === "affected")
+                ? item.outcome.crop_identity === null
+                  ? "Source problem"
+                  : "Pending annotation"
+                : formatIdentityOutcomeStatus(item.outcome.status)}
           </dd>
         </div>
         <div>
@@ -308,9 +371,14 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
         <div>
           <dt>Geometry input</dt>
           <dd>
-            {item?.outcome.crop_input_provenance === null || item === null
+            {item === null
               ? "Unavailable"
-              : `${formatCropInputKind(item.outcome.crop_input_provenance.input_kind)} · ${item.outcome.crop_input_provenance.source_revision_id}`}
+              : item.outcome.annotation_provenance !== null &&
+                  item.outcome.annotation_provenance !== undefined
+                ? "Reviewed visible-card geometry"
+                : item.outcome.crop_input_provenance === null
+                  ? "Unavailable"
+                  : `${formatCropInputKind(item.outcome.crop_input_provenance.input_kind)} · ${item.outcome.crop_input_provenance.source_revision_id}`}
           </dd>
         </div>
         <div>
@@ -370,6 +438,8 @@ function formatCropInputKind(kind: string): string {
       return "Generated · RF-DETR";
     case "reviewed_virtual_card":
       return "Reviewed virtual cards";
+    case "reviewed_visible_card":
+      return "Reviewed visible cards";
     default:
       return "Unknown input";
   }

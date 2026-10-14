@@ -187,6 +187,52 @@ function reference(
   };
 }
 
+function annotationReference(
+  faceDown = false,
+  sourceId = "visible-revision-1",
+  missingCrop = false,
+) {
+  const sourceDigest =
+    sourceId === "visible-revision-1" ? "e".repeat(64) : "g".repeat(64);
+  const result = reference(
+    faceDown ? "face_down" : "pending",
+    [],
+    faceDown ? 1 : 0,
+    sourceId,
+  );
+  const value = result.draft.items[0].item as Record<string, unknown>;
+  const draft = result.draft as typeof result.draft & {
+    annotation_source?: {
+      visible_card_revision_id: string;
+      visible_card_revision_digest: string;
+    };
+  };
+  draft.annotation_source = {
+    visible_card_revision_id: sourceId,
+    visible_card_revision_digest: sourceDigest,
+  };
+  value.classifier = null;
+  value.crop_input_provenance = null;
+  value.annotation_provenance = {
+    schema_version: "visual-identity-annotation-provenance/v1",
+    visible_card_revision_id: sourceId,
+    visible_card_revision_digest: sourceDigest,
+    card_id: CARD_ID,
+    frame_identity: FRAME,
+    geometry_digest: "f".repeat(64),
+  };
+  if (!faceDown) {
+    value.status = "failed";
+    value.error = "Human identity review is pending.";
+    value.candidates = [];
+  }
+  if (missingCrop) {
+    value.crop_identity = null;
+    value.error = "The reviewed source crop is unavailable.";
+  }
+  return result;
+}
+
 function jsonResponse(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), {
     status,
@@ -204,6 +250,180 @@ describe("PipelineVisualIdentityEditor", () => {
     vi.unstubAllGlobals();
     window.history.pushState({}, "", "/");
     window.localStorage.removeItem("dokodetector.profile.name");
+  });
+
+  it("starts from reviewed cards and saves a face-down decision without classifier predictions", async () => {
+    const user = userEvent.setup();
+    const savedReference: {
+      current: ReturnType<typeof annotationReference> | null;
+    } = {
+      current: null,
+    };
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      const path = String(input);
+      if (
+        path.endsWith("/pipeline/references/visual_identities") ||
+        path.endsWith("/pipeline/references/visual_identities/draft")
+      ) {
+        if (init?.method === "POST") {
+          savedReference.current = annotationReference();
+          return Promise.resolve(jsonResponse(savedReference.current));
+        }
+        if (init?.method === "PUT") {
+          savedReference.current = annotationReference(true);
+          return Promise.resolve(jsonResponse(savedReference.current));
+        }
+        return Promise.resolve(
+          savedReference.current === null
+            ? jsonResponse({ detail: "not found" }, 404)
+            : jsonResponse(savedReference.current),
+        );
+      }
+      return Promise.resolve(jsonResponse(generatedResult([])));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    const props = {
+      recordingId: RECORDING_ID,
+      durationUs: 1_000_000,
+      generatedRevisionId: null,
+      generatedRunId: null,
+      selectedVisibleCardRevisionId: "visible-revision-1",
+      selectedVisibleCardRevisionDigest: "e".repeat(64),
+      view: "reviewed" as const,
+    };
+    const rendered = render(<PipelineVisualIdentityEditor {...props} />);
+
+    expect(
+      await screen.findByText(/classifier run is not required/i),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    await user.click(
+      screen.getByRole("button", { name: "Start review from reviewed cards" }),
+    );
+    expect(
+      await screen.findByRole("img", {
+        name: `Resolved source frame for ${CARD_ID}`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Reviewed visible-card source/),
+    ).toBeInTheDocument();
+    const createCall = fetchImplementation.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(createCall?.[1]?.body))).toMatchObject({
+      operator_id: "operator-01",
+      seed: "empty",
+      annotation_source: {
+        visible_card_revision_id: "visible-revision-1",
+        visible_card_revision_digest: "e".repeat(64),
+      },
+    });
+    expect(
+      (savedReference.current?.draft.items[0].item as Record<string, unknown>)
+        .classifier,
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /Face down F/ }));
+    await waitFor(() =>
+      expect(savedReference.current?.draft.items[0].review_state).toBe(
+        "face_down",
+      ),
+    );
+    rendered.unmount();
+    render(<PipelineVisualIdentityEditor {...props} />);
+    expect(
+      await screen.findByRole("button", { name: /Mark unreviewed F/ }),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    await user.click(screen.getByRole("button", { name: "♥ Dame" }));
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        ),
+      ).toHaveLength(2),
+    );
+    const correction = JSON.parse(
+      String(
+        fetchImplementation.mock.calls.filter(
+          ([, init]) => init?.method === "PUT",
+        )[1][1]?.body,
+      ),
+    );
+    expect(correction.operations[0]).toEqual({
+      operation: "select_identity",
+      item_id: CARD_ID,
+      identity: "HEARTS_QUEEN",
+    });
+    expect(
+      fetchImplementation.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(true);
+  });
+
+  it("refreshes changed reviewed geometry and keeps missing crops actionable", async () => {
+    const user = userEvent.setup();
+    const requests: Array<Record<string, unknown>> = [];
+    let current = annotationReference();
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      const path = String(input);
+      if (path.endsWith("/pipeline/references/visual_identities/draft")) {
+        const request = JSON.parse(String(init?.body)) as Record<
+          string,
+          unknown
+        >;
+        requests.push(request);
+        current = annotationReference(false, "visible-revision-2", true);
+        return Promise.resolve(jsonResponse(current));
+      }
+      if (path.endsWith("/pipeline/references/visual_identities"))
+        return Promise.resolve(jsonResponse(current));
+      return Promise.resolve(jsonResponse(generatedResult([])));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={null}
+        generatedRunId={null}
+        selectedVisibleCardRevisionId="visible-revision-2"
+        selectedVisibleCardRevisionDigest={"g".repeat(64)}
+        view="reviewed"
+      />,
+    );
+
+    const refreshButton = await screen.findByRole("button", {
+      name: "Refresh from selected reviewed cards",
+    });
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    await waitFor(() => expect(refreshButton).toBeEnabled());
+    await user.click(refreshButton);
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(
+      (await screen.findAllByText("The reviewed source crop is unavailable."))
+        .length,
+    ).toBeGreaterThan(0);
+    expect(requests[0].operations).toEqual([
+      {
+        operation: "rebase_annotation_source",
+        annotation_source: {
+          visible_card_revision_id: "visible-revision-2",
+          visible_card_revision_digest: "g".repeat(64),
+        },
+      },
+    ]);
+    const sourceProblem = screen.getByRole("button", {
+      name: /Source problem S/,
+    });
+    expect(sourceProblem).toBeEnabled();
+    await user.click(sourceProblem);
+    await waitFor(() => expect(requests).toHaveLength(2));
+    expect(requests[1].operations).toEqual([
+      { operation: "report_identity_source_problem", item_id: CARD_ID },
+    ]);
   });
 
   it("keeps generated identity output immutable and exposes derived source context", async () => {

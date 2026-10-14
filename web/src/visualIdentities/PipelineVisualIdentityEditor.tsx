@@ -61,6 +61,8 @@ export type PipelineVisualIdentityEditorProps = {
   generatedRevisionIds?: readonly string[];
   displayedRevisionId?: string | null;
   generatedRunId: string | null;
+  selectedVisibleCardRevisionId?: string | null;
+  selectedVisibleCardRevisionDigest?: string | null;
   view: "generated" | "reviewed";
   onRailItemsChange?: (items: PipelineVisualIdentityRailItem[]) => void;
   inspectorEnabled?: boolean;
@@ -75,6 +77,8 @@ export function PipelineVisualIdentityEditor({
   generatedRevisionIds,
   displayedRevisionId = generatedRevisionId,
   generatedRunId,
+  selectedVisibleCardRevisionId = null,
+  selectedVisibleCardRevisionDigest = null,
   view,
   onRailItemsChange,
   inspectorEnabled = true,
@@ -687,17 +691,33 @@ export function PipelineVisualIdentityEditor({
         CONTENT_TYPE,
         {
           operator_id: operatorId.trim(),
-          seed:
-            generatedSourceRevisionId === null ? "empty" : "selected_generated",
-          ...(generatedSourceRevisionId === null
-            ? {}
-            : { source_revision_id: generatedSourceRevisionId }),
+          ...(selectedVisibleCardRevisionId !== null &&
+          selectedVisibleCardRevisionDigest !== null
+            ? {
+                seed: "empty" as const,
+                annotation_source: {
+                  visible_card_revision_id: selectedVisibleCardRevisionId,
+                  visible_card_revision_digest:
+                    selectedVisibleCardRevisionDigest,
+                },
+              }
+            : {
+                seed:
+                  generatedSourceRevisionId === null
+                    ? ("empty" as const)
+                    : ("selected_generated" as const),
+                ...(generatedSourceRevisionId === null
+                  ? {}
+                  : { source_revision_id: generatedSourceRevisionId }),
+              }),
         },
       );
       hydrateReference(created, false);
       setReviewerId((current) => current || operatorId.trim());
       setNotice(
-        "Maintained identity reference created from the selected result.",
+        selectedVisibleCardRevisionId !== null
+          ? "Maintained identity review created from reviewed visible cards. Classifier predictions were not required."
+          : "Maintained identity reference created from the selected result.",
       );
     } catch (reason: unknown) {
       if (reason instanceof ApiError && reason.status === 409)
@@ -713,15 +733,34 @@ export function PipelineVisualIdentityEditor({
     loadReference,
     operatorId,
     recordingId,
+    selectedVisibleCardRevisionDigest,
+    selectedVisibleCardRevisionId,
   ]);
 
   const rebaseReference = useCallback(async () => {
     const current = referenceRef.current;
     const sourceRevisionId = selectedGeneratedSourceRevisionId;
+    const annotationSource =
+      selectedVisibleCardRevisionId !== null &&
+      selectedVisibleCardRevisionDigest !== null
+        ? {
+            visible_card_revision_id: selectedVisibleCardRevisionId,
+            visible_card_revision_digest: selectedVisibleCardRevisionDigest,
+          }
+        : null;
+    const isAnnotationReview = current?.draft.annotation_source != null;
+    const annotationSourceUnchanged =
+      annotationSource !== null &&
+      current?.draft.annotation_source?.visible_card_revision_id ===
+        annotationSource.visible_card_revision_id &&
+      current?.draft.annotation_source?.visible_card_revision_digest ===
+        annotationSource.visible_card_revision_digest;
     if (
       current === null ||
-      sourceRevisionId === null ||
-      current.draft.source_revision_id === sourceRevisionId ||
+      (isAnnotationReview
+        ? annotationSource === null || annotationSourceUnchanged
+        : sourceRevisionId === null ||
+          current.draft.source_revision_id === sourceRevisionId) ||
       operatorId.trim() === "" ||
       queueRef.current.length > 0 ||
       processingRef.current ||
@@ -742,14 +781,21 @@ export function PipelineVisualIdentityEditor({
           operator_id: operatorId.trim(),
           command_id: nextCommandId(),
           operations: [
-            { operation: "rebase", source_revision_id: sourceRevisionId },
+            isAnnotationReview
+              ? {
+                  operation: "rebase_annotation_source",
+                  annotation_source: annotationSource!,
+                }
+              : { operation: "rebase", source_revision_id: sourceRevisionId! },
           ],
         },
       );
       hydrateReference(rebased, false);
       setSaveState("saved");
       setNotice(
-        "Review switched to the selected generated result. Inspect the crops before completing the review.",
+        isAnnotationReview
+          ? "Review refreshed from reviewed visible cards. Inspect changed geometry and crops before completing the review."
+          : "Review switched to the selected generated result. Inspect the crops before completing the review.",
       );
     } catch (reason: unknown) {
       setSaveState(
@@ -768,12 +814,15 @@ export function PipelineVisualIdentityEditor({
     operatorId,
     recordingId,
     saveState,
+    selectedVisibleCardRevisionDigest,
+    selectedVisibleCardRevisionId,
     selectedGeneratedSourceRevisionId,
   ]);
 
   useEffect(() => {
     if (
       reference === null ||
+      reference.draft.annotation_source != null ||
       selectedGeneratedSourceRevisionId === null ||
       reference.draft.source_revision_id ===
         selectedGeneratedSourceRevisionId ||
@@ -1119,12 +1168,15 @@ export function PipelineVisualIdentityEditor({
       completionBlocker={completionBlocker}
       creatingReference={creatingReference}
       selectedGeneratedRevisionId={selectedGeneratedSourceRevisionId}
+      selectedVisibleCardRevisionId={selectedVisibleCardRevisionId}
+      selectedVisibleCardRevisionDigest={selectedVisibleCardRevisionDigest}
       rebasingReference={rebasingReference}
       autoApprovalPlan={autoApprovalPlan}
       autoApprovalBusy={autoApprovalBusy}
       autoApprovalAvailable={
         reviewed &&
         reference !== null &&
+        reference.draft.annotation_source == null &&
         selectedGeneratedSourceRevisionId !== null &&
         reference.draft.source_revision_id ===
           selectedGeneratedSourceRevisionId &&
@@ -1520,12 +1572,20 @@ function readOutcome(value: unknown): IdentityOutcome | null {
     provenance === null
   )
     return null;
+  const annotation = readAnnotationProvenance(value.annotation_provenance);
+  if (
+    value.annotation_provenance !== null &&
+    value.annotation_provenance !== undefined &&
+    annotation === null
+  )
+    return null;
   return {
     card_id: cardId,
     frame_identity: frame,
     geometry,
     crop_identity: crop,
     crop_input_provenance: provenance,
+    annotation_provenance: annotation,
     status: status as IdentityOutcome["status"],
     candidates,
     unusable_reason:
@@ -1534,13 +1594,37 @@ function readOutcome(value: unknown): IdentityOutcome | null {
   };
 }
 
+function readAnnotationProvenance(value: unknown) {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) return null;
+  const frame = readFrameIdentity(value.frame_identity);
+  if (
+    typeof value.visible_card_revision_id !== "string" ||
+    typeof value.visible_card_revision_digest !== "string" ||
+    typeof value.card_id !== "string" ||
+    typeof value.geometry_digest !== "string" ||
+    frame === null
+  )
+    return null;
+  return {
+    visible_card_revision_id: value.visible_card_revision_id,
+    visible_card_revision_digest: value.visible_card_revision_digest,
+    card_id: value.card_id,
+    frame_identity: frame,
+    geometry_digest: value.geometry_digest,
+  };
+}
+
 function readCropInputProvenance(value: unknown) {
   if (value === null || value === undefined) return null;
   if (
     !isRecord(value) ||
-    !["gemini_polygon", "rfdetr_segment", "reviewed_virtual_card"].includes(
-      String(value.input_kind),
-    ) ||
+    ![
+      "gemini_polygon",
+      "rfdetr_segment",
+      "reviewed_virtual_card",
+      "reviewed_visible_card",
+    ].includes(String(value.input_kind)) ||
     typeof value.source_revision_id !== "string" ||
     typeof value.manifest_digest !== "string"
   )

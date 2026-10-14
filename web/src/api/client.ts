@@ -50,7 +50,10 @@ export type PipelineRunStartRequest = {
     event_revision_id?: string;
     visible_card_revision_id?: string;
     crop_input_kind?:
-      "gemini_polygon" | "rfdetr_segment" | "reviewed_virtual_card";
+      | "gemini_polygon"
+      | "rfdetr_segment"
+      | "reviewed_virtual_card"
+      | "reviewed_visible_card";
     processor_type?: string;
     implementation?: { name: string; version: string };
     model?: Record<string, unknown> | null;
@@ -149,6 +152,10 @@ export type PipelineReferenceResource = {
     content_type: PipelineSelectableContentType;
     revision: number;
     source_revision_id: string | null;
+    annotation_source?: {
+      visible_card_revision_id: string;
+      visible_card_revision_digest: string;
+    } | null;
     items: PipelineReferenceItem[];
     coverage: Record<string, unknown> | null;
     impact: Array<Record<string, unknown>>;
@@ -161,6 +168,10 @@ export type PipelineReferenceCreateRequest = {
   seed?: "selected_generated" | "selected_completed" | "empty" | "proposal";
   source_revision_id?: string;
   proposal_revision_id?: string;
+  annotation_source?: {
+    visible_card_revision_id: string;
+    visible_card_revision_digest: string;
+  };
 };
 export type PipelineReferenceOperation = {
   operation:
@@ -172,6 +183,7 @@ export type PipelineReferenceOperation = {
     | "correct"
     | "decide"
     | "rebase"
+    | "rebase_annotation_source"
     | "set_frame_review"
     | "accept_frame_suggestions"
     | "set_frame_pending"
@@ -199,6 +211,10 @@ export type PipelineReferenceOperation = {
   decision?: string;
   identity?: string;
   source_revision_id?: string;
+  annotation_source?: {
+    visible_card_revision_id: string;
+    visible_card_revision_digest: string;
+  };
   proposal_revision_id?: string;
   region_id?: string;
   pile_id?: string;

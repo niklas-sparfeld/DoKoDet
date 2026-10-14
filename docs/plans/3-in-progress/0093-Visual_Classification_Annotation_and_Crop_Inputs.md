@@ -19,7 +19,7 @@
   contract changes.
 - **M1:** Complete (2026-10-14) — seed backend review items from exact reviewed geometry and
   crops, and preserve unchanged labels when annotation sources change.
-- **M2:** Not started — expose annotation and correction without classifier predictions.
+- **M2:** Complete (2026-10-14) — expose annotation and correction without classifier predictions.
 - **M3:** Not started — materialize all 25 reviewed visual classes and readiness receipts.
 - **M4:** Not started — audit source fidelity and record the rectification decision.
 - **M5:** Not started — verify annotation/crop parity and publish the capability handoff.
@@ -169,6 +169,20 @@ and preserve read-only/mutation restrictions. Do not add a preview-quality redes
 Acceptance: a UI regression covers labeling with no predictions, face-down/face-up correction,
 save/reload, source changes and unavailable crops. An operator can start or continue review without
 a local or Gemini classifier. Publish this early capability for 0086 M5.
+
+### M2 implementation evidence — 2026-10-14
+
+- The Visual Identity review can start from the selected completed reviewed visible-card reference.
+  The request includes its exact revision digest and creates pending items without a classifier run.
+- The inspector identifies the annotation source, distinguishes pending annotation from a source
+  problem, and offers a guarded refresh when the selected reviewed source changes. Generated-result
+  rebasing and auto-approval do not run on annotation drafts.
+- Existing identity, FACE_DOWN, unusable, and source-problem controls remain available. A missing
+  crop stays actionable as a source problem. The source image and crop stay attached to the exact
+  reviewed card item.
+- UI regressions cover source seeding, classifier-free FACE_DOWN review, save/reload, correction to
+  a face-up identity, changed-source refresh, and missing-crop handling. Web typecheck passed, the
+  focused editor suite passed (22 tests), and targeted ESLint passed.
 
 ### M3 — Materialize all positive visual classes
 

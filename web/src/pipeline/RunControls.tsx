@@ -26,7 +26,10 @@ type ProcessorOrigin = "cloud" | "local";
 type VisibleCardModelVariant =
   "gemini" | "local" | "local-rfdetr-segmentation" | "local-rfdetr-fine-frame";
 type CropInputKind =
-  "gemini_polygon" | "rfdetr_segment" | "reviewed_virtual_card";
+  | "gemini_polygon"
+  | "rfdetr_segment"
+  | "reviewed_virtual_card"
+  | "reviewed_visible_card";
 type CropInputOption = {
   kind: CropInputKind;
   revisionId: string;
@@ -775,6 +778,7 @@ function buildRunRequest(
       ? {
           policy_id:
             cropInputKind === "reviewed_virtual_card" ||
+            cropInputKind === "reviewed_visible_card" ||
             (cropInputKind === null && inputOrigin === "reviewed")
               ? "oracle_visible_region"
               : "predicted_visible_region",
@@ -845,6 +849,11 @@ function buildCropInputOptions(
         revisionId: revision.revision_id,
         label: `Reviewed virtual cards · ${revision.revision_id}`,
       });
+      options.push({
+        kind: "reviewed_visible_card",
+        revisionId: revision.revision_id,
+        label: `Reviewed visible cards · ${revision.revision_id}`,
+      });
     }
   }
   return options;
@@ -862,6 +871,8 @@ function formatCropInputKind(kind: CropInputKind): string {
       return "Generated · RF-DETR";
     case "reviewed_virtual_card":
       return "Reviewed virtual cards";
+    case "reviewed_visible_card":
+      return "Reviewed visible cards";
   }
 }
 
@@ -874,7 +885,8 @@ function describeCropInputRun(request: Record<string, unknown>): string {
   const kindLabel =
     kind === "gemini_polygon" ||
     kind === "rfdetr_segment" ||
-    kind === "reviewed_virtual_card"
+    kind === "reviewed_virtual_card" ||
+    kind === "reviewed_visible_card"
       ? formatCropInputKind(kind)
       : "Crop input unavailable";
   return [

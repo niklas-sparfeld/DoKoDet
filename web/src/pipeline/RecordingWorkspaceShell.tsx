@@ -219,6 +219,18 @@ export function RecordingWorkspaceTaskSurface({
   onComparisonChange,
   onTimeChange,
 }: RecordingWorkspaceTaskSurfaceProps) {
+  const visibleCardStage = workspace.stages.find(
+    (candidate) => candidate.key === "visible_cards",
+  );
+  const selectedVisibleCardRevisionId =
+    visibleCardStage?.selected_completed_reference_revision_id ?? null;
+  const selectedVisibleCardRevisionDigest =
+    selectedVisibleCardRevisionId === null
+      ? null
+      : (visibleCardStage?.input_options.find(
+          (option) => option.revision_id === selectedVisibleCardRevisionId,
+        )?.content_sha256 ?? null);
+
   return (
     <section
       className={`${styles.pipelineTaskSurface} ${shellStyles.taskSurface} ${stage.key === "events" && !compare ? styles.pipelineEventTaskSurface : ""} ${(stage.key === "visible_cards" || stage.key === "visual_identities") && !compare ? styles.pipelineVisibleCardTaskSurface : ""} ${stage.key === "visible_cards" && !compare ? shellStyles.squareTaskSurface : ""}`}
@@ -301,6 +313,10 @@ export function RecordingWorkspaceTaskSurface({
               displayedRevision ?? stage.selected_generated_revision_id ?? null
             }
             generatedRunId={selectedVisualIdentityRunId}
+            selectedVisibleCardRevisionId={selectedVisibleCardRevisionId}
+            selectedVisibleCardRevisionDigest={
+              selectedVisibleCardRevisionDigest
+            }
             view={activeView}
             inspectorEnabled={action.kind !== "blocked"}
             onRailItemsChange={onVisualIdentityRailItemsChange}

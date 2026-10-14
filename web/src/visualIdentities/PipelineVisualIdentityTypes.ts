@@ -20,9 +20,21 @@ export type CropIdentity = {
 };
 
 export type CropInputProvenance = {
-  input_kind: "gemini_polygon" | "rfdetr_segment" | "reviewed_virtual_card";
+  input_kind:
+    | "gemini_polygon"
+    | "rfdetr_segment"
+    | "reviewed_virtual_card"
+    | "reviewed_visible_card";
   source_revision_id: string;
   manifest_digest: string;
+};
+
+export type AnnotationProvenance = {
+  visible_card_revision_id: string;
+  visible_card_revision_digest: string;
+  card_id: string;
+  frame_identity: FrameIdentity;
+  geometry_digest: string;
 };
 
 export type IdentityCandidate = {
@@ -37,6 +49,7 @@ export type IdentityOutcome = {
   geometry: Record<string, unknown>;
   crop_identity: CropIdentity | null;
   crop_input_provenance: CropInputProvenance | null;
+  annotation_provenance?: AnnotationProvenance | null;
   status: "classified" | "face_down" | "unusable" | "failed";
   candidates: IdentityCandidate[];
   unusable_reason: string | null;
