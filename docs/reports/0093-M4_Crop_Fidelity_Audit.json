@@ -1,0 +1,1246 @@
+{
+  "artifacts": {
+    "crop_contact_sheet": "docs/reports/assets/0093-M4_Crop_Sample_Contact.png",
+    "filter_comparison": "docs/reports/assets/0093-M4_Filter_Comparison.png",
+    "rectification_failure": "docs/reports/assets/0093-M4_Rectification_Failure_Case.png",
+    "rectified_valid_pose": "docs/reports/assets/0093-M4_Rectified_Visible_Card.png"
+  },
+  "inputs": {
+    "cardeventnet-IMG_0095": {
+      "calibration_digest": "214ed8d8f94ac80f32b2d8335f82a8acaf7cbbce8730f273f4f1e8a44fbaa17f",
+      "calibration_revision_id": "calibration-f7b2a5fe6eafa54fb2303792",
+      "card_scene_proposal_data_digest": "997ec2f50496458ea72fca8c01f99e776d706fc98c8c7fd19747150553dad1c0",
+      "card_scene_proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0095-ea960f0e-attempt-1",
+      "pose_authority": "generated proposal; no completed reviewed card-scene reference is selected by the 0086 handoff",
+      "source_video_byte_length": 334940123,
+      "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+      "visible_card_revision_digest": "34e823ceaafe13470920ef20026a84eab8fc8ee9828c9fd4468d48530644c215",
+      "visible_card_revision_id": "reference-visible_cards-1cb557a7cc9621c57c574a7ff275945a"
+    },
+    "cardeventnet-IMG_0097": {
+      "calibration_digest": "0e2b47a96f9a0e39cacff8eb1c9aedc08bd0ed629cc9a4e9d25d38675f4b2688",
+      "calibration_revision_id": "calibration-8732f5afcb52683bce7e50e7",
+      "card_scene_proposal_data_digest": "2ad2b764cd9ea4df9c4fb2cd476cf266882626ce618d42237754a74cad871a9f",
+      "card_scene_proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0097-d01f3b15-attempt-1",
+      "pose_authority": "generated proposal; no completed reviewed card-scene reference is selected by the 0086 handoff",
+      "source_video_byte_length": 302191126,
+      "source_video_sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+      "visible_card_revision_digest": "005cf7384e2dfe89585b726c12bb1ceb12c3ab79e76765bc1e6324168b7e0455",
+      "visible_card_revision_id": "reference-visible_cards-b2068e9892feee08eb1ec86c52d4f2ed"
+    },
+    "cardeventnet-IMG_0654": {
+      "calibration_digest": "814a7325fb0da906ce5194a1c31398c500bf147a8ec83f0fb9e0c5c36b7ebefb",
+      "calibration_revision_id": "calibration-a8bb883d7b1c3286ebf5e322",
+      "card_scene_proposal_data_digest": "d371f2704189da9b7c0a57a27224ec47c1c19c8066175e63bea38e58f5883097",
+      "card_scene_proposal_revision_id": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0654-retry-906e1261-attempt-1",
+      "pose_authority": "generated proposal; no completed reviewed card-scene reference is selected by the 0086 handoff",
+      "source_video_byte_length": 135762950,
+      "source_video_sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+      "visible_card_revision_digest": "0f08adacab93932f0cb33ffd3f1208d56e28ef4551593036aaef5df387f0bcb9",
+      "visible_card_revision_id": "reference-visible_cards-44e710d15fd7b579b9bf370f32e82466"
+    }
+  },
+  "interpretation": {
+    "decision": "retain native source-image crops, oracle visible-support masks and Lanczos as the default. The bounded visual and pixel audit gives no support for a filter change. No separate decoder/filter implementation is justified by this sample. Rectification remains an offline comparison only.",
+    "limits": [
+      "The source video is already lossy; direct PNG decode removes only the additional JPEG encoding step.",
+      "A 24-item development sample is not representative and provides no classifier-quality evidence.",
+      "Generated pose proposals are not human-reviewed card-scene authority. High fit residual is a warning, not ground truth.",
+      "Filter occupancy is a pixel-occupancy measure, not useful-information coverage."
+    ]
+  },
+  "metrics": {
+    "filter_pairwise_224_canvas_rgb_mae": {
+      "area_vs_bicubic_mae": {
+        "maximum": 0.7177070046768708,
+        "median": 0.39052535076530615,
+        "minimum": 0.04399181547619048
+      },
+      "lanczos_vs_area_mae": {
+        "maximum": 1.3228568771258504,
+        "median": 0.6700314891581634,
+        "minimum": 0.061915391156462586
+      },
+      "lanczos_vs_bicubic_mae": {
+        "maximum": 0.7660568133503401,
+        "median": 0.3419828869047619,
+        "minimum": 0.03058567176870748
+      }
+    },
+    "jpeg_vs_direct_lossless_decode_visible_support_psnr_db": {
+      "maximum": 45.32356717428193,
+      "median": 38.72336308304577,
+      "minimum": 34.25935760680395
+    },
+    "jpeg_vs_direct_lossless_decode_visible_support_rgb_mae": {
+      "maximum": 3.3574277049454353,
+      "median": 2.307089421399696,
+      "minimum": 1.0083537281775168
+    },
+    "non_neutral_224_canvas_fraction": {
+      "area": {
+        "maximum": 0.5230986926020408,
+        "median": 0.2532983896683674,
+        "minimum": 0.11575255102040816
+      },
+      "bicubic": {
+        "maximum": 0.5361527423469388,
+        "median": 0.2620077327806123,
+        "minimum": 0.12248883928571429
+      },
+      "lanczos": {
+        "maximum": 0.5428093112244898,
+        "median": 0.2681859853316326,
+        "minimum": 0.12541852678571427
+      }
+    },
+    "visible_support_fraction_of_crop_bbox": {
+      "maximum": 0.8875122589081399,
+      "median": 0.5672187904284509,
+      "minimum": 0.504277401163837
+    }
+  },
+  "notes": [
+    "JPEG is exact application resolver output; PNG is direct decode of same selected presentation frame.",
+    "Pixel error measured only inside reviewed visible support.",
+    "Filter outputs are native crop aspect-preserving Lanczos/BOX-area/bicubic resize to 224-square neutral letterbox."
+  ],
+  "recording_ids": [
+    "cardeventnet-IMG_0095",
+    "cardeventnet-IMG_0654",
+    "cardeventnet-IMG_0097"
+  ],
+  "rectification": {
+    "failure_comparison": {
+      "assessment": "Rejected as an identity input: a narrow reviewed source strip and high residual do not validate a full-card pose. The warp stretches the strip into a card-shaped view. No hidden content is inferred.",
+      "calibration_digest": "0e2b47a96f9a0e39cacff8eb1c9aedc08bd0ed629cc9a4e9d25d38675f4b2688",
+      "card_id": "pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-011-card-0003",
+      "frame_index": 1110,
+      "lossless_frame_png_sha256": "452bc5ed959e122ea27d16719717cc6cf65ef8b180f628e59eb166c501243d69",
+      "outside_mask_fill_rgb": [
+        128,
+        128,
+        128
+      ],
+      "pose_fit_residual": 0.723753,
+      "presentation_timestamp_us": 18498333,
+      "recording_id": "cardeventnet-IMG_0097",
+      "rectified_mask_fraction_after_warp": 0.9893718569566027,
+      "rectified_rgb_png_sha256": "a6802802b0ca1f437d26d3098e0195bcee82e256a550e61a14bcd129975d7f6b",
+      "requested_time_us": 18497591,
+      "source_mask_bounds_px": [
+        3275,
+        151,
+        3687,
+        236
+      ],
+      "source_visible_mask_pixels": 19004
+    },
+    "orientation": "The calibrated projection preserves the 180-degree ambiguity. It does not assign an identity orientation.",
+    "positive_comparison": {
+      "calibration_digest": "214ed8d8f94ac80f32b2d8335f82a8acaf7cbbce8730f273f4f1e8a44fbaa17f",
+      "calibration_revision_id": "calibration-f7b2a5fe6eafa54fb2303792",
+      "card_id": "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-000-card-0000",
+      "frame_index": 150,
+      "lossless_frame_png_sha256": "a0e47a28c2bcd2403a7e9aa06a66091af00bbff5ce0721a91dca1452f16537ca",
+      "outside_mask_fill_rgb": [
+        128,
+        128,
+        128
+      ],
+      "physical_aspect_ratio": 1.542373,
+      "pose_fit_residual": 0.035611,
+      "pose_fit_status": "accepted generated proposal; not a completed human-reviewed scene",
+      "presentation_timestamp_us": 2500000,
+      "recording_id": "cardeventnet-IMG_0095",
+      "rectified_dimensions_px": [
+        236,
+        364
+      ],
+      "rectified_rgb_png_sha256": "2c29607d742d303d4670cb8eed0446d9d9b93326b701cf8e6c33ab7fec5edf2f",
+      "requested_time_us": 2499646,
+      "visible_mask_fraction_after_warp": 0.98835909852859,
+      "visible_mask_pixels_after_warp": 84904
+    },
+    "status": "offline diagnostic completed"
+  },
+  "sample_count": 24,
+  "sample_rows": [
+    {
+      "card_id": "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-033-card-0000",
+      "crop_bounds_px": [
+        845,
+        2723,
+        1288,
+        3004
+      ],
+      "frame_decode_seconds": 0.5662,
+      "frame_index": 2835,
+      "frame_jpeg_sha256": "b5ff838bdf772e5c39712e46abd24d0b0de2187aa0fd8b42e1330ad7d8313ef8",
+      "lossless_png_sha256": "9d08bd69956d9075f56e1c204559198d1025b89cfd359043528f624d38081364",
+      "pose_fit_residual": 0.023247,
+      "pose_status": "available",
+      "presentation_timestamp_us": 47243333,
+      "recording_id": "cardeventnet-IMG_0095",
+      "requested_time_us": 47243317,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.5230986926020408,
+          "sha256": "47e7db2d8dc77bc2cb9563087ffb9ecc0d7d915ed36ca1662c7776ab2940447c"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.5361527423469388,
+          "sha256": "7e73eb26418422454bc5bf172c68b2bc56e1cf9feab0f1800f6e361d8ebe61e7"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.5408362563775511,
+          "sha256": "483c42df4658736caa2925303eaffa006c4beef9f79a08e5971ec17cafadb691"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.3521205357142857,
+        "lanczos_vs_area_mae": 0.5391820790816326,
+        "lanczos_vs_bicubic_mae": 0.2585034013605442
+      },
+      "reviewed_geometry_sha256": "7fc9cfc51581122cfebf0d1cb7b65ad56832423cddbcc5c764916a3d685bdde8",
+      "sample_id": "cardeventnet-IMG_0095:pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-033-card-0000",
+      "support_visible_fraction_of_bbox": 0.8173003542652411,
+      "visible_mask_pixels": 101740,
+      "visible_support_jpeg_vs_lossless_psnr_db": 41.01283354651798,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 1.8309678264858136
+    },
+    {
+      "card_id": "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-031-card-0001",
+      "crop_bounds_px": [
+        546,
+        2684,
+        1090,
+        2981
+      ],
+      "frame_decode_seconds": 0.2157,
+      "frame_index": 2671,
+      "frame_jpeg_sha256": "025765e705cdc4a188854a3ca049f8a745779a838f9aa3225d3db610b2b21f04",
+      "lossless_png_sha256": "ba37291a35c383583aa48b582e56f9565d32292dbbd964cfb704b6d6a3989007",
+      "pose_fit_residual": 0.023911,
+      "pose_status": "available",
+      "presentation_timestamp_us": 44510000,
+      "recording_id": "cardeventnet-IMG_0095",
+      "requested_time_us": 44493706,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.3290417729591837,
+          "sha256": "667621bf19ad0974f03f0539e192711834e2971f8df4e48b4749014578c71d65"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.33755181760204084,
+          "sha256": "2dcd73dee71b8b3ddad677e3687ef4405c08f85d11d393b6bee8671a88aa26ce"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.34279336734693877,
+          "sha256": "1c0101b4e162537c9d8969dc164614b01f157beae78db80b694563ae0084b959"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.38359640731292516,
+        "lanczos_vs_area_mae": 0.6907219919217688,
+        "lanczos_vs_bicubic_mae": 0.3957469706632653
+      },
+      "reviewed_geometry_sha256": "5f6655fa1265645832ae169d35adc24217edaec9b6e5de3b9a0e6adbdcb6afb4",
+      "sample_id": "cardeventnet-IMG_0095:pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-031-card-0001",
+      "support_visible_fraction_of_bbox": 0.5926173499702911,
+      "visible_mask_pixels": 95748,
+      "visible_support_jpeg_vs_lossless_psnr_db": 38.78388811552908,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.339603264123881
+    },
+    {
+      "card_id": "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-002-card-0000",
+      "crop_bounds_px": [
+        499,
+        2968,
+        1275,
+        3353
+      ],
+      "frame_decode_seconds": 0.2628,
+      "frame_index": 285,
+      "frame_jpeg_sha256": "fc8c253dbb13ccf8c4aa0ede89350c33e543a05b7dc27f83950ade822d5bd6ce",
+      "lossless_png_sha256": "e47df75d1322e07a6225f197f934448dc9db65329515ec3753b4658bad829753",
+      "pose_fit_residual": 0.024035,
+      "pose_status": "available",
+      "presentation_timestamp_us": 4750000,
+      "recording_id": "cardeventnet-IMG_0095",
+      "requested_time_us": 4749328,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.274234693877551,
+          "sha256": "924b5e07dfa600f8c272cfef7c1a16303d0715c648b9bc68054ed3607d2f8d29"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.282405931122449,
+          "sha256": "9715f9c176ce660931d9b017aa1bfdcf964b33b7263fcdec4fe1a13f8a802b2f"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.2874282525510204,
+          "sha256": "92a20555cc7008b330209b0dfea63b8c71daff91aef15cec1f74b8883214cbd2"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.08595078656462585,
+        "lanczos_vs_area_mae": 0.14411936649659865,
+        "lanczos_vs_bicubic_mae": 0.08333333333333333
+      },
+      "reviewed_geometry_sha256": "c50470c1a7e5de32881d5dee8775e020d819ca540258abcd22ba1d896c9f480c",
+      "sample_id": "cardeventnet-IMG_0095:pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-002-card-0000",
+      "support_visible_fraction_of_bbox": 0.5410731021555764,
+      "visible_mask_pixels": 161651,
+      "visible_support_jpeg_vs_lossless_psnr_db": 40.02726889821858,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.030508111095302
+    },
+    {
+      "card_id": "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-003-card-0000",
+      "crop_bounds_px": [
+        482,
+        2972,
+        1252,
+        3369
+      ],
+      "frame_decode_seconds": 0.2537,
+      "frame_index": 345,
+      "frame_jpeg_sha256": "f3f277f02141c1ac87b69a7f329c704838113c580d7d812ea9166a8cb991fb38",
+      "lossless_png_sha256": "8c6852d47c685402323a1f361f99a4935d33d5219c0e7203d5deac28bfcc860b",
+      "pose_fit_residual": 0.024612,
+      "pose_status": "available",
+      "presentation_timestamp_us": 5750000,
+      "recording_id": "cardeventnet-IMG_0095",
+      "requested_time_us": 5749187,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.28087133290816324,
+          "sha256": "027a4b1a23c0dceac7801fb0620744fcf0e07c6b74e292e8eb3ec1c49d3b4aa1"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.2886240433673469,
+          "sha256": "b610b748fbaa0f9be111aff783a66ea9c4bd1aaf2e178464ce79b49ac0d01542"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.2933872767857143,
+          "sha256": "8efe0ba1872c7ca2b1517ce2b2d776945c7eaaa81db2823cbcfb021587614c21"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.09114583333333333,
+        "lanczos_vs_area_mae": 0.15640279549319727,
+        "lanczos_vs_bicubic_mae": 0.0903685693027211
+      },
+      "reviewed_geometry_sha256": "f8139f85513c1a6bb865d3269bb9b16de6d541f6a3fa7555f863a24547470a98",
+      "sample_id": "cardeventnet-IMG_0095:pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-003-card-0000",
+      "support_visible_fraction_of_bbox": 0.5345349864241552,
+      "visible_mask_pixels": 163402,
+      "visible_support_jpeg_vs_lossless_psnr_db": 39.932412919003696,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.0756722683932876
+    },
+    {
+      "card_id": "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-041-card-0000",
+      "crop_bounds_px": [
+        804,
+        2473,
+        1357,
+        2670
+      ],
+      "frame_decode_seconds": 0.2595,
+      "frame_index": 3376,
+      "frame_jpeg_sha256": "0eaac16ae4496716e3e6baef755054438e147b91dbcf61e4fa57e9ea5f0cb005",
+      "lossless_png_sha256": "a08df19ec3b56f091d76dc250862bcaa53b0e6c22ffc3787ef9311caa1cb9c25",
+      "pose_fit_residual": 0.527498,
+      "pose_status": "high_residual_flagged",
+      "presentation_timestamp_us": 56258333,
+      "recording_id": "cardeventnet-IMG_0095",
+      "requested_time_us": 56242044,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.19776387117346939,
+          "sha256": "803588c48f9ce471b83b81351c7ddda6e1987553050372918bb9c900a88019fc"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.20607461734693877,
+          "sha256": "de43cf6a1c5df649d96576126727397f7b053fdf6216698e8f867449112d13a6"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.21079799107142858,
+          "sha256": "375b8e846702147ca66b48a4cf65568d587f2fe9bb61588d7a0e5ef3a6a00991"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.29502152423469385,
+        "lanczos_vs_area_mae": 0.5403446534863946,
+        "lanczos_vs_bicubic_mae": 0.31526360544217685
+      },
+      "reviewed_geometry_sha256": "5273daa63b2cbffc568cdfc85249bba14a7d5d18b2946d4fe60520f298587be6",
+      "sample_id": "cardeventnet-IMG_0095:pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-041-card-0000",
+      "support_visible_fraction_of_bbox": 0.5372357514618005,
+      "visible_mask_pixels": 58527,
+      "visible_support_jpeg_vs_lossless_psnr_db": 38.80172903610246,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.331886707559474
+    },
+    {
+      "card_id": "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-008-card-0003",
+      "crop_bounds_px": [
+        780,
+        2703,
+        1416,
+        2900
+      ],
+      "frame_decode_seconds": 0.2861,
+      "frame_index": 765,
+      "frame_jpeg_sha256": "7f8acd0e7fd523bfcf94aa5fa8d5c9feda2c8727e4fcdef1246b18403a0de759",
+      "lossless_png_sha256": "05c373ac3bdf7168de2f934567bafe421902d915e29634c527b134002aec5277",
+      "pose_fit_residual": 0.479944,
+      "pose_status": "available",
+      "presentation_timestamp_us": 12748333,
+      "recording_id": "cardeventnet-IMG_0095",
+      "requested_time_us": 12748197,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.1761200573979592,
+          "sha256": "a23c308eab458e68feb6b7e3e7bab7159973a4f1384f3c4ca18b221d5da7b95a"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.1857063137755102,
+          "sha256": "b44e5215df27e8dc1b3c972bc42146357c2deedaf49b9a2d94b4a4d6c6b2b591"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.19070870535714285,
+          "sha256": "59dc3a34a8ab8349dd877841d1588fed87f84e0076c7959fc225f2250b3fd6a8"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.2709196960034014,
+        "lanczos_vs_area_mae": 0.5058660182823129,
+        "lanczos_vs_bicubic_mae": 0.3039700255102041
+      },
+      "reviewed_geometry_sha256": "b738774216359f11cd364b0ba56888cb6bbd9dcdc96d085237a732cafb6d4df7",
+      "sample_id": "cardeventnet-IMG_0095:pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-008-card-0003",
+      "support_visible_fraction_of_bbox": 0.5562126871627877,
+      "visible_mask_pixels": 69689,
+      "visible_support_jpeg_vs_lossless_psnr_db": 38.66283805056246,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.33643760134311
+    },
+    {
+      "card_id": "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-013-card-0003",
+      "crop_bounds_px": [
+        611,
+        2484,
+        1141,
+        2651
+      ],
+      "frame_decode_seconds": 0.2308,
+      "frame_index": 1141,
+      "frame_jpeg_sha256": "104b18419a0d2b57233cdb91333cb59f36393e4a04b813932d262cb0cb0e18fd",
+      "lossless_png_sha256": "1257ca2efca78e101d6dcf4475615fd638486ab5974e9c318c28ebbf33745b74",
+      "pose_fit_residual": 0.401211,
+      "pose_status": "available",
+      "presentation_timestamp_us": 19013333,
+      "recording_id": "cardeventnet-IMG_0095",
+      "requested_time_us": 18997313,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.18488919005102042,
+          "sha256": "deab9a652670208ecd9701e80930308735301d48385af5b218b7918e948e3422"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.19294084821428573,
+          "sha256": "afb1acac478a08ba336351a3b7283af16af59a01e306647ce07c65cb484347d2"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.19788345025510204,
+          "sha256": "9427c7789924452035932a9442e6f231f146378e7ec0bcfc32b878d68dfcb167"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.21091757015306123,
+        "lanczos_vs_area_mae": 0.38388206845238093,
+        "lanczos_vs_bicubic_mae": 0.22306813350340135
+      },
+      "reviewed_geometry_sha256": "4f877688d876c5e911f94276ab0abe24b18097ddc3895a93318721144084ab99",
+      "sample_id": "cardeventnet-IMG_0095:pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-013-card-0003",
+      "support_visible_fraction_of_bbox": 0.5657891763642526,
+      "visible_mask_pixels": 50078,
+      "visible_support_jpeg_vs_lossless_psnr_db": 38.03246500046605,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.4388886670127934
+    },
+    {
+      "card_id": "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-046-card-0004",
+      "crop_bounds_px": [
+        808,
+        2438,
+        1204,
+        2639
+      ],
+      "frame_decode_seconds": 0.2542,
+      "frame_index": 3705,
+      "frame_jpeg_sha256": "01e8a1763140e6d015d0b716a5353c1fc254c320fd7b5cef9073c7eb2103d941",
+      "lossless_png_sha256": "5c4318c8e5af461491b0a0c5aa7ca6d5883a2dc18d26231ca662bf3987ace296",
+      "pose_fit_residual": 0.397329,
+      "pose_status": "available",
+      "presentation_timestamp_us": 61741667,
+      "recording_id": "cardeventnet-IMG_0095",
+      "requested_time_us": 61741266,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.3065609056122449,
+          "sha256": "bc5535136ccb837a053b5e6ee8ac2ae362a0fc0290adac150989efb8f28dc27b"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.3171436543367347,
+          "sha256": "85cc1d1aceae1812de64e2b8535fa6f1fa1c5fe3f203a3aa51d3a25db8915603"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.32407924107142855,
+          "sha256": "8ccb6871c6532b6b407a87a7d3e43e128f8e193edf592693086260565d289beb"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.3974542942176871,
+        "lanczos_vs_area_mae": 0.6493409863945578,
+        "lanczos_vs_bicubic_mae": 0.32829772534013607
+      },
+      "reviewed_geometry_sha256": "2c1c47843f6e2fb01246b5f14ce352941130f663a2d99f59f29214b9cfe9fdc9",
+      "sample_id": "cardeventnet-IMG_0095:pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-046-card-0004",
+      "support_visible_fraction_of_bbox": 0.590155284185135,
+      "visible_mask_pixels": 46974,
+      "visible_support_jpeg_vs_lossless_psnr_db": 38.896842496757,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.3227884929251643
+    },
+    {
+      "card_id": "pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-000-card-0000",
+      "crop_bounds_px": [
+        918,
+        791,
+        1422,
+        1080
+      ],
+      "frame_decode_seconds": 0.2349,
+      "frame_index": 121,
+      "frame_jpeg_sha256": "4821cf03ff11578e1394a1bcfc364f015c8cdd015aad2b6f51160640933a7bff",
+      "lossless_png_sha256": "adfac173964f1798c00de0f28ce770e45716812210069c30943fd86620d957c3",
+      "pose_fit_residual": 0.039335,
+      "pose_status": "unreviewed_proposal_only",
+      "presentation_timestamp_us": 2018333,
+      "recording_id": "cardeventnet-IMG_0654",
+      "requested_time_us": 2001929,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.4430404974489796,
+          "sha256": "53ea86e8e6482eb82ae4015680cb55b67b496ca803b3e5d24102b812a5fd137b"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.45326450892857145,
+          "sha256": "13432301489440f8808dcbe55904761cbc3c5fb5b325aa9005db390d553b9e58"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.45960220025510207,
+          "sha256": "438249915fc9ecd437e1bf8cccb1d02cc6f9956a377bdc3141f1a0550bfefbef"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.6938709077380952,
+        "lanczos_vs_area_mae": 1.3043553358843538,
+        "lanczos_vs_bicubic_mae": 0.7660568133503401
+      },
+      "reviewed_geometry_sha256": "5ee717189d1faf1dfdf96fed3b87d916f41ea9d4dbd429bad71963a468e0a274",
+      "sample_id": "cardeventnet-IMG_0654:pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-000-card-0000",
+      "support_visible_fraction_of_bbox": 0.7638888888888888,
+      "visible_mask_pixels": 111265,
+      "visible_support_jpeg_vs_lossless_psnr_db": 38.3015650265116,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.2713491813837834
+    },
+    {
+      "card_id": "pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-006-card-0001",
+      "crop_bounds_px": [
+        883,
+        193,
+        1197,
+        322
+      ],
+      "frame_decode_seconds": 0.1921,
+      "frame_index": 541,
+      "frame_jpeg_sha256": "418f322247bf7b81abf1a35284eef8968956b9bb45c2219c4a6fbcbf3827ffee",
+      "lossless_png_sha256": "40a972f979f1e97c03b077e3f52a7747716bbd0a5cd7c4f4eeb87803a19b4123",
+      "pose_fit_residual": 0.061155,
+      "pose_status": "unreviewed_proposal_only",
+      "presentation_timestamp_us": 9025000,
+      "recording_id": "cardeventnet-IMG_0654",
+      "requested_time_us": 9008682,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.21757413903061223,
+          "sha256": "44f5a01925aef80d5cd0ba67c5db73bdf235e8d7d0a4d1474bf7ab6475c661e7"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.22514748086734693,
+          "sha256": "ce17a22d48a227ca6a5891c00360830fd905686f81ac78c656f59d2539e35a9a"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.22975127551020408,
+          "sha256": "7163af79833576e711c9ef159d7cb383b54cf39c325702ddefdc46b0d997ee82"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.4236819727891156,
+        "lanczos_vs_area_mae": 0.7462000425170068,
+        "lanczos_vs_bicubic_mae": 0.35566804846938777
+      },
+      "reviewed_geometry_sha256": "e5e2d459d6f3ea1aa898d57d35e7cc3ffb60b2a09f1f8fb9741fecb02565caaa",
+      "sample_id": "cardeventnet-IMG_0654:pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-006-card-0001",
+      "support_visible_fraction_of_bbox": 0.5148126203525404,
+      "visible_mask_pixels": 20853,
+      "visible_support_jpeg_vs_lossless_psnr_db": 37.68326198357732,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.521747470387954
+    },
+    {
+      "card_id": "pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-012-card-0001",
+      "crop_bounds_px": [
+        891,
+        283,
+        1213,
+        378
+      ],
+      "frame_decode_seconds": 0.201,
+      "frame_index": 1051,
+      "frame_jpeg_sha256": "b65e58f232e60abdb12298e19ad47dfdb3dc28f86e598d4bd02b8331602b2024",
+      "lossless_png_sha256": "33e1eb3b0b95ec6b433d561eaeb4a53cedbaebeb3ed745a3f4e4eac50b4fe9b4",
+      "pose_fit_residual": 0.052178,
+      "pose_status": "unreviewed_proposal_only",
+      "presentation_timestamp_us": 17533333,
+      "recording_id": "cardeventnet-IMG_0654",
+      "requested_time_us": 17516882,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.2661232461734694,
+          "sha256": "b3020ae7f164825015e4019abea3e62b6322a20ad5d8fbbd9fabd587f5fa446c"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.27012914540816324,
+          "sha256": "1e573b60691d6a1b5108b306c5a11a488f6fb4baa7a56e68fb7ed97d56db86ff"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.2731385522959184,
+          "sha256": "847eb6d198e19985fdc4a6a0cb8c43350cb1c8fe6c639daab9ea002dbbfc15af"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.540397799744898,
+        "lanczos_vs_area_mae": 0.9815449617346939,
+        "lanczos_vs_bicubic_mae": 0.48515226403061223
+      },
+      "reviewed_geometry_sha256": "55265505e4cf0b0048f547abab8208ea1500a6a3c3a71538fcd83ba528af4440",
+      "sample_id": "cardeventnet-IMG_0654:pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-012-card-0001",
+      "support_visible_fraction_of_bbox": 0.8875122589081399,
+      "visible_mask_pixels": 27149,
+      "visible_support_jpeg_vs_lossless_psnr_db": 37.92687818613214,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.4557810600758776
+    },
+    {
+      "card_id": "pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-018-card-0000",
+      "crop_bounds_px": [
+        831,
+        383,
+        1226,
+        594
+      ],
+      "frame_decode_seconds": 0.1484,
+      "frame_index": 1515,
+      "frame_jpeg_sha256": "2e0c7652b4d59dbb147cd4f0a92eceef8e481045c82658995e08d0732de5cabb",
+      "lossless_png_sha256": "29433250872e482b147616e4f05e150500f60df38e5ffbd7892f8b6fb7b041df",
+      "pose_fit_residual": 0.037215,
+      "pose_status": "unreviewed_proposal_only",
+      "presentation_timestamp_us": 25275000,
+      "recording_id": "cardeventnet-IMG_0654",
+      "requested_time_us": 25274359,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.27672592474489793,
+          "sha256": "23a4a707296a9b2cdf7d6c0830da88797fcc663012d2c40a004323bce84a8c92"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.28439891581632654,
+          "sha256": "082d3efac542bb89255e11864f91aa347fe1745a04410afe6a9e146a7dd4e62d"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.28981983418367346,
+          "sha256": "a7ced82e67a5080f57c1fceca85f3662709e62828c612dc89802e922c4c828e6"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.5873126594387755,
+        "lanczos_vs_area_mae": 1.0763313137755102,
+        "lanczos_vs_bicubic_mae": 0.59543075042517
+      },
+      "reviewed_geometry_sha256": "be6e3be020d8b971918cf58f96d3f38e20bf8ee06142301650b8408ce2aecf4a",
+      "sample_id": "cardeventnet-IMG_0654:pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-018-card-0000",
+      "support_visible_fraction_of_bbox": 0.504277401163837,
+      "visible_mask_pixels": 42029,
+      "visible_support_jpeg_vs_lossless_psnr_db": 36.631518655185225,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.75344008502066
+    },
+    {
+      "card_id": "pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-024-card-0000",
+      "crop_bounds_px": [
+        983,
+        343,
+        1322,
+        535
+      ],
+      "frame_decode_seconds": 0.191,
+      "frame_index": 1950,
+      "frame_jpeg_sha256": "8ac1929e0ce63e09a4ad603a2e26d21142ce73a3b5b6b7bf051200d7b621102f",
+      "lossless_png_sha256": "9b630fa9e65d7f90cfb6df97116bd1219f9ac1b876fe94d0b1af9a0896a860e5",
+      "pose_fit_residual": 0.030953,
+      "pose_status": "unreviewed_proposal_only",
+      "presentation_timestamp_us": 32531667,
+      "recording_id": "cardeventnet-IMG_0654",
+      "requested_time_us": 32531353,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.3124402104591837,
+          "sha256": "e7e46514151c6f4ce91a74ebdc987a7f6b7998a83c399286616b89a9ca828da4"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.32089046556122447,
+          "sha256": "709850788817dca66417f0efddd257b1adbd4050bb237e52021c018e041ab473"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.32716836734693877,
+          "sha256": "aab5ce521a67142b845fd074dd16cce1927a49be5318c3330f4f9e8c27d48c0e"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.7177070046768708,
+        "lanczos_vs_area_mae": 1.3228568771258504,
+        "lanczos_vs_bicubic_mae": 0.6744525935374149
+      },
+      "reviewed_geometry_sha256": "50422b7e834c3ff2b7907cb1b8a683b59fe8d9308fcccbe201bd9275990e6fb1",
+      "sample_id": "cardeventnet-IMG_0654:pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-024-card-0000",
+      "support_visible_fraction_of_bbox": 0.5389779990167158,
+      "visible_mask_pixels": 35081,
+      "visible_support_jpeg_vs_lossless_psnr_db": 36.699636547578564,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.7941905874975057
+    },
+    {
+      "card_id": "pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-029-card-0002",
+      "crop_bounds_px": [
+        927,
+        184,
+        1126,
+        306
+      ],
+      "frame_decode_seconds": 0.2011,
+      "frame_index": 2401,
+      "frame_jpeg_sha256": "64335cbb4abc50f0dd341fc6e376fd4f217ee69b55655aec776e9e826cbf9976",
+      "lossless_png_sha256": "2d4725138ae107b9527652d53ec2f2aed1986c31610714e37c57adbb74698e27",
+      "pose_fit_residual": 0.03627,
+      "pose_status": "unreviewed_proposal_only",
+      "presentation_timestamp_us": 40055000,
+      "recording_id": "cardeventnet-IMG_0654",
+      "requested_time_us": 40038588,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.5202885841836735,
+          "sha256": "44ff7b0229f6caa53fbc4ede968a2aa65fcb9b1c17304c533767a88616c255d3"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.5324657206632653,
+          "sha256": "a7ba741bd9ebe4ba0e7db11fe150d8bb546b08ccde10580321fec8b4bac21ab3"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.5428093112244898,
+          "sha256": "0f9f7105dddc46028aacf0cf2403add7955fa606b57a8be3d90ffdf361160861"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.24066618835034015,
+        "lanczos_vs_area_mae": 0.4029017857142857,
+        "lanczos_vs_bicubic_mae": 0.18661644345238096
+      },
+      "reviewed_geometry_sha256": "c91ffd63a41a7af8a610fe901da8c7f550b0b2f092c54e0e6b7493c667ecf815",
+      "sample_id": "cardeventnet-IMG_0654:pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-029-card-0002",
+      "support_visible_fraction_of_bbox": 0.8415025949419227,
+      "visible_mask_pixels": 20430,
+      "visible_support_jpeg_vs_lossless_psnr_db": 43.97126995597773,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 1.0083537281775168
+    },
+    {
+      "card_id": "pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-036-card-0000",
+      "crop_bounds_px": [
+        887,
+        495,
+        1278,
+        661
+      ],
+      "frame_decode_seconds": 0.1929,
+      "frame_index": 3360,
+      "frame_jpeg_sha256": "6dd08f07caca010e33090f517d1c80b7bf3a6d94be15ce93694104fc8df77a12",
+      "lossless_png_sha256": "e506bba79735e34e9a83cdfa9cdd561a3630897b53c80228e88c402d003d9e4f",
+      "pose_fit_residual": 0.035366,
+      "pose_status": "unreviewed_proposal_only",
+      "presentation_timestamp_us": 56055000,
+      "recording_id": "cardeventnet-IMG_0654",
+      "requested_time_us": 56054023,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.34843351403061223,
+          "sha256": "f7b9e93ccc65de9e0aaee9ec63d30589b123222901862327b84742adcdeeffc2"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.35923549107142855,
+          "sha256": "d27c88f2bd024f9ab639818a5f3f03fa01d483fba29af20ba6a82b4e61698f4e"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.3665098852040816,
+          "sha256": "9dc014a1b98461dd5874d4f7626d71988ca369bb5698b6e6ab7eb09788573e91"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.654828337585034,
+        "lanczos_vs_area_mae": 1.1814213966836735,
+        "lanczos_vs_bicubic_mae": 0.6374295812074829
+      },
+      "reviewed_geometry_sha256": "518937616897871a2a7c14cc5ca61729d1eca68c13c8d793f92d897fa60b60fd",
+      "sample_id": "cardeventnet-IMG_0654:pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-036-card-0000",
+      "support_visible_fraction_of_bbox": 0.8084922811450406,
+      "visible_mask_pixels": 52476,
+      "visible_support_jpeg_vs_lossless_psnr_db": 38.08168265340495,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.291390349874228
+    },
+    {
+      "card_id": "pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-044-card-0000",
+      "crop_bounds_px": [
+        801,
+        282,
+        1145,
+        421
+      ],
+      "frame_decode_seconds": 0.1661,
+      "frame_index": 4276,
+      "frame_jpeg_sha256": "264a6c5208777412344da5dd3b4dcc2b489cec4928fbd020a6453fa1697e36d7",
+      "lossless_png_sha256": "0e575e9f2c13208a60e2202b4baf23ed6617f0054d92ad9e5eafd7bba914fa51",
+      "pose_fit_residual": 0.050293,
+      "pose_status": "unreviewed_proposal_only",
+      "presentation_timestamp_us": 71335000,
+      "recording_id": "cardeventnet-IMG_0654",
+      "requested_time_us": 71318735,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.2556999362244898,
+          "sha256": "2e8677c5dfaf7e490e4faca7c7c8e2c79190884d79389ad497d5b546453c139a"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.2641103316326531,
+          "sha256": "542cf3147afbb0cc31d8badda14a7f320af7efd1762529418112155236cb0a14"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.27022879464285715,
+          "sha256": "12fe137448009fcd065d5e4ffc428b73be9d927a1b3b39cf38315533b8476f92"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.409000318877551,
+        "lanczos_vs_area_mae": 0.7636652317176871,
+        "lanczos_vs_bicubic_mae": 0.39736793154761907
+      },
+      "reviewed_geometry_sha256": "9810401c37046e0922e7f452113c42da59c99cba3db593c9dd4217049dd25a2c",
+      "sample_id": "cardeventnet-IMG_0654:pose-visible_cards-run-2b47ebef-c8b-cardeventnet-event-img_0654-044-card-0000",
+      "support_visible_fraction_of_bbox": 0.6141668060900117,
+      "visible_mask_pixels": 29367,
+      "visible_support_jpeg_vs_lossless_psnr_db": 38.51714302979647,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.258930091599414
+    },
+    {
+      "card_id": "pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-010-card-0000",
+      "crop_bounds_px": [
+        372,
+        1115,
+        1330,
+        1494
+      ],
+      "frame_decode_seconds": 0.4976,
+      "frame_index": 1065,
+      "frame_jpeg_sha256": "865ed0c4722f344cefb33e29dbf959df9c083c2f23f530d49416b9a0ce0a9936",
+      "lossless_png_sha256": "c21f7fc315bd9e06a6963462409be94921b67d70eee569e073eaf2a3c642ff4b",
+      "pose_fit_residual": 0.015262,
+      "pose_status": "available",
+      "presentation_timestamp_us": 17748333,
+      "recording_id": "cardeventnet-IMG_0097",
+      "requested_time_us": 17747689,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.2318439094387755,
+          "sha256": "12393dfe2b4f1722af82fab1d1a823bb123547660e6b6633b69abf20d09b272b"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.2408123405612245,
+          "sha256": "8177e473e576191149d385e8e0495b24badf8ca5335140afc6fffd87402b98a8"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.24629304846938777,
+          "sha256": "b8ae5efd982c2b379a47cf6ec78896d1b9e00cca93a5566e950c80f578c47c92"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.267046662414966,
+        "lanczos_vs_area_mae": 0.4340189200680272,
+        "lanczos_vs_bicubic_mae": 0.26329985119047616
+      },
+      "reviewed_geometry_sha256": "d5a94f4c9274c2b7126bfd964fe082f1855840938a1a14792f312e68cc09d42d",
+      "sample_id": "cardeventnet-IMG_0097:pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-010-card-0000",
+      "support_visible_fraction_of_bbox": 0.5686484044926491,
+      "visible_mask_pixels": 206466,
+      "visible_support_jpeg_vs_lossless_psnr_db": 34.50114282519066,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 2.933809925120843
+    },
+    {
+      "card_id": "pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-026-card-0000",
+      "crop_bounds_px": [
+        634,
+        1158,
+        1614,
+        1530
+      ],
+      "frame_decode_seconds": 0.2507,
+      "frame_index": 2101,
+      "frame_jpeg_sha256": "7560c46ce5689c84e16c801ffc4062fea4caecb84ca6b805e703a910dabcb632",
+      "lossless_png_sha256": "c685b4f9de1b144cd9b6a6f5135d220c7383187e7253205e029b6c188df54881",
+      "pose_fit_residual": 0.016954,
+      "pose_status": "available",
+      "presentation_timestamp_us": 35011667,
+      "recording_id": "cardeventnet-IMG_0097",
+      "requested_time_us": 34995443,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.23846061862244897,
+          "sha256": "88c5bf24f24361c5ae6f210bdefeac8c8cc38d10002f356daa949b4757fee3a5"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.2472297512755102,
+          "sha256": "b4a9292ab832d6a437aa5ee624d46faf17f946d8303c4c7ecf94d5e95729f9bc"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.2534877232142857,
+          "sha256": "dc2111be36c91eee174b035585156b6cf3aa4018cc9fef6ccd920f6f6431b0bf"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.7089046556122449,
+        "lanczos_vs_area_mae": 1.0885084502551021,
+        "lanczos_vs_bicubic_mae": 0.5739862351190477
+      },
+      "reviewed_geometry_sha256": "d0d2dab426726242420a8cd2ef2d0e349872736ff803275a61310c6c8726e511",
+      "sample_id": "cardeventnet-IMG_0097:pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-026-card-0000",
+      "support_visible_fraction_of_bbox": 0.6126398946675444,
+      "visible_mask_pixels": 223344,
+      "visible_support_jpeg_vs_lossless_psnr_db": 34.25935760680395,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 3.3574277049454353
+    },
+    {
+      "card_id": "pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-025-card-0000",
+      "crop_bounds_px": [
+        641,
+        1158,
+        1621,
+        1530
+      ],
+      "frame_decode_seconds": 0.2578,
+      "frame_index": 2056,
+      "frame_jpeg_sha256": "ddad8f5b1b26d2762c5c8205d9f91bbea034d11ecb3788d2eb2c0e595d3b0bb6",
+      "lossless_png_sha256": "ab2484875da7eed6bf69f530f1a8867c447bcd28159d0302f1640d5702704e03",
+      "pose_fit_residual": 0.017471,
+      "pose_status": "available",
+      "presentation_timestamp_us": 34261667,
+      "recording_id": "cardeventnet-IMG_0097",
+      "requested_time_us": 34245540,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.23863998724489796,
+          "sha256": "bc76340359b1f389aeb8e1f0a0fd35246ea8be578033957fe088d067bde0dba3"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.24728954081632654,
+          "sha256": "0809c6a73409c6795206a639cd5a60d334c06cf3d95bb1a46c8f574dd7d7d929"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.25356744260204084,
+          "sha256": "74e68b8016728bbb4003c601d6d71253687b3503013edb42cb5ba8f913de93e8"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.4558952487244898,
+        "lanczos_vs_area_mae": 0.7636519451530612,
+        "lanczos_vs_bicubic_mae": 0.4450999149659864
+      },
+      "reviewed_geometry_sha256": "26c4260646e28e5e2a88fb317e48ad8e9622031704c055e0804a0ecc2a1a7182",
+      "sample_id": "cardeventnet-IMG_0097:pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-025-card-0000",
+      "support_visible_fraction_of_bbox": 0.6129306561334211,
+      "visible_mask_pixels": 223450,
+      "visible_support_jpeg_vs_lossless_psnr_db": 34.62199951634206,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 3.211276199000522
+    },
+    {
+      "card_id": "pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-032-card-0000",
+      "crop_bounds_px": [
+        1866,
+        920,
+        2716,
+        1275
+      ],
+      "frame_decode_seconds": 0.2809,
+      "frame_index": 2505,
+      "frame_jpeg_sha256": "fd32de92eb7ddeae8ff16595e475ffbd55287dc4da840d1175b32ea793dc39b5",
+      "lossless_png_sha256": "8c520348c05091e346cf0215e2439b8c57b3588ed566b8e65e60952cfd4023b2",
+      "pose_fit_residual": 0.017629,
+      "pose_status": "available",
+      "presentation_timestamp_us": 41745000,
+      "recording_id": "cardeventnet-IMG_0097",
+      "requested_time_us": 41744564,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.2229950573979592,
+          "sha256": "2fad610c325620f4d4322497b4dd06168436001088fdc3aef8e13e61709b45f3"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.23132573341836735,
+          "sha256": "498177d904ba983cfcf322bcd77c76258eb2074042ca283f22795aa25e510216"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.23686623086734693,
+          "sha256": "f6dfc1dccae8e078e53988791422254ea465fad2dd4cb88c775174ef6894a1da"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.18428465136054423,
+        "lanczos_vs_area_mae": 0.30461442389455784,
+        "lanczos_vs_bicubic_mae": 0.17626620960884354
+      },
+      "reviewed_geometry_sha256": "485a439a114ac06a5d92fbb0d9e9bd26eefdc1635b14a941a43b91ae74186430",
+      "sample_id": "cardeventnet-IMG_0097:pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-032-card-0000",
+      "support_visible_fraction_of_bbox": 0.5174183927091963,
+      "visible_mask_pixels": 156131,
+      "visible_support_jpeg_vs_lossless_psnr_db": 43.01987480174388,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 1.4631239151737965
+    },
+    {
+      "card_id": "pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-011-card-0003",
+      "crop_bounds_px": [
+        3276,
+        151,
+        3687,
+        236
+      ],
+      "frame_decode_seconds": 0.252,
+      "frame_index": 1110,
+      "frame_jpeg_sha256": "a00732ecdc3ad1e314282c31a18c5fee788a89af4ed27287ebca994e0d18cc2d",
+      "lossless_png_sha256": "452bc5ed959e122ea27d16719717cc6cf65ef8b180f628e59eb166c501243d69",
+      "pose_fit_residual": 0.723753,
+      "pose_status": "high_residual_flagged",
+      "presentation_timestamp_us": 18498333,
+      "recording_id": "cardeventnet-IMG_0097",
+      "requested_time_us": 18497591,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.11575255102040816,
+          "sha256": "95c7685b8f75f44b67b8021592ab6d78751be9eaa7e8eb5d9789d81eb747bc05"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.12248883928571429,
+          "sha256": "25ed8ddb61be60f3b0a8f5ae1a43bbdde9725607c28ee6b57921f75a8ac13eb5"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.12541852678571427,
+          "sha256": "1ab86ee4803aed33ab20d0ab87736a8cd18badcf8fd16a391e51c00548953467"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.04399181547619048,
+        "lanczos_vs_area_mae": 0.061915391156462586,
+        "lanczos_vs_bicubic_mae": 0.03058567176870748
+      },
+      "reviewed_geometry_sha256": "5deb6857d933230a9e9cc20b7a30885bd7affdf133ee2dcb75d4749ca7ad7f5a",
+      "sample_id": "cardeventnet-IMG_0097:pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-011-card-0003",
+      "support_visible_fraction_of_bbox": 0.5443251753256046,
+      "visible_mask_pixels": 19016,
+      "visible_support_jpeg_vs_lossless_psnr_db": 45.32356717428193,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 1.041123264619268
+    },
+    {
+      "card_id": "pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-012-card-0005",
+      "crop_bounds_px": [
+        3329,
+        199,
+        3645,
+        290
+      ],
+      "frame_decode_seconds": 0.2323,
+      "frame_index": 1171,
+      "frame_jpeg_sha256": "afa36c3ae078b71aeb320dd568bf0de79a08865234767dfb64be7e5d939e98df",
+      "lossless_png_sha256": "bbd88f8f89ee8e042b76449aa36e1bb0f5a62174559824fa3f6ba49ae6627232",
+      "pose_fit_residual": 0.690375,
+      "pose_status": "high_residual_flagged",
+      "presentation_timestamp_us": 19513333,
+      "recording_id": "cardeventnet-IMG_0097",
+      "requested_time_us": 19497461,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.23232222576530612,
+          "sha256": "93cc9e3f24e582ae854682ac1cac81f33319c58e66cb9291e25447e34075564f"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.23961654974489796,
+          "sha256": "fe4af5c77006a9b2ada8e6a1e65bbc120721c04e1c35757ac51c159d46d58c3a"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.24334343112244897,
+          "sha256": "2343fd1c948189b359fd6ce92c801efbb21cf8bb7a1e412d0dd4f286085afdb8"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.07410581420068027,
+        "lanczos_vs_area_mae": 0.11397879464285714,
+        "lanczos_vs_bicubic_mae": 0.05135257227891157
+      },
+      "reviewed_geometry_sha256": "c911ce2aec2d0891924729e8c521db338d799b203c3067730c214fdd9cb8225d",
+      "sample_id": "cardeventnet-IMG_0097:pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-012-card-0005",
+      "support_visible_fraction_of_bbox": 0.7827583808596467,
+      "visible_mask_pixels": 22509,
+      "visible_support_jpeg_vs_lossless_psnr_db": 43.37296755552255,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 1.3653501562338028
+    },
+    {
+      "card_id": "pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-023-card-0003",
+      "crop_bounds_px": [
+        872,
+        918,
+        1564,
+        1230
+      ],
+      "frame_decode_seconds": 0.2897,
+      "frame_index": 1876,
+      "frame_jpeg_sha256": "6b450264abe3e112b7ac58ba6681820548b7857fc93a4d9be69f7ee35c3d3698",
+      "lossless_png_sha256": "e4c81019167ad6118602683ac046bcf6d4431ca3d6f792c152c564de5cda3a9b",
+      "pose_fit_residual": 0.488472,
+      "pose_status": "high_residual_flagged",
+      "presentation_timestamp_us": 31261667,
+      "recording_id": "cardeventnet-IMG_0097",
+      "requested_time_us": 31245931,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.2508968431122449,
+          "sha256": "97e75902b0065368c698c8e634a21ddd0645481efa2328474c5d7ba995a237cf"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.25990513392857145,
+          "sha256": "5bb834a40baf8f7f236c286aee7898a556c7dbc3461dcd6e3e531ac27ba63352"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.26614317602040816,
+          "sha256": "fa22feaa022cd57fbe7a62a60fe5e40111b15b7ea5aa6786bbedaba4232f12b7"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.41967607355442177,
+        "lanczos_vs_area_mae": 0.7378826530612245,
+        "lanczos_vs_bicubic_mae": 0.43559337797619047
+      },
+      "reviewed_geometry_sha256": "bfaf8803cd2efcc638a35399052bd935227afa12bcaec36c8104737d112f29e8",
+      "sample_id": "cardeventnet-IMG_0097:pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-023-card-0003",
+      "support_visible_fraction_of_bbox": 0.542139098858752,
+      "visible_mask_pixels": 117050,
+      "visible_support_jpeg_vs_lossless_psnr_db": 41.43371040339551,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 1.7394760074042432
+    },
+    {
+      "card_id": "pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-021-card-0001",
+      "crop_bounds_px": [
+        868,
+        918,
+        1564,
+        1228
+      ],
+      "frame_decode_seconds": 0.2174,
+      "frame_index": 1770,
+      "frame_jpeg_sha256": "49d5dd03cfcd2bee30841ee7c76c76a54146187f98a5012b4281bcfe8f5c05ac",
+      "lossless_png_sha256": "17ca81636ad14b7ecf2834afc3753b45174475079c2be0338a958f4f4954a0c6",
+      "pose_fit_residual": 0.468231,
+      "pose_status": "available",
+      "presentation_timestamp_us": 29496667,
+      "recording_id": "cardeventnet-IMG_0097",
+      "requested_time_us": 29496159,
+      "resize_filter_comparisons": {
+        "area": {
+          "non_neutral_canvas_fraction": 0.24734933035714285,
+          "sha256": "fe7835d0795005158f070ab6bb58a9c351a55556398c078bd51d10734097a4a0"
+        },
+        "bicubic": {
+          "non_neutral_canvas_fraction": 0.2555404974489796,
+          "sha256": "6e12b52d9035da7403eb77850c276949c3f442a5d2058c2611770ae6ede17da3"
+        },
+        "lanczos": {
+          "non_neutral_canvas_fraction": 0.26136001275510207,
+          "sha256": "2377672cfb112240b0ee802a9b5bd549b347f783a3b1701672dd1922fd121663"
+        }
+      },
+      "resize_filter_pairwise_canvas_mae": {
+        "area_vs_bicubic_mae": 0.40072278911564624,
+        "lanczos_vs_area_mae": 0.7050449085884354,
+        "lanczos_vs_bicubic_mae": 0.41692575467687076
+      },
+      "reviewed_geometry_sha256": "24b164598b667cbe338d29c1dee5315fa654b0405db6d5b9ff72707044efd77e",
+      "sample_id": "cardeventnet-IMG_0097:pose-89cd0940-fd94-4e44-b07f-a4fbf96efd87-cardeventnet-event-img_0097-021-card-0001",
+      "support_visible_fraction_of_bbox": 0.5400166852057842,
+      "visible_mask_pixels": 116514,
+      "visible_support_jpeg_vs_lossless_psnr_db": 40.737089352120464,
+      "visible_support_jpeg_vs_lossless_rgb_mae": 1.916616601152365
+    }
+  ],
+  "sampling_policy": {
+    "actual_samples": 24,
+    "maximum_recordings": 3,
+    "maximum_samples": 24,
+    "samples_per_recording": {
+      "cardeventnet-IMG_0095": 8,
+      "cardeventnet-IMG_0097": 8,
+      "cardeventnet-IMG_0654": 8
+    },
+    "selection": "Eight exact reviewed crops per eligible recording in the 0086 M2 detection-only handoff. IMG_0095 and IMG_0097 include lower and highest residual fitted pose proposals. IMG_0654 samples across time; its generated poses have no completed reviewed-scene authority."
+  },
+  "schema": "0093-m4-pixel-audit/v1",
+  "source_disposition_authority": {
+    "deferred_not_used": [
+      "cardeventnet-IMG_0096"
+    ],
+    "eligible_recordings": [
+      "cardeventnet-IMG_0095",
+      "cardeventnet-IMG_0097",
+      "cardeventnet-IMG_0654"
+    ],
+    "handoff_report": "docs/reports/0086-M2_Detection_Only_Handoff.json",
+    "permanently_excluded_not_used": [
+      "cardeventnet-IMG_0092"
+    ]
+  },
+  "timing_summary": {
+    "application_jpeg_resolver_calls_seconds": {
+      "maximum": 0.5662,
+      "median": 0.2428,
+      "minimum": 0.1484,
+      "sum": 6.1349
+    },
+    "note": "Per-sample wall time for exact frame resolution; excludes the separate direct PNG decode and aggregate startup/probe work."
+  },
+  "tools": {
+    "current_frame_policy": "FFmpeg exact-event/v1 with ffmpeg-mjpeg/8.1.2 q:v 2",
+    "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe": "ffprobe version 8.1.2 Copyright (c) 2007-2026 the FFmpeg developers",
+    "lossless_decode_policy": "ffmpeg select=eq(n,frame_index), PNG output, same presentation frame",
+    "opencv": "5.0.0",
+    "pillow": "12.3.0",
+    "python": "3.13.15"
+  }
+}

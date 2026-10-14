@@ -22,7 +22,8 @@
 - **M2:** Complete (2026-10-14) — expose annotation and correction without classifier predictions.
 - **M3:** Complete (2026-10-14) — materialize all 25 reviewed visual classes and publish the
   class-readiness report adapter.
-- **M4:** Not started — audit source fidelity and record the rectification decision.
+- **M4:** Complete (2026-10-14) — audit 24 development crops and retain native crops/Lanczos;
+  keep rectification offline.
 - **M5:** Not started — verify annotation/crop parity and publish the capability handoff.
 
 ## 1. Evidence and scope
@@ -211,6 +212,27 @@ class/back-design support and duplicates; cold/warm digests match. Publish the 0
 - Focused operations regressions cover face-up and face-down targets, all 25 classes, stable crop
   and mask bytes, wrong frames, stale geometry, unreadable outcomes, and resolver mismatches.
   Focused tests, Ruff, and formatting checks passed.
+
+### M4 implementation evidence — 2026-10-14
+
+- Audited 24 exact reviewed crops from eligible IMG_0095, IMG_0097, and IMG_0654. The selection
+  includes incomplete visible support, fitted pose proposals, a visibly incorrect pose, and crops
+  without completed reviewed-scene authority. The excluded IMG_0092 and deferred IMG_0096 were not
+  used. The JSON receipt records input and geometry digests, exact timestamps, pixel metrics, and
+  frame-resolution timings.
+- Compared the application JPEG frame with a direct PNG decode of the same presentation frame.
+  Compared Pillow Lanczos, OpenCV area, and Pillow bicubic reductions at equal dimensions after
+  applying the reviewed mask and neutral fill. The small sample showed no useful reason to replace
+  Lanczos.
+- Produced one offline pose-based rectified view with the saved calibration, physical card ratio,
+  reviewed visible-support mask, and neutral fill. The low-residual pose is a generated proposal,
+  not a completed human-reviewed scene. A high-residual IMG_0097 example shows a narrow source strip
+  stretched into a full card view; the report records it as a failure and does not infer hidden
+  content. The projection retains 180-degree ambiguity.
+- The written decision keeps native source-image crops and Lanczos as the default. It does not add
+  runtime rectification, a geometry gate, or a classifier-quality claim. See
+  [the M4 audit](../../reports/0093-M4_Crop_Fidelity_Audit.md) and its
+  [machine-readable receipt](../../reports/0093-M4_Crop_Fidelity_Audit.json).
 
 ### M4 — Audit crop fidelity and rectification risk
 
