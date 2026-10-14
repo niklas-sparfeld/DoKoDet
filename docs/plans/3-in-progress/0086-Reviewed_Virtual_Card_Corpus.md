@@ -261,7 +261,7 @@ an unusable crop. No training or promotion occurs in this epic.
 
 ## 4. Handoff and verification
 
-[0087](../3-in-progress/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
+[0087](../5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
 [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) owns identity crop preparation and
 training. Each campaign freezes its own eligibility and recipe from this handoff.
 
