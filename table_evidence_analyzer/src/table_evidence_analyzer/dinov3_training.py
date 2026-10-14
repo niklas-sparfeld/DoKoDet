@@ -835,9 +835,15 @@ def _load_campaign_inputs(
     sampling = recipe.get("sampling")
     if sampling != {
         "policy": config.sampling_policy,
-        "samples_per_epoch": "train_split_size" if config.samples_per_epoch is None else config.samples_per_epoch,
+        "samples_per_epoch": (
+            "train_split_size"
+            if config.samples_per_epoch is None
+            else config.samples_per_epoch
+        ),
     }:
-        raise DinoV3TrainingError("DINOv3 sampling arguments differ from the frozen campaign recipe")
+        raise DinoV3TrainingError(
+            "DINOv3 sampling arguments differ from the frozen campaign recipe"
+        )
     identity_reference = preflight.get("checks", {}).get("identity_config")
     if isinstance(identity_reference, Mapping) and isinstance(config.identity_config, Path):
         declared_path = Path(str(identity_reference.get("path", "")))
