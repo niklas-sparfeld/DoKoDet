@@ -7,7 +7,7 @@
 - **Status:** Blocked
 - **Depends on:** 0086 M4 geometry review and M5 identity handoff; completed
   [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) and
-  [0094](../2-ready/0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091
+  [0094](../3-in-progress/0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091
   identity isolation.
   No dependency on 0092 training.
 - **Blocker:** Complete reviewed class coverage and campaign inputs are not available. The 0093

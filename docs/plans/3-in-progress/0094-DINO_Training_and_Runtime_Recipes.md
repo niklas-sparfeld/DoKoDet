@@ -4,7 +4,7 @@
 
 - **Summary:** Deliver reproducible multi-resolution DINO recipes, bounded encoder adaptation,
   25-class evaluation, and reloadable confidence-aware local bundles.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md)
   annotation/crop handoff; existing materialized and licensed 0043 pretrained assets and local
   training/runtime infrastructure. No dependency on completed 0086 M5 or new 0088 model results.
@@ -15,7 +15,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze supported recipe, feature, checkpoint, and bundle contracts.
+- **M0:** Complete — freeze supported recipe, feature, checkpoint, and bundle contracts in
+  [the M0 contract](../../reports/0094-M0_Recipe_Contract.md).
 - **M1:** Not started — implement resolution-aware preprocessing and frozen-model bundles.
 - **M2:** Not started — implement reproducible epoch sampling and exact resume.
 - **M3:** Not started — implement source-space, epoch-varying safe augmentation.
