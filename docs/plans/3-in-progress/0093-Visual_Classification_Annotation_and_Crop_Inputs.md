@@ -4,7 +4,7 @@
 
 - **Summary:** Complete prediction-independent individual-card annotation and reproducible
   25-class crop preparation, including positively visible card backs.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0048/0049 review foundation, 0085 crop-input lineage, and 0091 pile
   isolation. Use fixtures and existing reviewed development examples; no dependency on 0086 M5.
 - **Outcome:** A working annotation-to-crop path and versioned input handoff for 0086 M5,
@@ -15,7 +15,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze annotation, positive-class eligibility, and crop contracts.
+- **M0:** Complete (2026-10-14) — froze annotation provenance, positive-class eligibility, and
+  contract changes.
 - **M1:** Not started — seed and persist backend review items from reviewed geometry.
 - **M2:** Not started — expose annotation and correction without classifier predictions.
 - **M3:** Not started — materialize all 25 reviewed visual classes and readiness receipts.
@@ -41,7 +42,58 @@ or build a second review lifecycle. 0086 owns human corpus decisions; 0088 owns 
 Use the [initial crop investigation](../../reports/0088-Crop_and_Input_Size_Investigation.md)
 as a diagnostic starting point; M4 extends it with a fixed small development sample.
 
-## 2. Rules
+## 2. M0 contract freeze — 2026-10-14
+
+The current `visual-identity-data/v1` outcome requires classifier metadata. Classified, face-down,
+and unusable outcomes also require a crop identity. The maintained visual-identity draft binds to a
+generated identity revision through `source_revision_id`; its items come from that revision. Crop
+input v1 binds processor crops to one visible-card revision and accepts generated polygons, RF-DETR
+segments, or reviewed virtual cards with card-scene lineage. Therefore, a human label cannot be
+seeded from a reviewed visible-card reference when no classifier result exists without adding new
+provenance fields. Do not encode a human label as a successful classifier result.
+
+Freeze these contract changes before M1:
+
+1. Advance the strict visual-identity reference draft to v2 and add an `annotation_source` object
+   with `visible_card_revision_id` and `visible_card_revision_digest`. It names the exact completed
+   reviewed visible-card revision. Keep `source_revision_id` for an optional generated identity
+   source. The annotation source is independent of the generated selection and uses the existing
+   expected-draft-revision guard for mutations.
+2. Advance `visual-identity-data` to v2 and add a versioned `annotation_provenance` object to each
+   annotation-only identity outcome. It binds `visible_card_revision_id`, its digest, `card_id`, the
+   exact `frame_identity`, and the reviewed geometry digest. Allow `classifier: null` only when this
+   provenance is present. Keep crop identity required when a positive label depends on source
+   pixels. Generated outcomes retain their current classifier and crop-input provenance
+   requirements.
+3. Advance the strict crop-input manifest and provenance contracts to v2. Add the
+   `reviewed_visible_card` input kind. It resolves native source pixels from exact frame identity
+   and reviewed geometry, records source revision/content and geometry digests, and uses the
+   `oracle_visible_region` policy for visible-support masking. It must not require a virtual card
+   scene or a processor run. Reuse existing crop receipts and derived view validation; do not add a
+   silent crop-kind fallback.
+4. Define positive eligibility separately from suit/rank identity usability. A usable crop with a
+   reviewed canonical face-up identity is an identity target. A usable crop with a positively
+   reviewed visible back is a `FACE_DOWN` target. Unknown side, unreadable identity, source problem,
+   unavailable pixels, and pile evidence are not positive targets. A calibrated manual individual
+   card follows the same rule as a detector-suggested card.
+
+Freeze these M1 fixture outcomes:
+
+| Fixture | Seed or label behavior | Positive target |
+| --- | --- | --- |
+| Face-up card with known identity | Seed pending; accept or correct the canonical identity | Yes |
+| Positively visible card back | Seed pending; set or correct `FACE_DOWN` | Yes, `FACE_DOWN` |
+| Unreadable face | Keep actionable for review or source diagnosis | No |
+| Missing source pixels | Keep actionable as a source problem; preserve exact lineage | No |
+| Changed reviewed geometry | Mark affected work for review; retain unchanged human decisions | No until current geometry is reviewed |
+| Calibrated manual individual card | Seed from the exact reviewed reference without a detector proposal | Same rule as a face-up card or back |
+| Pile or consumed pile member | Do not create an identity item | No |
+
+M1 must also reject a source revision, frame, card, or geometry mismatch; repeated seeding must be
+idempotent; and an unavailable classifier must not block annotation. M0 does not authorize a
+full-corpus review gate or change the 0086 corpus decisions.
+
+## 3. Rules
 
 Seed pending review items from an exact eligible completed reviewed geometry reference and exact
 source-frame crops, even when no identity processor has run or its predictions are unavailable.
@@ -69,7 +121,7 @@ Accept reviewed oracle_visible_region lineage without calling it predicted geome
 PoC-specific FACE_DOWN and NINE exclusions. Include all eligible positive classes in reports;
 incomplete corpus coverage does not block delivery of software capability proven with fixtures.
 
-## 3. Delivery milestones
+## 4. Delivery milestones
 
 ### M0 — Freeze data contracts and fixtures
 
@@ -141,7 +193,7 @@ Acceptance: 0086 can finish face-down review; 0094 can consume eligible back cro
 0088 can audit and freeze its corpus. Capability readiness is separate from the amount of reviewed
 data. No training or default/provider change occurs.
 
-## 4. Verification
+## 5. Verification
 
 Run focused reference command/API/UI tests, crop materialization and lineage checks, and applicable
 Python/Web static checks. Use fixtures for missing/failed inference and invalid geometry. Verify

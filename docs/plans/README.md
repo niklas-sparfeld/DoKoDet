@@ -46,8 +46,8 @@ Fix bounded annotation blockers during 0086. The larger annotation/crop and trai
 are explicit work in 0093/0094. Keep broader algorithm work in 0089. Retain diagnostic bundle
 decisions when training fails, but do not close 0088 as Complete unless its useful-model objective
 is achieved. Productive campaign UI, promotion and default changes remain in 0044; optional analyzer
-capabilities remain in 0050. All new milestones are Not started; each implementation milestone has
-focused fixture acceptance, and campaign fits have frozen finite budgets.
+capabilities remain in 0050. Implementation milestones in new epics have focused fixture
+acceptance, and campaign fits have frozen finite budgets.
 
 ## Board
 
@@ -70,9 +70,8 @@ The shared target architecture is
 
 ### Ready
 
-| Epic                                                                                                                        | Depends on                                                                                                                                   | Outcome                                                                                                                                                                                                                                                                            |
-| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0093 — Visual classification annotation and crop inputs](2-ready/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) | Completed 0048/0049, 0085 and 0091; fixtures and existing reviewed development inputs; no 0086 M5 dependency                                 | M0–M5 not started. Deliver annotation without classifier predictions, positive FACE_DOWN labels, all-class native crops, bounded fidelity/rectification diagnostics, and the input handoff.                                                                                        |
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
 
 ### In Progress
 
@@ -80,6 +79,7 @@ The shared target architecture is
 | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1 | M0–M4 complete. Twenty current-schema recordings qualify; IMG_0092 is permanently excluded and IMG_0096 is deferred for calibration repair. M5 uses 0093 M2/M3 to complete all-class visual review, including FACE_DOWN, for 0088. |
 | [0092 — Expanded reviewed virtual-card RF-DETR campaign](3-in-progress/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 M4 current-schema detection-only handoff with at least 18 eligible recordings; completed 0087 candidate bundle | M0–M1 complete. M2 trains one real-only candidate on MPS from the frozen 874-frame view; validation supports only frozen early stopping, and the fresh sealed test stays unopened. |
+| [0093 — Visual classification annotation and crop inputs](3-in-progress/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) | Completed 0048/0049, 0085 and 0091; fixtures and existing reviewed development inputs; no 0086 M5 dependency | M0 complete. M1/M2 will seed and edit human labels without classifier predictions; M3/M4 will materialize all classes and audit bounded crop fidelity; M5 publishes the input handoff. |
 
 ### Blocked
 
