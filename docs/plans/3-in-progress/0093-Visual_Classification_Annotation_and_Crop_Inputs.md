@@ -20,7 +20,8 @@
 - **M1:** Complete (2026-10-14) — seed backend review items from exact reviewed geometry and
   crops, and preserve unchanged labels when annotation sources change.
 - **M2:** Complete (2026-10-14) — expose annotation and correction without classifier predictions.
-- **M3:** Not started — materialize all 25 reviewed visual classes and readiness receipts.
+- **M3:** Complete (2026-10-14) — materialize all 25 reviewed visual classes and publish the
+  class-readiness report adapter.
 - **M4:** Not started — audit source fidelity and record the rectification decision.
 - **M5:** Not started — verify annotation/crop parity and publish the capability handoff.
 
@@ -195,6 +196,21 @@ during preparation. Replace the test that currently requires FACE_DOWN exclusion
 Acceptance: a reviewed back yields a FACE_DOWN target and reproducible crop bytes; wrong frame,
 stale geometry, unreadable evidence and piles cannot become targets. Report independent recording,
 class/back-design support and duplicates; cold/warm digests match. Publish the 0086 M5 report adapter.
+
+### M3 implementation evidence — 2026-10-14
+
+- Added `materialize_reviewed_visual_identity_crops` for exact completed visible-card and
+  visual-identity revisions. It accepts only human-reviewed positive outcomes with matching source
+  revision, card, frame, and geometry provenance. It verifies the crop receipt and resolved frame.
+- The materializer writes native PPM crops and exact PGM visible-support masks from reviewed
+  geometry. It does not infer support from RGB values or change either maintained reference.
+- The `reviewed-visual-identity-materialization/v1` manifest reports all 24 identities and
+  `FACE_DOWN`, recording support, back-design coverage, duplicate crop groups, and reason-coded
+  exclusions. Current reference data has no back-design identifier, so the report marks that
+  coverage as unspecified. The manifest digest and crop bytes match across cold preparations.
+- Focused operations regressions cover face-up and face-down targets, all 25 classes, stable crop
+  and mask bytes, wrong frames, stale geometry, unreadable outcomes, and resolver mismatches.
+  Focused tests, Ruff, and formatting checks passed.
 
 ### M4 — Audit crop fidelity and rectification risk
 

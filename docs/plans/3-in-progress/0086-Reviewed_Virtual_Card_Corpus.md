@@ -329,7 +329,9 @@ and fresh unopened test. M5 identity review is not part of this completion.
 
 Use completed reviewed geometry and
 [0093 M2–M3](../2-ready/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) to prepare crops
-and pending annotation items without requiring a successful classifier prediction. Existing model
+and pending annotation items without requiring a successful classifier prediction. Consume the
+`reviewed-visual-identity-materialization/v1` manifest for class, recording, back-design, duplicate,
+and exclusion support. Existing model
 suggestions remain optional review evidence. An operator confirms or corrects all 24 face-up
 identities, positive FACE_DOWN classifications, unusable outcomes, and source problems. A missing
 identity prediction must not prevent annotation. Publish a separate 0088 handoff with exact
