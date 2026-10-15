@@ -22,6 +22,7 @@ from dokodetector_backend.observation_pipeline_service import (
     ObservationPipelineInputError,
 )
 from dokodetector_backend.pipeline_api_contracts import run_response, validate_recording_id
+from dokodetector_backend.pipeline_reference_store import PipelineReferenceNotFound
 from dokodetector_backend.pipeline_service_errors import PipelineInputError, PipelineServiceError
 from dokodetector_backend.pipeline_store import (
     PipelineConflict,
@@ -51,6 +52,9 @@ DERIVED_FRAME_BASE = (
 VISUAL_IDENTITY_BASE = "/api/recordings/{recording_id}/pipeline/visual-identities"
 IDENTITY_CROP_BASE = (
     "/api/recordings/{recording_id}/pipeline/derived-views/identity-crops/{revision_id}/{item_id}"
+)
+REVIEWED_IDENTITY_CROP_BASE = (
+    "/api/recordings/{recording_id}/pipeline/derived-views/reviewed-identity-crops/{item_id}"
 )
 OBSERVATION_BASE = "/api/recordings/{recording_id}/pipeline/observations"
 PROPOSED_CARD_SCENE_BASE = "/api/recordings/{recording_id}/pipeline/proposed-card-scenes"
@@ -618,6 +622,66 @@ def get_recording_exact_event_frame(
                 str(SAMPLED_FRAME_INTERVAL_US) if preview == "sampled_250ms" else "0"
             ),
         },
+    )
+
+
+@router.get(REVIEWED_IDENTITY_CROP_BASE, response_class=Response)
+def get_reviewed_identity_crop(
+    recording_id: str,
+    item_id: str,
+    request: Request,
+    crop_sha256: str,
+    preview: str | None = None,
+) -> Response:
+    """Return a verified crop from the current maintained identity annotation draft."""
+
+    validate_recording_id(recording_id)
+    try:
+        reference = request.app.state.pipeline_reference_service.get_reference(
+            recording_id, "visual_identities"
+        )
+    except PipelineReferenceNotFound as error:
+        raise ContractError("reference_not_found", str(error), status_code=404) from error
+    annotation_source = reference.draft.annotation_source
+    item = next((value for value in reference.draft.items if value.item_id == item_id), None)
+    if annotation_source is None or item is None:
+        raise ContractError(
+            "identity_crop_not_found", "The reviewed identity item was not found.", status_code=404
+        )
+    crop_identity = item.item.get("crop_identity")
+    if not isinstance(crop_identity, dict) or crop_identity.get("image_sha256") != crop_sha256:
+        raise ContractError(
+            "identity_crop_not_found", "The selected reviewed crop changed.", status_code=404
+        )
+    service = _visual_identity_service(request)
+    try:
+        crop = service.resolve_reviewed_annotation_crop(
+            recording_id,
+            annotation_source["visible_card_revision_id"],
+            item_id,
+            item.item,
+        )
+        if preview == "browser" and crop.content_type == "image/x-portable-pixmap":
+            browser_preview = resolve_crop_jpeg_preview(
+                crop, cache=service.storage.derived_views_root
+            )
+            return Response(
+                content=browser_preview.image_bytes,
+                media_type=browser_preview.content_type,
+                headers={"Cache-Control": "private, no-cache"},
+            )
+    except (VisualIdentityPipelineInputError, DerivedViewError, OSError, RuntimeError) as error:
+        raise ContractError("derived_view_unavailable", str(error), status_code=409) from error
+    if crop.image_bytes is None:
+        raise ContractError(
+            "identity_crop_unavailable",
+            "The reviewed identity crop is unavailable.",
+            status_code=409,
+        )
+    return Response(
+        content=crop.image_bytes,
+        media_type=crop.content_type,
+        headers={"Cache-Control": "private, no-cache"},
     )
 
 

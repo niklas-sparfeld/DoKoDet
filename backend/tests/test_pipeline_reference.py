@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from app_factory import create_test_app
@@ -3583,6 +3584,7 @@ def test_annotation_reference_seeds_exact_reviewed_back_without_classifier(
 
 def test_annotation_reference_http_api_creates_and_corrects_back_without_classifier(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = create_test_app(_settings(tmp_path))
     service = app.state.pipeline_reference_service
@@ -3692,6 +3694,49 @@ def test_annotation_reference_http_api_creates_and_corrects_back_without_classif
         assert item["review_state"] == "pending"
         assert item["item"]["status"] == "face_down"
         assert item["item"]["classifier"] is None
+        crop_path = (
+            "/api/recordings/recording-01/pipeline/derived-views/reviewed-identity-crops/card-01"
+        )
+        stale_crop = client.get(crop_path, params={"crop_sha256": "0" * 64})
+        assert stale_crop.status_code == 404
+        resolved: list[tuple[str, str, str]] = []
+
+        def resolve_crop(
+            recording_id: str, revision_id: str, item_id: str, _outcome: object
+        ) -> SimpleNamespace:
+            resolved.append((recording_id, revision_id, item_id))
+            return SimpleNamespace(content_type="image/jpeg", image_bytes=b"reviewed-crop")
+
+        monkeypatch.setattr(
+            app.state.visual_identity_pipeline_service,
+            "resolve_reviewed_annotation_crop",
+            resolve_crop,
+        )
+        crop_response = client.get(crop_path, params={"crop_sha256": DIGEST, "preview": "browser"})
+        assert crop_response.status_code == 200, crop_response.text
+        assert crop_response.content == b"reviewed-crop"
+        assert resolved == [("recording-01", visible_revision_id, "card-01")]
+        untouched = service.get_reference("recording-01", "visual_identities")
+        generated_revision_id = _vision_source_revision(revision_store, "visual_identities")
+        switched = client.put(
+            identity_path + "/draft",
+            json={
+                "operator_id": "operator-01",
+                "expected_revision": 0,
+                "operations": [
+                    {"operation": "rebase", "source_revision_id": generated_revision_id}
+                ],
+            },
+        )
+        assert switched.status_code == 200, switched.text
+        switched_draft = switched.json()["draft"]
+        assert switched_draft.get("annotation_source") is None
+        assert switched_draft["source_revision_id"] == generated_revision_id
+        assert switched_draft["items"][0]["review_state"] == "pending"
+        assert switched_draft["items"][0]["item"]["status"] == "classified"
+        # Restore the untouched fixture to test the separate manual correction path.
+        with service.reference_store.locked("recording-01", "visual_identities"):
+            service.reference_store.write_locked(untouched)
         corrected = client.put(
             identity_path + "/draft",
             json={
@@ -3711,3 +3756,14 @@ def test_annotation_reference_http_api_creates_and_corrects_back_without_classif
         assert outcome["status"] == "classified"
         assert outcome["classifier"] is None
         assert outcome["annotation_provenance"]["visible_card_revision_id"] == (visible_revision_id)
+        rejected_switch = client.put(
+            identity_path + "/draft",
+            json={
+                "operator_id": "operator-01",
+                "expected_revision": 1,
+                "operations": [
+                    {"operation": "rebase", "source_revision_id": generated_revision_id}
+                ],
+            },
+        )
+        assert rejected_switch.status_code == 422

@@ -172,6 +172,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/pipeline/derived-views/reviewed-identity-crops/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reviewed Identity Crop
+         * @description Return a verified crop from the current maintained identity annotation draft.
+         */
+        get: operations["get_reviewed_identity_crop_api_recordings__recording_id__pipeline_derived_views_reviewed_identity_crops__item_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/pipeline/events": {
         parameters: {
             query?: never;
@@ -3786,6 +3806,39 @@ export interface operations {
             path: {
                 recording_id: string;
                 revision_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reviewed_identity_crop_api_recordings__recording_id__pipeline_derived_views_reviewed_identity_crops__item_id__get: {
+        parameters: {
+            query: {
+                crop_sha256: string;
+                preview?: string | null;
+            };
+            header?: never;
+            path: {
+                recording_id: string;
                 item_id: string;
             };
             cookie?: never;

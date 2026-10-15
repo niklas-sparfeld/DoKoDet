@@ -737,87 +737,102 @@ export function PipelineVisualIdentityEditor({
     selectedVisibleCardRevisionId,
   ]);
 
-  const rebaseReference = useCallback(async () => {
-    const current = referenceRef.current;
-    const sourceRevisionId = selectedGeneratedSourceRevisionId;
-    const annotationSource =
-      selectedVisibleCardRevisionId !== null &&
-      selectedVisibleCardRevisionDigest !== null
-        ? {
-            visible_card_revision_id: selectedVisibleCardRevisionId,
-            visible_card_revision_digest: selectedVisibleCardRevisionDigest,
-          }
-        : null;
-    const isAnnotationReview = current?.draft.annotation_source != null;
-    const annotationSourceUnchanged =
-      annotationSource !== null &&
-      current?.draft.annotation_source?.visible_card_revision_id ===
-        annotationSource.visible_card_revision_id &&
-      current?.draft.annotation_source?.visible_card_revision_digest ===
-        annotationSource.visible_card_revision_digest;
-    if (
-      current === null ||
-      (isAnnotationReview
-        ? annotationSource === null || annotationSourceUnchanged
-        : sourceRevisionId === null ||
-          current.draft.source_revision_id === sourceRevisionId) ||
-      operatorId.trim() === "" ||
-      queueRef.current.length > 0 ||
-      processingRef.current ||
-      saveState !== "saved"
-    ) {
-      return;
-    }
-    setRebasingReference(true);
-    setSaveState("saving");
-    setError(null);
-    setNotice(null);
-    try {
-      const rebased = await client.updatePipelineReferenceDraft(
-        recordingId,
-        CONTENT_TYPE,
-        {
-          expected_revision: serverRevisionRef.current,
-          operator_id: operatorId.trim(),
-          command_id: nextCommandId(),
-          operations: [
-            isAnnotationReview
-              ? {
-                  operation: "rebase_annotation_source",
-                  annotation_source: annotationSource!,
-                }
-              : { operation: "rebase", source_revision_id: sourceRevisionId! },
-          ],
-        },
-      );
-      hydrateReference(rebased, false);
-      setSaveState("saved");
-      setNotice(
-        isAnnotationReview
-          ? "Review refreshed from reviewed visible cards. Inspect changed geometry and crops before completing the review."
-          : "Review switched to the selected generated result. Inspect the crops before completing the review.",
-      );
-    } catch (reason: unknown) {
-      setSaveState(
-        reason instanceof ApiError && reason.status === 409
-          ? "conflict"
-          : "error",
-      );
-      setError(describeError(reason));
-    } finally {
-      setRebasingReference(false);
-    }
-  }, [
-    client,
-    hydrateReference,
-    nextCommandId,
-    operatorId,
-    recordingId,
-    saveState,
-    selectedVisibleCardRevisionDigest,
-    selectedVisibleCardRevisionId,
-    selectedGeneratedSourceRevisionId,
-  ]);
+  const rebaseReference = useCallback(
+    async (target: "current" | "generated" = "current") => {
+      const current = referenceRef.current;
+      const sourceRevisionId = selectedGeneratedSourceRevisionId;
+      const annotationSource =
+        selectedVisibleCardRevisionId !== null &&
+        selectedVisibleCardRevisionDigest !== null
+          ? {
+              visible_card_revision_id: selectedVisibleCardRevisionId,
+              visible_card_revision_digest: selectedVisibleCardRevisionDigest,
+            }
+          : null;
+      const isAnnotationReview = current?.draft.annotation_source != null;
+      const annotationSourceUnchanged =
+        annotationSource !== null &&
+        current?.draft.annotation_source?.visible_card_revision_id ===
+          annotationSource.visible_card_revision_id &&
+        current?.draft.annotation_source?.visible_card_revision_digest ===
+          annotationSource.visible_card_revision_digest;
+      const canSwitchToGenerated =
+        target === "generated" &&
+        isAnnotationReview &&
+        current !== null &&
+        current.draft.revision === 0 &&
+        sourceRevisionId !== null &&
+        current.draft.items.every((item) => item.review_state === "pending");
+      if (
+        current === null ||
+        (target === "generated" && !canSwitchToGenerated) ||
+        (isAnnotationReview
+          ? !canSwitchToGenerated &&
+            (annotationSource === null || annotationSourceUnchanged)
+          : sourceRevisionId === null ||
+            current.draft.source_revision_id === sourceRevisionId) ||
+        operatorId.trim() === "" ||
+        queueRef.current.length > 0 ||
+        processingRef.current ||
+        saveState !== "saved"
+      ) {
+        return;
+      }
+      setRebasingReference(true);
+      setSaveState("saving");
+      setError(null);
+      setNotice(null);
+      try {
+        const rebased = await client.updatePipelineReferenceDraft(
+          recordingId,
+          CONTENT_TYPE,
+          {
+            expected_revision: serverRevisionRef.current,
+            operator_id: operatorId.trim(),
+            command_id: nextCommandId(),
+            operations: [
+              isAnnotationReview && !canSwitchToGenerated
+                ? {
+                    operation: "rebase_annotation_source",
+                    annotation_source: annotationSource!,
+                  }
+                : {
+                    operation: "rebase",
+                    source_revision_id: sourceRevisionId!,
+                  },
+            ],
+          },
+        );
+        hydrateReference(rebased, false);
+        setSaveState("saved");
+        setNotice(
+          isAnnotationReview && !canSwitchToGenerated
+            ? "Review refreshed from reviewed visible cards. Inspect changed geometry and crops before completing the review."
+            : "Review switched to the selected generated result. Inspect the crops before completing the review.",
+        );
+      } catch (reason: unknown) {
+        setSaveState(
+          reason instanceof ApiError && reason.status === 409
+            ? "conflict"
+            : "error",
+        );
+        setError(describeError(reason));
+      } finally {
+        setRebasingReference(false);
+      }
+    },
+    [
+      client,
+      hydrateReference,
+      nextCommandId,
+      operatorId,
+      recordingId,
+      saveState,
+      selectedVisibleCardRevisionDigest,
+      selectedVisibleCardRevisionId,
+      selectedGeneratedSourceRevisionId,
+    ],
+  );
 
   useEffect(() => {
     if (
@@ -1188,6 +1203,7 @@ export function PipelineVisualIdentityEditor({
       autoApprove={autoApprove}
       createReference={createReference}
       rebaseReference={rebaseReference}
+      switchToGenerated={() => rebaseReference("generated")}
       completeReference={completeReference}
       retryQueuedCommands={retryQueuedCommands}
       reloadWinningDraft={reloadWinningDraft}

@@ -5,6 +5,7 @@ import {
   pipelineComparisonPath,
   pipelineDerivedFramePath,
   pipelineIdentityCropPath,
+  pipelineReviewedIdentityCropPath,
   pipelineReviewFramePath,
   pipelineObservationRunPath,
   pipelineObservationRunRetryPath,
@@ -82,6 +83,11 @@ describe("DokoDetector API client", () => {
       pipelineIdentityCropPath("recording/1", "revision/1", "card 1"),
     ).toBe(
       "/api/recordings/recording%2F1/pipeline/derived-views/identity-crops/revision%2F1/card%201?preview=browser",
+    );
+    expect(
+      pipelineReviewedIdentityCropPath("recording/1", "card 1", "abc123"),
+    ).toBe(
+      "/api/recordings/recording%2F1/pipeline/derived-views/reviewed-identity-crops/card%201?preview=browser&crop_sha256=abc123",
     );
   });
 

@@ -1138,6 +1138,14 @@ export function pipelineIdentityCropPath(
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/identity-crops/${encodeURIComponent(revisionId)}/${encodeURIComponent(itemId)}?preview=browser`;
 }
 
+export function pipelineReviewedIdentityCropPath(
+  recordingId: string,
+  itemId: string,
+  cropSha256: string,
+): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/reviewed-identity-crops/${encodeURIComponent(itemId)}?preview=browser&crop_sha256=${encodeURIComponent(cropSha256)}`;
+}
+
 export const SAMPLED_FRAME_INTERVAL_US = 250_000;
 
 export function pipelineDerivedFramePath(

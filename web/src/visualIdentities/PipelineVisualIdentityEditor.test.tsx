@@ -8,6 +8,8 @@ import {
 } from "@testing-library/react";
 
 import { PipelineVisualIdentityEditor } from "./PipelineVisualIdentityEditor";
+import { IdentityCardList } from "./PipelineVisualIdentityPresentation";
+import type { IdentityOutcome } from "./PipelineVisualIdentityTypes";
 
 const RECORDING_ID = "identity-pipeline-recording";
 const RUN_ID = "identity-run-1";
@@ -246,6 +248,29 @@ type PutBody = {
 };
 
 describe("PipelineVisualIdentityEditor", () => {
+  it("shows a usable pending annotation as pending in the card rail", () => {
+    const draftItem = annotationReference().draft.items[0];
+    render(
+      <IdentityCardList
+        items={[
+          {
+            itemId: CARD_ID,
+            baseItemId: null,
+            reviewState: "pending",
+            outcome: draftItem.item as IdentityOutcome,
+          },
+        ]}
+        selectedItemId={CARD_ID}
+        onSelect={() => {}}
+      />,
+    );
+    expect(
+      within(screen.getByRole("region", { name: "Identity cards" })).getByText(
+        "Pending annotation",
+      ),
+    ).toBeInTheDocument();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     window.history.pushState({}, "", "/");
@@ -307,6 +332,14 @@ describe("PipelineVisualIdentityEditor", () => {
       }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("img", { name: `Derived identity crop for ${CARD_ID}` }),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining(
+        `reviewed-identity-crops/${CARD_ID}?preview=browser&crop_sha256=${"c".repeat(64)}`,
+      ),
+    );
+    expect(
       screen.getByText(/Reviewed visible-card source/),
     ).toBeInTheDocument();
     const createCall = fetchImplementation.mock.calls.find(
@@ -360,6 +393,59 @@ describe("PipelineVisualIdentityEditor", () => {
     expect(
       fetchImplementation.mock.calls.some(([, init]) => init?.method === "PUT"),
     ).toBe(true);
+  });
+
+  it("switches an untouched annotation review to the selected classifier result", async () => {
+    const user = userEvent.setup();
+    let current:
+      ReturnType<typeof reference> | ReturnType<typeof annotationReference> =
+      annotationReference();
+    const requests: Array<Record<string, unknown>> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input, init) => {
+        const path = String(input);
+        if (path.endsWith("/pipeline/references/visual_identities/draft")) {
+          requests.push(JSON.parse(String(init?.body)));
+          current = reference("pending", [], 1, REVISION_ID);
+          return Promise.resolve(jsonResponse(current));
+        }
+        if (path.endsWith("/pipeline/references/visual_identities"))
+          return Promise.resolve(jsonResponse(current));
+        return Promise.resolve(jsonResponse(generatedResult()));
+      }),
+    );
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        selectedVisibleCardRevisionId="visible-revision-1"
+        selectedVisibleCardRevisionDigest={"e".repeat(64)}
+        view="reviewed"
+      />,
+    );
+    const switchButton = await screen.findByRole("button", {
+      name: "Switch review to selected result",
+    });
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    await waitFor(() => expect(switchButton).toBeEnabled());
+    await user.click(switchButton);
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].operations).toEqual([
+      { operation: "rebase", source_revision_id: REVISION_ID },
+    ]);
+    expect(
+      await screen.findByRole("button", { name: "Accept A" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("img", { name: `Derived identity crop for ${CARD_ID}` }),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining(`identity-crops/${REVISION_ID}/${CARD_ID}`),
+    );
   });
 
   it("refreshes changed reviewed geometry and keeps missing crops actionable", async () => {

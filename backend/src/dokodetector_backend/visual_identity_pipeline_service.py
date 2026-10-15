@@ -492,6 +492,56 @@ class VisualIdentityPipelineService:
                 resolved[item.card_id] = str(error) or "The reviewed crop is unavailable."
         return resolved
 
+    def resolve_reviewed_annotation_crop(
+        self,
+        recording_id: str,
+        visible_revision_id: str,
+        item_id: str,
+        outcome: Mapping[str, Any],
+    ) -> ResolvedCrop:
+        """Resolve one saved annotation crop against its reviewed geometry and digest."""
+
+        _, source = self._accepted_source(recording_id)
+        revision = self.revision_store.require(visible_revision_id)
+        crop_input = self._freeze_crop_input(
+            recording_id,
+            revision,
+            source=source,
+            requested_kind="reviewed_visible_card",
+        )
+        item = next((value for value in crop_input.items if value.card_id == item_id), None)
+        if item is None or outcome.get("card_id") != item_id:
+            raise DerivedViewError("the reviewed identity item is unavailable")
+        if (
+            outcome.get("frame_identity") != item.frame_identity.to_mapping()
+            or outcome.get("geometry") != item.geometry.to_mapping()
+        ):
+            raise DerivedViewError("the reviewed identity geometry changed")
+        crop_identity = outcome.get("crop_identity")
+        if not isinstance(crop_identity, Mapping) or crop_identity.get("status") != "usable":
+            raise DerivedViewError("the reviewed identity crop is unavailable")
+        with self._derived_view_lock:
+            frame = resolve_exact_event(
+                self._video_path(recording_id),
+                source=source,
+                requested_time_us=item.frame_identity.requested_time_us,
+                cache=self.storage.derived_views_root,
+                resolver=self.frame_resolver,
+                output_encoding=item.frame_identity.output_encoding,
+            )
+            if frame.identity_mapping() != item.frame_identity.to_mapping():
+                raise DerivedViewError("the reviewed identity frame changed")
+            crop = resolve_visible_region_crop(
+                frame,
+                item.geometry.to_mapping(),
+                crop_policy=str(crop_identity["crop_policy"]),
+                output_encoding=str(crop_identity["output_encoding"]),
+                cache=self.storage.derived_views_root,
+            )
+        if _pipeline_crop_identity_mapping(crop) != crop_identity:
+            raise DerivedViewError("the reviewed identity crop changed")
+        return crop
+
     def resolve_identity_crop(
         self, recording_id: str, revision_id: str, item_id: str
     ) -> ResolvedCrop:

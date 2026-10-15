@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import {
   pipelineDerivedFramePath,
   pipelineIdentityCropPath,
+  pipelineReviewedIdentityCropPath,
 } from "../api/client";
 import styles from "../App.module.css";
 import { ShortcutButton } from "../pipeline/ShortcutButton";
@@ -36,9 +37,17 @@ export function visualIdentityReviewPrewarmUrls(
   );
   const crop = item.outcome.crop_identity;
   const cropUrl =
-    crop?.status === "usable" && sourceRevisionId !== null
-      ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
-      : null;
+    crop?.status !== "usable" || crop.image_sha256 === null
+      ? null
+      : item.outcome.annotation_provenance != null
+        ? pipelineReviewedIdentityCropPath(
+            recordingId,
+            item.itemId,
+            crop.image_sha256,
+          )
+        : sourceRevisionId !== null
+          ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
+          : null;
   return cropUrl === null ? [frameUrl] : [frameUrl, cropUrl];
 }
 
@@ -255,7 +264,13 @@ export function IdentityItemPanel({
               )),
             )}
           </div>
-          {item.outcome.error !== null ? (
+          {item.outcome.error !== null &&
+          !(
+            item.outcome.annotation_provenance != null &&
+            item.outcome.crop_identity?.status === "usable" &&
+            item.outcome.error === "Human identity review is pending." &&
+            (item.reviewState === "pending" || item.reviewState === "affected")
+          ) ? (
             <p className={styles.detailBlocker}>{item.outcome.error}</p>
           ) : null}
         </section>
@@ -493,6 +508,19 @@ export function IdentityCardList({
 }
 
 function CardRailIdentity({ item }: { item: EditableIdentity }) {
+  if (
+    item.outcome.annotation_provenance != null &&
+    (item.reviewState === "pending" || item.reviewState === "affected") &&
+    item.outcome.crop_identity?.status === "usable" &&
+    item.outcome.error === "Human identity review is pending."
+  ) {
+    return (
+      <>
+        <span className={identityStyles.cardRailSymbol}>?</span>
+        <strong>Pending annotation</strong>
+      </>
+    );
+  }
   if (item.outcome.status !== "classified") {
     const label = formatIdentityOutcomeStatus(item.outcome.status);
     const symbol = item.outcome.status === "face_down" ? "▧" : "!";

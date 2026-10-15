@@ -1023,6 +1023,17 @@ class PipelineReferenceService:
                     continue
                 if operation.operation == "rebase":
                     assert operation.source_revision_id is not None
+                    if (
+                        content_type == "visual_identities"
+                        and working_current.draft.annotation_source is not None
+                        and (
+                            working_current.draft.revision != 0
+                            or any(item.review_state != "pending" for item in items)
+                        )
+                    ):
+                        raise PipelineReferenceInputError(
+                            "reviewed-card annotation decisions must be kept in their source review"
+                        )
                     if operation.proposal_revision_id is not None:
                         if content_type != "visible_cards":
                             raise PipelineReferenceInputError(
@@ -1063,6 +1074,11 @@ class PipelineReferenceService:
                             working_current.draft,
                             source_revision_id=operation.source_revision_id,
                             proposal_revision_id=operation.proposal_revision_id,
+                            annotation_source=(
+                                None
+                                if content_type == "visual_identities"
+                                else working_current.draft.annotation_source
+                            ),
                         ),
                     )
                     requires_full_validation = True

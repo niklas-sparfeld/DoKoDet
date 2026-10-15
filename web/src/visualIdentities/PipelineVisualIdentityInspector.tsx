@@ -87,6 +87,7 @@ export type IdentityInspectorProps = {
   autoApprove: () => Promise<void>;
   createReference: () => Promise<void>;
   rebaseReference: () => Promise<void>;
+  switchToGenerated: () => Promise<void>;
   completeReference: () => Promise<void>;
   retryQueuedCommands: () => void;
   reloadWinningDraft: () => Promise<void>;
@@ -212,6 +213,33 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
                 ? "Refreshing reviewed source…"
                 : "Refresh from selected reviewed cards"}
             </button>
+          ) : null}
+          {props.selectedGeneratedRevisionId !== null &&
+          props.reference.draft.revision === 0 &&
+          props.reference.draft.items.every(
+            (item) => item.review_state === "pending",
+          ) ? (
+            <>
+              <p className={styles.pipelineInspectorEmpty}>
+                A generated identity result is available. Switch this untouched
+                review to its classifier suggestions.
+              </p>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={() => void props.switchToGenerated()}
+                disabled={
+                  props.rebasingReference ||
+                  props.queueLength > 0 ||
+                  props.saveState !== "saved" ||
+                  props.operatorId.trim() === ""
+                }
+              >
+                {props.rebasingReference
+                  ? "Switching review…"
+                  : "Switch review to selected result"}
+              </button>
+            </>
           ) : null}
         </>
       ) : null}
