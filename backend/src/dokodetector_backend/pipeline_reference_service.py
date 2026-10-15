@@ -1173,6 +1173,8 @@ class PipelineReferenceService:
         content_type: str,
         payload: Mapping[str, Any],
     ) -> StoredPipelineReference:
+        # Share lineage validation within this completion, then discard it.
+        revision_cache: dict[str, StoredPipelineRevision] = {}
         self._validate_content_type(content_type)
         if not isinstance(payload, Mapping):
             raise PipelineReferenceInputError("the reference completion request must be an object")
@@ -1199,7 +1201,10 @@ class PipelineReferenceService:
                 None
                 if current.draft.source_revision_id is None
                 else self._require_source_revision(
-                    recording_id, content_type, current.draft.source_revision_id
+                    recording_id,
+                    content_type,
+                    current.draft.source_revision_id,
+                    revision_cache=revision_cache,
                 )
             )
             annotation_revision = (
@@ -1209,6 +1214,7 @@ class PipelineReferenceService:
                     recording_id,
                     "visible_cards",
                     current.draft.annotation_source["visible_card_revision_id"],
+                    revision_cache=revision_cache,
                 )
             )
             source = (
@@ -1223,6 +1229,7 @@ class PipelineReferenceService:
                 payload.get("coverage"),
                 ordered_items,
                 source,
+                revision_cache=revision_cache,
             )
             active_items = [item for item in ordered_items if item.review_state != "rejected"]
             content = handler.human_content(active_items)
@@ -1280,8 +1287,10 @@ class PipelineReferenceService:
                 },
                 created_at=_now(),
             )
-            self.revision_store.publish(manifest, content_bytes)
-            selected = self._select_completed(recording_id, content_type, revision_id)
+            self.revision_store.publish(manifest, content_bytes, revision_cache=revision_cache)
+            selected = self._select_completed(
+                recording_id, content_type, revision_id, revision_cache=revision_cache
+            )
             del selected
             timestamp = _now()
             completed_draft = replace(
@@ -1321,6 +1330,8 @@ class PipelineReferenceService:
         raw_coverage: Any,
         items: tuple[ReferenceDraftItem, ...],
         source: RecordingVideoSource,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> dict[str, Any]:
         if not isinstance(raw_coverage, Mapping):
             raise PipelineReferenceCoverageError(
@@ -1354,20 +1365,35 @@ class PipelineReferenceService:
                     }
                 ],
             )
-        handler = self._handler(content_type)
+        handler = build_reference_handlers(
+            source_for=self._source_for,
+            selected_revision=lambda recording_id, selected_content_type: self._selected_revision(
+                recording_id, selected_content_type, revision_cache=revision_cache
+            ),
+        )[content_type]
         return handler.validate_coverage(raw_coverage, items, source, source.recording_id)
 
     def _selected_revision(
-        self, recording_id: str, content_type: str
+        self,
+        recording_id: str,
+        content_type: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> StoredPipelineRevision | None:
-        selection = self.selection_store.get(recording_id, content_type)
+        selection = self.selection_store.get(
+            recording_id, content_type, revision_cache=revision_cache
+        )
         if selection is None:
             return None
         revision_id = (
             selection.selected_completed_reference_revision_id
             or selection.selected_generated_revision_id
         )
-        return None if revision_id is None else self.revision_store.get(revision_id)
+        return (
+            None
+            if revision_id is None
+            else self.revision_store.get(revision_id, revision_cache=revision_cache)
+        )
 
     def _repair_face_down_reference(
         self, recording_id: str, reference: StoredPipelineReference
@@ -1504,10 +1530,15 @@ class PipelineReferenceService:
         return repaired
 
     def _require_source_revision(
-        self, recording_id: str, content_type: str, revision_id: str
+        self,
+        recording_id: str,
+        content_type: str,
+        revision_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> StoredPipelineRevision:
         try:
-            revision = self.revision_store.require(revision_id)
+            revision = self.revision_store.require(revision_id, revision_cache=revision_cache)
         except PipelineNotFound as error:
             raise PipelineReferenceInputError("source revision was not found") from error
         manifest = revision.manifest
@@ -1573,9 +1604,18 @@ class PipelineReferenceService:
             duration_us=probe.duration_ms * 1000,
         )
 
-    def _select_completed(self, recording_id: str, content_type: str, revision_id: str) -> object:
+    def _select_completed(
+        self,
+        recording_id: str,
+        content_type: str,
+        revision_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+    ) -> object:
         for _ in range(5):
-            current = self.selection_store.get(recording_id, content_type)
+            current = self.selection_store.get(
+                recording_id, content_type, revision_cache=revision_cache
+            )
             try:
                 return self.selection_store.update_pointers(
                     recording_id,
@@ -1585,6 +1625,7 @@ class PipelineReferenceService:
                         None if current is None else current.selected_generated_revision_id
                     ),
                     selected_completed_reference_revision_id=revision_id,
+                    revision_cache=revision_cache,
                 )
             except PipelineSelectionConflict:
                 continue

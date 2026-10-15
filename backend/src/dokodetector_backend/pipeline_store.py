@@ -546,20 +546,24 @@ class PipelineRevisionStore:
             | bytes
             | None
         ) = None,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> tuple[StoredPipelineRevision, bool]:
         """Publish one complete revision, or replay identical bytes."""
 
+        if revision_cache is None:
+            revision_cache = {}
         manifest, pipeline_content = self._coerce_revision(revision, content)
         manifest_bytes = canonical_data_revision_bytes(manifest)
         content_bytes = self._canonical_content_bytes(pipeline_content)
         self._validate_payload(manifest, pipeline_content, manifest_bytes, content_bytes)
-        self._validate_lineage(manifest)
+        self._validate_lineage(manifest, revision_cache=revision_cache)
         revision_id = manifest.revision_id
         destination = self.revision_path(revision_id)
 
         with _process_lock(self.root / f".{revision_id}.lock", self._lock):
             if destination.exists() or destination.is_symlink():
-                existing = self._existing_or_error(destination)
+                existing = self._existing_or_error(destination, revision_cache=revision_cache)
                 if self._revision_bytes(existing) == (manifest_bytes, content_bytes):
                     return existing, False
                 raise PipelineConflict("The revision ID is already stored with different content.")
@@ -583,10 +587,12 @@ class PipelineRevisionStore:
                     commit_staged_directory(
                         staging,
                         destination,
-                        validate=lambda path: self._read_path(path, require_canonical_name=False),
+                        validate=lambda path: self._read_path(
+                            path, require_canonical_name=False, revision_cache=revision_cache
+                        ),
                     )
             except FileExistsError as error:
-                existing = self._existing_or_error(destination)
+                existing = self._existing_or_error(destination, revision_cache=revision_cache)
                 if self._revision_bytes(existing) == (manifest_bytes, content_bytes):
                     return existing, False
                 raise PipelineConflict(
@@ -594,7 +600,7 @@ class PipelineRevisionStore:
                 ) from error
             except (OSError, ValueError) as error:
                 raise PipelineStoreError("The pipeline revision could not be published.") from error
-            stored = self.get(revision_id)
+            stored = self.get(revision_id, revision_cache=revision_cache)
             if stored is None:
                 raise PipelineStoreError("The published pipeline revision failed validation.")
             return stored, True
@@ -858,9 +864,14 @@ class PipelineRevisionStore:
                 "corrected revision base_revision_id must be an input revision"
             )
 
-    def _existing_or_error(self, path: Path) -> StoredPipelineRevision:
+    def _existing_or_error(
+        self,
+        path: Path,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+    ) -> StoredPipelineRevision:
         try:
-            return self._read_path(path)
+            return self._read_path(path, revision_cache=revision_cache)
         except (OSError, TypeError, UnicodeError, ValueError) as error:
             raise PipelineStoreError("The existing pipeline revision is invalid.") from error
 
@@ -1739,7 +1750,10 @@ class PipelineSelectionStore:
         update: PipelineSelectionUpdate | Mapping[str, Any],
         *,
         updated_at: datetime | str | None = None,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> PipelineSelection:
+        if revision_cache is None:
+            revision_cache = {}
         parsed_update = (
             PipelineSelectionUpdate.from_mapping(update.to_mapping())
             if isinstance(update, PipelineSelectionUpdate)
@@ -1750,7 +1764,7 @@ class PipelineSelectionStore:
             path.parent / f".{path.stem}.lock",
             self._lock,
         ):
-            current = self.get(recording_id, content_type)
+            current = self.get(recording_id, content_type, revision_cache=revision_cache)
             current_revision = 0 if current is None else current.revision
             if parsed_update.expected_revision != current_revision:
                 raise PipelineSelectionConflict(
@@ -1762,12 +1776,14 @@ class PipelineSelectionStore:
                 recording_id,
                 content_type,
                 role="generated",
+                revision_cache=revision_cache,
             )
             self._validate_pointer(
                 parsed_update.selected_completed_reference_revision_id,
                 recording_id,
                 content_type,
                 role="completed reference",
+                revision_cache=revision_cache,
             )
             selection = PipelineSelection(
                 revision=current_revision + 1,
@@ -1785,7 +1801,7 @@ class PipelineSelectionStore:
                 payload,
                 validate=lambda raw: _strict_json_file(raw, payload, "pipeline selection"),
             )
-            stored = self.get(recording_id, content_type)
+            stored = self.get(recording_id, content_type, revision_cache=revision_cache)
             if stored is None:
                 raise PipelineStoreError("The updated pipeline selection failed validation.")
             return stored
@@ -1799,6 +1815,7 @@ class PipelineSelectionStore:
         selected_generated_revision_id: str | None,
         selected_completed_reference_revision_id: str | None,
         updated_at: datetime | str | None = None,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> PipelineSelection:
         return self.update(
             recording_id,
@@ -1809,6 +1826,7 @@ class PipelineSelectionStore:
                 selected_completed_reference_revision_id=selected_completed_reference_revision_id,
             ),
             updated_at=updated_at,
+            revision_cache=revision_cache,
         )
 
     def _validate_pointer(

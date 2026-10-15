@@ -413,6 +413,7 @@ def _proposal_revision(
 
 def test_reference_accepts_and_completes_without_model_scores_and_survives_restart(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service, revision_store = _service(tmp_path)
     source_revision_id = _source_revision(revision_store)
@@ -445,6 +446,14 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
         1_250_000,
     )
 
+    revision_reads: list[str] = []
+    read_revision = revision_store._read_path
+
+    def track_read(path: Path, **kwargs: object) -> object:
+        revision_reads.append(path.name)
+        return read_revision(path, **kwargs)
+
+    monkeypatch.setattr(revision_store, "_read_path", track_read)
     completed = service.complete_reference(
         "recording-01",
         "events",
@@ -454,6 +463,7 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
             "coverage": {"kind": "full_recording"},
         },
     )
+    assert revision_reads.count(source_revision_id) == 1
     revision_id = completed.state.selected_completed_revision_id
     assert revision_id is not None
     stored_revision = revision_store.require(revision_id)
@@ -474,6 +484,54 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
         1_000_000,
         1_250_000,
     )
+
+
+def test_completion_revalidates_source_lineage_on_the_next_request(tmp_path: Path) -> None:
+    service, revision_store = _service(tmp_path)
+    source_id = _source_revision(revision_store)
+    service.create_reference(
+        SOURCE.recording_id,
+        "events",
+        {"operator_id": "operator-01", "source_revision_id": source_id},
+    )
+    service.update_draft(
+        SOURCE.recording_id,
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "accept", "item_id": "event-01"}],
+        },
+    )
+    service.complete_reference(
+        SOURCE.recording_id,
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "coverage": {"kind": "full_recording"},
+        },
+    )
+    service.update_draft(
+        SOURCE.recording_id,
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 1,
+            "operations": [{"operation": "accept", "item_id": "event-01"}],
+        },
+    )
+    (revision_store.revision_path(source_id) / "content.json").write_bytes(b"{}")
+    with pytest.raises(PipelineReferenceInputError, match="source revision was not found"):
+        service.complete_reference(
+            SOURCE.recording_id,
+            "events",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": 2,
+                "coverage": {"kind": "full_recording"},
+            },
+        )
 
 
 def test_reference_store_get_state_skips_draft(tmp_path: Path, monkeypatch) -> None:
