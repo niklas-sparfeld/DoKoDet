@@ -147,6 +147,34 @@ class PipelineReferenceService:
         self._validate_content_type(content_type)
         return self._handlers[content_type]
 
+    @staticmethod
+    def _reviewed_identity_observations(
+        content: VisibleCardData,
+    ) -> tuple[tuple[Any, Any], ...]:
+        """Select the latest reviewed geometry for each recording-scoped card ID."""
+
+        latest_by_card: dict[str, tuple[Any, Any]] = {}
+        for frame in content.outcomes:
+            if frame.status != "detected" or frame.frame_identity is None:
+                continue
+            for card in frame.candidates:
+                if not isinstance(card.geometry, ReviewedVisibleRegionGeometry):
+                    continue
+                previous = latest_by_card.get(card.card_id)
+                if (
+                    previous is None
+                    or frame.frame_identity.frame_index >= previous[0].frame_identity.frame_index
+                ):
+                    # Crop resolution orders observations by frame index and keeps the last
+                    # crop for a repeated card ID. Use the same observation for annotation.
+                    latest_by_card[card.card_id] = (frame, card)
+        return tuple(
+            sorted(
+                latest_by_card.values(),
+                key=lambda value: (value[0].frame_identity.frame_index, value[1].card_id),
+            )
+        )
+
     def get_reference(self, recording_id: str, content_type: str) -> StoredPipelineReference:
         self._validate_content_type(content_type)
         reference = self.reference_store.get(recording_id, content_type)
@@ -292,61 +320,56 @@ class PipelineReferenceService:
                     recording_id, annotation_source["visible_card_revision_id"]
                 )
             seeded: list[ReferenceDraftItem] = []
-            for frame in visible_revision.content.outcomes:
-                if frame.status != "detected" or frame.frame_identity is None:
-                    continue
-                for card in frame.candidates:
-                    if not isinstance(card.geometry, ReviewedVisibleRegionGeometry):
-                        continue
-                    # Pile members are removed from the maintained candidate view when the
-                    # pile is reviewed. Do not infer identity items from pile regions.
-                    geometry = card.geometry
-                    geometry_digest = sha256_bytes(
-                        json.dumps(
-                            geometry.to_mapping(), sort_keys=True, separators=(",", ":")
-                        ).encode("utf-8")
+            for frame, card in self._reviewed_identity_observations(visible_revision.content):
+                # Pile members are removed from the maintained candidate view when the
+                # pile is reviewed. Do not infer identity items from pile regions.
+                geometry = card.geometry
+                geometry_digest = sha256_bytes(
+                    json.dumps(geometry.to_mapping(), sort_keys=True, separators=(",", ":")).encode(
+                        "utf-8"
                     )
-                    annotation_provenance = {
-                        "schema_version": "visual-identity-annotation-provenance/v1",
-                        **annotation_source,
-                        "card_id": card.card_id,
-                        "frame_identity": frame.frame_identity.to_mapping(),
-                        "geometry_digest": geometry_digest,
-                    }
-                    crop_value = crops.get(card.card_id)
-                    crop_identity = crop_value if isinstance(crop_value, Mapping) else None
-                    error = (
-                        None
-                        if crop_identity is not None
-                        else str(crop_value or "The reviewed source crop is unavailable.")
+                )
+                annotation_provenance = {
+                    "schema_version": "visual-identity-annotation-provenance/v1",
+                    **annotation_source,
+                    "card_id": card.card_id,
+                    "frame_identity": frame.frame_identity.to_mapping(),
+                    "geometry_digest": geometry_digest,
+                }
+                crop_value = crops.get(card.card_id)
+                crop_identity = crop_value if isinstance(crop_value, Mapping) else None
+                error = (
+                    None
+                    if crop_identity is not None
+                    else str(crop_value or "The reviewed source crop is unavailable.")
+                )
+                outcome = {
+                    "card_id": card.card_id,
+                    "frame_identity": frame.frame_identity.to_mapping(),
+                    "geometry": geometry.to_mapping(),
+                    "crop_identity": crop_identity,
+                    "classifier": None,
+                    "status": (
+                        "face_down"
+                        if card.side == "face_down" and crop_identity is not None
+                        else "failed"
+                    ),
+                    "candidates": [],
+                    "unusable_reason": None,
+                    "error": error or "Human identity review is pending.",
+                    "crop_input_provenance": None,
+                    "annotation_provenance": annotation_provenance,
+                }
+                if outcome["status"] == "face_down":
+                    outcome["error"] = None
+                seeded.append(
+                    ReferenceDraftItem(
+                        item_id=card.card_id,
+                        base_item_id=None,
+                        review_state="pending",
+                        item=outcome,
                     )
-                    outcome = {
-                        "card_id": card.card_id,
-                        "frame_identity": frame.frame_identity.to_mapping(),
-                        "geometry": geometry.to_mapping(),
-                        "crop_identity": crop_identity,
-                        "classifier": None,
-                        "status": (
-                            "face_down"
-                            if card.side == "face_down" and crop_identity is not None
-                            else "failed"
-                        ),
-                        "candidates": [],
-                        "unusable_reason": None,
-                        "error": error or "Human identity review is pending.",
-                        "crop_input_provenance": None,
-                        "annotation_provenance": annotation_provenance,
-                    }
-                    if outcome["status"] == "face_down":
-                        outcome["error"] = None
-                    seeded.append(
-                        ReferenceDraftItem(
-                            item_id=card.card_id,
-                            base_item_id=None,
-                            review_state="pending",
-                            item=outcome,
-                        )
-                    )
+                )
             items = tuple(seeded)
             self._handler(content_type).validate_draft_items(
                 recording_id,
@@ -919,95 +942,92 @@ class PipelineReferenceService:
                         )
                     seeded: list[ReferenceDraftItem] = []
                     previous_by_id = {item.item_id: item for item in items}
-                    for frame in visible_revision.content.outcomes:
-                        if frame.status != "detected" or frame.frame_identity is None:
-                            continue
-                        for card in frame.candidates:
-                            if not isinstance(card.geometry, ReviewedVisibleRegionGeometry):
-                                continue
-                            geometry = card.geometry
-                            geometry_digest = sha256_bytes(
-                                json.dumps(
-                                    geometry.to_mapping(),
-                                    sort_keys=True,
-                                    separators=(",", ":"),
-                                ).encode("utf-8")
+                    for frame, card in self._reviewed_identity_observations(
+                        visible_revision.content
+                    ):
+                        geometry = card.geometry
+                        geometry_digest = sha256_bytes(
+                            json.dumps(
+                                geometry.to_mapping(),
+                                sort_keys=True,
+                                separators=(",", ":"),
+                            ).encode("utf-8")
+                        )
+                        provenance = {
+                            "schema_version": "visual-identity-annotation-provenance/v1",
+                            **annotation_source,
+                            "card_id": card.card_id,
+                            "frame_identity": frame.frame_identity.to_mapping(),
+                            "geometry_digest": geometry_digest,
+                        }
+                        crop_value = crops.get(card.card_id)
+                        crop_identity = crop_value if isinstance(crop_value, Mapping) else None
+                        error = (
+                            None
+                            if crop_identity is not None
+                            else str(crop_value or "The reviewed source crop is unavailable.")
+                        )
+                        outcome = {
+                            "card_id": card.card_id,
+                            "frame_identity": frame.frame_identity.to_mapping(),
+                            "geometry": geometry.to_mapping(),
+                            "crop_identity": crop_identity,
+                            "classifier": None,
+                            "status": (
+                                "face_down"
+                                if card.side == "face_down" and crop_identity is not None
+                                else "failed"
+                            ),
+                            "candidates": [],
+                            "unusable_reason": None,
+                            "error": error or "Human identity review is pending.",
+                            "crop_input_provenance": None,
+                            "annotation_provenance": provenance,
+                        }
+                        if outcome["status"] == "face_down":
+                            outcome["error"] = None
+                        previous = previous_by_id.pop(card.card_id, None)
+                        if previous is None:
+                            state = "pending"
+                            base_item_id = None
+                        else:
+                            old_provenance = previous.item.get("annotation_provenance")
+                            same_geometry = (
+                                isinstance(old_provenance, Mapping)
+                                and old_provenance.get("geometry_digest") == geometry_digest
+                                and old_provenance.get("frame_identity")
+                                == frame.frame_identity.to_mapping()
                             )
-                            provenance = {
-                                "schema_version": "visual-identity-annotation-provenance/v1",
-                                **annotation_source,
-                                "card_id": card.card_id,
-                                "frame_identity": frame.frame_identity.to_mapping(),
-                                "geometry_digest": geometry_digest,
-                            }
-                            crop_value = crops.get(card.card_id)
-                            crop_identity = crop_value if isinstance(crop_value, Mapping) else None
-                            error = (
-                                None
-                                if crop_identity is not None
-                                else str(crop_value or "The reviewed source crop is unavailable.")
-                            )
-                            outcome = {
-                                "card_id": card.card_id,
-                                "frame_identity": frame.frame_identity.to_mapping(),
-                                "geometry": geometry.to_mapping(),
-                                "crop_identity": crop_identity,
-                                "classifier": None,
-                                "status": (
-                                    "face_down"
-                                    if card.side == "face_down" and crop_identity is not None
-                                    else "failed"
-                                ),
-                                "candidates": [],
-                                "unusable_reason": None,
-                                "error": error or "Human identity review is pending.",
-                                "crop_input_provenance": None,
-                                "annotation_provenance": provenance,
-                            }
-                            if outcome["status"] == "face_down":
-                                outcome["error"] = None
-                            previous = previous_by_id.pop(card.card_id, None)
-                            if previous is None:
-                                state = "pending"
-                                base_item_id = None
-                            else:
-                                old_provenance = previous.item.get("annotation_provenance")
-                                same_geometry = (
-                                    isinstance(old_provenance, Mapping)
-                                    and old_provenance.get("geometry_digest") == geometry_digest
-                                    and old_provenance.get("frame_identity")
-                                    == frame.frame_identity.to_mapping()
-                                )
-                                if same_geometry:
-                                    old_item = previous.item
-                                    if crop_identity is None and isinstance(
-                                        old_item.get("crop_identity"), Mapping
-                                    ):
-                                        # The exact frame and geometry still match, so a cold
-                                        # resolver can reuse the already verified native crop.
-                                        outcome["crop_identity"] = old_item["crop_identity"]
-                                        outcome["crop_input_provenance"] = old_item.get(
-                                            "crop_input_provenance"
-                                        )
-                                    outcome.update(
-                                        status=old_item["status"],
-                                        candidates=old_item["candidates"],
-                                        unusable_reason=old_item["unusable_reason"],
-                                        error=old_item["error"],
+                            if same_geometry:
+                                old_item = previous.item
+                                if crop_identity is None and isinstance(
+                                    old_item.get("crop_identity"), Mapping
+                                ):
+                                    # The exact frame and geometry still match, so a cold
+                                    # resolver can reuse the already verified native crop.
+                                    outcome["crop_identity"] = old_item["crop_identity"]
+                                    outcome["crop_input_provenance"] = old_item.get(
+                                        "crop_input_provenance"
                                     )
-                                    state = previous.review_state
-                                    base_item_id = previous.base_item_id
-                                else:
-                                    state = "affected"
-                                    base_item_id = None
-                            seeded.append(
-                                ReferenceDraftItem(
-                                    item_id=card.card_id,
-                                    base_item_id=base_item_id,
-                                    review_state=state,
-                                    item=outcome,
+                                outcome.update(
+                                    status=old_item["status"],
+                                    candidates=old_item["candidates"],
+                                    unusable_reason=old_item["unusable_reason"],
+                                    error=old_item["error"],
                                 )
+                                state = previous.review_state
+                                base_item_id = previous.base_item_id
+                            else:
+                                state = "affected"
+                                base_item_id = None
+                        seeded.append(
+                            ReferenceDraftItem(
+                                item_id=card.card_id,
+                                base_item_id=base_item_id,
+                                review_state=state,
+                                item=outcome,
                             )
+                        )
                     seeded.extend(
                         replace(item, review_state="affected", base_item_id=None)
                         for item in previous_by_id.values()

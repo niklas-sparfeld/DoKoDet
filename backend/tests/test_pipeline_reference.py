@@ -188,6 +188,7 @@ def _vision_source_revision(
     content_type: str,
     *,
     visible_candidate_ids: tuple[str, ...] = ("card-01",),
+    visible_frame_indexes: tuple[int, ...] = (0,),
     revision_id: str | None = None,
     identity_status: str = "classified",
 ) -> str:
@@ -229,13 +230,19 @@ def _vision_source_revision(
             "schema_version": "visible-card-data/v1",
             "outcomes": [
                 {
-                    "event_id": "event-01",
-                    "frame_identity": frame,
+                    "event_id": f"event-{index + 1:02d}",
+                    "frame_identity": {
+                        **frame,
+                        "frame_index": frame_index,
+                        "requested_time_us": (frame_index + 1) * 1_000_000,
+                        "presentation_timestamp_us": (frame_index + 1) * 1_000_000,
+                    },
                     "status": "detected",
                     "candidates": candidates,
                     "ignored_regions": [],
                     "error": None,
                 }
+                for index, frame_index in enumerate(visible_frame_indexes)
             ],
         }
         content_sha256 = sha256_bytes(canonical_visible_card_data_bytes(content))
@@ -3351,6 +3358,112 @@ def test_reference_http_api_exposes_conflicts_and_completed_selection(tmp_path: 
         response = client.get("/api/recordings/recording-01/pipeline/references/events")
         assert response.status_code == 200
         assert response.json()["state"]["selected_completed_revision_id"] == revision_id
+
+
+def test_identity_annotation_reference_keeps_one_latest_observation_per_card(
+    tmp_path: Path,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    visible_source_id = _vision_source_revision(
+        revision_store,
+        "visible_cards",
+        visible_candidate_ids=("card-01",),
+        visible_frame_indexes=(0, 1),
+    )
+    visible = service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": visible_source_id},
+    )
+    reviewed_geometry = {
+        "kind": "reviewed-visible-region/v1",
+        "visible_region": {
+            "polygons": [
+                [
+                    {"x": 5, "y": 5},
+                    {"x": 60, "y": 5},
+                    {"x": 60, "y": 60},
+                    {"x": 5, "y": 60},
+                ]
+            ]
+        },
+    }
+    reviewed_items = []
+    for item in visible.draft.items:
+        value = dict(item.item)
+        value["candidates"] = [
+            {**candidate, "geometry": reviewed_geometry} for candidate in value["candidates"]
+        ]
+        reviewed_items.append((item.item_id, value))
+    updated = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [
+                {"operation": "set_frame_review", "item_id": item_id, "item": value}
+                for item_id, value in reviewed_items
+            ],
+        },
+    )
+    updated = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": updated.draft.revision,
+            "operations": [
+                {"operation": "accept_frame_suggestions", "item_id": item.item_id}
+                for item in updated.draft.items
+            ],
+        },
+    )
+    completed = service.complete_reference(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": updated.draft.revision,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": item.item["frame_identity"],
+                        "decision": "cards",
+                        "item_id": item.item_id,
+                    }
+                    for item in updated.draft.items
+                ],
+            },
+        },
+    )
+    visible_revision_id = completed.state.selected_completed_revision_id
+    assert visible_revision_id is not None
+    visible_revision = revision_store.require(visible_revision_id)
+    source = {
+        "visible_card_revision_id": visible_revision_id,
+        "visible_card_revision_digest": visible_revision.manifest.content_sha256,
+    }
+
+    identity_reference = service.create_reference(
+        "recording-01",
+        "visual_identities",
+        {"operator_id": "operator-01", "annotation_source": source},
+    )
+
+    assert [item.item_id for item in identity_reference.draft.items] == ["card-01"]
+    assert identity_reference.draft.items[0].item["frame_identity"]["frame_index"] == 1
+    rebased = service.update_draft(
+        "recording-01",
+        "visual_identities",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": identity_reference.draft.revision,
+            "operations": [{"operation": "rebase_annotation_source", "annotation_source": source}],
+        },
+    )
+    assert [item.item_id for item in rebased.draft.items] == ["card-01"]
 
 
 def test_annotation_reference_seeds_exact_reviewed_back_without_classifier(
