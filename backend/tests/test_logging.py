@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import sys
@@ -23,6 +24,8 @@ def clean_root_logging():
     original_handlers = root.handlers[:]
     original_level = root.level
     original_backend_level = logging.getLogger("dokodetector_backend").level
+    uvicorn_error_logger = logging.getLogger("uvicorn.error")
+    original_uvicorn_error_filters = uvicorn_error_logger.filters[:]
     root.handlers.clear()
     try:
         yield
@@ -30,6 +33,7 @@ def clean_root_logging():
         root.handlers[:] = original_handlers
         root.setLevel(original_level)
         logging.getLogger("dokodetector_backend").setLevel(original_backend_level)
+        uvicorn_error_logger.filters[:] = original_uvicorn_error_filters
 
 
 @pytest.mark.parametrize(
@@ -127,6 +131,31 @@ def test_configuration_preserves_existing_handlers(clean_root_logging) -> None:
     configure_logging()
 
     assert root.handlers == [existing]
+
+
+def test_configuration_suppresses_only_uvicorn_asgi_cancellation_tracebacks(
+    clean_root_logging, monkeypatch
+) -> None:
+    logging.getLogger().handlers.clear()
+    output = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", output)
+    configure_logging()
+
+    logger = logging.getLogger("uvicorn.error")
+    cancelled = asyncio.CancelledError()
+    logger.error(
+        "Exception in ASGI application\n",
+        exc_info=cancelled,
+    )
+    failure = RuntimeError("request failed")
+    logger.error(
+        "Exception in ASGI application\n",
+        exc_info=failure,
+    )
+
+    text = output.getvalue()
+    assert "CancelledError" not in text
+    assert "RuntimeError" in text
 
 
 def test_request_id_helper_reuses_supplied_and_generated_ids() -> None:

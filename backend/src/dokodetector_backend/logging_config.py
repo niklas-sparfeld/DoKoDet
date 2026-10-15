@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -33,6 +34,17 @@ _THIRD_PARTY_LOGGERS = {
     "uvicorn",
     "zeroconf",
 }
+
+
+class _UvicornCancellationFilter(logging.Filter):
+    """Ignore ASGI request cancellations that Uvicorn reports as application errors."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.getMessage().strip() != "Exception in ASGI application":
+            return True
+        if not isinstance(record.exc_info, tuple) or len(record.exc_info) < 2:
+            return True
+        return not isinstance(record.exc_info[1], asyncio.CancelledError)
 
 
 class LoggingConfigurationError(ValueError):
@@ -99,6 +111,12 @@ def configure_logging(level: str | None = None) -> int:
         logger = logging.getLogger(logger_name)
         if logger.level == logging.NOTSET:
             logger.setLevel(logging.WARNING)
+
+    uvicorn_error_logger = logging.getLogger("uvicorn.error")
+    if not any(
+        isinstance(item, _UvicornCancellationFilter) for item in uvicorn_error_logger.filters
+    ):
+        uvicorn_error_logger.addFilter(_UvicornCancellationFilter())
 
     access_logger = logging.getLogger("uvicorn.access")
     if access_logger.level == logging.NOTSET:

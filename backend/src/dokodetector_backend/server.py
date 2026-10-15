@@ -15,6 +15,7 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.logging_config import configure_logging, log_event
 
 LOGGER = logging.getLogger(__name__)
+GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 30
 
 
 def run() -> None:
@@ -63,6 +64,7 @@ def run() -> None:
             factory=True,
             host=settings.server_host,
             port=settings.server_port,
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
         )
 
 
