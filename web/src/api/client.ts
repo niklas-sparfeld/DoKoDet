@@ -314,6 +314,8 @@ export class ApiError extends Error {
   }
 }
 
+const PIPELINE_REFERENCE_DRAFT_UPDATE_TIMEOUT_MS = 60_000;
+
 export interface DokoDetectorClient {
   listRecordings(init?: RequestInit): Promise<RecordingListResponse>;
   getRecording(
@@ -844,6 +846,7 @@ export function createDokoDetectorClient(
           headers: jsonHeaders(init?.headers),
           body: JSON.stringify(payload),
         },
+        PIPELINE_REFERENCE_DRAFT_UPDATE_TIMEOUT_MS,
       ),
     completePipelineReference: (recordingId, contentType, payload, init) =>
       requestJson<PipelineReferenceResource>(
@@ -1226,17 +1229,43 @@ async function requestJson<Response>(
   fetchImplementation: typeof fetch,
   path: string,
   init?: RequestInit,
+  timeoutMs?: number,
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/json");
-  const response = await fetchImplementation(path, {
-    ...init,
-    headers,
-  });
-  if (!response.ok) {
-    throw new ApiError(response.status, await readResponseBody(response));
+  const timeoutController = timeoutMs === undefined ? null : new AbortController();
+  const callerSignal = init?.signal;
+  const abortFromCaller = () => timeoutController?.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) {
+    abortFromCaller();
+  } else {
+    callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
   }
-  return (await response.json()) as Response;
+  const timeoutHandle =
+    timeoutController === null
+      ? null
+      : globalThis.setTimeout(() => timeoutController.abort(), timeoutMs);
+  try {
+    const response = await fetchImplementation(path, {
+      ...init,
+      headers,
+      ...(timeoutController === null ? {} : { signal: timeoutController.signal }),
+    });
+    if (!response.ok) {
+      throw new ApiError(response.status, await readResponseBody(response));
+    }
+    return (await response.json()) as Response;
+  } catch (error) {
+    if (timeoutController?.signal.aborted && !callerSignal?.aborted) {
+      throw new ApiError(408, {
+        message: `The request timed out after ${timeoutMs} ms.`,
+      });
+    }
+    throw error;
+  } finally {
+    if (timeoutHandle !== null) globalThis.clearTimeout(timeoutHandle);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
+  }
 }
 
 function jsonHeaders(headers: HeadersInit | undefined): Headers {
