@@ -176,7 +176,7 @@ export function useRecordingWorkspaceRail({
   );
   const selectedVisualIdentityRunId = selectedRunId(
     stage,
-    displayedRevision,
+    displayedRevision ?? stage?.selected_generated_revision_id ?? null,
     "visual_identities",
   );
 

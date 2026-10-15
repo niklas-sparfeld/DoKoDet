@@ -39,7 +39,9 @@ export function visualIdentityReviewPrewarmUrls(
   const cropUrl =
     crop?.status !== "usable" || crop.image_sha256 === null
       ? null
-      : item.outcome.annotation_provenance != null
+        : item.proposal && sourceRevisionId !== null
+          ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
+          : item.outcome.annotation_provenance != null
         ? pipelineReviewedIdentityCropPath(
             recordingId,
             item.itemId,

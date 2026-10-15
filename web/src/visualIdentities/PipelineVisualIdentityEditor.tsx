@@ -1239,7 +1239,7 @@ export function PipelineVisualIdentityEditor({
     (item: EditableIdentity) =>
       visualIdentityReviewPrewarmUrls(
         recordingId,
-        usesMaintainedIdentities
+        usesMaintainedIdentities && !item.proposal
           ? (reference?.draft.source_revision_id ?? null)
           : generatedSourceRevisionId,
         item,
@@ -1546,7 +1546,11 @@ export function PipelineVisualIdentityEditor({
           ) : (
             <IdentityItemPanel
               recordingId={recordingId}
-              sourceRevisionId={reference?.draft.source_revision_id ?? null}
+              sourceRevisionId={
+                activeItem.proposal
+                  ? generatedSourceRevisionId
+                  : (reference?.draft.source_revision_id ?? null)
+              }
               item={activeItem}
               onAccept={() => acceptSuggestion(activeItem)}
               onSelectIdentity={(identity) =>

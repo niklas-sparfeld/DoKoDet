@@ -8,6 +8,7 @@ from doko_operations.derived_view import (
     SAMPLED_FRAME_INTERVAL_US,
     DerivedViewError,
     resolve_crop_jpeg_preview,
+    resolve_crop_jpeg_preview_from_cache,
 )
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
@@ -654,6 +655,24 @@ def get_reviewed_identity_crop(
         )
     service = _visual_identity_service(request)
     try:
+        if (
+            preview == "browser"
+            and crop_identity.get("status") == "usable"
+            and crop_identity.get("content_type") == "image/x-portable-pixmap"
+        ):
+            cached_preview = resolve_crop_jpeg_preview_from_cache(
+                crop_sha256,
+                cache=service.storage.derived_views_root,
+            )
+            if cached_preview is not None:
+                return Response(
+                    content=cached_preview.image_bytes,
+                    media_type=cached_preview.content_type,
+                    headers={
+                        "Cache-Control": "private, max-age=31536000, immutable",
+                        "ETag": f'"{cached_preview.image_sha256}-browser-preview"',
+                    },
+                )
         crop = service.resolve_reviewed_annotation_crop(
             recording_id,
             annotation_source["visible_card_revision_id"],
@@ -667,7 +686,10 @@ def get_reviewed_identity_crop(
             return Response(
                 content=browser_preview.image_bytes,
                 media_type=browser_preview.content_type,
-                headers={"Cache-Control": "private, no-cache"},
+                headers={
+                    "Cache-Control": "private, max-age=31536000, immutable",
+                    "ETag": f'"{browser_preview.image_sha256}-browser-preview"',
+                },
             )
     except (VisualIdentityPipelineInputError, DerivedViewError, OSError, RuntimeError) as error:
         raise ContractError("derived_view_unavailable", str(error), status_code=409) from error
