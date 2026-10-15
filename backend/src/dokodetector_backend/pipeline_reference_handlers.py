@@ -2433,7 +2433,10 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
                     }
                 )
         for card_id in sorted(expected_ids - {item.item_id for item in items}):
-            if by_id[card_id]["decision"] not in {"unusable", "source_problem"}:
+            entry = by_id.get(card_id)
+            if entry is None:
+                continue
+            if entry["decision"] not in {"unusable", "source_problem"}:
                 details.append(
                     {
                         "field": f"coverage.cards.{card_id}",

@@ -872,6 +872,42 @@ def test_visible_and_identity_coverage_use_content_specific_decisions(
     )
 
 
+def test_identity_coverage_reports_manual_upstream_card_without_crashing(
+    tmp_path: Path,
+) -> None:
+    service, _ = _service(tmp_path)
+    handler = service._handlers["visual_identities"]
+    handler._selected_revision = lambda recording_id, content_type: SimpleNamespace(
+        content=SimpleNamespace(
+            to_mapping=lambda: {
+                "outcomes": [
+                    {
+                        "status": "detected",
+                        "candidates": [{"card_id": "manual-card-1"}],
+                    }
+                ]
+            }
+        )
+    )
+
+    with pytest.raises(PipelineReferenceCoverageError) as error:
+        handler.validate_coverage(
+            {
+                "cards": [{"card_id": "manual-card-1", "decision": "identity"}],
+            },
+            (),
+            SOURCE,
+            SOURCE.recording_id,
+        )
+
+    assert error.value.details == [
+        {
+            "field": "coverage.cards.manual-card-1",
+            "message": "upstream card has no identity result; mark it unusable",
+        }
+    ]
+
+
 def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
     tmp_path: Path,
 ) -> None:
