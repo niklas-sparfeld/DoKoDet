@@ -493,6 +493,47 @@ def test_reference_accepts_and_completes_without_model_scores_and_survives_resta
     )
 
 
+def test_completion_retry_reuses_revision_published_before_partial_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _source_revision(revision_store)
+    service.create_reference(
+        SOURCE.recording_id,
+        "events",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    service.update_draft(
+        SOURCE.recording_id,
+        "events",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "accept", "item_id": "event-01"}],
+        },
+    )
+    original_select_completed = service._select_completed
+
+    def fail_after_publish(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("fixture failure after revision publish")
+
+    monkeypatch.setattr(service, "_select_completed", fail_after_publish)
+    payload = {
+        "operator_id": "operator-01",
+        "expected_revision": 1,
+        "coverage": {"kind": "full_recording"},
+    }
+    with pytest.raises(RuntimeError, match="fixture failure after revision publish"):
+        service.complete_reference(SOURCE.recording_id, "events", payload)
+
+    monkeypatch.setattr(service, "_select_completed", original_select_completed)
+    completed = service.complete_reference(SOURCE.recording_id, "events", payload)
+
+    assert completed.state.draft_state == "completed"
+    assert completed.state.selected_completed_revision_id is not None
+
+
 def test_completion_revalidates_source_lineage_on_the_next_request(tmp_path: Path) -> None:
     service, revision_store = _service(tmp_path)
     source_id = _source_revision(revision_store)

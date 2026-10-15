@@ -56,6 +56,7 @@ from dokodetector_backend.pipeline_reference_store import (
     StoredPipelineReference,
 )
 from dokodetector_backend.pipeline_store import (
+    PipelineConflict,
     PipelineNotFound,
     PipelineRevisionStore,
     PipelineSelectionConflict,
@@ -1307,7 +1308,18 @@ class PipelineReferenceService:
                 },
                 created_at=_now(),
             )
-            self.revision_store.publish(manifest, content_bytes, revision_cache=revision_cache)
+            try:
+                self.revision_store.publish(manifest, content_bytes, revision_cache=revision_cache)
+            except PipelineConflict:
+                # A previous completion attempt can publish the revision and fail before it saves
+                # the completed draft. Its retry has a new created_at value but the same revision
+                # ID. Reuse that stored revision only when every other manifest field matches.
+                existing = self.revision_store.get(revision_id, revision_cache=revision_cache)
+                if (
+                    existing is None
+                    or replace(existing.manifest, created_at=manifest.created_at) != manifest
+                ):
+                    raise
             selected = self._select_completed(
                 recording_id, content_type, revision_id, revision_cache=revision_cache
             )
