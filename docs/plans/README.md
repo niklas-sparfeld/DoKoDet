@@ -26,22 +26,17 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-1. **0086 M4:** Complete. The handoff has 20 eligible recordings. `IMG_0092` is permanently
-   excluded; `IMG_0096` is deferred for calibration repair.
-2. **0092 M2:** Train one expanded real-only candidate on the 16 frozen training groups. M3 owns
-   validation and one fresh sealed-test evaluation; M4 owns the all-recording refit. Do not reuse
-   0087's opened sealed test as a fresh holdout.
-3. **0093 and 0086 M5:** Deliver prediction-independent annotation and all-class crop preparation,
-   then complete human identity review, including FACE_DOWN. 0093 uses fixtures and existing reviewed
-   examples; it does not wait for 0086 M5. This work does not gate 0092.
-4. **0094:** Closed. Its multi-resolution training, adaptation, evaluation and local bundle recipes
-   are ready for the 0088 campaign.
-   It uses the 0093 handoff and does not wait for the full reviewed identity corpus.
-5. **0088:** Run the bounded local identity quality campaign after both software handoffs and the
-   reviewed corpus are ready. Compare 224/384, conditional 448, pooled features and conditional
-   fine-tuning/synthetic candidates against Gemini, then qualify the locked bundle.
-6. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
-7. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
+1. **0086 M4/M5:** Complete. The handoffs contain 20 eligible recordings, 1,391 identity crops,
+   support for all 21 campaign classes, and exact exclusions. `IMG_0092` is permanently excluded;
+   `IMG_0096` is deferred for calibration repair.
+2. **0088 M0:** Ready. Freeze splits, support floors, quality gates, candidates, and budgets from the
+   complete 0086, 0093, and 0094 handoffs. Assess the recorded FACE_DOWN and no-crop gaps. Do not
+   train or open the final test before the frozen gates pass.
+3. **0092 M4:** The all-recording RF-DETR refit is running on MPS. Verify and publish its final
+   lineage, local inference, and latency evidence when the run completes. This work does not block
+   0088.
+4. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
+5. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
 are explicit work in 0093/0094. Keep broader algorithm work in 0089. Retain diagnostic bundle
@@ -71,20 +66,20 @@ The shared target architecture is
 
 ### Ready
 
-No epics are ready.
+| Epic                                                                                                       | Depends on                                                                                                                       | Outcome                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0088 — Reviewed virtual-card DINO quality campaign](2-ready/0088-Reviewed_Virtual_Card_DINO_Campaign.md) | Completed 0086 M4/M5, 0093, 0094, 0043, 0085, and 0091; no 0092 training dependency                                                | M0 can freeze splits, support floors, quality gates, candidates, and budgets from the 1,391-crop, 21-class handoff. No training or final-test access before the declared gates pass.                         |
 
 ### In Progress
 
 | Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0086 — Reviewed virtual-card corpus](3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md)                                       | 0073, 0074, and 0085 complete; existing local detector provider; pile review uses 0091 M0–M1                        | M0–M4 complete. M5 has 1,053 positive crops across 9 recordings and support for all 21 classes. Human decisions remain for 103 cards in IMG_0095, 127 in IMG_0653, and 109 in IMG_0660 before publishing the 0088 handoff. |
 | [0092 — Expanded reviewed virtual-card RF-DETR campaign](3-in-progress/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 M4 current-schema detection-only handoff with at least 18 eligible recordings; completed 0087 candidate bundle | M0–M3 complete; M4 refit is running on all 20 eligible recordings. The candidate remains selectable and `gemini` remains the default. Final-bundle lineage, local inference, and latency checks are pending. |
 
 ### Blocked
 
 | Epic                                                                                                              | Depends on                                                                                                                   | Outcome                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0088 — Reviewed virtual-card DINO quality campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md)       | 0086 M4/M5 reviewed handoff; completed 0093 inputs; 0094 recipes; completed 0043, 0085 and 0091; no 0092 training dependency | M0–M15 not started. Partial reviewed input supports all 21 classes, but 0086 M5 is in progress with human decisions open in IMG_0095, IMG_0653, and IMG_0660. Train only after the complete handoff passes. |
 | [0089 — Virtual-card algorithm edge cases](4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md)                   | 0086 reviewed evidence; 0087 and 0088 bundle decisions                                                                       | M0–M3 not started. Reproduce fresh failures, freeze at most two small failure families, and verify bounded pose, occlusion, or crop fixes.                                                                                                                |
 | [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md)               | 0087 and 0088 bundle decisions; 0089 and 0091 M7 handoffs; 0048 and 0049 complete                                            | M0–M3 not started. Coordinate retained automatic stages with declared pile capabilities on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion.                                        |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0086 reviewed evidence, 0087 and 0088 decisions, and 0090 composed report; 0048 and 0049 complete                            | M0–M3 not started. Use the later reports to select at most one new optional analyzer capability. Do not repeat the campaigns, bounded algorithm fixes, or composed pilot.                                                                                 |
@@ -93,6 +88,7 @@ No epics are ready.
 
 | Epic                                                                                                                                             | Closure reason     | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0086 — Reviewed virtual-card corpus](5-closed/0086-Reviewed_Virtual_Card_Corpus.md)                                                               | Complete           | M0–M5 complete. The detection and identity handoffs record exact source revisions and exclusions. M5 contains 1,391 crops from 12 recordings, support for all 21 campaign classes, and reviewed pile coverage. No DINO training or final-test access occurred.                                                  |
 | [0087 — Reviewed virtual-card RF-DETR campaign](5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md)                                         | Complete           | M0–M5 complete. M2 omitted synthetic data because no compatible training-group background exists; M4 was not applicable. M5 selected the candidate after one sealed-test pass and published it as selectable. `gemini` remains the default; the test had no pile targets.                                                                                                                                                       |
 | [0091 — Pile-region feature](5-closed/0091-Pile_Region_Feature.md)                                                                               | Complete           | M0–M7 complete: durable annotation, two-class training support, pile inference, identity isolation, separate observation evidence, engine inspection, fixture verification, and capability handoff. Annotation and software are ready; no trained pile model is selected. See the [handoff report](../reports/0091-Pile_Region_Capability_Handoff.md).                                                                          |
 | [0093 — Visual classification annotation and crop inputs](5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md)                     | Complete           | M0–M5 complete. Prediction-independent review and 25-class crop materialization are available. M5 publishes exact input contracts and commands; the current eligible development snapshot has zero positive annotation crops.                                                                                                                                                                                                   |

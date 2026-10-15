@@ -4,16 +4,17 @@
 
 - **Summary:** Train and qualify a useful local visual classifier from reviewed individual-card
   crops. Compare input resolution and a bounded sequence of model improvements against Gemini.
-- **Status:** Blocked
-- **Depends on:** 0086 M4 geometry review; M5 identity handoff is in progress. Completed
+- **Status:** Ready
+- **Depends on:** Completed 0086 M4/M5 handoffs; completed
   [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) and
   [0094](../5-closed/0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091
   identity isolation.
   No dependency on 0092 training.
-- **Blocker:** The repaired 0086 materializer reports 1,053 positive crops with support in all 21
-  required classes across 9 development recordings. Human decisions remain for 103 cards in
-  `IMG_0095`, 127 in `IMG_0653`, and 109 in `IMG_0660`. The complete 0086 M5 campaign handoff is
-  not published. The 0093 software and 0094 recipe handoffs are complete.
+- **Readiness:** The [0086 M5 campaign handoff](../../reports/0086-M5_DINO_Campaign_Handoff.json)
+  is complete. It contains 1,391 positive crops across 12 recordings, support for all 21 classes,
+  and 20 independent source groups. It records 362 pile targets, exact exclusions, and campaign
+  gaps. M0 must assess those gaps and freeze the campaign gates before it materializes training
+  inputs. No training or final-test access is authorized by this readiness handoff.
 - **Outcome:** A quality-qualified local model and its exact preprocessing and confidence policy,
   or an explicit report that the useful-model objective remains unmet.
 - **Target architecture:**
@@ -310,8 +311,8 @@ Each fit is resumable and can run without browser activity or new hardware. Publ
 preflight before executing a long job. Broad code changes discovered during a fit return to a
 supporting implementation milestone instead of being mixed with the campaign result.
 
-[0089](0089-Virtual_Card_Algorithm_Edge_Cases.md) owns later reproduced geometry/integration fixes.
-[0090](0090-Local_End_to_End_Recording_Pipeline.md) owns full pipeline coordination.
+[0089](../4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) owns later reproduced geometry/integration fixes.
+[0090](../4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) owns full pipeline coordination.
 [0044](../1-backlog/0044-Productive_Local_Identity_Model_Operations.md) owns registry promotion,
 default changes, productive campaign UI, and rollback. Their diagnostic work can consume a failed
 0088 decision; that does not make the identity model quality-qualified.

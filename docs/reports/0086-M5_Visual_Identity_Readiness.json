@@ -9482,7 +9482,8 @@
     }
   ],
   "handoff_complete": false,
-  "handoff_status": "incomplete",
+  "handoff_status": "separate_campaign_handoff_required",
+  "identity_review_complete": true,
   "inventory_manifest_sha256": "d1e4a2de8e8fcea1d4bd73f25d2b0fd687dfd2d30ccb5e83884819ff94b5f601",
   "materialization_manifest_sha256": "a11b28caafbdf9fd19eb8e4beb30959dffdbafd2dbc31cfbb803aa2b67c083f6",
   "materialization_schema": "reviewed-visual-identity-materialization/v1",
@@ -19968,7 +19969,8 @@
   ],
   "recordings_still_needing_human_decisions": [],
   "reference_inputs_read_only": true,
-  "report_sha256": "6e3c806f4f8b7a44fa67f61a31d7300c5de56baed6903445c5f3d03694299dd2",
+  "report_scope": "identity_review_readiness_only",
+  "report_sha256": "5e52e8e64baa5eed12fc48df2cdf3019f38f6657d796187bfc253fd87f1ec2dd",
   "samples": [
     {
       "back_design_id": null,
@@ -71439,7 +71441,7 @@
     }
   ],
   "schema_version": "0086-m5-visual-identity-readiness/v1",
-  "status_reason": "human_review_gaps_and_campaign_handoff_gates_remain",
+  "status_reason": "campaign_handoff_is_a_separate_report",
   "summary": {
     "candidate_recording_count": 22,
     "classes_with_support": 21,

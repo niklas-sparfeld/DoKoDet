@@ -4,7 +4,10 @@
 
 - **Summary:** Publish a detection-only handoff from current reviewed geometry, then finish proposal
   refresh and geometry review. Complete visual identity review last.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M5 are complete. The read-only identity readiness report and separate 0088
+  campaign handoff record exact revisions, support, exclusions, and pile-review evidence.
 - **Depends on:** Completed 0073, 0074, and 0085; existing local detector provider. Pile annotation
   uses 0091 M0–M1; individual-card review can continue before that handoff. M5 uses 0093 M2
   prediction-independent annotation and M3 all-class readiness reporting; M4 does not wait for them.
@@ -24,8 +27,8 @@
   refresh. Twenty recordings published current proposals; two retain explicit calibration failures.
 - **M4:** Complete (2026-10-14) — 20 current-schema references qualify. `IMG_0092` is permanently
   excluded; `IMG_0096` is deferred for calibration repair. The active scope has no review gaps.
-- **M5:** In progress (2026-10-15) — complete visual review for the no-NINE recording pool,
-  including FACE_DOWN, and publish the separate 0088 handoff.
+- **M5:** Complete (2026-10-15) — complete identity review for the no-NINE recording pool,
+  including FACE_DOWN, and publish the exact 0088 campaign handoff.
 
 ## 1. Current evidence and scope
 
@@ -74,7 +77,7 @@ implement general algorithm improvements, promote bundles, or automate reconstru
 
 ## 2. Data and review rules
 
-- [0091](../5-closed/0091-Pile_Region_Feature.md) owns pile feature implementation. Its M7
+- [0091](0091-Pile_Region_Feature.md) owns pile feature implementation. Its M7
   handoff is complete; continue using the delivered workflow to review each accumulated pile as
   one coarse source-frame region. Do not require its component-card poses, stacking order, count,
   or identities. Keep normal trick overlap under
@@ -246,7 +249,7 @@ Measure effort by pile regions and remaining cards, not by hidden component card
 Acceptance: every selected frame has a completed reference decision or exact exclusion; all
 published derived visible regions pass validation; no pending card is a training target. Publish an
 updated detection-only handoff as eligible reviewed references are added. The expanded RF-DETR
-campaign in [0092](0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) requires
+campaign in [0092](../3-in-progress/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) requires
 completed current-schema references and source groups for at least 18 recordings. Its M0 must
 confirm the handoff and freeze the partitions before materialization or training. This milestone
 remains open until the recorded human work is complete.
@@ -317,7 +320,8 @@ The final [audit](../../reports/0086-M4_Geometry_Review_Audit.json) has 20 eligi
 active recording has a completed v2 reference. No active frame lacks a saved decision or explicit
 pile coverage. All published target geometry passes the detection-handoff checks. The full handoff
 is `.runtime/0086-m4/detection-handoff.json`; use the commands above to reproduce it. Its digest is
-`503408822bc123b2ebb0f8388f8aed7d9378479b196b9f2e1cd244dbae89c1e6`. The handoff also records
+`8f1afde063292d7a94cd8f88e73a6b4779f695f1067c20a3a76bdc119d223362`. The audit digest is
+`d35ba7aa1aadcb69e7c7012f4e0d504ac796d2d24cbffa057e17021c640eb2c0`. The handoff also records
 0087's validation use of `IMG_0097` and opened sealed-test use of `IMG_0654`.
 
 Fifty focused operations tests, Ruff, Python formatting, local Markdown links, and deterministic
@@ -328,7 +332,7 @@ and fresh unopened test. M5 identity review is not part of this completion.
 ### M5 — Complete identities and publish the 0088 handoff
 
 Use completed reviewed geometry and
-[0093 M2–M5](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) to prepare crops
+[0093 M2–M5](0093-Visual_Classification_Annotation_and_Crop_Inputs.md) to prepare crops
 and pending annotation items without requiring a successful classifier prediction. Consume the
 `reviewed-visual-identity-materialization/v1` manifest for class, recording, back-design, duplicate,
 and exclusion support. Existing model
@@ -348,7 +352,7 @@ without changing maintained references. Do not invent an identity for an unusabl
 software work has no dependency on this M5 handoff, and 0094/0088 training does not gate review.
 No training or promotion occurs in this epic.
 
-### M5 crop handoff repair — 2026-10-15
+### M5 identity review and campaign handoff — 2026-10-15
 
 - The materializer now accepts a saved human `classified` or `face_down` decision when the exact
   card ID, frame identity, geometry, usable `oracle_visible_region` crop, and selected human
@@ -356,29 +360,40 @@ No training or promotion occurs in this epic.
   unknown outcomes, unusable crops, stale cards, and frame or geometry mismatches remain excluded.
 - The read-only readiness report is
   [0086 M5 visual-identity readiness](../../reports/0086-M5_Visual_Identity_Readiness.json).
-  It covers the 22 candidate development recordings. It materialized 1,053 positive crops from 9
-  recordings and found support for all 21 required classes: 20 face-up identities plus FACE_DOWN.
-  NINE is not a target in this report; the game card vocabulary is unchanged.
-- The report records selected revision IDs, content and manifest digests, source groups, crop
-  digests, per-recording and per-class support, duplicates, and reason-coded exclusions. Its
-  report digest is `81bcc2ff5be86bcbe267b9826040cf8b5ff600a19a37ad4acd14c41ef2732797`.
-- Human decisions are still required for 103 cards in `IMG_0095`, 127 in `IMG_0653`, and 109 in
-  `IMG_0660`. The report lists the exact card IDs. M5 remains in progress. This crop-support result
-  does not publish the complete 0088 handoff or authorize DINO training or final-test access.
-- Rebuild the report from the repository root with:
+  It checks 22 candidate recordings. It materialized 1,391 positive crops from 12 recordings and
+  found support for all 21 campaign classes across 20 eligible source groups. The classes are the
+  20 face-up identities plus FACE_DOWN. NINE is outside this recording pool. The game vocabulary
+  is unchanged. No recording needs another human decision. Its report digest is
+  `5e52e8e64baa5eed12fc48df2cdf3019f38f6657d796187bfc253fd87f1ec2dd`.
+- The separate [0086 M5 DINO campaign handoff](../../reports/0086-M5_DINO_Campaign_Handoff.json)
+  carries the 20 eligible recording revisions, all class counts, source groups, geometry and
+  identity exclusions, crop and recipe contracts, and campaign gaps. It reports 362 reviewed pile
+  targets and exact pile-review coverage. It also records the 0095 post-M4 reference update. The
+  current M4 and M5 evidence shows unchanged geometry by exact frame and geometry digest.
+- FACE_DOWN has three samples from three source groups. Eight eligible recordings have no positive
+  crops. The report names these gaps for 0088 M0 to assess. This does not stop 0088 from freezing
+  campaign inputs and quality floors. It does not authorize training or final-test access.
+- Rebuild both reports from the repository root:
 
   ```sh
   mise exec -- uv run --project operations python operations/scripts/build_0086_identity_readiness_report.py \
     --repository-root . --output docs/reports/0086-M5_Visual_Identity_Readiness.json \
     --crops .runtime/0086-m5/identity-crops
+  mise exec -- uv run --project operations python operations/scripts/build_0086_m5_campaign_handoff.py \
+    --repository-root . --output docs/reports/0086-M5_DINO_Campaign_Handoff.json
   ```
+
+- The campaign handoff is complete. Its digest is
+  `78994bdc6ee17cfb944293579c8fcf055f600ed99275e77ef40186c8554b8d11`. 0088 may start at M0.
+  M0 must freeze splits, support floors, quality gates, candidates, and budgets before it prepares
+  training inputs. No DINO training ran, and the final test remains unopened.
 
 ## 4. Handoff and verification
 
-[0087](../5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
-[0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) owns reusable annotation
-and native crop preparation. [0094](../5-closed/0094-DINO_Training_and_Runtime_Recipes.md) owns
-training/runtime recipe implementation. [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md)
+[0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
+[0093](0093-Visual_Classification_Annotation_and_Crop_Inputs.md) owns reusable annotation
+and native crop preparation. [0094](0094-DINO_Training_and_Runtime_Recipes.md) owns
+training/runtime recipe implementation. [0088](../2-ready/0088-Reviewed_Virtual_Card_DINO_Campaign.md)
 owns the measured identity quality campaign. Each campaign freezes its own eligibility and recipe
 from this handoff.
 

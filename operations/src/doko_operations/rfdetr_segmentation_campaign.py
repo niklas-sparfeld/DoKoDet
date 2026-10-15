@@ -686,7 +686,7 @@ def _reference_audit(
         gaps.append(f"{recording_id}: maintained visible_cards reference is not completed")
     if state.get("recording_id") != recording_id or state.get("content_type") != "visible_cards":
         gaps.append(f"{recording_id}: maintained reference state has wrong identity")
-    if draft.get("schema_version") != "pipeline-reference-draft/v1":
+    if draft.get("schema_version") != "pipeline-reference-draft/v2":
         gaps.append(f"{recording_id}: maintained visible_cards draft has an unsupported schema")
     if draft.get("recording_id") != recording_id or draft.get("content_type") != "visible_cards":
         gaps.append(f"{recording_id}: maintained visible_cards draft has wrong identity")

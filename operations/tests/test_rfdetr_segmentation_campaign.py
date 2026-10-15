@@ -223,7 +223,7 @@ def _fixture_corpus(
             "item": outcome,
         }
         draft = {
-            "schema_version": "pipeline-reference-draft/v1",
+            "schema_version": "pipeline-reference-draft/v2",
             "recording_id": recording_id,
             "content_type": "visible_cards",
             "revision": 1,

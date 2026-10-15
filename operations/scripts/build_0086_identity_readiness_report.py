@@ -359,9 +359,15 @@ def build_0086_identity_readiness_report(repository: Path, crop_output: Path) ->
 
     core = {
         "schema_version": "0086-m5-visual-identity-readiness/v1",
-        "handoff_status": "incomplete",
+        "report_scope": "identity_review_readiness_only",
+        "identity_review_complete": not any(
+            input_details[item["recording_id"]]["human_decision_draft_pending_card_ids"]
+            for item in recordings
+        )
+        and all(value["sample_count"] > 0 for value in class_support.values()),
+        "handoff_status": "separate_campaign_handoff_required",
         "handoff_complete": False,
-        "status_reason": "human_review_gaps_and_campaign_handoff_gates_remain",
+        "status_reason": "campaign_handoff_is_a_separate_report",
         "target_classes": expected_classes,
         "target_class_count": len(expected_classes),
         "nines_in_game_vocabulary_but_out_of_this_pool": True,
