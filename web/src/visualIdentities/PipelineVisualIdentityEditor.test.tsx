@@ -305,9 +305,15 @@ describe("PipelineVisualIdentityEditor", () => {
         const path = String(input);
         if (init?.method === "PUT") {
           requests.push(JSON.parse(String(init.body)) as PutBody);
-          return Promise.resolve(
-            jsonResponse(annotationReference(false, "visible-revision-1")),
-          );
+          const saved = annotationReference(false, "visible-revision-1");
+          const savedItem = saved.draft.items[0];
+          savedItem.review_state = "accepted";
+          const savedOutcome = savedItem.item as IdentityOutcome;
+          savedOutcome.status = "classified";
+          savedOutcome.candidates = [
+            { identity: "CLUBS_KING", score: null, score_meaning: null },
+          ];
+          return Promise.resolve(jsonResponse(saved));
         }
         if (path.includes("/pipeline/references/visual_identities"))
           return Promise.resolve(jsonResponse(annotationReference()));
@@ -332,6 +338,13 @@ describe("PipelineVisualIdentityEditor", () => {
     );
 
     await screen.findByText("Proposal · ♣ König");
+    const cropPreview = await screen.findByRole("img", {
+      name: `Derived identity crop for ${CARD_ID}`,
+    });
+    const reviewedCropUrl = expect.stringContaining(
+      `reviewed-identity-crops/${CARD_ID}?preview=browser&crop_sha256=${"c".repeat(64)}`,
+    );
+    expect(cropPreview).toHaveAttribute("src", reviewedCropUrl);
     await userEvent
       .setup()
       .type(screen.getByLabelText("Operator ID"), "operator-01");
@@ -345,6 +358,13 @@ describe("PipelineVisualIdentityEditor", () => {
         identity: "CLUBS_KING",
       },
     ]);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("img", {
+          name: `Derived identity crop for ${CARD_ID}`,
+        }),
+      ).toBe(cropPreview);
+    });
   });
 
   afterEach(() => {
