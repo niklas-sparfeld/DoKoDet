@@ -6,7 +6,9 @@ import shutil
 import subprocess
 import threading
 import time
+from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from app_factory import create_test_app
@@ -19,6 +21,7 @@ from dokodetector_backend.pipeline_comparison_api import router as comparison_ro
 from dokodetector_backend.pipeline_reference_api import router as reference_router
 from dokodetector_backend.pipeline_stage_api import router as stage_router
 from dokodetector_backend.pipeline_workspace_api import router as workspace_router
+from dokodetector_backend.pipeline_workspace_service import RecordingPipelineWorkspaceService
 
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 RECORDING_ID = "recording-both"
@@ -509,6 +512,43 @@ def test_recording_pipeline_workspace_reads_each_selection_once(
         (RECORDING_ID, "visual_identities"),
         (RECORDING_ID, "table_observations"),
     ]
+
+
+def test_workspace_run_summary_omits_frozen_crop_items() -> None:
+    crop_items = [{"card_id": f"card-{index}"} for index in range(100)]
+    request_mapping = {"crop_input": {"items": crop_items, "source_revision_id": "rev-1"}}
+    request = SimpleNamespace(
+        to_mapping=lambda: deepcopy(request_mapping),
+        input_revision_ids=("rev-1",),
+        implementation=SimpleNamespace(to_mapping=lambda: {"name": "test", "version": "1"}),
+        model=None,
+        configuration={},
+        extraction_policy={},
+        crop_policy={},
+    )
+    state = SimpleNamespace(
+        status="complete",
+        attempt=1,
+        to_mapping=lambda: {"status": "complete"},
+        output_revision_ids=("output-1",),
+        created_at="2026-01-01T00:00:00Z",
+        started_at=None,
+        completed_at="2026-01-01T00:00:01Z",
+        updated_at="2026-01-01T00:00:01Z",
+        progress=SimpleNamespace(to_mapping=lambda: {"completed": 100, "total": 100}),
+        terminal_failure=None,
+        items=(),
+    )
+
+    summary = RecordingPipelineWorkspaceService._run_summary(
+        SimpleNamespace(run_id="run-1", request=request, state=state)
+    )
+
+    assert summary["request"]["crop_input"] == {
+        "item_count": 100,
+        "source_revision_id": "rev-1",
+    }
+    assert request_mapping["crop_input"]["items"] is crop_items
 
 
 def test_stage_workspace_skips_inactive_reference_drafts(
