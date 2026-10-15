@@ -7,8 +7,10 @@ import json
 import logging
 import re
 import time
+from collections import OrderedDict
 from collections.abc import Mapping
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
@@ -147,6 +149,38 @@ class VisualIdentityPipelineInputError(VisualIdentityPipelineError, ValueError):
     """The visual identity pipeline request is invalid."""
 
 
+@dataclass(frozen=True)
+class _ValidatedCropContext:
+    revision: StoredPipelineRevision
+    crop_input: VisualIdentityCropInput
+    roots: tuple[Path, ...]
+    fingerprint: tuple[tuple[str, int, int, int, int, int], ...]
+
+
+def _crop_dependency_fingerprint(
+    roots: tuple[Path, ...],
+) -> tuple[tuple[str, int, int, int, int, int], ...]:
+    """Detect edits, replacements, removals, and added members without reading video bytes."""
+
+    entries = []
+    for root in roots:
+        for path in (root, *sorted(root.rglob("*"))):
+            stat = path.lstat()
+            if path.is_symlink():
+                raise OSError("crop validation dependency must not be a symlink")
+            entries.append(
+                (
+                    str(path),
+                    stat.st_ino,
+                    stat.st_mode,
+                    stat.st_size,
+                    stat.st_mtime_ns,
+                    stat.st_ctime_ns,
+                )
+            )
+    return tuple(entries)
+
+
 class VisualIdentityPipelineService:
     """Freeze visible-card inputs, classify their crops, and retain the result."""
 
@@ -194,6 +228,9 @@ class VisualIdentityPipelineService:
         )
         self._futures: dict[str, Future[None]] = {}
         self._lock = RLock()
+        # One cold validation per revision, shared by foreground and prewarm requests.
+        self._crop_context_lock = RLock()
+        self._crop_contexts: OrderedDict[str, _ValidatedCropContext] = OrderedDict()
 
     async def start(self) -> None:
         """Keep the service lifecycle symmetrical with the other pipeline services."""
@@ -431,28 +468,83 @@ class VisualIdentityPipelineService:
     ) -> VisualIdentityCropIdentity:
         """Validate one stored identity crop without resolving its source image."""
 
-        bundle = self.recording_store.get_metadata(recording_id)
-        if bundle is None:
-            raise PipelineNotFound(f"The recording was not found: {recording_id}")
-        revision_cache: dict[str, StoredPipelineRevision] = {}
-        revision = self._require_identity_revision(
-            recording_id, revision_id, revision_cache=revision_cache
-        )
-        source = revision.manifest.source
-        if (
-            source.recording_id != recording_id
-            or source.video_sha256 != bundle.source_sha256
-            or source.byte_length != bundle.video_byte_length
-        ):
-            raise VisualIdentityPipelineInputError(
-                "The selected visual identity revision does not match the accepted recording video."
+        _, outcome = self._validated_identity_crop_outcome(recording_id, revision_id, item_id)
+        return self._usable_crop_identity(outcome)
+
+    def _validated_identity_crop_outcome(
+        self, recording_id: str, revision_id: str, item_id: str
+    ) -> tuple[StoredPipelineRevision, VisualIdentityOutcome]:
+        with self._crop_context_lock:
+            context = self._crop_contexts.get(revision_id)
+            if context is not None:
+                try:
+                    unchanged = _crop_dependency_fingerprint(context.roots) == context.fingerprint
+                except OSError:
+                    unchanged = False
+                if unchanged and context.revision.manifest.source.recording_id == recording_id:
+                    outcome = self._require_identity_outcome(context.revision, item_id)
+                    self._validate_frozen_crop_outcome(context.crop_input, outcome)
+                    self._crop_contexts.move_to_end(revision_id)
+                    return context.revision, outcome
+                self._crop_contexts.pop(revision_id)
+
+            validation_started_ns = time.time_ns()
+            bundle = self.recording_store.get_metadata(recording_id)
+            if bundle is None:
+                raise PipelineNotFound(f"The recording was not found: {recording_id}")
+            revision_cache: dict[str, StoredPipelineRevision] = {}
+            revision = self._require_identity_revision(
+                recording_id, revision_id, revision_cache=revision_cache
             )
-        outcome = self._require_identity_outcome(revision, item_id)
-        self._validate_crop_input_provenance(revision, outcome, revision_cache=revision_cache)
+            source = revision.manifest.source
+            if (
+                source.recording_id != recording_id
+                or source.video_sha256 != bundle.source_sha256
+                or source.byte_length != bundle.video_byte_length
+            ):
+                raise VisualIdentityPipelineInputError(
+                    "The selected visual identity revision does not match "
+                    "the accepted recording video."
+                )
+            outcome = self._require_identity_outcome(revision, item_id)
+            frozen_input = self._validate_crop_input_provenance(
+                revision, outcome, revision_cache=revision_cache
+            )
+            roots = {self.repository_storage.bundle_path(recording_id)}
+            for dependency_id, dependency in revision_cache.items():
+                roots.add(self.revision_store.revision_path(dependency_id))
+                if isinstance(dependency.manifest.producer, ProcessorProducer):
+                    roots.add(self.run_store.run_path(dependency.manifest.producer.run_id))
+            dependency_roots = tuple(sorted(roots))
+            try:
+                fingerprint = _crop_dependency_fingerprint(dependency_roots)
+            except OSError:
+                fingerprint = ()
+            # Do not reuse a validation if a dependency changed while it was being read.
+            if fingerprint and all(entry[-1] < validation_started_ns for entry in fingerprint):
+                self._crop_contexts[revision_id] = _ValidatedCropContext(
+                    revision, frozen_input, dependency_roots, fingerprint
+                )
+                while len(self._crop_contexts) > 8:
+                    self._crop_contexts.popitem(last=False)
+            return revision, outcome
+
+    @staticmethod
+    def _usable_crop_identity(outcome: VisualIdentityOutcome) -> VisualIdentityCropIdentity:
         crop = outcome.crop_identity
         if crop is None or crop.status != "usable" or crop.image_sha256 is None:
             raise DerivedViewError("The identity crop is unavailable.")
         return crop
+
+    def _validate_frozen_crop_outcome(
+        self, frozen_input: VisualIdentityCropInput, outcome: VisualIdentityOutcome
+    ) -> None:
+        item = self._identity_crop_item_for_outcome(frozen_input, outcome)
+        expected = self._crop_input_provenance(frozen_input, item)
+        if expected is None or outcome.crop_input_provenance != expected:
+            raise DerivedViewError("the identity crop input lineage changed")
+        if item is None or item.geometry.to_mapping() != outcome.geometry.to_mapping():
+            raise DerivedViewError("the identity crop geometry changed")
 
     def resolve_reviewed_annotation_crops(
         self, recording_id: str, visible_revision_id: str
@@ -550,12 +642,11 @@ class VisualIdentityPipelineService:
     ) -> ResolvedCrop:
         """Resolve one identity crop from an immutable identity revision."""
 
-        _, source = self._accepted_source(recording_id)
-        revision = self._require_identity_revision(recording_id, revision_id, source=source)
-        outcome = self._require_identity_outcome(revision, item_id)
-        self._validate_crop_input_provenance(revision, outcome, source=source)
-        if outcome.crop_identity is None or outcome.crop_identity.status != "usable":
-            raise DerivedViewError("The identity crop is unavailable.")
+        revision, outcome = self._validated_identity_crop_outcome(
+            recording_id, revision_id, item_id
+        )
+        source = revision.manifest.source
+        crop_identity = self._usable_crop_identity(outcome)
         with self._derived_view_lock:
             frame = resolve_exact_event(
                 self._video_path(recording_id),
@@ -571,11 +662,11 @@ class VisualIdentityPipelineService:
             crop = resolve_visible_region_crop(
                 frame,
                 parse_geometry(outcome.geometry.to_mapping()),
-                crop_policy=outcome.crop_identity.crop_policy,
-                output_encoding=outcome.crop_identity.output_encoding,
+                crop_policy=crop_identity.crop_policy,
+                output_encoding=crop_identity.output_encoding,
                 cache=self.storage.derived_views_root,
             )
-        if _pipeline_crop_identity_mapping(crop) != outcome.crop_identity.to_mapping():
+        if _pipeline_crop_identity_mapping(crop) != crop_identity.to_mapping():
             raise DerivedViewError("the resolved identity crop changed")
         return crop
 
@@ -614,12 +705,7 @@ class VisualIdentityPipelineService:
             requested=run.request.crop_input,
             revision_cache=revision_cache,
         )
-        item = self._identity_crop_item_for_outcome(frozen_input, outcome)
-        expected = self._crop_input_provenance(frozen_input, item)
-        if expected is None or provenance != expected:
-            raise DerivedViewError("the identity crop input lineage changed")
-        if item is None or item.geometry.to_mapping() != outcome.geometry.to_mapping():
-            raise DerivedViewError("the identity crop geometry changed")
+        self._validate_frozen_crop_outcome(frozen_input, outcome)
         try:
             validate_crop_policy_compatibility(
                 frozen_input,
@@ -653,10 +739,7 @@ class VisualIdentityPipelineService:
     ) -> ResolvedCropJpegPreview:
         """Resolve and cache one browser preview after a digest-only cache miss."""
 
-        revision = self._require_identity_revision(recording_id, revision_id)
-        outcome = self._require_identity_outcome(revision, item_id)
-        self._validate_crop_input_provenance(revision, outcome)
-        crop_identity = outcome.crop_identity
+        crop_identity = self.get_identity_crop_identity(recording_id, revision_id, item_id)
         if (
             crop_identity is None
             or crop_identity.status != "usable"

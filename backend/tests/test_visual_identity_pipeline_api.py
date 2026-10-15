@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any
@@ -610,10 +612,21 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             )
         )
         assert not preview_path.exists()
-        warm_preview = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
-            f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
-        )
+        cold_validation_calls = 0
+        cold_validate_provenance = service._validate_crop_input_provenance
+
+        def count_cold_validation(*args: Any, **kwargs: Any) -> Any:
+            nonlocal cold_validation_calls
+            cold_validation_calls += 1
+            return cold_validate_provenance(*args, **kwargs)
+
+        with monkeypatch.context() as cold_patch:
+            cold_patch.setattr(service, "_validate_crop_input_provenance", count_cold_validation)
+            warm_preview = client.get(
+                f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
+                f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
+            )
+        assert cold_validation_calls == 1
         assert warm_preview.status_code == 200, warm_preview.text
         assert warm_preview.headers["content-type"] == "image/jpeg"
         assert preview_path.is_dir()
@@ -646,8 +659,51 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             )
         assert cached_only_preview.status_code == 200, cached_only_preview.text
         assert cached_only_preview.headers["content-type"] == "image/jpeg"
-        assert revision_reads
-        assert len(revision_reads) == len(set(revision_reads))
+        assert revision_reads == []
+
+        # A warm JPEG must not hide changes to any validated dependency.
+        preview_url = (
+            f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
+            f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
+        )
+        service._crop_contexts.clear()
+        validation_calls = 0
+        validate_provenance = service._validate_crop_input_provenance
+
+        def count_validation(*args: Any, **kwargs: Any) -> Any:
+            nonlocal validation_calls
+            validation_calls += 1
+            return validate_provenance(*args, **kwargs)
+
+        with monkeypatch.context() as concurrent_patch:
+            concurrent_patch.setattr(service, "_validate_crop_input_provenance", count_validation)
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                responses = list(pool.map(lambda _: client.get(preview_url), range(6)))
+        assert all(response.status_code == 200 for response in responses)
+        assert validation_calls == 1
+
+        dependency_files = [
+            service.revision_store.revision_path(identity_revision_id) / "content.json",
+            service.revision_store.revision_path(generated_revision_id) / "content.json",
+            service.run_store.run_path("identity-generated") / "request.json",
+            service._video_path(RECORDING_ID),
+        ]
+        for dependency in dependency_files:
+            original = dependency.read_bytes()
+            original_stat = dependency.stat()
+            dependency.write_bytes(b"x" * len(original))
+            os.utime(dependency, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+            rejected = client.get(preview_url)
+            assert rejected.status_code in {404, 409}, (dependency, rejected.text)
+            dependency.write_bytes(original)
+            restored = client.get(preview_url)
+            assert restored.status_code == 200, (dependency, restored.text)
+
+        added_member = service.revision_store.revision_path(generated_revision_id) / "extra.json"
+        added_member.write_text("{}", encoding="utf-8")
+        assert client.get(preview_url).status_code in {404, 409}
+        added_member.unlink()
+        assert client.get(preview_url).status_code == 200
 
         crop_response = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
