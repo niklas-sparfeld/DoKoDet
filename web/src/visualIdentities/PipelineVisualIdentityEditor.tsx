@@ -295,10 +295,18 @@ export function PipelineVisualIdentityEditor({
     return () => {
       window.clearTimeout(timer);
       controller.abort();
-      if (retryTimerRef.current !== null)
-        window.clearTimeout(retryTimerRef.current);
     };
   }, [loadGenerated, loadReference, view]);
+
+  useEffect(
+    () => () => {
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const candidates = usesMaintainedIdentities ? items : generatedItems;

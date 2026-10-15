@@ -1341,6 +1341,61 @@ describe("PipelineVisualIdentityEditor", () => {
     expect(screen.getByText("Identity selected: ♥ Dame.")).toBeInTheDocument();
   });
 
+  it("does not cancel a queued identity retry when the generated run changes", async () => {
+    let putAttempts = 0;
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT") {
+        putAttempts += 1;
+        return Promise.resolve(
+          putAttempts === 1
+            ? jsonResponse({ message: "temporary identity failure" }, 503)
+            : jsonResponse(reference("accepted")),
+        );
+      }
+      return Promise.resolve(
+        jsonResponse(
+          String(_input).includes("/pipeline/visual-identities/")
+            ? generatedResult()
+            : reference(),
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    const props = {
+      recordingId: RECORDING_ID,
+      durationUs: 1_000_000,
+      generatedRevisionId: REVISION_ID,
+      generatedRunId: RUN_ID,
+      view: "reviewed" as const,
+    };
+    const { rerender } = render(<PipelineVisualIdentityEditor {...props} />);
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    await user.click(screen.getByRole("button", { name: "♥ Dame" }));
+
+    await waitFor(() => expect(putAttempts).toBe(1));
+    expect(await screen.findByText("retrying")).toBeInTheDocument();
+    rerender(
+      <PipelineVisualIdentityEditor
+        {...props}
+        generatedRunId="identity-run-2"
+      />,
+    );
+
+    await waitFor(() => expect(putAttempts).toBe(2), { timeout: 1_000 });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Complete reference" }),
+      ).toBeDisabled(),
+    );
+    expect(
+      screen.queryByText("Wait for all identity commands to save."),
+    ).not.toBeInTheDocument();
+  });
+
   it("replays queued decisions on a delayed save response", async () => {
     let resolveFirst!: (value: Response) => void;
     let resolveSecond!: (value: Response) => void;
