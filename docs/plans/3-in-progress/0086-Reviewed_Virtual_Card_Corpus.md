@@ -24,8 +24,8 @@
   refresh. Twenty recordings published current proposals; two retain explicit calibration failures.
 - **M4:** Complete (2026-10-14) — 20 current-schema references qualify. `IMG_0092` is permanently
   excluded; `IMG_0096` is deferred for calibration repair. The active scope has no review gaps.
-- **M5:** Not started — use 0093 to complete all-class visual review, including FACE_DOWN, and
-  publish the separate 0088 handoff.
+- **M5:** In progress (2026-10-15) — complete visual review for the no-NINE recording pool,
+  including FACE_DOWN, and publish the separate 0088 handoff.
 
 ## 1. Current evidence and scope
 
@@ -332,9 +332,10 @@ Use completed reviewed geometry and
 and pending annotation items without requiring a successful classifier prediction. Consume the
 `reviewed-visual-identity-materialization/v1` manifest for class, recording, back-design, duplicate,
 and exclusion support. Existing model
-suggestions remain optional review evidence. An operator confirms or corrects all 24 face-up
-identities, positive FACE_DOWN classifications, unusable outcomes, and source problems. A missing
-identity prediction must not prevent annotation. Publish a separate 0088 handoff with exact
+suggestions remain optional review evidence. An operator confirms or corrects the 20 face-up
+identities in the no-NINE recording pool, positive FACE_DOWN classifications, unusable outcomes,
+and source problems. NINE labels are outside this corpus because the players do not use those cards.
+A missing identity prediction must not prevent annotation. Publish a separate 0088 handoff with exact
 reference revisions, source groups, class counts, geometry and identity exclusions, recipe versions,
 and campaign-specific gaps. Include reviewed pile counts, footprint policy, grouping provenance,
 and explicit pile-review coverage. Piles have no identity work. This milestone does not gate 0087.

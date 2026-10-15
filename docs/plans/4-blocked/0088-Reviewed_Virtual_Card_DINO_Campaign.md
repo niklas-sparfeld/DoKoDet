@@ -63,9 +63,13 @@ capabilities and runs the measured campaign. It does not implement them during l
 
 ## 2. Readiness, authority, and splits
 
-Use completed reviewed individual-card geometry and human visual classifications. Include all
-24 face-up identities and FACE_DOWN where the back is positively visible. Do not retain the
-PoC's hard-coded NINE exclusions. UNKNOWN and identity-unusable evidence are not positive classes.
+Use completed reviewed individual-card geometry and human visual classifications. The current
+recording pool uses a deck without NINE cards. Train and evaluate 20 face-up identities plus
+FACE_DOWN, for 21 positive visual classes. The operator confirmed on 2026-10-15 that NINE samples
+will not exist in this pool for years. Do not require, synthesize, or claim NINE support in this
+campaign. Keep NINE in the game card vocabulary; any future NINE-capable classifier needs a
+separately versioned data and model decision. UNKNOWN and identity-unusable evidence are not
+positive classes.
 Piles and consumed member proposals have no individual identity crops or targets; use the
 [0091 handoff](../../reports/0091-Pile_Region_Capability_Handoff.md).
 
@@ -162,7 +166,7 @@ Audit the 0086, 0093, and 0094 receipts, class/group support, prior evaluation u
 and local resource feasibility. Freeze data partitions, targets, candidate ladder, conditional gates,
 Gemini recipe/cost cap, seed rules, fit budgets, quality gates, and exact CLI commands.
 
-Acceptance: deterministic readiness report and immutable recipe; all 25 positive-class requirements
+Acceptance: deterministic readiness report and immutable recipe; all 21 positive-class requirements
 are explicit; protected data is excluded; insufficient support is a named blocker. No fitting or
 final-test predictions occur. This milestone does not guarantee that a quality target will pass.
 
@@ -181,7 +185,7 @@ Run or reuse the bounded Gemini development comparison and retained PoC predicti
 compatible input contracts. Report unsupported PoC classes, failures, input differences, and cost.
 Produce the initial human-labeled confusion and error examples.
 
-Acceptance: paired rows reproduce; labels are independent of predictions; all 25-class coverage
+Acceptance: paired rows reproduce; labels are independent of predictions; all 21-class coverage
 and provider failures are explicit; the final test remains unopened.
 
 ### M3 — Train the fresh 224-pixel control
