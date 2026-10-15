@@ -763,6 +763,15 @@ class VisualIdentityPipelineService:
         if not isinstance(revision.content, VisibleCardData):
             raise VisualIdentityPipelineInputError("The selected crop input is unavailable.")
         try:
+            supplied = (
+                None if requested is None else VisualIdentityCropInput.from_mapping(requested)
+            )
+            if supplied is not None:
+                if requested_kind is not None and requested_kind != supplied.input_kind:
+                    raise VisualIdentityCropInputError(
+                        "the selected input kind does not match its crop-input descriptor"
+                    )
+                requested_kind = supplied.input_kind
             source_view_bytes = canonical_visible_card_data_bytes(revision.content)
             source_view_digest = sha256_bytes(source_view_bytes)
             if source_view_digest != revision.manifest.content_sha256:
@@ -841,12 +850,10 @@ class VisualIdentityPipelineService:
                     items=tuple(items),
                 )
                 input_value = VisualIdentityCropInput.from_mapping(input_value.to_mapping())
-                if requested is not None:
-                    supplied = VisualIdentityCropInput.from_mapping(requested)
-                    if supplied.to_mapping() != input_value.to_mapping():
-                        raise VisualIdentityCropInputError(
-                            "the selected crop-input descriptor does not match its source revision"
-                        )
+                if supplied is not None and supplied.to_mapping() != input_value.to_mapping():
+                    raise VisualIdentityCropInputError(
+                        "the selected crop-input descriptor does not match its source revision"
+                    )
                 return input_value
 
             if kind == "reviewed_virtual_card":
@@ -891,12 +898,10 @@ class VisualIdentityPipelineService:
                     virtual_card_lineage=lineage,
                 )
                 input_value = VisualIdentityCropInput.from_mapping(input_value.to_mapping())
-                if requested is not None:
-                    supplied = VisualIdentityCropInput.from_mapping(requested)
-                    if supplied.to_mapping() != input_value.to_mapping():
-                        raise VisualIdentityCropInputError(
-                            "the selected crop-input descriptor does not match its source revision"
-                        )
+                if supplied is not None and supplied.to_mapping() != input_value.to_mapping():
+                    raise VisualIdentityCropInputError(
+                        "the selected crop-input descriptor does not match its source revision"
+                    )
                 return input_value
 
             if kind not in {"gemini_polygon", "rfdetr_segment"}:
@@ -935,12 +940,10 @@ class VisualIdentityPipelineService:
                 items=tuple(items),
             )
             input_value = VisualIdentityCropInput.from_mapping(input_value.to_mapping())
-            if requested is not None:
-                supplied = VisualIdentityCropInput.from_mapping(requested)
-                if supplied.to_mapping() != input_value.to_mapping():
-                    raise VisualIdentityCropInputError(
-                        "the selected crop-input descriptor does not match its source revision"
-                    )
+            if supplied is not None and supplied.to_mapping() != input_value.to_mapping():
+                raise VisualIdentityCropInputError(
+                    "the selected crop-input descriptor does not match its source revision"
+                )
             return input_value
         except (VisualIdentityCropInputError, PipelineNotFound, TypeError, ValueError) as error:
             raise VisualIdentityPipelineInputError(

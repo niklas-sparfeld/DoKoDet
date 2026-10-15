@@ -1153,6 +1153,22 @@ def test_visual_identity_accepts_typed_card_scene_draft_views(tmp_path: Any) -> 
     assert frozen.items[0].geometry.to_mapping() == region["geometry"]
     assert frozen.virtual_card_lineage is not None
     assert frozen.virtual_card_lineage.derived_visible_region_digest
+    visible_input = service._freeze_crop_input(
+        RECORDING_ID,
+        stored,
+        source=source,
+        requested_kind="reviewed_visible_card",
+        require_current_reference=True,
+    )
+    assert (
+        service._freeze_crop_input(
+            RECORDING_ID,
+            stored,
+            source=source,
+            requested=visible_input.to_mapping(),
+        ).to_mapping()
+        == visible_input.to_mapping()
+    )
     service.reference_store = SimpleNamespace(
         get=lambda _recording_id, _content_type: SimpleNamespace(
             state=SimpleNamespace(
