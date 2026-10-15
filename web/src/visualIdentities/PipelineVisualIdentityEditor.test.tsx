@@ -1666,6 +1666,66 @@ describe("PipelineVisualIdentityEditor", () => {
     await waitFor(() => expect(screen.getByText("saved")).toBeInTheDocument());
   });
 
+  it("sends six rapid accepts with a saved operator under StrictMode", async () => {
+    window.localStorage.setItem("dokodetector.profile.name", "operator-01");
+    const cards = Array.from({ length: 5 }, (_, index) => ({
+      cardId: `card-${index + 2}`,
+      reviewState: "pending" as const,
+      requestedTimeUs: 800_000 + index * 20_000,
+    }));
+    let resolveFirst!: (value: Response) => void;
+    const firstSave = new Promise<Response>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const requests: PutBody[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_input, init) => {
+        if (init?.method !== "PUT")
+          return Promise.resolve(jsonResponse(reference("pending", cards)));
+        requests.push(JSON.parse(String(init.body)) as PutBody);
+        if (requests.length === 1) return firstSave;
+        return Promise.resolve(
+          jsonResponse(
+            reference(
+              "accepted",
+              cards.map((card) => ({
+                ...card,
+                reviewState: "accepted" as const,
+              })),
+              2,
+            ),
+          ),
+        );
+      }),
+    );
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+      { reactStrictMode: true },
+    );
+    await screen.findByRole("heading", { name: CARD_ID });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Accept A" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    for (const card of cards) {
+      await user.click(screen.getByRole("button", { name: /Next card/ }));
+      await screen.findByRole("heading", { name: card.cardId });
+      await user.click(screen.getByRole("button", { name: "Accept A" }));
+    }
+    resolveFirst(jsonResponse(reference("accepted", cards, 1)));
+    await waitFor(() => expect(screen.getByText("saved")).toBeInTheDocument());
+    expect(requests).toHaveLength(2);
+    expect(
+      requests[1]?.operations?.map((operation) => operation.item_id),
+    ).toEqual(cards.map((card) => card.cardId));
+  });
+
   it("keeps completion blocked until the empty prediction is reviewed", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse(reference())),

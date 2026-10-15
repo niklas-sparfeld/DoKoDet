@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from time import monotonic
 from typing import Any, Literal
 
 from fastapi import APIRouter, Request
@@ -9,6 +11,7 @@ from pydantic import Field
 
 from dokodetector_backend.contract import ContractModel
 from dokodetector_backend.errors import APIErrorDetail, ContractError
+from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.pipeline_api_contracts import reference_response, validate_recording_id
 from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceConflict,
@@ -26,6 +29,7 @@ from dokodetector_backend.visual_identity_pipeline_service import (
 )
 
 router = APIRouter()
+LOGGER = logging.getLogger(__name__)
 REFERENCE_BASE = "/api/recordings/{recording_id}/pipeline/references/{content_type}"
 REFERENCE_STAGE_BASE = "/api/recordings/{recording_id}/pipeline/{content_type}/reference"
 
@@ -259,6 +263,16 @@ def update_reference_draft(
     """Apply conflict-safe review operations to the current reference draft."""
 
     validate_recording_id(recording_id)
+    started = monotonic()
+    command_id = payload.get("command_id")
+    log_event(
+        LOGGER,
+        logging.INFO,
+        "pipeline_reference_save_received",
+        recording_id=recording_id,
+        content_type=content_type,
+        command_id=command_id,
+    )
     try:
         reference = _reference_service(request).update_draft(recording_id, content_type, payload)
     except PipelineReferenceConflict as error:
@@ -279,6 +293,16 @@ def update_reference_draft(
         raise ContractError("invalid_reference_edit", str(error), status_code=422) from error
     except PipelineReferenceError as error:
         raise ContractError("reference_unavailable", str(error), status_code=503) from error
+    log_event(
+        LOGGER,
+        logging.INFO,
+        "pipeline_reference_save_persisted",
+        recording_id=recording_id,
+        content_type=content_type,
+        command_id=command_id,
+        draft_revision=reference.draft.revision,
+        elapsed_ms=round((monotonic() - started) * 1000, 1),
+    )
     return reference_response(reference)
 
 
