@@ -434,7 +434,10 @@ class VisualIdentityPipelineService:
         bundle = self.recording_store.get_metadata(recording_id)
         if bundle is None:
             raise PipelineNotFound(f"The recording was not found: {recording_id}")
-        revision = self._require_identity_revision(recording_id, revision_id)
+        revision_cache: dict[str, StoredPipelineRevision] = {}
+        revision = self._require_identity_revision(
+            recording_id, revision_id, revision_cache=revision_cache
+        )
         source = revision.manifest.source
         if (
             source.recording_id != recording_id
@@ -445,7 +448,7 @@ class VisualIdentityPipelineService:
                 "The selected visual identity revision does not match the accepted recording video."
             )
         outcome = self._require_identity_outcome(revision, item_id)
-        self._validate_crop_input_provenance(revision, outcome)
+        self._validate_crop_input_provenance(revision, outcome, revision_cache=revision_cache)
         crop = outcome.crop_identity
         if crop is None or crop.status != "usable" or crop.image_sha256 is None:
             raise DerivedViewError("The identity crop is unavailable.")
@@ -582,6 +585,7 @@ class VisualIdentityPipelineService:
         outcome: VisualIdentityOutcome,
         *,
         source: RecordingVideoSource | None = None,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> VisualIdentityCropInput:
         """Reject a stored crop whose run, source item, or manifest lineage has changed."""
 
@@ -589,7 +593,10 @@ class VisualIdentityPipelineService:
         run_id = getattr(output_revision.manifest.producer, "run_id", None)
         if provenance is None or not isinstance(run_id, str):
             raise DerivedViewError("the identity crop input provenance is unavailable")
-        run = self.run_store.require(run_id)
+        if revision_cache is None:
+            revision_cache = {}
+        revision_cache[output_revision.manifest.revision_id] = output_revision
+        run = self.run_store.require(run_id, revision_cache=revision_cache)
         if run.request.crop_input is None or len(run.request.input_revision_ids) != 1:
             raise DerivedViewError("the identity crop input manifest is unavailable")
         accepted_source = source
@@ -597,12 +604,15 @@ class VisualIdentityPipelineService:
             _, accepted_source = self._accepted_source(run.request.source.recording_id)
         if accepted_source != run.request.source:
             raise DerivedViewError("the identity crop input source changed")
-        input_revision = self.revision_store.require(run.request.input_revision_ids[0])
+        input_revision = self.revision_store.require(
+            run.request.input_revision_ids[0], revision_cache=revision_cache
+        )
         frozen_input = self._freeze_crop_input(
             run.request.source.recording_id,
             input_revision,
             source=accepted_source,
             requested=run.request.crop_input,
+            revision_cache=revision_cache,
         )
         item = self._identity_crop_item_for_outcome(frozen_input, outcome)
         expected = self._crop_input_provenance(frozen_input, item)
@@ -807,6 +817,7 @@ class VisualIdentityPipelineService:
         requested: Any = None,
         requested_kind: Any = None,
         require_current_reference: bool = False,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> VisualIdentityCropInput:
         """Resolve one exact generated or reviewed revision into its crop-input manifest."""
 
@@ -828,7 +839,9 @@ class VisualIdentityPipelineService:
                 raise VisualIdentityCropInputError("the selected source view changed")
             producer = revision.manifest.producer
             if isinstance(producer, ProcessorProducer):
-                producer_run = self.run_store.require(producer.run_id)
+                producer_run = self.run_store.require(
+                    producer.run_id, revision_cache=revision_cache
+                )
                 provider = str(producer_run.request.configuration.get("provider", "gemini"))
                 source_kind = "rfdetr_segment" if "rfdetr" in provider.lower() else "gemini_polygon"
             elif isinstance(producer, HumanProducer):
@@ -1761,8 +1774,9 @@ class VisualIdentityPipelineService:
         revision_id: str,
         *,
         source: RecordingVideoSource | None = None,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> StoredPipelineRevision:
-        revision = self.revision_store.require(revision_id)
+        revision = self.revision_store.require(revision_id, revision_cache=revision_cache)
         if (
             revision.manifest.recording_id != recording_id
             or revision.manifest.content_type != "visual_identities"

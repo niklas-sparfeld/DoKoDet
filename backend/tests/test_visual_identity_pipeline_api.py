@@ -591,8 +591,10 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             source_patch.setattr(
                 service.run_store,
                 "require",
-                lambda run_id: (
-                    rfdetr_run if run_id == "visible-generated" else original_require(run_id)
+                lambda run_id, **kwargs: (
+                    rfdetr_run
+                    if run_id == "visible-generated"
+                    else original_require(run_id, **kwargs)
                 ),
             )
             rfdetr_input = service._freeze_crop_input(
@@ -630,12 +632,22 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
 
         with monkeypatch.context() as cached_patch:
             cached_patch.setattr(service, "resolve_identity_crop", fail_if_canonical_resolution)
+            revision_reads: list[str] = []
+            read_revision = service.revision_store._read_path
+
+            def track_revision_read(path: Any, **kwargs: Any) -> Any:
+                revision_reads.append(path.name)
+                return read_revision(path, **kwargs)
+
+            cached_patch.setattr(service.revision_store, "_read_path", track_revision_read)
             cached_only_preview = client.get(
                 f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
                 f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
             )
         assert cached_only_preview.status_code == 200, cached_only_preview.text
         assert cached_only_preview.headers["content-type"] == "image/jpeg"
+        assert revision_reads
+        assert len(revision_reads) == len(set(revision_reads))
 
         crop_response = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
