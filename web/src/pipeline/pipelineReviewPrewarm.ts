@@ -45,6 +45,7 @@ type PendingWarm = symbol;
 type PrewarmQueue = {
   warmedUrls: Set<string>;
   pendingUrls: Map<string, PendingWarm>;
+  activeControllers: Map<string, AbortController>;
   queuedUrls: string[];
   queuedUrlSet: Set<string>;
   activeRequests: number;
@@ -59,10 +60,20 @@ export function usePipelineReviewPrewarm<Item>(
   const queueRef = useRef<PrewarmQueue>({
     warmedUrls: new Set<string>(),
     pendingUrls: new Map<string, PendingWarm>(),
+    activeControllers: new Map<string, AbortController>(),
     queuedUrls: [],
     queuedUrlSet: new Set<string>(),
     activeRequests: 0,
   });
+
+  useEffect(() => {
+    const queue = queueRef.current;
+    return () => {
+      for (const controller of queue.activeControllers.values()) {
+        controller.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const queue = queueRef.current;
@@ -80,7 +91,6 @@ export function usePipelineReviewPrewarm<Item>(
     enqueuePrewarmUrls(urls, queue);
 
     return () => {
-      // Active requests are left alone because the server may still be processing them.
       dropQueuedPrewarmUrls(queue);
     };
   }, [getUrls, items, resetKey, selectedIndex]);
@@ -126,11 +136,16 @@ function pumpPrewarmQueue(queue: PrewarmQueue): void {
     if (queue.warmedUrls.has(url) || queue.pendingUrls.has(url)) continue;
 
     const pendingToken = Symbol(url);
+    const controller = new AbortController();
     queue.pendingUrls.set(url, pendingToken);
+    queue.activeControllers.set(url, controller);
     queue.activeRequests += 1;
-    void prewarmUrl(url, queue, pendingToken).finally(() => {
+    void prewarmUrl(url, queue, pendingToken, controller.signal).finally(() => {
       if (queue.pendingUrls.get(url) === pendingToken) {
         queue.pendingUrls.delete(url);
+      }
+      if (queue.activeControllers.get(url) === controller) {
+        queue.activeControllers.delete(url);
       }
       queue.activeRequests -= 1;
       pumpPrewarmQueue(queue);
@@ -142,9 +157,10 @@ async function prewarmUrl(
   url: string,
   queue: PrewarmQueue,
   pendingToken: PendingWarm,
+  signal: AbortSignal,
 ): Promise<void> {
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal });
     await response.arrayBuffer();
     if (response.ok && queue.pendingUrls.get(url) === pendingToken) {
       rememberWarmedUrl(url, queue.warmedUrls);

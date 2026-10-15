@@ -16,6 +16,7 @@ from dokodetector_backend.logging_config import configure_logging, log_event
 
 LOGGER = logging.getLogger(__name__)
 GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS = 30
+MAX_CONCURRENT_HTTP_REQUESTS = 40
 
 
 def run() -> None:
@@ -64,6 +65,7 @@ def run() -> None:
             factory=True,
             host=settings.server_host,
             port=settings.server_port,
+            limit_concurrency=MAX_CONCURRENT_HTTP_REQUESTS,
             timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS,
         )
 

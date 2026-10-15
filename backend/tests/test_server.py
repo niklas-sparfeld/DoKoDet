@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from dokodetector_backend import server
 
 
-def test_run_sets_a_bounded_graceful_shutdown_timeout(monkeypatch) -> None:
+def test_run_limits_http_concurrency_and_bounds_graceful_shutdown(monkeypatch) -> None:
     settings = SimpleNamespace(
         bonjour_address=None,
         bonjour_enabled=False,
@@ -23,4 +23,5 @@ def test_run_sets_a_bounded_graceful_shutdown_timeout(monkeypatch) -> None:
 
     server.run()
 
+    assert call["limit_concurrency"] == server.MAX_CONCURRENT_HTTP_REQUESTS
     assert call["timeout_graceful_shutdown"] == server.GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS

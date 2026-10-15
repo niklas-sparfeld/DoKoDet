@@ -131,4 +131,33 @@ describe("usePipelineReviewPrewarm", () => {
       ),
     ).toHaveLength(1);
   });
+
+  it("aborts active prewarm requests when the review unmounts", async () => {
+    const signals: AbortSignal[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      const signal = init?.signal;
+      if (signal === undefined || signal === null) {
+        throw new Error("prewarm request did not have an abort signal");
+      }
+      signals.push(signal);
+      return new Promise<Response>((_resolve, reject) => {
+        signal.addEventListener(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    const { unmount } = renderHook(() =>
+      usePipelineReviewPrewarm([0, 1, 2, 3], 0, (item) => [`/frame/${item}`]),
+    );
+
+    await waitFor(() => expect(fetchImplementation).toHaveBeenCalledTimes(2));
+    unmount();
+
+    expect(signals).toHaveLength(2);
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+  });
 });
