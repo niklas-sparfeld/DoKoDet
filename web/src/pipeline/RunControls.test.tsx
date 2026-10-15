@@ -247,6 +247,54 @@ describe("RunControls", () => {
     expect(await screen.findByText(message)).toBeInTheDocument();
   });
 
+  it("explains how to continue when the local identity bundle is obsolete", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "invalid_pipeline_request",
+              message:
+                "The local visible-card identity classifier could not start: the configured DINOv3 bundle uses an obsolete uncalibrated smoke format; export a current calibrated 25-class bundle",
+              details: [],
+            },
+          }),
+          { status: 422, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const visible = stage("visible_cards", {
+      selected_generated_revision_id: "visible-generated",
+      input_options: [
+        {
+          ...option("visible-generated"),
+          content_type: "visible_cards",
+          producer: { kind: "processor", run_id: "gemini-run" },
+        },
+      ],
+    });
+    const identities = stage("visual_identities");
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={identities}
+        stages={[visible, identities]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+
+    expect(
+      await screen.findByText(
+        /Select Cloud to continue, or configure a current Local bundle/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("opens the stored CardEventNet probability chart", async () => {
     const response = runResponse(
       "events-run-1",

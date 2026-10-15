@@ -422,6 +422,16 @@ def export_dinov3_identity_bundle(
 
 
 def _validate_manifest(manifest: Mapping[str, Any]) -> None:
+    head = manifest.get("head")
+    if (
+        manifest.get("schema_version") == "dinov3-identity-bundle/v2"
+        and isinstance(head, Mapping)
+        and head.get("schema_version") == "dinov3-identity-linear-head/v1"
+    ):
+        raise DinoV3BundleError(
+            "the configured DINOv3 bundle uses an obsolete uncalibrated smoke format; "
+            "export a current calibrated 25-class bundle"
+        )
     required = {
         "schema_version",
         "component",

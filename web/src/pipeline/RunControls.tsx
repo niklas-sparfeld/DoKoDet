@@ -937,6 +937,9 @@ function describeRunError(reason: unknown): string {
   if (backendMessage?.toLowerCase().includes("checkpoint")) {
     return backendMessage;
   }
+  if (backendMessage?.includes("obsolete uncalibrated smoke format")) {
+    return `${backendMessage}. Select Cloud to continue, or configure a current Local bundle.`;
+  }
   if (
     backendMessage?.toLowerCase().includes("video") ||
     backendMessage?.toLowerCase().includes("recording")

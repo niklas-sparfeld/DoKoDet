@@ -157,6 +157,21 @@ def _rewrite_manifest(bundle_path: Path) -> None:
     manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
 
 
+def test_obsolete_smoke_bundle_has_actionable_error(tmp_path: Path) -> None:
+    (tmp_path / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "dinov3-identity-bundle/v2",
+                "head": {"schema_version": "dinov3-identity-linear-head/v1"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(DinoV3BundleError, match="obsolete uncalibrated smoke format"):
+        load_dinov3_identity_bundle(tmp_path)
+
+
 @pytest.mark.parametrize("input_size", [224, 384, 448])
 def test_exported_bundle_is_self_contained_and_runtime_classifier_is_deterministic(
     tmp_path: Path, input_size: int
