@@ -632,14 +632,7 @@ class VisualIdentityPipelineService:
     ) -> ResolvedCrop:
         """Resolve one saved annotation crop against its reviewed geometry and digest."""
 
-        _, source = self._accepted_source(recording_id)
-        revision = self.revision_store.require(visible_revision_id)
-        crop_input = self._freeze_crop_input(
-            recording_id,
-            revision,
-            source=source,
-            requested_kind="reviewed_visible_card",
-        )
+        revision, crop_input = self._reviewed_crop_input_context(recording_id, visible_revision_id)
         item = next((value for value in crop_input.items if value.card_id == item_id), None)
         if item is None or outcome.get("card_id") != item_id:
             raise DerivedViewError("the reviewed identity item is unavailable")
@@ -648,6 +641,9 @@ class VisualIdentityPipelineService:
             or outcome.get("geometry") != item.geometry.to_mapping()
         ):
             raise DerivedViewError("the reviewed identity geometry changed")
+        source = revision.manifest.source
+        if not isinstance(source, RecordingVideoSource):
+            raise DerivedViewError("the reviewed visible-card source is unavailable")
         crop_identity = outcome.get("crop_identity")
         if not isinstance(crop_identity, Mapping) or crop_identity.get("status") != "usable":
             raise DerivedViewError("the reviewed identity crop is unavailable")
@@ -672,6 +668,70 @@ class VisualIdentityPipelineService:
         if _pipeline_crop_identity_mapping(crop) != crop_identity:
             raise DerivedViewError("the reviewed identity crop changed")
         return crop
+
+    def _reviewed_crop_input_context(
+        self, recording_id: str, visible_revision_id: str
+    ) -> tuple[StoredPipelineRevision, VisualIdentityCropInput]:
+        """Reuse reviewed geometry validation while all source files remain unchanged."""
+
+        context_id = f"reviewed:{recording_id}:{visible_revision_id}"
+        with self._crop_context_lock:
+            context = self._crop_contexts.get(context_id)
+            if context is not None:
+                try:
+                    unchanged = _crop_dependency_fingerprint(context.roots) == context.fingerprint
+                except OSError:
+                    unchanged = False
+                if (
+                    unchanged
+                    and context.revision.manifest.recording_id == recording_id
+                    and context.crop_input.input_kind == "reviewed_visible_card"
+                ):
+                    self._crop_contexts.move_to_end(context_id)
+                    return context.revision, context.crop_input
+                self._crop_contexts.pop(context_id)
+
+            validation_started_ns = time.time_ns()
+            _, source = self._accepted_source(recording_id)
+            revision_cache: dict[str, StoredPipelineRevision] = {}
+            revision = self.revision_store.require(
+                visible_revision_id,
+                revision_cache=revision_cache,
+            )
+            if (
+                revision.manifest.recording_id != recording_id
+                or revision.manifest.content_type != "visible_cards"
+                or not isinstance(revision.content, VisibleCardData)
+            ):
+                raise DerivedViewError("the reviewed visible-card revision is unavailable")
+            crop_input = self._freeze_crop_input(
+                recording_id,
+                revision,
+                source=source,
+                requested_kind="reviewed_visible_card",
+                revision_cache=revision_cache,
+            )
+
+            roots = {self.repository_storage.bundle_path(recording_id)}
+            for dependency_id, dependency in revision_cache.items():
+                roots.add(self.revision_store.revision_path(dependency_id))
+                if isinstance(dependency.manifest.producer, ProcessorProducer):
+                    roots.add(self.run_store.run_path(dependency.manifest.producer.run_id))
+            dependency_roots = tuple(sorted(roots))
+            try:
+                fingerprint = _crop_dependency_fingerprint(dependency_roots)
+            except OSError:
+                fingerprint = ()
+            if fingerprint and all(entry[-1] < validation_started_ns for entry in fingerprint):
+                self._crop_contexts[context_id] = _ValidatedCropContext(
+                    revision,
+                    crop_input,
+                    dependency_roots,
+                    fingerprint,
+                )
+                while len(self._crop_contexts) > 8:
+                    self._crop_contexts.popitem(last=False)
+            return revision, crop_input
 
     def resolve_identity_crop(
         self, recording_id: str, revision_id: str, item_id: str
