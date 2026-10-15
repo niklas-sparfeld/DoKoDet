@@ -448,6 +448,61 @@ describe("PipelineVisualIdentityEditor", () => {
     );
   });
 
+  it("refreshes a generated identity draft from reviewed visible cards", async () => {
+    const user = userEvent.setup();
+    let current = reference("accepted", [], 1, REVISION_ID);
+    const requests: Array<Record<string, unknown>> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input, init) => {
+        const path = String(input);
+        if (path.endsWith("/pipeline/references/visual_identities/draft")) {
+          requests.push(JSON.parse(String(init?.body)));
+          current = annotationReference(false, "visible-revision-1");
+          return Promise.resolve(jsonResponse(current));
+        }
+        if (path.endsWith("/pipeline/references/visual_identities"))
+          return Promise.resolve(jsonResponse(current));
+        return Promise.resolve(jsonResponse(generatedResult()));
+      }),
+    );
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        selectedVisibleCardRevisionId="visible-revision-1"
+        selectedVisibleCardRevisionDigest={"e".repeat(64)}
+        view="reviewed"
+      />,
+    );
+
+    const refreshButton = await screen.findByRole("button", {
+      name: "Refresh from selected reviewed cards",
+    });
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    await waitFor(() => expect(refreshButton).toBeEnabled());
+    await user.click(refreshButton);
+    await waitFor(() => expect(requests).toHaveLength(1));
+
+    expect(requests[0].operations).toEqual([
+      {
+        operation: "rebase_annotation_source",
+        annotation_source: {
+          visible_card_revision_id: "visible-revision-1",
+          visible_card_revision_digest: "e".repeat(64),
+        },
+      },
+    ]);
+    expect(
+      await screen.findByText(
+        "Review refreshed from reviewed visible cards. Inspect changed geometry and crops before completing the review.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("refreshes changed reviewed geometry and keeps missing crops actionable", async () => {
     const user = userEvent.setup();
     const requests: Array<Record<string, unknown>> = [];

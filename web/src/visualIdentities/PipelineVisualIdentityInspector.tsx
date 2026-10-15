@@ -87,6 +87,7 @@ export type IdentityInspectorProps = {
   autoApprove: () => Promise<void>;
   createReference: () => Promise<void>;
   rebaseReference: () => Promise<void>;
+  refreshFromVisibleCards: () => Promise<void>;
   switchToGenerated: () => Promise<void>;
   completeReference: () => Promise<void>;
   retryQueuedCommands: () => void;
@@ -272,6 +273,31 @@ function IdentityInspectorAction(props: IdentityInspectorProps) {
       ) : null}
       {props.reference.draft.annotation_source == null ? (
         <>
+          {props.selectedVisibleCardRevisionId !== null &&
+          props.selectedVisibleCardRevisionDigest !== null ? (
+            <>
+              <p className={styles.pipelineInspectorEmpty}>
+                The selected reviewed visible-card reference may include cards
+                that are missing from this identity draft, including manual
+                cards. Refresh the draft to add them for review.
+              </p>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={() => void props.refreshFromVisibleCards()}
+                disabled={
+                  props.rebasingReference ||
+                  props.queueLength > 0 ||
+                  props.saveState !== "saved" ||
+                  props.operatorId.trim() === ""
+                }
+              >
+                {props.rebasingReference
+                  ? "Refreshing reviewed cards…"
+                  : "Refresh from selected reviewed cards"}
+              </button>
+            </>
+          ) : null}
           <button
             className={styles.secondaryButton}
             type="button"

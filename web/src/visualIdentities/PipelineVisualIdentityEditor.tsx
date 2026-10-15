@@ -771,7 +771,7 @@ export function PipelineVisualIdentityEditor({
   ]);
 
   const rebaseReference = useCallback(
-    async (target: "current" | "generated" = "current") => {
+    async (target: "current" | "generated" | "visible_cards" = "current") => {
       const current = referenceRef.current;
       const sourceRevisionId = selectedGeneratedSourceRevisionId;
       const annotationSource =
@@ -796,12 +796,22 @@ export function PipelineVisualIdentityEditor({
         current.draft.revision === 0 &&
         sourceRevisionId !== null &&
         current.draft.items.every((item) => item.review_state === "pending");
+      const canRefreshFromVisibleCards =
+        target === "visible_cards" &&
+        current !== null &&
+        annotationSource !== null &&
+        !annotationSourceUnchanged;
+      const shouldRebaseAnnotationSource =
+        canRefreshFromVisibleCards ||
+        (isAnnotationReview && !canSwitchToGenerated);
       if (
         current === null ||
         (target === "generated" && !canSwitchToGenerated) ||
-        (isAnnotationReview
+        (target === "visible_cards" && !canRefreshFromVisibleCards) ||
+        (shouldRebaseAnnotationSource
           ? !canSwitchToGenerated &&
-            (annotationSource === null || annotationSourceUnchanged)
+            (annotationSource === null ||
+              (isAnnotationReview && annotationSourceUnchanged))
           : sourceRevisionId === null ||
             current.draft.source_revision_id === sourceRevisionId) ||
         operatorId.trim() === "" ||
@@ -824,7 +834,8 @@ export function PipelineVisualIdentityEditor({
             operator_id: operatorId.trim(),
             command_id: nextCommandId(),
             operations: [
-              isAnnotationReview && !canSwitchToGenerated
+              shouldRebaseAnnotationSource &&
+              (target === "visible_cards" || !canSwitchToGenerated)
                 ? {
                     operation: "rebase_annotation_source",
                     annotation_source: annotationSource!,
@@ -839,7 +850,8 @@ export function PipelineVisualIdentityEditor({
         hydrateReference(rebased, false);
         setSaveState("saved");
         setNotice(
-          isAnnotationReview && !canSwitchToGenerated
+          shouldRebaseAnnotationSource &&
+            (target === "visible_cards" || !canSwitchToGenerated)
             ? "Review refreshed from reviewed visible cards. Inspect changed geometry and crops before completing the review."
             : "Review switched to the selected generated result. Inspect the crops before completing the review.",
         );
@@ -1236,6 +1248,7 @@ export function PipelineVisualIdentityEditor({
       autoApprove={autoApprove}
       createReference={createReference}
       rebaseReference={rebaseReference}
+      refreshFromVisibleCards={() => rebaseReference("visible_cards")}
       switchToGenerated={() => rebaseReference("generated")}
       completeReference={completeReference}
       retryQueuedCommands={retryQueuedCommands}
