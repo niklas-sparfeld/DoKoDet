@@ -1034,9 +1034,18 @@ class ProcessorRunStore:
             self._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
 
         runs: list[StoredProcessorRun] = []
+        # Run requests are canonical JSON and the recording identity must appear as
+        # a literal recording_id value. Most requests belong to other recordings;
+        # skip their expensive recursive contract validation unless this marker is
+        # present. A false positive is harmless because the parsed request below is
+        # still checked against the requested recording.
+        recording_marker = f'"recording_id":"{recording_id}"'.encode("ascii")
         for path in enumeration.paths:
             try:
-                request = parse_processor_run_request_bytes((path / "request.json").read_bytes())
+                request_bytes = (path / "request.json").read_bytes()
+                if recording_marker not in request_bytes:
+                    continue
+                request = parse_processor_run_request_bytes(request_bytes)
                 if request.source.recording_id != recording_id:
                     continue
                 runs.append(
@@ -1049,6 +1058,8 @@ class ProcessorRunStore:
                             or request.processor_type in include_items_for_processor_types
                         ),
                         validate_output_revisions=validate_output_revisions,
+                        parsed_request=request,
+                        request_bytes=request_bytes,
                     )
                 )
             except (OSError, TypeError, UnicodeError, ValueError) as error:
@@ -1491,6 +1502,8 @@ class ProcessorRunStore:
         validate_output_lineage: bool = True,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
         include_items: bool = True,
+        parsed_request: ProcessorRunRequest | None = None,
+        request_bytes: bytes | None = None,
     ) -> StoredProcessorRun:
         if path.is_symlink() or not path.is_dir():
             raise OSError("processor run directory is unavailable")
@@ -1510,12 +1523,22 @@ class ProcessorRunStore:
         )
         if not legacy_layout and not split_layout:
             raise ValueError("processor run has an unsupported file layout")
-        request_bytes = (path / "request.json").read_bytes()
+        if request_bytes is None:
+            request_bytes = (path / "request.json").read_bytes()
         state_bytes = (path / "state.json").read_bytes()
-        request = parse_processor_run_request_bytes(request_bytes)
+        request = parsed_request or parse_processor_run_request_bytes(request_bytes)
+        # Parsing the request has already validated every nested JSON value. Avoid
+        # walking large crop-input arrays a second time just to verify canonical bytes.
+        canonical_request_bytes = json.dumps(
+            request.to_mapping(),
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
         _strict_json_file(
             request_bytes,
-            canonical_processor_run_request_bytes(request),
+            canonical_request_bytes,
             "processor run request",
         )
         if legacy_layout:

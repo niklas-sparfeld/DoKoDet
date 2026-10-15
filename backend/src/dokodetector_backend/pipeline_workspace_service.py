@@ -580,11 +580,22 @@ class RecordingPipelineWorkspaceService:
     @staticmethod
     def _run_summary(run: StoredProcessorRun) -> dict[str, Any]:
         state = run.state
+        request = run.request.to_mapping()
+        crop_input = request.get("crop_input")
+        if isinstance(crop_input, dict):
+            crop_input = dict(crop_input)
+            items = crop_input.pop("items", None)
+            if isinstance(items, list):
+                crop_input["item_count"] = len(items)
+            request["crop_input"] = crop_input
         return {
             "run_id": run.run_id,
             "status": state.status,
             "attempt": state.attempt,
-            "request": run.request.to_mapping(),
+            # Crop input items can make an immutable request hundreds of kilobytes.
+            # Workspace history only needs their count; the run detail endpoint keeps
+            # the complete request available when a caller needs its full lineage.
+            "request": request,
             "state": state.to_mapping(),
             "input_revision_ids": list(run.request.input_revision_ids),
             "implementation": run.request.implementation.to_mapping(),

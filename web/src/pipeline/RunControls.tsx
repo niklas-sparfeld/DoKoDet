@@ -880,7 +880,12 @@ function describeCropInputRun(request: Record<string, unknown>): string {
   const cropInput = readObject(request.crop_input);
   const kind = readString(cropInput?.input_kind);
   const sourceRevisionId = readString(cropInput?.source_revision_id);
-  const items = Array.isArray(cropInput?.items) ? cropInput.items.length : null;
+  const items =
+    typeof cropInput?.item_count === "number"
+      ? cropInput.item_count
+      : Array.isArray(cropInput?.items)
+        ? cropInput.items.length
+        : null;
   const policy = readString(readObject(request.crop_policy)?.policy_id);
   const kindLabel =
     kind === "gemini_polygon" ||
