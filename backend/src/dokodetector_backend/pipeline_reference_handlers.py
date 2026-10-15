@@ -2460,14 +2460,39 @@ class VisualIdentityReferenceHandler(ReferenceContentHandler):
         visible = self._selected_revision(recording_id, "visible_cards")
         if visible is None:
             return {item.item_id for item in items}
-        card_ids = {
-            candidate.get("card_id")
-            for item in visible.content.to_mapping()["outcomes"]
-            if item.get("status") == "detected"
-            for candidate in item.get("candidates", [])
-            if isinstance(candidate, Mapping) and isinstance(candidate.get("card_id"), str)
+        identity_source_keys = {
+            json.dumps(
+                [item.item.get("frame_identity"), item.item.get("geometry")],
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            for item in items
         }
-        return {str(card_id) for card_id in card_ids} | {item.item_id for item in items}
+        candidate_counts: dict[str, int] = {}
+        matched_counts: dict[str, int] = {}
+        for outcome in visible.content.to_mapping()["outcomes"]:
+            if outcome.get("status") != "detected":
+                continue
+            for candidate in outcome.get("candidates", []):
+                if not isinstance(candidate, Mapping) or not isinstance(
+                    candidate.get("card_id"), str
+                ):
+                    continue
+                card_id = candidate["card_id"]
+                candidate_counts[card_id] = candidate_counts.get(card_id, 0) + 1
+                source_key = json.dumps(
+                    [outcome.get("frame_identity"), candidate.get("geometry")],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                if source_key in identity_source_keys:
+                    matched_counts[card_id] = matched_counts.get(card_id, 0) + 1
+        missing_identity_ids = {
+            card_id
+            for card_id, count in candidate_counts.items()
+            if matched_counts.get(card_id, 0) < count
+        }
+        return missing_identity_ids | {item.item_id for item in items}
 
     @staticmethod
     def _identity_coverage_state(item: Mapping[str, Any], state: str) -> bool:

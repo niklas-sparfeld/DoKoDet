@@ -908,6 +908,51 @@ def test_identity_coverage_reports_manual_upstream_card_without_crashing(
     ]
 
 
+def test_identity_coverage_uses_frame_scoped_result_for_manual_upstream_card(
+    tmp_path: Path,
+) -> None:
+    service, _ = _service(tmp_path)
+    handler = service._handlers["visual_identities"]
+    frame_identity = {"frame_index": 2671}
+    geometry = {"kind": "fixture-geometry"}
+    handler._selected_revision = lambda recording_id, content_type: SimpleNamespace(
+        content=SimpleNamespace(
+            to_mapping=lambda: {
+                "outcomes": [
+                    {
+                        "status": "detected",
+                        "frame_identity": frame_identity,
+                        "candidates": [{"card_id": "manual-card-1", "geometry": geometry}],
+                    }
+                ]
+            }
+        )
+    )
+    identity_item = SimpleNamespace(
+        item_id="manual-card-1-frame-2671-abc123",
+        item={
+            "frame_identity": frame_identity,
+            "geometry": geometry,
+            "status": "classified",
+            "candidates": [{"identity": "CLUBS_NINE"}],
+        },
+        review_state="accepted",
+    )
+
+    coverage = handler.validate_coverage(
+        {
+            "cards": [
+                {"card_id": identity_item.item_id, "decision": "identity"},
+            ],
+        },
+        (identity_item,),
+        SOURCE,
+        SOURCE.recording_id,
+    )
+
+    assert coverage["cards"] == [{"card_id": identity_item.item_id, "decision": "identity"}]
+
+
 def test_visible_card_frame_commands_keep_source_identity_and_record_outcomes(
     tmp_path: Path,
 ) -> None:
