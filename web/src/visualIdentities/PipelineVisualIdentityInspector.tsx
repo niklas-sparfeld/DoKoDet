@@ -408,6 +408,10 @@ function IdentityInspectorSelection(props: IdentityInspectorProps) {
           <dd>
             {item === null
               ? "None"
+              : item.proposal
+                ? item.outcome.status === "face_down"
+                  ? "Proposal · Face down"
+                  : `Proposal · ${formatCardIdentity(item.outcome.candidates[0]?.identity ?? "")}`
               : item.outcome.annotation_provenance !== null &&
                   item.outcome.annotation_provenance !== undefined &&
                   (item.reviewState === "pending" ||

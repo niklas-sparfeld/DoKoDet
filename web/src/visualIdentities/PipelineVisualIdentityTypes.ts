@@ -75,6 +75,7 @@ export type EditableIdentity = {
   baseItemId: string | null;
   reviewState: IdentityReviewState;
   outcome: IdentityOutcome;
+  proposal?: boolean;
 };
 
 export type SaveState = "saved" | "saving" | "retrying" | "error" | "conflict";

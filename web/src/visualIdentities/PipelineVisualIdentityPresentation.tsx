@@ -508,6 +508,20 @@ export function IdentityCardList({
 }
 
 function CardRailIdentity({ item }: { item: EditableIdentity }) {
+  if (item.proposal) {
+    return (
+      <>
+        <span className={identityStyles.cardRailSymbol}>
+          {item.outcome.status === "face_down" ? "▣" : "?"}
+        </span>
+        <strong>
+          {item.outcome.status === "face_down"
+            ? "Face-down proposal"
+            : formatCardIdentity(item.outcome.candidates[0]?.identity ?? "")}
+        </strong>
+      </>
+    );
+  }
   if (
     item.outcome.annotation_provenance != null &&
     (item.reviewState === "pending" || item.reviewState === "affected") &&

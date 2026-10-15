@@ -107,6 +107,9 @@ export function PipelineVisualIdentityEditor({
   );
   const [items, setItems] = useState<EditableIdentity[]>([]);
   const [generatedItems, setGeneratedItems] = useState<EditableIdentity[]>([]);
+  const [generatedInputRevisionIds, setGeneratedInputRevisionIds] = useState<
+    string[]
+  >([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [loading, setLoading] = useState(view === "reviewed");
   const [generatedLoading, setGeneratedLoading] = useState(false);
@@ -233,9 +236,11 @@ export function PipelineVisualIdentityEditor({
     async (signal?: AbortSignal) => {
       if (generatedRunId === null || generatedSourceRevisionId === null) {
         setGeneratedItems([]);
+        setGeneratedInputRevisionIds([]);
         setGeneratedLoading(false);
         return;
       }
+      setGeneratedInputRevisionIds([]);
       setGeneratedLoading(true);
       try {
         const result = await client.getVisualIdentityResult(
@@ -244,12 +249,19 @@ export function PipelineVisualIdentityEditor({
           { signal },
         );
         if (!signal?.aborted) {
+          setGeneratedInputRevisionIds(
+            readStringList(result.request.input_revision_ids),
+          );
           setGeneratedItems(
             readItemsFromResult(result, generatedSourceRevisionId),
           );
         }
       } catch (reason: unknown) {
-        if (!signal?.aborted) setError(describeError(reason));
+        if (!signal?.aborted) {
+          setGeneratedItems([]);
+          setGeneratedInputRevisionIds([]);
+          setError(describeError(reason));
+        }
       } finally {
         if (!signal?.aborted) setGeneratedLoading(false);
       }
@@ -505,6 +517,47 @@ export function PipelineVisualIdentityEditor({
         item.outcome.status !== "face_down"
       )
         return;
+      if (item.proposal && item.outcome.status === "face_down") {
+        applyReviewState(
+          item,
+          { operation: "set_identity_face_down", item_id: item.itemId },
+          "Model face-down proposal accepted.",
+          (outcome) => ({
+            ...outcome,
+            status: "face_down",
+            candidates: [],
+            unusable_reason: null,
+            error: null,
+          }),
+          "face_down",
+        );
+        return;
+      }
+      const proposalIdentity = item.proposal
+        ? item.outcome.candidates[0]?.identity
+        : null;
+      if (proposalIdentity !== null && proposalIdentity !== undefined) {
+        applyReviewState(
+          item,
+          {
+            operation: "select_identity",
+            item_id: item.itemId,
+            identity: proposalIdentity,
+          },
+          `Model proposal accepted: ${formatCardIdentity(proposalIdentity)}.`,
+          (outcome) => ({
+            ...outcome,
+            status: "classified",
+            candidates: [
+              { identity: proposalIdentity, score: null, score_meaning: null },
+            ],
+            unusable_reason: null,
+            error: null,
+          }),
+          acceptedState(item),
+        );
+        return;
+      }
       applyReviewState(
         item,
         { operation: "accept_identity_suggestion", item_id: item.itemId },
@@ -1116,7 +1169,55 @@ export function PipelineVisualIdentityEditor({
     );
   }, [generatedItems, items, onRailItemsChange, usesMaintainedIdentities]);
 
-  const activeItems = usesMaintainedIdentities ? items : generatedItems;
+  const reviewedItemsWithProposals = useMemo(() => {
+    const annotationSource = reference?.draft.annotation_source;
+    if (
+      !usesMaintainedIdentities ||
+      annotationSource === undefined ||
+      annotationSource === null ||
+      selectedVisibleCardRevisionId === null ||
+      selectedVisibleCardRevisionDigest === null ||
+      annotationSource.visible_card_revision_id !==
+        selectedVisibleCardRevisionId ||
+      annotationSource.visible_card_revision_digest !==
+        selectedVisibleCardRevisionDigest ||
+      !generatedInputRevisionIds.includes(selectedVisibleCardRevisionId)
+    ) {
+      return items;
+    }
+
+    const proposalsById = new Map(
+      generatedItems.map((item) => [item.itemId, item]),
+    );
+    return items.map((item) => {
+      if (item.reviewState !== "pending" && item.reviewState !== "affected")
+        return item;
+      const proposal = proposalsById.get(item.itemId);
+      if (!canUseGeneratedProposal(item, proposal)) return item;
+      return {
+        ...item,
+        proposal: true,
+        outcome: {
+          ...item.outcome,
+          status: proposal.outcome.status,
+          candidates: proposal.outcome.candidates,
+          unusable_reason: proposal.outcome.unusable_reason,
+          error: null,
+        },
+      };
+    });
+  }, [
+    generatedInputRevisionIds,
+    generatedItems,
+    items,
+    reference,
+    selectedVisibleCardRevisionDigest,
+    selectedVisibleCardRevisionId,
+    usesMaintainedIdentities,
+  ]);
+  const activeItems = usesMaintainedIdentities
+    ? reviewedItemsWithProposals
+    : generatedItems;
   const activeItem =
     activeItems.find((item) => item.itemId === selectedItemId) ??
     activeItems[0] ??
@@ -1595,6 +1696,59 @@ function readItemsFromResult(
         };
   });
   return items.filter((item): item is EditableIdentity => item !== null);
+}
+
+function canUseGeneratedProposal(
+  reviewed: EditableIdentity,
+  proposal: EditableIdentity | undefined,
+): proposal is EditableIdentity {
+  if (
+    proposal === undefined ||
+    proposal.itemId !== reviewed.itemId ||
+    !sameJson(proposal.outcome.frame_identity, reviewed.outcome.frame_identity) ||
+    !sameJson(proposal.outcome.geometry, reviewed.outcome.geometry)
+  ) {
+    return false;
+  }
+  const reviewedCrop = reviewed.outcome.crop_identity;
+  const proposalCrop = proposal.outcome.crop_identity;
+  if (
+    reviewedCrop?.status !== "usable" ||
+    proposalCrop?.status !== "usable" ||
+    reviewedCrop.image_sha256 === null ||
+    reviewedCrop.image_sha256 !== proposalCrop.image_sha256 ||
+    reviewedCrop.crop_policy !== proposalCrop.crop_policy ||
+    reviewedCrop.output_encoding !== proposalCrop.output_encoding
+  ) {
+    return false;
+  }
+  return (
+    (proposal.outcome.status === "classified" &&
+      proposal.outcome.candidates.length > 0) ||
+    proposal.outcome.status === "face_down"
+  );
+}
+
+function sameJson(left: unknown, right: unknown): boolean {
+  return stableJson(left) === stableJson(right);
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value))
+    return `[${value.map(stableJson).join(",")}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "undefined";
+}
+
+function readStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function readOutcome(value: unknown): IdentityOutcome | null {
