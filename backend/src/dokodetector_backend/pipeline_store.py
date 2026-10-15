@@ -413,6 +413,7 @@ class PipelineRevisionStore:
         revision_id: str,
         *,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        validate_lineage: bool = True,
     ) -> StoredPipelineRevision | None:
         if revision_cache is not None:
             cached = revision_cache.get(revision_id)
@@ -423,7 +424,11 @@ class PipelineRevisionStore:
         except (TypeError, ValueError):
             return None
         try:
-            revision = self._read_path(path, revision_cache=revision_cache)
+            revision = self._read_path(
+                path,
+                revision_cache=revision_cache,
+                validate_lineage=validate_lineage,
+            )
             if revision_cache is not None:
                 revision_cache[revision_id] = revision
             return revision
@@ -437,8 +442,13 @@ class PipelineRevisionStore:
         revision_id: str,
         *,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        validate_lineage: bool = True,
     ) -> StoredPipelineRevision:
-        revision = self.get(revision_id, revision_cache=revision_cache)
+        revision = self.get(
+            revision_id,
+            revision_cache=revision_cache,
+            validate_lineage=validate_lineage,
+        )
         if revision is None:
             raise PipelineNotFound(f"The pipeline revision was not found: {revision_id}")
         return revision
@@ -888,6 +898,7 @@ class PipelineRevisionStore:
         *,
         require_canonical_name: bool = True,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        validate_lineage: bool = True,
     ) -> StoredPipelineRevision:
         if path.is_symlink() or not path.is_dir():
             raise OSError("pipeline revision directory is unavailable")
@@ -919,7 +930,8 @@ class PipelineRevisionStore:
             self._canonical_content_bytes(content, allow_legacy=True),
             "revision content",
         )
-        self._validate_lineage(manifest, revision_cache=revision_cache)
+        if validate_lineage:
+            self._validate_lineage(manifest, revision_cache=revision_cache)
         if require_canonical_name and manifest.revision_id != path.name:
             raise ValueError("revision ID differs from its directory name")
         self._validate_content(manifest, content, allow_legacy=True)
@@ -954,6 +966,7 @@ class ProcessorRunStore:
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
         include_items: bool = True,
         validate_output_revisions: bool = True,
+        validate_output_lineage: bool = True,
     ) -> StoredProcessorRun | None:
         try:
             path = self.run_path(run_id)
@@ -965,6 +978,7 @@ class ProcessorRunStore:
                 revision_cache=revision_cache,
                 include_items=include_items,
                 validate_output_revisions=validate_output_revisions,
+                validate_output_lineage=validate_output_lineage,
             )
         except (OSError, TypeError, UnicodeError, ValueError) as error:
             if path.exists() or path.is_symlink():
@@ -978,12 +992,14 @@ class ProcessorRunStore:
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
         include_items: bool = True,
         validate_output_revisions: bool = True,
+        validate_output_lineage: bool = True,
     ) -> StoredProcessorRun:
         run = self.get(
             run_id,
             revision_cache=revision_cache,
             include_items=include_items,
             validate_output_revisions=validate_output_revisions,
+            validate_output_lineage=validate_output_lineage,
         )
         if run is None:
             raise PipelineNotFound(f"The processor run was not found: {run_id}")
@@ -1472,6 +1488,7 @@ class ProcessorRunStore:
         *,
         require_canonical_name: bool = True,
         validate_output_revisions: bool = True,
+        validate_output_lineage: bool = True,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
         include_items: bool = True,
     ) -> StoredProcessorRun:
@@ -1541,7 +1558,12 @@ class ProcessorRunStore:
         if require_canonical_name and request.run_id != path.name:
             raise ValueError("run ID differs from its directory name")
         if validate_output_revisions:
-            self._validate_output_revisions(request, state, revision_cache=revision_cache)
+            self._validate_output_revisions(
+                request,
+                state,
+                revision_cache=revision_cache,
+                validate_lineage=validate_output_lineage,
+            )
         return StoredProcessorRun(request=request, state=state)
 
     def _read_split_metadata(
@@ -1638,11 +1660,16 @@ class ProcessorRunStore:
         state: ProcessorRunState,
         *,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        validate_lineage: bool = True,
     ) -> None:
         if not state.output_revision_ids:
             return
         for revision_id in state.output_revision_ids:
-            revision = self.revision_store.get(revision_id, revision_cache=revision_cache)
+            revision = self.revision_store.get(
+                revision_id,
+                revision_cache=revision_cache,
+                validate_lineage=validate_lineage,
+            )
             if revision is None:
                 raise PipelineStateError(f"run output revision is not published: {revision_id}")
             manifest = revision.manifest

@@ -862,8 +862,12 @@ def get_visual_identity_result(recording_id: str, run_id: str, request: Request)
         raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
     except VisualIdentityPipelineError as error:
         raise ContractError("pipeline_result_unavailable", str(error), status_code=409) from error
+    response = run_response(run)
+    # The result revision carries the classifier outcomes. Avoid returning the duplicate
+    # per-item run state from this endpoint.
+    response["state"].pop("items", None)
     return {
-        **run_response(run),
+        **response,
         "revisions": [revision.to_mapping() for revision in revisions],
     }
 

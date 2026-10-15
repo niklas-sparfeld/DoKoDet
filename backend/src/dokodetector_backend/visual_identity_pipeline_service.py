@@ -252,14 +252,34 @@ class VisualIdentityPipelineService:
             self._futures[run.run_id] = self._executor.submit(self._execute, run.run_id)
         return running
 
-    def get_run(self, recording_id: str, run_id: str) -> StoredProcessorRun:
-        run = self.run_store.require(run_id)
+    def get_run(
+        self,
+        recording_id: str,
+        run_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        include_items: bool = True,
+        validate_output_lineage: bool = True,
+    ) -> StoredProcessorRun:
+        run = self.run_store.require(
+            run_id,
+            revision_cache=revision_cache,
+            include_items=include_items,
+            validate_output_lineage=validate_output_lineage,
+        )
         self._require_recording(run.request, recording_id)
         with self._lock:
             future = self._futures.get(run_id)
         if run.state.status == "complete" and future is not None and not future.done():
             future.result()
-            run = self.run_store.require(run_id)
+            if revision_cache is not None:
+                revision_cache.clear()
+            run = self.run_store.require(
+                run_id,
+                revision_cache=revision_cache,
+                include_items=include_items,
+                validate_output_lineage=validate_output_lineage,
+            )
         return run
 
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
@@ -457,9 +477,25 @@ class VisualIdentityPipelineService:
     def get_result(
         self, recording_id: str, run_id: str
     ) -> tuple[StoredProcessorRun, tuple[StoredPipelineRevision, ...]]:
-        run = self.get_run(recording_id, run_id)
+        # The revision is the canonical result payload. Do not load the run's duplicate
+        # per-item outcomes or revalidate immutable ancestor payloads on every result read.
+        # The run store still checks the output manifest against this request, and the
+        # revision store validates the output content and its digest.
+        revision_cache: dict[str, StoredPipelineRevision] = {}
+        run = self.get_run(
+            recording_id,
+            run_id,
+            revision_cache=revision_cache,
+            include_items=False,
+            validate_output_lineage=False,
+        )
         revisions = tuple(
-            self.revision_store.require(item) for item in run.state.output_revision_ids
+            self.revision_store.require(
+                item,
+                revision_cache=revision_cache,
+                validate_lineage=False,
+            )
+            for item in run.state.output_revision_ids
         )
         return run, revisions
 
