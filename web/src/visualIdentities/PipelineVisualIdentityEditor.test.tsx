@@ -271,6 +271,82 @@ describe("PipelineVisualIdentityEditor", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses the proposed card's suit symbol in the card rail", () => {
+    render(
+      <IdentityCardList
+        items={[
+          {
+            itemId: CARD_ID,
+            baseItemId: null,
+            reviewState: "pending",
+            proposal: true,
+            outcome: outcome([
+              { identity: "CLUBS_KING", score: 0.8 },
+            ]) as IdentityOutcome,
+          },
+        ]}
+        selectedItemId={CARD_ID}
+        onSelect={() => {}}
+      />,
+    );
+    const cardRail = within(
+      screen.getByRole("region", { name: "Identity cards" }),
+    );
+    expect(cardRail.getByText("♣")).toBeInTheDocument();
+    expect(cardRail.queryByText("?")).not.toBeInTheDocument();
+    expect(cardRail.getByText("König")).toBeInTheDocument();
+  });
+
+  it("shows a matched proposal as a card and accepts it with the A shortcut", async () => {
+    const requests: PutBody[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input, init) => {
+        const path = String(input);
+        if (init?.method === "PUT") {
+          requests.push(JSON.parse(String(init.body)) as PutBody);
+          return Promise.resolve(
+            jsonResponse(annotationReference(false, "visible-revision-1")),
+          );
+        }
+        if (path.includes("/pipeline/references/visual_identities"))
+          return Promise.resolve(jsonResponse(annotationReference()));
+        const result = generatedResult([
+          { identity: "CLUBS_KING", score: 0.8 },
+        ]);
+        result.request = { input_revision_ids: ["visible-revision-1"] };
+        return Promise.resolve(jsonResponse(result));
+      }),
+    );
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        selectedVisibleCardRevisionId="visible-revision-1"
+        selectedVisibleCardRevisionDigest={"e".repeat(64)}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByText("Proposal · ♣ König");
+    await userEvent
+      .setup()
+      .type(screen.getByLabelText("Operator ID"), "operator-01");
+    fireEvent.keyDown(window, { key: "a" });
+
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]?.operations).toEqual([
+      {
+        operation: "select_identity",
+        item_id: CARD_ID,
+        identity: "CLUBS_KING",
+      },
+    ]);
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     window.history.pushState({}, "", "/");

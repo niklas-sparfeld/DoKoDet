@@ -1151,12 +1151,6 @@ export function PipelineVisualIdentityEditor({
   ]);
 
   useEffect(() => {
-    navigationItemsRef.current = usesMaintainedIdentities
-      ? items
-      : generatedItems;
-  }, [generatedItems, items, usesMaintainedIdentities]);
-
-  useEffect(() => {
     const source = usesMaintainedIdentities ? items : generatedItems;
     onRailItemsChange?.(
       source.map((item, index) => ({
@@ -1218,6 +1212,9 @@ export function PipelineVisualIdentityEditor({
   const activeItems = usesMaintainedIdentities
     ? reviewedItemsWithProposals
     : generatedItems;
+  useEffect(() => {
+    navigationItemsRef.current = activeItems;
+  }, [activeItems]);
   const activeItem =
     activeItems.find((item) => item.itemId === selectedItemId) ??
     activeItems[0] ??
@@ -1709,7 +1706,10 @@ function canUseGeneratedProposal(
   if (
     proposal === undefined ||
     proposal.itemId !== reviewed.itemId ||
-    !sameJson(proposal.outcome.frame_identity, reviewed.outcome.frame_identity) ||
+    !sameJson(
+      proposal.outcome.frame_identity,
+      reviewed.outcome.frame_identity,
+    ) ||
     !sameJson(proposal.outcome.geometry, reviewed.outcome.geometry)
   ) {
     return false;
@@ -1738,8 +1738,7 @@ function sameJson(left: unknown, right: unknown): boolean {
 }
 
 function stableJson(value: unknown): string {
-  if (Array.isArray(value))
-    return `[${value.map(stableJson).join(",")}]`;
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (isRecord(value)) {
     return `{${Object.keys(value)
       .sort()

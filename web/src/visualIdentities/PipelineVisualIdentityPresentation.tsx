@@ -39,17 +39,21 @@ export function visualIdentityReviewPrewarmUrls(
   const cropUrl =
     crop?.status !== "usable" || crop.image_sha256 === null
       ? null
-        : item.proposal && sourceRevisionId !== null
-          ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
-          : item.outcome.annotation_provenance != null
-        ? pipelineReviewedIdentityCropPath(
-            recordingId,
-            item.itemId,
-            crop.image_sha256,
-          )
-        : sourceRevisionId !== null
-          ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
-          : null;
+      : item.proposal && sourceRevisionId !== null
+        ? pipelineIdentityCropPath(recordingId, sourceRevisionId, item.itemId)
+        : item.outcome.annotation_provenance != null
+          ? pipelineReviewedIdentityCropPath(
+              recordingId,
+              item.itemId,
+              crop.image_sha256,
+            )
+          : sourceRevisionId !== null
+            ? pipelineIdentityCropPath(
+                recordingId,
+                sourceRevisionId,
+                item.itemId,
+              )
+            : null;
   return cropUrl === null ? [frameUrl] : [frameUrl, cropUrl];
 }
 
@@ -511,16 +515,33 @@ export function IdentityCardList({
 
 function CardRailIdentity({ item }: { item: EditableIdentity }) {
   if (item.proposal) {
+    if (item.outcome.status === "face_down") {
+      return (
+        <>
+          <span className={identityStyles.cardRailSymbol}>▣</span>
+          <strong>Face-down proposal</strong>
+        </>
+      );
+    }
+    const identity = item.outcome.candidates[0]?.identity;
+    if (identity !== undefined) {
+      const [symbol, ...rank] = formatCardIdentity(identity).split(" ");
+      return (
+        <>
+          <span
+            className={`${identityStyles.cardSymbol} ${identityStyles.cardRailSymbol}`}
+            data-suit={identity.split("_", 1)[0]?.toLowerCase()}
+          >
+            {symbol}
+          </span>
+          <strong>{rank.join(" ")}</strong>
+        </>
+      );
+    }
     return (
       <>
-        <span className={identityStyles.cardRailSymbol}>
-          {item.outcome.status === "face_down" ? "▣" : "?"}
-        </span>
-        <strong>
-          {item.outcome.status === "face_down"
-            ? "Face-down proposal"
-            : formatCardIdentity(item.outcome.candidates[0]?.identity ?? "")}
-        </strong>
+        <span className={identityStyles.cardRailSymbol}>!</span>
+        <strong>Invalid proposal</strong>
       </>
     );
   }
