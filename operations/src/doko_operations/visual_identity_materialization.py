@@ -37,6 +37,55 @@ def _reject(reason: str) -> dict[str, Any]:
     return {"reason": reason}
 
 
+def _is_saved_human_decision(
+    revision: Mapping[str, Any], outcome: Mapping[str, Any] | None
+) -> bool:
+    """Check the selected revision receipt and the outcome's persisted human marker."""
+
+    receipt = revision.get("manifest")
+    producer = receipt.get("producer") if isinstance(receipt, Mapping) else None
+    if not isinstance(outcome, Mapping):
+        return False
+    classifier = outcome.get("classifier")
+    if (
+        not isinstance(receipt, Mapping)
+        or not isinstance(producer, Mapping)
+        or not isinstance(classifier, Mapping)
+        or receipt.get("revision_id") != revision.get("revision_id")
+        or receipt.get("content_sha256") != revision.get("content_digest")
+    ):
+        return False
+    if (
+        receipt.get("origin") not in {"human", "corrected"}
+        or producer.get("kind") != "human"
+        or classifier.get("provider") != "human-reference"
+    ):
+        return False
+    model = classifier.get("model")
+    implementation = classifier.get("implementation")
+    if not isinstance(model, Mapping) or not isinstance(implementation, Mapping):
+        return False
+    if (
+        model.get("name") != "human-decision"
+        or model.get("version") != "v1"
+        or implementation.get("name") != "maintained-reference"
+        or implementation.get("version") != "v1"
+    ):
+        return False
+    candidates = outcome.get("candidates")
+    if outcome.get("status") == "face_down":
+        return candidates == []
+    return (
+        outcome.get("status") == "classified"
+        and isinstance(candidates, list)
+        and len(candidates) == 1
+        and isinstance(candidates[0], Mapping)
+        and candidates[0].get("producer_id") == "human-reference.v1"
+        and candidates[0].get("score") is None
+        and candidates[0].get("score_meaning") is None
+    )
+
+
 def materialize_reviewed_visual_identity_crops(
     recordings: Sequence[Mapping[str, Any]],
     output_dir: str | Path,
@@ -159,24 +208,28 @@ def materialize_reviewed_visual_identity_crops(
                 reason = "unreadable_evidence"
             elif identity.get("status") not in {"classified", "face_down"}:
                 reason = "not_a_positive_review"
-            elif identity.get("status") == "face_down" and visible.get("side") != "face_down":
-                reason = "side_not_reviewed_back"
-            elif identity.get("status") == "classified" and visible.get("side") != "face_up":
-                reason = "side_not_reviewed_face"
             provenance = (
                 identity.get("annotation_provenance") if isinstance(identity, Mapping) else None
             )
-            if reason is None and (
-                not isinstance(provenance, Mapping) or identity.get("classifier") is not None
-            ):
+            saved_human_decision = _is_saved_human_decision(
+                identity_revision, identity if isinstance(identity, Mapping) else None
+            )
+            annotation_only_decision = (
+                isinstance(provenance, Mapping) and identity.get("classifier") is None
+            )
+            if reason is None and not (saved_human_decision or annotation_only_decision):
                 reason = "not_human_reviewed"
-            if reason is None and (
-                provenance.get("visible_card_revision_id") != visible_id
-                or provenance.get("visible_card_revision_digest") != visible_digest
-                or provenance.get("visual_identity_revision_id", identity_id) != identity_id
-                or provenance.get("card_id") != card_id
-                or provenance.get("frame_identity") != visible["frame_identity"]
-                or provenance.get("geometry_digest") != _sha256(_canonical(visible["geometry"]))
+            if (
+                reason is None
+                and annotation_only_decision
+                and (
+                    provenance.get("visible_card_revision_id") != visible_id
+                    or provenance.get("visible_card_revision_digest") != visible_digest
+                    or provenance.get("visual_identity_revision_id", identity_id) != identity_id
+                    or provenance.get("card_id") != card_id
+                    or provenance.get("frame_identity") != visible["frame_identity"]
+                    or provenance.get("geometry_digest") != _sha256(_canonical(visible["geometry"]))
+                )
             ):
                 reason = "annotation_lineage_mismatch"
             crop_identity = identity.get("crop_identity") if isinstance(identity, Mapping) else None

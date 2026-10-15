@@ -348,6 +348,31 @@ without changing maintained references. Do not invent an identity for an unusabl
 software work has no dependency on this M5 handoff, and 0094/0088 training does not gate review.
 No training or promotion occurs in this epic.
 
+### M5 crop handoff repair — 2026-10-15
+
+- The materializer now accepts a saved human `classified` or `face_down` decision when the exact
+  card ID, frame identity, geometry, usable `oracle_visible_region` crop, and selected human
+  revision receipt match. A visible-card side value is not required. Processor predictions,
+  unknown outcomes, unusable crops, stale cards, and frame or geometry mismatches remain excluded.
+- The read-only readiness report is
+  [0086 M5 visual-identity readiness](../../reports/0086-M5_Visual_Identity_Readiness.json).
+  It covers the 22 candidate development recordings. It materialized 1,053 positive crops from 9
+  recordings and found support for all 21 required classes: 20 face-up identities plus FACE_DOWN.
+  NINE is not a target in this report; the game card vocabulary is unchanged.
+- The report records selected revision IDs, content and manifest digests, source groups, crop
+  digests, per-recording and per-class support, duplicates, and reason-coded exclusions. Its
+  report digest is `81bcc2ff5be86bcbe267b9826040cf8b5ff600a19a37ad4acd14c41ef2732797`.
+- Human decisions are still required for 103 cards in `IMG_0095`, 127 in `IMG_0653`, and 109 in
+  `IMG_0660`. The report lists the exact card IDs. M5 remains in progress. This crop-support result
+  does not publish the complete 0088 handoff or authorize DINO training or final-test access.
+- Rebuild the report from the repository root with:
+
+  ```sh
+  mise exec -- uv run --project operations python operations/scripts/build_0086_identity_readiness_report.py \
+    --repository-root . --output docs/reports/0086-M5_Visual_Identity_Readiness.json \
+    --crops .runtime/0086-m5/identity-crops
+  ```
+
 ## 4. Handoff and verification
 
 [0087](../5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.

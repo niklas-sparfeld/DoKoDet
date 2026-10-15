@@ -77,6 +77,7 @@ def _recording(
     crop = resolve_visible_region_crop(
         frame, geometry, crop_policy="oracle_visible_region", output_encoding="ppm"
     )
+
     identity = {
         "schema_version": "visual-identity-data/v2",
         "outcomes": [
@@ -134,6 +135,142 @@ def _recording(
         },
         frame,
     )
+
+
+def _save_as_human_review(recording: dict[str, object]) -> None:
+    identity_revision = recording["visual_identity_revision"]
+    outcome = identity_revision["content"]["outcomes"][0]
+    outcome["annotation_provenance"] = None
+    outcome["classifier"] = {
+        "implementation": {"name": "maintained-reference", "version": "v1"},
+        "model": {"name": "human-decision", "version": "v1"},
+        "provider": "human-reference",
+    }
+    if outcome["status"] == "classified":
+        outcome["candidates"] = [
+            {
+                "identity": outcome["candidates"][0]["identity"],
+                "producer_id": "human-reference.v1",
+                "score": None,
+                "score_meaning": None,
+            }
+        ]
+    content = identity_revision["content"]
+    digest = hashlib.sha256(
+        json.dumps(content, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    identity_revision["content_digest"] = digest
+    identity_revision["manifest"] = {
+        "origin": "corrected",
+        "producer": {"kind": "human", "operator_id": "reviewer"},
+        "revision_id": identity_revision["revision_id"],
+        "content_sha256": digest,
+    }
+
+
+def test_materializes_saved_human_classified_decision_without_visible_side_value(
+    tmp_path: Path,
+) -> None:
+    recording, frame = _recording("classified")
+    _save_as_human_review(recording)
+    recording["visible_card_revision"]["content"]["outcomes"][0]["candidates"][0]["side"] = (
+        "unknown"
+    )
+    visible = recording["visible_card_revision"]
+    visible["content_digest"] = hashlib.sha256(
+        json.dumps(
+            visible["content"], ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ).encode()
+    ).hexdigest()
+    identity = recording["visual_identity_revision"]
+    identity["manifest"]["content_sha256"] = identity["content_digest"]
+    identity["content"]["outcomes"][0]["classifier"] = {
+        "implementation": {"name": "maintained-reference", "version": "v1"},
+        "model": {"name": "human-decision", "version": "v1"},
+        "provider": "human-reference",
+    }
+
+    report = materialize_reviewed_visual_identity_crops(
+        [recording], tmp_path / "human-classified", lambda _identity: frame
+    )
+
+    assert [sample["target"] for sample in report["samples"]] == ["HEARTS_QUEEN"]
+
+
+def test_materializes_saved_human_face_down_decision_without_visible_side_value(
+    tmp_path: Path,
+) -> None:
+    recording, frame = _recording("face_down")
+    _save_as_human_review(recording)
+    recording["visible_card_revision"]["content"]["outcomes"][0]["candidates"][0]["side"] = (
+        "face_up"
+    )
+    visible = recording["visible_card_revision"]
+    visible["content_digest"] = hashlib.sha256(
+        json.dumps(
+            visible["content"], ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ).encode()
+    ).hexdigest()
+
+    report = materialize_reviewed_visual_identity_crops(
+        [recording], tmp_path / "human-face-down", lambda _identity: frame
+    )
+
+    assert [sample["target"] for sample in report["samples"]] == ["FACE_DOWN"]
+
+
+def test_rejects_unreviewed_unknown_unusable_and_mismatched_saved_decisions(
+    tmp_path: Path,
+) -> None:
+    records: list[dict[str, object]] = []
+    frame = _frame()
+    for name, status in (
+        ("prediction", "classified"),
+        ("unknown", "unknown"),
+        ("bad-crop", "classified"),
+        ("stale-card", "classified"),
+        ("wrong-frame", "classified"),
+        ("wrong-geometry", "classified"),
+    ):
+        recording, _ = _recording("classified")
+        recording["recording_id"] = name
+        _save_as_human_review(recording)
+        identity = recording["visual_identity_revision"]
+        outcome = identity["content"]["outcomes"][0]
+        if name == "prediction":
+            identity["manifest"]["producer"]["kind"] = "processor"
+            outcome["classifier"]["provider"] = "gemini"
+        elif name == "unknown":
+            outcome["status"] = status
+        elif name == "bad-crop":
+            outcome["crop_identity"]["status"] = "unusable"
+        elif name == "stale-card":
+            outcome["card_id"] = "old-card-id"
+        elif name == "wrong-frame":
+            outcome["frame_identity"] = {"wrong": "frame"}
+        elif name == "wrong-geometry":
+            outcome["geometry"] = _geometry(800)
+        identity["content_digest"] = hashlib.sha256(
+            json.dumps(
+                identity["content"], ensure_ascii=True, sort_keys=True, separators=(",", ":")
+            ).encode()
+        ).hexdigest()
+        identity["manifest"]["content_sha256"] = identity["content_digest"]
+        records.append(recording)
+
+    report = materialize_reviewed_visual_identity_crops(
+        records, tmp_path / "rejected-human-inputs", lambda _identity: frame
+    )
+
+    assert report["samples"] == []
+    assert {item["reason"] for item in report["exclusions"]} >= {
+        "not_human_reviewed",
+        "not_a_positive_review",
+        "unavailable_or_invalid_crop",
+        "no_matching_visible_card",
+        "wrong_frame",
+        "stale_geometry",
+    }
 
 
 def test_materializes_reviewed_back_and_identity_with_masks_and_stable_digests(
