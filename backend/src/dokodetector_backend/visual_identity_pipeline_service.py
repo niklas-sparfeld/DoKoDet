@@ -645,6 +645,16 @@ class VisualIdentityPipelineService:
         revision, outcome = self._validated_identity_crop_outcome(
             recording_id, revision_id, item_id
         )
+        return self._resolve_identity_crop_from_validated(recording_id, revision, outcome)
+
+    def _resolve_identity_crop_from_validated(
+        self,
+        recording_id: str,
+        revision: StoredPipelineRevision,
+        outcome: VisualIdentityOutcome,
+    ) -> ResolvedCrop:
+        """Resolve a crop after its revision lineage and source have been checked."""
+
         source = revision.manifest.source
         crop_identity = self._usable_crop_identity(outcome)
         with self._derived_view_lock:
@@ -735,26 +745,24 @@ class VisualIdentityPipelineService:
         recording_id: str,
         revision_id: str,
         item_id: str,
-        source_crop_sha256: str,
-    ) -> ResolvedCropJpegPreview:
-        """Resolve and cache one browser preview after a digest-only cache miss."""
+    ) -> ResolvedCropJpegPreview | None:
+        """Resolve a browser preview with one lineage validation for the whole request."""
 
-        crop_identity = self.get_identity_crop_identity(recording_id, revision_id, item_id)
-        if (
-            crop_identity is None
-            or crop_identity.status != "usable"
-            or crop_identity.image_sha256 != source_crop_sha256
-        ):
-            raise DerivedViewError("the browser preview does not match the frozen identity crop")
+        revision, outcome = self._validated_identity_crop_outcome(
+            recording_id, revision_id, item_id
+        )
+        crop_identity = self._usable_crop_identity(outcome)
+        if crop_identity.content_type != "image/x-portable-pixmap":
+            return None
         with self._derived_view_lock:
             cached = resolve_crop_jpeg_preview_from_cache(
-                source_crop_sha256,
+                crop_identity.image_sha256,
                 cache=self.storage.derived_views_root,
             )
             if cached is not None:
                 return cached
-            crop = self.resolve_identity_crop(recording_id, revision_id, item_id)
-            if crop.image_sha256 != source_crop_sha256:
+            crop = self._resolve_identity_crop_from_validated(recording_id, revision, outcome)
+            if crop.image_sha256 != crop_identity.image_sha256:
                 raise DerivedViewError("the resolved identity crop changed")
             return resolve_crop_jpeg_preview(
                 crop,

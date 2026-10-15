@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -62,6 +63,10 @@ _CACHE_KEY = re.compile(r"^[0-9a-f]{64}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _GEOMETRY_KINDS = frozenset({"detector-box/v1", "visible-region/v1", "reviewed-visible-region/v1"})
 _EXCLUSION_SOURCES = frozenset({"generated", "reviewed"})
+_SOURCE_VALIDATION_CACHE_LIMIT = 32
+_SOURCE_VALIDATION_CACHE: OrderedDict[tuple[str, str], tuple[int, ...]] = OrderedDict()
+_SOURCE_VALIDATION_CACHE_LOCK = RLock()
+_SOURCE_VALIDATION_KEY_LOCKS = tuple(RLock() for _ in range(64))
 SUPPORTED_CORRUPTION_FAMILIES = frozenset(
     {
         "erosion_missing_boundary_pixels",
@@ -182,18 +187,70 @@ def _validate_source_video(path: Path, source: RecordingVideoSource) -> None:
     if not path.is_file():
         raise DerivedViewSourceError(f"source video does not exist: {path}")
     try:
+        resolved_path = str(path.resolve(strict=True))
         stat = path.stat()
     except OSError as error:
         raise DerivedViewSourceError(f"source video cannot be inspected: {path}") from error
     if stat.st_size != source.byte_length:
         raise DerivedViewSourceError("source video byte length does not match the accepted source")
-    try:
-        with path.open("rb") as handle:
-            digest = hashlib.file_digest(handle, "sha256").hexdigest()
-    except OSError as error:
-        raise DerivedViewSourceError(f"source video cannot be read: {path}") from error
-    if digest != source.video_sha256:
-        raise DerivedViewSourceError("source video digest does not match the accepted source")
+    cache_key = (resolved_path, source.video_sha256)
+    key_lock = _SOURCE_VALIDATION_KEY_LOCKS[hash(cache_key) % len(_SOURCE_VALIDATION_KEY_LOCKS)]
+    with key_lock:
+        try:
+            stat = path.stat()
+            resolved_path = str(path.resolve(strict=True))
+        except OSError as error:
+            raise DerivedViewSourceError(f"source video cannot be inspected: {path}") from error
+        if stat.st_size != source.byte_length:
+            raise DerivedViewSourceError(
+                "source video byte length does not match the accepted source"
+            )
+        cache_key = (resolved_path, source.video_sha256)
+        file_state = _source_file_state(stat)
+        with _SOURCE_VALIDATION_CACHE_LOCK:
+            cached_state = _SOURCE_VALIDATION_CACHE.get(cache_key)
+            if cached_state == file_state:
+                _SOURCE_VALIDATION_CACHE.move_to_end(cache_key)
+                return
+
+        try:
+            with path.open("rb") as handle:
+                opened_state = _source_file_state(os.fstat(handle.fileno()))
+                if opened_state != file_state:
+                    raise DerivedViewSourceError("source video changed while it was inspected")
+                digest = hashlib.file_digest(handle, "sha256").hexdigest()
+                read_state = _source_file_state(os.fstat(handle.fileno()))
+        except DerivedViewSourceError:
+            raise
+        except OSError as error:
+            raise DerivedViewSourceError(f"source video cannot be read: {path}") from error
+        try:
+            current_state = _source_file_state(path.stat())
+            current_path = str(path.resolve(strict=True))
+        except OSError as error:
+            raise DerivedViewSourceError(f"source video cannot be inspected: {path}") from error
+        if read_state != file_state or current_state != file_state or current_path != resolved_path:
+            raise DerivedViewSourceError("source video changed while it was validated")
+        if digest != source.video_sha256:
+            raise DerivedViewSourceError("source video digest does not match the accepted source")
+        with _SOURCE_VALIDATION_CACHE_LOCK:
+            _SOURCE_VALIDATION_CACHE[cache_key] = file_state
+            _SOURCE_VALIDATION_CACHE.move_to_end(cache_key)
+            while len(_SOURCE_VALIDATION_CACHE) > _SOURCE_VALIDATION_CACHE_LIMIT:
+                _SOURCE_VALIDATION_CACHE.popitem(last=False)
+
+
+def _source_file_state(stat: os.stat_result) -> tuple[int, ...]:
+    """Return metadata that changes when a local source file is replaced or edited."""
+
+    return (
+        stat.st_dev,
+        stat.st_ino,
+        stat.st_mode,
+        stat.st_size,
+        stat.st_mtime_ns,
+        stat.st_ctime_ns,
+    )
 
 
 @dataclass(frozen=True, slots=True)

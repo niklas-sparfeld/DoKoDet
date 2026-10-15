@@ -8,7 +8,6 @@ from doko_operations.derived_view import (
     SAMPLED_FRAME_INTERVAL_US,
     DerivedViewError,
     resolve_crop_jpeg_preview,
-    resolve_crop_jpeg_preview_from_cache,
 )
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
@@ -697,32 +696,19 @@ def get_recording_identity_crop(
 
     validate_recording_id(recording_id)
     service = _visual_identity_service(request)
-    crop_identity = None
     if preview == "browser":
         try:
-            crop_identity = service.get_identity_crop_identity(recording_id, revision_id, item_id)
+            browser_preview = service.resolve_identity_crop_browser_preview(
+                recording_id,
+                revision_id,
+                item_id,
+            )
         except PipelineNotFound as error:
             raise ContractError("identity_crop_not_found", str(error), status_code=404) from error
         except (VisualIdentityPipelineInputError, DerivedViewError, OSError, RuntimeError) as error:
             raise ContractError("derived_view_unavailable", str(error), status_code=409) from error
 
-        if crop_identity.content_type == "image/x-portable-pixmap":
-            try:
-                browser_preview = resolve_crop_jpeg_preview_from_cache(
-                    crop_identity.image_sha256,
-                    cache=service.storage.derived_views_root,
-                )
-                if browser_preview is None:
-                    browser_preview = service.resolve_identity_crop_browser_preview(
-                        recording_id,
-                        revision_id,
-                        item_id,
-                        crop_identity.image_sha256,
-                    )
-            except (DerivedViewError, OSError, RuntimeError) as error:
-                raise ContractError(
-                    "derived_view_unavailable", str(error), status_code=409
-                ) from error
+        if browser_preview is not None:
             return Response(
                 content=browser_preview.image_bytes,
                 media_type=browser_preview.content_type,
