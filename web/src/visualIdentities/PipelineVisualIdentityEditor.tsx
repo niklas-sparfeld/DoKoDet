@@ -262,9 +262,11 @@ export function PipelineVisualIdentityEditor({
           { signal },
         );
         if (!signal?.aborted) {
-          hydrateReference(loaded);
-          setSaveState("saved");
-          setError(null);
+          hydrateReference(loaded, true, queueRef.current);
+          if (queueRef.current.length === 0 && !processingRef.current) {
+            setSaveState("saved");
+            setError(null);
+          }
         }
       } catch (reason: unknown) {
         if (!signal?.aborted) {
@@ -300,6 +302,7 @@ export function PipelineVisualIdentityEditor({
 
   useEffect(
     () => () => {
+      processQueueRef.current = null;
       if (retryTimerRef.current !== null) {
         window.clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
@@ -307,6 +310,17 @@ export function PipelineVisualIdentityEditor({
     },
     [],
   );
+
+  useEffect(() => {
+    if (queueLength === 0 && saveState !== "saving" && saveState !== "retrying")
+      return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [queueLength, saveState]);
 
   useEffect(() => {
     const candidates = usesMaintainedIdentities ? items : generatedItems;
@@ -417,10 +431,6 @@ export function PipelineVisualIdentityEditor({
 
   useEffect(() => {
     processQueueRef.current = processQueue;
-    return () => {
-      if (processQueueRef.current === processQueue)
-        processQueueRef.current = null;
-    };
   }, [processQueue]);
 
   const enqueue = useCallback(

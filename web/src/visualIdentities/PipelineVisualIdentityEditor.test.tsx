@@ -1387,6 +1387,9 @@ describe("PipelineVisualIdentityEditor", () => {
 
     await waitFor(() => expect(putAttempts).toBe(2), { timeout: 1_000 });
     await waitFor(() =>
+      expect(screen.getByText("Accepted")).toBeInTheDocument(),
+    );
+    await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Complete reference" }),
       ).toBeDisabled(),
@@ -1394,6 +1397,45 @@ describe("PipelineVisualIdentityEditor", () => {
     expect(
       screen.queryByText("Wait for all identity commands to save."),
     ).not.toBeInTheDocument();
+  });
+
+  it("warns before leaving while identity commands are still queued", async () => {
+    let resolveSave!: (value: Response) => void;
+    const pendingSave = new Promise<Response>((resolve) => {
+      resolveSave = resolve;
+    });
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) =>
+      Promise.resolve(
+        init?.method === "PUT" ? pendingSave : jsonResponse(reference()),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    await user.click(screen.getByRole("button", { name: "♥ Dame" }));
+
+    await waitFor(() => expect(screen.getByText("saving")).toBeInTheDocument());
+    const blockedUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(blockedUnload);
+    expect(blockedUnload.defaultPrevented).toBe(true);
+
+    resolveSave(jsonResponse(reference("accepted")));
+    await waitFor(() => expect(screen.getByText("saved")).toBeInTheDocument());
+    const allowedUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(allowedUnload);
+    expect(allowedUnload.defaultPrevented).toBe(false);
   });
 
   it("replays queued decisions on a delayed save response", async () => {
