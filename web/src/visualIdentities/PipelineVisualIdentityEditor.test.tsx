@@ -244,7 +244,7 @@ function jsonResponse(value: unknown, status = 200) {
 
 type PutBody = {
   expected_revision?: number;
-  operations?: Array<{ operation?: string }>;
+  operations?: Array<{ item_id?: string; operation?: string }>;
 };
 
 describe("PipelineVisualIdentityEditor", () => {
@@ -1597,6 +1597,73 @@ describe("PipelineVisualIdentityEditor", () => {
     expect(
       putBodies[1]?.operations?.map((operation) => operation.operation),
     ).toEqual(["accept_identity_suggestion", "set_identity_unreviewed"]);
+  });
+
+  it("retries the exact save batch when more identity decisions queue", async () => {
+    let resolveFirst!: (value: Response) => void;
+    const firstSave = new Promise<Response>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const pendingCards = ["card-2", "card-3", "card-4"].map(
+      (cardId, index) => ({
+        cardId,
+        reviewState: "pending" as const,
+        requestedTimeUs: 800_000 + index * 50_000,
+      }),
+    );
+    const acceptedCards = pendingCards.map((card) => ({
+      ...card,
+      reviewState: "accepted" as const,
+    }));
+    const putBodies: PutBody[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method !== "PUT") {
+        return Promise.resolve(
+          jsonResponse(reference("pending", pendingCards)),
+        );
+      }
+      putBodies.push(JSON.parse(String(init.body)) as PutBody);
+      if (putBodies.length === 1) return firstSave;
+      return Promise.resolve(
+        putBodies.length === 2
+          ? jsonResponse(reference("accepted", pendingCards, 1))
+          : jsonResponse(reference("accepted", acceptedCards, 2)),
+      );
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisualIdentityEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        view="reviewed"
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /Visual identity review/ });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Operator ID"), "operator-01");
+    fireEvent.keyDown(window, { key: "a" });
+    await waitFor(() => expect(putBodies).toHaveLength(1));
+
+    for (const cardId of ["card-2", "card-3", "card-4"]) {
+      await user.click(screen.getByRole("button", { name: /Next card/ }));
+      await screen.findByRole("heading", { name: cardId });
+      fireEvent.keyDown(window, { key: "a" });
+    }
+
+    resolveFirst(jsonResponse({ message: "temporary identity failure" }, 503));
+    await waitFor(() => expect(putBodies[1]).toBeDefined());
+    expect(putBodies[1]).toEqual(putBodies[0]);
+
+    await waitFor(() => expect(putBodies).toHaveLength(3));
+    expect(putBodies[2]?.expected_revision).toBe(1);
+    expect(
+      putBodies[2]?.operations?.map((operation) => operation.item_id),
+    ).toEqual(["card-2", "card-3", "card-4"]);
+    await waitFor(() => expect(screen.getByText("saved")).toBeInTheDocument());
   });
 
   it("keeps completion blocked until the empty prediction is reviewed", async () => {

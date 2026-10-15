@@ -92,6 +92,11 @@ export function PipelineVisualIdentityEditor({
   const selectedItemIdRef = useRef<string | null>(null);
   const serverRevisionRef = useRef(0);
   const queueRef = useRef<PendingCommand[]>([]);
+  const inFlightBatchRef = useRef<{
+    commands: PendingCommand[];
+    expectedRevision: number;
+    operatorId: string;
+  } | null>(null);
   const processingRef = useRef(false);
   const processQueueRef = useRef<(() => void) | null>(null);
   const retryTimerRef = useRef<number | null>(null);
@@ -367,7 +372,16 @@ export function PipelineVisualIdentityEditor({
       }
       return;
     }
-    const commands = queueRef.current.slice();
+    let batch = inFlightBatchRef.current;
+    if (batch === null) {
+      batch = {
+        commands: queueRef.current.slice(),
+        expectedRevision: serverRevisionRef.current,
+        operatorId: operatorId.trim(),
+      };
+      inFlightBatchRef.current = batch;
+    }
+    const { commands } = batch;
     const command = commands[0];
     const current = referenceRef.current;
     if (current === null) return;
@@ -377,13 +391,14 @@ export function PipelineVisualIdentityEditor({
         recordingId,
         CONTENT_TYPE,
         {
-          expected_revision: serverRevisionRef.current,
-          operator_id: operatorId.trim(),
+          expected_revision: batch.expectedRevision,
+          operator_id: batch.operatorId,
           command_id: command.commandId,
           operations: commands.map((queued) => queued.operation),
         },
       );
       queueRef.current.splice(0, commands.length);
+      inFlightBatchRef.current = null;
       hydrateReference(nextReference, true, queueRef.current);
       setQueueLength(queueRef.current.length);
       setFirstUnappliedCommand(
