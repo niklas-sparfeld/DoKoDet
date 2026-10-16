@@ -34,7 +34,7 @@
 - **M2:** Complete — exact Gemini request-cache receipts cover all 209 reviewed development crops;
   the retained 0043 PoC result is reported with its historical input set and unsupported classes.
   See the [M2 reference report](../../reports/0088-M2_Reference_Comparison.md).
-- **M3:** Not started — train one fresh 224-pixel real-only baseline.
+- **M3:** In Progress — the frozen 224-pixel real-only baseline is training with seed 17.
 - **M4:** Not started — train one matched 384-pixel candidate.
 - **M5:** Not started — run the declared 448-pixel comparison if its entry gate passes.
 - **M6:** Not started — compare CLS plus mean patch features at the selected resolution.
