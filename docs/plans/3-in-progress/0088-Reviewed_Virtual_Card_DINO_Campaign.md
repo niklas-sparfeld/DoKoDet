@@ -18,7 +18,10 @@
   [source verification report](../../reports/0088-M1_Source_Verification.md) confirms that all 20
   source videos match the 0086 handoff and intake receipts byte-for-byte. M1 materialized the
   reviewed and automatic-crop views; see the [M1 report](../../reports/0088-M1_Campaign_Views.md).
-  Keep the final test unopened until M13.
+  Keep the final test unopened until M13. On 2026-10-16, the user added one exploratory
+  synthetic-training comparison based on the 0070 visible-region generator. This changes the
+  optional M8/M9 branch only. It does not change the frozen partitions, real-only evaluation,
+  formal quality gates, or fit caps.
 - **Outcome:** A quality-qualified local model and its exact preprocessing and confidence policy,
   or an explicit report that the useful-model objective remains unmet.
 - **Target architecture:**
@@ -46,10 +49,13 @@
   see the [M6 run record](../../reports/0088-M6_Pooled_Features.md).
 - **M7:** Not required — the frozen candidate clears the selection target, while the independent
   source-group support gate fails. See the [M7 skip record](../../reports/0088-M7_Fine_Tuning_Skip.md).
-- **M8:** Not required — the frozen M0 gate has no declared training-only robustness gap, so no
-  synthetic pool is authorized. See the [M8 skip record](../../reports/0088-M8_Synthetic_Pool_Skip.md).
-- **M9:** Not started — train the one fixed synthetic mixture, or record its skip.
-- **M10:** Not started — verify the two leading recipes with additional seeds.
+- **M8:** Not started — reopen the synthetic branch to build one identity-labeled pool from eligible
+  training-only inputs using 0070's deterministic renderer. The earlier M8 skip records the
+  original frozen-gate decision; this user-directed amendment supersedes it. See the
+  [M8/M9 experiment plan](../../reports/0088-M8_M9_Synthetic_Identity_Experiment.md).
+- **M9:** Not started — run one fixed 1:1 real-plus-synthetic training candidate, or record an
+  asset/lineage skip.
+- **M10:** Not started — compare the two leading eligible recipes with additional seeds.
 - **M11:** Not started — fit and assess the confidence policy on reserved data.
 - **M12:** Not started — export and lock the exact candidate and final evaluation recipe.
 - **M13:** Not started — execute the final test and paired Gemini comparison once.
@@ -147,9 +153,12 @@ top-1 accuracy used by the main gate. Oracle-only success cannot certify automat
 
 ## 4. Bounded candidate ladder
 
-Freeze this sequential ladder at M0. Do not run a Cartesian product of sizes, features, augmentation,
-fine-tuning, and synthetic mixtures. All candidates share the reviewed data and 0094 training
-mechanics. Keep real exposure and checkpoint selection comparable; record extra compute separately.
+M0 froze the sequential ladder. On 2026-10-16, the user explicitly added one exploratory synthetic
+training comparison because local fits are short and even one additional correct crop can help
+annotation. This amendment authorizes only the one M8 pool and one M9 fit below. It does not change
+M0 splits, evaluation data, formal quality gates, or the fit caps. Do not run a Cartesian product of
+sizes, features, fine-tuning, and synthetic mixtures. All candidates use 0094 training mechanics.
+Keep the real exposure and checkpoint-selection rule fixed; report extra synthetic compute.
 
 | Stage | Candidate                                                | Entry and decision                                                                                                                                                                              |
 | ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -158,7 +167,7 @@ mechanics. Keep real exposure and checkpoint selection comparable; record extra 
 | M5    | 448 pixels, otherwise matched                            | Optional if the M0 native-detail and measured resource gates pass. The exact trigger is fixed before fitting.                                                                                   |
 | M6    | CLS plus mean patch features, frozen encoder             | One challenger at the selected size. Averaged grey patches may hurt; retain the control if it does.                                                                                             |
 | M7    | Final two encoder blocks and final normalization adapted | Optional if the best frozen model misses the declared target and independent data and resource gates pass. Freeze optimizer, learning-rate ratio, regularization, stopping and epoch cap at M0. |
-| M9    | One fixed real-plus-synthetic mixture                    | Optional only for an M0-declared support or robustness gap with eligible training-only assets. Use the selected representation; no mixture sweep.                                               |
+| M9    | One fixed 1:1 real-plus-synthetic mixture                 | User-authorized exploratory candidate. Use only eligible training-only identity-labeled contributors through the 0070 renderer. Keep real exposure fixed; no mixture sweep.                         |
 
 M0 must fix numerical fit and wall-time budgets, batch-size fallback rules, seeds, optimizer and
 learning-rate choices. A finite budget is not permission for further undeclared candidates. There
@@ -290,42 +299,63 @@ Neither condition is met, so no encoder fine-tuning fit was started. This is a c
 not a finding that fine-tuning would not help annotation assistance. See the
 [M7 skip record](../../reports/0088-M7_Fine_Tuning_Skip.md).
 
-### M8 — Prepare the conditional synthetic pool
+### M8 — Build the synthetic identity-crop pool
 
-Apply the M0 gate. Use existing compatible rendering to materialize and inspect the one declared
-training-only synthetic pool. Validate card-back contributors, labels, masks and source groups.
-If the assets, renderer capability or declared gap are absent, publish an explicit skip receipt.
-This milestone does not implement a new renderer or train a model.
+Use the 0070 visible-region generator for deterministic cutout placement, compositing, and visible
+masks. Add only the small adapter needed to turn rendered instances into DINO identity crops. Join
+each source cutout to a reviewed 0088 training identity through exact source asset, frame, item, and
+crop lineage. Do not infer a class from the 0070 `visible_card` segmentation label. Reject any
+contributor or background outside the frozen 0088 training groups. Keep validation and final-test
+pixels, labels, geometry, and source groups out of pool creation.
 
-Acceptance: immutable inspected pool and exact contributor/crop lineage, or a precise skip reason;
-all evaluation remains real; no synthetic support claim for absent reviewed classes.
+Render one deterministic synthetic appearance per eligible reviewed training crop. This keeps the
+pool size bounded by the reviewed real training set. Preserve the source identity label and
+visible-support mask. Use an eligible 0088 training background when one is available; otherwise use
+a fixed neutral canvas with no source pixels. The renderer may vary placement, scale, and the
+existing 0070 appearance effects. Keep the original real crop in the pool. Use only card sides and
+identities with exact reviewed training contributors. Synthetic copies retain their original source
+group and do not add class support or independent groups. `FACE_DOWN` may be augmented only from an
+eligible reviewed training example; copies cannot repair support floors or qualify back-design
+generalization. Inspect a contact sheet and label/mask overlays before freezing the pool.
 
-**Result:** Not required under the frozen M0 gate. M0 permits a synthetic pool only when a measured
-training-only robustness gap and eligible training-only contributors are declared before M8. No such
-gap was declared. M6's one additional correct selection crop is a useful signal for annotation
-assistance, but it does not identify a training-only robustness gap. The accepted low `FACE_DOWN`
-sample count limits quality claims; it does not authorize synthetic samples or synthetic support
-claims. No synthetic assets were materialized or inspected, and no renderer or training code changed.
-See the [M8 skip record](../../reports/0088-M8_Synthetic_Pool_Skip.md).
+Acceptance: one immutable pool with exact source and rendered-crop lineage, deterministic output
+digests, class/side/source-group inventory, and visual review; or a precise skip receipt if the
+identity join or source permissions fail. Evaluation stays real. No new renderer, label inference,
+or pool tuning from M9 results.
+
+**Plan amendment:** The earlier [M8 skip record](../../reports/0088-M8_Synthetic_Pool_Skip.md)
+correctly records the original frozen-gate decision. The user later authorized one bounded
+exploratory comparison. This amendment supersedes that skip as the campaign decision; it does not
+change the report's historical record. See the [M8/M9 experiment plan](../../reports/0088-M8_M9_Synthetic_Identity_Experiment.md).
 
 ### M9 — Train the conditional synthetic candidate
 
-Consume M8's inspected pool and frozen mixture recipe, or its skip receipt. Run at most one fit at
-the selected representation, with real exposure fixed and synthetic compute reported separately.
+Consume M8's inspected pool, or its skip receipt. If eligible samples exist, run one 224-pixel
+CLS-plus-mean-patch frozen-encoder fit with seed 17, eight epochs, and the M0 optimizer, device,
+precision, augmentation, and checkpoint-selection settings. Sample one synthetic crop for each real
+crop draw while preserving the M6 real draw count; report the additional steps, wall time, and
+memory. Run at most one fit.
 
-Acceptance: a reproducible paired real-data comparison or an explicit not-required receipt; no
-mixture/augmentation tuning from observed failures and no preparation changes during the fit.
+Compare against M6 on the unchanged real model-selection crops. Report absolute correct-crop counts,
+the identities of corrected and regressed crops, results by recording/source group, and latency.
+Treat a net gain of one or more correct crops without an inference-limit regression as a useful
+annotation-assistance signal; do not require a one-percentage-point gain. Synthetic samples do not
+count toward support floors or quality qualification. No final-test access, mixture tuning, or pool
+changes during the fit. If M8 skips, publish an explicit not-required receipt.
 
 ### M10 — Check finalist stability
 
 Run the two leading eligible recipes at the two additional M0 seeds, at most four fits. If only
-one recipe is eligible, run two fits. This milestone adds no implementation or new recipe choices.
+one recipe is eligible, run two fits. If M9 yields a net gain of at least one correct crop without
+regressions on the fixed real selection view, compare M9 and M6. Otherwise, compare M3 and M6. This
+milestone adds no implementation or new recipe choices.
 Use the frozen seed-aggregation rule and grouped uncertainty report to choose the recipe and exact
 checkpoint. Do not choose an unusually lucky seed after inspecting the final test.
 
 **Current finalists:** M3's 224-pixel CLS control and M6's 224-pixel CLS-plus-mean-patch candidate.
-M6's one-crop gain is a positive exploratory signal, not a settled ranking. Compare seed stability,
-per-class errors, runtime, and the M0 uncertainty rules before selecting one recipe.
+M9 can replace M3 in the M10 comparison only under its predeclared real-selection rule above.
+Compare seed stability, per-class errors, runtime, and the M0 uncertainty rules before selecting
+one recipe.
 
 Acceptance: seed and source-group sensitivity are visible; fit cap is respected; the exact finalist
 selection rule reproduces. Small unsupported gains remain inconclusive.
