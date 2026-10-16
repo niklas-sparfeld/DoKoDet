@@ -46,7 +46,8 @@
   see the [M6 run record](../../reports/0088-M6_Pooled_Features.md).
 - **M7:** Not required — the frozen candidate clears the selection target, while the independent
   source-group support gate fails. See the [M7 skip record](../../reports/0088-M7_Fine_Tuning_Skip.md).
-- **M8:** Not started — prepare the bounded synthetic pool if its entry gate passes.
+- **M8:** Not required — the frozen M0 gate has no declared training-only robustness gap, so no
+  synthetic pool is authorized. See the [M8 skip record](../../reports/0088-M8_Synthetic_Pool_Skip.md).
 - **M9:** Not started — train the one fixed synthetic mixture, or record its skip.
 - **M10:** Not started — verify the two leading recipes with additional seeds.
 - **M11:** Not started — fit and assess the confidence policy on reserved data.
@@ -298,6 +299,14 @@ This milestone does not implement a new renderer or train a model.
 
 Acceptance: immutable inspected pool and exact contributor/crop lineage, or a precise skip reason;
 all evaluation remains real; no synthetic support claim for absent reviewed classes.
+
+**Result:** Not required under the frozen M0 gate. M0 permits a synthetic pool only when a measured
+training-only robustness gap and eligible training-only contributors are declared before M8. No such
+gap was declared. M6's one additional correct selection crop is a useful signal for annotation
+assistance, but it does not identify a training-only robustness gap. The accepted low `FACE_DOWN`
+sample count limits quality claims; it does not authorize synthetic samples or synthetic support
+claims. No synthetic assets were materialized or inspected, and no renderer or training code changed.
+See the [M8 skip record](../../reports/0088-M8_Synthetic_Pool_Skip.md).
 
 ### M9 — Train the conditional synthetic candidate
 
