@@ -249,7 +249,7 @@ Measure effort by pile regions and remaining cards, not by hidden component card
 Acceptance: every selected frame has a completed reference decision or exact exclusion; all
 published derived visible regions pass validation; no pending card is a training target. Publish an
 updated detection-only handoff as eligible reviewed references are added. The expanded RF-DETR
-campaign in [0092](../3-in-progress/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) requires
+campaign in [0092](0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) requires
 completed current-schema references and source groups for at least 18 recordings. Its M0 must
 confirm the handoff and freeze the partitions before materialization or training. This milestone
 remains open until the recorded human work is complete.

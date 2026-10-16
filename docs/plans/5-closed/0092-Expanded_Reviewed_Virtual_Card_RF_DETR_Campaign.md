@@ -5,7 +5,10 @@
 - **Summary:** Train and evaluate an RF-DETR segmentation candidate with reviewed references from at
   least 18 distinct recordings, then refit the final candidate using every eligible reviewed
   recording in the frozen campaign pool.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** M0–M4 are complete. M3 selected the expanded recipe, and the final M4 refit
+  now has a verified, selectable bundle. `gemini` remains the runtime default. M4 monitoring is
+  in-sample; the sealed evaluator was not run again.
 - **Depends on:** 0086 M4 current-schema detection-only handoff with completed reviewed geometry,
   visible-card masks, pile coverage, source groups, and permissions for at least 18 recordings;
   completed 0087 candidate bundle as the measured comparison baseline.
@@ -30,8 +33,9 @@
 - **M3:** Complete (2026-10-14) — the saved candidate passed the frozen validation gates and the
   one sealed evaluation. The candidate is selectable. See the
   [M3 report](../../reports/0092-M3_Validation_and_Pretest_Lock.md).
-- **M4:** Not started — refit the selected recipe on all eligible reviewed recordings and publish
-  the exact final bundle.
+- **M4:** Complete (2026-10-16) — the 40-epoch final refit used all 20 eligible recordings. The
+  bundle passed load and local inference checks, its M0/M1 lineage matches, and it is selectable
+  with `gemini` still the default. See the [M4 report](../../reports/0092-M4_Final_Refit.md).
 
 ## 1. Scope and evidence
 
@@ -41,7 +45,7 @@ from reviewed visible-card masks and coarse pile regions, but its only training 
 That test was opened in 0087. Do not call it a fresh holdout or use it to claim independent
 evaluation in this campaign.
 
-The [0086 inventory](../3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) contains 22 development
+The [0086 inventory](0086-Reviewed_Virtual_Card_Corpus.md) contains 22 development
 candidates with `project_use` permission. Previous
 stage-use metadata can reflect an old split and must not replace the original source permission.
 Permission alone does not make a recording a training target. Each included recording needs a
@@ -162,6 +166,20 @@ The saved-checkpoint finalizer also repaired the persisted M2 run receipt. The r
 stages as complete and `training_invoked: false`; no weight changed. The sealed evaluator accepts the
 0092 lock and applies the frozen 0092 gates. Focused tests and Ruff pass.
 
+### M4 final refit evidence — 2026-10-16
+
+The final refit completed 40 epochs on MPS. Its separate view contains all 874 retained frames and
+2,714 masks from the 20 eligible recordings. It derives from the unchanged M1 materialization and
+M0 manifest. The bundle digest is
+`05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c`. The bundle load, M0/M1
+lineage, and local MPS inference checks passed. The runtime provider registry lists the final bundle
+as selectable and keeps `gemini` as the default.
+
+The trainer uses the all-recording set for in-sample monitoring because it requires a validation
+loader. These metrics are not holdout evidence. M3's measured test results belong to the pre-refit
+candidate. The sealed evaluator was not run again. See the [M4 report](../../reports/0092-M4_Final_Refit.md)
+for checkpoint, metric, and latency details.
+
 ### M1 — Materialize and inspect reviewed masks
 
 Build the expanded two-class dataset from the frozen manifest. Preserve source frames, calibration
@@ -202,9 +220,9 @@ including the former validation and sealed-test groups. Keep the same architectu
 Verify export, bundle load, local inference, latency, and exact lineage. Do not re-evaluate or tune on
 the already opened holdout.
 
-Acceptance: the final bundle includes every eligible reviewed recording named by M0 and no excluded
-or incomplete reference; its digest and training receipts are reproducible; the report distinguishes
-M3 holdout evidence from the final all-recording refit; defaults remain unchanged.
+Acceptance: complete. The final bundle uses every eligible reviewed recording named by M0. Its
+digest and training receipt are verified. The report separates M3 holdout evidence from M4
+in-sample monitoring. `gemini` remains the default.
 
 ## 4. Verification
 
