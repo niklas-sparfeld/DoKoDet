@@ -36,8 +36,9 @@
   See the [M2 reference report](../../reports/0088-M2_Reference_Comparison.md).
 - **M3:** Complete — the frozen 224-pixel control reached 206/208 face-up top-1 on two selection
   groups; support limits prevent qualification. See the [M3 report](../../reports/0088-M3_224_Control.md).
-- **M4:** In Progress — the matched 384-pixel candidate is training on MPS with the frozen
-  M1 data and split. See the [M4 run record](../../reports/0088-M4_384_Run.md).
+- **M4:** Complete — the 384-pixel candidate scored lower and ran slower than 224. Keep 224 as
+  the selected input size for later comparisons. Evidence remains exploratory. See the
+  [M4 report](../../reports/0088-M4_384_Run.md).
 - **M5:** Not started — run the declared 448-pixel comparison if its entry gate passes.
 - **M6:** Not started — compare CLS plus mean patch features at the selected resolution.
 - **M7:** Not started — run one targeted fine-tuning candidate if its entry gate passes.
@@ -235,11 +236,13 @@ Compare paired classification, difficult slices, memory, and crop-to-prediction 
 Acceptance: measured size decision and exact model/transform pair; gains and regressions reported;
 larger size is not selected from appearance alone.
 
-**Run:** The matched eight-epoch candidate started on 2026-10-16 with seed 17. The M1 manifest
-freezes the 224-pixel config, so the candidate uses a separate derived manifest. Its reviewed data,
-split, crop inventory, weights, and all training settings match M3. The run is still in progress;
-see the [M4 run record](../../reports/0088-M4_384_Run.md). Do not select a size until its measured
-predictions, memory use, and latency are compared with M3.
+**Result:** The matched eight-epoch run completed with seed 17. It scored 204/208 face-up top-1
+and 205/208 top-3, below M3's 206/208 and 208/208. Median crop-to-prediction latency was 97.9 ms,
+compared with 38.7 ms at 224 pixels. Keep 224 as the selected input size for later comparisons.
+The report includes paired Gemini results, source-slice outcomes, memory measurements, and exact
+runtime reproduction evidence. Only two source groups contribute, so this does not qualify quality
+or generalization. `FACE_DOWN` remains exploratory under the accepted sample-size decision. See the
+[M4 report](../../reports/0088-M4_384_Run.md).
 
 ### M5 — Run the conditional 448-pixel challenger
 
