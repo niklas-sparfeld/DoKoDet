@@ -56,7 +56,10 @@
 - **M9:** Complete — the fixed 1:1 candidate matched M6 at 208/209 selection crops, with no changed
   predictions or corrected crops. It did not improve the annotation-assistance signal. M10 compares
   M3 with M6 under the frozen rule. See the [M9 fit report](../../reports/0088-M9_Synthetic_Identity_Fit.md).
-- **M10:** Not started — compare the two leading eligible recipes with additional seeds.
+- **M10:** Complete — M6 gains 0.32 percentage points over M3 across seeds 17, 101, and 202,
+  below the 1-point challenger threshold. Only two model-selection groups contribute, so the
+  paired source-group uncertainty rule is insufficient and no recipe qualifies. See the
+  [M10 report](../../reports/0088-M10_Finalist_Stability.md).
 - **M11:** Not started — fit and assess the confidence policy on reserved data.
 - **M12:** Not started — export and lock the exact candidate and final evaluation recipe.
 - **M13:** Not started — execute the final test and paired Gemini comparison once.
@@ -367,6 +370,15 @@ milestone adds no implementation or new recipe choices.
 Use the frozen seed-aggregation rule and grouped uncertainty report to choose the recipe and exact
 checkpoint. Do not choose an unusually lucky seed after inspecting the final test.
 
+**M10 aggregation rule:** The M0 readiness report freezes the additional seeds and candidate
+selection thresholds, but it does not define how to aggregate seed results. Before inspecting M10
+predictions, compare each recipe by the equal-weight mean of its seed-17, seed-101, and seed-202
+face-up model-selection top-1 results. Apply the M0 challenger rule to the aggregated comparison
+and report the two additional-seed results separately. If a recipe is selected, carry its seed-17
+checkpoint forward; do not select the highest-scoring seed checkpoint. This rule prevents one
+unusually favorable additional seed from deciding the candidate. Report source-group uncertainty as
+insufficient when fewer than three groups contribute, as required by M0.
+
 **Current finalists:** M3's 224-pixel CLS control and M6's 224-pixel CLS-plus-mean-patch candidate.
 M9 can replace M3 in the M10 comparison only under its predeclared real-selection rule above.
 Compare seed stability, per-class errors, runtime, and the M0 uncertainty rules before selecting
@@ -374,6 +386,14 @@ one recipe.
 
 Acceptance: seed and source-group sensitivity are visible; fit cap is respected; the exact finalist
 selection rule reproduces. Small unsupported gains remain inconclusive.
+
+**Result:** Complete. All four additional fits at seeds 101 and 202 finished within the two-hour
+cap. Across seeds 17, 101, and 202, M3 averaged 98.56% face-up top-1 and M6 averaged 98.88%, a
+0.32-point gain. This is below the 1-point threshold. Only two source groups contribute, so the
+paired bootstrap interval is unavailable under M0's three-group minimum. The evaluation support
+floors also fail, so neither recipe is quality-qualified. Record the decision as inconclusive and
+keep M3 seed 17 as the diagnostic control checkpoint for later confidence-policy work. See the
+[M10 report](../../reports/0088-M10_Finalist_Stability.md). The final test remains unopened.
 
 ### M11 — Fit the confidence policy
 
