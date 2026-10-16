@@ -69,7 +69,9 @@
   recording. Both bundles reproduce saved model-selection predictions across all 209 crops. The
   1-point rule does not exclude either model; the final-test partition has one source group and
   cannot meet the uncertainty floor. See the [M12 lock](../../reports/0088-M12_Final_Evaluation_Lock.md).
-- **M13:** Not started — execute the final test and paired Gemini comparison once.
+- **M13:** Blocked — the locked runner is ready, but `GEMINI_API_KEY` is not available in the
+  local environment. It stopped before final-crop materialization or scoring. See the
+  [M13 execution report](../../reports/0088-M13_Final_Evaluation.md).
 - **M14:** Not started — exercise the locked bundle on development recording sequences.
 - **M15:** Not started — publish the qualification decision and downstream handoffs.
 
@@ -449,6 +451,12 @@ all predictions, failures, group/slice metrics, confidence results, and costs.
 
 Acceptance: one digest-backed final result; no tuning or repeated test after seeing errors. A failed
 quality gate produces an unmet-objective decision, not an automatic request for more candidates.
+
+**Progress:** The locked runner is implemented at
+`operations/scripts/run_0088_m13_final_evaluation.py`. Lock validation and static checks pass.
+The execution stops before candidate loading or crop resolution when `GEMINI_API_KEY` is
+unavailable. No final crop membership or prediction has been materialized. See the
+[M13 execution report](../../reports/0088-M13_Final_Evaluation.md).
 
 ### M14 — Exercise development recording sequences
 
