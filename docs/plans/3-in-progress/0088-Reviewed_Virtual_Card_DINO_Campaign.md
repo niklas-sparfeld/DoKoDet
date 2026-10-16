@@ -53,8 +53,9 @@
   0070-to-0088 training joins. The pool covers five face-up identities in one source group. It has
   no synthetic `FACE_DOWN` example; the one real training crop remains eligible for M9. See the
   [M8 pool report](../../reports/0088-M8_Synthetic_Pool.md).
-- **M9:** Not started — run one fixed 1:1 real-plus-synthetic training candidate, or record an
-  asset/lineage skip.
+- **M9:** In progress — the single seed-17 fit started with 599 real and 599 paired synthetic
+  draws per epoch. It uses the frozen 224-pixel pooled-feature recipe and the unchanged real
+  selection view. The run receipt and results are pending.
 - **M10:** Not started — compare the two leading eligible recipes with additional seeds.
 - **M11:** Not started — fit and assess the confidence policy on reserved data.
 - **M12:** Not started — export and lock the exact candidate and final evaluation recipe.
