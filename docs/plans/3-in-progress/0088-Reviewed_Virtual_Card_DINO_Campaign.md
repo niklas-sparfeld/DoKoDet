@@ -53,9 +53,9 @@
   0070-to-0088 training joins. The pool covers five face-up identities in one source group. It has
   no synthetic `FACE_DOWN` example; the one real training crop remains eligible for M9. See the
   [M8 pool report](../../reports/0088-M8_Synthetic_Pool.md).
-- **M9:** In progress — the single seed-17 fit started with 599 real and 599 paired synthetic
-  draws per epoch. It uses the frozen 224-pixel pooled-feature recipe and the unchanged real
-  selection view. The run receipt and results are pending.
+- **M9:** Complete — the fixed 1:1 candidate matched M6 at 208/209 selection crops, with no changed
+  predictions or corrected crops. It did not improve the annotation-assistance signal. M10 compares
+  M3 with M6 under the frozen rule. See the [M9 fit report](../../reports/0088-M9_Synthetic_Identity_Fit.md).
 - **M10:** Not started — compare the two leading eligible recipes with additional seeds.
 - **M11:** Not started — fit and assess the confidence policy on reserved data.
 - **M12:** Not started — export and lock the exact candidate and final evaluation recipe.
@@ -351,6 +351,12 @@ Treat a net gain of one or more correct crops without an inference-limit regress
 annotation-assistance signal; do not require a one-percentage-point gain. Synthetic samples do not
 count toward support floors or quality qualification. No final-test access, mixture tuning, or pool
 changes during the fit. If M8 skips, publish an explicit not-required receipt.
+
+**Result:** Complete. One seed-17 fit used 599 real plus 599 paired synthetic draws per epoch for
+eight epochs (9,584 optimizer steps, 863.86 seconds). Its best checkpoint reached 208/209 top-1,
+matching M6 exactly on all 209 predictions. No crop was corrected or regressed. A matched timing
+check measured M9 p95 at 44.684 ms versus M6 at 44.775 ms. The synthetic candidate adds no useful
+selection signal, so M10 keeps M3 and M6 as its finalists. See the [M9 fit report](../../reports/0088-M9_Synthetic_Identity_Fit.md).
 
 ### M10 — Check finalist stability
 
