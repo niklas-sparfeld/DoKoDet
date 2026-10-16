@@ -29,10 +29,10 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 1. **0086 M4/M5:** Complete. The handoffs contain 20 eligible recordings, 1,391 identity crops,
    support for all 21 campaign classes, and exact exclusions. `IMG_0092` is permanently excluded;
    `IMG_0096` is deferred for calibration repair.
-2. **0088 M0:** Complete; campaign Blocked. The frozen split and gates show that three FACE_DOWN
-   crops in three groups, unspecified back designs, one final-test group, and unverified source
-   bytes do not meet support floors. Add independent reviewed crops and verify source bytes before
-   M1. Do not train or open the final test before the frozen gates pass.
+2. **0088 M0:** Complete; campaign Blocked only on exact source verification before crop
+   materialization. The user accepts low `FACE_DOWN` support for exploratory DINO iteration and
+   annotation assistance. Report the limits; do not claim face-down quality or open the final test
+   before M13.
 3. **0092 M4:** The all-recording RF-DETR refit is running on MPS. Verify and publish its final
    lineage, local inference, and latency evidence when the run completes. This work does not block
    0088.
@@ -75,7 +75,7 @@ The shared target architecture is
 
 | Epic                                                                                                              | Depends on                                                                                                                   | Outcome                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0088 — Reviewed virtual-card DINO quality campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md)       | Completed 0086 M4/M5, 0093, 0094, 0043, 0085, and 0091; no 0092 training dependency; additional reviewed identity support and verified source bytes | M0 complete. The frozen split fails support floors: three `FACE_DOWN` crops in three groups, unknown back designs for all contributors, one final-test group, and unverified source bytes. M1–M15 remain blocked until reviewed evidence closes these gaps. |
+| [0088 — Reviewed virtual-card DINO quality campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md)       | Completed 0086 M4/M5, 0093, 0094, 0043, 0085, and 0091; no 0092 training dependency; exact source verification before materialization | M0 complete. The user accepts under-supported exploratory DINO iteration, including `FACE_DOWN`, to improve annotation assistance. Report support limits; exact source verification precedes M1 materialization, and the final test stays sealed until M13. |
 | [0089 — Virtual-card algorithm edge cases](4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md)                   | 0086 reviewed evidence; 0087 and 0088 bundle decisions                                                                       | M0–M3 not started. Reproduce fresh failures, freeze at most two small failure families, and verify bounded pose, occlusion, or crop fixes.                                                                                                                |
 | [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md)               | 0087 and 0088 bundle decisions; 0089 and 0091 M7 handoffs; 0048 and 0049 complete                                            | M0–M3 not started. Coordinate retained automatic stages with declared pile capabilities on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion.                                        |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0086 reviewed evidence, 0087 and 0088 decisions, and 0090 composed report; 0048 and 0049 complete                            | M0–M3 not started. Use the later reports to select at most one new optional analyzer capability. Do not repeat the campaigns, bounded algorithm fixes, or composed pilot.                                                                                 |
@@ -350,6 +350,16 @@ context. Check dependencies again before changing a Blocked epic to Ready.
   immutable lineage, calibration behavior, or dataset semantics.
 - Remove the replaced polygon and pose-editor presentations after their behavior moves to the
   shared workbench. Do not retain compatibility paths for the undeployed UI structure.
+
+### Planning decision — 2026-10-16
+
+- The user accepts the current low `FACE_DOWN` sample size for iterative DINO classifier work,
+  including annotation assistance. Under-supported classes do not block exploratory training.
+- Keep support floors and sample counts in reports. Do not claim face-down precision, recall,
+  calibration, generalization, or formal campaign qualification from the current evidence.
+- Verify exact source bytes before materializing crops. Keep the final test sealed until M13.
+- New reviewed face-down examples and known back designs can improve measurement, but they are not
+  prerequisites for exploratory iteration.
 
 ## Closed-epic policy
 

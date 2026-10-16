@@ -230,6 +230,24 @@ def main() -> None:
             "confidence_calibration": {"samples_per_class": 10, "source_groups_per_class": 3},
             "final_test": {"samples_per_class": 10, "source_groups_per_class": 3},
         },
+        "support_policy": {
+            "user_decision_date": "2026-10-16",
+            "decision": (
+                "Under-supported classes, including FACE_DOWN, do not block exploratory DINO "
+                "training for iterative improvement and annotation assistance. Support floors "
+                "limit quality claims only."
+            ),
+            "required_reporting": (
+                "Report sample and source-group counts and state unsupported claims."
+            ),
+            "face_down_claims_with_current_support": (
+                "Do not claim precision, recall, calibration, or generalization."
+            ),
+            "source_fidelity_precondition": (
+                "Verify exact source bytes before crop materialization."
+            ),
+            "final_test": "Keep sealed until M13.",
+        },
         "quality_gates": {
             "face_up_top_1_minimum": 0.98,
             "gemini_maximum_deficit": 0.01,
@@ -384,7 +402,10 @@ def main() -> None:
             ),
         },
         "readiness_gaps": [
-            "three FACE_DOWN crops in three source groups do not meet the per-view support floors",
+            (
+                "three FACE_DOWN crops in three source groups do not meet the per-view support "
+                "floors; this limits claims but does not block exploratory training"
+            ),
             "FACE_DOWN has zero confidence-calibration examples under the frozen split",
             "the final test has only one positive-crop source group",
             "back design is unspecified for every FACE_DOWN contributor",
@@ -392,9 +413,9 @@ def main() -> None:
             "eight eligible recordings currently have no positive crops",
         ],
         "authorized_work": {
-            "crop_materialization": False,
+            "crop_materialization": True,
             "gemini_requests": False,
-            "model_fitting": False,
+            "model_fitting": True,
             "final_test_predictions": False,
         },
     }

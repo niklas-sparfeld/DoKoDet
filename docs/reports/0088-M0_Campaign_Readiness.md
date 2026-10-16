@@ -4,16 +4,22 @@ Date: 2026-10-16
 
 ## Decision
 
-M0 is complete. The campaign is **Blocked** before crop materialization, Gemini requests, model
-fitting, or final-test predictions. The handoff has 1,391 positive crops across 12 recordings and
-20 source groups, but it does not support the frozen split floors. `FACE_DOWN` has only three
-positive crops in three groups. The back design is unspecified for all three contributing
-recordings. The campaign cannot yet measure face-down precision, recall, confidence, or
-generalization.
+M0 is complete. The user accepts the low `FACE_DOWN` sample size for iterative classifier work,
+including annotation assistance. The handoff has 1,391 positive crops across 12 recordings and 20
+source groups, but it does not support the frozen split floors. `FACE_DOWN` has only three positive
+crops in three groups. The back design is unspecified for all three contributing recordings. Keep
+these facts visible in every result; do not claim face-down precision, recall, calibration, or
+generalization from this sample. Support floors constrain quality claims, not exploratory training.
+
+The 0086 M5 handoff reports that M4 source bytes were not verified. Verify exact source bytes before
+crop materialization. Keep the final test unopened until M13. Exploratory results do not qualify a
+model or authorize promotion.
 
 The exact source-group split and all gates are in the companion
-[machine-readable manifest](0088-M0_Campaign_Readiness.json). It is frozen for planning only. It
-does not authorize materialization or evaluation. The final group is named but remains unopened.
+[machine-readable manifest](0088-M0_Campaign_Readiness.json). It records the user's updated
+support policy. It allows exploratory crop preparation and model fitting after exact source-byte
+verification. The final group is named but remains unopened, and final-test predictions remain
+unauthorized until M13.
 
 ## Evidence and exclusions
 
@@ -42,16 +48,17 @@ support is below the frozen minimum.
 
 | Gate | Frozen minimum | Current evidence | Result |
 | --- | --- | --- | --- |
-| Each face-up class, training | 20 crops in 5 groups | 9 groups remain before partitioning | Blocked |
-| Each class, model selection | 10 crops in 3 groups | 2 groups assigned | Blocked |
-| Each class, confidence calibration | 10 crops in 3 groups | 1 group assigned | Blocked |
-| Each class, final test | 10 crops in 3 groups | 1 group assigned | Blocked |
-| `FACE_DOWN`, every partition | Same per-class minimums | 3 crops in 3 groups total; one each in training, selection, and final; none in calibration | Blocked |
-| Face-down back design | Known design for every contributor | Unknown for IMG_0651, IMG_0657, and IMG_0659 | Blocked |
-| Source fidelity | Exact source bytes and crop lineage | 0086 M5 says M4 source bytes were not verified | Blocked |
+| Each face-up class, training | 20 crops in 5 groups | 9 groups remain before partitioning | Qualification limited |
+| Each class, model selection | 10 crops in 3 groups | 2 groups assigned | Qualification limited |
+| Each class, confidence calibration | 10 crops in 3 groups | 1 group assigned | Qualification limited |
+| Each class, final test | 10 crops in 3 groups | 1 group assigned | Qualification limited |
+| `FACE_DOWN`, every partition | Same per-class minimums | 3 crops in 3 groups total; one each in training, selection, and final; none in calibration | Claims limited; exploration allowed |
+| Face-down back design | Known design for every contributor | Unknown for IMG_0651, IMG_0657, and IMG_0659 | Generalization limited |
+| Source fidelity | Exact source bytes and crop lineage | 0086 M5 says M4 source bytes were not verified | M1 precondition |
 
-The gaps cannot be repaired by splitting adjacent frames or by synthetic examples. New reviewed,
-independent positive back crops and known back-design metadata are required. The eight no-crop
+The support gaps cannot be repaired by splitting adjacent frames or by synthetic examples. New
+reviewed, independent positive back crops and known back-design metadata would improve measurement,
+but they are no longer entry requirements for exploratory classifier work. The eight no-crop
 recordings can add face-up evidence after completed reviews and exact source verification.
 
 ## Frozen quality and recipe contract
@@ -132,10 +139,11 @@ reusable calibration, export, bundle evaluation, and local classification comman
 reference uses the pinned `GeminiCardClassifier` implementation and request rules in the JSON
 manifest; this repository has no campaign-specific Gemini comparison CLI.
 
-The current split fails every evaluation support floor. No M1–M15 campaign work may start until a
-new reviewed-data handoff supplies enough independent groups, the back designs are known, and
-source bytes pass exact verification. Re-freeze M0 only if those inputs or the user-approved
-quality target change.
+The current split fails every evaluation support floor. M1 may proceed after exact source
+verification. Exploratory training may proceed with the present class support, including the three
+`FACE_DOWN` crops; report the support and limits with each result. Do not claim the frozen quality
+gates or open the final test early. New reviewed back crops and known designs can improve later
+measurement but are not prerequisites for iteration. This user decision updates the M0 policy.
 
 ## Reproduction
 

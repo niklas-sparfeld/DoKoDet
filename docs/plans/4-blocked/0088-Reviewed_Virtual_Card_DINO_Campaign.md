@@ -11,12 +11,12 @@
   identity isolation.
   No dependency on 0092 training.
 - **Readiness:** M0 froze the source-group split and quality contract in the
-  [campaign readiness report](../../reports/0088-M0_Campaign_Readiness.md). The campaign is blocked
-  before crop materialization. The 0086 M5 handoff has three `FACE_DOWN` crops in three groups,
-  unknown back design for all contributors, and unverified M4 source bytes. The frozen split has
-  one final-test group and no face-down confidence examples. It fails the minimum evaluation
-  support floors. Add independent reviewed crops, known back designs, and exact source verification
-  before M1. No training or final-test predictions are authorized.
+  [campaign readiness report](../../reports/0088-M0_Campaign_Readiness.md). The user accepts the
+  low `FACE_DOWN` sample size for iterative classifier work, including annotation assistance.
+  Support floors remain quality-reporting limits; they do not block exploratory training. Do not
+  claim face-down precision, recall, calibration, or generalization from this sample. The 0086 M5
+  handoff reports that M4 source bytes were not verified. Verify exact source bytes before crop
+  materialization. Keep the final test unopened until M13.
 - **Outcome:** A quality-qualified local model and its exact preprocessing and confidence policy,
   or an explicit report that the useful-model objective remains unmet.
 - **Target architecture:**
@@ -26,8 +26,8 @@
 
 - **M0:** Complete — freeze readiness, splits, quality gates, candidates, and budgets; see the
   [readiness report](../../reports/0088-M0_Campaign_Readiness.md).
-- **M1:** Blocked — materialize reviewed and automatic-crop evaluation views after M0 support and
-  source-fidelity gaps are resolved.
+- **M1:** Blocked — verify exact source bytes, then materialize reviewed and automatic-crop
+  evaluation views. Low class support does not block exploratory work; record it in all results.
 - **M2:** Not started — establish the paired Gemini and PoC reference results.
 - **M3:** Not started — train one fresh 224-pixel real-only baseline.
 - **M4:** Not started — train one matched 384-pixel candidate.
@@ -93,8 +93,10 @@ M0 must freeze source-group-separated training, model-selection, confidence-cali
 test views. Respect prior split assignments and evaluate prior use before assigning a final test.
 The 0043 validation data is diagnostic, not an unopened final test. Sealed RF-DETR and system-holdout
 groups stay out of development and component selection. If independent data or class support is
-insufficient, publish exact gaps and keep the campaign blocked; do not split adjacent frames to
-manufacture independence or silently lower the target after seeing results.
+insufficient, publish exact gaps and limit the claims. The user accepts under-supported exploratory
+training to improve the classifier for annotation assistance. Do not split adjacent frames to
+manufacture independence or present exploratory results as quality qualification. Keep the final
+test sealed until M13.
 
 M1 prepares two evaluation conditions: reviewed visible-region crops and automatic runtime crops
 from an exact declared provider. Match automatic crops to reviewed cards through a frozen geometric

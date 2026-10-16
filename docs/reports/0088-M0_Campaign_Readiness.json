@@ -1,9 +1,9 @@
 {
   "authorized_work": {
-    "crop_materialization": false,
+    "crop_materialization": true,
     "final_test_predictions": false,
     "gemini_requests": false,
-    "model_fitting": false
+    "model_fitting": true
   },
   "branch_decisions": {
     "final_test": "membership frozen; no crop rendering, scoring, or model prediction before M13",
@@ -902,7 +902,7 @@
     "usable_prediction_coverage_minimum": 0.9
   },
   "readiness_gaps": [
-    "three FACE_DOWN crops in three source groups do not meet the per-view support floors",
+    "three FACE_DOWN crops in three source groups do not meet the per-view support floors; this limits claims but does not block exploratory training",
     "FACE_DOWN has zero confidence-calibration examples under the frozen split",
     "the final test has only one positive-crop source group",
     "back design is unspecified for every FACE_DOWN contributor",
@@ -1087,5 +1087,13 @@
       "samples_per_class": 20,
       "source_groups_per_class": 5
     }
+  },
+  "support_policy": {
+    "decision": "Under-supported classes, including FACE_DOWN, do not block exploratory DINO training for iterative improvement and annotation assistance. Support floors limit quality claims only.",
+    "face_down_claims_with_current_support": "Do not claim precision, recall, calibration, or generalization.",
+    "final_test": "Keep sealed until M13.",
+    "required_reporting": "Report sample and source-group counts and state unsupported claims.",
+    "source_fidelity_precondition": "Verify exact source bytes before crop materialization.",
+    "user_decision_date": "2026-10-16"
   }
 }
