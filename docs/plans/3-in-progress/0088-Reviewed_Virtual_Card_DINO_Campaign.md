@@ -34,7 +34,8 @@
 - **M2:** Complete — exact Gemini request-cache receipts cover all 209 reviewed development crops;
   the retained 0043 PoC result is reported with its historical input set and unsupported classes.
   See the [M2 reference report](../../reports/0088-M2_Reference_Comparison.md).
-- **M3:** In Progress — the frozen 224-pixel real-only baseline is training with seed 17.
+- **M3:** Complete — the frozen 224-pixel control reached 206/208 face-up top-1 on two selection
+  groups; support limits prevent qualification. See the [M3 report](../../reports/0088-M3_224_Control.md).
 - **M4:** Not started — train one matched 384-pixel candidate.
 - **M5:** Not started — run the declared 448-pixel comparison if its entry gate passes.
 - **M6:** Not started — compare CLS plus mean patch features at the selected resolution.
@@ -217,6 +218,13 @@ Retain checkpoints, environment, timing, data/recipe digests, and selection pred
 
 Acceptance: resume and reload reproduce predictions; class and source exposure is recorded;
 checkpoint selection uses only the declared development view.
+
+**Result:** The eight-epoch fit completed in 996.7 seconds. The reloaded best checkpoint reproduced
+its 209 selection predictions exactly. It scored 206/208 face-up top-1 and 209/209 top-3. The exact
+paired Gemini result was 203/208 face-up top-1. Only two source groups contribute, and each class
+misses the three-group support floor. `FACE_DOWN` support remains one training crop and one selection
+crop; these results are for iterative annotation assistance, not quality qualification. See the
+[M3 report](../../reports/0088-M3_224_Control.md).
 
 ### M4 — Train the 384-pixel challenger
 
