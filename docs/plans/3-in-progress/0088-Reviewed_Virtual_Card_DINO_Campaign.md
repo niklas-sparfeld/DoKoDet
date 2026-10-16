@@ -44,7 +44,8 @@
 - **M6:** Complete — pooled features corrected one more selection crop and added no errors.
   Treat this as a useful exploratory signal and keep both M3 CLS and M6 pooled features for M10;
   see the [M6 run record](../../reports/0088-M6_Pooled_Features.md).
-- **M7:** Not started — run one targeted fine-tuning candidate if its entry gate passes.
+- **M7:** Not required — the frozen candidate clears the selection target, while the independent
+  source-group support gate fails. See the [M7 skip record](../../reports/0088-M7_Fine_Tuning_Skip.md).
 - **M8:** Not started — prepare the bounded synthetic pool if its entry gate passes.
 - **M9:** Not started — train the one fixed synthetic mixture, or record its skip.
 - **M10:** Not started — verify the two leading recipes with additional seeds.
@@ -279,6 +280,14 @@ Use 0094's tested gradient, optimizer, checkpoint, and adapted-weight export pat
 
 Acceptance: only declared blocks change; fit stays within budget; validation regressions and
 overfitting are reported; no wider encoder unfreezing or pretrained-model sweep.
+
+**Result:** Not required under the frozen M0 gate. M6 reached 207/208 face-up top-1 (99.52%) on
+the model-selection view, above the 98% target. The source-group support gate also fails: only two
+groups contribute, and the required three evaluation groups per class are not available. M7
+requires both a frozen candidate that misses the target and passing independent-data support.
+Neither condition is met, so no encoder fine-tuning fit was started. This is a conditional skip,
+not a finding that fine-tuning would not help annotation assistance. See the
+[M7 skip record](../../reports/0088-M7_Fine_Tuning_Skip.md).
 
 ### M8 — Prepare the conditional synthetic pool
 
