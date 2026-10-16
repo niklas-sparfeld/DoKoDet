@@ -2,9 +2,13 @@
 
 ## Decision
 
-Keep CLS as the selected feature layout. The pooled-feature candidate improved one selection crop
-and introduced no new errors, but its 0.48 percentage-point gain is below M0's 1-point challenger
-threshold. The two-group evidence remains exploratory and does not qualify generalization.
+Treat the one-crop gain as a useful exploratory signal for annotation assistance. The pooled-feature
+candidate corrected one CLS error and introduced no new errors. The observed 0.48 percentage-point
+gain does not establish a stable improvement on two source groups. Carry both M3's 224-pixel CLS
+control and M6's pooled-feature candidate into M10 for the two additional-seed comparison.
+
+Keep M0's 1-point threshold and uncertainty rules for formal qualification. Do not use the 1-point
+floor alone to discard an exploratory candidate when one additional correct crop may help annotation.
 
 ## Results
 

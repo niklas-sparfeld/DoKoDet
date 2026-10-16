@@ -41,9 +41,9 @@
   [M4 report](../../reports/0088-M4_384_Run.md).
 - **M5:** Not required — skip the optional 448-pixel challenger by user decision after M4; see the
   [M5 skip record](../../reports/0088-M5_448_Skip.md).
-- **M6:** Complete — the 224-pixel pooled-feature candidate improved one selection crop, with no
-  regressions, but missed the frozen 1-point gain threshold. Keep CLS; see the
-  [M6 run record](../../reports/0088-M6_Pooled_Features.md).
+- **M6:** Complete — pooled features corrected one more selection crop and added no errors.
+  Treat this as a useful exploratory signal and keep both M3 CLS and M6 pooled features for M10;
+  see the [M6 run record](../../reports/0088-M6_Pooled_Features.md).
 - **M7:** Not started — run one targeted fine-tuning candidate if its entry gate passes.
 - **M8:** Not started — prepare the bounded synthetic pool if its entry gate passes.
 - **M9:** Not started — train the one fixed synthetic mixture, or record its skip.
@@ -265,9 +265,11 @@ Acceptance: feature/head layout is exact and reloadable; no additional layer/hea
 the control when the improvement is harmed or inconclusive under the declared decision rule.
 
 **Result:** The 224-pixel pooled-feature candidate reached 207/208 face-up top-1, compared with
-206/208 for CLS. It fixed one CLS error and introduced no new errors. The gain is 0.48 percentage
-points, below M0's 1-point threshold for preferring a challenger. Keep CLS selected. The exported
-bundle reproduced all 209 checkpoint predictions. See the
+206/208 for CLS. It fixed one CLS error and introduced no new errors. This one-crop gain is useful
+for exploratory annotation assistance, but it does not establish a stable improvement. Keep both
+M3 CLS and M6 pooled features as candidates for M10's additional-seed comparison. Keep the M0
+threshold for formal qualification; do not use it alone to discard a useful exploratory candidate.
+The exported bundle reproduced all 209 checkpoint predictions. See the
 [M6 run record](../../reports/0088-M6_Pooled_Features.md).
 
 ### M7 — Run conditional targeted fine-tuning
@@ -302,6 +304,10 @@ Run the two leading eligible recipes at the two additional M0 seeds, at most fou
 one recipe is eligible, run two fits. This milestone adds no implementation or new recipe choices.
 Use the frozen seed-aggregation rule and grouped uncertainty report to choose the recipe and exact
 checkpoint. Do not choose an unusually lucky seed after inspecting the final test.
+
+**Current finalists:** M3's 224-pixel CLS control and M6's 224-pixel CLS-plus-mean-patch candidate.
+M6's one-crop gain is a positive exploratory signal, not a settled ranking. Compare seed stability,
+per-class errors, runtime, and the M0 uncertainty rules before selecting one recipe.
 
 Acceptance: seed and source-group sensitivity are visible; fit cap is respected; the exact finalist
 selection rule reproduces. Small unsupported gains remain inconclusive.
