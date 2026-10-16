@@ -41,7 +41,8 @@
   [M4 report](../../reports/0088-M4_384_Run.md).
 - **M5:** Not required — skip the optional 448-pixel challenger by user decision after M4; see the
   [M5 skip record](../../reports/0088-M5_448_Skip.md).
-- **M6:** In Progress — train one CLS-plus-mean-patch candidate at 224 pixels; see the
+- **M6:** Complete — the 224-pixel pooled-feature candidate improved one selection crop, with no
+  regressions, but missed the frozen 1-point gain threshold. Keep CLS; see the
   [M6 run record](../../reports/0088-M6_Pooled_Features.md).
 - **M7:** Not started — run one targeted fine-tuning candidate if its entry gate passes.
 - **M8:** Not started — prepare the bounded synthetic pool if its entry gate passes.
@@ -263,9 +264,11 @@ CLS control at that size on identical selection cases.
 Acceptance: feature/head layout is exact and reloadable; no additional layer/head search; retain
 the control when the improvement is harmed or inconclusive under the declared decision rule.
 
-**Run:** One frozen-encoder 224-pixel candidate started on 2026-10-16 with seed 17. The fresh
-MPS batch-1 fp32 forward preflight returned finite features. The training run is active; see the
-[M6 run record](../../reports/0088-M6_Pooled_Features.md). No selection results are available yet.
+**Result:** The 224-pixel pooled-feature candidate reached 207/208 face-up top-1, compared with
+206/208 for CLS. It fixed one CLS error and introduced no new errors. The gain is 0.48 percentage
+points, below M0's 1-point threshold for preferring a challenger. Keep CLS selected. The exported
+bundle reproduced all 209 checkpoint predictions. See the
+[M6 run record](../../reports/0088-M6_Pooled_Features.md).
 
 ### M7 — Run conditional targeted fine-tuning
 
