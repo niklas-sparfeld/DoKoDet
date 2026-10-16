@@ -4,7 +4,7 @@
 
 - **Summary:** Train and qualify a useful local visual classifier from reviewed individual-card
   crops. Compare input resolution and a bounded sequence of model improvements against Gemini.
-- **Status:** Blocked
+- **Status:** In Progress
 - **Depends on:** Completed 0086 M4/M5 handoffs; completed
   [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) and
   [0094](../5-closed/0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091
@@ -15,8 +15,9 @@
   low `FACE_DOWN` sample size for iterative classifier work, including annotation assistance.
   Support floors remain quality-reporting limits; they do not block exploratory training. Do not
   claim face-down precision, recall, calibration, or generalization from this sample. The 0086 M5
-  handoff reports that M4 source bytes were not verified. Verify exact source bytes before crop
-  materialization. Keep the final test unopened until M13.
+  [source verification report](../../reports/0088-M1_Source_Verification.md) confirms that all 20
+  source videos match the 0086 handoff and intake receipts byte-for-byte. M1 can materialize the
+  reviewed and automatic-crop evaluation views. Keep the final test unopened until M13.
 - **Outcome:** A quality-qualified local model and its exact preprocessing and confidence policy,
   or an explicit report that the useful-model objective remains unmet.
 - **Target architecture:**
@@ -26,7 +27,7 @@
 
 - **M0:** Complete — freeze readiness, splits, quality gates, candidates, and budgets; see the
   [readiness report](../../reports/0088-M0_Campaign_Readiness.md).
-- **M1:** Blocked — verify exact source bytes, then materialize reviewed and automatic-crop
+- **M1:** In Progress — exact source bytes are verified; materialize reviewed and automatic-crop
   evaluation views. Low class support does not block exploratory work; record it in all results.
 - **M2:** Not started — establish the paired Gemini and PoC reference results.
 - **M3:** Not started — train one fresh 224-pixel real-only baseline.

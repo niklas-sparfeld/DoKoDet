@@ -1,0 +1,291 @@
+{
+  "failed_recordings": [],
+  "recording_count": 20,
+  "recordings": [
+    {
+      "byte_length": 334940123,
+      "expected_sha256": {
+        "handoff": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+        "manifest_source": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+        "manifest_video": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+        "source_record": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0095",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0095/videos/video-cardeventnet-IMG_0095.mov",
+      "sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+      "status": "verified"
+    },
+    {
+      "byte_length": 302191126,
+      "expected_sha256": {
+        "handoff": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+        "manifest_source": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+        "manifest_video": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+        "source_record": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0097",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0097/videos/video-cardeventnet-IMG_0097.mov",
+      "sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+      "status": "verified"
+    },
+    {
+      "byte_length": 265216840,
+      "expected_sha256": {
+        "handoff": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+        "manifest_source": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+        "manifest_video": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+        "source_record": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0636",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0636/videos/video-cardeventnet-IMG_0636.mov",
+      "sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+      "status": "verified"
+    },
+    {
+      "byte_length": 129432156,
+      "expected_sha256": {
+        "handoff": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+        "manifest_source": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+        "manifest_video": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+        "source_record": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0637",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0637/videos/video-cardeventnet-IMG_0637.mov",
+      "sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+      "status": "verified"
+    },
+    {
+      "byte_length": 161154751,
+      "expected_sha256": {
+        "handoff": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+        "manifest_source": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+        "manifest_video": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+        "source_record": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0638",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0638/videos/video-cardeventnet-IMG_0638.mov",
+      "sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+      "status": "verified"
+    },
+    {
+      "byte_length": 132769108,
+      "expected_sha256": {
+        "handoff": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+        "manifest_source": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+        "manifest_video": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+        "source_record": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0639",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0639/videos/video-cardeventnet-IMG_0639.mov",
+      "sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+      "status": "verified"
+    },
+    {
+      "byte_length": 149142154,
+      "expected_sha256": {
+        "handoff": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+        "manifest_source": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+        "manifest_video": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+        "source_record": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0640",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0640/videos/video-cardeventnet-IMG_0640.mov",
+      "sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+      "status": "verified"
+    },
+    {
+      "byte_length": 159644121,
+      "expected_sha256": {
+        "handoff": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+        "manifest_source": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+        "manifest_video": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+        "source_record": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0641",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0641/videos/video-cardeventnet-IMG_0641.mov",
+      "sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+      "status": "verified"
+    },
+    {
+      "byte_length": 166119136,
+      "expected_sha256": {
+        "handoff": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+        "manifest_source": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+        "manifest_video": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+        "source_record": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0643",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0643/videos/video-cardeventnet-IMG_0643.mov",
+      "sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+      "status": "verified"
+    },
+    {
+      "byte_length": 127322550,
+      "expected_sha256": {
+        "handoff": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+        "manifest_source": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+        "manifest_video": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+        "source_record": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0650",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0650/videos/video-cardeventnet-IMG_0650.mov",
+      "sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+      "status": "verified"
+    },
+    {
+      "byte_length": 159476349,
+      "expected_sha256": {
+        "handoff": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+        "manifest_source": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+        "manifest_video": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+        "source_record": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0651",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0651/videos/video-cardeventnet-IMG_0651.mov",
+      "sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+      "status": "verified"
+    },
+    {
+      "byte_length": 164793007,
+      "expected_sha256": {
+        "handoff": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+        "manifest_source": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+        "manifest_video": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+        "source_record": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0653",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0653/videos/video-cardeventnet-IMG_0653.mov",
+      "sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+      "status": "verified"
+    },
+    {
+      "byte_length": 135762950,
+      "expected_sha256": {
+        "handoff": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+        "manifest_source": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+        "manifest_video": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+        "source_record": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0654",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0654/videos/video-cardeventnet-IMG_0654.mov",
+      "sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+      "status": "verified"
+    },
+    {
+      "byte_length": 147455393,
+      "expected_sha256": {
+        "handoff": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+        "manifest_source": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+        "manifest_video": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+        "source_record": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0655",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0655/videos/video-cardeventnet-IMG_0655.mov",
+      "sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+      "status": "verified"
+    },
+    {
+      "byte_length": 142891847,
+      "expected_sha256": {
+        "handoff": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
+        "manifest_source": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
+        "manifest_video": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
+        "source_record": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0656",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0656/videos/video-cardeventnet-IMG_0656.mov",
+      "sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
+      "status": "verified"
+    },
+    {
+      "byte_length": 149744950,
+      "expected_sha256": {
+        "handoff": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+        "manifest_source": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+        "manifest_video": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+        "source_record": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0657",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+      "sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+      "status": "verified"
+    },
+    {
+      "byte_length": 131761671,
+      "expected_sha256": {
+        "handoff": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+        "manifest_source": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+        "manifest_video": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+        "source_record": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0658",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0658/videos/video-cardeventnet-IMG_0658.mov",
+      "sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+      "status": "verified"
+    },
+    {
+      "byte_length": 138300811,
+      "expected_sha256": {
+        "handoff": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
+        "manifest_source": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
+        "manifest_video": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
+        "source_record": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0659",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0659/videos/video-cardeventnet-IMG_0659.mov",
+      "sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
+      "status": "verified"
+    },
+    {
+      "byte_length": 139254088,
+      "expected_sha256": {
+        "handoff": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
+        "manifest_source": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
+        "manifest_video": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
+        "source_record": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0660",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0660/videos/video-cardeventnet-IMG_0660.mov",
+      "sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
+      "status": "verified"
+    },
+    {
+      "byte_length": 158680194,
+      "expected_sha256": {
+        "handoff": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+        "manifest_source": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+        "manifest_video": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+        "source_record": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7"
+      },
+      "mismatches": {},
+      "recording_id": "cardeventnet-IMG_0662",
+      "relative_path": "data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+      "sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+      "status": "verified"
+    }
+  ],
+  "schema_version": "0088-m1-source-verification/v1",
+  "source_handoff": "docs/reports/0086-M5_DINO_Campaign_Handoff.json",
+  "source_handoff_sha256": "4eb8e00bc20be46295094775629af2403c4db75ec0ff1435dc816729b44c5ff0",
+  "verified_on": "2026-10-16",
+  "verified_recording_count": 20
+}

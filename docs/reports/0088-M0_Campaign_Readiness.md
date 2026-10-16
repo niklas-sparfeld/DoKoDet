@@ -11,9 +11,10 @@ crops in three groups. The back design is unspecified for all three contributing
 these facts visible in every result; do not claim face-down precision, recall, calibration, or
 generalization from this sample. Support floors constrain quality claims, not exploratory training.
 
-The 0086 M5 handoff reports that M4 source bytes were not verified. Verify exact source bytes before
-crop materialization. Keep the final test unopened until M13. Exploratory results do not qualify a
-model or authorize promotion.
+The 0086 M5 source bytes are now verified against the intake receipts. The verification covers all
+20 handoff recordings and is recorded in the
+[M1 source verification report](0088-M1_Source_Verification.md). Keep the final test unopened until
+M13. Exploratory results do not qualify a model or authorize promotion.
 
 The exact source-group split and all gates are in the companion
 [machine-readable manifest](0088-M0_Campaign_Readiness.json). It records the user's updated
@@ -54,7 +55,8 @@ support is below the frozen minimum.
 | Each class, final test | 10 crops in 3 groups | 1 group assigned | Qualification limited |
 | `FACE_DOWN`, every partition | Same per-class minimums | 3 crops in 3 groups total; one each in training, selection, and final; none in calibration | Claims limited; exploration allowed |
 | Face-down back design | Known design for every contributor | Unknown for IMG_0651, IMG_0657, and IMG_0659 | Generalization limited |
-| Source fidelity | Exact source bytes and crop lineage | 0086 M5 says M4 source bytes were not verified | M1 precondition |
+| Source video bytes | Exact bytes match the intake and handoff receipts | All 20 source videos match their 0086 M5 and intake SHA-256 receipts and byte lengths | Passed; M1 unblocked |
+| Crop lineage | Each materialized crop maps to its reviewed source frame and annotation | M1 will record this during materialization | Pending M1 |
 
 The support gaps cannot be repaired by splitting adjacent frames or by synthetic examples. New
 reviewed, independent positive back crops and known back-design metadata would improve measurement,
@@ -139,8 +141,8 @@ reusable calibration, export, bundle evaluation, and local classification comman
 reference uses the pinned `GeminiCardClassifier` implementation and request rules in the JSON
 manifest; this repository has no campaign-specific Gemini comparison CLI.
 
-The current split fails every evaluation support floor. M1 may proceed after exact source
-verification. Exploratory training may proceed with the present class support, including the three
+The current split fails every evaluation support floor. Exact source verification passed, so M1 may
+materialize the evaluation views. Exploratory training may proceed with the present class support, including the three
 `FACE_DOWN` crops; report the support and limits with each result. Do not claim the frozen quality
 gates or open the final test early. New reviewed back crops and known designs can improve later
 measurement but are not prerequisites for iteration. This user decision updates the M0 policy.
