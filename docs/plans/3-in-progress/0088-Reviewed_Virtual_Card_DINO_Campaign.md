@@ -31,7 +31,9 @@
 - **M1:** Complete — exact source bytes are verified; reviewed train/validation data and automatic
   development crops are materialized. No automatic crops matched reviewed cards at IoU 0.5; all
   misses remain in coverage. See the [M1 report](../../reports/0088-M1_Campaign_Views.md).
-- **M2:** Not started — establish the paired Gemini and PoC reference results.
+- **M2:** Complete — exact Gemini request-cache receipts cover all 209 reviewed development crops;
+  the retained 0043 PoC result is reported with its historical input set and unsupported classes.
+  See the [M2 reference report](../../reports/0088-M2_Reference_Comparison.md).
 - **M3:** Not started — train one fresh 224-pixel real-only baseline.
 - **M4:** Not started — train one matched 384-pixel candidate.
 - **M5:** Not started — run the declared 448-pixel comparison if its entry gate passes.
@@ -198,6 +200,15 @@ Produce the initial human-labeled confusion and error examples.
 
 Acceptance: paired rows reproduce; labels are independent of predictions; all 21-class coverage
 and provider failures are explicit; the final test remains unopened.
+
+**Result:** The exact Gemini cache supplied one result for each of 209 M1 model-selection crops.
+It reached 203/208 face-up top-1 (97.60%) and had no provider failures. No new requests or spend
+were incurred. The single FACE_DOWN result is exploratory only. The retained 0043 PoC evaluation
+has 301 rows and 94.02% top-1, but uses a different historical validation set. The current loader
+rejects its bundle as an obsolete uncalibrated smoke format, so no fresh same-crop PoC predictions
+were made. Do not compare the Gemini and PoC point estimates as a paired model ranking. See the
+[M2 reference report](../../reports/0088-M2_Reference_Comparison.md) and its machine-readable
+[paired rows](../../reports/0088-M2_Reference_Comparison.json).
 
 ### M3 — Train the fresh 224-pixel control
 
