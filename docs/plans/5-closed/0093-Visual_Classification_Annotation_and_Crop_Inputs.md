@@ -13,7 +13,7 @@
   isolation. Use fixtures and existing reviewed development examples; no dependency on 0086 M5.
 - **Outcome:** A working annotation-to-crop path and versioned input handoff for 0086 M5,
   [0094](0094-DINO_Training_and_Runtime_Recipes.md), and
-  [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md).
+  [0088](../3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md).
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 

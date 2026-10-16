@@ -7,7 +7,10 @@
 - **Status:** Blocked
 - **Depends on:** 0087 and 0088 bundle decisions; 0089 algorithm handoff; completed 0048 and 0049
   0091 M7 pile feature handoff and explicit real pile-model capability decision.
-- **Blocker:** Fixed model and algorithm decisions for the composed run are not available.
+- **Blocker:** 0089 has not published its algorithm handoff. The 0088 identity decision is available:
+  M6 seed 17 is the primary diagnostic bundle and M3 seed 17 is available as a paired diagnostic;
+  both are unqualified and all identity proposals require human review. See the
+  [0088 M15 handoff](../../reports/0088-M15_Qualification_Decision.md).
 - **Outcome:** A resumable local coordinator, retained stage results, and a measured development
   pilot from video through reconstruction.
 - **Target architecture:**
@@ -27,7 +30,10 @@ a local CLI or application coordinator; add UI only for a measured blocker. Free
 CardEventNet, RF-DETR, DINO, crop policy, and algorithm versions. Do not silently choose the newest
 bundle, fall back to Gemini, retrain, or promote a model.
 
-Retain 0088's model qualification result beside its bundle decision. An unqualified bundle is an
+Use M6 seed 17 as the declared diagnostic identity bundle and retain M3 seed 17 for a paired
+diagnostic when useful, using the exact bundle and report-only confidence routing policy in the
+[0088 M15 handoff](../../reports/0088-M15_Qualification_Decision.md). Retain 0088's model
+qualification result beside its bundle decision. An unqualified bundle is an
 explicit diagnostic condition, not evidence that the composed pipeline is ready for productive use.
 0093/0094 implementation remains outside this coordinator.
 

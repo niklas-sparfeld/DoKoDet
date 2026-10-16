@@ -1,0 +1,68 @@
+{
+  "schema_version": "0088-m15-qualification-decision/v1",
+  "date": "2026-10-16",
+  "milestone": "M15",
+  "status": "complete",
+  "useful_model_objective": "unmet",
+  "promotion_recommendation": null,
+  "final_test": {
+    "report": "0088-M13_Final_Evaluation.json",
+    "sample_count": 108,
+    "independent_source_groups": 1,
+    "minimum_independent_source_groups": 3,
+    "rerun_or_tune": false
+  },
+  "diagnostic_decision": {
+    "primary_candidate": "m6-seed17-224-cls-mean-patch",
+    "control_candidate": "m3-seed17-224-cls",
+    "both_remain_available": true,
+    "selection_is_quality_qualification": false,
+    "m6_excluded_by_percentage_point_rule": false,
+    "identity_predictions_require_human_review": true,
+    "confidence_threshold": 0.9,
+    "confidence_threshold_use": "diagnostic review-routing only; not a safe auto-accept, abstention, or production policy",
+    "default_provider_change": false,
+    "gemini_fallback": false
+  },
+  "candidates": {
+    "m3-seed17-224-cls": {
+      "bundle_sha256": "e54952030a1f87aadf4c5c3befb71537e588074cd9959c98c4c51bbbc6ddac87",
+      "checkpoint_sha256": "6d9234b35ab30e881b96dbbaf67cd7e6f71a137478796e4c14af03afe16936a",
+      "temperature": 0.6080362924,
+      "top1": "83/108",
+      "face_up_top1": "82/107",
+      "confidence_selected": "46/108",
+      "confident_errors": 0,
+      "p95_latency_ms": 155.721,
+      "load_seconds": 2.495,
+      "gemini_top1_difference_percentage_points": 4.6296,
+      "qualification": "fail accuracy, confidence coverage, latency; insufficient generalization and FACE_DOWN evidence"
+    },
+    "m6-seed17-224-cls-mean-patch": {
+      "bundle_sha256": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+      "checkpoint_sha256": "ff560c5a4e2fff70f7e6ab0ff0cef6e7fa8cab8bbdfbcd25af4c569ee4bdfb1a",
+      "temperature": 0.6487642659,
+      "top1": "86/108",
+      "face_up_top1": "85/107",
+      "confidence_selected": "41/108",
+      "confident_errors": 0,
+      "p95_latency_ms": 61.842,
+      "load_seconds": 0.126,
+      "gemini_top1_difference_percentage_points": 7.4074,
+      "qualification": "fail accuracy and confidence coverage; insufficient generalization and FACE_DOWN evidence"
+    }
+  },
+  "m14": {
+    "report": "0088-M14_Development_Exercise.json",
+    "automatic_development_crops": 495,
+    "matched_reviewed_identity_targets": 0,
+    "accuracy_evidence": false,
+    "m3_review_routing_at_0_90": "280/495",
+    "m6_review_routing_at_0_90": "286/495"
+  },
+  "downstream": {
+    "0089": "ready; use M6 primary diagnostics and retain M3 control",
+    "0090": "blocked until 0089 algorithm handoff; identity outputs remain unqualified and review-required",
+    "0044": "no quality-qualified promotion recommendation"
+  }
+}

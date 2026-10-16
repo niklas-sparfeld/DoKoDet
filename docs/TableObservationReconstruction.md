@@ -229,16 +229,16 @@ and tracking improve independently.
   DINOv3 candidate and its measured development limits.
 - [0044](plans/1-backlog/0044-Productive_Local_Identity_Model_Operations.md) owns later productive
   campaigns, promotion, and rollback.
-- [0086](plans/3-in-progress/0086-Reviewed_Virtual_Card_Corpus.md) owns the current reviewed geometry
+- [0086](plans/5-closed/0086-Reviewed_Virtual_Card_Corpus.md) owns the current reviewed geometry
   and identity corpus.
 - [0087](plans/5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
-  [0088](plans/4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) own separate segmentation
+  [0088](plans/3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md) own separate segmentation
   and identity training campaigns.
 - [0093](plans/5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) owns annotation
   without identity predictions and all-class native crop preparation, including FACE_DOWN.
 - [0094](plans/5-closed/0094-DINO_Training_and_Runtime_Recipes.md) owns reusable multi-resolution
   DINO training, adapted-weight bundles and confidence contracts used by 0088.
-- [0089](plans/4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) owns measured algorithm fixes.
+- [0089](plans/2-ready/0089-Virtual_Card_Algorithm_Edge_Cases.md) owns measured algorithm fixes.
 - [0090](plans/4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) owns the composed local pilot.
 - [0050](plans/4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) owns later justified
   optional analyzer capabilities after that pilot.

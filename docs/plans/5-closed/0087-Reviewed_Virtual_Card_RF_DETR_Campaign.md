@@ -63,7 +63,7 @@ synthetic generator. Its historical 50/50 comparison improved real validation ma
 promotion or prove a new mixture will improve the corrected corpus.
 
 This epic does not train DINO, tune pose fitting, change runtime defaults, or implement end-to-end
-automation. [0088](../4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md) is independent of its
+automation. [0088](../3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md) is independent of its
 training result.
 
 ## 2. Campaign rules
@@ -204,7 +204,7 @@ only if M0's gates permit it; retain a failed candidate as an experiment. Leave 
 
 Acceptance: decision report, predictions, bundle digests, evaluation history, limitations, and next
 actions are reproducible. Hand the exact selected bundle or retained baseline to
-[0089](../4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) and
+[0089](../2-ready/0089-Virtual_Card_Algorithm_Edge_Cases.md) and
 [0090](../4-blocked/0090-Local_End_to_End_Recording_Pipeline.md). A negative campaign outcome still
 permits a handoff.
 

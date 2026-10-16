@@ -79,7 +79,11 @@
   M6 inputs to review; no crops have matched identity targets, so this is not accuracy evidence.
   Face-down outputs are pixel-based, with no face-down quality claim. See the
   [M14 report](../../reports/0088-M14_Development_Exercise.md).
-- **M15:** Not started — publish the qualification decision and downstream handoffs.
+- **M15:** Complete — neither finalist meets the accuracy or confidence coverage gate, and one
+  final-test source group cannot establish generalization. M6 is the primary diagnostic bundle;
+  M3 remains the control. Both stay available, with all predictions requiring review. No model is
+  promoted, and the useful-model objective remains unmet. See the
+  [M15 qualification decision](../../reports/0088-M15_Qualification_Decision.md).
 
 ## 1. Objective and evidence
 
@@ -506,7 +510,7 @@ Each fit is resumable and can run without browser activity or new hardware. Publ
 preflight before executing a long job. Broad code changes discovered during a fit return to a
 supporting implementation milestone instead of being mixed with the campaign result.
 
-[0089](../4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md) owns later reproduced geometry/integration fixes.
+[0089](../2-ready/0089-Virtual_Card_Algorithm_Edge_Cases.md) owns later reproduced geometry/integration fixes.
 [0090](../4-blocked/0090-Local_End_to_End_Recording_Pipeline.md) owns full pipeline coordination.
 [0044](../1-backlog/0044-Productive_Local_Identity_Model_Operations.md) owns registry promotion,
 default changes, productive campaign UI, and rollback. Their diagnostic work can consume a failed

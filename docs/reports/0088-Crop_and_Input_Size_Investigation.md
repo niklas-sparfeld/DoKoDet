@@ -1,7 +1,7 @@
 # Identity crop and input-size investigation
 
 Date: 2026-10-14. Read-only development diagnostics for the revised
-[0088 campaign](../plans/4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md).
+[0088 campaign](../plans/3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md).
 No training, Gemini requests, annotation changes or final-test access occurred.
 
 ## Sample and implementation
