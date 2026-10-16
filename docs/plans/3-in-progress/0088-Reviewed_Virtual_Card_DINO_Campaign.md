@@ -69,8 +69,10 @@
   recording. Both bundles reproduce saved model-selection predictions across all 209 crops. The
   1-point rule does not exclude either model; the final-test partition has one source group and
   cannot meet the uncertainty floor. See the [M12 lock](../../reports/0088-M12_Final_Evaluation_Lock.md).
-- **M13:** In progress — the locked 108-crop final comparison is running for both candidates and
-  Gemini. See the [M13 execution report](../../reports/0088-M13_Final_Evaluation.md).
+- **M13:** Complete — the one-time paired comparison scored all 108 locked crops for M3, M6, and
+  Gemini. Neither DINO candidate meets the face-up accuracy or confidence coverage gate. The
+  one-group result cannot support generalization. See the
+  [M13 evaluation report](../../reports/0088-M13_Final_Evaluation.md).
 - **M14:** Not started — exercise the locked bundle on development recording sequences.
 - **M15:** Not started — publish the qualification decision and downstream handoffs.
 
@@ -451,10 +453,12 @@ all predictions, failures, group/slice metrics, confidence results, and costs.
 Acceptance: one digest-backed final result; no tuning or repeated test after seeing errors. A failed
 quality gate produces an unmet-objective decision, not an automatic request for more candidates.
 
-**Progress:** The locked runner is implemented at
-`operations/scripts/run_0088_m13_final_evaluation.py`. The 108-crop membership matches the lock.
-The one-time scoring run has started for M3, M6, and Gemini. See the
-[M13 execution report](../../reports/0088-M13_Final_Evaluation.md).
+**Result:** Complete. All 108 locked crops were scored once by M3, M6, and Gemini. M3 reached
+83/108 top-1 and M6 reached 86/108; Gemini reached 78/108. M6 corrected three more crops than M3
+on this recording. Both DINO candidates remain in the result. Neither reaches the 98% face-up gate
+or 90% confidence coverage gate; M3 also exceeds the 100 ms p95 latency limit. The source-group
+and `FACE_DOWN` support are each one, so the result cannot establish generalization or face-down
+quality. See the [M13 report](../../reports/0088-M13_Final_Evaluation.md).
 
 ### M14 — Exercise development recording sequences
 
