@@ -4,10 +4,12 @@
 
 - **Summary:** Run the automatic stages in sequence on a small fixed recording batch and measure
   the composed result with explicit model, input, and failure lineage.
-- **Status:** Blocked
-- **Depends on:** 0087 and 0088 bundle decisions; 0089 algorithm handoff; completed 0048 and 0049
-  0091 M7 pile feature handoff and explicit real pile-model capability decision.
-- **Blocker:** 0089 has not published its algorithm handoff. The 0088 identity decision is available:
+- **Status:** Ready
+- **Depends on:** Completed 0087 and 0088 bundle decisions; completed 0089 no-fix algorithm handoff;
+  completed 0048 and 0049; completed 0091 M7 pile feature handoff and explicit real pile-model
+  capability decision.
+- **Readiness:** The 0089 replay found no isolated algorithm defect and does not select an
+  algorithm change. The 0088 identity decision is available:
   M6 seed 17 is the primary diagnostic bundle and M3 seed 17 is available as a paired diagnostic;
   both are unqualified and all identity proposals require human review. See the
   [0088 M15 handoff](../../reports/0088-M15_Qualification_Decision.md).
@@ -60,7 +62,7 @@ remains sealed; a later authorized locked system evaluation is separate from thi
 
 No new model campaign, algorithm research, full review workflow, productive promotion UI, or
 production deployment belongs here. Broader capability selection stays in
-[0050](0050-Detector_Quality_and_Analyzer_Capabilities.md); productive identity operations stay in
+[0050](../4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md); productive identity operations stay in
 [0044](../1-backlog/0044-Productive_Local_Identity_Model_Operations.md).
 
 ## 2. Delivery milestones

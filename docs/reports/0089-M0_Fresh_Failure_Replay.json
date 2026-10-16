@@ -1,0 +1,3848 @@
+{
+  "decision": {
+    "next_action": "No 0089 algorithm fix is selected. Close the epic with this replay and require new detector outputs with reviewed-card overlap before selecting a geometry or crop fix.",
+    "reason": "Fresh model outputs yielded no reviewed-card polygon associations at the frozen 0.5 IoU threshold. Pose, stacking-order, and crop errors cannot be isolated from detector failures on these inputs. The calibration failure on IMG_0095 follows failed spatial-coverage and held-out-boundary gates; it does not justify weakening the calibration boundary.",
+    "selected_algorithm_failure_families": []
+  },
+  "detection_against_review": {
+    "association_policy": "greedy one-to-one polygon IoU >= 0.5",
+    "best_iou": {
+      "maximum": 0.254798,
+      "median": 0.0,
+      "minimum": 0.0,
+      "p95": 0.0
+    },
+    "frames": [
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-046",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3705,
+          "height": 3840,
+          "image_sha256": "01e8a1763140e6d015d0b716a5353c1fc254c320fd7b5cef9073c7eb2103d941",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 61741667,
+          "requested_time_us": 61741266,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-046-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-046-card-0005",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-046-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-046-card-0004"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-031",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2671,
+          "height": 3840,
+          "image_sha256": "025765e705cdc4a188854a3ca049f8a745779a838f9aa3225d3db610b2b21f04",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 44510000,
+          "requested_time_us": 44493706,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-031-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-031-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-031-card-0002",
+          "manual-card-1"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-021",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1906,
+          "height": 3840,
+          "image_sha256": "033abd88e2284fbff02d034b7f5b1f60586a9cbb869b2f5578cca7a64682216f",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 31761667,
+          "requested_time_us": 31745509,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-021-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-048",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3870,
+          "height": 3840,
+          "image_sha256": "03cee86c1bda1203816f39a97c8af8f579de7356fb4cbf05c09f26b3105ce56c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 64491667,
+          "requested_time_us": 64490877,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-048-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-044",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3615,
+          "height": 3840,
+          "image_sha256": "0596aca0ffd82ace3df86a327277390728365b4aa85d0a33f8fbf0c4f53eb44d",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 60241667,
+          "requested_time_us": 60241478,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-044-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-044-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-011",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1035,
+          "height": 3840,
+          "image_sha256": "0a7dc6cdcbdc55b61172075efe87d351d6a1c44afcf82d1bc3268c32dde48bfe",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 17248333,
+          "requested_time_us": 17247560,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-011-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-011-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-041",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3376,
+          "height": 3840,
+          "image_sha256": "0eaac16ae4496716e3e6baef755054438e147b91dbcf61e4fa57e9ea5f0cb005",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 56258333,
+          "requested_time_us": 56242044,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-041-card-0004",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-041-card-0005",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-041-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-041-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-013",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1141,
+          "height": 3840,
+          "image_sha256": "104b18419a0d2b57233cdb91333cb59f36393e4a04b813932d262cb0cb0e18fd",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 19013333,
+          "requested_time_us": 18997313,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-013-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-013-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-013-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-013-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-012",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1095,
+          "height": 3840,
+          "image_sha256": "10c8c0a3ad57ff643b64b8351bb04c9c94693c9e408ebd78a3e93c2ed48dd42d",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 18248333,
+          "requested_time_us": 18247419,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-012-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-012-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-012-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-010",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 975,
+          "height": 3840,
+          "image_sha256": "17d2461cdd61d7512c02b3a7473eb3ca6b1113e1e7ac745519877b5114ab5272",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 16248333,
+          "requested_time_us": 16247702,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-010-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-014",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1156,
+          "height": 3840,
+          "image_sha256": "1f521576432146fd10fe38ffc1454cbbdf980ed253a4e8d90e903f5a84295107",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 19263333,
+          "requested_time_us": 19247277,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-014-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-014-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-014-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-014-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-029",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2580,
+          "height": 3840,
+          "image_sha256": "2c4d1ea65f8edb7361ca5641ef887fe508739d6079fa440a0033388cf8813512",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 42995000,
+          "requested_time_us": 42993918,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-029-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-029-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-029-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-028",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2490,
+          "height": 3840,
+          "image_sha256": "3045ca5edf515ac9388fa14215aef602f2fcb9382169ad35c56daeddc15b14d3",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 41495000,
+          "requested_time_us": 41494130,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-028-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-028-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-018",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1620,
+          "height": 3840,
+          "image_sha256": "3a1c9d4c8d43230bd88aebc7cb2df4384c341aa4453cb210b0f3f138f3b5bc99",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 26996667,
+          "requested_time_us": 26996181,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-018-card-0003",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-018-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-018-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-024",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2116,
+          "height": 3840,
+          "image_sha256": "4db7e868066fd4af4663f6ce87ae3120c1051dd96ff75b1c75d9c4d43b3546bd",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 35261667,
+          "requested_time_us": 35245014,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-024-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-024-card-0003",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-024-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-024-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-000",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 150,
+          "height": 3840,
+          "image_sha256": "4dc3f22b98c6319adaee191fd064d89f2dbe67c256be76d38bcfc611ebba3756",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 2500000,
+          "requested_time_us": 2499646,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-000-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-038",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3225,
+          "height": 3840,
+          "image_sha256": "58904bfe576f419f8506cbbf8abf05248ecb84ea68d119c9f0621b5e9dee60c9",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 53743333,
+          "requested_time_us": 53742397,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-038-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-039",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3285,
+          "height": 3840,
+          "image_sha256": "5a762c4b69d13c40808c63f327b5572474d361d3df5737596ba19eb52e6de04a",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 54743333,
+          "requested_time_us": 54742256,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-039-card-0001",
+          "manual-card-1-frame-3285-26ab2a424ae9"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-001",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 210,
+          "height": 3840,
+          "image_sha256": "5e3e4b79f4755705992ec3966a3cd00309f83b2602841abbe7b824e866bfcc42",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 3500000,
+          "requested_time_us": 3499505,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-001-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-001-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-019",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1680,
+          "height": 3840,
+          "image_sha256": "76a5b3c13baee334b0687f6d389c09ca5cc5bb01b78e0ae740a57af7993ad1bb",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 27996667,
+          "requested_time_us": 27996040,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 5,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-019-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-019-card-0004",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-019-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-019-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-034",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2895,
+          "height": 3840,
+          "image_sha256": "7881f96d4aa879ece8255c42a60d4a9eb1ea8a56815bcda3d29de0c3cac23e13",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 48243333,
+          "requested_time_us": 48243175,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-034-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-034-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-008",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 765,
+          "height": 3840,
+          "image_sha256": "7f8acd0e7fd523bfcf94aa5fa8d5c9feda2c8727e4fcdef1246b18403a0de759",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 12748333,
+          "requested_time_us": 12748197,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-008-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-008-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-008-card-0003",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-008-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-017",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1560,
+          "height": 3840,
+          "image_sha256": "8413d228d8ec944c20c517d0fc8ffc8f2095a1811d26aad8031ce4b30f814258",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 25996667,
+          "requested_time_us": 25996322,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-017-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-017-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-005",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 571,
+          "height": 3840,
+          "image_sha256": "8e182b9e9020ddf582d04c776ba60aba0c310e22358d8d3479dc823b2fed15b2",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 9515000,
+          "requested_time_us": 9498656,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-005-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-050",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3960,
+          "height": 3840,
+          "image_sha256": "906989f794639942c61d89a55fdff3db7259b6092e26e137b82d3c4f61db1c7c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 65991667,
+          "requested_time_us": 65990665,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-050-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-050-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-050-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-040",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3330,
+          "height": 3840,
+          "image_sha256": "973b0e7e1760d318ccc5ab904df3a5855f3d8033a9bd0d627cd7343fe9ffa999",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 55493333,
+          "requested_time_us": 55492150,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-040-card-0005",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-040-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-040-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-007",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 691,
+          "height": 3840,
+          "image_sha256": "98adf11e5d0c3c0a6c80d6db016823a4e22bf72a8559ac71cbf3298bd12dd828",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 11515000,
+          "requested_time_us": 11498373,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-007-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-007-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-007-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-026",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2355,
+          "height": 3840,
+          "image_sha256": "9caa3003ca77777c913b6c2d486c342354743047a8373dc0d377946792c92c18",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 39245000,
+          "requested_time_us": 39244448,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-026-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-023",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2041,
+          "height": 3840,
+          "image_sha256": "a17d17e68728ef6b47d6748862719b19faff73295d4e1a9ad1c9cb3690f83933",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 34011667,
+          "requested_time_us": 33995191,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-023-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-023-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-023-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-027",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2400,
+          "height": 3840,
+          "image_sha256": "a8bdb393f035361bd24feb92fbce8a32c68c07efc8776bff839ac6b1af36e72c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 39995000,
+          "requested_time_us": 39994342,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-027-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-043",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3570,
+          "height": 3840,
+          "image_sha256": "a92a8febd0a63b36909e32f433e135a91299d267633eb343e9b3630d32e0222c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 59491667,
+          "requested_time_us": 59491584,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-043-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-035",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2955,
+          "height": 3840,
+          "image_sha256": "ae336402881beb8cb5d7bc5c7484ce742406c45c434e6deb28f1afc414d3ac79",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 49243333,
+          "requested_time_us": 49243034,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-035-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-035-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-035-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-022",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1981,
+          "height": 3840,
+          "image_sha256": "b5d0e0b2e522e4f484d69f091e576d27a13b6596dd9e7534f8d398ee178a6576",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 33011667,
+          "requested_time_us": 32995332,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-022-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-022-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-033",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2835,
+          "height": 3840,
+          "image_sha256": "b5ff838bdf772e5c39712e46abd24d0b0de2187aa0fd8b42e1330ad7d8313ef8",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 47243333,
+          "requested_time_us": 47243317,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-033-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-006",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 631,
+          "height": 3840,
+          "image_sha256": "c71d1677cd33b6a3b13d5b6f6bf0b558a9de54f14172b3b2db9a6bd35f64282e",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 10515000,
+          "requested_time_us": 10498515,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-006-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-006-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-051",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4020,
+          "height": 3840,
+          "image_sha256": "cb90cb17a4190f7a4f01273f64c634311499363f5411b7651c6536704a9f955b",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 66991667,
+          "requested_time_us": 66990523,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-051-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-051-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-051-card-0003",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-051-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-045",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3675,
+          "height": 3840,
+          "image_sha256": "d0fc80847486188a2b917dd344fe135bd8fca1e81a5537f7f48f48abdba4986e",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 61241667,
+          "requested_time_us": 61241337,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-045-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-045-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-045-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-036",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3015,
+          "height": 3840,
+          "image_sha256": "ddb0b4fadf762c720c1420bcdd718531549adb17209b618d1073d162e2db6e82",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 50243333,
+          "requested_time_us": 50242893,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-036-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-036-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-036-card-0003",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-036-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-049",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3915,
+          "height": 3840,
+          "image_sha256": "eeb4925744823421f7df97b5d2eaafc403eadc80584e952f03dad3b5f33a6a41",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 65241667,
+          "requested_time_us": 65240771,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-049-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-049-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-003",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 345,
+          "height": 3840,
+          "image_sha256": "f3f277f02141c1ac87b69a7f329c704838113c580d7d812ea9166a8cb991fb38",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 5750000,
+          "requested_time_us": 5749187,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-003-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-003-card-0002",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-003-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-003-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0095-016",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1500,
+          "height": 3840,
+          "image_sha256": "f44455de9a06a5b26e28e216f8a7bb63a19b9a02c55ee9ca9675bdfc9af86098",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 24996667,
+          "requested_time_us": 24996464,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-016-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.002537,
+        "event_id": "cardeventnet-event-img_0095-002",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 285,
+          "height": 3840,
+          "image_sha256": "fc8c253dbb13ccf8c4aa0ede89350c33e543a05b7dc27f83950ade822d5bd6ce",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 4750000,
+          "requested_time_us": 4749328,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 2160
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0095",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-002-card-0000",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-002-card-0001",
+          "pose-0fcc49e1-9f61-4986-90bf-2f145e325ccd-cardeventnet-event-img_0095-002-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-028",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3256,
+          "height": 1080,
+          "image_sha256": "01d31b73692b2584a28a5abcdeeea0be4f25579b0e6644a2644aa1f5ec3834bc",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 54320000,
+          "requested_time_us": 54302631,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-028-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-028-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-028-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-002",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 361,
+          "height": 1080,
+          "image_sha256": "0c948c1d6b5c8f8267c4939a7dad4312b744f67ff20177747c88804c349a2cf3",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 6021667,
+          "requested_time_us": 6005821,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-002-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-002-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-002-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-042",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4486,
+          "height": 1080,
+          "image_sha256": "134b37e57af2bd6dba086e0db14106bd7f667ebadf9aa11b22a069be2d3402bd",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 74838333,
+          "requested_time_us": 74822519,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-042-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-042-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-025",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2821,
+          "height": 1080,
+          "image_sha256": "162ceecc8bb8f4bef3c712bd686fdfdf6d43ee0f8d0d32897978ee18fc330c7f",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 47061667,
+          "requested_time_us": 47046567,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-025-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-025-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-025-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-025-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-029",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3346,
+          "height": 1080,
+          "image_sha256": "208627902b181af366334a9681625c7d3c294a5a505faa4937c006ad11a52202",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 55820000,
+          "requested_time_us": 55804086,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-029-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-029-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-029-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-029-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-032",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3631,
+          "height": 1080,
+          "image_sha256": "237c598f0511872785be8e62fdda12e745760ad830e98cc23e5184aca8a6dfcf",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 60575000,
+          "requested_time_us": 60558694,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-032-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-032-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-010",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1456,
+          "height": 1080,
+          "image_sha256": "2654f79decfc890c1ed04c7528bb50aa42c2ccdc5a78b3cd8099f68dca609cdb",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 24290000,
+          "requested_time_us": 24273526,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-010-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-016",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1996,
+          "height": 1080,
+          "image_sha256": "2783803dc0c43b3c051516b7df31fed3ba2b3f01e80eebec5269d6e51f5dcb5b",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 33298333,
+          "requested_time_us": 33282257,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-016-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-016-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-022",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2550,
+          "height": 1080,
+          "image_sha256": "28257b748e766108f7037bc9a46dd0ac1e47d2b0583ea2f1beb38b722c483e3f",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 42541667,
+          "requested_time_us": 42541231,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-022-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-022-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-035",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3781,
+          "height": 1080,
+          "image_sha256": "2fa8fb44ae39532aee476cc241d6bc7361cba52370dbb589daddaa190f5cab3c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 63078333,
+          "requested_time_us": 63061847,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-035-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-035-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-035-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-035-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-041",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4425,
+          "height": 1080,
+          "image_sha256": "2fd863dc37494d7e53013a06b7c8bedc3bdcd70d173ff7baad39e39626d7dfcd",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 73821667,
+          "requested_time_us": 73821549,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-041-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.000176,
+        "event_id": "cardeventnet-event-img_0657-049",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 5130,
+          "height": 1080,
+          "image_sha256": "33571beeecd3b7ea784d2e7e50f6551c5e0f71ed0a03c28860a05346fd908c22",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 85583333,
+          "requested_time_us": 85582948,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-049-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-049-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-049-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-049-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-013",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1635,
+          "height": 1080,
+          "image_sha256": "3aba944acba8ec26e11f6a912e8c79c897cacaa1e5ce7bd817f1c3a8199f7f5e",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 27276667,
+          "requested_time_us": 27276437,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-013-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-013-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-013-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-013-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-001",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 270,
+          "height": 1080,
+          "image_sha256": "3ebb586548383250c8fcfe8a258db40f69bbd0aca69e2986bdb9fae5b8445bc5",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 4505000,
+          "requested_time_us": 4504366,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-001-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-001-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-021",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2491,
+          "height": 1080,
+          "image_sha256": "3ee083c61d02f920407b77c1121bb710d54d741192e6f459cf2a53f5ad24ce47",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 41556667,
+          "requested_time_us": 41540261,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-021-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-011",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1515,
+          "height": 1080,
+          "image_sha256": "3efb7e11b87d4322be97b63be76ea62073a129756903f6c36cdce0da3a81077c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 25275000,
+          "requested_time_us": 25274496,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-011-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-011-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-048",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 5056,
+          "height": 1080,
+          "image_sha256": "41dc6296a7b9868242621e410d45892e1385e4b43efa401d32423ff2dbc93db3",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 84348333,
+          "requested_time_us": 84331735,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-048-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-048-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-048-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-005",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 961,
+          "height": 1080,
+          "image_sha256": "448b93487436624156bab44d429af4c3b3e0326089c34c8bc0ef7e63719d5b2d",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 16031667,
+          "requested_time_us": 16015522,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-005-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-004",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 616,
+          "height": 1080,
+          "image_sha256": "4745e8cccd59dea7a24c7b7a50b3256bb75598e48a2be1479c8a7e8630f7a5f6",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 10276667,
+          "requested_time_us": 10260429,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-004-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-004-card-0003",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-004-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-004-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-038",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4126,
+          "height": 1080,
+          "image_sha256": "567b864a2f022c690a4dfd79c01362dd1337985d1dc5ad3ce6d2d3a0428d24e2",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 68833333,
+          "requested_time_us": 68816698,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-038-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-038-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-038-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-043",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4546,
+          "height": 1080,
+          "image_sha256": "5b71eac10c99736188b5bdc3c2f7e58dde5c3963069b9b3ea4f317dae18f86df",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 75840000,
+          "requested_time_us": 75823489,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-043-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-043-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-043-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-044",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4681,
+          "height": 1080,
+          "image_sha256": "5d823b0e159d6094ce6a15eb5ebc848965790db1785179c8f3051813c338a37c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 78091667,
+          "requested_time_us": 78075672,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-044-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-044-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-044-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-044-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-036",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4005,
+          "height": 1080,
+          "image_sha256": "5edbd44c05c713f4e79b166d4f37affca6dfab9e237751bf4b92a4239f5a68ef",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 66815000,
+          "requested_time_us": 66814757,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-036-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-039",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4200,
+          "height": 1080,
+          "image_sha256": "77e1abecd78304796291dd570a3c8496c9dc05de033750946030249dfd18ad1c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 70068333,
+          "requested_time_us": 70067910,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-039-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-039-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-039-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-039-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-027",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3180,
+          "height": 1080,
+          "image_sha256": "952762abc4dca408b5d19e6a97c1a1db64ddd21f368750bb74d63f2953a344b4",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 53051667,
+          "requested_time_us": 53051418,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-027-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-027-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-003",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 421,
+          "height": 1080,
+          "image_sha256": "9f012f41ae54c546a58855cd400e893e19dda2cda5bd1bcd42a4a1a39e43a1b6",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 7023333,
+          "requested_time_us": 7006791,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-003-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-003-card-0003",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-003-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-003-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-020",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2416,
+          "height": 1080,
+          "image_sha256": "a14ff9b53c01a5f6ceecdd84778d3681ffd2556ca5680e1ba2ebf7b9c8aac902",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 40305000,
+          "requested_time_us": 40289049,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-020-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-047",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4981,
+          "height": 1080,
+          "image_sha256": "a8bd71759838fb5290ab157d0f69fcb64b68dbcd10b64270c04dd422cc7f1e8c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 83096667,
+          "requested_time_us": 83080522,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-047-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-047-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-033",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3675,
+          "height": 1080,
+          "image_sha256": "aa4457ae865826ab120143a66ec6acebf5a1ba978d7483f4c1b7b43f46f3cf51",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 61310000,
+          "requested_time_us": 61309422,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-033-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-033-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-033-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-031",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3600,
+          "height": 1080,
+          "image_sha256": "ad57982f03bd27c56065c1f245543ce15d1079c88a2c2ee2b736c540f0d3064c",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 60058333,
+          "requested_time_us": 60058209,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-031-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-017",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2055,
+          "height": 1080,
+          "image_sha256": "b3befc88cc539c9797eb73d90aa7865f8dd2b82f45c6ddf56948948c4e05ad9e",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 34283333,
+          "requested_time_us": 34283228,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-017-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-017-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-017-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-007",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1095,
+          "height": 1080,
+          "image_sha256": "b932b0e6beecb9a70882cfcee38ed4046e29177989f47b79d65647e99586584e",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 18268333,
+          "requested_time_us": 18267705,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-007-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-007-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-007-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-023",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2655,
+          "height": 1080,
+          "image_sha256": "bb71662206f96221b9bfbba1d7d8babe73ca405ed7600b267a1bfd6036a0c9d7",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 44293333,
+          "requested_time_us": 44292929,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-023-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-023-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-023-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-040",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4261,
+          "height": 1080,
+          "image_sha256": "c1318a003c3135d6727a05d04ac750130417615a0baaab52fff2fffc114a4f90",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 71085000,
+          "requested_time_us": 71069366,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-040-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-040-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-040-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-040-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-037",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4066,
+          "height": 1080,
+          "image_sha256": "c6739ca5e55512d04890f18625caa933a648becac5331920cdc296a2a0d92ce8",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 67831667,
+          "requested_time_us": 67815728,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-037-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-037-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-012",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1576,
+          "height": 1080,
+          "image_sha256": "cbcc6926d875cf7e551b3473ca588f6ce00c555d9f198810882a73f4aea86db5",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 26291667,
+          "requested_time_us": 26275466,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-012-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-012-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-012-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-034",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3751,
+          "height": 1080,
+          "image_sha256": "ccda53d10b7618e191200748b26c268f029d39747d422a914e711d899381eacf",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 62576667,
+          "requested_time_us": 62560634,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-034-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-034-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-034-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-034-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-015",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1920,
+          "height": 1080,
+          "image_sha256": "ce77d891b7dc906dc4a91c2929633ed7f7de90e50e0f178b8c574e1e922290d8",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 32031667,
+          "requested_time_us": 32031045,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-015-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-024",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2716,
+          "height": 1080,
+          "image_sha256": "d9beeaa9a53fb7cae806ed1ee3e248a11d24496ea1d4661470e85a374ec5a7ec",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 45310000,
+          "requested_time_us": 45293899,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-024-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-024-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-024-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-024-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-006",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1036,
+          "height": 1080,
+          "image_sha256": "dd7d72fb3a3258a4adb66ee497cc6308ddee2abadbc2293c09204f5b778734da",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 17283333,
+          "requested_time_us": 17266735,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-006-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-006-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-046",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4951,
+          "height": 1080,
+          "image_sha256": "f10200c5d293935c98528ceadd3ed2b11fafa06b24219b9df37dde9ad8edabfd",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 82596667,
+          "requested_time_us": 82580037,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-046-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-026",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3136,
+          "height": 1080,
+          "image_sha256": "fcfc6292baaf9745dc9b57ffe5b9e380ec5e3210779df2420d3eda09094c86e1",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 52316667,
+          "requested_time_us": 52300690,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-026-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.009706,
+        "event_id": "cardeventnet-event-img_0657-018",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2116,
+          "height": 1080,
+          "image_sha256": "ff726e4da653bea6efce14212ce5ea0b1646b3ed4f2417e14603fb3a9cc4f1e1",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 35300000,
+          "requested_time_us": 35284198,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-018-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-018-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-018-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-018-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.028299,
+        "event_id": "cardeventnet-event-img_0657-000",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 211,
+          "height": 1080,
+          "image_sha256": "ff8c1c1202d8b1e3a36ac8a6cd3fae6b5cbe113b2a89c813887e65197eb54583",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 3520000,
+          "requested_time_us": 3503396,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-000-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0657-030",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3391,
+          "height": 1080,
+          "image_sha256": "ff97af2f9769b242e5fa8cdeccdcee69047ae8e1704c38acfa20876e384ab6bc",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 56571667,
+          "requested_time_us": 56555541,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0657",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-030-card-0000",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-030-card-0001",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-030-card-0002",
+          "pose-visible-cards-0086-91x59-IMG_0657-74451f0a-cardeventnet-event-img_0657-030-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-030",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3736,
+          "height": 1080,
+          "image_sha256": "024258c26f09c667c339b8a5c234c05db19fc0e3cc77064597ec14a860841f48",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 62326667,
+          "requested_time_us": 62310203,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 6,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-030-card-0006"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.000915,
+        "event_id": "cardeventnet-event-img_0662-005",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1051,
+          "height": 1080,
+          "image_sha256": "0af829d9287ca0729effaddbf2e80815a8094365d6047a8aeac5f920a26b1e45",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 17533333,
+          "requested_time_us": 17516925,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-005-card-0004"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-015",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2130,
+          "height": 1080,
+          "image_sha256": "0f5933aedaf8cdfc6c140d84ca4cc29a475dcdc1b5204e8eea538e8c065cde21",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 35535000,
+          "requested_time_us": 35534333,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-015-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-019",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2431,
+          "height": 1080,
+          "image_sha256": "18a11a791fc24b0009553a07dbc533982923659dce952629e4df89d446fc8940",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 40556667,
+          "requested_time_us": 40540861,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 6,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": null,
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": []
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-026",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3300,
+          "height": 1080,
+          "image_sha256": "191cdeebee69215bbae0b5bfbfb3253dd394e0a2571c4fb58f72eec95ef328b6",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 55053333,
+          "requested_time_us": 55053191,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 9,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": null,
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": []
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-028",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3436,
+          "height": 1080,
+          "image_sha256": "1ad6cf0913252b346d2f4701bc291eb09548117b2ca4c6b46406a52fc1daa162",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 57321667,
+          "requested_time_us": 57305368,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 13,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-028-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-028-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-028-card-0003",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-028-card-0006"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-011",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1696,
+          "height": 1080,
+          "image_sha256": "3b33610acbe56f80277ba516ab898b29d66b6ca30330e014ca00f6707d0515bf",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 28293333,
+          "requested_time_us": 28277321,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 5,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-011-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-011-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.254798,
+        "event_id": "cardeventnet-event-img_0662-009",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1321,
+          "height": 1080,
+          "image_sha256": "3e7aa428705d6a8f1c66d91b8cac349797343ac9113c602d7c78f41b039f5b5f",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 22038333,
+          "requested_time_us": 22021760,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 7,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-009-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-009-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-009-card-0002",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-009-card-0004"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-000",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 121,
+          "height": 1080,
+          "image_sha256": "3ed0b726db8af40fdabe7b5ac4cdbb944961bccfd1cb900b35a409b426ad07a4",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 2018333,
+          "requested_time_us": 2001934,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "accepted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-000-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-024",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3046,
+          "height": 1080,
+          "image_sha256": "47da25b4277511989bd6738a2a1649dd88ddfc6ee1216b9f89e9ee6babeb840b",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 50815000,
+          "requested_time_us": 50799565,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 10,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-024-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-024-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-024-card-0002",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-024-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-042",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 5086,
+          "height": 1080,
+          "image_sha256": "4e565ef662db73eda2bbb65f288f67d6f611cdf0c96ffef301b59beb24c5fd67",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 84848333,
+          "requested_time_us": 84831963,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 12,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": null,
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": []
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-025",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3241,
+          "height": 1080,
+          "image_sha256": "572bfa972bca06642cddb8041c6bfffe51ae91067f004ae83f942aa2d151a4a2",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 54068333,
+          "requested_time_us": 54052224,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 9,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-025-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-044",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 5296,
+          "height": 1080,
+          "image_sha256": "588da68074bce2bc642e2f99796173e06108aadf905128a555685a63f1d8d0f8",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 88351667,
+          "requested_time_us": 88335348,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 8,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-044-card-0008"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-022",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2955,
+          "height": 1080,
+          "image_sha256": "6108fdb40f36497a77e71e2abbb92268118716933ff8daa6a495fca648bf0dd2",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 49298333,
+          "requested_time_us": 49297631,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 10,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": null,
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": []
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-010",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1620,
+          "height": 1080,
+          "image_sha256": "61cbe07ff1ab618bf5945a4053ca98f76ff436a8ad4ea4dc940af0ced66e7a67",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 27026667,
+          "requested_time_us": 27026112,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-010-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.007628,
+        "event_id": "cardeventnet-event-img_0662-008",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1305,
+          "height": 1080,
+          "image_sha256": "634e8f33075e652239f0fbdb2a9d36409d3f7cb467d8ff136ab0d814ac8dc670",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 21771667,
+          "requested_time_us": 21771035,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 7,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-008-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-008-card-0002",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-008-card-0003",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-008-card-0005"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.158575,
+        "event_id": "cardeventnet-event-img_0662-035",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4230,
+          "height": 1080,
+          "image_sha256": "63b8ee88db05486aed5c7daa59ce1f7876e5db6d3a0d4bdd0e88a87a24ccc048",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 70568333,
+          "requested_time_us": 70568182,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-035-card-0010"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-040",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4920,
+          "height": 1080,
+          "image_sha256": "745d6589a19768061e954fdab18b888de1ed294122fc6b96758692f738e2e6f0",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 82080000,
+          "requested_time_us": 82079304,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 8,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-040-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-040-card-0006"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-031",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3825,
+          "height": 1080,
+          "image_sha256": "78871f19b418a6bc9ed1a8246527bcb57b9f455b1cf80f46173196b36d4041bf",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 63811667,
+          "requested_time_us": 63811654,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 5,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-031-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-031-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-016",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2191,
+          "height": 1080,
+          "image_sha256": "78c4b41db4fbb5141a48440c41a7e5a0bb540f915e8d097dad96ff3aed4dec43",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 36551667,
+          "requested_time_us": 36535300,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-016-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-016-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-017",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2326,
+          "height": 1080,
+          "image_sha256": "78c7781673924befaa5c2f14a79ac7a63a346ed93c435004f3a6c339b32ed4cd",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 38805000,
+          "requested_time_us": 38787476,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 5,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-017-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-017-card-0001",
+          "manual-card-1"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.001719,
+        "event_id": "cardeventnet-event-img_0662-018",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2401,
+          "height": 1080,
+          "image_sha256": "7a8d622474c1ec32bae8c1712865ae7715fd902fbf5b1b34d93faa0a3e2c6378",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 40055000,
+          "requested_time_us": 40038685,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 7,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": null,
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": []
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-032",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3915,
+          "height": 1080,
+          "image_sha256": "7ae811cb84422669a20c79cf682d9ad9a8b57e745e98d4e5f47dac0fb404dfc5",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 65313333,
+          "requested_time_us": 65313104,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 7,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-032-card-0003",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-032-card-0004",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-032-card-0005"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-036",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4305,
+          "height": 1080,
+          "image_sha256": "8459ccb657f2c0bdb42f2548b2fb0453f31829dbbf2384392949b03ce2a84d1f",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 71820000,
+          "requested_time_us": 71819391,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-036-card-0011",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-036-card-0012"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-039",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4861,
+          "height": 1080,
+          "image_sha256": "9889dd0db26750b690642fd897d3bc92192f1e0d7ebf291f7f8f04dfcfaa7915",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 81095000,
+          "requested_time_us": 81078337,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 8,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-039-card-0011"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-023",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3001,
+          "height": 1080,
+          "image_sha256": "9922bde48b6eeed8f031216b284bf65d41be77a598cf334f7ad8b34457a31462",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 50065000,
+          "requested_time_us": 50048356,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 10,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-023-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-023-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-023-card-0004",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-023-card-0005"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.002611,
+        "event_id": "cardeventnet-event-img_0662-033",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3990,
+          "height": 1080,
+          "image_sha256": "9995340cbb13fcb1ee428f2d128d11d3cde92e7dabb9ff80e450e53c14caa274",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 66565000,
+          "requested_time_us": 66564313,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 9,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-033-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-033-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-033-card-0003",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-033-card-0004"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "manual-1789567503801-13",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3600,
+          "height": 1080,
+          "image_sha256": "9d86428888e4e8297bffef288334bb9e9a25f144b9c3d996af09f6939ebaa123",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 60058333,
+          "requested_time_us": 60056093,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 5,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-manual-1789567503801-13-card-0004"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-013",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1830,
+          "height": 1080,
+          "image_sha256": "a8ff9a13b0406d238247180bc75fe759875c6b021524cac5385bc31f22f7e5d5",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 30530000,
+          "requested_time_us": 30529497,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 6,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-013-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-013-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-013-card-0002",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-013-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.001737,
+        "event_id": "cardeventnet-event-img_0662-046",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 5386,
+          "height": 1080,
+          "image_sha256": "aa3bb596d1b544bd69a704c08b1091d9b3b4e4607c7c64d7042dead0f4e43aa1",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 89853333,
+          "requested_time_us": 89836799,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 8,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-046-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-046-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-046-card-0004"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-006",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1141,
+          "height": 1080,
+          "image_sha256": "aadd1115d75ae89fa6edf16d317230c4829e72bf42d274fe42e7766f3ae5d532",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 19035000,
+          "requested_time_us": 19018375,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 4,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-006-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-006-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-027",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 3375,
+          "height": 1080,
+          "image_sha256": "af7e5e0c16705e51160c7ac66a522b0eca6309d29b629f3e17799fe5ba36f311",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 56305000,
+          "requested_time_us": 56304400,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 11,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": null,
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": []
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-045",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 5340,
+          "height": 1080,
+          "image_sha256": "b2c2b3cf114e6c58cf6ef6936122eb8a12d12aa4b7bb096cb442f992fff5b84b",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 89086667,
+          "requested_time_us": 89086074,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 6,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-045-card-0009",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-045-card-0011"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-014",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1861,
+          "height": 1080,
+          "image_sha256": "b59f95f494515c7aabb7a04d708b6fb657df18e8e745a79f7ae9a7f3b7c8139d",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 31046667,
+          "requested_time_us": 31030706,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 7,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-014-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-014-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-014-card-0002",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-014-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-002",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 300,
+          "height": 1080,
+          "image_sha256": "bfc307c47fcb232270eed4b37b12c926bc1bd68cc192442bc660bdef88fbbcd0",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 5005000,
+          "requested_time_us": 5004836,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 2,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "accepted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-002-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-002-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-002-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-001",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 211,
+          "height": 1080,
+          "image_sha256": "c2f6a559c294d0dd927f812923ef8e8b3d33fcb86f68f48444b1a9d13f9d7e61",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 3520000,
+          "requested_time_us": 3503385,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 1,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-001-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-001-card-0001"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-021",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2895,
+          "height": 1080,
+          "image_sha256": "c4e44182ccf6e17cc11d7881e3180fbddbc25b0bb11654912cb165aac2373446",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 48296667,
+          "requested_time_us": 48296663,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 8,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 2,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-021-card-0000",
+          "manual-card-1"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-012",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1755,
+          "height": 1080,
+          "image_sha256": "d03f0b46aa8796ad17b0aa5f1f2bafa5133cdb8bf457b4a4a2d816e973795b3a",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 29278333,
+          "requested_time_us": 29278288,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 5,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-012-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-012-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-012-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-020",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 2836,
+          "height": 1080,
+          "image_sha256": "d3c4fff65a776d37289c4e1448414649c09cdd24d54a5e1a8207280018f38948",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 47311667,
+          "requested_time_us": 47295696,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 6,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 1,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-020-card-0000"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-037",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 4395,
+          "height": 1080,
+          "image_sha256": "d8b25651213b226ee865d0a2f836b3bf558111709f35125c9a446eaed4e39355",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 73321667,
+          "requested_time_us": 73320841,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 6,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-037-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-037-card-0005",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-037-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.004122,
+        "event_id": "cardeventnet-event-img_0662-007",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 1215,
+          "height": 1080,
+          "image_sha256": "f22f8f39c2b1639651c0e7e69facbd8e287786c92b6c890709647ccf7dccb8d6",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 20270000,
+          "requested_time_us": 20269584,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 5,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-007-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-007-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-007-card-0002"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-003",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 375,
+          "height": 1080,
+          "image_sha256": "f9a4fc3dc5f4460fa649b73882325db422544d53b739be93572fb7639805565f",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 6256667,
+          "requested_time_us": 6256044,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 3,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "accepted",
+        "reviewed_card_count": 4,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-003-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-003-card-0001",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-003-card-0002",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-003-card-0003"
+        ]
+      },
+      {
+        "best_polygon_iou": 0.0,
+        "event_id": "cardeventnet-event-img_0662-041",
+        "frame_identity": {
+          "content_type": "image/jpeg",
+          "decoder_version": "ffmpeg/8.1.2",
+          "frame_index": 5011,
+          "height": 1080,
+          "image_sha256": "fbabb552e0c975762b10b46b2fa5329784c72a8badd95f7940c7243f138bd04e",
+          "output_encoding": "jpeg",
+          "policy": "exact-event/v1",
+          "presentation_timestamp_us": 83596667,
+          "requested_time_us": 83580754,
+          "schema_version": "exact-event/v1",
+          "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+          "transform_version": "ffmpeg-mjpeg/8.1.2",
+          "width": 1920
+        },
+        "matches_at_iou_0_5": [],
+        "proposal_count": 9,
+        "recording_id": "cardeventnet-IMG_0662",
+        "review_decision": "adjusted",
+        "reviewed_card_count": 3,
+        "reviewed_stacking_order": [
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-041-card-0000",
+          "pose-visible_cards-run-58a11cf2-2d0-cardeventnet-event-img_0662-041-card-0003",
+          "manual-card-1"
+        ]
+      }
+    ],
+    "matched_pairs": 0,
+    "per_recording": {
+      "cardeventnet-IMG_0095": {
+        "calibration_error": "image_to_table and table_to_image must be reciprocal transforms",
+        "calibration_failure": {
+          "action": "reject crop-only regions that destabilize the fit, or split the recording at a camera change",
+          "code": "unstable_table_transform",
+          "message": "the fitted table transform is too unstable to publish"
+        },
+        "calibration_gates": {
+          "candidate_count": true,
+          "fit_quality": true,
+          "held_out_boundary": false,
+          "held_out_population": true,
+          "orientation_diversity": true,
+          "spatial_coverage": false,
+          "table_position_diversity": true,
+          "temporal_diversity": true
+        },
+        "calibration_status": "failed",
+        "frame_count": 42,
+        "matched_pairs_at_iou_0_5": 0,
+        "proposal_best_iou": {
+          "maximum": 0.002537,
+          "median": 0.0,
+          "minimum": 0.0,
+          "p95": 0.0
+        },
+        "proposal_count": 106,
+        "reference_revision_id": "reference-visible_cards-0a497589905fb6054fc69e2f5d9daa1c",
+        "reviewed_card_count": 105
+      },
+      "cardeventnet-IMG_0657": {
+        "calibration_error": null,
+        "calibration_failure": null,
+        "calibration_gates": {
+          "candidate_count": true,
+          "fit_quality": true,
+          "held_out_boundary": false,
+          "held_out_population": true,
+          "orientation_diversity": true,
+          "spatial_coverage": true,
+          "table_position_diversity": true,
+          "temporal_diversity": true
+        },
+        "calibration_status": "published",
+        "frame_count": 45,
+        "matched_pairs_at_iou_0_5": 0,
+        "proposal_best_iou": {
+          "maximum": 0.028299,
+          "median": 0.0,
+          "minimum": 0.0,
+          "p95": 0.0
+        },
+        "proposal_count": 116,
+        "reference_revision_id": "reference-visible_cards-9825ffb099bab16c735b114ec4c4050a",
+        "reviewed_card_count": 117
+      },
+      "cardeventnet-IMG_0662": {
+        "calibration_error": null,
+        "calibration_failure": null,
+        "calibration_gates": {
+          "candidate_count": true,
+          "fit_quality": true,
+          "held_out_boundary": true,
+          "held_out_population": true,
+          "orientation_diversity": true,
+          "spatial_coverage": true,
+          "table_position_diversity": true,
+          "temporal_diversity": true
+        },
+        "calibration_status": "published",
+        "frame_count": 43,
+        "matched_pairs_at_iou_0_5": 0,
+        "proposal_best_iou": {
+          "maximum": 0.254798,
+          "median": 0.0,
+          "minimum": 0.0,
+          "p95": 0.0
+        },
+        "proposal_count": 272,
+        "reference_revision_id": "reference-visible_cards-bf287d3bff82dec774f16be1ccc736f0",
+        "reviewed_card_count": 109
+      }
+    },
+    "proposal_count": 494,
+    "reviewed_card_count": 331
+  },
+  "identity_diagnostics": {
+    "auto_accept": false,
+    "crop_count": 494,
+    "m3_below_0_90_review_routing_threshold": 276,
+    "m6_below_0_90_review_routing_threshold": 276,
+    "m6_m3_top1_disagreements": 29,
+    "threshold_use": "diagnostic review routing only"
+  },
+  "m1_development_manifest_sha256": "ee996b367a848ad53ff3bf5f6700ae15eef0b6e354aaa5a2d917eccaa99af87a",
+  "model_bundles": {
+    "dino_m3_control": "e54952030a1f87aadf4c5c3befb71537e588074cd9959c98c4c51bbbc6ddac87",
+    "dino_m6_primary": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+    "rfdetr_0087": "018715420524a62335abd30c628382a1caba344f3bb98e1cbab884dfb4590fd9"
+  },
+  "pose_fit_residuals": {
+    "cardeventnet-IMG_0095": {
+      "maximum": null,
+      "median": null,
+      "minimum": null,
+      "p95": null
+    },
+    "cardeventnet-IMG_0657": {
+      "maximum": 0.340853,
+      "median": 0.039913,
+      "minimum": 0.01676,
+      "p95": 0.240298
+    },
+    "cardeventnet-IMG_0662": {
+      "maximum": 0.515392,
+      "median": 0.153381,
+      "minimum": 0.021049,
+      "p95": 0.3751
+    }
+  },
+  "replay_report_sha256": "627f969c3b7587d3bbe5bf5b5b2c7d7392a80eace2d31d1418f71424954a3bda",
+  "schema_version": "0089-m0-fresh-failure-replay/v1",
+  "scope": {
+    "frame_count": 130,
+    "identity_final_test_used": false,
+    "input_manifest_path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/dinov3-identity-0088/automatic-development/manifest.json",
+    "input_manifest_sha256": "ee996b367a848ad53ff3bf5f6700ae15eef0b6e354aaa5a2d917eccaa99af87a",
+    "partition_counts": {
+      "confidence_calibration": 42,
+      "model_selection": 88
+    },
+    "recordings": [
+      "cardeventnet-IMG_0095",
+      "cardeventnet-IMG_0657",
+      "cardeventnet-IMG_0662"
+    ],
+    "reference_revisions": {
+      "cardeventnet-IMG_0095": "reference-visible_cards-0a497589905fb6054fc69e2f5d9daa1c",
+      "cardeventnet-IMG_0657": "reference-visible_cards-9825ffb099bab16c735b114ec4c4050a",
+      "cardeventnet-IMG_0662": "reference-visible_cards-bf287d3bff82dec774f16be1ccc736f0"
+    },
+    "sealed_final_test_used": false
+  },
+  "status": "complete"
+}

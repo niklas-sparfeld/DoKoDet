@@ -36,11 +36,14 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
    assistance. Report the limits; keep the final test sealed until M13.
 3. **0092 M4:** Complete. The final all-recording refit and its bundle lineage, local inference,
    and latency checks are recorded. `gemini` remains the default. No sealed evaluation was rerun.
-4. **0089 M0:** Reproduce algorithm edge cases with fresh model outputs and reviewed evidence.
-5. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
+4. **0089:** Complete. Fresh output did not overlap reviewed cards enough to isolate a geometry or
+   crop defect. No algorithm change was selected; see the [M0 replay report](../reports/0089-M0_Fresh_Failure_Replay.md).
+5. **0090:** Ready. The 0089 no-fix handoff is published; run the automatic local recording
+   pipeline after the feature and bundle handoffs.
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
-are explicit work in 0093/0094. Keep broader algorithm work in 0089. Retain diagnostic bundle
+are explicit work in 0093/0094. Require a new measured scope for future geometry or crop work.
+Retain diagnostic bundle
 decisions when training fails, and do not mark 0088 Complete unless its useful-model objective is
 achieved. The user may close the campaign as Superseded when future work moves to a new epic.
 Productive campaign UI, promotion and default changes remain in 0044; optional analyzer
@@ -70,18 +73,18 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0090 — Local end-to-end recording pipeline](2-ready/0090-Local_End_to_End_Recording_Pipeline.md) | 0087 and 0088 bundle decisions; 0089 no-fix handoff; 0091 M7 handoff; 0048 and 0049 complete | M0–M3 not started. Coordinate retained automatic stages with declared pile capabilities on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion. |
 
 ### In Progress
 
 | Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0089 — Virtual-card algorithm edge cases](3-in-progress/0089-Virtual_Card_Algorithm_Edge_Cases.md) | 0086 reviewed evidence; 0087 bundle decision; 0088 M15 diagnostic bundle and review-policy handoff | M0 in progress. Use M6 seed 17 as primary diagnostic and M3 seed 17 as control. Reproduce fresh failures, then freeze at most two small failure families. |
+| *No active epics* |  |  |
 
 ### Blocked
 
 | Epic                                                                                                              | Depends on                                                                                                                   | Outcome                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md)               | 0087 and 0088 bundle decisions; 0089 and 0091 M7 handoffs; 0048 and 0049 complete                                            | M0–M3 not started. Coordinate retained automatic stages with declared pile capabilities on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion.                                        |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0086 reviewed evidence, 0087 and 0088 decisions, and 0090 composed report; 0048 and 0049 complete                            | M0–M3 not started. Use the later reports to select at most one new optional analyzer capability. Do not repeat the campaigns, bounded algorithm fixes, or composed pilot.                                                                                 |
 
 ### Closed
@@ -89,6 +92,7 @@ The shared target architecture is
 | Epic                                                                                                                                             | Closure reason     | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [0092 — Expanded reviewed virtual-card RF-DETR campaign](5-closed/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md)                       | Complete           | M0–M4 complete. M3 selected the expanded recipe. The 40-epoch all-recording M4 refit has a verified, selectable bundle with preserved M0/M1 lineage. M4 monitoring is in-sample; the sealed evaluator was not rerun. `gemini` remains the default. See [the M4 report](../reports/0092-M4_Final_Refit.md). |
+| [0089 — Virtual-card algorithm edge cases](5-closed/0089-Virtual_Card_Algorithm_Edge_Cases.md)                                                   | Complete           | M0 complete. Fresh 0087/0088 replay had zero matches across 494 proposals and 331 reviewed cards at polygon IoU 0.5, so no geometry or crop defect could be isolated and no algorithm change was selected. See the [M0 replay report](../reports/0089-M0_Fresh_Failure_Replay.md). |
 | [0086 — Reviewed virtual-card corpus](5-closed/0086-Reviewed_Virtual_Card_Corpus.md)                                                               | Complete           | M0–M5 complete. The detection and identity handoffs record exact source revisions and exclusions. M5 contains 1,391 crops from 12 recordings, support for all 21 campaign classes, and reviewed pile coverage. No DINO training or final-test access occurred.                                                  |
 | [0087 — Reviewed virtual-card RF-DETR campaign](5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md)                                         | Complete           | M0–M5 complete. M2 omitted synthetic data because no compatible training-group background exists; M4 was not applicable. M5 selected the candidate after one sealed-test pass and published it as selectable. `gemini` remains the default; the test had no pile targets.                                                                                                                                                       |
 | [0088 — Reviewed virtual-card DINO quality campaign](5-closed/0088-Reviewed_Virtual_Card_DINO_Campaign.md)                                     | Superseded         | M0–M15 complete; useful-model gates remain unmet, so this is not a quality qualification. The user selected M6 seed 17 as the local incumbent and human-reviewed annotation assistant; M3 remains the control. A future bounded epic will compare new models using expanded reviewed data, especially `FACE_DOWN` and difficult cards. No backend promotion or default change. See [M15](../reports/0088-M15_Qualification_Decision.md). |

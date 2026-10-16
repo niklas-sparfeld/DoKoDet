@@ -4,27 +4,31 @@
 
 - **Summary:** Reproduce current failures with fixed model bundles and correct only measured
   calibration, pose, stacking-order, or crop integration defects.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0 reproduced the selected development scope with fresh fixed-bundle outputs. No algorithm failure family could be isolated because none of 494 detector proposals matched the 331 reviewed cards at polygon IoU 0.5. No algorithm change is justified; see the [M0 replay report](../../reports/0089-M0_Fresh_Failure_Replay.md).
 - **Depends on:** 0086 reviewed development evidence; 0087 bundle decision; 0088 M15 diagnostic
   bundle and review-policy handoff
-- **Outcome:** A small real regression set, bounded algorithm fixes, and a reproducible comparison.
+- **Outcome:** A reproducible no-fix handoff that identifies detector/reference overlap as the current limit for geometry diagnosis.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Milestone status
 
-- **M0:** In progress — replay selected development cases with the fixed 0087 and 0088 bundles;
-  freeze no more than two measured failure families.
-- **M1:** Not started — correct one reproduced pose or occlusion failure family.
-- **M2:** Not started — correct one further integration failure family only if M0 selected it.
-- **M3:** Not started — verify combined behavior and publish remaining limits.
+- **M0:** Complete — replay 130 exact-event frames through fixed 0087 and 0088 bundles. No
+  reviewed-card association met polygon IoU 0.5, so no algorithm failure family was selected;
+  see the [fresh failure replay](../../reports/0089-M0_Fresh_Failure_Replay.md).
+- **M1:** Not required — no reproduced pose or occlusion failure could be isolated from detector
+  output quality.
+- **M2:** Not required — M0 selected no integration failure family.
+- **M3:** Not required — no algorithm change was selected for combined comparison.
 
 ## 1. Scope and selection
 
 Use fresh runs with the exact bundle and crop-policy decisions from
-[0087](../5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
-[0088](../5-closed/0088-Reviewed_Virtual_Card_DINO_Campaign.md) and
-[0090](../4-blocked/0090-Local_End_to_End_Recording_Pipeline.md). For identity diagnostics,
+[0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
+[0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md) and
+[0090](../2-ready/0090-Local_End_to_End_Recording_Pipeline.md). For identity diagnostics,
 use M6 seed 17 as the primary bundle and retain M3 seed 17 as the control under the exact policy in
 the [M15 handoff](../../reports/0088-M15_Qualification_Decision.md). The confidence threshold is
 report-only; every identity remains a proposal for human review. A campaign can select a retained baseline;
@@ -84,7 +88,7 @@ inspectable result instead of an unsupported forced decision; no model or datase
 
 Replay all frozen cases with both fixes and representative unaffected recordings. Publish recipe
 versions, quality and runtime deltas, unresolved limits, and the exact handoff to
-[0090](../4-blocked/0090-Local_End_to_End_Recording_Pipeline.md).
+[0090](../2-ready/0090-Local_End_to_End_Recording_Pipeline.md).
 
 Acceptance: the final behavior and metrics reproduce locally; tests cover the combined paths;
 remaining failures have item-level evidence and a bounded follow-up decision.
