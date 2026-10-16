@@ -1,0 +1,352 @@
+{
+  "campaign_input_commit": "566919e76df5cd50c0125681e48048746fc8a320",
+  "campaign_input_revision": "566919e76",
+  "candidate": {
+    "bundle_digest": "e54952030a1f87aadf4c5c3befb71537e588074cd9959c98c4c51bbbc6ddac87",
+    "bundle_files_sha256": {
+      "calibration.json": "17a1c01f29172fabd3e2f6478f9e7b26e8df5cc07919016a52524208f671ae1a",
+      "config.json": "9481247be9f95a134a5599402b4bfc838eecdf9a7fffbf4debd1c70ec213898b",
+      "encoder-state.pt": "6fc86f473ceec4c8612c1c7341d878e3ecf96b1d182dbae7d47b02cf83a5fa24",
+      "head.pt": "202cdf7a5d9be25a3c598f57ea2597d2e0e9f61b9b1f5c47b219b991776e4c1a",
+      "manifest.json": "958fe67a2eb14ad8890212b6603580ef07c7c32368a07e532921c360944cf4d5",
+      "model.safetensors": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d",
+      "preprocessor_config.json": "960c41d1f3a7778b936365769a2d90550b318a6c0a53a0296957adacfe5e0dd7",
+      "target-map.json": "ddbfda93e4b869fa57878d39bb4c7c182861c79da4141dd00b3f1ee1a479d173"
+    },
+    "bundle_path": ".runtime/dinov3-identity-0088/m12-final-lock/candidate-bundle",
+    "checkpoint_sha256": "6d9234b35ab30e881b96db5baf67cd7e6f71a137478796e4c14af03afe16936a",
+    "confidence_policy": {
+      "calibration_report": "docs/reports/0088-M11_Confidence_Policy.md",
+      "calibration_sha256": "17a1c01f29172fabd3e2f6478f9e7b26e8df5cc07919016a52524208f671ae1a",
+      "calibration_view_id": "0088-m11-confidence-calibration-224-cls-seed17",
+      "final_confidence_gate": {
+        "maximum_error_rate": 0.01,
+        "minimum_coverage": 0.9,
+        "minimum_probability": 0.9
+      },
+      "m11_routing_threshold": 0.8157434846180703,
+      "m11_routing_threshold_status": "exploratory only; do not apply as abstention or default review routing",
+      "method": "scalar_temperature_scaling",
+      "no_refit_after_lock": true,
+      "review_threshold": null,
+      "temperature": 0.6080362923902674
+    },
+    "encoder": {
+      "adapted_weight_provenance": "none; frozen pretrained encoder; only CLS linear head was trained",
+      "architecture": "DINOv3 ViT-S/16",
+      "encoder_training": "frozen",
+      "model_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
+      "model_revision": "master",
+      "pretrained_weight_sha256": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d"
+    },
+    "preprocessing": {
+      "channels": "RGB",
+      "input_size": 224,
+      "normalization": {
+        "enabled": true,
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "padding": {
+        "anchor": "center",
+        "fill_rgb": [
+          128,
+          128,
+          128
+        ],
+        "mode": "constant"
+      },
+      "resize": {
+        "method": "aspect_ratio_preserving",
+        "resampling": "lanczos"
+      },
+      "transform_digest": "954760e7d8d840f72c682de22b989caae1a9c28d46760409b626718cfc112f42",
+      "transform_version": "dinov3-identity-letterbox-v2"
+    },
+    "run_id": "dinov3-m1-1792131997",
+    "score_contract": {
+      "campaign_eligible_labels": [
+        "CLUBS_JACK",
+        "CLUBS_QUEEN",
+        "CLUBS_KING",
+        "CLUBS_TEN",
+        "CLUBS_ACE",
+        "SPADES_JACK",
+        "SPADES_QUEEN",
+        "SPADES_KING",
+        "SPADES_TEN",
+        "SPADES_ACE",
+        "HEARTS_JACK",
+        "HEARTS_QUEEN",
+        "HEARTS_KING",
+        "HEARTS_TEN",
+        "HEARTS_ACE",
+        "DIAMONDS_JACK",
+        "DIAMONDS_QUEEN",
+        "DIAMONDS_KING",
+        "DIAMONDS_TEN",
+        "DIAMONDS_ACE",
+        "FACE_DOWN"
+      ],
+      "class_count": 25,
+      "face_down": "must be predicted from image pixels; no reviewed-side shortcut",
+      "ordered_output_labels": [
+        "CLUBS_NINE",
+        "CLUBS_JACK",
+        "CLUBS_QUEEN",
+        "CLUBS_KING",
+        "CLUBS_TEN",
+        "CLUBS_ACE",
+        "SPADES_NINE",
+        "SPADES_JACK",
+        "SPADES_QUEEN",
+        "SPADES_KING",
+        "SPADES_TEN",
+        "SPADES_ACE",
+        "HEARTS_NINE",
+        "HEARTS_JACK",
+        "HEARTS_QUEEN",
+        "HEARTS_KING",
+        "HEARTS_TEN",
+        "HEARTS_ACE",
+        "DIAMONDS_NINE",
+        "DIAMONDS_JACK",
+        "DIAMONDS_QUEEN",
+        "DIAMONDS_KING",
+        "DIAMONDS_TEN",
+        "DIAMONDS_ACE",
+        "FACE_DOWN"
+      ],
+      "ranking": "softmax(logits / locked_temperature), descending probability, stable target-index tie break",
+      "raw_scores_retained": true,
+      "schema_version": "dinov3-visual-score/v1",
+      "unknown_or_unusable_output": "DINO has no UNKNOWN output; inference failures remain in the denominator and reduce usable coverage",
+      "unsupported_but_retained_outputs": [
+        "CLUBS_NINE",
+        "SPADES_NINE",
+        "HEARTS_NINE",
+        "DIAMONDS_NINE"
+      ],
+      "unsupported_label_prediction": "counts as incorrect for eligible campaign labels; do not drop or renormalize outputs"
+    },
+    "selection": "M3 seed-17 frozen CLS control; M6 did not pass the frozen challenger rule",
+    "supported_inputs": {
+      "campaign_labels": [
+        "CLUBS_JACK",
+        "CLUBS_QUEEN",
+        "CLUBS_KING",
+        "CLUBS_TEN",
+        "CLUBS_ACE",
+        "SPADES_JACK",
+        "SPADES_QUEEN",
+        "SPADES_KING",
+        "SPADES_TEN",
+        "SPADES_ACE",
+        "HEARTS_JACK",
+        "HEARTS_QUEEN",
+        "HEARTS_KING",
+        "HEARTS_TEN",
+        "HEARTS_ACE",
+        "DIAMONDS_JACK",
+        "DIAMONDS_QUEEN",
+        "DIAMONDS_KING",
+        "DIAMONDS_TEN",
+        "DIAMONDS_ACE",
+        "FACE_DOWN"
+      ],
+      "crop_origin": "reviewed oracle_visible_region crop from the frozen 0086 handoff",
+      "encoding": "canonical 8-bit RGB P6 PPM bytes",
+      "excluded_inputs": [
+        "piles",
+        "consumed pile members",
+        "unreviewed automatic crops",
+        "UNKNOWN or identity-unusable evidence"
+      ],
+      "semantic_input": "one eligible visible card crop per sample, including pixel-based face-down recognition"
+    },
+    "training_data_digest": "c206c665f22fbe30b7343961d8555dad4bbec25b4420da836478a04f15e817ab",
+    "training_manifest_digest": "06af8c638061905f8d96cee0454fbd91c03d4d177c3dbc3d52e9361092af2ea5",
+    "training_recipe_digest": "5c33ba7c11f5769a82bf274db1ecd7f0f9a4b5fab0e355daec64fc707761607f",
+    "training_split_digest": "753eb5c2d39eec031109fec59bdc2d66a028be2e5a50969ad441826fcaec8d87"
+  },
+  "evaluation_contract": {
+    "denominator": 108,
+    "do_not_tune_after_viewing": true,
+    "failed_or_missing_predictions": "remain in the denominator and count against usable coverage; report each failure class",
+    "paired_population": "same exact reviewed native PPM crops for DINO and Gemini",
+    "per_crop_correctness": "exact canonical visual label match; UNKNOWN, unsupported NINE output, missing prediction, or provider failure is incorrect for a supported positive target",
+    "quality_gates": {
+      "calibrated_top_1_probability_threshold": 0.9,
+      "calibration_changes_raw_top_1": false,
+      "face_down_pixel_prediction_required": true,
+      "face_down_precision_minimum": 0.95,
+      "face_down_recall_minimum": 0.95,
+      "face_up_top_1_minimum": 0.98,
+      "false_face_down_rate_on_face_up_maximum": 0.01,
+      "gemini_maximum_deficit": 0.01,
+      "high_confidence_coverage_minimum": 0.9,
+      "high_confidence_error_maximum": 0.01,
+      "latency_p95_ms_maximum": 100,
+      "model_load_seconds_maximum": 10,
+      "peak_memory_fraction_of_physical_ram_maximum": 0.75,
+      "report": [
+        "top_3",
+        "macro_f1",
+        "per_class_confusion",
+        "per_recording_and_source_group_results",
+        "confident_errors",
+        "usable_prediction_coverage",
+        "all_supported_cards_correct_per_frame",
+        "grouped_uncertainty",
+        "local_latency_and_peak_memory"
+      ],
+      "selection_rule": "prefer a challenger only when top-1 improves by at least 1 percentage point, the paired source-group bootstrap interval excludes zero, and no class falls by more than 2 percentage points; otherwise keep the qualifying control or report inconclusive",
+      "uncertainty": {
+        "bootstrap_replicates": 10000,
+        "bootstrap_seed": 17088,
+        "group_variation": "source-group bootstrap 95 percent interval",
+        "per_class_interval": "Wilson 95 percent interval",
+        "report_as_insufficient": "fewer than 3 independent groups"
+      },
+      "usable_prediction_coverage_minimum": 0.9
+    },
+    "report": [
+      "top_3",
+      "macro_f1",
+      "per_class_confusion",
+      "per_recording_and_source_group_results",
+      "confident_errors",
+      "usable_prediction_coverage",
+      "all_supported_cards_correct_per_frame",
+      "grouped_uncertainty",
+      "local_latency_and_peak_memory"
+    ],
+    "support_floors": {
+      "confidence_calibration": {
+        "samples_per_class": 10,
+        "source_groups_per_class": 3
+      },
+      "final_test": {
+        "samples_per_class": 10,
+        "source_groups_per_class": 3
+      },
+      "model_selection": {
+        "samples_per_class": 10,
+        "source_groups_per_class": 3
+      },
+      "training": {
+        "samples_per_class": 20,
+        "source_groups_per_class": 5
+      }
+    }
+  },
+  "gemini_reference": {
+    "api_version": "v1beta",
+    "automatic_retries": 0,
+    "classifier_implementation_sha256": "23ca086783e69d0c5af7286f0d426e320f2cafcddfd1f929f1aee5bd083ff83f",
+    "configuration_sha256": "a719e16ed6dea89ad9c8af80637d48f9019b23508055d23c3d24176d57cc082f",
+    "configuration_source_revision": "566919e76",
+    "input": "same reviewed native PPM crop; classifier converts it to PNG; DINO uses its frozen resize and letterbox transform",
+    "maximum_requests": 250,
+    "model": "gemini-3.8-flash",
+    "prompt": "This image is a transformed crop of one visible Doppelkopf playing card.\n\nIdentify its visible suit and rank using the canonical card label in the response schema. Return FACE_DOWN when the visible card back is positively recognizable. Return UNKNOWN when the crop is too occluded, too blurred, or otherwise cannot support a reliable visual classification. Do not guess. This is visual evidence only; do not infer a physical card, a card play, a trick, or game state.\n",
+    "provider_failures_count_in_denominator": true,
+    "requests_per_crop": 1,
+    "response_schema": {
+      "additional_properties": false,
+      "allowed_values": [
+        "CLUBS_ACE",
+        "CLUBS_JACK",
+        "CLUBS_KING",
+        "CLUBS_QUEEN",
+        "CLUBS_TEN",
+        "DIAMONDS_ACE",
+        "DIAMONDS_JACK",
+        "DIAMONDS_KING",
+        "DIAMONDS_QUEEN",
+        "DIAMONDS_TEN",
+        "HEARTS_ACE",
+        "HEARTS_JACK",
+        "HEARTS_KING",
+        "HEARTS_QUEEN",
+        "HEARTS_TEN",
+        "SPADES_ACE",
+        "SPADES_JACK",
+        "SPADES_KING",
+        "SPADES_QUEEN",
+        "SPADES_TEN",
+        "FACE_DOWN",
+        "UNKNOWN"
+      ],
+      "required": [
+        "card"
+      ]
+    },
+    "spend_cap_usd": 10,
+    "thinking_level": "low",
+    "timeout_seconds": 120
+  },
+  "lock_digest": "09c662ef8e7f3dd227991a3eb7f6c485343f19a244ba3f532fc097fa32c9be9e",
+  "lock_state": "locked_before_final_predictions",
+  "locked_on": "2026-10-16",
+  "m12_verification": {
+    "bundle_loader": "passed; 0094 digest and per-file validation accepted the copied bundle",
+    "calibration_replay": "M11 reports calibrated reload parity on all 105 reserved calibration crops; top-1 and raw logits/probabilities match the M3 control.",
+    "official_evaluator_cli": "Could not start its comparison because the historical M3 campaign manifest has no per-crop metadata for the 209 validation entries. The direct replay used the same validated crop cache and matched the recorded predictions.",
+    "selection_replay": {
+      "bundle_digest": "e54952030a1f87aadf4c5c3befb71537e588074cd9959c98c4c51bbbc6ddac87",
+      "checked_crops": 209,
+      "device": "mps",
+      "elapsed_seconds": 8.941,
+      "max_raw_probability_abs_difference": 4.5972168272179204e-07,
+      "probability_mismatch_count": 0,
+      "state": "passed",
+      "top1_mismatches": 0
+    },
+    "selection_replay_command": "mise exec -- uv run --project table_evidence_analyzer --group training python - <<PY ... load the frozen 0088 dataset, split, artifact index, crop cache, instantiate DinoV3IdentityClassifier(bundle, device=\"mps\"), and compare all 209 validation crops with results/224-cls/predictions-validation.json by target label ... PY",
+    "selection_replay_receipt_sha256": "c67f642ce581e3837250efced519b7e81e8192239b817a377661f288332c4c1d"
+  },
+  "m13_execution": {
+    "command": "mise exec -- uv run --project table_evidence_analyzer --group training python operations/scripts/run_0088_m13_final_evaluation.py --lock docs/reports/0088-M12_Final_Evaluation_Lock.json --bundle .runtime/dinov3-identity-0088/m12-final-lock/candidate-bundle --output .runtime/dinov3-identity-0088/m13-final-evaluation --device mps",
+    "implementation_contract": "The M13 script must resolve the frozen recording to reviewed PPM crops, verify source and membership digests and the 108-crop count before scoring, then run DINO and one Gemini request per exact crop digest and write a digest-backed receipt.",
+    "must_not": [
+      "refit weights or temperature",
+      "change preprocessing",
+      "change Gemini prompt or response schema",
+      "retry a Gemini request automatically",
+      "score a second time after reviewing errors",
+      "continue if materialized membership differs from the lock"
+    ]
+  },
+  "schema_version": "0088-m12-final-evaluation-lock/v1",
+  "test_membership": {
+    "crop_membership_materialized": false,
+    "expected_positive_crop_count": 108,
+    "known_limit": "One source group cannot meet the frozen three-group uncertainty floor. Final evidence cannot establish source-group generalization.",
+    "membership_rule": "Use all eligible reviewed positive crops from this exact frozen recording and source group. Before scoring, materialize once and confirm exactly 108 expected crops. If resolved membership differs, stop without scoring and record the mismatch.",
+    "membership_sources": {
+      "m0_readiness_json_sha256": "b51e5c5ca33e8914e4aa98dc9b2fe1e960d6191abfb722ed9f1634f856a11a64",
+      "m1_views_json_sha256": "1d58038e0ced2748ff13a4382b322cf9b0cb3464f88b06edd9eeed77ff0b22c8",
+      "source_verification_json_sha256": "70d623671a38bbee749c5d6cd5d418637dd336c494b9716d6f94a5285adb1e21"
+    },
+    "partition": "frozen M0 final_test",
+    "previously_scored": false,
+    "recordings": [
+      {
+        "recording_id": "cardeventnet-IMG_0659",
+        "source_group_id": "source-group-3840f6e17e00e1e4",
+        "source_video_sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e"
+      }
+    ],
+    "reviewed_frames_and_crop_bytes_resolved": false,
+    "source_group_count": 1
+  }
+}
