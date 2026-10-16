@@ -38,8 +38,8 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
    and latency checks are recorded. `gemini` remains the default. No sealed evaluation was rerun.
 4. **0089:** Complete. Fresh output did not overlap reviewed cards enough to isolate a geometry or
    crop defect. No algorithm change was selected; see the [M0 replay report](../reports/0089-M0_Fresh_Failure_Replay.md).
-5. **0090 M0:** Complete. The pilot is frozen across two staged sequences and one real round.
-   M1 implements the local coordinator and its preflight.
+5. **0090 M1:** Complete. The pilot is frozen across two staged sequences and one real round.
+   The resumable local coordinator and explicit reconstruction context rule are implemented.
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
 are explicit work in 0093/0094. Require a new measured scope for future geometry or crop work.
@@ -79,7 +79,7 @@ The shared target architecture is
 
 | Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0090 — Local end-to-end recording pipeline](3-in-progress/0090-Local_End_to_End_Recording_Pipeline.md) | 0087/0088 decisions, 0089 no-fix handoff, 0091 M7 handoff, 0092 M4 refit, 0048 and 0049 complete | M0 complete: frozen three-recording batch, bundles, inputs, and gates. M1–M3 remain. No training or promotion. |
+| [0090 — Local end-to-end recording pipeline](3-in-progress/0090-Local_End_to_End_Recording_Pipeline.md) | 0087/0088 decisions, 0089 no-fix handoff, 0091 M7 handoff, 0092 M4 refit, 0048 and 0049 complete | M0–M1 complete: frozen three-recording batch and resumable stage coordinator. M2–M3 remain. No training or promotion. |
 
 ### Blocked
 

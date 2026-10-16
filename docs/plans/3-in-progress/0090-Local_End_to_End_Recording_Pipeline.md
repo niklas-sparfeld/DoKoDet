@@ -17,6 +17,8 @@
 - **M0:** Complete — freeze the three-recording development batch, exact source and review
   revisions, model bundles, automatic crop policy, budgets, and coverage gates. See the
   [M0 pilot freeze](../../reports/0090-M0_Composed_Pilot_Freeze.md).
+- **M1:** Complete — add a resumable local coordinator around retained stages. See the
+  [M1 coordinator report](../../reports/0090-M1_Retained_Pipeline_Coordinator.md).
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -24,7 +26,9 @@
 
 - **M0:** Complete — freeze the recording scope, stage recipe, references, and metrics. See the
   [M0 pilot freeze](../../reports/0090-M0_Composed_Pilot_Freeze.md).
-- **M1:** Not started — implement sequential execution over retained stage boundaries.
+- **M1:** Complete — coordinate the declared stage order, persist request and revision lineage,
+  reuse unchanged completed stages, and stop on terminal failures. See the
+  [M1 coordinator report](../../reports/0090-M1_Retained_Pipeline_Coordinator.md).
 - **M2:** Not started — verify restart, cancellation, and failure behavior.
 - **M3:** Not started — run the development pilot and publish the composed result.
 
@@ -89,6 +93,10 @@ development source; no hidden human-reviewed execution input; no stage starts du
 Add the smallest sequential coordinator around existing application boundaries. Persist each
 stage's request, state, exact input and output revisions, and terminal failure. Stop dependent work
 when an upstream prerequisite fails. Continue other recordings only under the frozen batch policy.
+
+**M1 outcome:** The `dokodetector-pipeline-coordinator` command reads a request file and calls the
+local backend stage APIs in the frozen order. Reconstruction requires explicit round context or an
+explicit skip decision. See the [M1 coordinator report](../../reports/0090-M1_Retained_Pipeline_Coordinator.md).
 
 Acceptance: one local command starts the declared sequence; completed unchanged stages are reused;
 request acceptance is not reported as completion; fixtures prove exact output-to-input lineage.
