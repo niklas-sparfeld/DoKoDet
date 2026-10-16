@@ -36,7 +36,8 @@
   See the [M2 reference report](../../reports/0088-M2_Reference_Comparison.md).
 - **M3:** Complete — the frozen 224-pixel control reached 206/208 face-up top-1 on two selection
   groups; support limits prevent qualification. See the [M3 report](../../reports/0088-M3_224_Control.md).
-- **M4:** Not started — train one matched 384-pixel candidate.
+- **M4:** In Progress — the matched 384-pixel candidate is training on MPS with the frozen
+  M1 data and split. See the [M4 run record](../../reports/0088-M4_384_Run.md).
 - **M5:** Not started — run the declared 448-pixel comparison if its entry gate passes.
 - **M6:** Not started — compare CLS plus mean patch features at the selected resolution.
 - **M7:** Not started — run one targeted fine-tuning candidate if its entry gate passes.
@@ -233,6 +234,12 @@ Compare paired classification, difficult slices, memory, and crop-to-prediction 
 
 Acceptance: measured size decision and exact model/transform pair; gains and regressions reported;
 larger size is not selected from appearance alone.
+
+**Run:** The matched eight-epoch candidate started on 2026-10-16 with seed 17. The M1 manifest
+freezes the 224-pixel config, so the candidate uses a separate derived manifest. Its reviewed data,
+split, crop inventory, weights, and all training settings match M3. The run is still in progress;
+see the [M4 run record](../../reports/0088-M4_384_Run.md). Do not select a size until its measured
+predictions, memory use, and latency are compared with M3.
 
 ### M5 — Run the conditional 448-pixel challenger
 
