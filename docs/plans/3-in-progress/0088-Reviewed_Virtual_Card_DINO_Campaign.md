@@ -39,8 +39,10 @@
 - **M4:** Complete — the 384-pixel candidate scored lower and ran slower than 224. Keep 224 as
   the selected input size for later comparisons. Evidence remains exploratory. See the
   [M4 report](../../reports/0088-M4_384_Run.md).
-- **M5:** Not started — run the declared 448-pixel comparison if its entry gate passes.
-- **M6:** Not started — compare CLS plus mean patch features at the selected resolution.
+- **M5:** Not required — skip the optional 448-pixel challenger by user decision after M4; see the
+  [M5 skip record](../../reports/0088-M5_448_Skip.md).
+- **M6:** In Progress — train one CLS-plus-mean-patch candidate at 224 pixels; see the
+  [M6 run record](../../reports/0088-M6_Pooled_Features.md).
 - **M7:** Not started — run one targeted fine-tuning candidate if its entry gate passes.
 - **M8:** Not started — prepare the bounded synthetic pool if its entry gate passes.
 - **M9:** Not started — train the one fixed synthetic mixture, or record its skip.
@@ -246,8 +248,10 @@ or generalization. `FACE_DOWN` remains exploratory under the accepted sample-siz
 
 ### M5 — Run the conditional 448-pixel challenger
 
-Evaluate the predeclared entry gate. Run one matched candidate if eligible; otherwise record a
-not-required receipt with the gate evidence. Apply the same resolution selection rule as M4.
+**Result:** Not required. After reviewing M4, the user chose to skip the optional 448-pixel
+comparison and continue with M6. M4's 384-pixel candidate scored below 224 pixels and had 2.43x
+the mean crop-to-prediction latency. This is a scope decision based on M4; it is not a measurement
+of 448-pixel quality. See the [M5 skip record](../../reports/0088-M5_448_Skip.md).
 
 Acceptance: one candidate or one explicit skip; no additional sizes or test-based choice.
 
@@ -258,6 +262,10 @@ CLS control at that size on identical selection cases.
 
 Acceptance: feature/head layout is exact and reloadable; no additional layer/head search; retain
 the control when the improvement is harmed or inconclusive under the declared decision rule.
+
+**Run:** One frozen-encoder 224-pixel candidate started on 2026-10-16 with seed 17. The fresh
+MPS batch-1 fp32 forward preflight returned finite features. The training run is active; see the
+[M6 run record](../../reports/0088-M6_Pooled_Features.md). No selection results are available yet.
 
 ### M7 — Run conditional targeted fine-tuning
 
