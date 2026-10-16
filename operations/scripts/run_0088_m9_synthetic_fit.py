@@ -9,8 +9,10 @@ import random
 import resource
 import statistics
 import time
+from io import BytesIO
 from pathlib import Path
 
+from PIL import Image
 from table_evidence_analyzer.data import (
     LoadedCrop,
     MaterializedCropDataset,
@@ -39,6 +41,33 @@ def _json(path: Path) -> dict:
 def _write(path: Path, value: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _crop_aligned_mask(mask_bytes: bytes, crop_bytes: bytes) -> tuple[bytes, dict]:
+    """Align the full rendered-scene support mask to the DINO crop bounds."""
+
+    with Image.open(BytesIO(mask_bytes)) as source_mask:
+        mask = source_mask.convert("L")
+    with Image.open(BytesIO(crop_bytes)) as source_crop:
+        crop_size = source_crop.size
+    bounds = mask.getbbox()
+    if bounds is None:
+        raise ValueError("synthetic visible mask has no support")
+    mask = mask.crop(bounds)
+    original_aligned_size = mask.size
+    if mask.size != crop_size:
+        mask = mask.resize(crop_size, Image.Resampling.NEAREST)
+    output = BytesIO()
+    mask.save(output, format="PNG")
+    with Image.open(BytesIO(mask_bytes)) as source_mask:
+        source_mask_size = source_mask.size
+    return output.getvalue(), {
+        "source_mask_size": list(source_mask_size),
+        "mask_crop_bounds": list(bounds),
+        "crop_size": list(crop_size),
+        "pre_resize_aligned_size": list(original_aligned_size),
+        "resize_filter": "nearest" if original_aligned_size != crop_size else None,
+    }
 
 
 def _main() -> None:
@@ -86,6 +115,7 @@ def _main() -> None:
 
     pool_manifest = _json(pool_root / "manifest.json")
     synthetic_samples = []
+    mask_alignment = {}
     for entry in pool_manifest["pool"]:
         crop_path = Path(entry["crop"]["path"])
         mask_path = Path(entry["visible_mask"]["path"])
@@ -93,14 +123,17 @@ def _main() -> None:
             crop_path = Path.cwd() / crop_path
         if not mask_path.is_absolute():
             mask_path = Path.cwd() / mask_path
+        crop_bytes = crop_path.read_bytes()
+        aligned_mask, alignment = _crop_aligned_mask(mask_path.read_bytes(), crop_bytes)
+        mask_alignment[entry["synthetic_id"]] = alignment
         synthetic_samples.append(
             LoadedCrop(
                 dataset_item_id=f"m8-synthetic:{entry['synthetic_id']}",
-                crop_bytes=crop_path.read_bytes(),
+                crop_bytes=crop_bytes,
                 target=entry["label"],
                 partition="train",
                 source_frame_sha256=entry["source_frame_sha256"],
-                visible_mask_bytes=mask_path.read_bytes(),
+                visible_mask_bytes=aligned_mask,
             )
         )
     if not synthetic_samples:
@@ -118,6 +151,7 @@ def _main() -> None:
                     "selection_sample_count": len(validation_samples),
                     "synthetic_pool_sample_count": len(synthetic_samples),
                     "synthetic_pool_manifest_digest": pool_manifest["manifest_digest"],
+                    "aligned_synthetic_mask_count": len(mask_alignment),
                 },
                 indent=2,
                 sort_keys=True,
@@ -136,6 +170,7 @@ def _main() -> None:
         "synthetic_pool_manifest_digest": pool_manifest["manifest_digest"],
         "real_train_sample_count": len(real_samples),
         "synthetic_pool_sample_count": len(synthetic_samples),
+        "synthetic_mask_alignment": mask_alignment,
         "recipe": {
             "input_size": 224,
             "feature_layout": "cls_mean_patch",
