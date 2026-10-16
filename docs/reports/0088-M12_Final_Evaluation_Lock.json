@@ -1,186 +1,380 @@
 {
   "campaign_input_commit": "566919e76df5cd50c0125681e48048746fc8a320",
   "campaign_input_revision": "566919e76",
-  "candidate": {
-    "bundle_digest": "e54952030a1f87aadf4c5c3befb71537e588074cd9959c98c4c51bbbc6ddac87",
-    "bundle_files_sha256": {
-      "calibration.json": "17a1c01f29172fabd3e2f6478f9e7b26e8df5cc07919016a52524208f671ae1a",
-      "config.json": "9481247be9f95a134a5599402b4bfc838eecdf9a7fffbf4debd1c70ec213898b",
-      "encoder-state.pt": "6fc86f473ceec4c8612c1c7341d878e3ecf96b1d182dbae7d47b02cf83a5fa24",
-      "head.pt": "202cdf7a5d9be25a3c598f57ea2597d2e0e9f61b9b1f5c47b219b991776e4c1a",
-      "manifest.json": "958fe67a2eb14ad8890212b6603580ef07c7c32368a07e532921c360944cf4d5",
-      "model.safetensors": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d",
-      "preprocessor_config.json": "960c41d1f3a7778b936365769a2d90550b318a6c0a53a0296957adacfe5e0dd7",
-      "target-map.json": "ddbfda93e4b869fa57878d39bb4c7c182861c79da4141dd00b3f1ee1a479d173"
-    },
-    "bundle_path": ".runtime/dinov3-identity-0088/m12-final-lock/candidate-bundle",
-    "checkpoint_sha256": "6d9234b35ab30e881b96db5baf67cd7e6f71a137478796e4c14af03afe16936a",
-    "confidence_policy": {
-      "calibration_report": "docs/reports/0088-M11_Confidence_Policy.md",
-      "calibration_sha256": "17a1c01f29172fabd3e2f6478f9e7b26e8df5cc07919016a52524208f671ae1a",
-      "calibration_view_id": "0088-m11-confidence-calibration-224-cls-seed17",
-      "final_confidence_gate": {
-        "maximum_error_rate": 0.01,
-        "minimum_coverage": 0.9,
-        "minimum_probability": 0.9
-      },
-      "m11_routing_threshold": 0.8157434846180703,
-      "m11_routing_threshold_status": "exploratory only; do not apply as abstention or default review routing",
-      "method": "scalar_temperature_scaling",
-      "no_refit_after_lock": true,
-      "review_threshold": null,
-      "temperature": 0.6080362923902674
-    },
-    "encoder": {
-      "adapted_weight_provenance": "none; frozen pretrained encoder; only CLS linear head was trained",
-      "architecture": "DINOv3 ViT-S/16",
-      "encoder_training": "frozen",
-      "model_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
-      "model_revision": "master",
-      "pretrained_weight_sha256": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d"
-    },
-    "preprocessing": {
-      "channels": "RGB",
-      "input_size": 224,
-      "normalization": {
-        "enabled": true,
-        "mean": [
-          0.485,
-          0.456,
-          0.406
-        ],
-        "std": [
-          0.229,
-          0.224,
-          0.225
-        ]
-      },
-      "padding": {
-        "anchor": "center",
-        "fill_rgb": [
-          128,
-          128,
-          128
-        ],
-        "mode": "constant"
-      },
-      "resize": {
-        "method": "aspect_ratio_preserving",
-        "resampling": "lanczos"
-      },
-      "transform_digest": "954760e7d8d840f72c682de22b989caae1a9c28d46760409b626718cfc112f42",
-      "transform_version": "dinov3-identity-letterbox-v2"
-    },
-    "run_id": "dinov3-m1-1792131997",
-    "score_contract": {
-      "campaign_eligible_labels": [
-        "CLUBS_JACK",
-        "CLUBS_QUEEN",
-        "CLUBS_KING",
-        "CLUBS_TEN",
-        "CLUBS_ACE",
-        "SPADES_JACK",
-        "SPADES_QUEEN",
-        "SPADES_KING",
-        "SPADES_TEN",
-        "SPADES_ACE",
-        "HEARTS_JACK",
-        "HEARTS_QUEEN",
-        "HEARTS_KING",
-        "HEARTS_TEN",
-        "HEARTS_ACE",
-        "DIAMONDS_JACK",
-        "DIAMONDS_QUEEN",
-        "DIAMONDS_KING",
-        "DIAMONDS_TEN",
-        "DIAMONDS_ACE",
-        "FACE_DOWN"
-      ],
-      "class_count": 25,
-      "face_down": "must be predicted from image pixels; no reviewed-side shortcut",
-      "ordered_output_labels": [
-        "CLUBS_NINE",
-        "CLUBS_JACK",
-        "CLUBS_QUEEN",
-        "CLUBS_KING",
-        "CLUBS_TEN",
-        "CLUBS_ACE",
-        "SPADES_NINE",
-        "SPADES_JACK",
-        "SPADES_QUEEN",
-        "SPADES_KING",
-        "SPADES_TEN",
-        "SPADES_ACE",
-        "HEARTS_NINE",
-        "HEARTS_JACK",
-        "HEARTS_QUEEN",
-        "HEARTS_KING",
-        "HEARTS_TEN",
-        "HEARTS_ACE",
-        "DIAMONDS_NINE",
-        "DIAMONDS_JACK",
-        "DIAMONDS_QUEEN",
-        "DIAMONDS_KING",
-        "DIAMONDS_TEN",
-        "DIAMONDS_ACE",
-        "FACE_DOWN"
-      ],
-      "ranking": "softmax(logits / locked_temperature), descending probability, stable target-index tie break",
-      "raw_scores_retained": true,
-      "schema_version": "dinov3-visual-score/v1",
-      "unknown_or_unusable_output": "DINO has no UNKNOWN output; inference failures remain in the denominator and reduce usable coverage",
-      "unsupported_but_retained_outputs": [
-        "CLUBS_NINE",
-        "SPADES_NINE",
-        "HEARTS_NINE",
-        "DIAMONDS_NINE"
-      ],
-      "unsupported_label_prediction": "counts as incorrect for eligible campaign labels; do not drop or renormalize outputs"
-    },
-    "selection": "M3 seed-17 frozen CLS control; M6 did not pass the frozen challenger rule",
-    "supported_inputs": {
-      "campaign_labels": [
-        "CLUBS_JACK",
-        "CLUBS_QUEEN",
-        "CLUBS_KING",
-        "CLUBS_TEN",
-        "CLUBS_ACE",
-        "SPADES_JACK",
-        "SPADES_QUEEN",
-        "SPADES_KING",
-        "SPADES_TEN",
-        "SPADES_ACE",
-        "HEARTS_JACK",
-        "HEARTS_QUEEN",
-        "HEARTS_KING",
-        "HEARTS_TEN",
-        "HEARTS_ACE",
-        "DIAMONDS_JACK",
-        "DIAMONDS_QUEEN",
-        "DIAMONDS_KING",
-        "DIAMONDS_TEN",
-        "DIAMONDS_ACE",
-        "FACE_DOWN"
-      ],
-      "crop_origin": "reviewed oracle_visible_region crop from the frozen 0086 handoff",
-      "encoding": "canonical 8-bit RGB P6 PPM bytes",
-      "excluded_inputs": [
-        "piles",
-        "consumed pile members",
-        "unreviewed automatic crops",
-        "UNKNOWN or identity-unusable evidence"
-      ],
-      "semantic_input": "one eligible visible card crop per sample, including pixel-based face-down recognition"
-    },
-    "training_data_digest": "c206c665f22fbe30b7343961d8555dad4bbec25b4420da836478a04f15e817ab",
-    "training_manifest_digest": "06af8c638061905f8d96cee0454fbd91c03d4d177c3dbc3d52e9361092af2ea5",
-    "training_recipe_digest": "5c33ba7c11f5769a82bf274db1ecd7f0f9a4b5fab0e355daec64fc707761607f",
-    "training_split_digest": "753eb5c2d39eec031109fec59bdc2d66a028be2e5a50969ad441826fcaec8d87"
+  "candidate_comparison_decision": {
+    "decision": "Include every M10 finalist in the one locked final comparison: M3 control and M6 pooled-feature candidate.",
+    "final_test_use": "Evaluate both fixed bundles on the same eligible crops in one run, paired with one Gemini response per crop. Do not select or tune another model after viewing final predictions.",
+    "qualification": "Report candidate-specific metrics and the frozen gates. One final source group remains insufficient for a generalization claim.",
+    "reason": "The M0 1-percentage-point challenger rule and its uncertainty test cannot establish superiority with two selection groups. They do not justify excluding M6 from independent final evaluation."
   },
+  "candidates": [
+    {
+      "bundle_digest": "e54952030a1f87aadf4c5c3befb71537e588074cd9959c98c4c51bbbc6ddac87",
+      "bundle_files_sha256": {
+        "calibration.json": "17a1c01f29172fabd3e2f6478f9e7b26e8df5cc07919016a52524208f671ae1a",
+        "config.json": "9481247be9f95a134a5599402b4bfc838eecdf9a7fffbf4debd1c70ec213898b",
+        "encoder-state.pt": "6fc86f473ceec4c8612c1c7341d878e3ecf96b1d182dbae7d47b02cf83a5fa24",
+        "head.pt": "202cdf7a5d9be25a3c598f57ea2597d2e0e9f61b9b1f5c47b219b991776e4c1a",
+        "manifest.json": "958fe67a2eb14ad8890212b6603580ef07c7c32368a07e532921c360944cf4d5",
+        "model.safetensors": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d",
+        "preprocessor_config.json": "960c41d1f3a7778b936365769a2d90550b318a6c0a53a0296957adacfe5e0dd7",
+        "target-map.json": "ddbfda93e4b869fa57878d39bb4c7c182861c79da4141dd00b3f1ee1a479d173"
+      },
+      "bundle_path": ".runtime/dinov3-identity-0088/m12-final-lock/candidate-bundle",
+      "candidate_id": "m3-seed17-224-cls",
+      "checkpoint_sha256": "6d9234b35ab30e881b96db5baf67cd7e6f71a137478796e4c14af03afe16936a",
+      "confidence_policy": {
+        "calibration_report": "docs/reports/0088-M12_Final_Evaluation_Lock.md#candidate-specific-calibration",
+        "calibration_sha256": "17a1c01f29172fabd3e2f6478f9e7b26e8df5cc07919016a52524208f671ae1a",
+        "calibration_view_id": "0088-m11-confidence-calibration-224-cls-seed17",
+        "calibration_view_sha256": "33fb5430be32ef1f844a6252c71c44ecca4692c2595234079baaa8eb01a819be",
+        "exploratory_review_routing_threshold": 0.8157434846180703,
+        "exploratory_review_routing_threshold_status": "exploratory only; do not apply as abstention or default review routing",
+        "final_confidence_gate": {
+          "maximum_error_rate": 0.01,
+          "minimum_coverage": 0.9,
+          "minimum_probability": 0.9
+        },
+        "method": "scalar_temperature_scaling",
+        "no_refit_after_lock": true,
+        "review_threshold": null,
+        "selection_view_result": "83/105 calibration crops; M11 report",
+        "temperature": 0.6080362923902674
+      },
+      "encoder": {
+        "adapted_weight_provenance": "none; frozen pretrained encoder; only CLS linear head was trained",
+        "architecture": "DINOv3 ViT-S/16",
+        "encoder_training": "frozen",
+        "model_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
+        "model_revision": "master",
+        "pretrained_weight_sha256": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d"
+      },
+      "preprocessing": {
+        "channels": "RGB",
+        "input_size": 224,
+        "normalization": {
+          "enabled": true,
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        },
+        "padding": {
+          "anchor": "center",
+          "fill_rgb": [
+            128,
+            128,
+            128
+          ],
+          "mode": "constant"
+        },
+        "resize": {
+          "method": "aspect_ratio_preserving",
+          "resampling": "lanczos"
+        },
+        "transform_digest": "954760e7d8d840f72c682de22b989caae1a9c28d46760409b626718cfc112f42",
+        "transform_version": "dinov3-identity-letterbox-v2"
+      },
+      "role": "control",
+      "run_id": "dinov3-m1-1792131997",
+      "score_contract": {
+        "campaign_eligible_labels": [
+          "CLUBS_JACK",
+          "CLUBS_QUEEN",
+          "CLUBS_KING",
+          "CLUBS_TEN",
+          "CLUBS_ACE",
+          "SPADES_JACK",
+          "SPADES_QUEEN",
+          "SPADES_KING",
+          "SPADES_TEN",
+          "SPADES_ACE",
+          "HEARTS_JACK",
+          "HEARTS_QUEEN",
+          "HEARTS_KING",
+          "HEARTS_TEN",
+          "HEARTS_ACE",
+          "DIAMONDS_JACK",
+          "DIAMONDS_QUEEN",
+          "DIAMONDS_KING",
+          "DIAMONDS_TEN",
+          "DIAMONDS_ACE",
+          "FACE_DOWN"
+        ],
+        "class_count": 25,
+        "face_down": "must be predicted from image pixels; no reviewed-side shortcut",
+        "ordered_output_labels": [
+          "CLUBS_NINE",
+          "CLUBS_JACK",
+          "CLUBS_QUEEN",
+          "CLUBS_KING",
+          "CLUBS_TEN",
+          "CLUBS_ACE",
+          "SPADES_NINE",
+          "SPADES_JACK",
+          "SPADES_QUEEN",
+          "SPADES_KING",
+          "SPADES_TEN",
+          "SPADES_ACE",
+          "HEARTS_NINE",
+          "HEARTS_JACK",
+          "HEARTS_QUEEN",
+          "HEARTS_KING",
+          "HEARTS_TEN",
+          "HEARTS_ACE",
+          "DIAMONDS_NINE",
+          "DIAMONDS_JACK",
+          "DIAMONDS_QUEEN",
+          "DIAMONDS_KING",
+          "DIAMONDS_TEN",
+          "DIAMONDS_ACE",
+          "FACE_DOWN"
+        ],
+        "ranking": "softmax(logits / locked_temperature), descending probability, stable target-index tie break",
+        "raw_scores_retained": true,
+        "schema_version": "dinov3-visual-score/v1",
+        "unknown_or_unusable_output": "DINO has no UNKNOWN output; inference failures remain in the denominator and reduce usable coverage",
+        "unsupported_but_retained_outputs": [
+          "CLUBS_NINE",
+          "SPADES_NINE",
+          "HEARTS_NINE",
+          "DIAMONDS_NINE"
+        ],
+        "unsupported_label_prediction": "counts as incorrect for eligible campaign labels; do not drop or renormalize outputs"
+      },
+      "selection": "M3 seed-17 is the frozen control anchor. Include it in the final comparison.",
+      "supported_inputs": {
+        "campaign_labels": [
+          "CLUBS_JACK",
+          "CLUBS_QUEEN",
+          "CLUBS_KING",
+          "CLUBS_TEN",
+          "CLUBS_ACE",
+          "SPADES_JACK",
+          "SPADES_QUEEN",
+          "SPADES_KING",
+          "SPADES_TEN",
+          "SPADES_ACE",
+          "HEARTS_JACK",
+          "HEARTS_QUEEN",
+          "HEARTS_KING",
+          "HEARTS_TEN",
+          "HEARTS_ACE",
+          "DIAMONDS_JACK",
+          "DIAMONDS_QUEEN",
+          "DIAMONDS_KING",
+          "DIAMONDS_TEN",
+          "DIAMONDS_ACE",
+          "FACE_DOWN"
+        ],
+        "crop_origin": "reviewed oracle_visible_region crop from the frozen 0086 handoff",
+        "encoding": "canonical 8-bit RGB P6 PPM bytes",
+        "excluded_inputs": [
+          "piles",
+          "consumed pile members",
+          "unreviewed automatic crops",
+          "UNKNOWN or identity-unusable evidence"
+        ],
+        "semantic_input": "one eligible visible card crop per sample, including pixel-based face-down recognition"
+      },
+      "training_data_digest": "c206c665f22fbe30b7343961d8555dad4bbec25b4420da836478a04f15e817ab",
+      "training_manifest_digest": "06af8c638061905f8d96cee0454fbd91c03d4d177c3dbc3d52e9361092af2ea5",
+      "training_recipe_digest": "5c33ba7c11f5769a82bf274db1ecd7f0f9a4b5fab0e355daec64fc707761607f",
+      "training_split_digest": "753eb5c2d39eec031109fec59bdc2d66a028be2e5a50969ad441826fcaec8d87"
+    },
+    {
+      "bundle_digest": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+      "bundle_files_sha256": {
+        "calibration.json": "04f684c0e5cb0c5154b3103459870b697c35e3db9f4cd4f8fda94d6702f507b7",
+        "config.json": "9481247be9f95a134a5599402b4bfc838eecdf9a7fffbf4debd1c70ec213898b",
+        "encoder-state.pt": "6fc86f473ceec4c8612c1c7341d878e3ecf96b1d182dbae7d47b02cf83a5fa24",
+        "head.pt": "baeae9d97b971cdfa60fa3f8c92e62c47cb5d7eb7074478322abda6ffca19979",
+        "manifest.json": "cec70c9c3f4e8526fa586ece48cc18971c48e7f92534d77875953445531ce16a",
+        "model.safetensors": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d",
+        "preprocessor_config.json": "960c41d1f3a7778b936365769a2d90550b318a6c0a53a0296957adacfe5e0dd7",
+        "target-map.json": "ddbfda93e4b869fa57878d39bb4c7c182861c79da4141dd00b3f1ee1a479d173"
+      },
+      "bundle_path": ".runtime/dinov3-identity-0088/m12-final-lock/m6-candidate-bundle",
+      "candidate_id": "m6-seed17-224-cls-mean-patch",
+      "checkpoint_sha256": "ff560c5a4e2fff70f7e6ab0ff0cef6e7fa8cab8bbdfbcd25af4c569ee4bdfb1a",
+      "confidence_policy": {
+        "calibration_report": "docs/reports/0088-M12_Final_Evaluation_Lock.md#candidate-specific-calibration",
+        "calibration_sha256": "04f684c0e5cb0c5154b3103459870b697c35e3db9f4cd4f8fda94d6702f507b7",
+        "calibration_view_id": "0088-m12-confidence-calibration-224-cls-mean-patch-seed17",
+        "calibration_view_sha256": "ed7cd1149670ae79e234f69eeb968b72bac393cdfe201ed26db91031a47d6e46",
+        "exploratory_review_routing_threshold": 0.8235859761473482,
+        "exploratory_review_routing_threshold_status": "exploratory only; do not apply as abstention or default review routing",
+        "final_confidence_gate": {
+          "maximum_error_rate": 0.01,
+          "minimum_coverage": 0.9,
+          "minimum_probability": 0.9
+        },
+        "method": "scalar_temperature_scaling",
+        "no_refit_after_lock": true,
+        "review_threshold": null,
+        "temperature": 0.6487642659364355
+      },
+      "encoder": {
+        "adapted_weight_provenance": "none; frozen pretrained encoder; pooled CLS and mean-patch features feed the trained linear head",
+        "architecture": "DINOv3 ViT-S/16",
+        "encoder_training": "frozen",
+        "model_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
+        "model_revision": "master",
+        "pretrained_weight_sha256": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d"
+      },
+      "preprocessing": {
+        "channels": "RGB",
+        "input_size": 224,
+        "normalization": {
+          "enabled": true,
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        },
+        "padding": {
+          "anchor": "center",
+          "fill_rgb": [
+            128,
+            128,
+            128
+          ],
+          "mode": "constant"
+        },
+        "resize": {
+          "method": "aspect_ratio_preserving",
+          "resampling": "lanczos"
+        },
+        "transform_digest": "954760e7d8d840f72c682de22b989caae1a9c28d46760409b626718cfc112f42",
+        "transform_version": "dinov3-identity-letterbox-v2"
+      },
+      "role": "co-finalist",
+      "run_id": "dinov3-m1-1792139547",
+      "score_contract": {
+        "campaign_eligible_labels": [
+          "CLUBS_JACK",
+          "CLUBS_QUEEN",
+          "CLUBS_KING",
+          "CLUBS_TEN",
+          "CLUBS_ACE",
+          "SPADES_JACK",
+          "SPADES_QUEEN",
+          "SPADES_KING",
+          "SPADES_TEN",
+          "SPADES_ACE",
+          "HEARTS_JACK",
+          "HEARTS_QUEEN",
+          "HEARTS_KING",
+          "HEARTS_TEN",
+          "HEARTS_ACE",
+          "DIAMONDS_JACK",
+          "DIAMONDS_QUEEN",
+          "DIAMONDS_KING",
+          "DIAMONDS_TEN",
+          "DIAMONDS_ACE",
+          "FACE_DOWN"
+        ],
+        "class_count": 25,
+        "face_down": "must be predicted from image pixels; no reviewed-side shortcut",
+        "ordered_output_labels": [
+          "CLUBS_NINE",
+          "CLUBS_JACK",
+          "CLUBS_QUEEN",
+          "CLUBS_KING",
+          "CLUBS_TEN",
+          "CLUBS_ACE",
+          "SPADES_NINE",
+          "SPADES_JACK",
+          "SPADES_QUEEN",
+          "SPADES_KING",
+          "SPADES_TEN",
+          "SPADES_ACE",
+          "HEARTS_NINE",
+          "HEARTS_JACK",
+          "HEARTS_QUEEN",
+          "HEARTS_KING",
+          "HEARTS_TEN",
+          "HEARTS_ACE",
+          "DIAMONDS_NINE",
+          "DIAMONDS_JACK",
+          "DIAMONDS_QUEEN",
+          "DIAMONDS_KING",
+          "DIAMONDS_TEN",
+          "DIAMONDS_ACE",
+          "FACE_DOWN"
+        ],
+        "ranking": "softmax(logits / locked_temperature), descending probability, stable target-index tie break",
+        "raw_scores_retained": true,
+        "schema_version": "dinov3-visual-score/v1",
+        "unknown_or_unusable_output": "DINO has no UNKNOWN output; inference failures remain in the denominator and reduce usable coverage",
+        "unsupported_but_retained_outputs": [
+          "CLUBS_NINE",
+          "SPADES_NINE",
+          "HEARTS_NINE",
+          "DIAMONDS_NINE"
+        ],
+        "unsupported_label_prediction": "counts as incorrect for eligible campaign labels; do not drop or renormalize outputs"
+      },
+      "selection": "M6 is a frozen M10 finalist. Its +0.32 percentage-point three-seed mean change is inconclusive on two groups; that does not exclude it from the final comparison.",
+      "supported_inputs": {
+        "campaign_labels": [
+          "CLUBS_JACK",
+          "CLUBS_QUEEN",
+          "CLUBS_KING",
+          "CLUBS_TEN",
+          "CLUBS_ACE",
+          "SPADES_JACK",
+          "SPADES_QUEEN",
+          "SPADES_KING",
+          "SPADES_TEN",
+          "SPADES_ACE",
+          "HEARTS_JACK",
+          "HEARTS_QUEEN",
+          "HEARTS_KING",
+          "HEARTS_TEN",
+          "HEARTS_ACE",
+          "DIAMONDS_JACK",
+          "DIAMONDS_QUEEN",
+          "DIAMONDS_KING",
+          "DIAMONDS_TEN",
+          "DIAMONDS_ACE",
+          "FACE_DOWN"
+        ],
+        "crop_origin": "reviewed oracle_visible_region crop from the frozen 0086 handoff",
+        "encoding": "canonical 8-bit RGB P6 PPM bytes",
+        "excluded_inputs": [
+          "piles",
+          "consumed pile members",
+          "unreviewed automatic crops",
+          "UNKNOWN or identity-unusable evidence"
+        ],
+        "semantic_input": "one eligible visible card crop per sample, including pixel-based face-down recognition"
+      },
+      "training_data_digest": "c206c665f22fbe30b7343961d8555dad4bbec25b4420da836478a04f15e817ab",
+      "training_manifest_digest": "d6d9a672ede8cbd05a70e26a2b059c67265250c4467bc050b1d6e5ff732a1d7d",
+      "training_recipe_digest": "159bf80ab5de6c25ebd1b458deb5efd2e14a7ea80c11d0b06b6765dc1d11fc7e",
+      "training_split_digest": "753eb5c2d39eec031109fec59bdc2d66a028be2e5a50969ad441826fcaec8d87"
+    }
+  ],
   "evaluation_contract": {
+    "candidate_count": 2,
+    "candidate_inclusion_rule": "Include M3 and M6, the two M10 finalists, regardless of the selection-view percentage-point difference. Report both paired against Gemini on the same final crops.",
     "denominator": 108,
     "do_not_tune_after_viewing": true,
     "failed_or_missing_predictions": "remain in the denominator and count against usable coverage; report each failure class",
+    "m0_challenger_rule": "Retain as historical model-selection evidence only; do not use it to remove a candidate from this final comparison.",
     "paired_population": "same exact reviewed native PPM crops for DINO and Gemini",
     "per_crop_correctness": "exact canonical visual label match; UNKNOWN, unsupported NINE output, missing prediction, or provider failure is incorrect for a supported positive target",
     "quality_gates": {
@@ -294,36 +488,79 @@
     "thinking_level": "low",
     "timeout_seconds": 120
   },
-  "lock_digest": "09c662ef8e7f3dd227991a3eb7f6c485343f19a244ba3f532fc097fa32c9be9e",
+  "lock_digest": "a2abb823959a430b11fd95d389d02522538476f1101613466a592363095ec2f2",
   "lock_state": "locked_before_final_predictions",
   "locked_on": "2026-10-16",
   "m12_verification": {
-    "bundle_loader": "passed; 0094 digest and per-file validation accepted the copied bundle",
-    "calibration_replay": "M11 reports calibrated reload parity on all 105 reserved calibration crops; top-1 and raw logits/probabilities match the M3 control.",
-    "official_evaluator_cli": "Could not start its comparison because the historical M3 campaign manifest has no per-crop metadata for the 209 validation entries. The direct replay used the same validated crop cache and matched the recorded predictions.",
-    "selection_replay": {
-      "bundle_digest": "e54952030a1f87aadf4c5c3befb71537e588074cd9959c98c4c51bbbc6ddac87",
-      "checked_crops": 209,
-      "device": "mps",
-      "elapsed_seconds": 8.941,
-      "max_raw_probability_abs_difference": 4.5972168272179204e-07,
-      "probability_mismatch_count": 0,
-      "state": "passed",
-      "top1_mismatches": 0
+    "bundle_loader": "passed for both exact calibrated bundles; 0094 digest and per-file validation accepted them",
+    "calibration_replay": {
+      "m3": "M11 reports calibrated reload parity on all 105 reserved calibration crops; raw logits and probabilities match.",
+      "m6": {
+        "at_probability_0_90": {
+          "correct_count": 41,
+          "coverage": 0.3904761904761905,
+          "selected_count": 41
+        },
+        "ece_10_bins": 0.08715756370310453,
+        "exploratory_review_threshold": {
+          "correct_count": 57,
+          "coverage": 0.5428571428571428,
+          "selected_count": 57,
+          "threshold": 0.8235859761473482
+        },
+        "nll_after": 0.7627149555633566,
+        "nll_before": 0.8563467904835521,
+        "reload_parity": {
+          "bundle_digest": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+          "checked_crops": 105,
+          "elapsed_seconds": 4.596,
+          "max_logit_abs_difference": 0.0,
+          "state": "passed"
+        },
+        "reload_parity_receipt_sha256": "76e2c774074c509c9cb604891ce0f9ace56201b89dba1b5eb9a94b521e88ae75",
+        "sample_count": 105,
+        "source_checkpoint_sha256": "ff560c5a4e2fff70f7e6ab0ff0cef6e7fa8cab8bbdfbcd25af4c569ee4bdfb1a",
+        "status": "exploratory; one group, no FACE_DOWN examples, coverage gate fails",
+        "temperature": 0.6487642659364355,
+        "view_path": ".runtime/dinov3-identity-0088/m12-final-lock/m6-confidence-calibration/calibration-view.json",
+        "view_sha256": "ed7cd1149670ae79e234f69eeb968b72bac393cdfe201ed26db91031a47d6e46"
+      }
     },
-    "selection_replay_command": "mise exec -- uv run --project table_evidence_analyzer --group training python - <<PY ... load the frozen 0088 dataset, split, artifact index, crop cache, instantiate DinoV3IdentityClassifier(bundle, device=\"mps\"), and compare all 209 validation crops with results/224-cls/predictions-validation.json by target label ... PY",
-    "selection_replay_receipt_sha256": "c67f642ce581e3837250efced519b7e81e8192239b817a377661f288332c4c1d"
+    "official_evaluator_cli": "Could not start its M3 comparison because the historical M3 campaign manifest lacks per-crop metadata. Direct replays used each validated dataset and crop cache.",
+    "selection_replay_by_candidate": {
+      "m3-seed17-224-cls": {
+        "bundle_digest": "e54952030a1f87aadf4c5c3befb71537e588074cd9959c98c4c51bbbc6ddac87",
+        "checked_crops": 209,
+        "device": "mps",
+        "elapsed_seconds": 8.941,
+        "max_raw_probability_abs_difference": 4.5972168272179204e-07,
+        "probability_mismatch_count": 0,
+        "state": "passed",
+        "top1_mismatches": 0
+      },
+      "m6-seed17-224-cls-mean-patch": {
+        "bundle_digest": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+        "checked_crops": 209,
+        "device": "mps",
+        "elapsed_seconds": 8.967,
+        "max_raw_probability_abs_difference": 4.2264348598664014e-07,
+        "probability_mismatch_count": 0,
+        "state": "passed",
+        "top1_mismatches": 0
+      }
+    }
   },
   "m13_execution": {
-    "command": "mise exec -- uv run --project table_evidence_analyzer --group training python operations/scripts/run_0088_m13_final_evaluation.py --lock docs/reports/0088-M12_Final_Evaluation_Lock.json --bundle .runtime/dinov3-identity-0088/m12-final-lock/candidate-bundle --output .runtime/dinov3-identity-0088/m13-final-evaluation --device mps",
-    "implementation_contract": "The M13 script must resolve the frozen recording to reviewed PPM crops, verify source and membership digests and the 108-crop count before scoring, then run DINO and one Gemini request per exact crop digest and write a digest-backed receipt.",
+    "command": "mise exec -- uv run --project table_evidence_analyzer --group training python operations/scripts/run_0088_m13_final_evaluation.py --lock docs/reports/0088-M12_Final_Evaluation_Lock.json --output .runtime/dinov3-identity-0088/m13-final-evaluation --device mps",
+    "implementation_contract": "The M13 script must read and evaluate every bundle in candidates from this lock. Resolve the frozen recording to reviewed PPM crops; verify source and 108-crop membership before scoring; then run both candidates and one Gemini request per exact crop digest in one evaluation.",
     "must_not": [
       "refit weights or temperature",
       "change preprocessing",
       "change Gemini prompt or response schema",
       "retry a Gemini request automatically",
       "score a second time after reviewing errors",
-      "continue if materialized membership differs from the lock"
+      "continue if materialized membership differs from the lock",
+      "exclude a locked candidate based on the selection-view delta"
     ]
   },
   "schema_version": "0088-m12-final-evaluation-lock/v1",

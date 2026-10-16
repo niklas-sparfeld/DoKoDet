@@ -64,11 +64,11 @@
   Top-1 stays 83/105, while the frozen 90% confidence threshold reaches only 40% coverage. The
   confidence gate and class/group support floors fail; no face-down calibration data exists. See
   the [M11 report](../../reports/0088-M11_Confidence_Policy.md).
-- **M12:** Complete — locked the M3 seed-17 calibrated bundle, 25-output score contract, confidence
-  gates, paired Gemini recipe, 108-crop failure denominator, and the exact final-test recording.
-  The bundle reproduces saved model-selection predictions across all 209 crops. The final-test
-  partition has one source group, so it cannot meet the uncertainty floor. See the
-  [M12 lock](../../reports/0088-M12_Final_Evaluation_Lock.md).
+- **M12:** Complete — locked M3 and M6 seed-17 bundles as co-finalists, with separate calibration,
+  a 25-output score contract, paired Gemini recipe, 108-crop denominator, and exact final-test
+  recording. Both bundles reproduce saved model-selection predictions across all 209 crops. The
+  1-point rule does not exclude either model; the final-test partition has one source group and
+  cannot meet the uncertainty floor. See the [M12 lock](../../reports/0088-M12_Final_Evaluation_Lock.md).
 - **M13:** Not started — execute the final test and paired Gemini comparison once.
 - **M14:** Not started — exercise the locked bundle on development recording sequences.
 - **M15:** Not started — publish the qualification decision and downstream handoffs.
@@ -428,17 +428,19 @@ failure denominator and qualification rules before viewing final predictions.
 Acceptance: bundle digest/reload and training/inference parity pass; exact checkpoint and test
 membership are locked; no refitting on selection, calibration, or final-test data after this lock.
 
-**Result:** Complete. Locked the M3 seed-17 checkpoint (`6d9234b3…16936a`) with the M11 scalar
-temperature (`0.6080362924`) in bundle `e5495203…ac87`. The 0094 loader accepted the copied bundle.
-Reloaded MPS inference matched all 209 saved model-selection predictions, with no top-1 or raw
-probability mismatches (maximum absolute probability difference `4.60e-7`). M11 also records exact
-reloaded parity on its 105 calibration crops. The standard evaluation CLI could not use the
-historical M3 campaign manifest because it lacks per-crop metadata; direct replay used the verified
-dataset and crop cache. Locked Gemini `gemini-3.8-flash`, the M0 prompt and response schema, one
-request per crop, no retries, USD 10 cap, and a 108-crop denominator. Final membership is the
-verified `IMG_0659` source recording, with crop materialization still deferred to M13. One source
-group cannot meet M0's three-group uncertainty floor. See the [M12 lock](../../reports/0088-M12_Final_Evaluation_Lock.md)
-and [machine-readable contract](../../reports/0088-M12_Final_Evaluation_Lock.json).
+**Result:** Complete. Locked M3 seed 17 and M6 seed 17 as co-finalists. Their bundle digests are
+`e5495203…ac87` and `a6c1aa2a…4ed79`; candidate-specific temperatures are `0.6080362924` and
+`0.6487642659`. The M0 one-point challenger rule does not exclude M6 from final comparison. Both
+reloaded MPS bundles matched all 209 saved model-selection predictions with no top-1 or probability
+mismatches. M6's calibrated bundle also reproduced logits on all 105 calibration crops. Its
+confidence gate reaches 39% coverage at 0.90 confidence, below the 90% requirement. The standard
+evaluation CLI could not use the historical M3 campaign manifest because it lacks per-crop metadata;
+direct replay used the verified dataset and crop cache. Locked Gemini `gemini-3.8-flash`, the M0
+prompt and response schema, one request per crop, no retries, USD 10 cap, and a 108-crop denominator.
+Final membership is the verified `IMG_0659` source recording, with crop materialization deferred to
+M13. One source group cannot meet M0's three-group uncertainty floor. See the
+[M12 lock](../../reports/0088-M12_Final_Evaluation_Lock.md) and
+[machine-readable contract](../../reports/0088-M12_Final_Evaluation_Lock.json).
 
 ### M13 — Execute the final test once
 
