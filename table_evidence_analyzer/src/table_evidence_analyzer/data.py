@@ -25,6 +25,7 @@ ARTIFACT_INDEX_SCHEMA = "sample-artifact-index/v1"
 CROP_CACHE_SCHEMA = "crop-cache/v1"
 TARGET_SCHEMA = "table-observation-annotation/v1"
 DEFAULT_TRANSFORM_VERSION = "identity-crop-v1"
+VISUAL_IDENTITY_TARGETS = (*CARD_IDENTITIES, "FACE_DOWN")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -971,7 +972,7 @@ def validate_dataset(
     *,
     split: SplitManifest | None = None,
     artifacts: ArtifactIndex | None = None,
-    card_set: Sequence[str] = CARD_IDENTITIES,
+    card_set: Sequence[str] = VISUAL_IDENTITY_TARGETS,
 ) -> ValidationReport:
     errors: list[str] = []
     try:

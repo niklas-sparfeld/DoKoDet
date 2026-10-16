@@ -1,0 +1,76 @@
+{
+  "schema_version": "0088-m1-campaign-views-summary/v1",
+  "status": "complete",
+  "source_verification": {
+    "path": "docs/reports/0088-M1_Source_Verification.json",
+    "sha256": "70d623671a38bbee749c5d6cd5d418637dd336c494b9716d6f94a5285adb1e21",
+    "recording_count": 20,
+    "verified_recording_count": 20
+  },
+  "frozen_partition_counts": {
+    "training_recordings": 13,
+    "model_selection_recordings": 2,
+    "confidence_calibration_recordings": 1,
+    "final_test_recordings": 1
+  },
+  "reviewed_view": {
+    "cold_warm_digest": "ea7818ae619c5b17ee84980769842b532cdf57b2968b7d85289bc85e7f852146",
+    "cold_warm_match": true,
+    "samples": 913,
+    "training_samples": 599,
+    "model_selection_samples": 209,
+    "confidence_calibration_samples": 105,
+    "dataset_version_id": "dinov3-0088-c206c665f22fbe30b7343961",
+    "dataset_version_digest": "c206c665f22fbe30b7343961d8555dad4bbec25b4420da836478a04f15e817ab",
+    "split_version_digest": "753eb5c2d39eec031109fec59bdc2d66a028be2e5a50969ad441826fcaec8d87",
+    "artifact_index_digest": "6c6baf698329352aab1f2cf32b7b2c2b1c07b81c6ee8450fe1f95c8840239502",
+    "crop_cache_digest": "4eba776d0aeb9d0a8df112edb1e32ded36c0a790d0ee210958d1a231a260b091",
+    "campaign_manifest_digest": "d51e2d6db3785efabb788af7053c9b590e73da00ade9a34e9964a9184922a6e5",
+    "campaign_manifest_file_sha256": "02117fa8ab71eca16529e9ced1576b224adbc74f0a33318ebfdb2e6085b6b62b",
+    "identity_config_sha256": "0c405ee3924fc5e05d3889c57c4f3fc9d038f1d1dc68ceba2803d9a0787f841a",
+    "dataset_entry_count": 808,
+    "train_entry_count": 599,
+    "validation_entry_count": 209,
+    "calibration_in_training_dataset": false
+  },
+  "face_down_support": {
+    "training_samples": 1,
+    "model_selection_samples": 1,
+    "confidence_calibration_samples": 0,
+    "quality_claims": "No precision, recall, calibration, or generalization claim. Exploratory training and annotation assistance are allowed."
+  },
+  "automatic_development_view": {
+    "provider_bundle_digest": "018715420524a62335abd30c628382a1caba344f3bb98e1cbab884dfb4590fd9",
+    "provider_class_count": 2,
+    "provider_frames": 130,
+    "provider_proposals": 495,
+    "automatic_crops": 495,
+    "automatic_manifest_sha256": "ee996b367a848ad53ff3bf5f6700ae15eef0b6e354aaa5a2d917eccaa99af87a",
+    "matched_reviewed_samples": 0,
+    "reviewed_samples_without_match": 314,
+    "association_policy": "greedy one-to-one polygon IoU >= 0.5",
+    "best_reviewed_iou": 0.255156,
+    "all_proposal_crops_retained": true,
+    "unmatched_proposal_crops_have_identity_target": false,
+    "missing_input_coverage_retained": true
+  },
+  "incomplete_source_references": {
+    "cardeventnet-IMG_0639": "No completed visual-identity revision; the M0 training group has no positive crops."
+  },
+  "final_test": {
+    "membership": [
+      {
+        "recording_id": "cardeventnet-IMG_0659",
+        "source_group_id": "source-group-3840f6e17e00e1e4"
+      }
+    ],
+    "frames_resolved": false,
+    "crops_materialized": false,
+    "scored": false
+  },
+  "prediction_targets": {
+    "unreviewed_predictions_used_as_targets": false,
+    "card_and_frame_lineage_checked": true
+  },
+  "runtime_artifacts": ".runtime/dinov3-identity-0088"
+}

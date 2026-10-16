@@ -1029,7 +1029,7 @@ def _load_local_rfdetr_segmentation(bundle: Any, device: str) -> Any:
     try:
         model = RFDETRSegMedium.from_checkpoint(
             str(bundle.checkpoint_path),
-            num_classes=1,
+            num_classes=len(bundle.manifest["class_map"]),
             resolution=LOCAL_SEGMENTATION_INPUT_SIZE,
             device=device,
         )

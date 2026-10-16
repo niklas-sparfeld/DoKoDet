@@ -16,8 +16,9 @@
   Support floors remain quality-reporting limits; they do not block exploratory training. Do not
   claim face-down precision, recall, calibration, or generalization from this sample. The 0086 M5
   [source verification report](../../reports/0088-M1_Source_Verification.md) confirms that all 20
-  source videos match the 0086 handoff and intake receipts byte-for-byte. M1 can materialize the
-  reviewed and automatic-crop evaluation views. Keep the final test unopened until M13.
+  source videos match the 0086 handoff and intake receipts byte-for-byte. M1 materialized the
+  reviewed and automatic-crop views; see the [M1 report](../../reports/0088-M1_Campaign_Views.md).
+  Keep the final test unopened until M13.
 - **Outcome:** A quality-qualified local model and its exact preprocessing and confidence policy,
   or an explicit report that the useful-model objective remains unmet.
 - **Target architecture:**
@@ -27,8 +28,9 @@
 
 - **M0:** Complete — freeze readiness, splits, quality gates, candidates, and budgets; see the
   [readiness report](../../reports/0088-M0_Campaign_Readiness.md).
-- **M1:** In Progress — exact source bytes are verified; materialize reviewed and automatic-crop
-  evaluation views. Low class support does not block exploratory work; record it in all results.
+- **M1:** Complete — exact source bytes are verified; reviewed train/validation data and automatic
+  development crops are materialized. No automatic crops matched reviewed cards at IoU 0.5; all
+  misses remain in coverage. See the [M1 report](../../reports/0088-M1_Campaign_Views.md).
 - **M2:** Not started — establish the paired Gemini and PoC reference results.
 - **M3:** Not started — train one fresh 224-pixel real-only baseline.
 - **M4:** Not started — train one matched 384-pixel candidate.

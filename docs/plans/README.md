@@ -29,10 +29,11 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 1. **0086 M4/M5:** Complete. The handoffs contain 20 eligible recordings, 1,391 identity crops,
    support for all 21 campaign classes, and exact exclusions. `IMG_0092` is permanently excluded;
    `IMG_0096` is deferred for calibration repair.
-2. **0088 M1:** In Progress. Exact source bytes match the 0086 handoff for all 20 recordings.
-   Materialize the reviewed and automatic-crop evaluation views. The user accepts low `FACE_DOWN`
-   support for exploratory DINO iteration and annotation assistance. Report the limits; keep the
-   final test sealed until M13.
+2. **0088 M1:** Complete. Exact source bytes match the 0086 handoff for all 20 recordings. Reviewed
+   train/validation data and automatic-crop development views are materialized. No automatic crops
+   match reviewed cards at the frozen IoU threshold; the report retains all misses in coverage.
+   The user accepts low `FACE_DOWN` support for exploratory DINO iteration and annotation
+   assistance. Report the limits; keep the final test sealed until M13.
 3. **0092 M4:** The all-recording RF-DETR refit is running on MPS. Verify and publish its final
    lineage, local inference, and latency evidence when the run completes. This work does not block
    0088.
@@ -69,7 +70,7 @@ The shared target architecture is
 
 | Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0088 — Reviewed virtual-card DINO quality campaign](3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md)                 | Completed 0086 M4/M5, 0093, 0094, 0043, 0085, and 0091; no 0092 training dependency                                 | M0 complete; M1 is materializing reviewed and automatic-crop evaluation views after exact source verification for all 20 recordings. Under-supported exploratory DINO work is allowed; report limits and keep the final test sealed. |
+| [0088 — Reviewed virtual-card DINO quality campaign](3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md)                 | Completed 0086 M4/M5, 0093, 0094, 0043, 0085, and 0091; no 0092 training dependency                                 | M0–M1 complete. Dataset and automatic-crop views are materialized; no automatic proposal matched a reviewed card at IoU 0.5. Keep `FACE_DOWN` claims limited and the final test sealed. |
 | [0092 — Expanded reviewed virtual-card RF-DETR campaign](3-in-progress/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md) | 0086 M4 current-schema detection-only handoff with at least 18 eligible recordings; completed 0087 candidate bundle | M0–M3 complete; M4 refit is running on all 20 eligible recordings. The candidate remains selectable and `gemini` remains the default. Final-bundle lineage, local inference, and latency checks are pending. |
 
 ### Blocked
