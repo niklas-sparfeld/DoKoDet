@@ -49,10 +49,10 @@
   see the [M6 run record](../../reports/0088-M6_Pooled_Features.md).
 - **M7:** Not required — the frozen candidate clears the selection target, while the independent
   source-group support gate fails. See the [M7 skip record](../../reports/0088-M7_Fine_Tuning_Skip.md).
-- **M8:** Not started — reopen the synthetic branch to build one identity-labeled pool from eligible
-  training-only inputs using 0070's deterministic renderer. The earlier M8 skip records the
-  original frozen-gate decision; this user-directed amendment supersedes it. See the
-  [M8/M9 experiment plan](../../reports/0088-M8_M9_Synthetic_Identity_Experiment.md).
+- **M8:** Complete — built and visually reviewed seven deterministic synthetic crops from exact
+  0070-to-0088 training joins. The pool covers five face-up identities in one source group. It has
+  no synthetic `FACE_DOWN` example; the one real training crop remains eligible for M9. See the
+  [M8 pool report](../../reports/0088-M8_Synthetic_Pool.md).
 - **M9:** Not started — run one fixed 1:1 real-plus-synthetic training candidate, or record an
   asset/lineage skip.
 - **M10:** Not started — compare the two leading eligible recipes with additional seeds.
@@ -322,6 +322,14 @@ Acceptance: one immutable pool with exact source and rendered-crop lineage, dete
 digests, class/side/source-group inventory, and visual review; or a precise skip receipt if the
 identity join or source permissions fail. Evaluation stays real. No new renderer, label inference,
 or pool tuning from M9 results.
+
+**Result:** Complete. Seven of 165 0070 cutouts joined uniquely to reviewed 0088 training crops by
+source recording digest, decoded frame digest, event item, and reviewed identity lineage. The pool
+uses the 0070 renderer on a fixed neutral canvas and contains the seven original real crops, their
+synthetic PPM crops, rendered appearances, and visible masks. All seven are face-up. The one real
+`FACE_DOWN` training example stays in the real set; no compatible 0070 cutout exists, so no
+synthetic face-down crop was created. The pool was visually checked and rebuilt twice with the same
+manifest digest. See the [M8 pool report](../../reports/0088-M8_Synthetic_Pool.md).
 
 **Plan amendment:** The earlier [M8 skip record](../../reports/0088-M8_Synthetic_Pool_Skip.md)
 correctly records the original frozen-gate decision. The user later authorized one bounded
