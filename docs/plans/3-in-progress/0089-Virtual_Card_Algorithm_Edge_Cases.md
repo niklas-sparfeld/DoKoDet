@@ -4,7 +4,7 @@
 
 - **Summary:** Reproduce current failures with fixed model bundles and correct only measured
   calibration, pose, stacking-order, or crop integration defects.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0086 reviewed development evidence; 0087 bundle decision; 0088 M15 diagnostic
   bundle and review-policy handoff
 - **Outcome:** A small real regression set, bounded algorithm fixes, and a reproducible comparison.
@@ -13,7 +13,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — replay failures and freeze the regression set and fix scope.
+- **M0:** In progress — replay selected development cases with the fixed 0087 and 0088 bundles;
+  freeze no more than two measured failure families.
 - **M1:** Not started — correct one reproduced pose or occlusion failure family.
 - **M2:** Not started — correct one further integration failure family only if M0 selected it.
 - **M3:** Not started — verify combined behavior and publish remaining limits.

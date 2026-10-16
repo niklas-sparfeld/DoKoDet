@@ -36,7 +36,7 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
    assistance. Report the limits; keep the final test sealed until M13.
 3. **0092 M4:** Complete. The final all-recording refit and its bundle lineage, local inference,
    and latency checks are recorded. `gemini` remains the default. No sealed evaluation was rerun.
-4. **0089:** Fix current algorithm edge cases using fresh model outputs and reviewed evidence.
+4. **0089 M0:** Reproduce algorithm edge cases with fresh model outputs and reviewed evidence.
 5. **0090:** Run the automatic local recording pipeline after the feature and bundle handoffs.
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
@@ -68,14 +68,14 @@ The shared target architecture is
 
 ### Ready
 
-| Epic                                                                                                            | Depends on                                                                                               | Outcome                                                                                                                                                                      |
-| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0089 — Virtual-card algorithm edge cases](2-ready/0089-Virtual_Card_Algorithm_Edge_Cases.md)                   | 0086 reviewed evidence; 0087 bundle decision; 0088 M15 diagnostic bundle and review-policy handoff       | M0–M3 not started. Use M6 seed 17 as primary diagnostic and retain M3 seed 17 as control. Reproduce fresh failures, then freeze at most two small failure families.             |
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
 
 ### In Progress
 
 | Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0089 — Virtual-card algorithm edge cases](3-in-progress/0089-Virtual_Card_Algorithm_Edge_Cases.md) | 0086 reviewed evidence; 0087 bundle decision; 0088 M15 diagnostic bundle and review-policy handoff | M0 in progress. Use M6 seed 17 as primary diagnostic and M3 seed 17 as control. Reproduce fresh failures, then freeze at most two small failure families. |
 
 ### Blocked
 
