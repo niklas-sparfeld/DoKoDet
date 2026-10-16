@@ -60,7 +60,10 @@
   below the 1-point challenger threshold. Only two model-selection groups contribute, so the
   paired source-group uncertainty rule is insufficient and no recipe qualifies. See the
   [M10 report](../../reports/0088-M10_Finalist_Stability.md).
-- **M11:** Not started — fit and assess the confidence policy on reserved data.
+- **M11:** Complete — fit exploratory calibration on the reserved 105-crop, one-group view.
+  Top-1 stays 83/105, while the frozen 90% confidence threshold reaches only 40% coverage. The
+  confidence gate and class/group support floors fail; no face-down calibration data exists. See
+  the [M11 report](../../reports/0088-M11_Confidence_Policy.md).
 - **M12:** Not started — export and lock the exact candidate and final evaluation recipe.
 - **M13:** Not started — execute the final test and paired Gemini comparison once.
 - **M14:** Not started — exercise the locked bundle on development recording sequences.
@@ -402,6 +405,15 @@ confidence reliability, selective precision versus coverage, and face-down confi
 
 Acceptance: raw top-1 is unchanged by calibration; the confidence policy has its own digest;
 thresholds do not hide failure of the main accuracy or coverage gates; no final-test fitting.
+
+**Result:** Complete. M3 seed 17 was calibrated on the reserved 105-crop `IMG_0095` group. The
+fitted temperature is 0.6080 and reduces NLL from 0.8826 to 0.7599; raw and calibrated top-1 both
+remain 83/105 on this view. At calibrated top-1 probability 0.90, precision is 42/42 but coverage
+is only 40%, below M0's 90% gate. The optional 99% precision-target review threshold is 0.8157 and
+covers 55/105 crops. The view has one group, class support below the frozen floors, and no
+`FACE_DOWN` crop. Treat the calibration and threshold as exploratory; they do not qualify a model
+or set a review default. Reloaded inference reproduced raw logits and probabilities exactly. The
+final test remains sealed. See the [M11 report](../../reports/0088-M11_Confidence_Policy.md).
 
 ### M12 — Export and lock the final evaluation
 
