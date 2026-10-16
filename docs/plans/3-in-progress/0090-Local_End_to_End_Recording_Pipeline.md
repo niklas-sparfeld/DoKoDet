@@ -4,10 +4,9 @@
 
 - **Summary:** Run the automatic stages in sequence on a small fixed recording batch and measure
   the composed result with explicit model, input, and failure lineage.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0087 and 0088 bundle decisions; completed 0089 no-fix algorithm handoff;
-  completed 0048 and 0049; completed 0091 M7 pile feature handoff and explicit real pile-model
-  capability decision.
+  completed 0092 M4 final refit; completed 0048 and 0049; completed 0091 M7 pile feature handoff.
 - **Readiness:** The 0089 replay found no isolated algorithm defect and does not select an
   algorithm change. The 0088 identity decision is available:
   M6 seed 17 is the primary diagnostic bundle and M3 seed 17 is available as a paired diagnostic;
@@ -15,13 +14,17 @@
   [0088 M15 handoff](../../reports/0088-M15_Qualification_Decision.md).
 - **Outcome:** A resumable local coordinator, retained stage results, and a measured development
   pilot from video through reconstruction.
+- **M0:** Complete — freeze the three-recording development batch, exact source and review
+  revisions, model bundles, automatic crop policy, budgets, and coverage gates. See the
+  [M0 pilot freeze](../../reports/0090-M0_Composed_Pilot_Freeze.md).
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Milestone status
 
-- **M0:** Not started — freeze recording scope, stage recipe, references, and metrics.
-- **M1:** Not started — implement or reuse sequential execution over retained stage boundaries.
+- **M0:** Complete — freeze the recording scope, stage recipe, references, and metrics. See the
+  [M0 pilot freeze](../../reports/0090-M0_Composed_Pilot_Freeze.md).
+- **M1:** Not started — implement sequential execution over retained stage boundaries.
 - **M2:** Not started — verify restart, cancellation, and failure behavior.
 - **M3:** Not started — run the development pilot and publish the composed result.
 
@@ -32,11 +35,14 @@ a local CLI or application coordinator; add UI only for a measured blocker. Free
 CardEventNet, RF-DETR, DINO, crop policy, and algorithm versions. Do not silently choose the newest
 bundle, fall back to Gemini, retrain, or promote a model.
 
-Use M6 seed 17 as the declared diagnostic identity bundle and retain M3 seed 17 for a paired
-diagnostic when useful, using the exact bundle and report-only confidence routing policy in the
+Use the 0092 M4 final refit as the visible-card bundle. It supersedes the 0087 M3 candidate for this
+pilot and includes the `card_pile` class. Keep `gemini` as the runtime default. Use M6 seed 17 as
+the declared diagnostic identity bundle and retain M3 seed 17 for a paired diagnostic when useful,
+using the exact bundle and report-only confidence routing policy in the
 [0088 M15 handoff](../../reports/0088-M15_Qualification_Decision.md). Retain 0088's model
-qualification result beside its bundle decision. An unqualified bundle is an
-explicit diagnostic condition, not evidence that the composed pipeline is ready for productive use.
+qualification result beside its bundle decision. M6 remains unqualified; every identity proposal
+requires human review. This condition is not evidence that the composed pipeline is ready for
+productive use.
 0093/0094 implementation remains outside this coordinator.
 
 The primary pilot uses automatic upstream outputs from the accepted video: event proposals,
@@ -49,8 +55,8 @@ policy. This epic cannot bypass 0085's reviewed-input authority checks.
 
 [0091](../5-closed/0091-Pile_Region_Feature.md) owns pile support at the individual boundaries.
 Its [M7 handoff](../../reports/0091-Pile_Region_Capability_Handoff.md) documents the software
-capability and the current absence of a selected trained pile model.
-Freeze its capability and observation versions in the coordinator. Keep pile detections separate
+capability. The selected 0092 M4 refit now provides a real two-class bundle. Freeze its capability
+and observation versions in the coordinator. Keep pile detections separate
 from individual cards, bypass identity and pose work for piles, and retain pile evidence through
 engine input. Distinguish retained but unused pile evidence from gameplay inference. If the
 selected bundle cannot detect piles, declare that coverage limit before the pilot; do not hide

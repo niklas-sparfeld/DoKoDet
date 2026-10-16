@@ -527,7 +527,7 @@ preflight before executing a long job. Broad code changes discovered during a fi
 supporting implementation milestone instead of being mixed with the campaign result.
 
 [0089](0089-Virtual_Card_Algorithm_Edge_Cases.md) records the fresh geometry/integration replay.
-[0090](../2-ready/0090-Local_End_to_End_Recording_Pipeline.md) owns full pipeline coordination.
+[0090](../3-in-progress/0090-Local_End_to_End_Recording_Pipeline.md) owns full pipeline coordination.
 [0044](../1-backlog/0044-Productive_Local_Identity_Model_Operations.md) owns registry promotion,
 default changes, productive campaign UI, and rollback. Their diagnostic work can consume a failed
 0088 decision; that does not make the identity model quality-qualified.

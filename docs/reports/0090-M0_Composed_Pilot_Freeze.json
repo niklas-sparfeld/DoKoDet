@@ -1,0 +1,165 @@
+{
+  "schema_version": "0090-m0-composed-pilot-freeze/v1",
+  "status": "frozen",
+  "source_revision": "41532a756",
+  "purpose": "local diagnostic development pilot",
+  "recordings": [
+    {
+      "recording_id": "cardeventnet-IMG_0657",
+      "content_type": "staged_trick_sequence",
+      "source_group_id": "source-group-9d6d4824b53bc4a9",
+      "allowed_uses": ["train", "validation", "test", "evaluation"],
+      "source_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+      "references": {
+        "events": {
+          "revision_id": "reference-events-17e0b4ea8fc84cec099e237467798fdd",
+          "manifest_sha256": "6bad2154676cc410d72131dcb0f6bc49212f329f6015e8e4b2bed2c01f453082",
+          "content_sha256": "b7b928f5e1738af2343dba68e83a4edee10c2e7dcd7141d03282b9d4971fa4f3"
+        },
+        "visible_cards": {
+          "revision_id": "reference-visible_cards-9825ffb099bab16c735b114ec4c4050a",
+          "manifest_sha256": "56238273dc9aa14ac950e3a6646a884c205b1492d9842dea91e3499c0b59d133",
+          "content_sha256": "cd87d26bddae0677f7646b5084d8832bdf668d7a9277ee144715db236b31b058"
+        },
+        "visual_identities": {
+          "revision_id": "reference-visual_identities-cd3866d5633c58efaff44bf46ef7637f",
+          "manifest_sha256": "3847ab76d6ffc2f969b776ff27c9c695484b196fd56ac0e9b6ffd83d37b87e1d",
+          "content_sha256": "186aa09f1599990395f800a17e18ad81ed970909a65726f4779d69fe9aa341ad"
+        },
+        "reconstruction": null
+      },
+      "reviewed_scene_coverage": {
+        "single_card_scenes": 11,
+        "multi_card_scenes": 34
+      }
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0662",
+      "content_type": "staged_trick_sequence",
+      "source_group_id": "source-group-d4543cb23cc73b35",
+      "allowed_uses": ["train", "validation", "test", "evaluation"],
+      "source_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+      "known_failure": {
+        "stage": "visible_card_detection",
+        "evidence": "0089 M0 found zero reviewed-card matches at polygon IoU 0.5"
+      },
+      "references": {
+        "events": {
+          "revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
+          "manifest_sha256": "445dfe37c166eb3b6c76761a30fee13838761ed71acd4e59d1bebf3317b6bf91",
+          "content_sha256": "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5"
+        },
+        "visible_cards": {
+          "revision_id": "reference-visible_cards-bf287d3bff82dec774f16be1ccc736f0",
+          "manifest_sha256": "7de9a0cdf18676e0e319f8f66dfc467203c417ecbebd9c43117c1dfa7d2433c4",
+          "content_sha256": "d098847ee1ee68d6a3e9a3977d7b254bfff762008f9ffccf0ad0ae90625f147d"
+        },
+        "visual_identities": {
+          "revision_id": "reference-visual_identities-4026272dca1192019417b0b8ad200eeb",
+          "manifest_sha256": "4a0ed28a6e11b51f1b5d59d17a52cbb73d3867ed19b8a180adbc16445c3a3ff3",
+          "content_sha256": "f782a4c5b9aac7e59be952a7e3f3254a0d472f71787aeff45f0242d6cf1aef99"
+        },
+        "reconstruction": null
+      },
+      "reviewed_scene_coverage": {
+        "single_card_scenes": 11,
+        "multi_card_scenes": 32
+      }
+    },
+    {
+      "recording_id": "game-2026-08-20-01-001",
+      "content_type": "real_game",
+      "round_id": "round-001",
+      "source_group_id": "session-2026-08-20",
+      "allowed_uses": ["train", "validation", "test", "evaluation"],
+      "source_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+      "references": {
+        "events": {
+          "revision_id": "reference-events-e22b24bde3ef35a56ab930873b2200cc",
+          "manifest_sha256": "c4a83a43a4aef7cc13c7e579593dcd9ab3586846e2a28f9e2e8c6582e3125f2e",
+          "content_sha256": "685cc65c97b7ec4b6e4ebe7db645e451ecb9d46ad2b2e42a64bec742b78bd088"
+        },
+        "visible_cards": {
+          "revision_id": "reference-visible_cards-25c56fb38af9a5604283bbc57789e690",
+          "manifest_sha256": "ed3b5c1dabd023768c01caaae27a4a4e6ae2d600865896487e1861d9fdadae26",
+          "content_sha256": "6710ff5ce7758561ea2d1c1c5278cb90974162bbebbd01af37b75e70fd9a4a3a"
+        },
+        "visual_identities": null,
+        "reconstruction": null
+      },
+      "reviewed_scene_coverage": {
+        "single_card_scenes": 2,
+        "multi_card_scenes": 47
+      }
+    }
+  ],
+  "models": {
+    "event_detector": {
+      "decision": "0063 M14 accepted development baseline",
+      "checkpoint_path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt",
+      "checkpoint_sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4",
+      "threshold": 0.4271905720233917,
+      "decoder": {
+        "algorithm": "causal_peak",
+        "peak_confirmation_s": 0.125,
+        "min_event_gap_s": 0.625,
+        "event_match_tolerance_s": 0.75
+      }
+    },
+    "visible_card_detector": {
+      "decision": "0092 M4 final refit",
+      "bundle_path": ".runtime/rfdetr-segmentation-0092-m4/bundle",
+      "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+      "manifest_sha256": "826ccba533531c62a2059be5889b9c48aa44800df5d216997575a238c37f5816",
+      "checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+      "classes": ["visible_card", "card_pile"]
+    },
+    "visual_identity": {
+      "decision": "0088 M15 primary diagnostic bundle",
+      "bundle_path": ".runtime/dinov3-identity-0088/m12-final-lock/m6-candidate-bundle",
+      "bundle_digest": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+      "checkpoint_sha256": "ff560c5a4e2fff70f7e6ab0ff0cef6e7fa8cab8bbdfbcd25af4c569ee4bdfb1a",
+      "quality_state": "unqualified",
+      "crop_policy": "predicted_visible_region",
+      "preprocessing": "224-pixel RGB P6 PPM; Lanczos resize; centered (128,128,128) letterbox",
+      "all_predictions_require_human_review": true
+    }
+  },
+  "stage_order": [
+    "event_proposals",
+    "visible_card_and_pile_proposals",
+    "card_scene_and_calibration",
+    "visual_identity_proposals",
+    "table_observations",
+    "reconstruction"
+  ],
+  "policies": {
+    "execution_inputs": "original video and automatic upstream outputs only",
+    "reviewed_references": "comparison targets only; never execution inputs",
+    "frame_extraction": "exact-event/v1",
+    "decoder_version": "ffmpeg/8.1.2",
+    "cloud_requests": false,
+    "gemini_fallback": false,
+    "training_or_promotion": false,
+    "protected_exclusions": [
+      "cardeventnet-IMG_0095",
+      "cardeventnet-IMG_0654",
+      "cardeventnet-IMG_0659",
+      "cardeventnet-IMG_0656",
+      "cardeventnet-IMG_0660"
+    ]
+  },
+  "quality_gates": {
+    "event_match_tolerance_s": 0.75,
+    "visible_card_and_pile_polygon_iou": 0.5,
+    "identity_scoring": "exact reviewed-crop matches only",
+    "missing_review_coverage": "report explicitly; make no quality claim",
+    "composite_quality_score": false
+  },
+  "budget": {
+    "max_initial_executions_per_stage_and_recording": 1,
+    "max_total_wall_time_hours": 6,
+    "max_peak_process_memory_gib": 32,
+    "max_cloud_requests": 0
+  }
+}
