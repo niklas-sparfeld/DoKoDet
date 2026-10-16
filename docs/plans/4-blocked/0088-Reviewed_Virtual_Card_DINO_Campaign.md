@@ -4,17 +4,19 @@
 
 - **Summary:** Train and qualify a useful local visual classifier from reviewed individual-card
   crops. Compare input resolution and a bounded sequence of model improvements against Gemini.
-- **Status:** Ready
+- **Status:** Blocked
 - **Depends on:** Completed 0086 M4/M5 handoffs; completed
   [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) and
   [0094](../5-closed/0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091
   identity isolation.
   No dependency on 0092 training.
-- **Readiness:** The [0086 M5 campaign handoff](../../reports/0086-M5_DINO_Campaign_Handoff.json)
-  is complete. It contains 1,391 positive crops across 12 recordings, support for all 21 classes,
-  and 20 independent source groups. It records 362 pile targets, exact exclusions, and campaign
-  gaps. M0 must assess those gaps and freeze the campaign gates before it materializes training
-  inputs. No training or final-test access is authorized by this readiness handoff.
+- **Readiness:** M0 froze the source-group split and quality contract in the
+  [campaign readiness report](../../reports/0088-M0_Campaign_Readiness.md). The campaign is blocked
+  before crop materialization. The 0086 M5 handoff has three `FACE_DOWN` crops in three groups,
+  unknown back design for all contributors, and unverified M4 source bytes. The frozen split has
+  one final-test group and no face-down confidence examples. It fails the minimum evaluation
+  support floors. Add independent reviewed crops, known back designs, and exact source verification
+  before M1. No training or final-test predictions are authorized.
 - **Outcome:** A quality-qualified local model and its exact preprocessing and confidence policy,
   or an explicit report that the useful-model objective remains unmet.
 - **Target architecture:**
@@ -22,8 +24,10 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze readiness, splits, quality gates, candidates, and budgets.
-- **M1:** Not started — materialize reviewed and automatic-crop evaluation views.
+- **M0:** Complete — freeze readiness, splits, quality gates, candidates, and budgets; see the
+  [readiness report](../../reports/0088-M0_Campaign_Readiness.md).
+- **M1:** Blocked — materialize reviewed and automatic-crop evaluation views after M0 support and
+  source-fidelity gaps are resolved.
 - **M2:** Not started — establish the paired Gemini and PoC reference results.
 - **M3:** Not started — train one fresh 224-pixel real-only baseline.
 - **M4:** Not started — train one matched 384-pixel candidate.

@@ -1,0 +1,1091 @@
+{
+  "authorized_work": {
+    "crop_materialization": false,
+    "final_test_predictions": false,
+    "gemini_requests": false,
+    "model_fitting": false
+  },
+  "branch_decisions": {
+    "final_test": "membership frozen; no crop rendering, scoring, or model prediction before M13",
+    "rectification": "not required; no new runtime rectified policy",
+    "synthetic": "skip unless a measured training-only robustness gap and eligible training-only contributors are declared before M8"
+  },
+  "campaign_input_revision": "566919e76",
+  "candidate_ladder": [
+    {
+      "name": "224-cls-frozen-real",
+      "required": true
+    },
+    {
+      "matched_to": "224-cls-frozen-real",
+      "name": "384-cls-frozen-real",
+      "required": true
+    },
+    {
+      "gate": "at least 80 percent of eligible training crops have native long sides >= 448 px and MPS batch-1 preflight uses <= 75 percent of physical memory",
+      "name": "448-cls-frozen-real",
+      "required": false
+    },
+    {
+      "name": "selected-size-cls-mean-patch-frozen-real",
+      "required": true
+    },
+    {
+      "encoder_learning_rate_ratio": 0.1,
+      "gate": "best frozen candidate misses the main target and all support floors pass",
+      "name": "selected-size-last-two-blocks-real",
+      "required": false
+    }
+  ],
+  "command_templates": {
+    "matched_candidate_changes": {
+      "384": "Use recipes/384-cls.json and results/384-cls; keep every other argument fixed.",
+      "448": "Use recipes/448-cls.json and results/448-cls only when its frozen gate passes.",
+      "adapted_encoder": "Use recipes/<selected-size>-cls-adapted.json, --encoder-training last_two_blocks, and the frozen 0.0001 learning rate.",
+      "pooled_features": "Use recipes/<selected-size>-cls-mean-patch.json and a matching results path."
+    },
+    "primary_fit": [
+      "mise exec -- uv run --project table_evidence_analyzer \\",
+      "  --group training table-analyzer train-dinov3-identity \\",
+      "  --dataset \"$RUN/data/dataset.json\" --split \"$RUN/data/split.json\" \\",
+      "  --artifacts \"$RUN/data/artifact-index.json\" \\",
+      "  --identity-config \"$RUN/recipes/224-cls.json\" \\",
+      "  --weights-root \"$WEIGHTS\" --campaign-manifest \"$RUN/manifest.json\" \\",
+      "  --output \"$RUN/results/224-cls\" --seed 17 --epochs 8 --batch-size 1 \\",
+      "  --learning-rate 0.001 --weight-decay 0 --encoder-training frozen \\",
+      "  --device mps --precision fp32"
+    ],
+    "resume": "Repeat primary_fit with --resume \"$RUN/results/224-cls/checkpoint-last.pt\".",
+    "root_variables": {
+      "RUN": ".runtime/dinov3-identity-0088",
+      "WEIGHTS": "data/operations/dinov3-identity-bundles/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e"
+    }
+  },
+  "fit_budget": {
+    "augmentation": "source_safe_v2",
+    "batch_size": 1,
+    "checkpoint": "retain_resumable_checkpoint",
+    "device": "mps",
+    "epochs": 8,
+    "oom_or_timeout": "skip_candidate_without_changing_recipe",
+    "optimizer": {
+      "learning_rate": 0.001,
+      "name": "AdamW",
+      "weight_decay": 0.0
+    },
+    "precision": "fp32",
+    "primary_fit_limit": 6,
+    "sampling": "class_source_weighted_with_replacement",
+    "scheduler": "CosineAnnealingLR",
+    "seeds": {
+      "additional": [
+        101,
+        202
+      ],
+      "primary": 17
+    },
+    "stability_fit_limit": 4,
+    "wall_time_limit_hours_per_fit": 2
+  },
+  "frozen_at": "2026-10-16",
+  "frozen_partitions": {
+    "confidence_calibration": [
+      {
+        "positive_crop_count": 105,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0095",
+        "source_group_id": "source-group-94db7dc13473c394"
+      }
+    ],
+    "excluded": [
+      {
+        "positive_crop_count": 130,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0654",
+        "source_group_id": "source-group-567a782fd1d5590d"
+      },
+      {
+        "positive_crop_count": 133,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0656",
+        "source_group_id": "source-group-a63c681491009569"
+      },
+      {
+        "positive_crop_count": 107,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0660",
+        "source_group_id": "source-group-8b83603668ec6ca9"
+      }
+    ],
+    "final_test": [
+      {
+        "positive_crop_count": 108,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0659",
+        "source_group_id": "source-group-3840f6e17e00e1e4"
+      }
+    ],
+    "model_selection": [
+      {
+        "positive_crop_count": 117,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0657",
+        "source_group_id": "source-group-9d6d4824b53bc4a9"
+      },
+      {
+        "positive_crop_count": 92,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0662",
+        "source_group_id": "source-group-d4543cb23cc73b35"
+      }
+    ],
+    "training": [
+      {
+        "positive_crop_count": 0,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "train",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0097",
+        "source_group_id": "source-group-2a2a1962c2651613"
+      },
+      {
+        "positive_crop_count": 0,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0636",
+        "source_group_id": "source-group-78be3628c945da39"
+      },
+      {
+        "positive_crop_count": 0,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "train",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0637",
+        "source_group_id": "source-group-ab000f6f3cbb10a1"
+      },
+      {
+        "positive_crop_count": 0,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "train",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0638",
+        "source_group_id": "source-group-310b6a289a2f2956"
+      },
+      {
+        "positive_crop_count": 0,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0639",
+        "source_group_id": "source-group-a51871a5c395907e"
+      },
+      {
+        "positive_crop_count": 0,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0640",
+        "source_group_id": "source-group-e4feeb0f21b69c4b"
+      },
+      {
+        "positive_crop_count": 0,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "train",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0641",
+        "source_group_id": "source-group-661af35269891b9b"
+      },
+      {
+        "positive_crop_count": 0,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0643",
+        "source_group_id": "source-group-8b3ea6e40f9f7584"
+      },
+      {
+        "positive_crop_count": 79,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0650",
+        "source_group_id": "source-group-f3594ecde1b64592"
+      },
+      {
+        "positive_crop_count": 136,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0651",
+        "source_group_id": "source-group-36e848a99cdde7b6"
+      },
+      {
+        "positive_crop_count": 126,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0653",
+        "source_group_id": "source-group-f862b0dd4644e0a4"
+      },
+      {
+        "positive_crop_count": 133,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "train"
+        },
+        "recording_id": "cardeventnet-IMG_0655",
+        "source_group_id": "source-group-02678145fee64ad8"
+      },
+      {
+        "positive_crop_count": 125,
+        "prior_assignments": {
+          "cardeventnet_partition": "train",
+          "dino_partition": "not-in-frozen-campaign",
+          "rfdetr_partition": "not-in-frozen-campaign"
+        },
+        "recording_id": "cardeventnet-IMG_0658",
+        "source_group_id": "source-group-2b810ac8d5dc1281"
+      }
+    ]
+  },
+  "gemini_reference": {
+    "api_version": "v1beta",
+    "automatic_retries": 0,
+    "failures_count_in_coverage": true,
+    "final_test_before_m13": "prohibited",
+    "input": "same reviewed native PPM crop; classifier converts it to PNG; DINO uses its frozen resize and letterbox transform",
+    "max_requests": 250,
+    "model": "gemini-3.8-flash",
+    "prompt": "This image is a transformed crop of one visible Doppelkopf playing card.\n\nIdentify its visible suit and rank using the canonical card label in the response schema. Return FACE_DOWN when the visible card back is positively recognizable. Return UNKNOWN when the crop is too occluded, too blurred, or otherwise cannot support a reliable visual classification. Do not guess. This is visual evidence only; do not infer a physical card, a card play, a trick, or game state.\n",
+    "requests_per_crop": 1,
+    "response_schema": {
+      "additional_properties": false,
+      "allowed_values": [
+        "CLUBS_ACE",
+        "CLUBS_JACK",
+        "CLUBS_KING",
+        "CLUBS_QUEEN",
+        "CLUBS_TEN",
+        "DIAMONDS_ACE",
+        "DIAMONDS_JACK",
+        "DIAMONDS_KING",
+        "DIAMONDS_QUEEN",
+        "DIAMONDS_TEN",
+        "HEARTS_ACE",
+        "HEARTS_JACK",
+        "HEARTS_KING",
+        "HEARTS_QUEEN",
+        "HEARTS_TEN",
+        "SPADES_ACE",
+        "SPADES_JACK",
+        "SPADES_KING",
+        "SPADES_QUEEN",
+        "SPADES_TEN",
+        "FACE_DOWN",
+        "UNKNOWN"
+      ],
+      "required": [
+        "card"
+      ]
+    },
+    "source": "model and classifier implementation pinned by campaign_input_revision",
+    "spend_cap_usd": 10,
+    "thinking_level": "low",
+    "timeout_seconds": 120
+  },
+  "inputs": {
+    "0043_poc_evaluation": {
+      "path": "data/operations/dinov3-identity-bundles/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/evaluation.json",
+      "sha256": "6c7783407ee05f596dc7f5ab2705313e85be010cd12812e4ba53152ad6ee43f6"
+    },
+    "0086_m0_partition_inventory": {
+      "path": "docs/reports/0086-M0_Reviewed_Virtual_Card_Corpus_Inventory.json",
+      "sha256": "e30f4ab5e66652d156a6437aec848b9564db69e5da54e3840465c9c9d6c98d56"
+    },
+    "0086_m5_campaign_handoff": {
+      "path": "docs/reports/0086-M5_DINO_Campaign_Handoff.json",
+      "sha256": "4eb8e00bc20be46295094775629af2403c4db75ec0ff1435dc816729b44c5ff0"
+    },
+    "0087_sealed_test_lock": {
+      "path": "docs/reports/0087-M5_Pretest_Decision.json",
+      "sha256": "628b052cd6425dc05696386ef8a77421fba5e175a0cc9e7823a4dff222fb13dd"
+    },
+    "0092_sealed_test_lock": {
+      "path": "docs/reports/0092-M3_Pretest_Decision.json",
+      "sha256": "8dc809a2bf87809f6a08251de112d037f68761e3adca23a266e5c132e6457872"
+    },
+    "0093_m5_input_handoff": {
+      "path": "docs/reports/0093-M5_Visual_Identity_Input_Handoff.md",
+      "sha256": "72ffe7ee688b3201e3724fc2208f260706886add08227d6a28b330c1d82ec522"
+    },
+    "0094_m9_recipe_handoff": {
+      "path": "docs/reports/0094-M9_Local_Recipe_Handoff.md",
+      "sha256": "a1b13de58b51f614c025967fc5fde24f373c217cab0d5eccc5470da724ae7123"
+    },
+    "gemini_model_configuration": {
+      "path": "backend/src/dokodetector_backend/config.py",
+      "sha256": "a719e16ed6dea89ad9c8af80637d48f9019b23508055d23c3d24176d57cc082f"
+    },
+    "identity_classifier_implementation": {
+      "path": "table_evidence_analyzer/src/table_evidence_analyzer/card_classification.py",
+      "sha256": "23ca086783e69d0c5af7286f0d426e320f2cafcddfd1f929f1aee5bd083ff83f"
+    },
+    "pretrained_bundle_manifest": {
+      "path": "data/operations/dinov3-identity-bundles/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/manifest.json",
+      "sha256": "c7a902439c72f8fdbfd70deccd161ba699e43d0d3f32e99d0ba874dfb7ce502c"
+    },
+    "pretrained_weights": {
+      "path": "data/operations/dinov3-identity-bundles/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/model.safetensors",
+      "sha256": "4610ad75edef83e75afdebf162d148dc628045ea6cbb83d67d4708c709c4f91d"
+    }
+  },
+  "partition_support": {
+    "confidence_calibration": {
+      "CLUBS_ACE": {
+        "samples": 6,
+        "source_groups": 1
+      },
+      "CLUBS_JACK": {
+        "samples": 5,
+        "source_groups": 1
+      },
+      "CLUBS_KING": {
+        "samples": 3,
+        "source_groups": 1
+      },
+      "CLUBS_QUEEN": {
+        "samples": 6,
+        "source_groups": 1
+      },
+      "CLUBS_TEN": {
+        "samples": 5,
+        "source_groups": 1
+      },
+      "DIAMONDS_ACE": {
+        "samples": 6,
+        "source_groups": 1
+      },
+      "DIAMONDS_JACK": {
+        "samples": 2,
+        "source_groups": 1
+      },
+      "DIAMONDS_KING": {
+        "samples": 3,
+        "source_groups": 1
+      },
+      "DIAMONDS_QUEEN": {
+        "samples": 6,
+        "source_groups": 1
+      },
+      "DIAMONDS_TEN": {
+        "samples": 4,
+        "source_groups": 1
+      },
+      "FACE_DOWN": {
+        "samples": 0,
+        "source_groups": 0
+      },
+      "HEARTS_ACE": {
+        "samples": 6,
+        "source_groups": 1
+      },
+      "HEARTS_JACK": {
+        "samples": 6,
+        "source_groups": 1
+      },
+      "HEARTS_KING": {
+        "samples": 5,
+        "source_groups": 1
+      },
+      "HEARTS_QUEEN": {
+        "samples": 7,
+        "source_groups": 1
+      },
+      "HEARTS_TEN": {
+        "samples": 4,
+        "source_groups": 1
+      },
+      "SPADES_ACE": {
+        "samples": 4,
+        "source_groups": 1
+      },
+      "SPADES_JACK": {
+        "samples": 7,
+        "source_groups": 1
+      },
+      "SPADES_KING": {
+        "samples": 7,
+        "source_groups": 1
+      },
+      "SPADES_QUEEN": {
+        "samples": 5,
+        "source_groups": 1
+      },
+      "SPADES_TEN": {
+        "samples": 8,
+        "source_groups": 1
+      }
+    },
+    "excluded": {
+      "CLUBS_ACE": {
+        "samples": 18,
+        "source_groups": 3
+      },
+      "CLUBS_JACK": {
+        "samples": 16,
+        "source_groups": 3
+      },
+      "CLUBS_KING": {
+        "samples": 18,
+        "source_groups": 3
+      },
+      "CLUBS_QUEEN": {
+        "samples": 16,
+        "source_groups": 3
+      },
+      "CLUBS_TEN": {
+        "samples": 22,
+        "source_groups": 3
+      },
+      "DIAMONDS_ACE": {
+        "samples": 17,
+        "source_groups": 3
+      },
+      "DIAMONDS_JACK": {
+        "samples": 19,
+        "source_groups": 3
+      },
+      "DIAMONDS_KING": {
+        "samples": 18,
+        "source_groups": 3
+      },
+      "DIAMONDS_QUEEN": {
+        "samples": 16,
+        "source_groups": 3
+      },
+      "DIAMONDS_TEN": {
+        "samples": 20,
+        "source_groups": 3
+      },
+      "FACE_DOWN": {
+        "samples": 0,
+        "source_groups": 0
+      },
+      "HEARTS_ACE": {
+        "samples": 21,
+        "source_groups": 3
+      },
+      "HEARTS_JACK": {
+        "samples": 22,
+        "source_groups": 3
+      },
+      "HEARTS_KING": {
+        "samples": 14,
+        "source_groups": 3
+      },
+      "HEARTS_QUEEN": {
+        "samples": 21,
+        "source_groups": 3
+      },
+      "HEARTS_TEN": {
+        "samples": 20,
+        "source_groups": 3
+      },
+      "SPADES_ACE": {
+        "samples": 19,
+        "source_groups": 3
+      },
+      "SPADES_JACK": {
+        "samples": 19,
+        "source_groups": 3
+      },
+      "SPADES_KING": {
+        "samples": 16,
+        "source_groups": 3
+      },
+      "SPADES_QUEEN": {
+        "samples": 17,
+        "source_groups": 3
+      },
+      "SPADES_TEN": {
+        "samples": 21,
+        "source_groups": 3
+      }
+    },
+    "final_test": {
+      "CLUBS_ACE": {
+        "samples": 5,
+        "source_groups": 1
+      },
+      "CLUBS_JACK": {
+        "samples": 7,
+        "source_groups": 1
+      },
+      "CLUBS_KING": {
+        "samples": 5,
+        "source_groups": 1
+      },
+      "CLUBS_QUEEN": {
+        "samples": 4,
+        "source_groups": 1
+      },
+      "CLUBS_TEN": {
+        "samples": 4,
+        "source_groups": 1
+      },
+      "DIAMONDS_ACE": {
+        "samples": 5,
+        "source_groups": 1
+      },
+      "DIAMONDS_JACK": {
+        "samples": 4,
+        "source_groups": 1
+      },
+      "DIAMONDS_KING": {
+        "samples": 9,
+        "source_groups": 1
+      },
+      "DIAMONDS_QUEEN": {
+        "samples": 6,
+        "source_groups": 1
+      },
+      "DIAMONDS_TEN": {
+        "samples": 3,
+        "source_groups": 1
+      },
+      "FACE_DOWN": {
+        "samples": 1,
+        "source_groups": 1
+      },
+      "HEARTS_ACE": {
+        "samples": 8,
+        "source_groups": 1
+      },
+      "HEARTS_JACK": {
+        "samples": 7,
+        "source_groups": 1
+      },
+      "HEARTS_KING": {
+        "samples": 5,
+        "source_groups": 1
+      },
+      "HEARTS_QUEEN": {
+        "samples": 4,
+        "source_groups": 1
+      },
+      "HEARTS_TEN": {
+        "samples": 6,
+        "source_groups": 1
+      },
+      "SPADES_ACE": {
+        "samples": 7,
+        "source_groups": 1
+      },
+      "SPADES_JACK": {
+        "samples": 3,
+        "source_groups": 1
+      },
+      "SPADES_KING": {
+        "samples": 6,
+        "source_groups": 1
+      },
+      "SPADES_QUEEN": {
+        "samples": 3,
+        "source_groups": 1
+      },
+      "SPADES_TEN": {
+        "samples": 6,
+        "source_groups": 1
+      }
+    },
+    "model_selection": {
+      "CLUBS_ACE": {
+        "samples": 9,
+        "source_groups": 2
+      },
+      "CLUBS_JACK": {
+        "samples": 11,
+        "source_groups": 2
+      },
+      "CLUBS_KING": {
+        "samples": 10,
+        "source_groups": 2
+      },
+      "CLUBS_QUEEN": {
+        "samples": 12,
+        "source_groups": 2
+      },
+      "CLUBS_TEN": {
+        "samples": 13,
+        "source_groups": 2
+      },
+      "DIAMONDS_ACE": {
+        "samples": 10,
+        "source_groups": 2
+      },
+      "DIAMONDS_JACK": {
+        "samples": 7,
+        "source_groups": 2
+      },
+      "DIAMONDS_KING": {
+        "samples": 8,
+        "source_groups": 2
+      },
+      "DIAMONDS_QUEEN": {
+        "samples": 9,
+        "source_groups": 2
+      },
+      "DIAMONDS_TEN": {
+        "samples": 11,
+        "source_groups": 2
+      },
+      "FACE_DOWN": {
+        "samples": 1,
+        "source_groups": 1
+      },
+      "HEARTS_ACE": {
+        "samples": 8,
+        "source_groups": 2
+      },
+      "HEARTS_JACK": {
+        "samples": 10,
+        "source_groups": 2
+      },
+      "HEARTS_KING": {
+        "samples": 10,
+        "source_groups": 2
+      },
+      "HEARTS_QUEEN": {
+        "samples": 12,
+        "source_groups": 2
+      },
+      "HEARTS_TEN": {
+        "samples": 10,
+        "source_groups": 2
+      },
+      "SPADES_ACE": {
+        "samples": 8,
+        "source_groups": 2
+      },
+      "SPADES_JACK": {
+        "samples": 12,
+        "source_groups": 2
+      },
+      "SPADES_KING": {
+        "samples": 15,
+        "source_groups": 2
+      },
+      "SPADES_QUEEN": {
+        "samples": 12,
+        "source_groups": 2
+      },
+      "SPADES_TEN": {
+        "samples": 11,
+        "source_groups": 2
+      }
+    },
+    "training": {
+      "CLUBS_ACE": {
+        "samples": 34,
+        "source_groups": 5
+      },
+      "CLUBS_JACK": {
+        "samples": 26,
+        "source_groups": 4
+      },
+      "CLUBS_KING": {
+        "samples": 25,
+        "source_groups": 4
+      },
+      "CLUBS_QUEEN": {
+        "samples": 25,
+        "source_groups": 5
+      },
+      "CLUBS_TEN": {
+        "samples": 29,
+        "source_groups": 5
+      },
+      "DIAMONDS_ACE": {
+        "samples": 23,
+        "source_groups": 5
+      },
+      "DIAMONDS_JACK": {
+        "samples": 27,
+        "source_groups": 5
+      },
+      "DIAMONDS_KING": {
+        "samples": 29,
+        "source_groups": 5
+      },
+      "DIAMONDS_QUEEN": {
+        "samples": 34,
+        "source_groups": 5
+      },
+      "DIAMONDS_TEN": {
+        "samples": 31,
+        "source_groups": 5
+      },
+      "FACE_DOWN": {
+        "samples": 1,
+        "source_groups": 1
+      },
+      "HEARTS_ACE": {
+        "samples": 31,
+        "source_groups": 5
+      },
+      "HEARTS_JACK": {
+        "samples": 31,
+        "source_groups": 5
+      },
+      "HEARTS_KING": {
+        "samples": 40,
+        "source_groups": 5
+      },
+      "HEARTS_QUEEN": {
+        "samples": 35,
+        "source_groups": 5
+      },
+      "HEARTS_TEN": {
+        "samples": 32,
+        "source_groups": 5
+      },
+      "SPADES_ACE": {
+        "samples": 31,
+        "source_groups": 4
+      },
+      "SPADES_JACK": {
+        "samples": 26,
+        "source_groups": 5
+      },
+      "SPADES_KING": {
+        "samples": 31,
+        "source_groups": 5
+      },
+      "SPADES_QUEEN": {
+        "samples": 30,
+        "source_groups": 4
+      },
+      "SPADES_TEN": {
+        "samples": 28,
+        "source_groups": 5
+      }
+    }
+  },
+  "protected_source_groups": {
+    "0068_sealed_test_recordings": [
+      "cardeventnet-IMG_0646",
+      "cardeventnet-IMG_0648",
+      "cardeventnet-IMG_0649"
+    ],
+    "0068_sealed_test_source_group_ids": [
+      "source-group-94a136f4d3857538",
+      "source-group-ba70eaae4ccb4514",
+      "source-group-be273289ff45a167"
+    ],
+    "0087_sealed_test_recordings": [
+      "cardeventnet-IMG_0654"
+    ],
+    "0087_sealed_test_source_group_ids": [
+      "source-group-567a782fd1d5590d"
+    ],
+    "0092_sealed_test_recordings": [
+      "cardeventnet-IMG_0656",
+      "cardeventnet-IMG_0660"
+    ],
+    "0092_sealed_test_source_group_ids": [
+      "source-group-a63c681491009569",
+      "source-group-8b83603668ec6ca9"
+    ],
+    "deferred_0086_recording": [
+      "cardeventnet-IMG_0096"
+    ],
+    "permanent_0086_exclusion": [
+      "cardeventnet-IMG_0092"
+    ],
+    "system_and_0068_protected_group_overlap_with_0086_m5_candidates": [],
+    "system_holdout_recordings": [
+      "cardeventnet-IMG_0669",
+      "cardeventnet-IMG_0670",
+      "cardeventnet-IMG_0671",
+      "cardeventnet-IMG_0673",
+      "cardeventnet-IMG_0674"
+    ],
+    "system_holdout_source_group_ids": [
+      "source-group-3fb2ef94de1f7f76"
+    ]
+  },
+  "quality_gates": {
+    "calibrated_top_1_probability_threshold": 0.9,
+    "calibration_changes_raw_top_1": false,
+    "face_down_pixel_prediction_required": true,
+    "face_down_precision_minimum": 0.95,
+    "face_down_recall_minimum": 0.95,
+    "face_up_top_1_minimum": 0.98,
+    "false_face_down_rate_on_face_up_maximum": 0.01,
+    "gemini_maximum_deficit": 0.01,
+    "high_confidence_coverage_minimum": 0.9,
+    "high_confidence_error_maximum": 0.01,
+    "latency_p95_ms_maximum": 100,
+    "model_load_seconds_maximum": 10,
+    "peak_memory_fraction_of_physical_ram_maximum": 0.75,
+    "report": [
+      "top_3",
+      "macro_f1",
+      "per_class_confusion",
+      "per_recording_and_source_group_results",
+      "confident_errors",
+      "usable_prediction_coverage",
+      "all_supported_cards_correct_per_frame",
+      "grouped_uncertainty",
+      "local_latency_and_peak_memory"
+    ],
+    "selection_rule": "prefer a challenger only when top-1 improves by at least 1 percentage point, the paired source-group bootstrap interval excludes zero, and no class falls by more than 2 percentage points; otherwise keep the qualifying control or report inconclusive",
+    "uncertainty": {
+      "bootstrap_replicates": 10000,
+      "bootstrap_seed": 17088,
+      "group_variation": "source-group bootstrap 95 percent interval",
+      "per_class_interval": "Wilson 95 percent interval",
+      "report_as_insufficient": "fewer than 3 independent groups"
+    },
+    "usable_prediction_coverage_minimum": 0.9
+  },
+  "readiness_gaps": [
+    "three FACE_DOWN crops in three source groups do not meet the per-view support floors",
+    "FACE_DOWN has zero confidence-calibration examples under the frozen split",
+    "the final test has only one positive-crop source group",
+    "back design is unspecified for every FACE_DOWN contributor",
+    "0086 M5 reports that M4 source bytes were not verified",
+    "eight eligible recordings currently have no positive crops"
+  ],
+  "schema_version": "0088-m0-campaign-readiness/v1",
+  "source_pool": {
+    "back_design_unspecified_recordings": [
+      "cardeventnet-IMG_0651",
+      "cardeventnet-IMG_0657",
+      "cardeventnet-IMG_0659"
+    ],
+    "face_down": {
+      "recording_count": 3,
+      "sample_count": 3,
+      "source_group_count": 3
+    },
+    "handoff_status": "complete",
+    "m4_source_bytes_verified": false,
+    "per_class_support": {
+      "CLUBS_ACE": {
+        "recording_count": 12,
+        "sample_count": 72,
+        "source_group_count": 12
+      },
+      "CLUBS_JACK": {
+        "recording_count": 11,
+        "sample_count": 65,
+        "source_group_count": 11
+      },
+      "CLUBS_KING": {
+        "recording_count": 11,
+        "sample_count": 61,
+        "source_group_count": 11
+      },
+      "CLUBS_QUEEN": {
+        "recording_count": 12,
+        "sample_count": 63,
+        "source_group_count": 12
+      },
+      "CLUBS_TEN": {
+        "recording_count": 12,
+        "sample_count": 73,
+        "source_group_count": 12
+      },
+      "DIAMONDS_ACE": {
+        "recording_count": 12,
+        "sample_count": 61,
+        "source_group_count": 12
+      },
+      "DIAMONDS_JACK": {
+        "recording_count": 12,
+        "sample_count": 59,
+        "source_group_count": 12
+      },
+      "DIAMONDS_KING": {
+        "recording_count": 12,
+        "sample_count": 67,
+        "source_group_count": 12
+      },
+      "DIAMONDS_QUEEN": {
+        "recording_count": 12,
+        "sample_count": 71,
+        "source_group_count": 12
+      },
+      "DIAMONDS_TEN": {
+        "recording_count": 12,
+        "sample_count": 69,
+        "source_group_count": 12
+      },
+      "FACE_DOWN": {
+        "recording_count": 3,
+        "sample_count": 3,
+        "source_group_count": 3
+      },
+      "HEARTS_ACE": {
+        "recording_count": 12,
+        "sample_count": 74,
+        "source_group_count": 12
+      },
+      "HEARTS_JACK": {
+        "recording_count": 12,
+        "sample_count": 76,
+        "source_group_count": 12
+      },
+      "HEARTS_KING": {
+        "recording_count": 12,
+        "sample_count": 74,
+        "source_group_count": 12
+      },
+      "HEARTS_QUEEN": {
+        "recording_count": 12,
+        "sample_count": 79,
+        "source_group_count": 12
+      },
+      "HEARTS_TEN": {
+        "recording_count": 12,
+        "sample_count": 72,
+        "source_group_count": 12
+      },
+      "SPADES_ACE": {
+        "recording_count": 11,
+        "sample_count": 69,
+        "source_group_count": 11
+      },
+      "SPADES_JACK": {
+        "recording_count": 12,
+        "sample_count": 67,
+        "source_group_count": 12
+      },
+      "SPADES_KING": {
+        "recording_count": 12,
+        "sample_count": 75,
+        "source_group_count": 12
+      },
+      "SPADES_QUEEN": {
+        "recording_count": 11,
+        "sample_count": 67,
+        "source_group_count": 11
+      },
+      "SPADES_TEN": {
+        "recording_count": 12,
+        "sample_count": 74,
+        "source_group_count": 12
+      }
+    },
+    "positive_crop_count": 1391,
+    "recording_count": 20,
+    "recordings_with_positive_crops": 12,
+    "recordings_without_positive_crops": [
+      "cardeventnet-IMG_0097",
+      "cardeventnet-IMG_0636",
+      "cardeventnet-IMG_0637",
+      "cardeventnet-IMG_0638",
+      "cardeventnet-IMG_0639",
+      "cardeventnet-IMG_0640",
+      "cardeventnet-IMG_0641",
+      "cardeventnet-IMG_0643"
+    ],
+    "source_group_count": 20,
+    "supported_class_count": 21,
+    "target_classes": [
+      "CLUBS_ACE",
+      "CLUBS_JACK",
+      "CLUBS_KING",
+      "CLUBS_QUEEN",
+      "CLUBS_TEN",
+      "DIAMONDS_ACE",
+      "DIAMONDS_JACK",
+      "DIAMONDS_KING",
+      "DIAMONDS_QUEEN",
+      "DIAMONDS_TEN",
+      "HEARTS_ACE",
+      "HEARTS_JACK",
+      "HEARTS_KING",
+      "HEARTS_QUEEN",
+      "HEARTS_TEN",
+      "SPADES_ACE",
+      "SPADES_JACK",
+      "SPADES_KING",
+      "SPADES_QUEEN",
+      "SPADES_TEN",
+      "FACE_DOWN"
+    ]
+  },
+  "status": "blocked",
+  "support_floors": {
+    "confidence_calibration": {
+      "samples_per_class": 10,
+      "source_groups_per_class": 3
+    },
+    "final_test": {
+      "samples_per_class": 10,
+      "source_groups_per_class": 3
+    },
+    "model_selection": {
+      "samples_per_class": 10,
+      "source_groups_per_class": 3
+    },
+    "training": {
+      "samples_per_class": 20,
+      "source_groups_per_class": 5
+    }
+  }
+}

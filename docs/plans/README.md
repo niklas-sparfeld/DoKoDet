@@ -29,9 +29,10 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 1. **0086 M4/M5:** Complete. The handoffs contain 20 eligible recordings, 1,391 identity crops,
    support for all 21 campaign classes, and exact exclusions. `IMG_0092` is permanently excluded;
    `IMG_0096` is deferred for calibration repair.
-2. **0088 M0:** Ready. Freeze splits, support floors, quality gates, candidates, and budgets from the
-   complete 0086, 0093, and 0094 handoffs. Assess the recorded FACE_DOWN and no-crop gaps. Do not
-   train or open the final test before the frozen gates pass.
+2. **0088 M0:** Complete; campaign Blocked. The frozen split and gates show that three FACE_DOWN
+   crops in three groups, unspecified back designs, one final-test group, and unverified source
+   bytes do not meet support floors. Add independent reviewed crops and verify source bytes before
+   M1. Do not train or open the final test before the frozen gates pass.
 3. **0092 M4:** The all-recording RF-DETR refit is running on MPS. Verify and publish its final
    lineage, local inference, and latency evidence when the run completes. This work does not block
    0088.
@@ -64,12 +65,6 @@ The shared target architecture is
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [0044 — Productive local identity model operations](1-backlog/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. Defer campaign UI, promotion, and rollback until current corpus and model work have been exercised. Prefer the later 0088 report; no new training belongs here. |
 
-### Ready
-
-| Epic                                                                                                       | Depends on                                                                                                                       | Outcome                                                                                                                                                                                                   |
-| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0088 — Reviewed virtual-card DINO quality campaign](2-ready/0088-Reviewed_Virtual_Card_DINO_Campaign.md) | Completed 0086 M4/M5, 0093, 0094, 0043, 0085, and 0091; no 0092 training dependency                                                | M0 can freeze splits, support floors, quality gates, candidates, and budgets from the 1,391-crop, 21-class handoff. No training or final-test access before the declared gates pass.                         |
-
 ### In Progress
 
 | Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
@@ -80,6 +75,7 @@ The shared target architecture is
 
 | Epic                                                                                                              | Depends on                                                                                                                   | Outcome                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0088 — Reviewed virtual-card DINO quality campaign](4-blocked/0088-Reviewed_Virtual_Card_DINO_Campaign.md)       | Completed 0086 M4/M5, 0093, 0094, 0043, 0085, and 0091; no 0092 training dependency; additional reviewed identity support and verified source bytes | M0 complete. The frozen split fails support floors: three `FACE_DOWN` crops in three groups, unknown back designs for all contributors, one final-test group, and unverified source bytes. M1–M15 remain blocked until reviewed evidence closes these gaps. |
 | [0089 — Virtual-card algorithm edge cases](4-blocked/0089-Virtual_Card_Algorithm_Edge_Cases.md)                   | 0086 reviewed evidence; 0087 and 0088 bundle decisions                                                                       | M0–M3 not started. Reproduce fresh failures, freeze at most two small failure families, and verify bounded pose, occlusion, or crop fixes.                                                                                                                |
 | [0090 — Local end-to-end recording pipeline](4-blocked/0090-Local_End_to_End_Recording_Pipeline.md)               | 0087 and 0088 bundle decisions; 0089 and 0091 M7 handoffs; 0048 and 0049 complete                                            | M0–M3 not started. Coordinate retained automatic stages with declared pile capabilities on a small development batch; verify resume and failure behavior, then measure composed quality. No training or promotion.                                        |
 | [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0086 reviewed evidence, 0087 and 0088 decisions, and 0090 composed report; 0048 and 0049 complete                            | M0–M3 not started. Use the later reports to select at most one new optional analyzer capability. Do not repeat the campaigns, bounded algorithm fixes, or composed pilot.                                                                                 |
