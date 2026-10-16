@@ -9,7 +9,7 @@
   annotation/crop handoff; existing materialized and licensed 0043 pretrained assets and local
   training/runtime infrastructure. No dependency on completed 0086 M5 or new 0088 model results.
 - **Outcome:** Tested software recipes and exact local runtime/bundle contracts for
-  [0088](../3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md), without a model-quality claim.
+  [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md), without a model-quality claim.
 - **Closure reason:** Complete
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)

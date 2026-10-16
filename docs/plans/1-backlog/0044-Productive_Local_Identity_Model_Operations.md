@@ -39,9 +39,10 @@ default. Device evidence packages are not an input to campaigns or normal record
 
 Defer the productive campaign UI until the current corpus and model work have been exercised.
 [0086](../5-closed/0086-Reviewed_Virtual_Card_Corpus.md) owns current review work.
-[0088](../3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md) owns the new identity training
-campaign and provides the qualification report. Its M15 decision found no quality-qualified
-candidate, so it does not recommend promotion; 0043 remains a
+[0088](../5-closed/0088-Reviewed_Virtual_Card_DINO_Campaign.md) owns the completed identity training
+campaign and provides the qualification report. M15 found no quality-qualified candidate. The user
+selected M6 for local human-reviewed use and annotation assistance, but this does not recommend
+promotion; 0043 remains a
 valid development input, so 0088 is not a hard prerequisite for this backlog epic. This scheduling
 decision adds no training implementation or default change to 0044.
 

@@ -4,7 +4,14 @@
 
 - **Summary:** Train and qualify a useful local visual classifier from reviewed individual-card
   crops. Compare input resolution and a bounded sequence of model improvements against Gemini.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Superseded
+- **Closure note:** M0–M15 produced the qualification and development evidence. The useful-model
+  quality gates remain unmet, and neither bundle is quality-qualified. On 2026-10-16, the user
+  chose M6 seed 17 as the local incumbent for human-reviewed identity use and annotation assistance.
+  A future, separately bounded campaign will compare against it after more reviewed data is
+  available, with added `FACE_DOWN` and difficult-card coverage. This closes the 0088 campaign; it
+  does not change the historical gate results or make M6 a quality-qualified promotion.
 - **Depends on:** Completed 0086 M4/M5 handoffs; completed
   [0093](../5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) and
   [0094](../5-closed/0094-DINO_Training_and_Runtime_Recipes.md); completed 0043, 0085, and 0091
@@ -84,6 +91,15 @@
   M3 remains the control. Both stay available, with all predictions requiring review. No model is
   promoted, and the useful-model objective remains unmet. See the
   [M15 qualification decision](../../reports/0088-M15_Qualification_Decision.md).
+
+## Closure decision — 2026-10-16
+
+The operator selected M6 seed 17 as the current local incumbent and annotation assistant. Use its
+predictions as proposals for human review. The locked M13 result still fails the frozen accuracy
+and confidence coverage gates, and its single source group cannot establish generalization. M3
+remains available as the comparison control. A future epic will define a new bounded campaign with
+additional reviewed data, especially `FACE_DOWN` and difficult cards, and compare new candidates
+against the M6 incumbent. No training, promotion, or backend default change is part of this closure.
 
 ## 1. Objective and evidence
 

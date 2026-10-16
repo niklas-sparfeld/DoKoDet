@@ -22,7 +22,7 @@
 
 Use fresh runs with the exact bundle and crop-policy decisions from
 [0087](../5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
-[0088](../3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md) and
+[0088](../5-closed/0088-Reviewed_Virtual_Card_DINO_Campaign.md) and
 [0090](../4-blocked/0090-Local_End_to_End_Recording_Pipeline.md). For identity diagnostics,
 use M6 seed 17 as the primary bundle and retain M3 seed 17 as the control under the exact policy in
 the [M15 handoff](../../reports/0088-M15_Qualification_Decision.md). The confidence threshold is

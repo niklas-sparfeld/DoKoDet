@@ -232,7 +232,7 @@ and tracking improve independently.
 - [0086](plans/5-closed/0086-Reviewed_Virtual_Card_Corpus.md) owns the current reviewed geometry
   and identity corpus.
 - [0087](plans/5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
-  [0088](plans/3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md) own separate segmentation
+  [0088](plans/5-closed/0088-Reviewed_Virtual_Card_DINO_Campaign.md) own separate segmentation
   and identity training campaigns.
 - [0093](plans/5-closed/0093-Visual_Classification_Annotation_and_Crop_Inputs.md) owns annotation
   without identity predictions and all-class native crop preparation, including FACE_DOWN.

@@ -74,10 +74,11 @@ promotion recommendation; its quality-qualified promotion gate remains unmet.
 
 ## Objective and limits
 
-M15 is complete, but Epic 0088 remains **In Progress** because the useful-model objective is unmet.
-The current decision is not a request to train indefinitely. A future campaign requires a new
-bounded plan, new independent reviewed groups, and a fresh qualification contract. No NINE or
-FACE_DOWN quality claim is made from this campaign.
+M15 is complete, and the useful-model objective remains unmet. On 2026-10-16, the user closed Epic
+0088 as **Superseded**: M6 seed 17 is the chosen local incumbent and annotation assistant, and a
+future epic will define a bounded comparison after more reviewed data is available. This closure
+does not change the gate results or qualify M6. No NINE or `FACE_DOWN` quality claim is made from
+this campaign.
 
 Evidence: [M12 lock](0088-M12_Final_Evaluation_Lock.md),
 [M13 final evaluation](0088-M13_Final_Evaluation.md), and

@@ -5,6 +5,13 @@
   "status": "complete",
   "useful_model_objective": "unmet",
   "promotion_recommendation": null,
+  "epic_closure": {
+    "status": "closed",
+    "reason": "superseded",
+    "user_selected_incumbent": "m6-seed17-224-cls-mean-patch",
+    "annotation_assistance": "human-reviewed proposals only",
+    "future_campaign": "new bounded epic after expansion of reviewed data, especially FACE_DOWN and difficult cards"
+  },
   "final_test": {
     "report": "0088-M13_Final_Evaluation.json",
     "sample_count": 108,

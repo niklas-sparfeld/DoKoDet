@@ -393,7 +393,7 @@ No training or promotion occurs in this epic.
 [0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) owns segmentation training.
 [0093](0093-Visual_Classification_Annotation_and_Crop_Inputs.md) owns reusable annotation
 and native crop preparation. [0094](0094-DINO_Training_and_Runtime_Recipes.md) owns
-training/runtime recipe implementation. [0088](../2-ready/0088-Reviewed_Virtual_Card_DINO_Campaign.md)
+training/runtime recipe implementation. [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md)
 owns the measured identity quality campaign. Each campaign freezes its own eligibility and recipe
 from this handoff.
 

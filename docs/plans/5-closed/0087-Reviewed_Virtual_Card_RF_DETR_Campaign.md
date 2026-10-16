@@ -63,7 +63,7 @@ synthetic generator. Its historical 50/50 comparison improved real validation ma
 promotion or prove a new mixture will improve the corrected corpus.
 
 This epic does not train DINO, tune pose fitting, change runtime defaults, or implement end-to-end
-automation. [0088](../3-in-progress/0088-Reviewed_Virtual_Card_DINO_Campaign.md) is independent of its
+automation. [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md) is independent of its
 training result.
 
 ## 2. Campaign rules
