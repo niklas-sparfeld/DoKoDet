@@ -73,7 +73,12 @@
   Gemini. Neither DINO candidate meets the face-up accuracy or confidence coverage gate. The
   one-group result cannot support generalization. See the
   [M13 evaluation report](../../reports/0088-M13_Final_Evaluation.md).
-- **M14:** Not started — exercise the locked bundle on development recording sequences.
+- **M14:** Complete — both locked candidates ran through the existing visual-identity provider
+  boundary on 495 automatic crops from three development recordings. Neither had inference
+  failures. The diagnostic 0.90 confidence routing estimate sends 56.6% of M3 inputs and 57.8% of
+  M6 inputs to review; no crops have matched identity targets, so this is not accuracy evidence.
+  Face-down outputs are pixel-based, with no face-down quality claim. See the
+  [M14 report](../../reports/0088-M14_Development_Exercise.md).
 - **M15:** Not started — publish the qualification decision and downstream handoffs.
 
 ## 1. Objective and evidence
@@ -469,6 +474,18 @@ failure handling, ranked outputs, confidence metadata, latency, and per-recordin
 Acceptance: real inference works with the exported policy; upstream limits and classifier errors
 are separated; diagnostic recordings are not reported as a new held-out test. No new coordinator,
 temporal smoothing, gameplay inference, default-provider switch, or promotion UI is added.
+
+**Result:** Complete. Both M12 bundles processed all 495 automatic crops from 130 frozen detector
+frames across `IMG_0095`, `IMG_0657`, and `IMG_0662`. Neither candidate had an inference failure.
+At the diagnostic 0.90 confidence threshold, M3 routed 280/495 inputs (56.6%) and M6 routed
+286/495 (57.8%) to review. The automatic crops have no matched reviewed identity targets, so these
+figures measure runtime routing burden only. The malformed-crop control raised the crop-contract
+exception; the existing pipeline catches per-card exceptions and records a failed outcome. Both
+candidates retained all 25 ranked outputs and calibrated/raw probability metadata. The `FACE_DOWN`
+rank is computed from pixels without a side label, but these sequences provide no face-down ground
+truth. This development exercise does not qualify or select either model. See the
+[M14 report](../../reports/0088-M14_Development_Exercise.md) and its
+[machine-readable results](../../reports/0088-M14_Development_Exercise.json).
 
 ### M15 — Publish the qualification decision
 
