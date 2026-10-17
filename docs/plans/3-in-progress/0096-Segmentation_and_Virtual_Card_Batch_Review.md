@@ -12,7 +12,7 @@
 
 ## Milestone status
 
-- **M0:** In progress — preflighted the catalog, event selections, and pinned bundle; exact input and comparison freeze remains.
+- **M0:** Complete — froze 34 eligible recordings, exact event frames, comparison coverage, source overlap, run IDs, and processing limits. No inference ran.
 - **M1:** Not started — run segmentation for every eligible recording.
 - **M2:** Not started — generate proposed card scenes from the exact M1 outputs.
 - **M3:** Not started — evaluate the retained segmentation and scene outputs.
