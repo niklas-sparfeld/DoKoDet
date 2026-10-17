@@ -46,9 +46,9 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
    failures. Identity runs completed, but observation assembly rejected all three outputs because
    candidate probabilities did not sum to one. No downstream quality claim or model selection was
    made. See the [M4 result](../reports/0050-M4_Diagnostic_Result.md).
-7. **0095 M1:** Active. Relax the observation sum check only for omitted class probability mass,
-   then assemble observations from the exact retained 0050 revisions. See
-   [0095](3-in-progress/0095-Partial_Identity_Probability_Observations.md).
+7. **0095 M1:** Complete. The relaxed contract accepted all three exact retained inputs and produced
+   147 observations, including 19 zero-card observations. See the
+   [M1 result](../reports/0095-M1_Partial_Identity_Observation_Result.md).
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
 are explicit work in 0093/0094. Require a new measured scope for future geometry or crop work.
@@ -86,9 +86,9 @@ The shared target architecture is
 
 ### In Progress
 
-| Epic                                                                                                                   | Depends on                  | Outcome                                                                                                                   |
-| ---------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| [0095 — Partial identity probability observations](3-in-progress/0095-Partial_Identity_Probability_Observations.md) | 0050 M4 diagnostic complete | M0 contract correction complete. M1 may run up to three local observation assemblies from exact retained inputs only. |
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
+| *No in-progress epics* |  |  |
 
 ### Blocked
 
@@ -101,6 +101,7 @@ The shared target architecture is
 | Epic                                                                                                                                             | Closure reason     | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [0050 — Detector quality and analyzer capabilities](5-closed/0050-Detector_Quality_and_Analyzer_Capabilities.md)                                  | Complete           | M0–M4 complete. The corrected scene processor handles all 19 zero-card frames. Identity outputs completed, but observation assembly rejected all three because the 25-class M6 output omits `FACE_DOWN` probability mass from the 24 card candidates. No model or capability was selected. Any contract implementation needs a new epic. See the [M4 result](../reports/0050-M4_Diagnostic_Result.md). |
+| [0095 — Partial identity probability observations](5-closed/0095-Partial_Identity_Probability_Observations.md) | Complete | M0–M1 complete. The contract allows subunit sums while rejecting candidate totals above one; all three retained observation assemblies completed and produced 147 observations. No model or quality claim was made. See the [M1 result](../reports/0095-M1_Partial_Identity_Observation_Result.md). |
 | [0090 — Local end-to-end recording pipeline](5-closed/0090-Local_End_to_End_Recording_Pipeline.md)                                               | Complete           | M0–M3 complete. The pilot retained event, detector, and partial scene outputs. Event scores are reported; geometry, identity, observations, and reconstruction have no quality claim. No training or promotion. See the [M3 report](../reports/0090-M3_Composed_Pilot.md). |
 | [0092 — Expanded reviewed virtual-card RF-DETR campaign](5-closed/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md)                       | Complete           | M0–M4 complete. M3 selected the expanded recipe. The 40-epoch all-recording M4 refit has a verified, selectable bundle with preserved M0/M1 lineage. M4 monitoring is in-sample; the sealed evaluator was not rerun. `gemini` remains the default. See [the M4 report](../reports/0092-M4_Final_Refit.md). |
 | [0089 — Virtual-card algorithm edge cases](5-closed/0089-Virtual_Card_Algorithm_Edge_Cases.md)                                                   | Complete           | M0 complete. Fresh 0087/0088 replay had zero matches across 494 proposals and 331 reviewed cards at polygon IoU 0.5, so no geometry or crop defect could be isolated and no algorithm change was selected. See the [M0 replay report](../reports/0089-M0_Fresh_Failure_Replay.md). |

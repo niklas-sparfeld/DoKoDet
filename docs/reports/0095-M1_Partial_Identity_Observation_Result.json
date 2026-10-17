@@ -1,0 +1,201 @@
+{
+  "schema_version": "0095-m1-partial-identity-observation-result/v1",
+  "status": "complete_with_memory_sampling_gap",
+  "purpose": "Bounded local observation assembly from exact retained 0050 inputs. No model-quality claim.",
+  "source_documents": {
+    "epic": "docs/plans/5-closed/0095-Partial_Identity_Probability_Observations.md",
+    "0050_m4": "docs/reports/0050-M4_Diagnostic_Result.md"
+  },
+  "contract": {
+    "candidate_probability_range": "0 < p <= 1",
+    "candidate_sum": "may be below one; must not exceed 1 + 1e-6",
+    "normalization": "none; original classifier probabilities are preserved",
+    "reason": "The 24 emitted card candidates are a subset of the 25-class distribution; FACE_DOWN mass is not a card candidate."
+  },
+  "execution": {
+    "implementation_revision": "14629654fcf41cd1cdf0b9cabf3d740ab794aa5c",
+    "started_at_utc": "2026-10-17T08:10:25.128569Z",
+    "finished_at_utc": "2026-10-17T08:10:57.809403Z",
+    "wall_seconds": 32.680834,
+    "new_observation_processor_executions": 3,
+    "new_other_processor_executions": 0,
+    "cloud_requests": 0,
+    "manual_annotation_or_collection": 0,
+    "sealed_data_access": 0,
+    "reconstruction_executions": 0,
+    "process_memory_sampled_rss_gib": null,
+    "memory_sampling_note": "The backend process was not externally sampled during this short batch. No peak-memory value is claimed.",
+    "operator_intervention": [
+      "Started a local backend on 127.0.0.1:8765 with Bonjour disabled and local providers configured.",
+      "Stopped the backend after all three runs completed.",
+      "Removed only the three observation-selection pointer files and lock files created by this batch; those pointers were absent before the batch."
+    ]
+  },
+  "budget": {
+    "max_observation_executions_per_recording": 1,
+    "max_total_observation_executions": 3,
+    "actual_observation_executions": 3,
+    "max_other_processor_executions": 0,
+    "max_cloud_requests": 0,
+    "max_reconstruction_executions": 0,
+    "retry_policy": "No retries. One completed assembly per recording."
+  },
+  "recordings": [
+    {
+      "recording_id": "cardeventnet-IMG_0657",
+      "source_video_path": "data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+      "source_video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+      "input_revisions": [
+        {
+          "revision_id": "events-coord-d991572cdb65618247c1-attempt-1",
+          "manifest_sha256": "03db7c35cb9c82947a0f25b8d9aaee260ab655fe45b9489c43e8fcdde5b988d4",
+          "content_sha256": "d47f69ca9128244e53b8f08af21024b4755923b9708af853b0c0257fdf854c21"
+        },
+        {
+          "revision_id": "visible-cards-coord-07d852bb91cfc6b19f7a-attempt-1",
+          "manifest_sha256": "8ec065aa309adb58bd1896d27234c5bd17741fce05bf52bbb348218e57ecfde2",
+          "content_sha256": "823a29f443bb013b95c98cf0cfe6f54899cf703c520ba64f3f3e47504d463c59"
+        },
+        {
+          "revision_id": "visual-identities-coord-7f86c3438d6cd9046e91-attempt-1",
+          "manifest_sha256": "efff644c8afaae210034a67a743504f1bd68ac027bbfe7dcd270fd909d59cec6",
+          "content_sha256": "1cd4abf0ce96c89a028b07713ef95b53a2d8bbcaacb69c9fad70b3006200a6f4"
+        }
+      ],
+      "run_id": "coord-b485f149f77e43989fb8",
+      "run_request_path": "data/operations/pipeline/runs/coord-b485f149f77e43989fb8/request.json",
+      "run_request_sha256": "67d03c3d57827c5715751e0436c0b19322f31b46966371768516f5fc5d6aaa56",
+      "run_state_path": "data/operations/pipeline/runs/coord-b485f149f77e43989fb8/state.json",
+      "run_state_sha256": "b0b975f38619aa6cf4e5cd463953e02d3d5e81ea477cab6898220b53a122112e",
+      "run_status": "complete",
+      "started_at_utc": "2026-10-17T08:10:25.128569Z",
+      "completed_at_utc": "2026-10-17T08:10:29.299478Z",
+      "processed_event_count": 52,
+      "output_revision_id": "table-observations-coord-b485f149f77e43989fb8-attempt-1",
+      "output_manifest_path": "data/operations/pipeline/revisions/table-observations-coord-b485f149f77e43989fb8-attempt-1/manifest.json",
+      "output_manifest_sha256": "a9d10a34c280eee6830f7d35c269a06ab4ea543c62440c31aaedd93a66adee4e",
+      "output_content_path": "data/operations/pipeline/revisions/table-observations-coord-b485f149f77e43989fb8-attempt-1/content.json",
+      "output_content_sha256": "110d03476aee867e1a7361e3e723db0da6a096a51326e99ca93f2eb10d110a0a",
+      "observation_count": 52,
+      "observed_card_count": 113,
+      "zero_card_observation_count": 9,
+      "identity_candidate_card_count": 112,
+      "candidate_probability_sum_below_one_count": 66,
+      "candidate_probability_sum_min": 0.9998767866321995,
+      "candidate_probability_sum_max": 0.9999999890485218,
+      "all_observation_statuses": {
+        "observed": 52
+      },
+      "configuration": {}
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0662",
+      "source_video_path": "data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+      "source_video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+      "input_revisions": [
+        {
+          "revision_id": "events-coord-08c097cc5f1b4024e867-attempt-1",
+          "manifest_sha256": "f88beb3232eb335322ce9c7289a8d676359801d03c0e7d47448af6b3c2f75132",
+          "content_sha256": "66f3770998399b646af198791a64420d8bb8212effc9bf97379948003c985bad"
+        },
+        {
+          "revision_id": "visible-cards-coord-aa2ab2751f97e23f4dd2-attempt-1",
+          "manifest_sha256": "d9516afac9c9670fa7aefbdce59eb92af38a278a9d2686a800ffdf8aaea8054d",
+          "content_sha256": "b0992370382ecfb0b3fdefe086d503cd0ea17da657a43e4606d5160f903e5474"
+        },
+        {
+          "revision_id": "visual-identities-coord-e87bca0f6a5c0b2f9882-attempt-1",
+          "manifest_sha256": "721b832430c5a97ccaa0871147f6acfb9970eb47146933dbb2f74343ebfc71bb",
+          "content_sha256": "07c3006bcfcd4807a5f7d083b8f4d9832727aaa76dd2ecb6464a9264727e5de4"
+        }
+      ],
+      "run_id": "coord-67f6dcd018dd429bbada",
+      "run_request_path": "data/operations/pipeline/runs/coord-67f6dcd018dd429bbada/request.json",
+      "run_request_sha256": "9296c20245ff92015df2a65a48287cf756dab077b7df9c503143361a6d83bcf5",
+      "run_state_path": "data/operations/pipeline/runs/coord-67f6dcd018dd429bbada/state.json",
+      "run_state_sha256": "0bc759f62f52d5a6d0481270489d88097d3a5cb0211b25b6ffb0649ae81142c8",
+      "run_status": "complete",
+      "started_at_utc": "2026-10-17T08:10:36.600997Z",
+      "completed_at_utc": "2026-10-17T08:10:41.022822Z",
+      "processed_event_count": 52,
+      "output_revision_id": "table-observations-coord-67f6dcd018dd429bbada-attempt-1",
+      "output_manifest_path": "data/operations/pipeline/revisions/table-observations-coord-67f6dcd018dd429bbada-attempt-1/manifest.json",
+      "output_manifest_sha256": "8c41947808a3705e10e6a1f18898277d228c856ec43d2574fe90078633063b42",
+      "output_content_path": "data/operations/pipeline/revisions/table-observations-coord-67f6dcd018dd429bbada-attempt-1/content.json",
+      "output_content_sha256": "95fab769d966a5d59ff0ef16081bcaf759f09f13910b10472aef990d165cf83c",
+      "observation_count": 52,
+      "observed_card_count": 104,
+      "zero_card_observation_count": 8,
+      "identity_candidate_card_count": 104,
+      "candidate_probability_sum_below_one_count": 61,
+      "candidate_probability_sum_min": 0.8887672886814689,
+      "candidate_probability_sum_max": 0.9999999980339415,
+      "all_observation_statuses": {
+        "observed": 52
+      },
+      "configuration": {}
+    },
+    {
+      "recording_id": "game-2026-08-20-01-001",
+      "source_video_path": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+      "source_video_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+      "input_revisions": [
+        {
+          "revision_id": "events-coord-adf623bae2f082065bba-attempt-1",
+          "manifest_sha256": "1cacdf00f13dd12430da493681012aa48a3b8c158e159a9866f25e57d36e52c5",
+          "content_sha256": "e9d5bd1f687071e76dc9b7bd5f7668ed61d0eb8335988d193f50a1a13c1926bc"
+        },
+        {
+          "revision_id": "visible-cards-coord-d7821eb650044d5b3606-attempt-1",
+          "manifest_sha256": "573239c8bd47fc374658b067d50a5d8c78c750a077c43cc88cc1d3f82ea13be2",
+          "content_sha256": "f9a85c209cc0eaf304fc0e74430caef160939d6ccfa28d7c4cf39d921d229c85"
+        },
+        {
+          "revision_id": "visual-identities-coord-c62b303e207f5d15ad86-attempt-1",
+          "manifest_sha256": "7c34cab14917b975f57ae7564664736f6bdf878fc386f14d484b13e51ca61350",
+          "content_sha256": "809d0bcba1c300ecfdff98497e4d103a7b0806b4cb4e791ca79b71f0b8a5a5ad"
+        }
+      ],
+      "run_id": "coord-c80008c595664dc9b773",
+      "run_request_path": "data/operations/pipeline/runs/coord-c80008c595664dc9b773/request.json",
+      "run_request_sha256": "aa2175774c14f7429c349f5cb916c8170850e2185f0027c6d2673025d0802153",
+      "run_state_path": "data/operations/pipeline/runs/coord-c80008c595664dc9b773/state.json",
+      "run_state_sha256": "5a03599c990f7ad4396f4ebec83a8f6ee65bcb886d40679dd5c7437ea1439236",
+      "run_status": "complete",
+      "started_at_utc": "2026-10-17T08:10:49.355847Z",
+      "completed_at_utc": "2026-10-17T08:10:57.809403Z",
+      "processed_event_count": 43,
+      "output_revision_id": "table-observations-coord-c80008c595664dc9b773-attempt-1",
+      "output_manifest_path": "data/operations/pipeline/revisions/table-observations-coord-c80008c595664dc9b773-attempt-1/manifest.json",
+      "output_manifest_sha256": "aad6e429e60b5616546c0a6b5cc71666d7a389fc2b92ee5c06711750346d5a04",
+      "output_content_path": "data/operations/pipeline/revisions/table-observations-coord-c80008c595664dc9b773-attempt-1/content.json",
+      "output_content_sha256": "39806bde59db07cd7c5cb9f1aabf1150a4ec51093f2043019f92b191f4e35b78",
+      "observation_count": 43,
+      "observed_card_count": 105,
+      "zero_card_observation_count": 2,
+      "identity_candidate_card_count": 100,
+      "candidate_probability_sum_below_one_count": 60,
+      "candidate_probability_sum_min": 0.914684163952475,
+      "candidate_probability_sum_max": 0.9999999965733861,
+      "all_observation_statuses": {
+        "observed": 43
+      },
+      "configuration": {}
+    }
+  ],
+  "aggregate": {
+    "observation_count": 147,
+    "observed_card_count": 322,
+    "zero_card_observation_count": 19,
+    "identity_candidate_card_count": 316,
+    "candidate_probability_sum_below_one_count": 187
+  },
+  "interpretation": [
+    "All three observation assembly runs completed and produced durable revisions.",
+    "The 19 no-card frames from the 0050 scene outputs remain represented by 19 zero-card observations.",
+    "The 24 card candidate probabilities are retained as emitted; 187 of 316 classified card outcomes have sums below one, and subunit sums do not cause rejection.",
+    "IMG_0662 reused the retained event and detector outputs containing both byte-identical decoded JPEG pairs at frames 300 and 375; no image inference was rerun.",
+    "M4 reported no exact reviewed identity-crop hash matches for IMG_0662 and no reviewed identity revision for the real round. Predictions remain unqualified and require human review.",
+    "No reconstruction was run because round context is incomplete."
+  ]
+}

@@ -1,8 +1,9 @@
 # Epic 0095: Partial identity probability observations
 
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0050 M4 diagnostic complete
 - **Outcome:** Allow the observation contract to retain a ranked subset of class probabilities, then measure downstream assembly on the retained 0050 inputs.
+- **Closure reason:** Complete
 
 ## Goal
 
@@ -18,8 +19,8 @@ outputs, normalize scores, make a model-quality claim, or reconstruct gameplay s
 
 - **M0:** Complete — allow candidate probability sums below one; preserve the upper bound and add
   contract regression coverage.
-- **M1:** In Progress — assemble observations for the three 0050 recordings from their exact retained
-  event, visible-card, and identity revisions. Publish a result report and close the epic.
+- **M1:** Complete — all three assemblies completed; see the
+  [M1 result](../../reports/0095-M1_Partial_Identity_Observation_Result.md).
 
 ## M1 execution contract
 
@@ -35,3 +36,10 @@ outputs, normalize scores, make a model-quality claim, or reconstruct gameplay s
 - Keep the three 0050 M4 observation rejections as rejected API requests. They created no processor
   runs; this epic creates the first observation processor runs for those exact inputs.
 - Do not claim identity quality, choose a model, or infer gameplay state from this diagnostic.
+
+## Closure
+
+All three observation assemblies completed within the execution budget. They produced 147
+observations, including all 19 zero-card observations, while preserving subunit candidate
+probability sums. The report records a gap: process RSS was not sampled during the batch. No
+upstream stage ran again and no quality claim was made.
