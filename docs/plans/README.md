@@ -27,9 +27,19 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 ## Current delivery order
 
 Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review.
-Start with M0 eligibility and input freeze. Run the pinned 0092 M4 segmentation bundle and proposed
-card scene processor across all eligible recordings, then evaluate and review the retained results.
-Identification, observation assembly, and reconstruction are outside this epic.
+
+While 0096 waits for human review, autonomous work is available in this preferred order:
+
+1. **[0097 — Frame review mode](2-ready/0097-Frame_Review_Mode.md):** expose the frozen queue,
+   exact-result navigation, deferral, resume, and saved-review progress in the existing editor.
+2. **[0098 — Identity proposal batch](2-ready/0098-Identity_Proposal_Batch.md):** run the pinned M6
+   model on permitted successful 0096 scenes and publish a separate identity review queue.
+3. **[0099 — Detection failure diagnostics and bounded fixes](2-ready/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md):**
+   isolate measured failures and test at most two justified software candidates.
+
+These epics can start independently from retained artifacts. None requires 0096 human-review
+completion. 0098 can hand off a file-based queue before 0097 is complete. Identification remains
+outside 0096. No reconstruction or training campaign is scheduled by these epics.
 
 1. **0086 M4/M5:** Complete. The handoffs contain 20 eligible recordings, 1,391 identity crops,
    support for all 21 campaign classes, and exact exclusions. `IMG_0092` is permanently excluded;
@@ -87,7 +97,9 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| *No ready epics* |  |  |
+| [0097 — Frame review mode](2-ready/0097-Frame_Review_Mode.md) | 0096 M4 frozen queue; existing editor | M0–M3 not started. Build cross-recording navigation and saved-review progress without creating human decisions. |
+| [0098 — Identity proposal batch](2-ready/0098-Identity_Proposal_Batch.md) | 0096 M1/M2 outputs; 0088 M6; 0085/0093 crops | M0–M3 not started. Run permitted local proposals and publish bounded review work; no training or human review required to complete this epic. |
+| [0099 — Detection failure diagnostics and bounded fixes](2-ready/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md) | 0096 M1–M3 evidence | M0–M3 not started. Diagnose failures and compare at most two software candidates; a supported no-fix decision is valid. |
 
 ### In Progress
 
