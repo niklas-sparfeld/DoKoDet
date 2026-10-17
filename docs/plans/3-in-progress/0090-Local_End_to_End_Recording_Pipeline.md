@@ -19,6 +19,8 @@
   [M0 pilot freeze](../../reports/0090-M0_Composed_Pilot_Freeze.md).
 - **M1:** Complete — add a resumable local coordinator around retained stages. See the
   [M1 coordinator report](../../reports/0090-M1_Retained_Pipeline_Coordinator.md).
+- **M2:** Complete — verify coordinator restart, cancellation, stale-input protection, status reads,
+  and fresh reruns. See the [M2 durability report](../../reports/0090-M2_Durable_Execution.md).
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -29,7 +31,9 @@
 - **M1:** Complete — coordinate the declared stage order, persist request and revision lineage,
   reuse unchanged completed stages, and stop on terminal failures. See the
   [M1 coordinator report](../../reports/0090-M1_Retained_Pipeline_Coordinator.md).
-- **M2:** Not started — verify restart, cancellation, and failure behavior.
+- **M2:** Complete — persist interruption state, resume with the same processor request, stop
+  scheduling after cancellation, read status without worker calls, and require a fresh run ID for
+  an explicit rerun. See the [M2 durability report](../../reports/0090-M2_Durable_Execution.md).
 - **M3:** Not started — run the development pilot and publish the composed result.
 
 ## 1. Scope and authority
@@ -110,6 +114,14 @@ the coordinator can resume without browser presence or duplicate stage execution
 Acceptance: terminal and partial failures are actionable; downstream stages do not consume failed
 or mismatched revisions; cancellation and restart preserve completed artifacts; no silent cloud
 fallback; relevant persistence and lifecycle tests pass.
+
+**M2 outcome:** The coordinator keeps completed stage outputs across interruption and cancellation.
+It resumes an interrupted stage with the same processor run ID. A changed request or input lineage
+gets a new run ID, and downstream stages receive only outputs validated earlier in the current
+sequence. `--status` reads the local manifest. `--cancel` asks the coordinator to stop polling and
+scheduling stages. The backend worker can continue its current stage; a later resume attaches to the
+same durable request. `--rerun` starts a new coordinator run with new processor IDs. See the
+[M2 durability report](../../reports/0090-M2_Durable_Execution.md).
 
 ### M3 — Execute and measure the pilot
 

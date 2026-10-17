@@ -54,6 +54,10 @@ class PipelineCoordinatorError(RuntimeError):
     """A coordinator run could not continue safely."""
 
 
+class PipelineCoordinatorCancelled(PipelineCoordinatorError):
+    """The local coordinator was asked to stop waiting and scheduling stages."""
+
+
 class PipelineCoordinator:
     """Persist a run manifest and execute stages in order.
 
@@ -76,16 +80,19 @@ class PipelineCoordinator:
             raise ValueError("recording_id, coordinator_id, and stages are required")
         path = self.root / f"{coordinator_id}.json"
         document = self._load_or_create(path, recording_id, stages, coordinator_id)
-        if document["status"] == "complete":
-            return document
-
-        completed_outputs: dict[str, tuple[str, ...]] = {
-            row["name"]: tuple(row["output_revision_ids"])
-            for row in document["stages"]
-            if row["status"] == "complete"
-        }
+        if document["status"] == "cancelled":
+            path.with_suffix(".cancel").unlink(missing_ok=True)
+        cancel_path = path.with_suffix(".cancel")
+        if hasattr(self.executor, "cancel_path"):
+            self.executor.cancel_path = cancel_path
+        completed_outputs: dict[str, tuple[str, ...]] = {}
         for index, definition in enumerate(stages):
             row = document["stages"][index]
+            if cancel_path.exists():
+                document["status"] = "cancelled"
+                document["failure"] = {"code": "coordinator_cancelled"}
+                self._save(path, document)
+                return document
             request_digest = _digest(definition.request)
             input_revision_ids = _resolve_input_references(
                 definition.input_revision_ids, completed_outputs
@@ -100,8 +107,13 @@ class PipelineCoordinator:
                         completed_outputs[definition.name] = tuple(row["output_revision_ids"])
                     continue
                 row.update(_pending_row(definition, request_digest, input_revision_ids))
+                row["run_id"] = _stable_id(
+                    coordinator_id, definition.name, request_digest, input_revision_ids
+                )
             elif row["status"] in {"running", "accepted"}:
                 # The adapter must find and resume the immutable processor request.
+                row["status"] = "pending"
+            elif row["status"] == "cancelled":
                 row["status"] = "pending"
 
             row.update(
@@ -153,6 +165,13 @@ class PipelineCoordinator:
                     completed_outputs[definition.name] = execution.output_revision_ids
                 document["failure"] = None
                 self._save(path, document)
+            except PipelineCoordinatorCancelled as error:
+                row["status"] = "cancelled"
+                row["failure"] = {"code": "coordinator_cancelled", "message": str(error)}
+                document["status"] = "cancelled"
+                document["failure"] = {"stage": definition.name, **row["failure"]}
+                self._save(path, document)
+                return document
             except Exception as error:
                 row["status"] = "failed"
                 row["failure"] = {"code": "coordinator_stage_failed", "message": str(error)}
@@ -165,6 +184,20 @@ class PipelineCoordinator:
         document["failure"] = None
         self._save(path, document)
         return document
+
+    def read_status(self, coordinator_id: str) -> dict[str, Any]:
+        """Read the durable manifest without contacting a stage worker."""
+        path = self.root / f"{coordinator_id}.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def request_cancel(self, coordinator_id: str) -> None:
+        """Ask a running invocation to stop scheduling and polling stages."""
+        status = self.read_status(coordinator_id)
+        if status.get("status") != "running":
+            raise PipelineCoordinatorError("Only a running coordinator can be cancelled.")
+        path = self.root / f"{coordinator_id}.cancel"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("cancel\n", encoding="utf-8")
 
     def _load_or_create(
         self,
@@ -190,7 +223,12 @@ class PipelineCoordinator:
                 {
                     **_pending_row(stage, _digest(stage.request), stage.input_revision_ids),
                     "name": stage.name,
-                    "run_id": _stable_id(coordinator_id, stage.name),
+                    "run_id": _stable_id(
+                        coordinator_id,
+                        stage.name,
+                        _digest(stage.request),
+                        stage.input_revision_ids,
+                    ),
                     "processor_run_id": None,
                 }
                 for stage in stages
@@ -325,6 +363,7 @@ class HttpPipelineStageExecutor:
         self.client = httpx.Client(base_url=base_url.rstrip("/"), timeout=30)
         self.poll_interval_s = poll_interval_s
         self.deadline = time.monotonic() + timeout_s
+        self.cancel_path: Path | None = None
 
     def __call__(
         self,
@@ -378,6 +417,8 @@ class HttpPipelineStageExecutor:
             if stage == "reconstruction"
             else run.get("status") in {"queued", "running"}
         ):
+            if self.cancel_path is not None and self.cancel_path.exists():
+                raise PipelineCoordinatorCancelled("Cancellation requested.")
             if time.monotonic() >= self.deadline:
                 raise PipelineCoordinatorError(f"Timed out while waiting for {stage}.")
             time.sleep(self.poll_interval_s)
@@ -496,8 +537,16 @@ def _resolve_input_references(
     return tuple(resolved)
 
 
-def _stable_id(coordinator_id: str, stage_name: str) -> str:
-    suffix = hashlib.sha256(f"{coordinator_id}:{stage_name}".encode()).hexdigest()[:20]
+def _stable_id(
+    coordinator_id: str,
+    stage_name: str,
+    request_digest: str = "",
+    input_revision_ids: Sequence[str] = (),
+) -> str:
+    lineage = json.dumps(list(input_revision_ids), separators=(",", ":"))
+    suffix = hashlib.sha256(
+        f"{coordinator_id}:{stage_name}:{request_digest}:{lineage}".encode()
+    ).hexdigest()[:20]
     return f"coord-{suffix}"
 
 
@@ -508,6 +557,7 @@ def _digest(value: Mapping[str, Any]) -> str:
 
 __all__ = [
     "PipelineCoordinator",
+    "PipelineCoordinatorCancelled",
     "PipelineCoordinatorError",
     "HttpPipelineStageExecutor",
     "RetainedPipelineStageExecutor",

@@ -4,6 +4,7 @@ import pytest
 
 from dokodetector_backend.pipeline_coordinator import (
     PipelineCoordinator,
+    PipelineCoordinatorCancelled,
     PipelineCoordinatorError,
     StageDefinition,
     StageExecution,
@@ -124,3 +125,110 @@ def test_explicitly_skipped_reconstruction_is_retained_as_a_terminal_decision(
     assert result["status"] == "complete"
     assert result["stages"][-1]["status"] == "skipped"
     assert resumed["stages"][-1]["status"] == "skipped"
+
+
+def test_restart_resumes_same_durable_processor_request(tmp_path: Path) -> None:
+    stage = StageDefinition("events", {"model": "frozen"}, ("video",))
+    first_run_ids: list[str] = []
+
+    def interrupted(**kwargs: object) -> StageExecution:
+        first_run_ids.append(str(kwargs["run_id"]))
+        raise KeyboardInterrupt
+
+    coordinator = PipelineCoordinator(tmp_path, interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        coordinator.run("recording-1", [stage], coordinator_id="restart")
+
+    resumed_run_ids: list[str] = []
+
+    def resume(**kwargs: object) -> StageExecution:
+        resumed_run_ids.append(str(kwargs["run_id"]))
+        inputs = tuple(kwargs["input_revision_ids"])  # type: ignore[arg-type]
+        return StageExecution("complete", inputs, ("events-r1",))
+
+    result = PipelineCoordinator(tmp_path, resume).run(
+        "recording-1", [stage], coordinator_id="restart"
+    )
+
+    assert result["status"] == "complete"
+    assert resumed_run_ids == first_run_ids
+
+
+def test_changed_upstream_request_cannot_reuse_stale_downstream_lineage(
+    tmp_path: Path,
+) -> None:
+    downstream_inputs: list[tuple[str, ...]] = []
+
+    def execute(**kwargs: object) -> StageExecution:
+        stage = str(kwargs["stage"])
+        inputs = tuple(kwargs["input_revision_ids"])  # type: ignore[arg-type]
+        if stage == "downstream":
+            downstream_inputs.append(inputs)
+        output = (
+            "events-v2"
+            if stage == "upstream" and kwargs["request"] == {"v": 2}
+            else f"{stage}-output"
+        )
+        return StageExecution("complete", inputs, (output,))
+
+    coordinator = PipelineCoordinator(tmp_path, execute)
+    coordinator.run(
+        "recording-1",
+        [
+            StageDefinition("upstream", {"v": 1}, ("video",)),
+            StageDefinition("downstream", {}, ("@stage:upstream",)),
+        ],
+        coordinator_id="stale-input",
+    )
+    result = coordinator.run(
+        "recording-1",
+        [
+            StageDefinition("upstream", {"v": 2}, ("video",)),
+            StageDefinition("downstream", {}, ("@stage:upstream",)),
+        ],
+        coordinator_id="stale-input",
+    )
+
+    assert downstream_inputs == [("upstream-output",), ("events-v2",)]
+    assert result["stages"][1]["input_revision_ids"] == ["events-v2"]
+
+
+def test_cancel_persists_partial_progress_and_can_resume(tmp_path: Path) -> None:
+    coordinator = PipelineCoordinator(tmp_path, lambda **_: None)  # type: ignore[arg-type]
+
+    def cancel_during_stage(**kwargs: object) -> StageExecution:
+        coordinator.request_cancel("cancel-me")
+        raise PipelineCoordinatorCancelled("Cancellation requested.")
+
+    coordinator.executor = cancel_during_stage
+    stages = [StageDefinition("events", {}, ("video",))]
+    cancelled = coordinator.run("recording-1", stages, coordinator_id="cancel-me")
+
+    assert cancelled["status"] == "cancelled"
+    assert cancelled["stages"][0]["status"] == "cancelled"
+    assert coordinator.read_status("cancel-me")["status"] == "cancelled"
+
+    def resume(**kwargs: object) -> StageExecution:
+        inputs = tuple(kwargs["input_revision_ids"])  # type: ignore[arg-type]
+        return StageExecution("complete", inputs, ("events-r1",))
+
+    coordinator.executor = resume
+    resumed = coordinator.run("recording-1", stages, coordinator_id="cancel-me")
+    assert resumed["status"] == "complete"
+
+
+def test_new_coordinator_id_is_an_explicit_fresh_rerun(tmp_path: Path) -> None:
+    run_ids: list[str] = []
+
+    def execute(**kwargs: object) -> StageExecution:
+        run_ids.append(str(kwargs["run_id"]))
+        inputs = tuple(kwargs["input_revision_ids"])  # type: ignore[arg-type]
+        return StageExecution("complete", inputs, ("events-r1",))
+
+    stage = [StageDefinition("events", {}, ("video",))]
+    coordinator = PipelineCoordinator(tmp_path, execute)
+    coordinator.run("recording-1", stage, coordinator_id="run-one")
+    coordinator.run("recording-1", stage, coordinator_id="run-two")
+
+    assert len(run_ids) == 2
+    assert run_ids[0] != run_ids[1]
