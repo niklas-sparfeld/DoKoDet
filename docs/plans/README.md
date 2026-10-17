@@ -26,7 +26,7 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. M0–M2 are complete. M2 produced 29 complete scene runs across 1,513 frames, with four named calibration failures and one M1 dependency failure. M3 exact-frame evaluation is in progress.
+Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 human review is in progress.
 Start with M0 eligibility and input freeze. Run the pinned 0092 M4 segmentation bundle and proposed
 card scene processor across all eligible recordings, then evaluate and review the retained results.
 Identification, observation assembly, and reconstruction are outside this epic.
@@ -93,7 +93,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M2 complete. M1 produced 1,707 exact frame outcomes after the input-anchor correction. M2 completed 29 scene runs across 1,513 frames; four calibration failures left 194 frames unprocessed, and the M1 dependency failure left 49 more unprocessed. See the [M2 result](../reports/0096-M2_Proposed_Scene_Results.md). M3 exact-frame evaluation is in progress. |
+| [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. M4 bounded human review is in progress. See the [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
 
 ### Blocked
 

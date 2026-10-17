@@ -16,8 +16,8 @@
 - **M1:** Complete with one named terminal run failure — 33 corrected recordings produced 1,707
   exact M0 frame outcomes; one recording remains unprocessed after its terminal backend failure.
 - **M2:** Complete — 29 scene runs cover 1,513 frames; four calibration failures leave 194 frames unprocessed. The separate M1 failure leaves 49 frames unprocessed.
-- **M3:** In progress — evaluate retained outputs against exact-frame reviewed references.
-- **M4:** Not started — review results and publish the measured follow-up work.
+- **M3:** Complete — 880 exact-frame pairs were eligible; 870 had scoreable reference outcomes. The outside-refit-training set scored 0.897 precision and 0.925 recall at polygon IoU `>= 0.5`. Pile, pose, stacking-order, and zero-card quality remain unsupported by current references.
+- **M4:** In progress — prepare the bounded human-review queue and publish measured follow-up work.
 
 ## 1. Scope and current evidence
 
