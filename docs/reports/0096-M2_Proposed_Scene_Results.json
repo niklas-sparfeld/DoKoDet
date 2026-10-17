@@ -1,0 +1,1235 @@
+{
+  "schema_version": "0096-m2-proposed-scene-results/v1",
+  "epic": "0096",
+  "milestone": "M2",
+  "date": "2026-10-17",
+  "status": "complete",
+  "inputs": {
+    "m0_preflight": "0096-M0_Preflight.json",
+    "m0_frame_manifest": "0096-M0_Event_Frame_Inputs.json",
+    "m1_result": "0096-M1_Run_Result.json",
+    "m1_result_sha256": "85c7874dba6f04838c80f4d961be313bae2bbcc685e4a9da0fd4d88610464cbc",
+    "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+    "corrected_m1_recordings": 33
+  },
+  "limits": {
+    "planned_scene_run_count": 34,
+    "scene_run_count": 33,
+    "max_active_processor_runs": 1,
+    "cloud_requests": 0,
+    "max_total_active_processing_seconds": 86400,
+    "process_memory_limit_bytes": 34359738368,
+    "rss_sampling_interval_seconds": 10
+  },
+  "summary": {
+    "completed_runs": 29,
+    "failed_runs": 4,
+    "completed_scene_frames": 1513,
+    "unprocessed_frames_from_scene_failures": 194,
+    "m1_dependency_failure_recording": "game-2026-08-20-01-001",
+    "total_m1_m2_active_processing_seconds": 8611.217,
+    "m2_active_processing_seconds_from_processor_logs": 7508.539,
+    "selection_pointers_unchanged": true,
+    "exact_m1_input_lineage_errors": [],
+    "frame_accounting_checks_passed": true,
+    "unsupported_scene_frames": 0,
+    "explicit_no_card_frames": 142,
+    "rss_sample_count": 1450,
+    "rss_peak_bytes": 2190163968,
+    "rss_under_32_gib": true,
+    "identity_data_present": false
+  },
+  "deviations": [
+    {
+      "kind": "run_id",
+      "recordings": [
+        "5a1f4037-d8ad-48da-9950-2ed2272811a5",
+        "cardeventnet-IMG_0090"
+      ],
+      "details": "The initial two M2 attempts used generated IDs instead of the M0-frozen IDs. Both terminal outcomes were retained without retry. All subsequent runs used M0-frozen IDs."
+    },
+    {
+      "kind": "selection_pointer",
+      "recording_id": "game-2026-08-20-01-005",
+      "details": "The selected detector pointer differed from its corrected M1 revision before M2. M2 explicitly used the frozen corrected M1 revision; it did not change the pointer."
+    }
+  ],
+  "dependency_failure": {
+    "recording_id": "game-2026-08-20-01-001",
+    "reason": "terminal M1 backend failure",
+    "unprocessed_frame_count": 49
+  },
+  "recordings": [
+    {
+      "recording_id": "5a1f4037-d8ad-48da-9950-2ed2272811a5",
+      "m1_revision_id": "visible-cards-291ad680-2792-5695-a710-4f5bd6685347-attempt-1",
+      "m1_revision_sha256": "73bb0e0860ccde2b3f13e733882c19d166fb0d24197fa1846218b5e9dfb706d9",
+      "m2_run_id": "card-scene-proposal-b3e29a21-b34a-4e3a-8290-d96396713267",
+      "m2_run_id_source": "initial random attempt, retained",
+      "planned_m0_run_id": "card-scene-proposal-5092614b-fe52-5cbe-9590-c4cd34ebffca",
+      "status": "complete",
+      "input_frame_count": 85,
+      "progress": {
+        "completed": 85,
+        "total": 85
+      },
+      "active_processing_seconds_from_run_logs": 289.559,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "888d6278bb406d66fa8f902847e5a688c9000109eb3ad24c42b231759e8385f1",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-b3e29a21-b34a-4e3a-8290-d96396713267-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-b3e29a21-b34a-4e3a-8290-d96396713267-attempt-1",
+      "scene_revision_sha256": "2137bb69b561046d8ea0b15440466de4a9dabce8ea29acd34c940705a324840c",
+      "calibration_revision_id": "calibration-ddcfc8ab8c33a646e25c02dd",
+      "calibration_digest": "599ad48029695a9198072ae93c3b5f8a57fb981cf80a995fccea42fb7a8dd8ec",
+      "supported_frame_count": 81,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 4,
+      "scene_frame_status_counts": {
+        "supported": 81,
+        "no_cards_detected": 4
+      },
+      "scene_proposal_frames": 81,
+      "pile_region_count": 1,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0090",
+      "m1_revision_id": "visible-cards-a9c887ce-ebcf-5684-8cb9-07ef0e85ccfb-attempt-1",
+      "m1_revision_sha256": "0464776ebe60d3ae980d84eaad6469bb546567cb4f01caa3b9a34ddece5148f0",
+      "m2_run_id": "card-scene-proposal-26458f5b-c76c-46fd-a5cd-c28d02a79a59",
+      "m2_run_id_source": "initial random attempt, retained",
+      "planned_m0_run_id": "card-scene-proposal-10117b3e-519e-5a1b-80ee-15dfc4693980",
+      "status": "failed",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 1,
+        "total": 3
+      },
+      "active_processing_seconds_from_run_logs": 21.662,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "3526a20252194da9849c35d7000e6cbe389b85770b111818001975c848f73969",
+      "output_revision_ids": [],
+      "terminal_failure": {
+        "code": "inconsistent_card_geometry",
+        "message": "the accepted calibration candidates do not describe one stable standard-card plane"
+      },
+      "scene_revision_id": null,
+      "unprocessed_frame_count": 50,
+      "failure_code": "inconsistent_card_geometry"
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0091",
+      "m1_revision_id": "visible-cards-1897c4e9-12b5-5918-9021-ac59f84e63ce-attempt-1",
+      "m1_revision_sha256": "956fba9163f0c6fe01b2785dadd576d5a9e75da0fb0f51404b38655a83552a16",
+      "m2_run_id": "card-scene-proposal-0363ca81-7651-597d-ba18-69fd2b7d2770",
+      "m2_run_id_source": "M0 frozen planned run ID",
+      "planned_m0_run_id": "card-scene-proposal-0363ca81-7651-597d-ba18-69fd2b7d2770",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 969.558,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "6b12aebab716fe969cb2c99ef9868192d788d9fe2bef2dd6e5fd210ddc0bc407",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-0363ca81-7651-597d-ba18-69fd2b7d2770-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-0363ca81-7651-597d-ba18-69fd2b7d2770-attempt-1",
+      "scene_revision_sha256": "cca08c309344a72938bb219c750b698fd700b4ff466b5b7461ffd0beabbf569d",
+      "calibration_revision_id": "calibration-02e518b6fe929cd8d275a8e9",
+      "calibration_digest": "e4086983c6bb036aa94482b8f898b878ac18c362d8eb8cbeef4e2afa854d905e",
+      "supported_frame_count": 41,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 9,
+      "scene_frame_status_counts": {
+        "supported": 41,
+        "no_cards_detected": 9
+      },
+      "scene_proposal_frames": 41,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0095",
+      "m1_revision_id": "visible-cards-7e6dc749-4c85-5352-9dde-23825547228a-attempt-1",
+      "m1_revision_sha256": "67ecb80de5a53268079c6ce81d180cc32da1fdd05baf6aaebf7e8748438e5060",
+      "m2_run_id": "card-scene-proposal-438d8fc1-a077-576a-90b8-b2a03fca55f2",
+      "m2_run_id_source": "M0 frozen planned run ID",
+      "planned_m0_run_id": "card-scene-proposal-438d8fc1-a077-576a-90b8-b2a03fca55f2",
+      "status": "complete",
+      "input_frame_count": 53,
+      "progress": {
+        "completed": 53,
+        "total": 53
+      },
+      "active_processing_seconds_from_run_logs": 926.115,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "b9fa4e2fc9cd876fd85d606ef258f7923fd87bd02ca1c87dbd508b3b81f5f97a",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-438d8fc1-a077-576a-90b8-b2a03fca55f2-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-438d8fc1-a077-576a-90b8-b2a03fca55f2-attempt-1",
+      "scene_revision_sha256": "11f3e8becc028b4dd1ee0d19fc76fb9e9b1f568ead7bd921aff248fd75dc8934",
+      "calibration_revision_id": "calibration-d7d852a94cb88ec05f0364eb",
+      "calibration_digest": "7e921898ee76834814638cbd9f1ac391da8142a3bc1395d03facdb24017ca109",
+      "supported_frame_count": 43,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 43,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 43,
+      "pile_region_count": 47,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0096",
+      "m1_revision_id": "visible-cards-e9f4a529-3edd-56d8-9a76-99594eb011a7-attempt-1",
+      "m1_revision_sha256": "09319e99dbb991217b688800e095016f094b3bfec60dfc42c3c8eeb35669f714",
+      "m2_run_id": "card-scene-proposal-48a6d711-997a-5963-8e11-57f9c209295d",
+      "m2_run_id_source": "M0 frozen planned run ID",
+      "planned_m0_run_id": "card-scene-proposal-48a6d711-997a-5963-8e11-57f9c209295d",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 1607.304,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "1c5a63a73c1828afc95d63d5fe1d1adf1868f737c4edc820f49f2a52b6df4a5f",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-48a6d711-997a-5963-8e11-57f9c209295d-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-48a6d711-997a-5963-8e11-57f9c209295d-attempt-1",
+      "scene_revision_sha256": "d763f9ee6d095c0afbdd33bbbc90f080abf9257910dec93eed3f96f30b9a0ba7",
+      "calibration_revision_id": "calibration-94d1302cf610b8eb667b17fa",
+      "calibration_digest": "5bd8de103dc477a26169d265a64e52faabd5d8d5f598b31c754964a985afb339",
+      "supported_frame_count": 49,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 1,
+      "scene_frame_status_counts": {
+        "supported": 49,
+        "no_cards_detected": 1
+      },
+      "scene_proposal_frames": 49,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0097",
+      "m1_revision_id": "visible-cards-07c4a94f-3820-52ea-8435-29dd0a9ff2d7-attempt-1",
+      "m1_revision_sha256": "3889fcb379219f4bf9b473baf5a051f2c3b48d1cca1b62713ac59c90b5d5abb1",
+      "m2_run_id": "card-scene-proposal-29d16690-f23c-52c5-be36-2f7dd663ae42",
+      "m2_run_id_source": "M0 frozen planned run ID",
+      "planned_m0_run_id": "card-scene-proposal-29d16690-f23c-52c5-be36-2f7dd663ae42",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 1426.319,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "8faf2a326279464b3fc799e1e5521eb53d11ed5a4885316cc677189c905168ab",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-29d16690-f23c-52c5-be36-2f7dd663ae42-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-29d16690-f23c-52c5-be36-2f7dd663ae42-attempt-1",
+      "scene_revision_sha256": "f87be5ccb420fcc078ea84ae9ab9cffaab236d424f09f91ed62ed89a8ef8c51b",
+      "calibration_revision_id": "calibration-d30984ce7022758e2b576f0d",
+      "calibration_digest": "80fc4f19008341f79cf1ecf3b1670a615cdc09344747d6cba3c380644c9496bc",
+      "supported_frame_count": 40,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 40,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 40,
+      "pile_region_count": 45,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0635",
+      "m1_revision_id": "visible-cards-5858cc78-219d-58c7-991b-d8d9e55d6be0-attempt-1",
+      "m1_revision_sha256": "3a543b7c862ab080a423b94408d1047014c32f79496a57df9d3859a018be7460",
+      "m2_run_id": "card-scene-proposal-b9c5b740-53e7-5c90-b6cd-5e9173a53d91",
+      "m2_run_id_source": "M0 frozen planned run ID",
+      "planned_m0_run_id": "card-scene-proposal-b9c5b740-53e7-5c90-b6cd-5e9173a53d91",
+      "status": "failed",
+      "input_frame_count": 51,
+      "progress": {
+        "completed": 1,
+        "total": 3
+      },
+      "active_processing_seconds_from_run_logs": 35.671,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "369d4f6d5df989a7ad5dd48b088f1f865bed0bae4f9d4e46a45b8a356c7fd3fc",
+      "output_revision_ids": [],
+      "terminal_failure": {
+        "code": "inconsistent_card_geometry",
+        "message": "the accepted calibration candidates do not describe one stable standard-card plane"
+      },
+      "scene_revision_id": null,
+      "unprocessed_frame_count": 51,
+      "failure_code": "inconsistent_card_geometry"
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0636",
+      "m1_revision_id": "visible-cards-4e943e69-0cd3-5841-bbac-a89906613f30-attempt-1",
+      "m1_revision_sha256": "795bb9b1607068fe7af8610fff14314f1ff1d50c71941fe88c9046c002205586",
+      "m2_run_id": "card-scene-proposal-e78ad4d9-7816-5517-9871-28485cd5034f",
+      "m2_run_id_source": "M0 frozen planned run ID",
+      "planned_m0_run_id": "card-scene-proposal-e78ad4d9-7816-5517-9871-28485cd5034f",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 365.512,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "1dc88df766e93a0473a703e77022f5148f99f96e9feafd315e5a06e3713a8037",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-e78ad4d9-7816-5517-9871-28485cd5034f-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-e78ad4d9-7816-5517-9871-28485cd5034f-attempt-1",
+      "scene_revision_sha256": "c10eb28f96131bc93e8e3a8ddec7403ac7157aff3ea5c2bf9d5f1c832b137776",
+      "calibration_revision_id": "calibration-ef69e1f516522882dae50a32",
+      "calibration_digest": "b99992a8696ad69cdc7a3f4e697b56c64df925e6dd7d70a5a763cd8187029fef",
+      "supported_frame_count": 40,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 40,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 40,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0637",
+      "m1_revision_id": "visible-cards-c017b765-b14e-5b31-a7c2-b4716d5adc61-attempt-1",
+      "m1_revision_sha256": "5f7d51c694abcd406147db27deccb535d757e00dc31c1506a1c39868a86cb86f",
+      "m2_run_id": "card-scene-proposal-c101190e-3a99-50ad-892f-e93f5ff52237",
+      "m2_run_id_source": "M0 frozen planned run ID",
+      "planned_m0_run_id": "card-scene-proposal-c101190e-3a99-50ad-892f-e93f5ff52237",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 339.07,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "9188e840a3590ef7fdd9b4c64a8287de2607c889450343ba02baaa3f5465ee66",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-c101190e-3a99-50ad-892f-e93f5ff52237-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-c101190e-3a99-50ad-892f-e93f5ff52237-attempt-1",
+      "scene_revision_sha256": "6c631b2008cca389907366ca5c0a4d0d567aa12912dfe5f24548f6d446e0aa5e",
+      "calibration_revision_id": "calibration-85a37b910dcd2ad33d237d5c",
+      "calibration_digest": "e16bfece8499d772f42d06af1287045147a3057957566314718d17ce9ac66dad",
+      "supported_frame_count": 40,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 40,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 40,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0638",
+      "m1_revision_id": "visible-cards-2369cabe-007b-50c9-b2a0-25f7b2752091-attempt-1",
+      "m1_revision_sha256": "920fe44f185e8ebfa8ff94b05ad58688604d8a28c99a870c904b8eca91f9fc23",
+      "m2_run_id": "card-scene-proposal-80836c53-d4ac-57df-b56d-6a0f7e7b65dc",
+      "m2_run_id_source": "M0 frozen planned run ID",
+      "planned_m0_run_id": "card-scene-proposal-80836c53-d4ac-57df-b56d-6a0f7e7b65dc",
+      "status": "complete",
+      "input_frame_count": 51,
+      "progress": {
+        "completed": 51,
+        "total": 51
+      },
+      "active_processing_seconds_from_run_logs": 329.385,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "e2d2116c66929e2abacb03c1f41dc282ef0d1d383a8c6e6b1cf3f5100643d50b",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-80836c53-d4ac-57df-b56d-6a0f7e7b65dc-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-80836c53-d4ac-57df-b56d-6a0f7e7b65dc-attempt-1",
+      "scene_revision_sha256": "6ae87959c9168e1833df92e3a68540e18b73ea4feece38f7e008a7c819f85f13",
+      "calibration_revision_id": "calibration-59a779812b99ef41e9f98649",
+      "calibration_digest": "f9ca024b4ca03feffd1a44dc357939c0bb62fdaacb5649914d2ebc56a543daa2",
+      "supported_frame_count": 41,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 41,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 41,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0639",
+      "m1_revision_id": "visible-cards-8afe8966-3696-5a59-bfb3-34271d063183-attempt-1",
+      "m1_revision_sha256": "fa4c84a4c15639cab384521cf8c54a0fc6cf87caedc6ca28b052055eaf7251e5",
+      "m2_run_id": "card-scene-proposal-1c332f90-9e03-567d-a724-53d4d30c21a0",
+      "m2_run_id_source": "M0 frozen planned run ID",
+      "planned_m0_run_id": "card-scene-proposal-1c332f90-9e03-567d-a724-53d4d30c21a0",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 113.187,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "c4a5b2f5dba387c142323fdafe017985a90f5a58ce2f7e241443ef7fac058cff",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-1c332f90-9e03-567d-a724-53d4d30c21a0-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-1c332f90-9e03-567d-a724-53d4d30c21a0-attempt-1",
+      "scene_revision_sha256": "6d08ffe02b6ec89fe34f174f5bbc6073e77967912e1cb2d08764c2747cfb9f00",
+      "calibration_revision_id": "calibration-c1ea1d7e63d9c2a9e22bd6bd",
+      "calibration_digest": "2d5f583152e18714d3a14232c28e8c9e7a186b483b0cdd9bd2a89446aa1931ce",
+      "supported_frame_count": 40,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 40,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 40,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0640",
+      "m1_revision_id": "visible-cards-673070df-fc36-5404-a5ec-7d4305131002-attempt-1",
+      "m1_revision_sha256": "7a9464d278563918bfd10f212137a9e8d1743b5360d910c65304be75cf2e973a",
+      "m2_run_id": "card-scene-proposal-3d0e6222-23be-5501-a696-a1202ec69826",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-3d0e6222-23be-5501-a696-a1202ec69826",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 70.463,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "3d07044b50a783128c0396740b1bd114ae5b77d85ad2b254457c2888b3d71c64",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-3d0e6222-23be-5501-a696-a1202ec69826-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-3d0e6222-23be-5501-a696-a1202ec69826-attempt-1",
+      "scene_revision_sha256": "3d2fca713b8a6ec2119d1346c009028991837cda20cfe2ca7d95f98d1f6e84a5",
+      "calibration_revision_id": "calibration-0defe3382350484d5ceb5f14",
+      "calibration_digest": "4aea03c02ea0539b5ad101395a2abdf2ed2bd7536c0bab3023118c1a0a30c49d",
+      "supported_frame_count": 40,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 40,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 40,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0641",
+      "m1_revision_id": "visible-cards-d2b8317b-aacb-5d0b-b3e0-d5ab3a4c2089-attempt-1",
+      "m1_revision_sha256": "d7b41d38b67a10d8f6c0d4d1a15891b6401af1a8143f08fee0a3694094f7f8af",
+      "m2_run_id": "card-scene-proposal-bc0d0aba-751b-54fb-976d-c1549c8dd09d",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-bc0d0aba-751b-54fb-976d-c1549c8dd09d",
+      "status": "failed",
+      "input_frame_count": 53,
+      "progress": {
+        "completed": 1,
+        "total": 3
+      },
+      "active_processing_seconds_from_run_logs": 4.622,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "08d0cda949415b09b38ff8b21704feaf678e41c2b368282a49a2bb4e19d1447e",
+      "output_revision_ids": [],
+      "terminal_failure": {
+        "code": "unstable_table_transform",
+        "message": "the fitted table transform is too unstable to publish"
+      },
+      "scene_revision_id": null,
+      "unprocessed_frame_count": 53,
+      "failure_code": "unstable_table_transform"
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0642",
+      "m1_revision_id": "visible-cards-93489b3b-9078-5b53-a779-b9f8aa609c19-attempt-1",
+      "m1_revision_sha256": "19baabacedffabc115b853b7341f4d034e828a091022b9719c9763883655d72b",
+      "m2_run_id": "card-scene-proposal-b75633cc-b7b8-57d0-b718-5548cec7f351",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-b75633cc-b7b8-57d0-b718-5548cec7f351",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 36.362,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "508f53693709c4d64b970fdbf5657e2b3087db893b02a8bd3478655ac3fcb5d1",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-b75633cc-b7b8-57d0-b718-5548cec7f351-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-b75633cc-b7b8-57d0-b718-5548cec7f351-attempt-1",
+      "scene_revision_sha256": "762213bddf8e202523511128421d2ea4554a86943316bb8783ffa85eeef85995",
+      "calibration_revision_id": "calibration-bae17f0d5b215c6aa95ca950",
+      "calibration_digest": "f1909c8c0c4b77db1b2807469c10a29e1b28c764115f805d6a4caa41ecc0325a",
+      "supported_frame_count": 40,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 40,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 40,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0643",
+      "m1_revision_id": "visible-cards-4e9dd1fd-86a9-5f1f-a846-24611110cf44-attempt-1",
+      "m1_revision_sha256": "88cb96e7f2b2f63879d1f1119ae3edd4f2ab0267be40a6feac531f01a0980baf",
+      "m2_run_id": "card-scene-proposal-5de2e404-4f70-5181-a161-d9f58168fd5e",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-5de2e404-4f70-5181-a161-d9f58168fd5e",
+      "status": "complete",
+      "input_frame_count": 52,
+      "progress": {
+        "completed": 52,
+        "total": 52
+      },
+      "active_processing_seconds_from_run_logs": 45.155,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "11d38003482d2a00896a528c427b2e3e8e5e847fccded43f4b035f796395f836",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-5de2e404-4f70-5181-a161-d9f58168fd5e-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-5de2e404-4f70-5181-a161-d9f58168fd5e-attempt-1",
+      "scene_revision_sha256": "fd0a515d782c64b49d96ed58cef325190855c8ad9c35bd44ae9e98b1bc4a2d86",
+      "calibration_revision_id": "calibration-0ddeceb8e0f6bd1970b0024c",
+      "calibration_digest": "46c9f3d178b3623ff70cf87a42fb520ebc923515f1a60a87a02a3ab047da6e17",
+      "supported_frame_count": 42,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 42,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 42,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0644",
+      "m1_revision_id": "visible-cards-61cac67a-56c9-5141-9278-82f0f8e7abe1-attempt-1",
+      "m1_revision_sha256": "1408cc1200c1513e55dacba9400bcbbf2d16d50ae6889ef11d09bbed4b339d78",
+      "m2_run_id": "card-scene-proposal-a4c1f35b-4b82-5fc3-90bb-bb679da0e701",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-a4c1f35b-4b82-5fc3-90bb-bb679da0e701",
+      "status": "complete",
+      "input_frame_count": 54,
+      "progress": {
+        "completed": 54,
+        "total": 54
+      },
+      "active_processing_seconds_from_run_logs": 60.245,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "037833a53a8c6e749e0495622e4b5a866a7dcb53da55131a787c3e8fdbe228b5",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-a4c1f35b-4b82-5fc3-90bb-bb679da0e701-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-a4c1f35b-4b82-5fc3-90bb-bb679da0e701-attempt-1",
+      "scene_revision_sha256": "585f4c8bb23eb26ffaca63fcbfa70584cdd50f0df76ced5fea22ea4a98b35fe6",
+      "calibration_revision_id": "calibration-d0dd45a361418a22b5f5a9a1",
+      "calibration_digest": "22f11c57eeba3610716c4f15d29a17f4e0d357765ea16dc7544bd65edf5b171d",
+      "supported_frame_count": 54,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 0,
+      "scene_frame_status_counts": {
+        "supported": 54
+      },
+      "scene_proposal_frames": 54,
+      "pile_region_count": 29,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0645",
+      "m1_revision_id": "visible-cards-22f665b9-2c77-5c8a-9cc1-eed1d90a168e-attempt-1",
+      "m1_revision_sha256": "2158d9bd95ddb94c6c1693aa3c98e92747541adc24fe8dfdbbf006b0cae8cd15",
+      "m2_run_id": "card-scene-proposal-1688f803-21b0-5be5-832d-3dc06d7928d3",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-1688f803-21b0-5be5-832d-3dc06d7928d3",
+      "status": "complete",
+      "input_frame_count": 51,
+      "progress": {
+        "completed": 51,
+        "total": 51
+      },
+      "active_processing_seconds_from_run_logs": 23.77,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "b15b600ea553c1ae4d54e5dfdd94eb6c2d3723d0583f387aaf14781c2f3a6471",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-1688f803-21b0-5be5-832d-3dc06d7928d3-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-1688f803-21b0-5be5-832d-3dc06d7928d3-attempt-1",
+      "scene_revision_sha256": "21c552c6224deb9f4854247b59a91e316b2ea644a7a2cbc002c34244a27fb3fe",
+      "calibration_revision_id": "calibration-c14f57e63ba233d35fe96039",
+      "calibration_digest": "8a07264004f5ed08f626d5d5f0e4517f7b80f1b2b9da6950edd989dc62ff4ed3",
+      "supported_frame_count": 45,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 6,
+      "scene_frame_status_counts": {
+        "supported": 45,
+        "no_cards_detected": 6
+      },
+      "scene_proposal_frames": 45,
+      "pile_region_count": 78,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0646",
+      "m1_revision_id": "visible-cards-bace182a-e2aa-5c9c-8a28-d0174188219e-attempt-1",
+      "m1_revision_sha256": "8d25edad7e7e54494046172ae2b43c26ffcff90582fe4fca0456d0a997a08c98",
+      "m2_run_id": "card-scene-proposal-042e69ed-a1ca-5197-9875-eab2cb6971d6",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-042e69ed-a1ca-5197-9875-eab2cb6971d6",
+      "status": "complete",
+      "input_frame_count": 51,
+      "progress": {
+        "completed": 51,
+        "total": 51
+      },
+      "active_processing_seconds_from_run_logs": 39.94,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "ce1fab749acac48e81f2206b079d62dc26c4028d841b579e46ca77a787bb8428",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-042e69ed-a1ca-5197-9875-eab2cb6971d6-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-042e69ed-a1ca-5197-9875-eab2cb6971d6-attempt-1",
+      "scene_revision_sha256": "2836e3e12a9e23351d4837e6bd0cfe4e7c7ef829dca4361a207f13c47129b47f",
+      "calibration_revision_id": "calibration-2088722e77eb3720495bc8e3",
+      "calibration_digest": "2dff15fe509ccb49aae5cedb91e4d66147d717f65334b5dbbc7319232ffe9d4d",
+      "supported_frame_count": 45,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 6,
+      "scene_frame_status_counts": {
+        "supported": 45,
+        "no_cards_detected": 6
+      },
+      "scene_proposal_frames": 45,
+      "pile_region_count": 1,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0648",
+      "m1_revision_id": "visible-cards-3c77f687-664d-5539-b547-5e085691430f-attempt-1",
+      "m1_revision_sha256": "9f545f4e539ec2df5463e0716900d7fd98a2ff9031f4616cb3b7c2678a384240",
+      "m2_run_id": "card-scene-proposal-74097974-8c87-5067-840a-aed7a277f2df",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-74097974-8c87-5067-840a-aed7a277f2df",
+      "status": "complete",
+      "input_frame_count": 52,
+      "progress": {
+        "completed": 52,
+        "total": 52
+      },
+      "active_processing_seconds_from_run_logs": 115.64,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "a188273b35c5fec64f67caf86337cb62ad7bb674ed4d5e8b6e56c1f048b3a631",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-74097974-8c87-5067-840a-aed7a277f2df-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-74097974-8c87-5067-840a-aed7a277f2df-attempt-1",
+      "scene_revision_sha256": "0e9d936c5379a4e0ff78560059727d562ceb06c79ecca426a52961148e134af2",
+      "calibration_revision_id": "calibration-20ce3aee66ff50b7fccb7706",
+      "calibration_digest": "c19d88e3dc9aaee3e31b20b00fd9b4de9827b84ce1408cbe88d4152abe5c8194",
+      "supported_frame_count": 42,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 42,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 42,
+      "pile_region_count": 1,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0649",
+      "m1_revision_id": "visible-cards-42a72ab8-4833-556b-8701-bf15a4f5e697-attempt-1",
+      "m1_revision_sha256": "66c5bced752bdb16f9f17a429401817f392d1e3245452298230641a368692a51",
+      "m2_run_id": "card-scene-proposal-eb81c511-58f7-5448-ac51-30fd54ab057f",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-eb81c511-58f7-5448-ac51-30fd54ab057f",
+      "status": "complete",
+      "input_frame_count": 54,
+      "progress": {
+        "completed": 54,
+        "total": 54
+      },
+      "active_processing_seconds_from_run_logs": 86.012,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "e75ef5ccdf818ae42a65bd9ab016a4c7dd3c385cc6baa4d779afe1bf6faca40d",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-eb81c511-58f7-5448-ac51-30fd54ab057f-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-eb81c511-58f7-5448-ac51-30fd54ab057f-attempt-1",
+      "scene_revision_sha256": "3f13578652849f02e9f163a8ce6895909949f2e364a2b8ef2518221da6edb7ba",
+      "calibration_revision_id": "calibration-65619936a317e27f0759fe7c",
+      "calibration_digest": "44bc11509da41483c342782a7b521604c04e901728503df57982546c40cec83f",
+      "supported_frame_count": 44,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 44,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 44,
+      "pile_region_count": 48,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0650",
+      "m1_revision_id": "visible-cards-6e0c5fdf-9438-56d1-8253-e9912b25d5bf-attempt-1",
+      "m1_revision_sha256": "64dd7d74cbca63df259b0bb8b8c00956b55fd246360ba902cdbdf60f45d08549",
+      "m2_run_id": "card-scene-proposal-f7279496-73da-5b82-aa26-9ffab766f953",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-f7279496-73da-5b82-aa26-9ffab766f953",
+      "status": "complete",
+      "input_frame_count": 36,
+      "progress": {
+        "completed": 36,
+        "total": 36
+      },
+      "active_processing_seconds_from_run_logs": 61.446,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "ed2f0473341f4eccd374198699ebcb5f565d3bad2f41990cdaa1cf6ea9790a2f",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-f7279496-73da-5b82-aa26-9ffab766f953-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-f7279496-73da-5b82-aa26-9ffab766f953-attempt-1",
+      "scene_revision_sha256": "8e5233bb1947568c50fe64c22a5a63ef1b9f137939bc69ab86835228bdd04c04",
+      "calibration_revision_id": "calibration-0e03112044bf5973a04cb08b",
+      "calibration_digest": "efbc327f7c4c16f6be2fa5120c0441af20194a6f6a206e04ca05c71a4e932742",
+      "supported_frame_count": 29,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 7,
+      "scene_frame_status_counts": {
+        "supported": 29,
+        "no_cards_detected": 7
+      },
+      "scene_proposal_frames": 29,
+      "pile_region_count": 31,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0651",
+      "m1_revision_id": "visible-cards-2a2ac876-25ab-51ac-bf51-39ff20caffdf-attempt-1",
+      "m1_revision_sha256": "f21d17e573d5b97d45078e8a5960c9cb0013e4bdee8f713051c7c55123f9c8ec",
+      "m2_run_id": "card-scene-proposal-3ec9bf3c-329a-56f4-9b26-4654ab64836b",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-3ec9bf3c-329a-56f4-9b26-4654ab64836b",
+      "status": "complete",
+      "input_frame_count": 51,
+      "progress": {
+        "completed": 51,
+        "total": 51
+      },
+      "active_processing_seconds_from_run_logs": 40.717,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "b5a151e98b6b4a40f41fd26abad58510e78d35a2b85c1db9937a0d803ca9fa0d",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-3ec9bf3c-329a-56f4-9b26-4654ab64836b-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-3ec9bf3c-329a-56f4-9b26-4654ab64836b-attempt-1",
+      "scene_revision_sha256": "78b153d95afc6de6d89cc75c463dafd6be18c0fc179961c25e9ef63596a426f7",
+      "calibration_revision_id": "calibration-dc7e274a705bff12d72a54f9",
+      "calibration_digest": "4f48b706ff6b375708371de0e43da1514d6992f24474af9f59fb21e2c814cd97",
+      "supported_frame_count": 41,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 41,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 41,
+      "pile_region_count": 46,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0652",
+      "m1_revision_id": "visible-cards-8a7d7ce8-e811-5dd5-a483-699ca6fc2445-attempt-1",
+      "m1_revision_sha256": "bf99cdffb479550c84c5f1da2fa519969b1b5adfda84d19869c6d1c91f84d1da",
+      "m2_run_id": "card-scene-proposal-1e8ef8a3-346e-5c56-a949-52dcb94b75db",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-1e8ef8a3-346e-5c56-a949-52dcb94b75db",
+      "status": "complete",
+      "input_frame_count": 51,
+      "progress": {
+        "completed": 51,
+        "total": 51
+      },
+      "active_processing_seconds_from_run_logs": 106.236,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "093657d36ae123896f84ecd3ccce0d9822c447900693f276e19fd60029cf0efd",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-1e8ef8a3-346e-5c56-a949-52dcb94b75db-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-1e8ef8a3-346e-5c56-a949-52dcb94b75db-attempt-1",
+      "scene_revision_sha256": "2e6a5ecc0224ecc099055db4fa5745f279fdf323b1a452b80030b5ad552cdcf3",
+      "calibration_revision_id": "calibration-8c2fb98268a9437344677d85",
+      "calibration_digest": "55a63205e3abbe914f21fa1b0d2a5604d6bd91721cf87540ec392012b23938f0",
+      "supported_frame_count": 41,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 41,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 41,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0653",
+      "m1_revision_id": "visible-cards-338183e7-1eb9-56e9-b4ab-18dd8ac02ad8-attempt-1",
+      "m1_revision_sha256": "a31b26a103f471828acaf4874c9211a7c9df14639ef312d2caa07b4090c9fb97",
+      "m2_run_id": "card-scene-proposal-109132b0-9e63-5c11-9d44-0200869a912d",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-109132b0-9e63-5c11-9d44-0200869a912d",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 79.503,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "e98030f8220090772b1acce388d63bc0885d3f38e539b31e8492c5fcc1fc2ee5",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-109132b0-9e63-5c11-9d44-0200869a912d-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-109132b0-9e63-5c11-9d44-0200869a912d-attempt-1",
+      "scene_revision_sha256": "48d1d36d7aa2d852cb6b4c023a3a8a84062cdb3c6ef56f995272f36069602a7a",
+      "calibration_revision_id": "calibration-f5d62a23c69175a64992e781",
+      "calibration_digest": "a20d0916a197f048f5bf19715cd2b64646691ee908a7fdd7bc9823b2747ec8dc",
+      "supported_frame_count": 40,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 40,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 40,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0655",
+      "m1_revision_id": "visible-cards-6850a399-0c9a-5949-add6-41d5cc77cbcb-attempt-1",
+      "m1_revision_sha256": "c6aa798946361b9507c188409da459e1c79ce51fa9d9dcd8581536d42aa2eeb5",
+      "m2_run_id": "card-scene-proposal-e4b4a225-814b-5915-b58c-4dfb8eeab5d2",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-e4b4a225-814b-5915-b58c-4dfb8eeab5d2",
+      "status": "complete",
+      "input_frame_count": 51,
+      "progress": {
+        "completed": 51,
+        "total": 51
+      },
+      "active_processing_seconds_from_run_logs": 42.462,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "5b39049add8830d8944b7378605cb4886a87dc9af406696c06662aa8dc5b1119",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-e4b4a225-814b-5915-b58c-4dfb8eeab5d2-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-e4b4a225-814b-5915-b58c-4dfb8eeab5d2-attempt-1",
+      "scene_revision_sha256": "2bd10681a1299948f9a8c7c6951261d777b5c2a1cb33ffbe2cd0504a603c771f",
+      "calibration_revision_id": "calibration-daab4aeabc38f6054c177e7a",
+      "calibration_digest": "9c720a612ea93d9724cf596bd8db6fd3222e411208ea792745baa9a4c3a522f9",
+      "supported_frame_count": 43,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 8,
+      "scene_frame_status_counts": {
+        "supported": 43,
+        "no_cards_detected": 8
+      },
+      "scene_proposal_frames": 43,
+      "pile_region_count": 1,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0657",
+      "m1_revision_id": "visible-cards-7f18ab0c-4019-5557-a004-b5d10070d6b4-attempt-1",
+      "m1_revision_sha256": "213a4200ab64e959929f94272be20de076d80f4716f175c1d3bb1e714c1e8a2a",
+      "m2_run_id": "card-scene-proposal-2a59861a-1d5a-54ab-8bc6-2598ad744caa",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-2a59861a-1d5a-54ab-8bc6-2598ad744caa",
+      "status": "complete",
+      "input_frame_count": 51,
+      "progress": {
+        "completed": 51,
+        "total": 51
+      },
+      "active_processing_seconds_from_run_logs": 54.282,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "26d0c73f231abd4481a18dc04299ff76eeb292bb52a2a64e7c8eab354010a044",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-2a59861a-1d5a-54ab-8bc6-2598ad744caa-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-2a59861a-1d5a-54ab-8bc6-2598ad744caa-attempt-1",
+      "scene_revision_sha256": "68aef9f622a2dbb0f1a9f0f290a381fe57e9df73cc6f088ea93eec30e1a829b2",
+      "calibration_revision_id": "calibration-200dd37219606d7f949d13bf",
+      "calibration_digest": "fc21c2947260dae20a911af5e85c654b6a523de8e9dd8cc2730435a06f268ead",
+      "supported_frame_count": 42,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 9,
+      "scene_frame_status_counts": {
+        "supported": 42,
+        "no_cards_detected": 9
+      },
+      "scene_proposal_frames": 42,
+      "pile_region_count": 0,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0658",
+      "m1_revision_id": "visible-cards-ef78d951-2932-57a9-b9cd-16914a8d15af-attempt-1",
+      "m1_revision_sha256": "b06ed8ba9f99e8036532970c3c9443ccd79e25c1b9171ca5fbeec73eb32af685",
+      "m2_run_id": "card-scene-proposal-6f32cd34-ebd9-541f-8948-8531a8370c98",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-6f32cd34-ebd9-541f-8948-8531a8370c98",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 27.341,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "0f82533723e7c0196092c0c0720479b48141f913c6548d5121969129d4355cf2",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-6f32cd34-ebd9-541f-8948-8531a8370c98-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-6f32cd34-ebd9-541f-8948-8531a8370c98-attempt-1",
+      "scene_revision_sha256": "a5904a3abc28fd659acec839030f33a29be0a897e82622ee1052ac4b042e627f",
+      "calibration_revision_id": "calibration-385b696a0476f8a41045db50",
+      "calibration_digest": "ca57c465c5f46ad7c7f91013b06d0c9f600cf3cde7631c58cdea1e9c7f8ddb29",
+      "supported_frame_count": 41,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 9,
+      "scene_frame_status_counts": {
+        "supported": 41,
+        "no_cards_detected": 9
+      },
+      "scene_proposal_frames": 41,
+      "pile_region_count": 46,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0661",
+      "m1_revision_id": "visible-cards-bc980ec3-a5df-53ab-9726-c5057101c7bd-attempt-1",
+      "m1_revision_sha256": "1f4077e2c3154a3c6faf420304b28fd37fc188586f0e68b5702f07f6e7cc1142",
+      "m2_run_id": "card-scene-proposal-8a9d75d2-f068-56aa-9a73-b5502641eafd",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-8a9d75d2-f068-56aa-9a73-b5502641eafd",
+      "status": "complete",
+      "input_frame_count": 54,
+      "progress": {
+        "completed": 54,
+        "total": 54
+      },
+      "active_processing_seconds_from_run_logs": 42.931,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "909c6cacdfab979a068505b23b5ba068fccaf777c4fd91858b544d3db58064aa",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-8a9d75d2-f068-56aa-9a73-b5502641eafd-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-8a9d75d2-f068-56aa-9a73-b5502641eafd-attempt-1",
+      "scene_revision_sha256": "b282f6198b2788e2ca282c59b826f03304712c8c6e184357480a38bd285ece93",
+      "calibration_revision_id": "calibration-fe569668c600f64bad64e34d",
+      "calibration_digest": "2f00c66133d1f6f9040fc5dedbf80f7a2fa267726a1763854086e2be90eddf15",
+      "supported_frame_count": 44,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 44,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 44,
+      "pile_region_count": 126,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0662",
+      "m1_revision_id": "visible-cards-6e2f3f6f-b5c3-5bb0-8056-47a34bf54327-attempt-1",
+      "m1_revision_sha256": "e7d585be69996a440c7c56d6e3fb3a2cd582288327b82555561a38c49191a1ad",
+      "m2_run_id": "card-scene-proposal-86811f40-afff-5cf9-bd8f-fbe1f1c4d90b",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-86811f40-afff-5cf9-bd8f-fbe1f1c4d90b",
+      "status": "complete",
+      "input_frame_count": 50,
+      "progress": {
+        "completed": 50,
+        "total": 50
+      },
+      "active_processing_seconds_from_run_logs": 33.414,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "a271f1c72e3327964720266db8e9aa368cf020d798cd1dd4dc45a7f90308f74a",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-86811f40-afff-5cf9-bd8f-fbe1f1c4d90b-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-86811f40-afff-5cf9-bd8f-fbe1f1c4d90b-attempt-1",
+      "scene_revision_sha256": "a1cc94880f81c4fe86e0f9c9d680c84c1228fb286a3ef83c43c3d60b4db4bef3",
+      "calibration_revision_id": "calibration-ead6d98f6a665d22d926b9dd",
+      "calibration_digest": "b1988762fbc8e6e910c32afa7a74c89f69c44ac60171a12819a6c71ee31005b2",
+      "supported_frame_count": 40,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 10,
+      "scene_frame_status_counts": {
+        "supported": 40,
+        "no_cards_detected": 10
+      },
+      "scene_proposal_frames": 40,
+      "pile_region_count": 84,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "game-2026-08-20-01-005",
+      "m1_revision_id": "visible-cards-fe894c5e-b4ab-55bc-ab22-b476de1f84d8-attempt-1",
+      "m1_revision_sha256": "0888df60d625b2b6ddc286a913c1b038dae3c4273eedfbf4c0eefa14a1b70842",
+      "m2_run_id": "card-scene-proposal-a0aefa4e-caa8-567e-96b0-eba312dabbce",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-a0aefa4e-caa8-567e-96b0-eba312dabbce",
+      "status": "failed",
+      "input_frame_count": 40,
+      "progress": {
+        "completed": 1,
+        "total": 3
+      },
+      "active_processing_seconds_from_run_logs": 1.58,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "544c9150a070e758f9fc399df5b100760e59a111a618bc17be33d4fafe01de75",
+      "output_revision_ids": [],
+      "terminal_failure": {
+        "code": "insufficient_validation_population",
+        "message": "the fit has too few independent held-out card boundaries"
+      },
+      "scene_revision_id": null,
+      "unprocessed_frame_count": 40,
+      "failure_code": "insufficient_validation_population"
+    },
+    {
+      "recording_id": "game-2026-09-18-01-001",
+      "m1_revision_id": "visible-cards-920c891d-1c86-577c-8094-55abd0989bf8-attempt-1",
+      "m1_revision_sha256": "7c314ee15fd5302a1144d561aa15df742265c7735c7cde1d7540cf4a8c5ea9c9",
+      "m2_run_id": "card-scene-proposal-b0ebc0eb-e701-55c3-88da-79c3bbf5f5d1",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-b0ebc0eb-e701-55c3-88da-79c3bbf5f5d1",
+      "status": "complete",
+      "input_frame_count": 57,
+      "progress": {
+        "completed": 57,
+        "total": 57
+      },
+      "active_processing_seconds_from_run_logs": 38.409,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "9e8bc8e966878aaf31bee6cd28991a1b00a701cf0c55a6459e8da7e5b1cec861",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-b0ebc0eb-e701-55c3-88da-79c3bbf5f5d1-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-b0ebc0eb-e701-55c3-88da-79c3bbf5f5d1-attempt-1",
+      "scene_revision_sha256": "b7282e6d43448112c72f8ec2288eb2c6d56c8b68e016a7aebc28c588b509df65",
+      "calibration_revision_id": "calibration-8b45dcc90ce09123421b98ab",
+      "calibration_digest": "7e8f6f8a1611b163e58ddb9a431fdb218da2f78aa21e3f0557e564eebb9194ee",
+      "supported_frame_count": 55,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 2,
+      "scene_frame_status_counts": {
+        "supported": 55,
+        "no_cards_detected": 2
+      },
+      "scene_proposal_frames": 55,
+      "pile_region_count": 53,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "game-2026-09-18-01-002",
+      "m1_revision_id": "visible-cards-847f395f-dfd0-56c7-b3b0-fd9725cdf2a9-attempt-1",
+      "m1_revision_sha256": "1351179873b690626146996d5ba4744ab8cd9d63507e901c521e9a3be49e80ce",
+      "m2_run_id": "card-scene-proposal-7fdb15cb-0fc3-585f-9c15-85ea78ac6726",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-7fdb15cb-0fc3-585f-9c15-85ea78ac6726",
+      "status": "complete",
+      "input_frame_count": 52,
+      "progress": {
+        "completed": 52,
+        "total": 52
+      },
+      "active_processing_seconds_from_run_logs": 40.195,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "1e437561045de753d953e78d0c4cce9df63894e55221148459b55a82ccbaa376",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-7fdb15cb-0fc3-585f-9c15-85ea78ac6726-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-7fdb15cb-0fc3-585f-9c15-85ea78ac6726-attempt-1",
+      "scene_revision_sha256": "c4e16bf7f52ffd28923a976bb49b6bed8a9625a738583e6ef79cdd56dc66c77f",
+      "calibration_revision_id": "calibration-274aaacc98963b18ef50067e",
+      "calibration_digest": "d043409337db5f087d880f27874a9ef309bbd92538e96f4f2738def179bdc782",
+      "supported_frame_count": 52,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 0,
+      "scene_frame_status_counts": {
+        "supported": 52
+      },
+      "scene_proposal_frames": 52,
+      "pile_region_count": 36,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    },
+    {
+      "recording_id": "game-2026-09-18-01-003",
+      "m1_revision_id": "visible-cards-15c12eef-4ce8-5568-8af7-761d2d553b66-attempt-1",
+      "m1_revision_sha256": "d296afcfd6d2c9562ca510cdbb47f9cf66f765ab665a0782cd93d178466a9899",
+      "m2_run_id": "card-scene-proposal-5c7b1ff7-33ab-5028-854b-53091836f672",
+      "m2_run_id_source": "M0 frozen planned run id",
+      "planned_m0_run_id": "card-scene-proposal-5c7b1ff7-33ab-5028-854b-53091836f672",
+      "status": "complete",
+      "input_frame_count": 57,
+      "progress": {
+        "completed": 57,
+        "total": 57
+      },
+      "active_processing_seconds_from_run_logs": 34.472,
+      "selection_pointer_unchanged": true,
+      "selection_pointer_sha256": "ad552d0b01b882e2c696a3006900c00c05ce55b5effbe3c9f32d021428d01c31",
+      "output_revision_ids": [
+        "card-scene-proposals-card-scene-proposal-5c7b1ff7-33ab-5028-854b-53091836f672-attempt-1"
+      ],
+      "terminal_failure": null,
+      "scene_revision_id": "card-scene-proposals-card-scene-proposal-5c7b1ff7-33ab-5028-854b-53091836f672-attempt-1",
+      "scene_revision_sha256": "effcc2a04d7279492c79d4a1dc653b169fb75582b506c3b9f915fe856b013a9c",
+      "calibration_revision_id": "calibration-048cd4d1f730611212cb9b3a",
+      "calibration_digest": "0e51f02ca266d314277d4a4f4f51be1ec00f6f97c28ef9541ee41f09db76d901",
+      "supported_frame_count": 55,
+      "unsupported_frame_count": 0,
+      "no_card_frame_count": 2,
+      "scene_frame_status_counts": {
+        "supported": 55,
+        "no_cards_detected": 2
+      },
+      "scene_proposal_frames": 55,
+      "pile_region_count": 108,
+      "card_pose_count": 0,
+      "frame_ids_match_m1": true,
+      "scene_content_sha256_verified": true
+    }
+  ]
+}

@@ -15,8 +15,8 @@
 - **M0:** Complete — froze 34 eligible recordings, exact event frames, comparison coverage, source overlap, run IDs, and processing limits. No inference ran.
 - **M1:** Complete with one named terminal run failure — 33 corrected recordings produced 1,707
   exact M0 frame outcomes; one recording remains unprocessed after its terminal backend failure.
-- **M2:** Not started — generate proposed card scenes from the exact M1 outputs.
-- **M3:** Not started — evaluate the retained segmentation and scene outputs.
+- **M2:** Complete — 29 scene runs cover 1,513 frames; four calibration failures leave 194 frames unprocessed. The separate M1 failure leaves 49 frames unprocessed.
+- **M3:** In progress — evaluate retained outputs against exact-frame reviewed references.
 - **M4:** Not started — review results and publish the measured follow-up work.
 
 ## 1. Scope and current evidence
