@@ -26,17 +26,19 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Active: **[0098 — Identity proposal batch](3-in-progress/0098-Identity_Proposal_Batch.md)** (M0 complete; M1 next), and **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) is complete; its read-only queue check found all 165 frozen items unavailable because of the local revision catalog. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md).
+Active: **[0098 — Identity proposal batch](3-in-progress/0098-Identity_Proposal_Batch.md)** (M0–M1 complete; M2 next), and **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) is complete; its read-only queue check found all 165 frozen items unavailable because of the local revision catalog. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md).
 
 While 0096 waits for human review, autonomous work is available in this preferred order:
 
-1. **[0098 — Identity proposal batch](3-in-progress/0098-Identity_Proposal_Batch.md):** run the pinned M6
-   model on permitted successful 0096 scenes and publish a separate identity review queue.
+1. **[0098 — Identity proposal batch](3-in-progress/0098-Identity_Proposal_Batch.md):** M0–M1
+   complete. M2 will report diagnostic coverage and supported identity comparisons. M3 will freeze
+   a separate identity review queue.
+
 0098 remains available from retained artifacts while 0096 awaits human review. Epic 0099 closed
 after both bounded candidates failed to improve a measured failure; its final handoff retains the
-baseline and records the limits of the evidence. The 0098 batch does not require 0096 human-review completion. Identification remains outside
-0096.
-No reconstruction or training campaign is scheduled by these epics.
+baseline and records the limits of the evidence. The 0098 batch does not require 0096 human-review
+completion. Identification remains outside 0096. No reconstruction or training campaign is
+scheduled by these epics.
 
 1. **0086 M4/M5:** Complete. The handoffs contain 20 eligible recordings, 1,391 identity crops,
    support for all 21 campaign classes, and exact exclusions. `IMG_0092` is permanently excluded;
