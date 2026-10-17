@@ -143,6 +143,10 @@ def build_report(repository: Path, pipeline_store: Path) -> dict[str, Any]:
 
         reference_id = frozen.get("selected_identity_reference_revision_id")
         reference_path = revisions / reference_id / "content.json" if reference_id else None
+        if reference_path and not reference_path.is_file():
+            raise FileNotFoundError(
+                f"selected identity reference is missing for {recording_id}: {reference_id}"
+            )
         reference_content = (
             _read(reference_path) if reference_path and reference_path.exists() else None
         )
