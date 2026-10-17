@@ -2,7 +2,12 @@
 
 ## Plan status
 
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** The bounded local proposal batch and identity review handoff are complete.
+  Human identity review remains pending. The live backend was unavailable during the M3 check, and
+  ten saved drafts target a different revision; the queue records those conflicts and preserves
+  every draft.
 - **Depends on:** Completed 0096 M1/M2 outputs, 0088 M6 bundle, and 0085/0093 crop provenance.
 - **Outcome:** Retained local identity proposals from the successful 0096 scenes, a coverage report,
   and a bounded identity review queue. Human geometry review is not an inference prerequisite.
@@ -26,7 +31,12 @@
   pairs. No accuracy claim is supported. Per-crop latency and per-recording memory were not
   recorded. See the [M2 report](../../reports/0098-M2_Identity_Diagnostics.md) and its
   [machine-readable lineage](../../reports/0098-M2_Identity_Diagnostics.json).
-- **M3:** Not started — publish a frozen identity review queue and handoff.
+- **M3:** Complete — freeze 114 identity review frames across all 26 eligible recordings. The
+  queue pins exact M1 result revisions, card items, frame times, and crop-lineage digests. Ten
+  recordings have drafts that target another result; the handoff preserves them. The live editor
+  backend was unavailable during the read-only check. No human decisions were created. See the
+  [M3 queue and handoff](../../reports/0098-M3_Identity_Review_Queue.md) and its
+  [machine-readable adapter input](../../reports/0098-M3_Identity_Review_Queue.json).
 
 ## Scope and evidence
 
@@ -118,6 +128,20 @@ live drafts and record unavailable/conflicting editor targets. No review decisio
 Acceptance: publish the bounded queue, coverage report, and reproduction commands. The epic can
 close after this autonomous handoff; identity review remains explicitly pending and separate from
 0096's geometry review.
+
+## M3 implementation evidence — 2026-10-17
+
+The file-based queue contains 114 frames from all 26 eligible recordings, below the 145-frame cap.
+It selects at most five frames per recording, with one deterministic control when available. The
+queue prioritizes face-down predictions, low confidence, and low top-1/top-2 margins. M1 had no
+unusable or failed crop outcomes, so no crop diagnostic frames were available to select.
+
+Each item pins the exact M1 generated revision, card item, and source time in the maintained-reference
+editor URL. It records frame, crop, and geometry digests. All 26 current selection pointers name a
+different generated revision; the URL selects the frozen M1 revision without changing that pointer.
+Ten recordings have a live draft whose source differs from the queue result. The report marks each
+conflict and preserves the draft. The current backend at `127.0.0.1:8001` refused the read-only
+connection check. No queue UI, review decision, or reference change was created.
 
 ## Verification
 
