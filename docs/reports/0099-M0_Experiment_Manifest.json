@@ -1,0 +1,799 @@
+{
+  "acceptance_gates": {
+    "fixtures_for_changed_paths": true,
+    "no_generalization_claim": true,
+    "no_new_calibration_failure_on_previously_passing_recordings": true,
+    "outside_training_precision_minimum": 0.89726,
+    "outside_training_recall_minimum": 0.924706,
+    "quality_metric": "pipeline polygon IoU >= 0.5 with unchanged M3 pairing, ignore-region, and greedy one-to-one policies",
+    "report_per_recording_regressions_even_when_aggregates_pass": true
+  },
+  "baseline": {
+    "0096_m0_application_commit": "a4d6cd155bdc6b7de17e70355d0741f18722cfd0",
+    "application_commit": "8bdc68f4243835d2b0d9b02f812e87585d07fc01",
+    "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+    "bundle_manifest_sha256": "826ccba533531c62a2059be5889b9c48aa44800df5d216997575a238c37f5816",
+    "checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+    "input_artifacts": {
+      "0096-M0_Event_Frame_Inputs.json": "7ab7a3244dd62029189738d5a7d1b93c3ac43424c6152a7f86f6ee124a742a46",
+      "0096-M0_Exact_Frame_Comparison.json": "c87bdc74e97b31a297368dcadeded5cb73ffc7b24b55d9caced89208b27cb533",
+      "0096-M0_Preflight.json": "74fb5de7efa018ac45112030b458ffe1c8158656c0edd59027329251c2fcfab3",
+      "0096-M1_Input_Anchor_Correction.json": "073032a1a525105ae4112c7de056744e78da5d018ed8a39e5c934f9ac9d5c38e",
+      "0096-M1_Run_Result.json": "85c7874dba6f04838c80f4d961be313bae2bbcc685e4a9da0fd4d88610464cbc",
+      "0096-M2_Proposed_Scene_Results.json": "e99c62c1d2b6e6c003690f730653a936084ab8a2cc5f3a7253074650c26d0ae3",
+      "0096-M3_Exact_Reference_Evaluation.json": "2714b4cd1bb6a70617cfa404835f276cf23dae472853cf772396313fff279c8f",
+      "0096-M4_Human_Review_Queue.json": "8527a62a7a9241e27cb5d77d2d0ac396de2cb282fd787cb03849673e3288d832"
+    },
+    "source_file_sha256": {
+      "operations/scripts/evaluate_0096_m3.py": "aec308ac81c273fbd1e0e06c2ff241c248ba49e1d569f4b9b2a4faa03c1f7366",
+      "operations/src/doko_operations/card_plane_calibration.py": "360adb940d9e8c8e3334bf6ffadb94ecb203f844312a3f6213c78f08a42acb72",
+      "operations/src/doko_operations/manual_visible_card_detection.py": "2ece3a2403491facdffa578428577e05aaef06126e652099ad4d78b125b7118d",
+      "operations/src/doko_operations/proposed_card_scene_processor.py": "1ecb58c1c91bde474f0c208ebc527377c175475be91272b11bf582a7069aabab"
+    }
+  },
+  "baseline_metrics": {
+    "all_evaluable": {
+      "duplicate_proposals": 2,
+      "f1": 0.961591,
+      "false_negatives": 74,
+      "false_positives": 96,
+      "ignored_region_frames": 177,
+      "matched_iou_count": 2128,
+      "mean_matched_iou": 0.924866,
+      "neutralized_predictions": 0,
+      "paired_frames": 880,
+      "precision": 0.956835,
+      "predicted_cards": 2224,
+      "recall": 0.966394,
+      "reviewed_cards": 2202,
+      "reviewed_empty_frames": 0,
+      "scoreable_frames": 870,
+      "true_positives": 2128,
+      "unresolved_reference_frames": 10,
+      "zero_card_outcomes_correct": 0,
+      "zero_card_outcomes_incorrect": 0
+    },
+    "coverage": {
+      "M0_unpaired_reference_frames": 378,
+      "eligible_pairs_without_m1_output": 0,
+      "exact_pairs_eligible": 880,
+      "exact_pairs_excluded_by_evaluation_permission": 123,
+      "m0_exact_pairs_all_permissions": 1003,
+      "scoreable_frame_count": 870
+    },
+    "m2_runtime": {
+      "cloud_requests": 0,
+      "m1_m2_active_processing_seconds": 8611.217,
+      "rss_peak_bytes": 2190163968,
+      "rss_samples": 1450,
+      "scene_active_processing_seconds": 7508.539
+    },
+    "outside_m4_refit_training": {
+      "duplicate_proposals": 2,
+      "f1": 0.910776,
+      "false_negatives": 64,
+      "false_positives": 90,
+      "ignored_region_frames": 142,
+      "matched_iou_count": 786,
+      "mean_matched_iou": 0.897632,
+      "neutralized_predictions": 0,
+      "paired_frames": 324,
+      "precision": 0.89726,
+      "predicted_cards": 876,
+      "recall": 0.924706,
+      "reviewed_cards": 850,
+      "reviewed_empty_frames": 0,
+      "scoreable_frames": 323,
+      "true_positives": 786,
+      "unresolved_reference_frames": 1,
+      "zero_card_outcomes_correct": 0,
+      "zero_card_outcomes_incorrect": 0
+    },
+    "overlaps_m4_refit_training": {
+      "duplicate_proposals": 0,
+      "f1": 0.994074,
+      "false_negatives": 10,
+      "false_positives": 6,
+      "ignored_region_frames": 35,
+      "matched_iou_count": 1342,
+      "mean_matched_iou": 0.940817,
+      "neutralized_predictions": 0,
+      "paired_frames": 556,
+      "precision": 0.995549,
+      "predicted_cards": 1348,
+      "recall": 0.992604,
+      "reviewed_cards": 1352,
+      "reviewed_empty_frames": 0,
+      "scoreable_frames": 547,
+      "true_positives": 1342,
+      "unresolved_reference_frames": 9,
+      "zero_card_outcomes_correct": 0,
+      "zero_card_outcomes_incorrect": 0
+    }
+  },
+  "calibration_failures": [
+    {
+      "failure_code": "inconsistent_card_geometry",
+      "m1_revision_id": "visible-cards-a9c887ce-ebcf-5684-8cb9-07ef0e85ccfb-attempt-1",
+      "m1_revision_sha256": "0464776ebe60d3ae980d84eaad6469bb546567cb4f01caa3b9a34ddece5148f0",
+      "m2_run_id": "card-scene-proposal-26458f5b-c76c-46fd-a5cd-c28d02a79a59",
+      "outcome": "failed",
+      "recording_id": "cardeventnet-IMG_0090"
+    },
+    {
+      "failure_code": "inconsistent_card_geometry",
+      "m1_revision_id": "visible-cards-5858cc78-219d-58c7-991b-d8d9e55d6be0-attempt-1",
+      "m1_revision_sha256": "3a543b7c862ab080a423b94408d1047014c32f79496a57df9d3859a018be7460",
+      "m2_run_id": "card-scene-proposal-b9c5b740-53e7-5c90-b6cd-5e9173a53d91",
+      "outcome": "failed",
+      "recording_id": "cardeventnet-IMG_0635"
+    },
+    {
+      "failure_code": "unstable_table_transform",
+      "m1_revision_id": "visible-cards-d2b8317b-aacb-5d0b-b3e0-d5ab3a4c2089-attempt-1",
+      "m1_revision_sha256": "d7b41d38b67a10d8f6c0d4d1a15891b6401af1a8143f08fee0a3694094f7f8af",
+      "m2_run_id": "card-scene-proposal-bc0d0aba-751b-54fb-976d-c1549c8dd09d",
+      "outcome": "failed",
+      "recording_id": "cardeventnet-IMG_0641"
+    },
+    {
+      "failure_code": "insufficient_validation_population",
+      "m1_revision_id": "visible-cards-fe894c5e-b4ab-55bc-ab22-b476de1f84d8-attempt-1",
+      "m1_revision_sha256": "0888df60d625b2b6ddc286a913c1b038dae3c4273eedfbf4c0eefa14a1b70842",
+      "m2_run_id": "card-scene-proposal-a0aefa4e-caa8-567e-96b0-eba312dabbce",
+      "outcome": "failed",
+      "recording_id": "game-2026-08-20-01-005"
+    }
+  ],
+  "candidate_budget": {
+    "cloud_requests": 0,
+    "independent_software_candidates_max": 2,
+    "instrumentation": [
+      "wall-clock runtime",
+      "process RSS"
+    ],
+    "max_active_experiment_seconds": 43200,
+    "max_active_processor_runs": 1,
+    "process_memory_limit_bytes": 34359738368,
+    "replay_each_candidate": "one replay of the frozen comparison corpus and four calibration-failure recordings"
+  },
+  "date": "2026-10-17",
+  "epic": "0099",
+  "milestone": "M0",
+  "per_recording_baseline": [
+    {
+      "exact_paired_frames": 40,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.950763,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 0,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 40,
+        "predicted_cards": 99,
+        "reviewed_cards": 99,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 40,
+        "true_positives": 99,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0636"
+    },
+    {
+      "exact_paired_frames": 40,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.914956,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 0,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 40,
+        "predicted_cards": 100,
+        "reviewed_cards": 100,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 40,
+        "true_positives": 100,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0637"
+    },
+    {
+      "exact_paired_frames": 41,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.939721,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 1,
+        "false_positives": 1,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 41,
+        "predicted_cards": 100,
+        "reviewed_cards": 100,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 41,
+        "true_positives": 99,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0638"
+    },
+    {
+      "exact_paired_frames": 40,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.935577,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 3,
+        "false_positives": 2,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 40,
+        "predicted_cards": 99,
+        "reviewed_cards": 100,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 40,
+        "true_positives": 97,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0639"
+    },
+    {
+      "exact_paired_frames": 40,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.944649,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 0,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 40,
+        "predicted_cards": 100,
+        "reviewed_cards": 100,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 40,
+        "true_positives": 100,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0640"
+    },
+    {
+      "exact_paired_frames": 42,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.954039,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 0,
+        "ignored_region_frames": 2,
+        "neutralized_predictions": 0,
+        "paired_frames": 42,
+        "predicted_cards": 100,
+        "reviewed_cards": 100,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 40,
+        "true_positives": 100,
+        "unresolved_reference_frames": 2,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0641"
+    },
+    {
+      "exact_paired_frames": 40,
+      "lineage_errors": [],
+      "m4_training_overlap": false,
+      "mean_matched_iou": 0.880386,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 1,
+        "false_positives": 0,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 40,
+        "predicted_cards": 99,
+        "reviewed_cards": 100,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 40,
+        "true_positives": 99,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0642"
+    },
+    {
+      "exact_paired_frames": 42,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.955426,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 2,
+        "false_positives": 0,
+        "ignored_region_frames": 27,
+        "neutralized_predictions": 0,
+        "paired_frames": 42,
+        "predicted_cards": 99,
+        "reviewed_cards": 101,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 41,
+        "true_positives": 99,
+        "unresolved_reference_frames": 1,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0643"
+    },
+    {
+      "exact_paired_frames": 44,
+      "lineage_errors": [],
+      "m4_training_overlap": false,
+      "mean_matched_iou": 0.913061,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 6,
+        "false_positives": 76,
+        "ignored_region_frames": 44,
+        "neutralized_predictions": 0,
+        "paired_frames": 44,
+        "predicted_cards": 187,
+        "reviewed_cards": 117,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 44,
+        "true_positives": 111,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0644"
+    },
+    {
+      "exact_paired_frames": 41,
+      "lineage_errors": [],
+      "m4_training_overlap": false,
+      "mean_matched_iou": 0.852795,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 43,
+        "false_positives": 6,
+        "ignored_region_frames": 32,
+        "neutralized_predictions": 0,
+        "paired_frames": 41,
+        "predicted_cards": 100,
+        "reviewed_cards": 137,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 41,
+        "true_positives": 94,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0645"
+    },
+    {
+      "exact_paired_frames": 41,
+      "lineage_errors": [],
+      "m4_training_overlap": false,
+      "mean_matched_iou": 0.895869,
+      "metrics": {
+        "duplicate_proposals": 1,
+        "false_negatives": 9,
+        "false_positives": 7,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 41,
+        "predicted_cards": 103,
+        "reviewed_cards": 105,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 40,
+        "true_positives": 96,
+        "unresolved_reference_frames": 1,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0646"
+    },
+    {
+      "exact_paired_frames": 42,
+      "lineage_errors": [],
+      "m4_training_overlap": false,
+      "mean_matched_iou": 0.935882,
+      "metrics": {
+        "duplicate_proposals": 1,
+        "false_negatives": 0,
+        "false_positives": 1,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 42,
+        "predicted_cards": 106,
+        "reviewed_cards": 105,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 42,
+        "true_positives": 105,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0648"
+    },
+    {
+      "exact_paired_frames": 44,
+      "lineage_errors": [],
+      "m4_training_overlap": false,
+      "mean_matched_iou": 0.92168,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 0,
+        "ignored_region_frames": 39,
+        "neutralized_predictions": 0,
+        "paired_frames": 44,
+        "predicted_cards": 109,
+        "reviewed_cards": 109,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 44,
+        "true_positives": 109,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0649"
+    },
+    {
+      "exact_paired_frames": 29,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.941523,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 0,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 29,
+        "predicted_cards": 67,
+        "reviewed_cards": 67,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 28,
+        "true_positives": 67,
+        "unresolved_reference_frames": 1,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0650"
+    },
+    {
+      "exact_paired_frames": 41,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.934823,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 0,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 41,
+        "predicted_cards": 102,
+        "reviewed_cards": 102,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 41,
+        "true_positives": 102,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0651"
+    },
+    {
+      "exact_paired_frames": 40,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.950906,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 3,
+        "false_positives": 2,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 40,
+        "predicted_cards": 94,
+        "reviewed_cards": 95,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 38,
+        "true_positives": 92,
+        "unresolved_reference_frames": 2,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0653"
+    },
+    {
+      "exact_paired_frames": 41,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.936413,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 1,
+        "false_positives": 0,
+        "ignored_region_frames": 6,
+        "neutralized_predictions": 0,
+        "paired_frames": 41,
+        "predicted_cards": 102,
+        "reviewed_cards": 103,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 41,
+        "true_positives": 102,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0655"
+    },
+    {
+      "exact_paired_frames": 41,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.960349,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 0,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 41,
+        "predicted_cards": 97,
+        "reviewed_cards": 97,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 40,
+        "true_positives": 97,
+        "unresolved_reference_frames": 1,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0657"
+    },
+    {
+      "exact_paired_frames": 40,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.930259,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 0,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 40,
+        "predicted_cards": 96,
+        "reviewed_cards": 96,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 39,
+        "true_positives": 96,
+        "unresolved_reference_frames": 1,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0658"
+    },
+    {
+      "exact_paired_frames": 39,
+      "lineage_errors": [],
+      "m4_training_overlap": true,
+      "mean_matched_iou": 0.922016,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 0,
+        "false_positives": 1,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 39,
+        "predicted_cards": 93,
+        "reviewed_cards": 92,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 38,
+        "true_positives": 92,
+        "unresolved_reference_frames": 1,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0662"
+    },
+    {
+      "exact_paired_frames": 40,
+      "lineage_errors": [],
+      "m4_training_overlap": false,
+      "mean_matched_iou": 0.888596,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 2,
+        "false_positives": 0,
+        "ignored_region_frames": 0,
+        "neutralized_predictions": 0,
+        "paired_frames": 40,
+        "predicted_cards": 98,
+        "reviewed_cards": 100,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 40,
+        "true_positives": 98,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0091"
+    },
+    {
+      "exact_paired_frames": 32,
+      "lineage_errors": [],
+      "m4_training_overlap": false,
+      "mean_matched_iou": 0.879074,
+      "metrics": {
+        "duplicate_proposals": 0,
+        "false_negatives": 3,
+        "false_positives": 0,
+        "ignored_region_frames": 27,
+        "neutralized_predictions": 0,
+        "paired_frames": 32,
+        "predicted_cards": 74,
+        "reviewed_cards": 77,
+        "reviewed_empty_frames": 0,
+        "scoreable_frames": 32,
+        "true_positives": 74,
+        "unresolved_reference_frames": 0,
+        "zero_card_outcomes_correct": 0,
+        "zero_card_outcomes_incorrect": 0
+      },
+      "recording_id": "cardeventnet-IMG_0661"
+    }
+  ],
+  "preservation": {
+    "0096_outputs_and_165_frame_review_queue_unchanged": true,
+    "generated_selection_pointers_and_human_drafts_unchanged": true,
+    "training_overlap_reported_separately": true
+  },
+  "provenance": {
+    "basis": "Retained 0096 M0-M3 manifests and reports. No media, protected source, or system-holdout asset was opened for this freeze.",
+    "m3_report_revision": "The main worktree has a local one-line policy clarification for ignore-region scoring. It preserves the frozen coverage and segmentation counts. Its exact current file digest is pinned above; do not overwrite that worktree change.",
+    "prior_examination": "Both subsets are derived from 0096 M3 measurements already inspected. Confirmation is an internal candidate check, not a fresh holdout or generalization evidence.",
+    "selection_algorithm": "Sort outside-refit-training scored groups by SHA-256 of UTF-8 \"0099-M0-source-group-v1:\" + source_group. First four are development; remaining groups are confirmation. Do not change assignments.",
+    "source_permissions": "Use only existing 0096 evaluation_eligibility=true maintained references and exact paired outputs. Never include 0092 M4 refit-training groups in outside-training quality claims."
+  },
+  "runtime_comparison": {
+    "baseline_conditions": "Use saved detector outputs, existing M1/M2 run receipts, and exact M3 evaluation policy. One active processor; zero cloud requests.",
+    "candidate_inference": "No fresh segmentation unless a separate bounded plan amendment is recorded."
+  },
+  "schema_version": "0099-m0-experiment-manifest/v1",
+  "status": "frozen",
+  "subsets": {
+    "confirmation": [
+      {
+        "duplicate_proposals": 0,
+        "fn": 0,
+        "fp": 0,
+        "intake_record_sha256": "da40ce10555d314918e62f078f27083ad8da27dcbde6a40294cae54f72b3d15a",
+        "recording_id": "cardeventnet-IMG_0649",
+        "scoreable_frames": 44,
+        "source_group": "capture-img-0649",
+        "subset": "confirmation",
+        "tp": 109
+      },
+      {
+        "duplicate_proposals": 0,
+        "fn": 1,
+        "fp": 0,
+        "intake_record_sha256": "b86b5170832faccaa741f39c0d66fea354f051a8d44ca05fdf44767aed7a1b52",
+        "recording_id": "cardeventnet-IMG_0642",
+        "scoreable_frames": 40,
+        "source_group": "capture-img-0642",
+        "subset": "confirmation",
+        "tp": 99
+      },
+      {
+        "duplicate_proposals": 1,
+        "fn": 0,
+        "fp": 1,
+        "intake_record_sha256": "e5886e786744c4ef71bcf36b26777f53ad7e08e7b9c77e41fe9a727d77581b08",
+        "recording_id": "cardeventnet-IMG_0648",
+        "scoreable_frames": 42,
+        "source_group": "capture-img-0648",
+        "subset": "confirmation",
+        "tp": 105
+      },
+      {
+        "duplicate_proposals": 0,
+        "fn": 6,
+        "fp": 76,
+        "intake_record_sha256": "ef26161da79a04f082de3c440d58f31f3fb891b28cb50b2961f9128aab0bafe1",
+        "recording_id": "cardeventnet-IMG_0644",
+        "scoreable_frames": 44,
+        "source_group": "capture-img-0644",
+        "subset": "confirmation",
+        "tp": 111
+      }
+    ],
+    "development": [
+      {
+        "duplicate_proposals": 0,
+        "fn": 43,
+        "fp": 6,
+        "intake_record_sha256": "bf9a270ef4d103766aff6eb31a0eb646b4bd42297aaf64ff8caffce73cdc610e",
+        "recording_id": "cardeventnet-IMG_0645",
+        "scoreable_frames": 41,
+        "source_group": "capture-img-0645",
+        "subset": "development",
+        "tp": 94
+      },
+      {
+        "duplicate_proposals": 1,
+        "fn": 9,
+        "fp": 7,
+        "intake_record_sha256": "adf37a82b167db431622d9d0b2d147a22650e317b99a0dda55f56cf6e6b09233",
+        "recording_id": "cardeventnet-IMG_0646",
+        "scoreable_frames": 40,
+        "source_group": "capture-img-0646",
+        "subset": "development",
+        "tp": 96
+      },
+      {
+        "duplicate_proposals": 0,
+        "fn": 3,
+        "fp": 0,
+        "intake_record_sha256": "ff99c50d69a897e80cdfd1921feffafa39e2d7bf9f5f7ac6b7bdf1e9448f43f5",
+        "recording_id": "cardeventnet-IMG_0661",
+        "scoreable_frames": 32,
+        "source_group": "capture-img-0661",
+        "subset": "development",
+        "tp": 74
+      },
+      {
+        "duplicate_proposals": 0,
+        "fn": 2,
+        "fp": 0,
+        "intake_record_sha256": "91755065deb5ce20db47b4a4db81afd1b9c81a1c22b438c68698a7c871319bdd",
+        "recording_id": "cardeventnet-IMG_0091",
+        "scoreable_frames": 40,
+        "source_group": "capture-img-0091",
+        "subset": "development",
+        "tp": 98
+      }
+    ]
+  },
+  "terminal_m1_failure": {
+    "corrective_run_id": null,
+    "output_revision_ids": [],
+    "progress": {
+      "completed": 0,
+      "total": 49
+    },
+    "reason": "Do not retry terminal failures. No inference frame completed before the backend restart.",
+    "recording_id": "game-2026-08-20-01-001",
+    "run_id": "97eaca74-c7be-5c22-9149-61ddce059fc8",
+    "status": "failed",
+    "terminal_failure": {
+      "code": "backend_restarted",
+      "message": "The event processor did not finish before the backend restarted."
+    }
+  }
+}

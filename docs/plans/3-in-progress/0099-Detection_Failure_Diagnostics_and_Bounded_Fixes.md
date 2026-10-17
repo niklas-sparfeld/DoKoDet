@@ -2,14 +2,14 @@
 
 ## Plan status
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0096 M1–M3 exact-frame outputs and comparison evidence.
 - **Outcome:** Reproducible failure diagnoses and a bounded decision to retain the baseline or
   select a measured software fix. No new human review is required for the diagnostic path.
 
 ## Milestone status
 
-- **M0:** Not started — freeze baseline, diagnostic corpus, candidate budget, and acceptance gates.
+- **M0:** Complete — froze the baseline, exact artifact and source digests, source-group subsets, candidate budget, and acceptance gates. See the [M0 report](../../reports/0099-M0_Baseline_and_Experiment_Freeze.md) and [manifest](../../reports/0099-M0_Experiment_Manifest.json).
 - **M1:** Not started — classify failures and build regression fixtures.
 - **M2:** Not started — test at most two justified software candidates, or record no-fix evidence.
 - **M3:** Not started — decide once and publish measured results and remaining review needs.
