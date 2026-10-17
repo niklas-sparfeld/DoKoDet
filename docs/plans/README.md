@@ -26,6 +26,11 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
+Next: **[0096 — Segmentation and virtual-card batch review](2-ready/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**.
+Start with M0 eligibility and input freeze. Run the pinned 0092 M4 segmentation bundle and proposed
+card scene processor across all eligible recordings, then evaluate and review the retained results.
+Identification, observation assembly, and reconstruction are outside this epic.
+
 1. **0086 M4/M5:** Complete. The handoffs contain 20 eligible recordings, 1,391 identity crops,
    support for all 21 campaign classes, and exact exclusions. `IMG_0092` is permanently excluded;
    `IMG_0096` is deferred for calibration repair.
@@ -82,7 +87,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| *No ready epics* |  |  |
+| [0096 — Segmentation and virtual-card batch review](2-ready/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M4 not started. Freeze all eligible inputs, run segmentation and proposed card scenes, then evaluate and review. No identification or reconstruction. |
 
 ### In Progress
 
