@@ -178,6 +178,8 @@ function comparison(
         derived_view: `/api/recordings/${RECORDING_ID}/pipeline/derived-views/exact-event/${(index + 1) * 100_000}`,
       },
       frame_identity: null,
+      reference_frame_identity: null,
+      run_frame_identity: null,
       reference_card_id: `reference-card-${index}`,
       run_card_id: `run-card-${index}`,
       reference_card: null,

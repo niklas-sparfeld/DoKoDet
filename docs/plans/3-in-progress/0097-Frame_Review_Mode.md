@@ -10,7 +10,8 @@
 ## Milestone status
 
 - **M0:** Complete — validated frozen queue projection and explicit saved-review receipt rules.
-- **M1:** Not started — expose queue and progress through the backend.
+- **M1:** Complete — expose bounded queue pages, counts, exact editor targets, unavailable reasons,
+  receipt status, and persisted queue-only deferral and resume position through the backend API.
 - **M2:** Not started — add the frame list and exact-result editor navigation.
 - **M3:** Not started — add resume, defer, and saved-review progress; verify the complete workflow.
 
@@ -75,6 +76,15 @@ when a recording-level projection can serve the page.
 Acceptance: deterministic ordering and counts survive restart; unavailable items remain visible;
 mutations validate item and queue identity. Tests show that queue requests cannot seed, reset, or
 overwrite an existing draft. Unknown or changed lineage becomes actionable unavailable state.
+
+M1 adds `GET /api/frame-reviews/0096-M4` and a queue workflow update endpoint. The GET response
+uses the frozen selection digest, pages items in manifest order, counts every state and selection
+reason, and returns pinned editor targets. It checks revision manifests before returning a target.
+Missing, changed, or unrelated revisions remain visible as unavailable with an action. Valid saved
+receipts count only when their result lineage, current maintained draft revision, and decision IDs
+still match. Queue deferral and resume position are stored under `data/operations` outside the
+maintained reference. The projection reads revision manifests once per request and loads each
+referenced draft at most once.
 
 ## M2 — Add list and editor navigation
 

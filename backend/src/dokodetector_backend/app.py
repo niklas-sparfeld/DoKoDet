@@ -22,6 +22,8 @@ from dokodetector_backend.event_pipeline_service import EventProcessorProvider
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.filesystem import atomic_replace_json
+from dokodetector_backend.frame_review_api import router as frame_review_router
+from dokodetector_backend.frame_review_workflow_store import FrameReviewWorkflowStore
 from dokodetector_backend.gemini_analyzer import (
     create_configured_processor_registries,
     create_lazy_configured_analyzer,
@@ -108,6 +110,9 @@ def create_app(
     app.state.recording_thumbnail_cache = RecordingThumbnailCache(
         app_settings.evidence_root / "recording-thumbnails"
     )
+    app.state.frame_review_workflow_store = FrameReviewWorkflowStore(
+        app_settings.operations_root / "frame-review-queues"
+    )
     app.state.pending_video_storage = PendingVideoStorage(app_settings.pending_video_root)
     app.state.readiness_state = "unknown"
     if analyzer is None:
@@ -124,12 +129,16 @@ def create_app(
     app.state.visible_card_provider = (
         visible_card_provider
         if visible_card_provider is not None
-        else getattr(analyzer, "provider", None) if analyzer is not None else None
+        else getattr(analyzer, "provider", None)
+        if analyzer is not None
+        else None
     )
     app.state.visible_card_identity_classifier = (
         visible_card_identity_classifier
         if visible_card_identity_classifier is not None
-        else getattr(analyzer, "classifier", None) if analyzer is not None else None
+        else getattr(analyzer, "classifier", None)
+        if analyzer is not None
+        else None
     )
     if visible_card_provider is not None:
         visible_card_providers.register("cloud", visible_card_provider)
@@ -223,6 +232,7 @@ def create_app(
     app.include_router(round_analysis_router)
     app.include_router(recordings_router)
     app.include_router(pipeline_router)
+    app.include_router(frame_review_router)
     _mount_frontend(app, app_settings.frontend_dist)
 
     @app.get("/health/live")

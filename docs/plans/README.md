@@ -26,7 +26,7 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Active: **[0097 — Frame review mode](3-in-progress/0097-Frame_Review_Mode.md)** (M0 complete; M1–M3 not started), **[0099 — Detection failure diagnostics and bounded fixes](3-in-progress/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md)** (M0 complete; M1–M3 not started), and **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review.
+Active: **[0097 — Frame review mode](3-in-progress/0097-Frame_Review_Mode.md)** (M0–M1 complete; M2–M3 not started), **[0099 — Detection failure diagnostics and bounded fixes](3-in-progress/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md)** (M0 complete; M1–M3 not started), and **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review.
 
 While 0096 waits for human review, autonomous work is available in this preferred order:
 
@@ -105,7 +105,7 @@ The shared target architecture is
 | --- | --- | --- |
 | [0099 — Detection failure diagnostics and bounded fixes](3-in-progress/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md) | 0096 M1–M3 evidence | M0 complete. The baseline, source-group splits, two-candidate limit, and acceptance gates are frozen. M1–M3 not started. |
 | [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. The M4 review queue is frozen at 165 frames across 33 recordings; one M1 failure has no corrected output to inspect. Human review is pending. See the [M4 queue](../reports/0096-M4_Human_Review_Queue.md) and [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
-| [0097 — Frame review mode](3-in-progress/0097-Frame_Review_Mode.md) | 0096 M4 frozen queue; existing 0049/0074 maintained-reference editor | M0 complete: validated the frozen queue projection and saved-review receipt rules. M1–M3 not started. |
+| [0097 — Frame review mode](3-in-progress/0097-Frame_Review_Mode.md) | 0096 M4 frozen queue; existing 0049/0074 maintained-reference editor | M0–M1 complete: validated the queue contract and exposed paged queue progress, exact editor targets, unavailable reasons, saved-receipt status, and queue-only deferral/resume through the backend API. M2–M3 not started. |
 
 ### Blocked
 

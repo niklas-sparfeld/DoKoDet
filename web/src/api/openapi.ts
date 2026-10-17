@@ -4,6 +4,46 @@
  */
 
 export interface paths {
+    "/api/frame-reviews/0096-M4": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Frame Review Queue
+         * @description Return a deterministic page and whole-queue counts without decoding result content.
+         */
+        get: operations["get_frame_review_queue_api_frame_reviews_0096_M4_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/frame-reviews/0096-M4/items/{recording_id}/{item_id}/workflow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Frame Review Workflow
+         * @description Change queue deferral or resume position without touching a maintained reference.
+         */
+        put: operations["update_frame_review_workflow_api_frame_reviews_0096_M4_items__recording_id___item_id__workflow_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/processors/visible-cards/local-rfdetr-segmentation/availability": {
         parameters: {
             query?: never;
@@ -1468,6 +1508,97 @@ export interface components {
             /** Evidence Complete */
             evidence_complete: boolean;
         };
+        /** FrameReviewCounts */
+        FrameReviewCounts: {
+            /** By Reason */
+            by_reason: {
+                [key: string]: number;
+            };
+            /** By State */
+            by_state: {
+                [key: string]: number;
+            };
+            /** Total */
+            total: number;
+        };
+        /** FrameReviewItemResponse */
+        FrameReviewItemResponse: {
+            /** Comparison Eligible */
+            comparison_eligible: boolean;
+            editor_target: components["schemas"]["FrameReviewTarget"] | null;
+            /** Eligible */
+            eligible: boolean;
+            /** Item Id */
+            item_id: string;
+            /** Reasons */
+            reasons: string[];
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "deferred" | "saved_review" | "unavailable";
+            /** Unavailable Reason */
+            unavailable_reason: string | null;
+        };
+        /** FrameReviewPageResponse */
+        FrameReviewPageResponse: {
+            counts: components["schemas"]["FrameReviewCounts"];
+            /** Items */
+            items: components["schemas"]["FrameReviewItemResponse"][];
+            /** Next Cursor */
+            next_cursor: number | null;
+            /** Queue Digest */
+            queue_digest: string;
+            /** Queue Id */
+            queue_id: string;
+            /** Resume Item Id */
+            resume_item_id: string | null;
+            /** Resume Recording Id */
+            resume_recording_id: string | null;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "frame-review-page/v1";
+        };
+        /** FrameReviewTarget */
+        FrameReviewTarget: {
+            /** Item Id */
+            item_id: string;
+            /** Path */
+            path: string;
+            /** Revision Id */
+            revision_id: string;
+            /** Scene Revision Id */
+            scene_revision_id: string | null;
+            /** Scene Run Id */
+            scene_run_id: string | null;
+        };
+        /** FrameReviewWorkflowRequest */
+        FrameReviewWorkflowRequest: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "defer" | "resume" | "set_resume";
+            /** Queue Digest */
+            queue_digest: string;
+        };
+        /** FrameReviewWorkflowResponse */
+        FrameReviewWorkflowResponse: {
+            /** Deferred */
+            deferred: boolean;
+            /** Queue Digest */
+            queue_digest: string;
+            /** Queue Id */
+            queue_id: string;
+            /** Resume Item Id */
+            resume_item_id: string | null;
+            /** Resume Recording Id */
+            resume_recording_id: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1765,6 +1896,10 @@ export interface components {
             } | null;
             /** Reference Event Id */
             reference_event_id: string | null;
+            /** Reference Frame Identity */
+            reference_frame_identity: {
+                [key: string]: unknown;
+            } | null;
             /** Reference Identity */
             reference_identity: string | null;
             /** Run Candidates */
@@ -1783,6 +1918,10 @@ export interface components {
             } | null;
             /** Run Event Id */
             run_event_id: string | null;
+            /** Run Frame Identity */
+            run_frame_identity: {
+                [key: string]: unknown;
+            } | null;
             /** Run Identity */
             run_identity: string | null;
             /**
@@ -3479,6 +3618,75 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_frame_review_queue_api_frame_reviews_0096_M4_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: number;
+                state?: ("pending" | "deferred" | "saved_review" | "unavailable") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameReviewPageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_frame_review_workflow_api_frame_reviews_0096_M4_items__recording_id___item_id__workflow_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FrameReviewWorkflowRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameReviewWorkflowResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_rfdetr_segmentation_availability_api_processors_visible_cards_local_rfdetr_segmentation_availability_get: {
         parameters: {
             query?: never;
