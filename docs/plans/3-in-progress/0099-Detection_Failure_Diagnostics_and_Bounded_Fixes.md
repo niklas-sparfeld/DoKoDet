@@ -10,7 +10,10 @@
 ## Milestone status
 
 - **M0:** Complete — froze the baseline, exact artifact and source digests, source-group subsets, candidate budget, and acceptance gates. See the [M0 report](../../reports/0099-M0_Baseline_and_Experiment_Freeze.md) and [manifest](../../reports/0099-M0_Experiment_Manifest.json).
-- **M1:** Not started — classify failures and build regression fixtures.
+- **M1:** Complete — reproduced all four calibration failures from frozen detector revisions,
+  ranked exact-reference segmentation errors, and recorded the terminal backend failure. See the
+  [M1 diagnosis](../../reports/0099-M1_Failure_Diagnosis.md) and
+  [machine report](../../reports/0099-M1_Failure_Diagnosis.json).
 - **M2:** Not started — test at most two justified software candidates, or record no-fix evidence.
 - **M3:** Not started — decide once and publish measured results and remaining review needs.
 
@@ -68,6 +71,17 @@ Acceptance: rank failure families with counts and concrete evidence. Separate ru
 model limitations, comparison limitations, and calibration safety rejections. Name which failures
 have sufficient reference evidence for an automated fix decision. Do not weaken calibration gates
 or substitute manual geometry to make a failed recording pass.
+
+**Result:** The 323 scoreable outside-refit-training frames reproduce 90 unmatched predictions,
+64 unmatched reviewed cards, and two duplicates. The false positives concentrate in `IMG_0644`
+(76); the misses concentrate in `IMG_0645` (43). Confidence ranges overlap, and the median missed
+card area is close to the matched-card median. Two calibration runs fail fit quality, one fails
+held-out population, and `IMG_0641` fails reciprocal-transform validation after serialization.
+All four calibration replays match their frozen run digests and failure codes. The terminal M1 run
+failed before its first frame completed. The transform serialization failure has a small
+reproduction fixture at
+[`0099_img_0641_reciprocal_transform.json`](../../../operations/tests/fixtures/0099_img_0641_reciprocal_transform.json).
+No segmentation fix is selected at M1. Any M2 candidate must preserve the frozen gates.
 
 ## M2 — Test bounded candidates
 

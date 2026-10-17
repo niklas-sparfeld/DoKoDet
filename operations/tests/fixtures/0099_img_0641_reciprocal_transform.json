@@ -1,0 +1,51 @@
+{
+  "source": {
+    "recording_id": "cardeventnet-IMG_0641",
+    "run_id": "card-scene-proposal-bc0d0aba-751b-54fb-976d-c1549c8dd09d",
+    "run_digest": "949e6b580e83ee1f9e5aca2d6ef71a6adf26869e6c34368e77b2632713328e52",
+    "source_revision": "visible-cards-d2b8317b-aacb-5d0b-b3e0-d5ab3a4c2089-attempt-1",
+    "candidate_digest": "574e0999f161f899cef36c2de5e2fd71d8ca6ea7426f6823ac2f7a5a128ae3de",
+    "run_state_sha256": "99d99b7ce36b04f49b00da0f766bede56a3fba59bda575bc31cbc1c927698d5e"
+  },
+  "frame_width": 1920,
+  "frame_height": 1080,
+  "card_short_size": 1.0,
+  "card_long_size": 1.542373,
+  "image_to_table": [
+    [
+      0.0016715141625836484,
+      0.0043975177452651145,
+      -6.39348518889975
+    ],
+    [
+      -0.003217902995452265,
+      0.0034223689204729507,
+      2.017494323046799
+    ],
+    [
+      3.8171676871438514e-05,
+      0.0006834878440346803,
+      0.3492734818856753
+    ]
+  ],
+  "table_to_image": [
+    [
+      -9.23894851387546,
+      -297.2024333969413,
+      1547.5985716730768
+    ],
+    [
+      60.435799165868254,
+      41.66132247057452,
+      865.6365883804945
+    ],
+    [
+      -0.11725616183622549,
+      -0.04904549904427156,
+      1.0
+    ]
+  ],
+  "observed_failure": "image_to_table and table_to_image must be reciprocal transforms",
+  "rounding_decimals": 6,
+  "reciprocal_check_atol": 0.001
+}
