@@ -361,23 +361,37 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
 ) -> None:
     _install_recording(tmp_path)
     resolve_calls: list[bool | None] = []
+    crop_calls: list[str] = []
     original_resolve_exact_event = visual_identity_pipeline_service_module.resolve_exact_event
+    original_resolve_visible_region_crop = (
+        visual_identity_pipeline_service_module.resolve_visible_region_crop
+    )
 
     def record_resolve_call(*args: object, **kwargs: object) -> object:
         resolve_calls.append(kwargs.get("validate_source"))
         return original_resolve_exact_event(*args, **kwargs)
+
+    def record_crop_call(*args: object, **kwargs: object) -> object:
+        crop_calls.append("crop")
+        return original_resolve_visible_region_crop(*args, **kwargs)
 
     monkeypatch.setattr(
         visual_identity_pipeline_service_module,
         "resolve_exact_event",
         record_resolve_call,
     )
+    monkeypatch.setattr(
+        visual_identity_pipeline_service_module,
+        "resolve_visible_region_crop",
+        record_crop_call,
+    )
+    provider = _IdentityProvider()
     app = create_test_app(
         _settings(tmp_path),
         event_provider=_EventProvider(),
         visible_card_provider=_Detector(),
         visible_card_frame_resolver=_FrameResolver(),
-        visible_card_identity_classifier=_IdentityProvider(),
+        visible_card_identity_classifier=provider,
     )
 
     with TestClient(app) as client:
@@ -409,6 +423,8 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
         ).json()["state"]["output_revision_ids"][0]
 
         visible_revision = app.state.pipeline_revision_store.require(visible_revision_id)
+        frame_identity = visible_revision.content.outcomes[0].frame_identity
+        assert frame_identity is not None
         pile = VisibleCardPileRegion.from_mapping(
             {
                 "pile_id": "pile-identity-isolation",
@@ -463,7 +479,6 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
         assert {item["card_id"] for item in identity_result["request"]["crop_input"]["items"]} == {
             candidate.card_id for candidate in pile_content.outcomes[0].candidates
         }
-
         pile_only_content = replace(
             pile_content,
             outcomes=(
@@ -494,6 +509,81 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
         ).json()
         assert pile_only_result["request"]["crop_input"]["items"] == []
         assert pile_only_result["revisions"][0]["content"]["outcomes"] == []
+
+        mixed_content = replace(
+            visible_revision.content,
+            outcomes=(
+                visible_revision.content.outcomes[0],
+                replace(
+                    visible_revision.content.outcomes[0],
+                    event_id="event-without-card-candidates",
+                    frame_identity=replace(
+                        frame_identity, frame_index=frame_identity.frame_index + 1
+                    ),
+                    status="empty",
+                    candidates=(),
+                ),
+            ),
+        )
+        mixed_manifest = replace(
+            visible_revision.manifest,
+            revision_id="visible-mixed-card-and-empty",
+            content_sha256=sha256_bytes(canonical_visible_card_data_bytes(mixed_content)),
+        )
+        app.state.pipeline_revision_store.publish(mixed_manifest, mixed_content)
+        mixed_identity = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-mixed-card-and-empty",
+                "input_revision_ids": ["visible-mixed-card-and-empty"],
+            },
+        )
+        assert mixed_identity.status_code == 202, mixed_identity.text
+        assert _wait_identity(client, "identity-mixed-card-and-empty")["state"]["status"] == (
+            "complete"
+        )
+        mixed_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/"
+            "identity-mixed-card-and-empty/result"
+        ).json()
+        assert {item["card_id"] for item in mixed_result["request"]["crop_input"]["items"]} == {
+            candidate.card_id for candidate in visible_revision.content.outcomes[0].candidates
+        }
+        candidate_crop_count = len(crop_calls)
+        candidate_model_call_count = len(provider.requests)
+        candidate_frame_resolve_count = len(resolve_calls)
+
+        empty_content = replace(
+            pile_content,
+            outcomes=(
+                replace(
+                    pile_content.outcomes[0],
+                    status="empty",
+                    candidates=(),
+                    pile_regions=(),
+                ),
+            ),
+        )
+        empty_manifest = replace(
+            pile_manifest,
+            revision_id="visible-empty",
+            content_sha256=sha256_bytes(canonical_visible_card_data_bytes(empty_content)),
+        )
+        app.state.pipeline_revision_store.publish(empty_manifest, empty_content)
+        empty_identity = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={"run_id": "identity-empty", "input_revision_ids": ["visible-empty"]},
+        )
+        assert empty_identity.status_code == 202, empty_identity.text
+        assert _wait_identity(client, "identity-empty")["state"]["status"] == "complete"
+        empty_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-empty/result"
+        ).json()
+        assert empty_result["request"]["crop_input"]["items"] == []
+        assert empty_result["revisions"][0]["content"]["outcomes"] == []
+        assert len(crop_calls) == candidate_crop_count
+        assert len(provider.requests) == candidate_model_call_count
+        assert len(resolve_calls) == candidate_frame_resolve_count
 
     assert resolve_calls
     assert set(resolve_calls) == {False}

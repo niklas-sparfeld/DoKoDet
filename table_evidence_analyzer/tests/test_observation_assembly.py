@@ -221,6 +221,38 @@ def test_assembler_preserves_piles_separately_for_mixed_and_pile_only_frames() -
     parsed = parse_table_observation_data_bytes(canonical_table_observation_data_bytes(result))
     assert parsed == result
 
+    all_zero_visible = VisibleCardData(
+        outcomes=(
+            replace(
+                visible.outcomes[0],
+                status="empty",
+                candidates=(),
+                pile_regions=(replace(pile, pile_id="pile-all-zero"),),
+            ),
+            replace(visible.outcomes[1], status="detected", candidates=(), pile_regions=()),
+        )
+    )
+    all_zero = assemble_table_observations(
+        events,
+        all_zero_visible,
+        VisualIdentityData(outcomes=()),
+        recording_id="recording-01",
+        video_sha256=DIGEST,
+        assembly_run_id="assembly-all-zero",
+        input_revision_ids=("events-01", "visible-all-zero", "identity-empty"),
+    )
+    assert len(all_zero.observations) == len(events.events)
+    assert all(item.status == "observed" and item.cards == [] for item in all_zero.observations)
+    assert [item.pile_id for item in all_zero.observations[0].piles] == ["pile-all-zero"]
+    assert all_zero.observations[1].piles is None
+    assert [item.diagnostics["assembly"]["event_id"] for item in all_zero.observations] == [
+        event.event_id for event in events.events
+    ]
+    assert (
+        parse_table_observation_data_bytes(canonical_table_observation_data_bytes(all_zero))
+        == all_zero
+    )
+
     failed_identity_result = assemble_table_observations(
         events,
         visible,

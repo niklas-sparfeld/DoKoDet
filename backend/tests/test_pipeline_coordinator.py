@@ -104,6 +104,108 @@ def test_frozen_pilot_plan_connects_generated_revisions_to_downstream_stages() -
     assert plan[-1].input_revision_ids == ("@stage:table_observations",)
 
 
+def test_coordinator_runs_zero_card_scene_with_exact_inputs_and_reuses_terminal_stages(
+    tmp_path: Path,
+) -> None:
+    requests = {
+        name: {"configuration": {"stage": name}}
+        for name in (
+            "event_proposals",
+            "visible_card_and_pile_proposals",
+            "card_scene_and_calibration",
+            "visual_identity_proposals",
+            "table_observations",
+        )
+    }
+    requests["reconstruction"] = {"skip": True, "skip_reason": "no round context"}
+    stages = frozen_pilot_stage_plan(requests)
+    outputs = {
+        "event_proposals": "events-r1",
+        "visible_card_and_pile_proposals": "visible-no-cards-r1",
+        "card_scene_and_calibration": "scene-no-cards-r1",
+        "visual_identity_proposals": "identity-empty-r1",
+        "table_observations": "observations-r1",
+    }
+    calls: list[tuple[str, tuple[str, ...]]] = []
+
+    def execute(**kwargs: object) -> StageExecution:
+        stage = str(kwargs["stage"])
+        inputs = tuple(kwargs["input_revision_ids"])  # type: ignore[arg-type]
+        calls.append((stage, inputs))
+        if stage == "reconstruction":
+            return StageExecution("skipped", inputs, failure={"reason": "no round context"})
+        return StageExecution("complete", inputs, (outputs[stage],))
+
+    coordinator = PipelineCoordinator(tmp_path, execute)
+    result = coordinator.run("recording-1", stages, coordinator_id="zero-card-resume")
+    assert result["status"] == "complete"
+    assert calls == [
+        ("event_proposals", ()),
+        ("visible_card_and_pile_proposals", ("events-r1",)),
+        ("card_scene_and_calibration", ("visible-no-cards-r1",)),
+        ("visual_identity_proposals", ("visible-no-cards-r1",)),
+        ("table_observations", ("events-r1", "visible-no-cards-r1", "identity-empty-r1")),
+        ("reconstruction", ("observations-r1",)),
+    ]
+    assert result["stages"][2]["output_revision_ids"] == ["scene-no-cards-r1"]
+    assert result["stages"][3]["input_revision_ids"] == ["visible-no-cards-r1"]
+    assert result["stages"][4]["input_revision_ids"] == [
+        "events-r1",
+        "visible-no-cards-r1",
+        "identity-empty-r1",
+    ]
+
+    resumed = coordinator.run("recording-1", stages, coordinator_id="zero-card-resume")
+    assert resumed == result
+    assert len(calls) == len(stages)
+
+
+@pytest.mark.parametrize(
+    "failed_stage", ["card_scene_and_calibration", "visual_identity_proposals"]
+)
+def test_coordinator_blocks_dependants_after_scene_or_identity_failure(
+    tmp_path: Path, failed_stage: str
+) -> None:
+    requests = {
+        name: {"configuration": {"stage": name}}
+        for name in (
+            "event_proposals",
+            "visible_card_and_pile_proposals",
+            "card_scene_and_calibration",
+            "visual_identity_proposals",
+            "table_observations",
+        )
+    }
+    requests["reconstruction"] = {"skip": True}
+    stages = frozen_pilot_stage_plan(requests)
+    outputs = {
+        "event_proposals": "events-r1",
+        "visible_card_and_pile_proposals": "visible-r1",
+        "card_scene_and_calibration": "scene-r1",
+        "visual_identity_proposals": "identity-r1",
+        "table_observations": "observations-r1",
+    }
+    calls: list[str] = []
+
+    def execute(**kwargs: object) -> StageExecution:
+        stage = str(kwargs["stage"])
+        inputs = tuple(kwargs["input_revision_ids"])  # type: ignore[arg-type]
+        calls.append(stage)
+        if stage == failed_stage:
+            return StageExecution("failed", inputs, failure={"reason": "fixture failure"})
+        if stage == "reconstruction":
+            return StageExecution("skipped", inputs, failure={"reason": "no context"})
+        return StageExecution("complete", inputs, (outputs[stage],))
+
+    result = PipelineCoordinator(tmp_path, execute).run(
+        "recording-1", stages, coordinator_id=f"failure-{failed_stage}"
+    )
+    assert result["status"] == "failed"
+    assert result["failure"]["stage"] == failed_stage
+    assert calls == [stage.name for stage in stages[: calls.index(failed_stage) + 1]]
+    assert "table_observations" not in calls
+
+
 def test_explicitly_skipped_reconstruction_is_retained_as_a_terminal_decision(
     tmp_path: Path,
 ) -> None:

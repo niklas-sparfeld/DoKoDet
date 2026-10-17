@@ -21,8 +21,8 @@
 - **M0:** Complete — [freeze retained evidence and contracts](../../reports/0050-M0_Diagnostic_Freeze.md); M4 preflight needs the exact real-round video restored.
 - **M1:** Complete — [corrected frame comparison](../../reports/0050-M1_Frame_Comparison_Correction.md).
 - **M2:** Complete — zero-card and pile-only frames publish explicit outcomes without calibration or pose fitting; mixed-frame gates and real failures remain active.
-- **M3:** Not started — next; verify zero-card behavior through identity, observation, and coordinator boundaries.
-- **M4:** Not started — run the bounded diagnostic and publish the next decision.
+- **M3:** Complete — identity skips zero-card crop/model work; observations retain events and piles; the coordinator keeps exact lineage and stops on failures.
+- **M4:** Not started — preflight the bounded diagnostic; the exact real-round video is still required.
 
 ## 1. Evidence and question
 
@@ -177,31 +177,26 @@ stages or change retained 0090 artifacts.
 
 ### M3 — Verify downstream and coordinator behavior
 
-Next handoff: start with the M2 processor and output contract, then inspect
-`backend/src/dokodetector_backend/visual_identity_pipeline_service.py`,
-`backend/src/dokodetector_backend/pipeline_coordinator.py`, and
-`table_evidence_analyzer/src/table_evidence_analyzer/observation_assembly.py`. Add focused cases to
-`backend/tests/test_visual_identity_pipeline_api.py`,
+M3 used local fixtures only. The identity pipeline froze empty crop manifests for all-zero and mixed
+recordings. It made no frame, crop, or classifier calls for frames without card candidates.
+Observation assembly kept each event and its separate pile regions without creating cards. The
+coordinator continued after a completed zero-card scene result, passed exact event, visible-card,
+and identity revision IDs, reused completed stages on resume, and stopped before observations after
+scene or identity failure. No runtime code or retained 0090 artifacts changed.
+
+The focused identity, observation, and coordinator regressions passed. The full identity API test
+file has two other failures: preview regeneration expects a crop resolver call that does not occur,
+and a candidate-order test expects run-item fields that the result omits.
+
+Next handoff: preflight the bounded M4 diagnostic from the M0 freeze. Restore the exact real-round
+video and verify its frozen hash before starting any stage. Use the existing local stage APIs and
+the retained event and detector revisions. Keep the execution budget and stop rules unchanged.
+
+M3 verification covered `backend/tests/test_visual_identity_pipeline_api.py`,
 `backend/tests/test_pipeline_coordinator.py`, and
-`table_evidence_analyzer/tests/test_observation_assembly.py`. Add local fixtures for the M2
-`no_cards_detected` output in mixed and all-zero recordings. Prove identity makes no crop or model
-calls, observation assembly keeps event coverage and pile regions, and the coordinator continues
-only from an explicit successful scene revision with the exact retained upstream IDs. Keep failure
-and resume/reuse behavior strict.
-
-Verify and repair only the downstream contracts needed for M2 outputs. Zero-card frames must invoke
-no identity model or crop extraction. Retain event/frame coverage and separate pile evidence in
-table observations. Do not fabricate component-card identities, card plays, trick winners, or
-reviewed empty-table facts from pile or missing detections.
-
-Use local fixtures for a mixed recording and a recording with no individual-card candidates. Prove
-that a successful scene result lets the coordinator continue with exact retained input revisions,
-and that real calibration, pose, crop-authority, or lineage failures still block dependants. Verify
-resume and reuse for any changed coordinator behavior. Prefer existing empty-output contracts;
-change a contract only when M0 identifies a concrete gap.
-
-Acceptance: focused identity, observation, and coordinator tests pass; no model calls for zero-card
-frames; preserved pile and coverage evidence; no broad relaxation of terminal failure handling.
+`table_evidence_analyzer/tests/test_observation_assembly.py`. Zero-card frames made no identity
+frame, crop, or classifier calls. Event coverage and pile evidence remained separate. The
+coordinator required complete stages and exact input revisions; failures blocked dependants.
 
 ### M4 — Run the bounded diagnostic and decide the next step
 
