@@ -2,7 +2,7 @@
 
 ## Plan status
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0096 M1/M2 outputs, 0088 M6 bundle, and 0085/0093 crop provenance.
 - **Outcome:** Retained local identity proposals from the successful 0096 scenes, a coverage report,
   and a bounded identity review queue. Human geometry review is not an inference prerequisite.
@@ -11,7 +11,11 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze permitted scene inputs, crops, model, and run budget.
+- **M0:** Complete — freeze 26 permitted scene recordings, 2,994 candidate crop geometries,
+  exact M1/M2/calibration/frame lineage, current identity pointers, and the verified M6 bundle.
+  Exclude three protected source groups and account for five upstream failures. See the
+  [frozen input report](../../reports/0098-M0_Frozen_Inputs.md) and its
+  [machine-readable manifest](../../reports/0098-M0_Frozen_Inputs.json).
 - **M1:** Not started — run the fixed local identity batch.
 - **M2:** Not started — report coverage, diagnostics, and supported identity comparisons.
 - **M3:** Not started — publish a frozen identity review queue and handoff.
@@ -40,8 +44,9 @@ M6 is unqualified; confidence is not permission for automatic acceptance. Do not
 
 ## M0 — Freeze inputs and eligibility
 
-Verify all 29 scene receipts and their corrected 0096 M1 lineage in the primary pipeline store.
-Check local model bytes and crop reproducibility before inference. Record source permission,
+Account for all 29 scene outcomes from the 0096 ledgers. Verify the 26 permitted scene receipts and
+their corrected 0096 M1 lineage in the primary pipeline store. Exclude protected groups before
+reading their scene outputs. Check local model bytes and crop reproducibility before inference. Record source permission,
 source-group exclusions for both detector and identity campaigns, model-training overlap, exact
 frame/card/geometry/crop receipts, pre-existing drafts, and selection pointers. The 0096 list alone
 is not proof of identity eligibility. Exclude protected test/system-holdout sources and related
@@ -52,6 +57,10 @@ Acceptance: a machine-readable manifest accounts for all 29 scene recordings plu
 failures. Freeze usable and unusable crop counts and reasons, source digests, software versions,
 stable run IDs, and current comparison targets. No classifier runs during preflight. Missing
 reviewed targets limit scoring but do not block permitted generation.
+
+M0 freezes deterministic crop geometry. It records 2,994 visible crop geometries and no fully
+hidden card geometries. M1 must still account for each materialized crop as classified, face-down,
+unusable, failed, or unprocessed.
 
 ## M1 — Run local proposals
 
