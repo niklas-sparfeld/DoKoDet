@@ -12,7 +12,7 @@
 - **M0:** Complete — validated frozen queue projection and explicit saved-review receipt rules.
 - **M1:** Complete — expose bounded queue pages, counts, exact editor targets, unavailable reasons,
   receipt status, and persisted queue-only deferral and resume position through the backend API.
-- **M2:** Not started — add the frame list and exact-result editor navigation.
+- **M2:** Complete — add the frame list, filters, progress, and exact-result editor navigation.
 - **M3:** Not started — add resume, defer, and saved-review progress; verify the complete workflow.
 
 ## Scope and boundaries
@@ -100,6 +100,13 @@ pinned result from a newer selected result.
 
 Acceptance: component fixtures cover navigation across recordings, selection changes, missing
 scene output, and draft conflicts. Thumbnails and list actions are keyboard accessible.
+
+M2 adds the `/frame-reviews/0096-M4` page. It shows frame rows, recording thumbnails, selection
+reasons, state filters, and queue progress. Available items open their pinned generated revision in
+the maintained-reference editor. The editor shows previous/next queue navigation and a direct return
+to the list. It labels detector-only results, identifies when the current generated selection has
+moved past the pinned result, and warns when the maintained draft targets another revision. Opening
+an item does not start a proposal review or change the maintained draft.
 
 ## M3 — Resume and verify the workflow
 

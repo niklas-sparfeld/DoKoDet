@@ -129,6 +129,12 @@ export type PipelineComparisonRequest =
 export type PipelineComparisonResponse = JsonResponse<
   paths["/api/recordings/{recording_id}/pipeline/comparisons"]["post"]["responses"][200]
 >;
+export type FrameReviewPageResponse = JsonResponse<
+  paths["/api/frame-reviews/0096-M4"]["get"]["responses"][200]
+>;
+export type FrameReviewWorkflowResponse = JsonResponse<
+  paths["/api/frame-reviews/0096-M4/items/{recording_id}/{item_id}/workflow"]["put"]["responses"][200]
+>;
 export type PipelineReferenceItem = {
   item_id: string;
   base_item_id: string | null;
@@ -317,6 +323,21 @@ export class ApiError extends Error {
 const PIPELINE_REFERENCE_DRAFT_UPDATE_TIMEOUT_MS = 60_000;
 
 export interface DokoDetectorClient {
+  getFrameReviewPage(options?: {
+    cursor?: number;
+    limit?: number;
+    state?: string;
+    signal?: AbortSignal;
+  }): Promise<FrameReviewPageResponse>;
+  updateFrameReviewWorkflow(
+    recordingId: string,
+    itemId: string,
+    payload: {
+      queue_digest: string;
+      action: "defer" | "resume" | "set_resume";
+    },
+    init?: RequestInit,
+  ): Promise<FrameReviewWorkflowResponse>;
   listRecordings(init?: RequestInit): Promise<RecordingListResponse>;
   getRecording(
     recordingId: string,
@@ -545,6 +566,31 @@ export function createDokoDetectorClient(
   fetchImplementation: typeof fetch = fetch,
 ): DokoDetectorClient {
   return {
+    getFrameReviewPage: (options = {}) => {
+      const params = new URLSearchParams();
+      if (options.limit !== undefined)
+        params.set("limit", String(options.limit));
+      if (options.cursor !== undefined)
+        params.set("cursor", String(options.cursor));
+      if (options.state !== undefined) params.set("state", options.state);
+      const query = params.toString();
+      return requestJson<FrameReviewPageResponse>(
+        fetchImplementation,
+        `/api/frame-reviews/0096-M4${query === "" ? "" : `?${query}`}`,
+        { signal: options.signal },
+      );
+    },
+    updateFrameReviewWorkflow: (recordingId, itemId, payload, init) =>
+      requestJson<FrameReviewWorkflowResponse>(
+        fetchImplementation,
+        `/api/frame-reviews/0096-M4/items/${encodeURIComponent(recordingId)}/${encodeURIComponent(itemId)}/workflow`,
+        {
+          ...init,
+          method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
     listRecordings: (init) =>
       requestJson<RecordingListResponse>(
         fetchImplementation,
@@ -1233,7 +1279,8 @@ async function requestJson<Response>(
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/json");
-  const timeoutController = timeoutMs === undefined ? null : new AbortController();
+  const timeoutController =
+    timeoutMs === undefined ? null : new AbortController();
   const callerSignal = init?.signal;
   const abortFromCaller = () => timeoutController?.abort(callerSignal?.reason);
   if (callerSignal?.aborted) {
@@ -1249,7 +1296,9 @@ async function requestJson<Response>(
     const response = await fetchImplementation(path, {
       ...init,
       headers,
-      ...(timeoutController === null ? {} : { signal: timeoutController.signal }),
+      ...(timeoutController === null
+        ? {}
+        : { signal: timeoutController.signal }),
     });
     if (!response.ok) {
       throw new ApiError(response.status, await readResponseBody(response));

@@ -31,6 +31,11 @@ import {
   buildRecordingWorkspacePresentation,
 } from "./recordingWorkspacePresentation";
 import { actionStateForStage } from "./recordingWorkspaceNavigation";
+import {
+  FrameReviewDraftConflict,
+  FrameReviewEditorNavigation,
+  FrameReviewPinnedRevisionNotice,
+} from "../frameReview/FrameReviewQueueView";
 
 export type { PipelineStageKey } from "../api/client";
 export {
@@ -283,6 +288,11 @@ export function RecordingPipelineWorkspace({
       ? urlState
       : actionStateForStage(stage, urlState, action.kind);
   const displayedRevision = presentation.stage?.displayedRevisionId ?? null;
+  const frameReviewDraftConflict =
+    urlState.frameReviewQueue === "0096-M4" &&
+    stage?.key === "visible_cards" &&
+    stage.reference?.source_revision_id != null &&
+    stage.reference.source_revision_id !== urlState.revision;
   const workspaceRail = useRecordingWorkspaceRail({
     recordingId,
     stage,
@@ -356,6 +366,26 @@ export function RecordingPipelineWorkspace({
         error={error}
         onNavigate={navigateTo}
       />
+      {urlState.frameReviewQueue === "0096-M4" &&
+      stage.key === "visible_cards" ? (
+        <FrameReviewEditorNavigation
+          recordingId={recordingId}
+          itemId={urlState.item}
+        />
+      ) : null}
+      {frameReviewDraftConflict ? (
+        <FrameReviewDraftConflict
+          draftRevision={stage.reference?.source_revision_id}
+          pinnedRevision={urlState.revision}
+        />
+      ) : null}
+      {urlState.frameReviewQueue === "0096-M4" &&
+      stage.key === "visible_cards" ? (
+        <FrameReviewPinnedRevisionNotice
+          pinnedRevision={urlState.revision}
+          selectedRevision={stage.selected_generated_revision_id ?? null}
+        />
+      ) : null}
 
       <div
         className={`${styles.pipelineWorkspaceGrid} ${usesReviewCardRail ? styles.pipelineVisibleCardWorkspaceGrid : ""}`}

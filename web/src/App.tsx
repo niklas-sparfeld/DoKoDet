@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 
 import { RecordingDetailView, RecordingListView } from "./recordings";
+import { FrameReviewQueueView } from "./frameReview/FrameReviewQueueView";
 import { readRecordingPipelineRoute } from "./pipeline/recordingPipelineUrl";
 
 export function App() {
   const location = useAppLocation();
+  if (location.pathname === "/frame-reviews/0096-M4") {
+    return <FrameReviewQueueView />;
+  }
   const pipelineRoute = readRecordingPipelineRoute(location.pathname);
   const recordingId =
     pipelineRoute?.recordingId ?? readRecordingId(location.pathname);

@@ -69,6 +69,7 @@ describe("recording pipeline URL helpers", () => {
       right: "run/2",
       reference: "ref/1",
       analysis: "analysis-1",
+      frameReviewQueue: null,
     });
   });
 
@@ -87,6 +88,7 @@ describe("recording pipeline URL helpers", () => {
       right: null,
       reference: null,
       analysis: null,
+      frameReviewQueue: null,
     });
   });
 
@@ -99,6 +101,17 @@ describe("recording pipeline URL helpers", () => {
     expect(recordingPipelinePath("recording-1", "visible_cards", state)).toBe(
       "/recordings/recording-1/pipeline/visible_cards?view=generated&start_review=proposal&revision=detector-1&item=frame-1",
     );
+  });
+
+  it("keeps frame review return state without starting a proposal review", () => {
+    const state = readPipelineUrlState(
+      "?view=generated&revision=detector-1&item=frame-1&frame_review=0096-M4",
+    );
+
+    expect(recordingPipelinePath("recording-1", "visible_cards", state)).toBe(
+      "/recordings/recording-1/pipeline/visible_cards?view=generated&revision=detector-1&item=frame-1&frame_review=0096-M4",
+    );
+    expect(state.startReview).toBeNull();
   });
 
   it("constructs task paths with selection and analysis state", () => {

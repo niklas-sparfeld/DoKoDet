@@ -88,6 +88,7 @@ export function RecordingListView() {
           <p className={styles.eyebrow}>DokoDetector</p>
           <h1>Recordings</h1>
         </div>
+        <a href="/frame-reviews/0096-M4">Frame review queue</a>
         <ProfileControl />
       </header>
 

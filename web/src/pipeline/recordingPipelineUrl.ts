@@ -20,6 +20,7 @@ export type PipelineUrlState = {
   right: string | null;
   reference: string | null;
   analysis: string | null;
+  frameReviewQueue?: string | null;
 };
 
 export type RecordingPipelineRoute = {
@@ -71,6 +72,8 @@ export function readPipelineUrlState(search: string): PipelineUrlState {
     right: readOptionalParameter(params.get("right")),
     reference: readOptionalParameter(params.get("reference")),
     analysis: readOptionalParameter(params.get("analysis")),
+    frameReviewQueue:
+      params.get("frame_review") === "0096-M4" ? "0096-M4" : null,
   };
 }
 
@@ -120,6 +123,8 @@ function pipelineSearch(
   ) {
     params.set("analysis", state.analysis);
   }
+  if (state.frameReviewQueue === "0096-M4")
+    params.set("frame_review", state.frameReviewQueue);
   const query = params.toString();
   return query === "" ? "" : `?${query}`;
 }
