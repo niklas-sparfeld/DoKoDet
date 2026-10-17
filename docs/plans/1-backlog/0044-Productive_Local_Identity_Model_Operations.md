@@ -52,7 +52,7 @@ or failing a campaign quality gate does not establish readiness for productive p
 
 ## Review navigation handoff — 2026-10-17
 
-[0097](../2-ready/0097-Frame_Review_Mode.md) delivers reusable frame-list navigation, deferral,
+[0097](../3-in-progress/0097-Frame_Review_Mode.md) delivers reusable frame-list navigation, deferral,
 resume, and review-progress projections over maintained references. Reuse that boundary in M0
 rather than creating another queue or review lifecycle. [0098](../2-ready/0098-Identity_Proposal_Batch.md)
 provides bounded identity proposals and a review queue; it does not implement campaign operations.

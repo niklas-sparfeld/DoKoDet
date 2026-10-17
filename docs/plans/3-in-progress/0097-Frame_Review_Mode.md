@@ -2,14 +2,14 @@
 
 ## Plan status
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0096 M4 frozen queue and existing 0049/0074 maintained-reference editor.
 - **Outcome:** An operator can resume a cross-recording list of frames to review and save decisions
   through the existing editor. Implementation does not require new human review.
 
 ## Milestone status
 
-- **M0:** Not started — define and test queue items and review-progress rules.
+- **M0:** Complete — validated frozen queue projection and explicit saved-review receipt rules.
 - **M1:** Not started — expose queue and progress through the backend.
 - **M2:** Not started — add the frame list and exact-result editor navigation.
 - **M3:** Not started — add resume, defer, and saved-review progress; verify the complete workflow.
@@ -36,13 +36,28 @@ engine or require 0044 to start this epic.
 Adapt the frozen 0096 manifest into a small versioned queue contract. Each item records queue ID
 and digest, recording, stage, source/frame identity, exact generated revision, scene run/revision
 when available, comparison reference, selection reasons, and eligibility. Keep the frozen queue
-immutable. Validate digests, duplicate item IDs, protected-source exclusions, and missing results.
+immutable. Validate digests, duplicate frame keys, protected comparison sources, and missing results.
 
 Define pending, deferred, saved review, and unavailable presentations. A saved-review state requires
 existing explicit review coverage and a receipt that applies to the exact item and result lineage.
 An old completed reference used as an M3 comparison does not establish review of a new proposal.
 If existing receipts cannot express that distinction, add only the minimum workflow receipt that
 links to canonical saved decisions; do not duplicate their geometry or acceptance state.
+
+M0 defines `frame-review-queue/v1` as a projection of the immutable 0096 M4 manifest. The queue
+digest is the manifest's `selection_sha256`. Each projected item uses `(recording_id, item_id)` as
+its unique frame key because event IDs can repeat across recordings. It pins the visible-card
+revision and digest, optional scene run and revision, comparison reference, reasons, and separate
+review and comparison eligibility. A calibration failure can still be reviewed when its detector
+revision exists. Training-overlap frames remain reviewable but cannot contribute comparison
+evidence.
+
+An item is **saved review** only when a `frame-review-receipt/v1` links the queue digest and item to
+the exact result lineage, a current maintained-reference draft revision, and one or more decision
+item IDs in that draft. This records partial saved decisions; it does not claim full-frame coverage
+or published-reference completion. A comparison reference alone, including an old completed
+reference, leaves the item pending. A stale receipt or missing pinned result is unavailable.
+Deferral changes only queue workflow state.
 
 Acceptance: fixture tests cover partial-frame review, old reference versus new proposal, stale
 result lineage, missing artifacts, and unrelated live drafts. Opening or deferring an item never
