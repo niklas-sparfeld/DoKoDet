@@ -38,8 +38,9 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
    and latency checks are recorded. `gemini` remains the default. No sealed evaluation was rerun.
 4. **0089:** Complete. Fresh output did not overlap reviewed cards enough to isolate a geometry or
    crop defect. No algorithm change was selected; see the [M0 replay report](../reports/0089-M0_Fresh_Failure_Replay.md).
-5. **0090 M2:** Complete. The pilot is frozen across two staged sequences and one real round.
-   The resumable local coordinator and explicit reconstruction context rule are implemented.
+5. **0090 M3:** Complete. The three-recording pilot retained event, detector, and partial scene
+   outputs. Event quality is measured; geometry has no exact-frame review overlap, and downstream
+   identity, observation, and reconstruction quality remain unmeasured. See the [M3 report](../reports/0090-M3_Composed_Pilot.md).
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
 are explicit work in 0093/0094. Require a new measured scope for future geometry or crop work.
@@ -79,7 +80,7 @@ The shared target architecture is
 
 | Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0090 — Local end-to-end recording pipeline](3-in-progress/0090-Local_End_to_End_Recording_Pipeline.md) | 0087/0088 decisions, 0089 no-fix handoff, 0091 M7 handoff, 0092 M4 refit, 0048 and 0049 complete | M0–M2 complete: frozen three-recording batch, resumable coordinator, and verified durable execution controls. M3 remains. No training or promotion. |
+| *No in-progress epics* |  |  |
 
 ### Blocked
 
@@ -91,6 +92,7 @@ The shared target architecture is
 
 | Epic                                                                                                                                             | Closure reason     | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0090 — Local end-to-end recording pipeline](5-closed/0090-Local_End_to_End_Recording_Pipeline.md)                                               | Complete           | M0–M3 complete. The pilot retained event, detector, and partial scene outputs. Event scores are reported; geometry, identity, observations, and reconstruction have no quality claim. No training or promotion. See the [M3 report](../reports/0090-M3_Composed_Pilot.md). |
 | [0092 — Expanded reviewed virtual-card RF-DETR campaign](5-closed/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md)                       | Complete           | M0–M4 complete. M3 selected the expanded recipe. The 40-epoch all-recording M4 refit has a verified, selectable bundle with preserved M0/M1 lineage. M4 monitoring is in-sample; the sealed evaluator was not rerun. `gemini` remains the default. See [the M4 report](../reports/0092-M4_Final_Refit.md). |
 | [0089 — Virtual-card algorithm edge cases](5-closed/0089-Virtual_Card_Algorithm_Edge_Cases.md)                                                   | Complete           | M0 complete. Fresh 0087/0088 replay had zero matches across 494 proposals and 331 reviewed cards at polygon IoU 0.5, so no geometry or crop defect could be isolated and no algorithm change was selected. See the [M0 replay report](../reports/0089-M0_Fresh_Failure_Replay.md). |
 | [0086 — Reviewed virtual-card corpus](5-closed/0086-Reviewed_Virtual_Card_Corpus.md)                                                               | Complete           | M0–M5 complete. The detection and identity handoffs record exact source revisions and exclusions. M5 contains 1,391 crops from 12 recordings, support for all 21 campaign classes, and reviewed pile coverage. No DINO training or final-test access occurred.                                                  |

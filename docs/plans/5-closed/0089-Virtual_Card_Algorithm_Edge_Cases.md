@@ -28,7 +28,7 @@
 Use fresh runs with the exact bundle and crop-policy decisions from
 [0087](0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
 [0088](0088-Reviewed_Virtual_Card_DINO_Campaign.md) and
-[0090](../3-in-progress/0090-Local_End_to_End_Recording_Pipeline.md). For identity diagnostics,
+[0090](0090-Local_End_to_End_Recording_Pipeline.md). For identity diagnostics,
 use M6 seed 17 as the primary bundle and retain M3 seed 17 as the control under the exact policy in
 the [M15 handoff](../../reports/0088-M15_Qualification_Decision.md). The confidence threshold is
 report-only; every identity remains a proposal for human review. A campaign can select a retained baseline;
@@ -88,7 +88,7 @@ inspectable result instead of an unsupported forced decision; no model or datase
 
 Replay all frozen cases with both fixes and representative unaffected recordings. Publish recipe
 versions, quality and runtime deltas, unresolved limits, and the exact handoff to
-[0090](../3-in-progress/0090-Local_End_to_End_Recording_Pipeline.md).
+[0090](0090-Local_End_to_End_Recording_Pipeline.md).
 
 Acceptance: the final behavior and metrics reproduce locally; tests cover the combined paths;
 remaining failures have item-level evidence and a bounded follow-up decision.

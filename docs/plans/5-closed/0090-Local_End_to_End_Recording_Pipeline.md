@@ -4,7 +4,8 @@
 
 - **Summary:** Run the automatic stages in sequence on a small fixed recording batch and measure
   the composed result with explicit model, input, and failure lineage.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** Completed 0087 and 0088 bundle decisions; completed 0089 no-fix algorithm handoff;
   completed 0092 M4 final refit; completed 0048 and 0049; completed 0091 M7 pile feature handoff.
 - **Readiness:** The 0089 replay found no isolated algorithm defect and does not select an
@@ -12,8 +13,9 @@
   M6 seed 17 is the primary diagnostic bundle and M3 seed 17 is available as a paired diagnostic;
   both are unqualified and all identity proposals require human review. See the
   [0088 M15 handoff](../../reports/0088-M15_Qualification_Decision.md).
-- **Outcome:** A resumable local coordinator, retained stage results, and a measured development
-  pilot from video through reconstruction.
+- **Outcome:** A resumable local coordinator and a retained measurement report for a three-recording
+  development pilot. The report records partial scene results and explains why no composed quality
+  claim is available.
 - **M0:** Complete — freeze the three-recording development batch, exact source and review
   revisions, model bundles, automatic crop policy, budgets, and coverage gates. See the
   [M0 pilot freeze](../../reports/0090-M0_Composed_Pilot_Freeze.md).
@@ -34,7 +36,8 @@
 - **M2:** Complete — persist interruption state, resume with the same processor request, stop
   scheduling after cancellation, read status without worker calls, and require a fresh run ID for
   an explicit rerun. See the [M2 durability report](../../reports/0090-M2_Durable_Execution.md).
-- **M3:** Not started — run the development pilot and publish the composed result.
+- **M3:** Complete — run the frozen three-recording batch and report stage results, timing, failures,
+  and coverage limits. See the [M3 composed pilot report](../../reports/0090-M3_Composed_Pilot.md).
 
 ## 1. Scope and authority
 

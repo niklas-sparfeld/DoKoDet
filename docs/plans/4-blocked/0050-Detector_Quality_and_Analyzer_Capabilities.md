@@ -27,7 +27,7 @@
 [0087](../5-closed/0087-Reviewed_Virtual_Card_RF_DETR_Campaign.md) and
 [0088](../5-closed/0088-Reviewed_Virtual_Card_DINO_Campaign.md) owns the completed model campaign.
 [0089](../5-closed/0089-Virtual_Card_Algorithm_Edge_Cases.md) records that no pose or crop integration fix could be isolated.
-[0090](../3-in-progress/0090-Local_End_to_End_Recording_Pipeline.md) owns the first composed local pilot. This epic
+[0090](../5-closed/0090-Local_End_to_End_Recording_Pipeline.md) owns the first composed local pilot. This epic
 uses their reports to select a later optional analyzer capability. Do not repeat their training,
 algorithm fixes, or coordinator implementation. M0 must define a new evidence question before
 this epic starts; a report that selects no new capability is a valid outcome.

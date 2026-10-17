@@ -205,7 +205,7 @@ only if M0's gates permit it; retain a failed candidate as an experiment. Leave 
 Acceptance: decision report, predictions, bundle digests, evaluation history, limitations, and next
 actions are reproducible. Hand the exact selected bundle or retained baseline to
 [0089](0089-Virtual_Card_Algorithm_Edge_Cases.md) and
-[0090](../3-in-progress/0090-Local_End_to_End_Recording_Pipeline.md). A negative campaign outcome still
+[0090](0090-Local_End_to_End_Recording_Pipeline.md). A negative campaign outcome still
 permits a handoff.
 
 ## 4. Verification

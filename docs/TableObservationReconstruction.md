@@ -239,7 +239,7 @@ and tracking improve independently.
 - [0094](plans/5-closed/0094-DINO_Training_and_Runtime_Recipes.md) owns reusable multi-resolution
   DINO training, adapted-weight bundles and confidence contracts used by 0088.
 - [0089](plans/5-closed/0089-Virtual_Card_Algorithm_Edge_Cases.md) records the fresh no-fix algorithm handoff.
-- [0090](plans/3-in-progress/0090-Local_End_to_End_Recording_Pipeline.md) owns the composed local pilot.
+- [0090](plans/5-closed/0090-Local_End_to_End_Recording_Pipeline.md) owns the composed local pilot.
 - [0050](plans/4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) owns later justified
   optional analyzer capabilities after that pilot.
 - [0023](plans/0-to-specify/0023-Game_Reconstruction_Development.md),
