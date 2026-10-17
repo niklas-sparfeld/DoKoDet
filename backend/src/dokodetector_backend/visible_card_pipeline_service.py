@@ -304,6 +304,16 @@ class VisibleCardPipelineService:
         values.setdefault(
             "extraction_policy", {"policy_id": "exact-event/v1", "output_encoding": "jpeg"}
         )
+        raw_extraction_policy = values["extraction_policy"]
+        if not isinstance(raw_extraction_policy, Mapping):
+            raise VisibleCardPipelineInputError("extraction_policy must be an object.")
+        extraction_policy = dict(raw_extraction_policy)
+        event_time_anchor = extraction_policy.setdefault("event_time_anchor", "start_us")
+        if event_time_anchor not in {"start_us", "end_us"}:
+            raise VisibleCardPipelineInputError(
+                "extraction_policy.event_time_anchor must be start_us or end_us."
+            )
+        values["extraction_policy"] = extraction_policy
         values.setdefault("crop_policy", None)
         try:
             request = ProcessorRunRequest.from_mapping(values)
@@ -464,7 +474,10 @@ class VisibleCardPipelineService:
                 frame = resolve_exact_event(
                     self._video_path(run.request.source.recording_id),
                     source=run.request.source,
-                    requested_time_us=event.start_us,
+                    requested_time_us=getattr(
+                        event,
+                        run.request.extraction_policy.get("event_time_anchor", "start_us"),
+                    ),
                     cache=self.storage.derived_views_root,
                     resolver=self.frame_resolver,
                     output_encoding=run.request.extraction_policy.get("output_encoding", "jpeg"),

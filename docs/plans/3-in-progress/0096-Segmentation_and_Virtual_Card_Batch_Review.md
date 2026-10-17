@@ -13,7 +13,8 @@
 ## Milestone status
 
 - **M0:** Complete — froze 34 eligible recordings, exact event frames, comparison coverage, source overlap, run IDs, and processing limits. No inference ran.
-- **M1:** Not started — run segmentation for every eligible recording.
+- **M1:** In progress — preserve the first 34 run outcomes and rerun the 33 successful recordings
+  with the frozen `end_us` input anchor under the recorded correction budget.
 - **M2:** Not started — generate proposed card scenes from the exact M1 outputs.
 - **M3:** Not started — evaluate the retained segmentation and scene outputs.
 - **M4:** Not started — review results and publish the measured follow-up work.
@@ -97,11 +98,11 @@ accessible through the existing workspace. Do not reset or seed a live human dra
 Store bulk output only in the existing pipeline stores. Commit concise reports and manifests with
 paths, IDs, and digests rather than duplicate processor output.
 
-Run locally with zero cloud requests. Execute at most one new segmentation run and one new scene
-run per included recording, with at most 39 of each. Use one active processor run at a time, a
-24-hour active-processing budget across M1/M2, and a 32 GiB process-memory limit. Sample RSS and
-record the sampling interval. Human review time is separate. M0 may reduce the frozen list or
-budget for verified exclusions; expansion needs a recorded plan change before execution.
+Run locally with zero cloud requests. M0 froze at most 34 segmentation runs and 34 scene runs.
+Use one active processor run at a time, a 24-hour active-processing budget across M1/M2, and a
+32 GiB process-memory limit. Sample RSS and record the sampling interval. Human review time is
+separate. M0 may reduce the frozen list or budget for verified exclusions; expansion needs a
+recorded plan change before execution.
 
 Reuse unchanged completed runs from this epic on resume. Record a partial or failed run and continue
 independent recordings. Do not retry a terminal failure or silently replace a timed-out active run.
@@ -138,6 +139,23 @@ Keep individual cards and piles separate. Verify the stored model digest for eve
 Acceptance: every eligible recording has one retained terminal segmentation outcome or an explicit
 unprocessed reason. A failed recording does not hide other results. Zero-card frames remain in
 coverage. No scene or later processor runs during this milestone.
+
+#### Recorded correction plan (2026-10-17)
+
+The M0 input freeze specifies the selected event's `end_us`. The first 34 planned run IDs were
+started with the visible-card service's default `start_us` anchor. One run terminated after a
+backend MPS crash with zero completed frames. The other 33 runs completed 1,707 frame outcomes;
+1,407 matched the frozen frame identities and 300 did not. Keep all 34 original runs and outputs
+for audit. Do not retry the terminal failure or use the 33 mismatched outputs in M2.
+
+The service now records an explicit `event_time_anchor` in each request and supports `end_us` for
+this batch. The correction manifest freezes one new deterministic run ID for each of the 33
+completed recordings, their exact event revision, and their M0 frame identities. This changes the
+M1 cap from 34 to 67 total run IDs: the 34 original IDs plus 33 corrective IDs. The M2 cap remains
+34. The shared 24-hour processing limit and all model, threshold, memory, concurrency, source, and
+selection-pointer constraints remain unchanged. Do not start corrective inference unless the
+service change, regression check, and [correction manifest](../../reports/0096-M1_Input_Anchor_Correction.json)
+are committed.
 
 ### M2 — Generate proposed card scenes
 

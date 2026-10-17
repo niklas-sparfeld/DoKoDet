@@ -409,6 +409,7 @@ def _manual_event_revision(
     base: EventDataRevision,
     *,
     event_types: tuple[str, ...] | None = None,
+    start_offset_us: int = 0,
 ) -> str:
     if event_types is not None:
         assert len(event_types) == len(base.content.events)
@@ -417,7 +418,7 @@ def _manual_event_revision(
             EventRecord(
                 event_id=event.event_id,
                 event_type=(event.event_type if event_types is None else event_types[index]),
-                start_us=event.start_us,
+                start_us=max(0, event.start_us - start_offset_us),
                 end_us=event.end_us,
             )
             for index, event in enumerate(base.content.events)
@@ -546,10 +547,19 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             event_types=(
                 CARD_STATE_CHANGED_EVENT_TYPE,
             ) * len(generated_event_revision.content.events),
+            start_offset_us=1,
         )
         visible_reference = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={"run_id": "visible-reference", "configuration": {"threshold": 0.6}},
+            json={
+                "run_id": "visible-reference",
+                "configuration": {"threshold": 0.6},
+                "extraction_policy": {
+                    "policy_id": "exact-event/v1",
+                    "output_encoding": "jpeg",
+                    "event_time_anchor": "end_us",
+                },
+            },
         )
         assert visible_reference.status_code == 202
         _wait(client, "visible-reference")
@@ -557,7 +567,12 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-reference/result"
         ).json()
         assert reference_result["request"]["input_revision_ids"] == [manual_revision_id]
+        assert reference_result["request"]["extraction_policy"]["event_time_anchor"] == "end_us"
         reference_content = reference_result["revisions"][0]["content"]
+        assert (
+            reference_content["outcomes"][0]["frame_identity"]["requested_time_us"]
+            == generated_event_revision.content.events[0].end_us
+        )
         assert [outcome["status"] for outcome in reference_content["outcomes"]] == [
             "detected",
             "empty",

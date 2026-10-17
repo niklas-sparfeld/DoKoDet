@@ -1,0 +1,511 @@
+{
+  "correction": {
+    "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+    "deterministic_run_id_name": "https://doko-detector.local/epic/0096/M1/end-us-correction/v1/{recording_id}",
+    "deterministic_run_id_namespace": "URL",
+    "event_revision_id_source": "frozen M0 manifest",
+    "max_active_processor_runs": 1,
+    "max_m2_scene_runs": 34,
+    "max_new_corrective_runs": 33,
+    "max_total_active_processing_seconds": 86400,
+    "max_total_m1_run_ids": 67,
+    "process_memory_limit_bytes": 34359738368,
+    "provider": "local-rfdetr-segmentation",
+    "regression_test_sha256": "74b5cc1985a9d2a73edf79c02cd70ab2dc4545da33c610231b1fc108015cb32a",
+    "request_event_time_anchor": "end_us",
+    "rss_sampling_interval_seconds": 10,
+    "source_file_sha256": "62c247003fb5ab897fe4fa88ed88fa65a29ac9d0368504f3d2101a83017c62e0"
+  },
+  "date": "2026-10-17",
+  "epic": "0096",
+  "frozen_m0_frame_manifest": {
+    "anchor": "end_us",
+    "decoder_version": "ffmpeg/8.1.2",
+    "event_frame_count": 1756,
+    "output_encoding": "jpeg",
+    "path": "0096-M0_Event_Frame_Inputs.json",
+    "policy": "exact-event/v1",
+    "recording_count": 34,
+    "sha256": "7ab7a3244dd62029189738d5a7d1b93c3ac43424c6152a7f86f6ee124a742a46"
+  },
+  "prior_m1_attempt": {
+    "completed_wrong_anchor_run_count": 33,
+    "correctly_anchored_run_count": 0,
+    "exact_m0_frame_matches": 1407,
+    "failed_completed_frames": 0,
+    "failed_recording_id": "game-2026-08-20-01-001",
+    "failed_run_id": "97eaca74-c7be-5c22-9149-61ddce059fc8",
+    "frame_identity_mismatches": 300,
+    "policy": "Preserve all runs and revisions. Do not retry the terminal failure. Do not feed wrong-anchor revisions to M2.",
+    "run_count": 34,
+    "terminal_failed_run_count": 1,
+    "wrong_anchor_outcome_count": 1707
+  },
+  "reason": "M0 froze selected event end_us but the visible-card service used start_us.",
+  "recordings": [
+    {
+      "corrective_run_id": "291ad680-2792-5695-a710-4f5bd6685347",
+      "event_revision_id": "events-events-run-433dddcc-ef1-attempt-1",
+      "frozen_event_frame_count": 85,
+      "previous_exact_frame_matches": 85,
+      "previous_frame_identity_mismatch_count": 0,
+      "previous_outcome_count": 85,
+      "previous_output_revision_ids": [
+        "visible-cards-8b4c7303-b4db-50db-9eb2-82f5dd9b5da9-attempt-1"
+      ],
+      "previous_run_id": "8b4c7303-b4db-50db-9eb2-82f5dd9b5da9",
+      "previous_run_status": "complete",
+      "recording_id": "5a1f4037-d8ad-48da-9950-2ed2272811a5"
+    },
+    {
+      "corrective_run_id": "a9c887ce-ebcf-5684-8cb9-07ef0e85ccfb",
+      "event_revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-53679cb1-a6cf-5502-a021-46c560bbbd22-attempt-1"
+      ],
+      "previous_run_id": "53679cb1-a6cf-5502-a021-46c560bbbd22",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0090"
+    },
+    {
+      "corrective_run_id": "1897c4e9-12b5-5918-9021-ac59f84e63ce",
+      "event_revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-0f9c60c2-eb07-5ae6-9041-75891af6355f-attempt-1"
+      ],
+      "previous_run_id": "0f9c60c2-eb07-5ae6-9041-75891af6355f",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0091"
+    },
+    {
+      "corrective_run_id": "7e6dc749-4c85-5352-9dde-23825547228a",
+      "event_revision_id": "reference-events-3e2d3b060f2719da7d4e932825b78370",
+      "frozen_event_frame_count": 53,
+      "previous_exact_frame_matches": 43,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 53,
+      "previous_output_revision_ids": [
+        "visible-cards-b2ba175d-a88e-5772-a90a-0f805c195746-attempt-1"
+      ],
+      "previous_run_id": "b2ba175d-a88e-5772-a90a-0f805c195746",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0095"
+    },
+    {
+      "corrective_run_id": "e9f4a529-3edd-56d8-9a76-99594eb011a7",
+      "event_revision_id": "reference-events-4643e6f10607988627190cc59ee064b3",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-49bad4f1-d076-594a-91a5-12db71201424-attempt-1"
+      ],
+      "previous_run_id": "49bad4f1-d076-594a-91a5-12db71201424",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0096"
+    },
+    {
+      "corrective_run_id": "07c4a94f-3820-52ea-8435-29dd0a9ff2d7",
+      "event_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-f4045c57-6a05-5199-8aea-9ed3233cfd15-attempt-1"
+      ],
+      "previous_run_id": "f4045c57-6a05-5199-8aea-9ed3233cfd15",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0097"
+    },
+    {
+      "corrective_run_id": "5858cc78-219d-58c7-991b-d8d9e55d6be0",
+      "event_revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+      "frozen_event_frame_count": 51,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 11,
+      "previous_outcome_count": 51,
+      "previous_output_revision_ids": [
+        "visible-cards-11033e71-207b-5397-ba85-365cf230ed8f-attempt-1"
+      ],
+      "previous_run_id": "11033e71-207b-5397-ba85-365cf230ed8f",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0635"
+    },
+    {
+      "corrective_run_id": "4e943e69-0cd3-5841-bbac-a89906613f30",
+      "event_revision_id": "reference-events-0332acf97aeef7dcc7db5e3b5774e183",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-b7081276-b5e4-5c26-8b85-6fbd237756e8-attempt-1"
+      ],
+      "previous_run_id": "b7081276-b5e4-5c26-8b85-6fbd237756e8",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0636"
+    },
+    {
+      "corrective_run_id": "c017b765-b14e-5b31-a7c2-b4716d5adc61",
+      "event_revision_id": "reference-events-95021e1921249e2f04315178295fa34a",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-9c2c93f5-550a-52c2-8991-fd812f9228d6-attempt-1"
+      ],
+      "previous_run_id": "9c2c93f5-550a-52c2-8991-fd812f9228d6",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0637"
+    },
+    {
+      "corrective_run_id": "2369cabe-007b-50c9-b2a0-25f7b2752091",
+      "event_revision_id": "reference-events-96a83274f0a2c7673332e117aa4634a4",
+      "frozen_event_frame_count": 51,
+      "previous_exact_frame_matches": 41,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 51,
+      "previous_output_revision_ids": [
+        "visible-cards-24ffdb72-6aee-54e0-9cf4-9e72548d014f-attempt-1"
+      ],
+      "previous_run_id": "24ffdb72-6aee-54e0-9cf4-9e72548d014f",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0638"
+    },
+    {
+      "corrective_run_id": "8afe8966-3696-5a59-bfb3-34271d063183",
+      "event_revision_id": "reference-events-cb2ed8f6119ff32735a45da28a189a7a",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-b103816b-562f-5f4a-8bbd-d3966894b92e-attempt-1"
+      ],
+      "previous_run_id": "b103816b-562f-5f4a-8bbd-d3966894b92e",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0639"
+    },
+    {
+      "corrective_run_id": "673070df-fc36-5404-a5ec-7d4305131002",
+      "event_revision_id": "reference-events-e7b2713881051baff4e7670071adb2a3",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-f5a568d9-11b7-544f-8867-895f64219456-attempt-1"
+      ],
+      "previous_run_id": "f5a568d9-11b7-544f-8867-895f64219456",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0640"
+    },
+    {
+      "corrective_run_id": "d2b8317b-aacb-5d0b-b3e0-d5ab3a4c2089",
+      "event_revision_id": "reference-events-2a160b004691519b79550b24f9bcb08c",
+      "frozen_event_frame_count": 53,
+      "previous_exact_frame_matches": 42,
+      "previous_frame_identity_mismatch_count": 11,
+      "previous_outcome_count": 53,
+      "previous_output_revision_ids": [
+        "visible-cards-132f56af-4c97-587e-aa40-c3736d6f22ac-attempt-1"
+      ],
+      "previous_run_id": "132f56af-4c97-587e-aa40-c3736d6f22ac",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0641"
+    },
+    {
+      "corrective_run_id": "93489b3b-9078-5b53-a779-b9f8aa609c19",
+      "event_revision_id": "reference-events-fcc734f9ba43827938d76753ccb30f8b",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-72a9c9e6-ecac-5114-ab2a-84535b2fee35-attempt-1"
+      ],
+      "previous_run_id": "72a9c9e6-ecac-5114-ab2a-84535b2fee35",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0642"
+    },
+    {
+      "corrective_run_id": "4e9dd1fd-86a9-5f1f-a846-24611110cf44",
+      "event_revision_id": "reference-events-e091761f4d4d7dbbf586b250dfb5a4f9",
+      "frozen_event_frame_count": 52,
+      "previous_exact_frame_matches": 42,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 52,
+      "previous_output_revision_ids": [
+        "visible-cards-130732c6-7811-53ab-b742-66b2b43d1a44-attempt-1"
+      ],
+      "previous_run_id": "130732c6-7811-53ab-b742-66b2b43d1a44",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0643"
+    },
+    {
+      "corrective_run_id": "61cac67a-56c9-5141-9278-82f0f8e7abe1",
+      "event_revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+      "frozen_event_frame_count": 54,
+      "previous_exact_frame_matches": 44,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 54,
+      "previous_output_revision_ids": [
+        "visible-cards-30c522f8-8fc6-55d7-b03f-4f434752292d-attempt-1"
+      ],
+      "previous_run_id": "30c522f8-8fc6-55d7-b03f-4f434752292d",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0644"
+    },
+    {
+      "corrective_run_id": "22f665b9-2c77-5c8a-9cc1-eed1d90a168e",
+      "event_revision_id": "reference-events-ae6ad9016b11d947c8174b0264323256",
+      "frozen_event_frame_count": 51,
+      "previous_exact_frame_matches": 42,
+      "previous_frame_identity_mismatch_count": 9,
+      "previous_outcome_count": 51,
+      "previous_output_revision_ids": [
+        "visible-cards-b921c160-50af-5ee6-9724-44d82a5fff9e-attempt-1"
+      ],
+      "previous_run_id": "b921c160-50af-5ee6-9724-44d82a5fff9e",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0645"
+    },
+    {
+      "corrective_run_id": "bace182a-e2aa-5c9c-8a28-d0174188219e",
+      "event_revision_id": "reference-events-a1af76872facf447b6d82de10e530818",
+      "frozen_event_frame_count": 51,
+      "previous_exact_frame_matches": 41,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 51,
+      "previous_output_revision_ids": [
+        "visible-cards-a40b3812-4d3d-549c-a3bb-c635a7d85fc4-attempt-1"
+      ],
+      "previous_run_id": "a40b3812-4d3d-549c-a3bb-c635a7d85fc4",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0646"
+    },
+    {
+      "corrective_run_id": "3c77f687-664d-5539-b547-5e085691430f",
+      "event_revision_id": "reference-events-1e4ec9bdaf89a9899b15422126bd55f9",
+      "frozen_event_frame_count": 52,
+      "previous_exact_frame_matches": 42,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 52,
+      "previous_output_revision_ids": [
+        "visible-cards-63ae0746-2686-5e05-bda7-d88d63e7dddb-attempt-1"
+      ],
+      "previous_run_id": "63ae0746-2686-5e05-bda7-d88d63e7dddb",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0648"
+    },
+    {
+      "corrective_run_id": "42a72ab8-4833-556b-8701-bf15a4f5e697",
+      "event_revision_id": "reference-events-f00fda54352eef72ccc6996d6d82cbe3",
+      "frozen_event_frame_count": 54,
+      "previous_exact_frame_matches": 44,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 54,
+      "previous_output_revision_ids": [
+        "visible-cards-190e872d-7f1c-5f92-9699-71b70e46ab6d-attempt-1"
+      ],
+      "previous_run_id": "190e872d-7f1c-5f92-9699-71b70e46ab6d",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0649"
+    },
+    {
+      "corrective_run_id": "6e0c5fdf-9438-56d1-8253-e9912b25d5bf",
+      "event_revision_id": "reference-events-69ca04143d361f6529379023b4c4cc88",
+      "frozen_event_frame_count": 36,
+      "previous_exact_frame_matches": 29,
+      "previous_frame_identity_mismatch_count": 7,
+      "previous_outcome_count": 36,
+      "previous_output_revision_ids": [
+        "visible-cards-7943f0c7-002d-566e-acb7-a5b54668dfbc-attempt-1"
+      ],
+      "previous_run_id": "7943f0c7-002d-566e-acb7-a5b54668dfbc",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0650"
+    },
+    {
+      "corrective_run_id": "2a2ac876-25ab-51ac-bf51-39ff20caffdf",
+      "event_revision_id": "reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3",
+      "frozen_event_frame_count": 51,
+      "previous_exact_frame_matches": 41,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 51,
+      "previous_output_revision_ids": [
+        "visible-cards-1d4e260a-a2cf-54cf-9435-36ddc87ea905-attempt-1"
+      ],
+      "previous_run_id": "1d4e260a-a2cf-54cf-9435-36ddc87ea905",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0651"
+    },
+    {
+      "corrective_run_id": "8a7d7ce8-e811-5dd5-a483-699ca6fc2445",
+      "event_revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+      "frozen_event_frame_count": 51,
+      "previous_exact_frame_matches": 41,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 51,
+      "previous_output_revision_ids": [
+        "visible-cards-2eb9e82f-12c3-509b-a2c3-2781b395228b-attempt-1"
+      ],
+      "previous_run_id": "2eb9e82f-12c3-509b-a2c3-2781b395228b",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0652"
+    },
+    {
+      "corrective_run_id": "338183e7-1eb9-56e9-b4ab-18dd8ac02ad8",
+      "event_revision_id": "reference-events-726d441f95a2cd301ebdc0968532fa21",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-652e6251-e023-5b86-83f0-53399278621f-attempt-1"
+      ],
+      "previous_run_id": "652e6251-e023-5b86-83f0-53399278621f",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0653"
+    },
+    {
+      "corrective_run_id": "6850a399-0c9a-5949-add6-41d5cc77cbcb",
+      "event_revision_id": "reference-events-6fe976245fbbc3452c14decde7d85976",
+      "frozen_event_frame_count": 51,
+      "previous_exact_frame_matches": 41,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 51,
+      "previous_output_revision_ids": [
+        "visible-cards-a9b58b06-ea57-5f59-b408-cbb51df2478d-attempt-1"
+      ],
+      "previous_run_id": "a9b58b06-ea57-5f59-b408-cbb51df2478d",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0655"
+    },
+    {
+      "corrective_run_id": "7f18ab0c-4019-5557-a004-b5d10070d6b4",
+      "event_revision_id": "reference-events-17e0b4ea8fc84cec099e237467798fdd",
+      "frozen_event_frame_count": 51,
+      "previous_exact_frame_matches": 41,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 51,
+      "previous_output_revision_ids": [
+        "visible-cards-5778f2ea-67b5-5e63-91a6-1541c8e6b7a7-attempt-1"
+      ],
+      "previous_run_id": "5778f2ea-67b5-5e63-91a6-1541c8e6b7a7",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0657"
+    },
+    {
+      "corrective_run_id": "ef78d951-2932-57a9-b9cd-16914a8d15af",
+      "event_revision_id": "reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-acb93d1a-f013-5a57-8d9b-336cea9c6f7e-attempt-1"
+      ],
+      "previous_run_id": "acb93d1a-f013-5a57-8d9b-336cea9c6f7e",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0658"
+    },
+    {
+      "corrective_run_id": "bc980ec3-a5df-53ab-9726-c5057101c7bd",
+      "event_revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+      "frozen_event_frame_count": 54,
+      "previous_exact_frame_matches": 44,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 54,
+      "previous_output_revision_ids": [
+        "visible-cards-82c57e09-8641-5ae2-bf67-f20e4a74cf3f-attempt-1"
+      ],
+      "previous_run_id": "82c57e09-8641-5ae2-bf67-f20e4a74cf3f",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0661"
+    },
+    {
+      "corrective_run_id": "6e2f3f6f-b5c3-5bb0-8056-47a34bf54327",
+      "event_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
+      "frozen_event_frame_count": 50,
+      "previous_exact_frame_matches": 39,
+      "previous_frame_identity_mismatch_count": 11,
+      "previous_outcome_count": 50,
+      "previous_output_revision_ids": [
+        "visible-cards-66d76ef6-0eea-5dc9-bd13-dc7ab1e424ab-attempt-1"
+      ],
+      "previous_run_id": "66d76ef6-0eea-5dc9-bd13-dc7ab1e424ab",
+      "previous_run_status": "complete",
+      "recording_id": "cardeventnet-IMG_0662"
+    },
+    {
+      "corrective_run_id": "fe894c5e-b4ab-55bc-ab22-b476de1f84d8",
+      "event_revision_id": "events-events-run-f2757d1b-bfe-attempt-1",
+      "frozen_event_frame_count": 40,
+      "previous_exact_frame_matches": 40,
+      "previous_frame_identity_mismatch_count": 0,
+      "previous_outcome_count": 40,
+      "previous_output_revision_ids": [
+        "visible-cards-866d85ee-77e1-5eb6-b7bb-e162cf3b696f-attempt-1"
+      ],
+      "previous_run_id": "866d85ee-77e1-5eb6-b7bb-e162cf3b696f",
+      "previous_run_status": "complete",
+      "recording_id": "game-2026-08-20-01-005"
+    },
+    {
+      "corrective_run_id": "920c891d-1c86-577c-8094-55abd0989bf8",
+      "event_revision_id": "events-events-run-dfffd676-7c5-attempt-1",
+      "frozen_event_frame_count": 57,
+      "previous_exact_frame_matches": 57,
+      "previous_frame_identity_mismatch_count": 0,
+      "previous_outcome_count": 57,
+      "previous_output_revision_ids": [
+        "visible-cards-306147ec-a584-590f-bd2d-3300cd5efe03-attempt-1"
+      ],
+      "previous_run_id": "306147ec-a584-590f-bd2d-3300cd5efe03",
+      "previous_run_status": "complete",
+      "recording_id": "game-2026-09-18-01-001"
+    },
+    {
+      "corrective_run_id": "847f395f-dfd0-56c7-b3b0-fd9725cdf2a9",
+      "event_revision_id": "reference-events-5d237adc3b34c116f5002e670bb93b5a",
+      "frozen_event_frame_count": 52,
+      "previous_exact_frame_matches": 42,
+      "previous_frame_identity_mismatch_count": 10,
+      "previous_outcome_count": 52,
+      "previous_output_revision_ids": [
+        "visible-cards-4c1c2a1f-ef61-56d3-8021-45277c39b5cd-attempt-1"
+      ],
+      "previous_run_id": "4c1c2a1f-ef61-56d3-8021-45277c39b5cd",
+      "previous_run_status": "complete",
+      "recording_id": "game-2026-09-18-01-002"
+    },
+    {
+      "corrective_run_id": "15c12eef-4ce8-5568-8af7-761d2d553b66",
+      "event_revision_id": "reference-events-245d3f4a9f9cc55f2eb6cb33e6e9b31d",
+      "frozen_event_frame_count": 57,
+      "previous_exact_frame_matches": 46,
+      "previous_frame_identity_mismatch_count": 11,
+      "previous_outcome_count": 57,
+      "previous_output_revision_ids": [
+        "visible-cards-61f8cc04-d0c8-5a75-bec4-b48e6da24c47-attempt-1"
+      ],
+      "previous_run_id": "61f8cc04-d0c8-5a75-bec4-b48e6da24c47",
+      "previous_run_status": "complete",
+      "recording_id": "game-2026-09-18-01-003"
+    }
+  ],
+  "schema_version": "0096-m1-input-anchor-correction/v1",
+  "status": "frozen-before-corrective-inference"
+}
