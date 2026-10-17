@@ -11,7 +11,7 @@
     "process_memory_gib": 32
   },
   "milestone": "M0",
-  "model_matches_pin": false,
+  "model_matches_pin": true,
   "pending_freeze_checks": [
     "exact comparison frame coverage",
     "M4 training source-group overlap",
