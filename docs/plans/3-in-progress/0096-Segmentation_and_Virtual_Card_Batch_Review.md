@@ -4,7 +4,7 @@
 
 - **Summary:** Run the newest local segmentation bundle and proposed card scene processor on all
   eligible recordings, then evaluate and review the retained results.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0083 batch operations, 0092 M4 segmentation bundle, 0073 proposed card
   scene processing, and 0050 scene and comparison corrections.
 - **Outcome:** A reproducible batch with recording-level outcomes, separate segmentation and scene
@@ -12,7 +12,7 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze eligibility, exact inputs, implementation, and execution budget.
+- **M0:** In progress — preflighted the catalog, event selections, and pinned bundle; exact input and comparison freeze remains.
 - **M1:** Not started — run segmentation for every eligible recording.
 - **M2:** Not started — generate proposed card scenes from the exact M1 outputs.
 - **M3:** Not started — evaluate the retained segmentation and scene outputs.

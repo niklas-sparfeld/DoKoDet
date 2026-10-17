@@ -26,7 +26,7 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Next: **[0096 — Segmentation and virtual-card batch review](2-ready/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**.
+Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. M0 preflight is in progress; no processor runs have started.
 Start with M0 eligibility and input freeze. Run the pinned 0092 M4 segmentation bundle and proposed
 card scene processor across all eligible recordings, then evaluate and review the retained results.
 Identification, observation assembly, and reconstruction are outside this epic.
@@ -87,13 +87,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0096 — Segmentation and virtual-card batch review](2-ready/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M4 not started. Freeze all eligible inputs, run segmentation and proposed card scenes, then evaluate and review. No identification or reconstruction. |
+| *No ready epics* |  |  |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| *No in-progress epics* |  |  |
+| [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0 preflight covers 52 catalog entries, 39 event-ready candidates, and the pinned M4 bundle. Exact comparison coverage and input freeze remain. No processor runs have started. |
 
 ### Blocked
 

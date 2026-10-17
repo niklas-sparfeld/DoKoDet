@@ -1,0 +1,2029 @@
+{
+  "application_commit": "d2406d2f6d7b78b64c0677c171cd1b87aaa6701e",
+  "catalog_recording_count": 52,
+  "epic": "0096",
+  "limits": {
+    "active_processing_hours": 24,
+    "cloud_requests": 0,
+    "concurrent_processor_runs": 1,
+    "max_scene_runs": 39,
+    "max_segmentation_runs": 39,
+    "process_memory_gib": 32
+  },
+  "milestone": "M0",
+  "model_matches_pin": false,
+  "pending_freeze_checks": [
+    "exact comparison frame coverage",
+    "M4 training source-group overlap",
+    "frame extraction policy and hashes",
+    "stable run IDs",
+    "implementation and tool digests",
+    "preflight before any run"
+  ],
+  "pinned_model": {
+    "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+    "checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+    "manifest_sha256": "826ccba533531c62a2059be5889b9c48aa44800df5d216997575a238c37f5816"
+  },
+  "preflight_errors": [
+    "game-2026-08-20-01-002: no selected event revision is available",
+    "game-2026-08-20-01-003: no selected event revision is available",
+    "game-2026-08-20-01-004: no selected event revision is available"
+  ],
+  "preflight_ready_count": 39,
+  "preliminary_preflight_count": 42,
+  "provider": {
+    "available": true,
+    "bundle_identity": {
+      "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+      "checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+      "class_map": {
+        "1": "visible_card",
+        "2": "card_pile"
+      },
+      "mask_policy": {
+        "derived_box": "tight_floor_min_ceil_max_v1",
+        "normalization": "full-frame-0-1000/v1",
+        "pile_box": "tight_occupied_pixel_bbox_v1",
+        "pile_geometry": "coarse-footprint-pixel-center-even-odd-v1",
+        "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+        "pixel_ownership": "reviewed-card-pixels-priority-v1",
+        "pixel_point_rounding": "six_decimal_places"
+      },
+      "run_id": "rfdetr-segmentation-m3-training-1792096060",
+      "schema_version": "rfdetr-segmentation-bundle/v1"
+    },
+    "provider": "local-rfdetr-segmentation",
+    "version": "local-visible-card-segmentation-v1"
+  },
+  "recordings": [
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 1307,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-e22b24bde3ef35a56ab930873b2200cc",
+        "state_sha256": "1ce4b11f3ed5e60d8697fcba123cece9648cd54c7b64fc0bc7848c4e4a37248d"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "game-2026-08-20-01-001",
+      "selected_event_revision_id": "reference-events-e22b24bde3ef35a56ab930873b2200cc",
+      "selection_pointer": null,
+      "session_id": "session-2026-08-20",
+      "source_asset_id": "game-2026-08-20-01-001-source",
+      "source_group_lineage": {
+        "session_id": "session-2026-08-20",
+        "table_setup": "default_table_setup"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "session-2026-08-20",
+        "sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+        "source_permission": "unrestricted",
+        "table_setup": "default_table_setup"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "game-2026-08-20-01-001-video",
+      "video_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+      "visible_card_reference_state": {
+        "draft_revision": 107,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-25c56fb38af9a5604283bbc57789e690",
+        "state_sha256": "bed0ce336db1876fef49b04a3b158a71a58b66d49484597e4d661471686b05ff"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_missing_selected_events",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "No selected usable event revision; event detection is outside this batch.",
+      "recording_id": "game-2026-08-20-01-002",
+      "selected_event_revision_id": null,
+      "session_id": "session-2026-08-20",
+      "source_asset_id": "game-2026-08-20-01-002-source",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "game-2026-08-20-01-002-video",
+      "video_sha256": "5e8018e24a1328e796d1546dc9a9b05f157007a727c831383d38676e640feb88"
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_missing_selected_events",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "No selected usable event revision; event detection is outside this batch.",
+      "recording_id": "game-2026-08-20-01-003",
+      "selected_event_revision_id": null,
+      "session_id": "session-2026-08-20",
+      "source_asset_id": "game-2026-08-20-01-003-source",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "game-2026-08-20-01-003-video",
+      "video_sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8"
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_missing_selected_events",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "No selected usable event revision; event detection is outside this batch.",
+      "recording_id": "game-2026-08-20-01-004",
+      "selected_event_revision_id": null,
+      "session_id": "session-2026-08-20",
+      "source_asset_id": "game-2026-08-20-01-004-source",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "game-2026-08-20-01-004-video",
+      "video_sha256": "617e48224c72568d2d36526022a8da1562e1744cbd378593a0ac87d25a35d29d"
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 0,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": null,
+        "state_sha256": "6c33fee2b97fa9a8b7609fe7c0b87d89b198882268aab4c25cc4d7af7bcf8037"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "game-2026-08-20-01-005",
+      "selected_event_revision_id": "events-events-run-f2757d1b-bfe-attempt-1",
+      "selection_pointer": null,
+      "session_id": "session-2026-08-20",
+      "source_asset_id": "game-2026-08-20-01-005-source",
+      "source_group_lineage": {
+        "session_id": "session-2026-08-20",
+        "table_setup": "default_table_setup"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "session-2026-08-20",
+        "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73",
+        "source_permission": "unrestricted",
+        "table_setup": "default_table_setup"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "game-2026-08-20-01-005-video",
+      "video_sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73",
+      "visible_card_reference_state": {
+        "present": false
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 0,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": null,
+        "state_sha256": "691a6cd7580bd60de689ba372b7203daeaeb6dd04fe8351911933f711e692f13"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "game-2026-09-18-01-001",
+      "selected_event_revision_id": "events-events-run-dfffd676-7c5-attempt-1",
+      "selection_pointer": null,
+      "session_id": "session-2026-09-18",
+      "source_asset_id": "game-2026-09-18-01-001-source",
+      "source_group_lineage": {
+        "session_id": "session-2026-09-18",
+        "table_setup": null
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "session-2026-09-18",
+        "sha256": "a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789",
+        "source_permission": "unrestricted",
+        "table_setup": null
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "game-2026-09-18-01-001-video",
+      "video_sha256": "a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789",
+      "visible_card_reference_state": {
+        "draft_revision": 16,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": null,
+        "state_sha256": "96e855f9edeb34aa4a5ab84cbb6627678c4e3e459e1e4281939d9734057eea5a"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 640,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-5d237adc3b34c116f5002e670bb93b5a",
+        "state_sha256": "1c7423663556281c0b686e3e0c0a86a72497b9a1d31a110f138ac487536c2380"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "game-2026-09-18-01-002",
+      "selected_event_revision_id": "reference-events-5d237adc3b34c116f5002e670bb93b5a",
+      "selection_pointer": null,
+      "session_id": "session-2026-09-18",
+      "source_asset_id": "game-2026-09-18-01-002-source",
+      "source_group_lineage": {
+        "session_id": "session-2026-09-18",
+        "table_setup": null
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "session-2026-09-18",
+        "sha256": "bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65",
+        "source_permission": "unrestricted",
+        "table_setup": null
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "game-2026-09-18-01-002-video",
+      "video_sha256": "bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65",
+      "visible_card_reference_state": {
+        "draft_revision": 0,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": null,
+        "state_sha256": "5f5369f9f04ed7a1978e9f58fbf048636e305a42576ef6d55f6fbe5f7e85a2fd"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 1380,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-245d3f4a9f9cc55f2eb6cb33e6e9b31d",
+        "state_sha256": "7e1647b142d8ead3a8bc91cdbb4b8541691d842418285bc9b34a9696e90cb0e0"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "game-2026-09-18-01-003",
+      "selected_event_revision_id": "reference-events-245d3f4a9f9cc55f2eb6cb33e6e9b31d",
+      "selection_pointer": null,
+      "session_id": "session-2026-09-18",
+      "source_asset_id": "game-2026-09-18-01-003-source",
+      "source_group_lineage": {
+        "session_id": "session-2026-09-18",
+        "table_setup": null
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "session-2026-09-18",
+        "sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada",
+        "source_permission": "unrestricted",
+        "table_setup": null
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "game-2026-09-18-01-003-video",
+      "video_sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada",
+      "visible_card_reference_state": {
+        "draft_revision": 0,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": null,
+        "state_sha256": "6122c80c2048fbed2416ed721aa3a5f2aebcb0aa7e8f466eff26fa7b503d86a8"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 610,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+        "state_sha256": "a95e9c1be8547b0f3fa3cb51b5fac4ce0f221f241ccfc70477faa2ef5cdf76c5"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0635",
+      "selected_event_revision_id": "reference-events-d04445704490d73312dba20cf61df830",
+      "selection_pointer": null,
+      "session_id": "capture-img-0635",
+      "source_asset_id": "source-cardeventnet-IMG_0635",
+      "source_group_lineage": {
+        "session_id": "capture-img-0635",
+        "table_setup": "setup-img-0635"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0635",
+        "sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0635"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0635",
+      "video_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6",
+      "visible_card_reference_state": {
+        "draft_revision": 268,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-dinov3-predicted-crop-6c8758eff543b2bbfd9b7c722659dfb0",
+        "state_sha256": "fb5d8f5184890f3b1cd2dec45f28a7058008f8d5b912b8a9a10fe08af5c8281d"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 23,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-0332acf97aeef7dcc7db5e3b5774e183",
+        "state_sha256": "be8c3b34b7e336e74010d656825a6d16b8d4daae3f477741b13850772c8a9ed1"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0636",
+      "selected_event_revision_id": "reference-events-0332acf97aeef7dcc7db5e3b5774e183",
+      "selection_pointer": null,
+      "session_id": "capture-img-0636",
+      "source_asset_id": "source-cardeventnet-IMG_0636",
+      "source_group_lineage": {
+        "session_id": "capture-img-0636",
+        "table_setup": "setup-img-0636"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0636",
+        "sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0636"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0636",
+      "video_sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+      "visible_card_reference_state": {
+        "draft_revision": 375,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-b9843c3ba31e18e6254c8c3a42981896",
+        "state_sha256": "b73de1027385c068a79ac5942de5134965966ed04467a5da6f57acf7b835fd78"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 225,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-95021e1921249e2f04315178295fa34a",
+        "state_sha256": "f332be79bac1345a20049f4f12414e72c7934fbbfa8baf3cdfd807f0efee3691"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0637",
+      "selected_event_revision_id": "reference-events-95021e1921249e2f04315178295fa34a",
+      "selection_pointer": null,
+      "session_id": "capture-img-0637",
+      "source_asset_id": "source-cardeventnet-IMG_0637",
+      "source_group_lineage": {
+        "session_id": "capture-img-0637",
+        "table_setup": "setup-img-0637"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0637",
+        "sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0637"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0637",
+      "video_sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+      "visible_card_reference_state": {
+        "draft_revision": 521,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-88e4c25892e31f10ed7e2fbc84c46c86",
+        "state_sha256": "fb95023565c11326e8aee7d665877ae6eaab2ea2501a6484e59d098c1c3a7a90"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 25,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-96a83274f0a2c7673332e117aa4634a4",
+        "state_sha256": "444fba25ce7374498e63208f45fb520f4558e97f9962cc62f6410bea386129c6"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0638",
+      "selected_event_revision_id": "reference-events-96a83274f0a2c7673332e117aa4634a4",
+      "selection_pointer": null,
+      "session_id": "capture-img-0638",
+      "source_asset_id": "source-cardeventnet-IMG_0638",
+      "source_group_lineage": {
+        "session_id": "capture-img-0638",
+        "table_setup": "setup-img-0638"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0638",
+        "sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0638"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0638",
+      "video_sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+      "visible_card_reference_state": {
+        "draft_revision": 619,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-bf5a260ebb760cadbe6c390757afef0f",
+        "state_sha256": "c98e5e62175db6b7f5ee9a2bec489d4dd502c134b5b8f406bd5d839525821b30"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-cb2ed8f6119ff32735a45da28a189a7a",
+        "state_sha256": "e822acc5859004ee8db3cfd664aad8b49ca2d3eb7c4b32b6921084602efd000c"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0639",
+      "selected_event_revision_id": "reference-events-cb2ed8f6119ff32735a45da28a189a7a",
+      "selection_pointer": null,
+      "session_id": "capture-img-0639",
+      "source_asset_id": "source-cardeventnet-IMG_0639",
+      "source_group_lineage": {
+        "session_id": "capture-img-0639",
+        "table_setup": "setup-img-0639"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0639",
+        "sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0639"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0639",
+      "video_sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+      "visible_card_reference_state": {
+        "draft_revision": 596,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-4a83e73d098ee5c30aec26eb8fa6977c",
+        "state_sha256": "439a0770c4f127a96f930aacb2ca4861cfb28f091e015876015d6eb48284f74a"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-e7b2713881051baff4e7670071adb2a3",
+        "state_sha256": "3942b9ebd2ad0f0c9cc95de4a4d9b0cdf514f92382a7c3c1612c90ea7b63adc8"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0640",
+      "selected_event_revision_id": "reference-events-e7b2713881051baff4e7670071adb2a3",
+      "selection_pointer": null,
+      "session_id": "capture-img-0640",
+      "source_asset_id": "source-cardeventnet-IMG_0640",
+      "source_group_lineage": {
+        "session_id": "capture-img-0640",
+        "table_setup": "setup-img-0640"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0640",
+        "sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0640"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0640",
+      "video_sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+      "visible_card_reference_state": {
+        "draft_revision": 600,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-15efd47f2e3a422e85047f11f646365f",
+        "state_sha256": "529e022b73d32330e21c16c7afe5c36de8dcf68961ee8bf1c667cb044c2021a0"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 26,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-2a160b004691519b79550b24f9bcb08c",
+        "state_sha256": "89323335091af5fa0c7c4489d60714b001659f60e642690cd16d9626aba2f17d"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0641",
+      "selected_event_revision_id": "reference-events-2a160b004691519b79550b24f9bcb08c",
+      "selection_pointer": null,
+      "session_id": "capture-img-0641",
+      "source_asset_id": "source-cardeventnet-IMG_0641",
+      "source_group_lineage": {
+        "session_id": "capture-img-0641",
+        "table_setup": "setup-img-0641"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0641",
+        "sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0641"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0641",
+      "video_sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+      "visible_card_reference_state": {
+        "draft_revision": 378,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-05bd5532cc236f13869f93ce15770352",
+        "state_sha256": "1b15593d58c81ff8c5b39a312d73c761d1ad1e9213f9bcf3a067a2164e0de478"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-fcc734f9ba43827938d76753ccb30f8b",
+        "state_sha256": "96a5d0c615d516b0202dcca6b98d4c6f7fa94a54b3aac101a36ac1c68386430b"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0642",
+      "selected_event_revision_id": "reference-events-fcc734f9ba43827938d76753ccb30f8b",
+      "selection_pointer": null,
+      "session_id": "capture-img-0642",
+      "source_asset_id": "source-cardeventnet-IMG_0642",
+      "source_group_lineage": {
+        "session_id": "capture-img-0642",
+        "table_setup": "setup-img-0642"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0642",
+        "sha256": "bed363c2d52f6c141f8ddcac09a20ec42328834dbd635e9c0922ac1cf52f821c",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0642"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0642",
+      "video_sha256": "bed363c2d52f6c141f8ddcac09a20ec42328834dbd635e9c0922ac1cf52f821c",
+      "visible_card_reference_state": {
+        "draft_revision": 402,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-84bc4c78d55d121cbd3f9b2a3dec2fc7",
+        "state_sha256": "4189cd5783435dde6dd8ed79f653f47719a0304b8beb5eb21d9735806bda371c"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 261,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-e091761f4d4d7dbbf586b250dfb5a4f9",
+        "state_sha256": "5510cd150fc1ae948ac3dc4c6d95d34187c1a4eb10176a3a1a66bdc7b0425fd1"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0643",
+      "selected_event_revision_id": "reference-events-e091761f4d4d7dbbf586b250dfb5a4f9",
+      "selection_pointer": null,
+      "session_id": "capture-img-0643",
+      "source_asset_id": "source-cardeventnet-IMG_0643",
+      "source_group_lineage": {
+        "session_id": "capture-img-0643",
+        "table_setup": "setup-img-0643"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0643",
+        "sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0643"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0643",
+      "video_sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+      "visible_card_reference_state": {
+        "draft_revision": 325,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-0f1b4beac01d8888506578e0c0457fa4",
+        "state_sha256": "48030749b166cfcb963b02818916ee00a952ab9ed5b3d41a992c208785b0468f"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 23,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+        "state_sha256": "c8926fc62e763036e48455da7d23eba9996a6f77b02786c09d6102db1c7aa582"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0644",
+      "selected_event_revision_id": "reference-events-f7043b1a3e819bd1b0a7cab9715e292f",
+      "selection_pointer": null,
+      "session_id": "capture-img-0644",
+      "source_asset_id": "source-cardeventnet-IMG_0644",
+      "source_group_lineage": {
+        "session_id": "capture-img-0644",
+        "table_setup": "setup-img-0644"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0644",
+        "sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0644"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0644",
+      "video_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05",
+      "visible_card_reference_state": {
+        "draft_revision": 463,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-44c56fc8fc395ee43f3220e9b60bb1e9",
+        "state_sha256": "dc61b35dc57527500ecc068782b7b0793eef949f2b588eda82eb218bf2992a2f"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 102,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-ae6ad9016b11d947c8174b0264323256",
+        "state_sha256": "cbb413f517add92468c9e1f48467f57debe040f69b4c1dced6fa0ed824bf1333"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0645",
+      "selected_event_revision_id": "reference-events-ae6ad9016b11d947c8174b0264323256",
+      "selection_pointer": null,
+      "session_id": "capture-img-0645",
+      "source_asset_id": "source-cardeventnet-IMG_0645",
+      "source_group_lineage": {
+        "session_id": "capture-img-0645",
+        "table_setup": "setup-img-0645"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0645",
+        "sha256": "47707b79140338f5393b59c52ab7c0078b23ed889fc7da01423b7734f3ac15f8",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0645"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0645",
+      "video_sha256": "47707b79140338f5393b59c52ab7c0078b23ed889fc7da01423b7734f3ac15f8",
+      "visible_card_reference_state": {
+        "draft_revision": 448,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-2cb6063328acc3a69e778a133f7d16bd",
+        "state_sha256": "cafc0aed9c4cfb56f4de32e0e684f0ababc9c2f9fe24f4daf5120ddaddfc270b"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 37,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-a1af76872facf447b6d82de10e530818",
+        "state_sha256": "978d235ff74455c1ce082675dee1c00a0c59da31c5f5db9a07b20271dbd63e6f"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0646",
+      "selected_event_revision_id": "reference-events-a1af76872facf447b6d82de10e530818",
+      "selection_pointer": null,
+      "session_id": "capture-img-0646",
+      "source_asset_id": "source-cardeventnet-IMG_0646",
+      "source_group_lineage": {
+        "session_id": "capture-img-0646",
+        "table_setup": "setup-img-0646"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0646",
+        "sha256": "232c707df9474ceae51c581ec55ae274f12e09e871e5a5867cab1ea75d73c033",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0646"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0646",
+      "video_sha256": "232c707df9474ceae51c581ec55ae274f12e09e871e5a5867cab1ea75d73c033",
+      "visible_card_reference_state": {
+        "draft_revision": 434,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-719db93249b549be3d997c0c33c5cafd",
+        "state_sha256": "1bf03d47317a13ccabec028449d31aa2206dbd6e98ab04c183276eea396476f5"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-1e4ec9bdaf89a9899b15422126bd55f9",
+        "state_sha256": "5ad26de93ecbc6a38b16806199026f3a68c571d686dadd3f3cad7b2bd2fff20d"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0648",
+      "selected_event_revision_id": "reference-events-1e4ec9bdaf89a9899b15422126bd55f9",
+      "selection_pointer": null,
+      "session_id": "capture-img-0648",
+      "source_asset_id": "source-cardeventnet-IMG_0648",
+      "source_group_lineage": {
+        "session_id": "capture-img-0648",
+        "table_setup": "setup-img-0648"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0648",
+        "sha256": "6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0648"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0648",
+      "video_sha256": "6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c",
+      "visible_card_reference_state": {
+        "draft_revision": 717,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-bfc0ec1522aba2c30db1930fa542bafe",
+        "state_sha256": "dd3e2b3b2b28192835b4982ca2b30ab87d6e082c672c6fd07325dcccdb4c5bc7"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-f00fda54352eef72ccc6996d6d82cbe3",
+        "state_sha256": "a6455e2ddad20a587450e15888b3d952ff9074740e95d0dd013351220b3503ee"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0649",
+      "selected_event_revision_id": "reference-events-f00fda54352eef72ccc6996d6d82cbe3",
+      "selection_pointer": null,
+      "session_id": "capture-img-0649",
+      "source_asset_id": "source-cardeventnet-IMG_0649",
+      "source_group_lineage": {
+        "session_id": "capture-img-0649",
+        "table_setup": "setup-img-0649"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0649",
+        "sha256": "5b48dcad8a7faa34748ac2631f55352ea8219c6c5b54474bd887fed93b62f6ed",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0649"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0649",
+      "video_sha256": "5b48dcad8a7faa34748ac2631f55352ea8219c6c5b54474bd887fed93b62f6ed",
+      "visible_card_reference_state": {
+        "draft_revision": 449,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-dde0cfd22042f10352857c21e398b201",
+        "state_sha256": "a0c2b895506f58c7a6f05abab059b6eee4542f3bba73cf9e1537eb02ee6488eb"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 15,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-69ca04143d361f6529379023b4c4cc88",
+        "state_sha256": "ea36414080288af772c9b6b8694e11554adeaa370dcaa35f85a88c9bff8942b1"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0650",
+      "selected_event_revision_id": "reference-events-69ca04143d361f6529379023b4c4cc88",
+      "selection_pointer": null,
+      "session_id": "capture-img-0650",
+      "source_asset_id": "source-cardeventnet-IMG_0650",
+      "source_group_lineage": {
+        "session_id": "capture-img-0650",
+        "table_setup": "setup-img-0650"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0650",
+        "sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0650"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0650",
+      "video_sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+      "visible_card_reference_state": {
+        "draft_revision": 506,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-65f00d4dd35bf93b4ee0af3f3eb95e39",
+        "state_sha256": "87b30a046b3ecde887ca87f2cbf9ee13a772ea363bf4e7a51c50d2effc51854d"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3",
+        "state_sha256": "27c453ec08f117292236e8cb0f6a0eca32966a11367acdf169e9a8212e601fc4"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0651",
+      "selected_event_revision_id": "reference-events-060fd3a3e76c28eedb5a3dc3e42e1da3",
+      "selection_pointer": null,
+      "session_id": "capture-img-0651",
+      "source_asset_id": "source-cardeventnet-IMG_0651",
+      "source_group_lineage": {
+        "session_id": "capture-img-0651",
+        "table_setup": "setup-img-0651"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0651",
+        "sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0651"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0651",
+      "video_sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+      "visible_card_reference_state": {
+        "draft_revision": 465,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-b443be01bde99abca02c47bf64c49cd5",
+        "state_sha256": "9c5a69d1cb2a8c95f4e1c93c39e18c4123bc8b393c8c23fb2931bfa5d3a701df"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+        "state_sha256": "62a2ea32391381ac6f6746a893b0bf242d38f48a2a9dfb7b5f1a16599a924b12"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0652",
+      "selected_event_revision_id": "reference-events-a9295df09b66226c5346b63e9219937e",
+      "selection_pointer": null,
+      "session_id": "capture-img-0652",
+      "source_asset_id": "source-cardeventnet-IMG_0652",
+      "source_group_lineage": {
+        "session_id": "capture-img-0652",
+        "table_setup": "setup-img-0652"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0652",
+        "sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0652"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0652",
+      "video_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1",
+      "visible_card_reference_state": {
+        "draft_revision": 0,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": null,
+        "state_sha256": "f167e7e6f5c0e7f38ba47a5022130cf2d91ea80602bb9f51de19dc4f837532d4"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 39,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-726d441f95a2cd301ebdc0968532fa21",
+        "state_sha256": "a42c31daf8eb7222eaff14b7cd278080b74f7b403e1a2aa1375b42f11c954c6f"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0653",
+      "selected_event_revision_id": "reference-events-726d441f95a2cd301ebdc0968532fa21",
+      "selection_pointer": null,
+      "session_id": "capture-img-0653",
+      "source_asset_id": "source-cardeventnet-IMG_0653",
+      "source_group_lineage": {
+        "session_id": "capture-img-0653",
+        "table_setup": "setup-img-0653"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0653",
+        "sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0653"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0653",
+      "video_sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+      "visible_card_reference_state": {
+        "draft_revision": 184,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-b5049e9183c8e25e298156c8b4855ca4",
+        "state_sha256": "80017a6f27fbdcc7ab966d5feb9bd307725b4acf4ff0083fb9d6df58e704c229"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_protected_test_source",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Protected test source or related protected session; no media, references, or predictions accessed.",
+      "recording_id": "cardeventnet-IMG_0654",
+      "selected_event_revision_id": null,
+      "session_id": "capture-img-0654",
+      "source_asset_id": "source-cardeventnet-IMG_0654",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_0654",
+      "video_sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1"
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 412,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-6fe976245fbbc3452c14decde7d85976",
+        "state_sha256": "d67bf4659d3b29c516a20d65efbe549cfe47c5f7aa442bea29cee2764ddc477c"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0655",
+      "selected_event_revision_id": "reference-events-6fe976245fbbc3452c14decde7d85976",
+      "selection_pointer": null,
+      "session_id": "capture-img-0655",
+      "source_asset_id": "source-cardeventnet-IMG_0655",
+      "source_group_lineage": {
+        "session_id": "capture-img-0655",
+        "table_setup": "setup-img-0655"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0655",
+        "sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0655"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0655",
+      "video_sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+      "visible_card_reference_state": {
+        "draft_revision": 229,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-6da6c6c1468afcd2a5f7587a941528be",
+        "state_sha256": "3329a27240d84e1808c030ef51df402ea2915db5eba08ee9b08da440da9db3ca"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_protected_test_source",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Protected test source or related protected session; no media, references, or predictions accessed.",
+      "recording_id": "cardeventnet-IMG_0656",
+      "selected_event_revision_id": null,
+      "session_id": "capture-img-0656",
+      "source_asset_id": "source-cardeventnet-IMG_0656",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_0656",
+      "video_sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925"
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 56,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-17e0b4ea8fc84cec099e237467798fdd",
+        "state_sha256": "1f509812abdd03fe1e23958ea95d83b75f1880ba1ba1172d2331e87b53d0053f"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0657",
+      "selected_event_revision_id": "reference-events-17e0b4ea8fc84cec099e237467798fdd",
+      "selection_pointer": null,
+      "session_id": "capture-img-0657",
+      "source_asset_id": "source-cardeventnet-IMG_0657",
+      "source_group_lineage": {
+        "session_id": "capture-img-0657",
+        "table_setup": "setup-img-0657"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0657",
+        "sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0657"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0657",
+      "video_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+      "visible_card_reference_state": {
+        "draft_revision": 68,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-9825ffb099bab16c735b114ec4c4050a",
+        "state_sha256": "7584760c3953e07d9e624ddf81f40b4238be48e00c243a37379ae1655e168974"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 161,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7",
+        "state_sha256": "cd0626f57c05c26fa6556a6414eabfbf3eb2720e081c254c72de123aa9d13821"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0658",
+      "selected_event_revision_id": "reference-events-b18d8d5ecd1583beb4e29d323ea2c7d7",
+      "selection_pointer": null,
+      "session_id": "capture-img-0658",
+      "source_asset_id": "source-cardeventnet-IMG_0658",
+      "source_group_lineage": {
+        "session_id": "capture-img-0658",
+        "table_setup": "setup-img-0658"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0658",
+        "sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0658"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0658",
+      "video_sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+      "visible_card_reference_state": {
+        "draft_revision": 196,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-4fdd4d2c48275e22bde5040c5b0f0d88",
+        "state_sha256": "f00368a73ee1045100f1b9a400f6fe26ac0ee29cb99d54335a9fb5fb91f1ebf6"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_protected_test_source",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Protected test source or related protected session; no media, references, or predictions accessed.",
+      "recording_id": "cardeventnet-IMG_0659",
+      "selected_event_revision_id": null,
+      "session_id": "capture-img-0659",
+      "source_asset_id": "source-cardeventnet-IMG_0659",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_0659",
+      "video_sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e"
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_protected_test_source",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Protected test source or related protected session; no media, references, or predictions accessed.",
+      "recording_id": "cardeventnet-IMG_0660",
+      "selected_event_revision_id": null,
+      "session_id": "capture-img-0660",
+      "source_asset_id": "source-cardeventnet-IMG_0660",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_0660",
+      "video_sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc"
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 27,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
+        "state_sha256": "4ec1d0b0666220ea74d14d49bf6de78b74e130f5ec538b853ca802e3cb481311"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0662",
+      "selected_event_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
+      "selection_pointer": null,
+      "session_id": "capture-img-0662",
+      "source_asset_id": "source-cardeventnet-IMG_0662",
+      "source_group_lineage": {
+        "session_id": "capture-img-0662",
+        "table_setup": "setup-img-0662"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-img-0662",
+        "sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0662"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0662",
+      "video_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+      "visible_card_reference_state": {
+        "draft_revision": 637,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-bf287d3bff82dec774f16be1ccc736f0",
+        "state_sha256": "a45d9cddb485350cd1ffe95e4329d61223227544645803ee08a92ae9e92ac6f9"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 238,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-d3f30c4175781edf8312682c9fabe4fd",
+        "state_sha256": "e7062b791f86edff3279da42bd9fa1314e9520cc715c4dd90c405831d83b40d4"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0669",
+      "selected_event_revision_id": "reference-events-d3f30c4175781edf8312682c9fabe4fd",
+      "selection_pointer": null,
+      "session_id": "capture-20260825-weird-staged-a",
+      "source_asset_id": "source-cardeventnet-IMG_0669",
+      "source_group_lineage": {
+        "session_id": "capture-20260825-weird-staged-a",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-20260825-weird-staged-a",
+        "sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6",
+        "source_permission": "training_and_evaluation",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0669",
+      "video_sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6",
+      "visible_card_reference_state": {
+        "draft_revision": 324,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-eeeb63081b27ebec777c268d4d7e1552",
+        "state_sha256": "643318c7660fd89d718befa21ff68d610c36d64aa9a07d771a661a9bb6445a8d"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-661ac3f29c7f5a4757421991868d7650",
+        "state_sha256": "265dc978e6aedd20b4d6fe7ffd4b9c759d6dbb3d1fc93a8ff6ead7d52e43a2ea"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0670",
+      "selected_event_revision_id": "reference-events-661ac3f29c7f5a4757421991868d7650",
+      "selection_pointer": null,
+      "session_id": "capture-20260825-weird-staged-a",
+      "source_asset_id": "source-cardeventnet-IMG_0670",
+      "source_group_lineage": {
+        "session_id": "capture-20260825-weird-staged-a",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-20260825-weird-staged-a",
+        "sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0",
+        "source_permission": "training_and_evaluation",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0670",
+      "video_sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0",
+      "visible_card_reference_state": {
+        "draft_revision": 1,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": null,
+        "state_sha256": "f542bf7e136d3e223b828cc99a5a70e4b52f16053adf402b1ac5c7a8e29aee49"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 13,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-9a3fb1cf734515438cffb6bf5cae5882",
+        "state_sha256": "86c0b489316d45103d057cd91d0d999a9705e92a826fa3e2248c6f363b557d5f"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0671",
+      "selected_event_revision_id": "reference-events-9a3fb1cf734515438cffb6bf5cae5882",
+      "selection_pointer": null,
+      "session_id": "capture-20260825-weird-staged-a",
+      "source_asset_id": "source-cardeventnet-IMG_0671",
+      "source_group_lineage": {
+        "session_id": "capture-20260825-weird-staged-a",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-20260825-weird-staged-a",
+        "sha256": "43685d181346b93cc865b5ece77702081c75091771b01f5972f7ee0f1883fa69",
+        "source_permission": "training_and_evaluation",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0671",
+      "video_sha256": "43685d181346b93cc865b5ece77702081c75091771b01f5972f7ee0f1883fa69",
+      "visible_card_reference_state": {
+        "draft_revision": 0,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": null,
+        "state_sha256": "861d07af6c5036828869caff555ac3b6ac19e6fa1bd76a330ad7cf68feb77a3a"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 19,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-ef9c7cb4ec3a4529cd28d952bb24d0fc",
+        "state_sha256": "7b33c7a602a3617575c51bbb2fa122e787821c6afb76f4a6b287f8742f44dd39"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0673",
+      "selected_event_revision_id": "reference-events-ef9c7cb4ec3a4529cd28d952bb24d0fc",
+      "selection_pointer": null,
+      "session_id": "capture-20260825-weird-staged-a",
+      "source_asset_id": "source-cardeventnet-IMG_0673",
+      "source_group_lineage": {
+        "session_id": "capture-20260825-weird-staged-a",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-20260825-weird-staged-a",
+        "sha256": "3b8aa89940cb14af8383da13b18fc9dbe2c1dc593e8b088e33a6b47119c01ce3",
+        "source_permission": "training_and_evaluation",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0673",
+      "video_sha256": "3b8aa89940cb14af8383da13b18fc9dbe2c1dc593e8b088e33a6b47119c01ce3",
+      "visible_card_reference_state": {
+        "present": false
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 17,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-81a51db94227767a839e5af4387b1cc2",
+        "state_sha256": "dbce1620084927eee8a1e3b5b861f1e9173e2c63eb7070df97aed79f41a9c122"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0674",
+      "selected_event_revision_id": "reference-events-81a51db94227767a839e5af4387b1cc2",
+      "selection_pointer": null,
+      "session_id": "capture-20260825-weird-staged-a",
+      "source_asset_id": "source-cardeventnet-IMG_0674",
+      "source_group_lineage": {
+        "session_id": "capture-20260825-weird-staged-a",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "capture-20260825-weird-staged-a",
+        "sha256": "26fb63d873129ab65988a3bba3ca0546b690f66556cefeab291f1c4ec0f3dc14",
+        "source_permission": "training_and_evaluation",
+        "table_setup": "setup-20260825-weird-staged-a"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0674",
+      "video_sha256": "26fb63d873129ab65988a3bba3ca0546b690f66556cefeab291f1c4ec0f3dc14",
+      "visible_card_reference_state": {
+        "draft_revision": 437,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-2d0088456473d4b5d8b7aaf483c1da7d",
+        "state_sha256": "7ddebee00e5dca9600b8472e4882b3adaa7dc44896ad36bb17c4bdb76032d7fd"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_legacy_device_policy",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Excluded by the existing legacy-device diagnostic policy.",
+      "recording_id": "cardeventnet-IMG_2777",
+      "selected_event_revision_id": null,
+      "session_id": "capture-20180128-1337-a",
+      "source_asset_id": "source-cardeventnet-IMG_2777",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_2777",
+      "video_sha256": "ccb1c0ca78558691af4a37c18eaac76a64d782aadc105cd0c779a5296e311e81"
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_legacy_device_policy",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Excluded by the existing legacy-device diagnostic policy.",
+      "recording_id": "cardeventnet-IMG_2778",
+      "selected_event_revision_id": null,
+      "session_id": "capture-20180128-1337-a",
+      "source_asset_id": "source-cardeventnet-IMG_2778",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_2778",
+      "video_sha256": "9a9ccbdf365bd2addd919617fb28513e9700395b83b0b8b913713cb21da4a029"
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_legacy_device_policy",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Excluded by the existing legacy-device diagnostic policy.",
+      "recording_id": "cardeventnet-IMG_2779",
+      "selected_event_revision_id": null,
+      "session_id": "capture-20180128-1337-a",
+      "source_asset_id": "source-cardeventnet-IMG_2779",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_2779",
+      "video_sha256": "3c4e2da8d5381aa5648e832ebc31efea09e20008cd7f72fc9b4e33a719660f93"
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_legacy_device_policy",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Excluded by the existing legacy-device diagnostic policy.",
+      "recording_id": "cardeventnet-IMG_2780",
+      "selected_event_revision_id": null,
+      "session_id": "capture-20180128-1337-a",
+      "source_asset_id": "source-cardeventnet-IMG_2780",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_2780",
+      "video_sha256": "1c801078b400622dd91d43fd57f209ab5f364169dd07b0b6d4487d71dab9f046"
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_legacy_device_policy",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Excluded by the existing legacy-device diagnostic policy.",
+      "recording_id": "cardeventnet-IMG_2781",
+      "selected_event_revision_id": null,
+      "session_id": "capture-20180124-1937-a",
+      "source_asset_id": "source-cardeventnet-IMG_2781",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_2781",
+      "video_sha256": "d851b5dd347ec9b91adefac2a641b27a3f8c80d308de8e320ad93f927ed458ee"
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 1129,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+        "state_sha256": "dae903764de159e51171a5228346214a2f727283a2459b76a6767d69e924b66f"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0090",
+      "selected_event_revision_id": "reference-events-03f7770e65e5b9a490ea5cb446e8a8ab",
+      "selection_pointer": null,
+      "session_id": "capture-img-0090",
+      "source_asset_id": "source-cardeventnet-IMG_0090",
+      "source_group_lineage": {
+        "session_id": "capture-img-0090",
+        "table_setup": "setup-img-0090"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "validation"
+        ],
+        "session_id": "capture-img-0090",
+        "sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0090"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0090",
+      "video_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef",
+      "visible_card_reference_state": {
+        "draft_revision": 235,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-dinov3-predicted-crop-b3b5aea9bd4408f40b051e73f1d63a45",
+        "state_sha256": "efcbb8ec2e68eb53635f150d663c44899af240cf3f8e769c941538417853ed11"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+        "state_sha256": "af6aca16a76b6e6c1d3f717346ccfc195210b786d55075af1f673d293fe70c44"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0091",
+      "selected_event_revision_id": "reference-events-46a7194352e9566958531b07b6765014",
+      "selection_pointer": null,
+      "session_id": "capture-img-0091",
+      "source_asset_id": "source-cardeventnet-IMG_0091",
+      "source_group_lineage": {
+        "session_id": "capture-img-0091",
+        "table_setup": "setup-img-0091"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "validation"
+        ],
+        "session_id": "capture-img-0091",
+        "sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0091"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0091",
+      "video_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f",
+      "visible_card_reference_state": {
+        "draft_revision": 130,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-dinov3-predicted-crop-786f90ef4be1f52bbaf67c1f16bb7fdb",
+        "state_sha256": "ec5ec1351dbca6513b01f9b49ffb1ead885e2e555d5323debceb4b3c85fe4e4c"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "disposition": "excluded_non_flat_surface",
+      "evaluation_eligibility": "excluded",
+      "execution_eligibility": "excluded",
+      "reason": "Permanently excluded because the surface was not flat.",
+      "recording_id": "cardeventnet-IMG_0092",
+      "selected_event_revision_id": null,
+      "session_id": "capture-img-0092",
+      "source_asset_id": "source-cardeventnet-IMG_0092",
+      "source_use_metadata": {},
+      "training_preparation_eligibility": "excluded",
+      "video_id": "video-cardeventnet-IMG_0092",
+      "video_sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac"
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-3e2d3b060f2719da7d4e932825b78370",
+        "state_sha256": "f23648f21946c39b8e5b60dac15341eb21bc66235e06ec5c27d5c422a629fef8"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0095",
+      "selected_event_revision_id": "reference-events-3e2d3b060f2719da7d4e932825b78370",
+      "selection_pointer": null,
+      "session_id": "capture-img-0095",
+      "source_asset_id": "source-cardeventnet-IMG_0095",
+      "source_group_lineage": {
+        "session_id": "capture-img-0095",
+        "table_setup": "setup-img-0095"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train"
+        ],
+        "session_id": "capture-img-0095",
+        "sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0095"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0095",
+      "video_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+      "visible_card_reference_state": {
+        "draft_revision": 1115,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-0a497589905fb6054fc69e2f5d9daa1c",
+        "state_sha256": "bd2affc7b3f4a249399b13f2f137fac89b3dc5e2b10d272f3b9f303aba5e20ad"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-4643e6f10607988627190cc59ee064b3",
+        "state_sha256": "57bb6469765d2c352c53e6635a2335f73ac1167d20df50ae3fde303f09033bde"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0096",
+      "selected_event_revision_id": "reference-events-4643e6f10607988627190cc59ee064b3",
+      "selection_pointer": null,
+      "session_id": "capture-img-0096",
+      "source_asset_id": "source-cardeventnet-IMG_0096",
+      "source_group_lineage": {
+        "session_id": "capture-img-0096",
+        "table_setup": "setup-img-0096"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train"
+        ],
+        "session_id": "capture-img-0096",
+        "sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0096"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0096",
+      "video_sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d",
+      "visible_card_reference_state": {
+        "draft_revision": 331,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-5126ec8f3a1ec506663d9f06415f7feb",
+        "state_sha256": "6d150527377a39c8b6f9c8e0d174c0e66a64e7dc65c9182b32ace192af8c895f"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 21,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+        "state_sha256": "c3a051276e455c8fc02e585cbcfd50a2d0f7021a49aae16f02f7e22491490a2a"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0097",
+      "selected_event_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+      "selection_pointer": null,
+      "session_id": "capture-img-0097",
+      "source_asset_id": "source-cardeventnet-IMG_0097",
+      "source_group_lineage": {
+        "session_id": "capture-img-0097",
+        "table_setup": "setup-img-0097"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train"
+        ],
+        "session_id": "capture-img-0097",
+        "sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0097"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0097",
+      "video_sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+      "visible_card_reference_state": {
+        "draft_revision": 438,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-b2068e9892feee08eb1ec86c52d4f2ed",
+        "state_sha256": "678613a9fb327e321b21c24d2ad1f4132f60e92de3bccfe48ecf7518de16860a"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 167,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+        "state_sha256": "23fb2a851ddbbcf8d0b0295c8efeca0ee2a83df7cdf21ca068a1f604df09f76b"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "cardeventnet-IMG_0661",
+      "selected_event_revision_id": "reference-events-a77b0032f5c2a22931d1edf52648d954",
+      "selection_pointer": null,
+      "session_id": "capture-img-0661",
+      "source_asset_id": "source-cardeventnet-IMG_0661",
+      "source_group_lineage": {
+        "session_id": "capture-img-0661",
+        "table_setup": "setup-img-0661"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "validation"
+        ],
+        "session_id": "capture-img-0661",
+        "sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd",
+        "source_permission": "project_use",
+        "table_setup": "setup-img-0661"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-cardeventnet-IMG_0661",
+      "video_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd",
+      "visible_card_reference_state": {
+        "draft_revision": 348,
+        "draft_state": "completed",
+        "present": true,
+        "selected_completed_revision_id": "reference-visible_cards-dinov3-predicted-crop-cf018a277440d950c1a51914059eab14",
+        "state_sha256": "fa261074f8df3524c59da653310413abb95104c8537c51e9c35a601f45601edc"
+      }
+    },
+    {
+      "catalog_state": "complete",
+      "comparison_frame_coverage": "pending exact decoded-image comparison",
+      "disposition": "preflight_candidate",
+      "evaluation_eligibility": "pending",
+      "event_reference_state": {
+        "draft_revision": 1,
+        "draft_state": "draft",
+        "present": true,
+        "selected_completed_revision_id": null,
+        "state_sha256": "c47f467da7716bd91c0b560f840afd307687b202eef3b8c19559509157150442"
+      },
+      "execution_eligibility": "pending",
+      "reason": "Accepted video and selected event revision found; remaining M0 checks are pending.",
+      "recording_id": "5a1f4037-d8ad-48da-9950-2ed2272811a5",
+      "selected_event_revision_id": "events-events-run-433dddcc-ef1-attempt-1",
+      "selection_pointer": null,
+      "session_id": "6816e305-2143-40a4-b0c5-3fb26a9478c4",
+      "source_asset_id": "source-5a1f4037-d8ad-48da-9950-2ed2272811a5",
+      "source_group_lineage": {
+        "session_id": "6816e305-2143-40a4-b0c5-3fb26a9478c4",
+        "table_setup": "default_table_setup"
+      },
+      "source_use_metadata": {
+        "allowed_uses": [
+          "train",
+          "validation",
+          "test",
+          "evaluation"
+        ],
+        "session_id": "6816e305-2143-40a4-b0c5-3fb26a9478c4",
+        "sha256": "6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a",
+        "source_permission": "project_use",
+        "table_setup": "default_table_setup"
+      },
+      "training_preparation_eligibility": "pending",
+      "video_id": "video-5a1f4037-d8ad-48da-9950-2ed2272811a5",
+      "video_sha256": "6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a",
+      "visible_card_reference_state": {
+        "present": false
+      }
+    }
+  ],
+  "schema_version": "segmentation-virtual-card-batch-preflight/v1",
+  "snapshot_date": "2026-10-17",
+  "state": "preflight_in_progress_not_frozen",
+  "toolchain": {
+    "ffmpeg": "8.1.2",
+    "node": "24.20.0",
+    "python": "3.13",
+    "uv": "0.12"
+  }
+}
