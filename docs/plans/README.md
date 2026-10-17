@@ -93,7 +93,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0 is complete. It froze 34 eligible recordings, exact frame comparison coverage, M4 training overlap, and the pinned bundle. No processor runs have started. |
+| [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M1 complete. After a recorded input-anchor correction, 33 recordings produced 1,707 exact frame outcomes. One terminal M1 run failed with 49 frames unprocessed. M2 must use the corrected revisions and record the failed recording as a dependency failure. See the [M1 result](../reports/0096-M1_Run_Result.md). |
 
 ### Blocked
 
