@@ -1582,7 +1582,9 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "defer" | "resume" | "set_resume";
+            action: "defer" | "resume" | "set_resume" | "save_review";
+            /** Draft Revision */
+            draft_revision?: number | null;
             /** Queue Digest */
             queue_digest: string;
         };

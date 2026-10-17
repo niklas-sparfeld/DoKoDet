@@ -2,10 +2,13 @@
 
 ## Plan status
 
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0096 M4 frozen queue and existing 0049/0074 maintained-reference editor.
-- **Outcome:** An operator can resume a cross-recording list of frames to review and save decisions
-  through the existing editor. Implementation does not require new human review.
+- **Closure reason:** Complete
+- **Outcome:** The web app supports cross-recording frame review, persisted deferral and resume,
+  and save-confirmed progress through the maintained-reference editor. The read-only check found
+  all 165 frozen queue items unavailable because this worktree's revision catalog rejected the
+  retained manifests. See the [M3 handoff](../../reports/0097-M3_Frame_Review_Handoff.md).
 
 ## Milestone status
 
@@ -13,7 +16,8 @@
 - **M1:** Complete — expose bounded queue pages, counts, exact editor targets, unavailable reasons,
   receipt status, and persisted queue-only deferral and resume position through the backend API.
 - **M2:** Complete — add the frame list, filters, progress, and exact-result editor navigation.
-- **M3:** Not started — add resume, defer, and saved-review progress; verify the complete workflow.
+- **M3:** Complete — add defer/resume controls, save-confirmed progress, and verify the frozen queue
+  read-only. The worktree revision catalog could not serve any of the 165 queue results.
 
 ## Scope and boundaries
 
@@ -119,6 +123,14 @@ across two fixture recordings. Counts distinguish saved draft decisions from pub
 completion. Verify the 165-item real queue read-only without making human decisions. Publish a
 short handoff; 0096 review completion remains unchanged. No user availability is required to close
 this software epic after fixture and read-only verification.
+
+M3 adds persisted defer/resume controls, records the open frame as the resume position, and writes a
+saved-review receipt only after the editor reports that its draft queue is clear. The API validates
+the current draft and exact queue lineage before it writes a receipt. Failed saves remain pending.
+After a confirmed save, the editor refreshes queue progress and offers the next pending frame.
+Read-only verification found all 165 frozen items unavailable because this worktree's revision
+catalog rejected the retained manifests. No human decision was made. See the
+[M3 handoff](../../reports/0097-M3_Frame_Review_Handoff.md).
 
 ## Verification
 

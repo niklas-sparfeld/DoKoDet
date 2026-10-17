@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   createDokoDetectorClient,
@@ -25,6 +25,11 @@ export function FrameReviewQueueView() {
   const [counts, setCounts] = useState<
     FrameReviewPageResponse["counts"] | null
   >(null);
+  const [queueDigest, setQueueDigest] = useState<string | null>(null);
+  const [resumeTarget, setResumeTarget] = useState<{
+    recordingId: string;
+    itemId: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<QueueState>(() =>
@@ -54,6 +59,15 @@ export function FrameReviewQueueView() {
         if (!signal?.aborted) {
           setItems(pages.flatMap((page) => page.items));
           setCounts(first.counts);
+          setQueueDigest(first.queue_digest);
+          setResumeTarget(
+            first.resume_recording_id !== null && first.resume_item_id !== null
+              ? {
+                  recordingId: first.resume_recording_id,
+                  itemId: first.resume_item_id,
+                }
+              : null,
+          );
           setError(null);
         }
       } catch (reason) {
@@ -89,6 +103,17 @@ export function FrameReviewQueueView() {
     target.searchParams.set("frame_review", "0096-M4");
     return `${target.pathname}${target.search}`;
   };
+  const updateWorkflow = async (
+    item: QueueItem,
+    action: "defer" | "resume",
+  ) => {
+    if (queueDigest === null) return;
+    await client.updateFrameReviewWorkflow(item.recording_id, item.item_id, {
+      queue_digest: queueDigest,
+      action,
+    });
+    await loadQueue();
+  };
 
   return (
     <main className={styles.page}>
@@ -113,6 +138,12 @@ export function FrameReviewQueueView() {
           <span>{counts.by_state.deferred} deferred</span>
           <span>{counts.by_state.unavailable} unavailable</span>
         </section>
+      ) : null}
+      {resumeTarget !== null ? (
+        <p className={styles.note}>
+          Resume position: {resumeTarget.recordingId} · {resumeTarget.itemId}{" "}
+          <a href={resumeHref(items, resumeTarget)}>Open resume frame</a>
+        </p>
       ) : null}
 
       <nav
@@ -198,9 +229,26 @@ export function FrameReviewQueueView() {
               {href === null ? (
                 <span className={styles.disabledAction}>Unavailable</span>
               ) : (
-                <a className={styles.openLink} href={href}>
-                  Open exact result
-                </a>
+                <div className={styles.actions}>
+                  <a className={styles.openLink} href={href}>
+                    Open exact result
+                  </a>
+                  {item.state === "deferred" ? (
+                    <button
+                      type="button"
+                      onClick={() => void updateWorkflow(item, "resume")}
+                    >
+                      Resume
+                    </button>
+                  ) : item.state === "pending" ? (
+                    <button
+                      type="button"
+                      onClick={() => void updateWorkflow(item, "defer")}
+                    >
+                      Defer
+                    </button>
+                  ) : null}
+                </div>
               )}
             </li>
           );
@@ -219,14 +267,16 @@ export function FrameReviewEditorNavigation({
 }) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const [items, setItems] = useState<QueueItem[]>([]);
-  useEffect(() => {
-    const controller = new AbortController();
-    void (async () => {
+  const [queueDigest, setQueueDigest] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const savedResumeKey = useRef<string | null>(null);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
       try {
         const first = await client.getFrameReviewPage({
           limit: 100,
           cursor: 0,
-          signal: controller.signal,
+          signal,
         });
         const all = [...first.items];
         let cursor = first.next_cursor;
@@ -234,22 +284,52 @@ export function FrameReviewEditorNavigation({
           const page = await client.getFrameReviewPage({
             limit: 100,
             cursor,
-            signal: controller.signal,
+            signal,
           });
           all.push(...page.items);
           cursor = page.next_cursor;
         }
-        if (!controller.signal.aborted) setItems(all);
+        if (!signal?.aborted) {
+          setItems(all);
+          setQueueDigest(first.queue_digest);
+        }
       } catch {
-        if (!controller.signal.aborted) setItems([]);
+        if (!signal?.aborted) setItems([]);
       }
-    })();
-    return () => controller.abort();
-  }, [client]);
+    },
+    [client],
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void refresh(controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [refresh]);
+  useEffect(() => {
+    const updated = () => void refresh();
+    window.addEventListener("frame-review-progress-updated", updated);
+    return () =>
+      window.removeEventListener("frame-review-progress-updated", updated);
+  }, [refresh]);
 
   const index = items.findIndex(
     (item) => item.recording_id === recordingId && item.item_id === itemId,
   );
+  useEffect(() => {
+    const current = items[index];
+    if (index < 0 || queueDigest === null || current === undefined) return;
+    const key = `${recordingId}:${current.item_id}`;
+    if (savedResumeKey.current === key) return;
+    savedResumeKey.current = key;
+    void client
+      .updateFrameReviewWorkflow(recordingId, current.item_id, {
+        queue_digest: queueDigest,
+        action: "set_resume",
+      })
+      .catch((reason: unknown) => setNotice(describeError(reason)));
+  }, [client, index, items, queueDigest, recordingId]);
   if (index < 0) {
     return (
       <nav
@@ -263,6 +343,22 @@ export function FrameReviewEditorNavigation({
   const current = items[index];
   const previous = items[index - 1];
   const next = items[index + 1];
+  const changeState = async (action: "defer" | "resume" | "set_resume") => {
+    if (queueDigest === null) return;
+    try {
+      await client.updateFrameReviewWorkflow(recordingId, itemId ?? "", {
+        queue_digest: queueDigest,
+        action,
+      });
+      setNotice(
+        action === "defer" ? "Frame deferred." : "Resume position saved.",
+      );
+      window.dispatchEvent(new Event("frame-review-progress-updated"));
+      await refresh();
+    } catch (reason) {
+      setNotice(describeError(reason));
+    }
+  };
   const previousHref =
     previous === undefined ? undefined : editorHref(previous);
   const nextHref = next === undefined ? undefined : editorHref(next);
@@ -272,6 +368,18 @@ export function FrameReviewEditorNavigation({
       aria-label="Frame review navigation"
     >
       <a href="/frame-reviews/0096-M4">Return to frame list</a>
+      {current.state === "pending" ? (
+        <button type="button" onClick={() => void changeState("defer")}>
+          Defer this frame
+        </button>
+      ) : current.state === "deferred" ? (
+        <button type="button" onClick={() => void changeState("resume")}>
+          Resume this frame
+        </button>
+      ) : null}
+      <button type="button" onClick={() => void changeState("set_resume")}>
+        Set resume point
+      </button>
       <span>
         Frame {index + 1} of {items.length} · {current.recording_id} ·{" "}
         {current.item_id}
@@ -286,6 +394,12 @@ export function FrameReviewEditorNavigation({
       ) : (
         <a href={nextHref}>Next →</a>
       )}
+      {notice !== null ? <span role="status">{notice}</span> : null}
+      {items.find((item) => item.state === "pending")?.editor_target ? (
+        <a href={editorHref(items.find((item) => item.state === "pending")!)}>
+          Next pending frame
+        </a>
+      ) : null}
       {current.editor_target?.scene_run_id !== null &&
       current.editor_target?.scene_revision_id === null ? (
         <span className={styles.editorNote}>
@@ -346,6 +460,20 @@ function editorHref(item: QueueItem): string | undefined {
   const target = new URL(item.editor_target.path, window.location.origin);
   target.searchParams.set("frame_review", "0096-M4");
   return `${target.pathname}${target.search}`;
+}
+
+function resumeHref(
+  items: QueueItem[],
+  target: { recordingId: string; itemId: string },
+): string {
+  const item = items.find(
+    (candidate) =>
+      candidate.recording_id === target.recordingId &&
+      candidate.item_id === target.itemId,
+  );
+  return item === undefined
+    ? "/frame-reviews/0096-M4"
+    : (editorHref(item) ?? "/frame-reviews/0096-M4");
 }
 
 export function readFilter(search: string): QueueState {

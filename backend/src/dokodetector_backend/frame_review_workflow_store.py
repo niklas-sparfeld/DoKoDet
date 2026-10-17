@@ -33,6 +33,11 @@ class FrameReviewWorkflowStore:
             return None
         return value if isinstance(value, dict) else None
 
+    def write_receipt(self, queue_id: str, item_key: str, receipt: dict[str, Any]) -> None:
+        path = self.receipt_path(queue_id, item_key)
+        with self._lock:
+            atomic_replace_json(path, receipt)
+
     def read(self, queue_id: str, queue_digest: str) -> dict[str, Any]:
         path = self.path(queue_id)
         with self._lock:
@@ -84,7 +89,7 @@ class FrameReviewWorkflowStore:
                 "queue_digest": queue_digest,
                 "deferred_item_keys": sorted(deferred),
                 "resume_item_key": (
-                    item_key if action == "set_resume" else current["resume_item_key"]
+                    item_key if action in {"set_resume", "resume"} else current["resume_item_key"]
                 ),
             }
             atomic_replace_json(path, value)

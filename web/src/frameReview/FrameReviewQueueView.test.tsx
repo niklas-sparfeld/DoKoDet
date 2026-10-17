@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -155,6 +155,46 @@ describe("frame review queue", () => {
       screen.queryByRole("link", { name: "Open exact result" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Unavailable")).toBeInTheDocument();
+  });
+
+  it("defers a pending frame and reloads its persisted queue state", async () => {
+    const deferredPage = page([queueItem({ state: "deferred" })]);
+    let wasDeferred = false;
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => {
+      if (init?.method === "PUT") {
+        wasDeferred = true;
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              queue_id: "0096-M4",
+              queue_digest: "digest",
+              deferred: true,
+              resume_recording_id: null,
+              resume_item_id: null,
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify(wasDeferred ? deferredPage : page([queueItem()])),
+          { status: 200 },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<FrameReviewQueueView />);
+    fireEvent.click(await screen.findByRole("button", { name: "Defer" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Frame event-1 · Deferred")).toBeInTheDocument(),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/frame-reviews/0096-M4/items/recording-one/event-1/workflow",
+      expect.objectContaining({ method: "PUT" }),
+    );
   });
 
   it("warns about a draft on another revision without offering a rebase", () => {

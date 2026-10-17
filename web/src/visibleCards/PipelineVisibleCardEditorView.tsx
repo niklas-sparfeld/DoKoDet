@@ -160,6 +160,23 @@ export function PipelineVisibleCardEditorView({
   );
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
+  useEffect(() => {
+    if (saveState !== "saved") return;
+    const frame = framesRef.current.find(
+      (candidate) => candidate.itemId === selectedFrameIdRef.current,
+    );
+    const currentReference = referenceRef.current;
+    if (frame === undefined || currentReference === null) return;
+    window.dispatchEvent(
+      new CustomEvent("frame-review-draft-saved", {
+        detail: {
+          itemId: frame.itemId,
+          draftRevision: currentReference.draft.revision,
+          reviewState: frame.reviewState,
+        },
+      }),
+    );
+  }, [saveState, reference]);
   const [creatingReference, setCreatingReference] = useState(false);
   const [rebasingReference, setRebasingReference] = useState(false);
   const [rebasingProposal, setRebasingProposal] = useState(false);
@@ -779,7 +796,9 @@ export function PipelineVisibleCardEditorView({
                   ? candidate
                   : {
                       ...candidate,
-                      ...(reopensFrame ? { reviewState: "corrected" as const } : {}),
+                      ...(reopensFrame
+                        ? { reviewState: "corrected" as const }
+                        : {}),
                       outcome: {
                         ...candidate.outcome,
                         status: "detected",

@@ -143,6 +143,48 @@ export function RecordingPipelineWorkspace({
   }, []);
 
   useEffect(() => {
+    if (urlState.frameReviewQueue !== "0096-M4" || stageKey !== "visible_cards")
+      return;
+    const saveReview = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          itemId: string;
+          draftRevision: number;
+          reviewState: string;
+        }>
+      ).detail;
+      if (
+        detail === undefined ||
+        !["accepted", "corrected", "rejected", "empty", "unusable"].includes(
+          detail.reviewState,
+        )
+      )
+        return;
+      void (async () => {
+        try {
+          const page = await client.getFrameReviewPage({ limit: 1, cursor: 0 });
+          await client.updateFrameReviewWorkflow(recordingId, detail.itemId, {
+            queue_digest: page.queue_digest,
+            action: "save_review",
+            draft_revision: detail.draftRevision,
+          });
+          await loadWorkspace();
+          window.dispatchEvent(new Event("frame-review-progress-updated"));
+        } catch (reason) {
+          setNotice(
+            reason instanceof Error
+              ? `Review progress was not recorded: ${reason.message}`
+              : "Review progress was not recorded. The frame remains pending.",
+          );
+        }
+      })();
+    };
+    window.addEventListener("frame-review-draft-saved", saveReview);
+    return () =>
+      window.removeEventListener("frame-review-draft-saved", saveReview);
+  }, [client, loadWorkspace, recordingId, stageKey, urlState.frameReviewQueue]);
+
+  useEffect(() => {
     if (workspace === null || stageKey !== null || compare) {
       return;
     }

@@ -134,6 +134,22 @@
   justify-self: end;
   white-space: nowrap;
 }
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.actions button,
+.editorNavigation button {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #53615b;
+  border-radius: 0.45rem;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
 .openLink {
   padding: 0.6rem 0.8rem;
   border-radius: 0.5rem;

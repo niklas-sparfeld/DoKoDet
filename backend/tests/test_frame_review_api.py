@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from app_factory import create_test_app
 from fastapi.testclient import TestClient
@@ -82,6 +84,10 @@ def test_frame_review_api_pages_queue_and_persists_queue_only_workflow(tmp_path:
     )
     assert progress["deferred_item_keys"]
     assert progress["resume_item_key"]
+    restarted = FrameReviewWorkflowStore(tmp_path / "operations" / "frame-review-queues").read(
+        "0096-M4", digest
+    )
+    assert restarted == progress
 
 
 def test_frame_review_api_returns_deterministic_counts_and_pages(tmp_path: Path) -> None:
@@ -92,3 +98,74 @@ def test_frame_review_api_returns_deterministic_counts_and_pages(tmp_path: Path)
     assert one.json() == two.json()
     assert sum(one.json()["counts"]["by_state"].values()) == 165
     assert sum(item["state"] == "unavailable" for item in one.json()["items"]) == 7
+
+
+def test_save_review_receipt_requires_and_tracks_the_current_explicit_draft(
+    tmp_path: Path,
+) -> None:
+    app = create_test_app(_settings(tmp_path))
+    with TestClient(app) as client:
+        page = client.get("/api/frame-reviews/0096-M4?limit=100").json()
+        item = next(
+            candidate for candidate in page["items"] if candidate["editor_target"] is not None
+        )
+        route = (
+            f"/api/frame-reviews/0096-M4/items/{item['recording_id']}/{item['item_id']}/workflow"
+        )
+        manifest_path = REPOSITORY_ROOT / "docs/reports/0096-M4_Human_Review_Queue.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        raw_frame = next(
+            frame
+            for recording in manifest["recordings"]
+            for frame in recording["review_frames"]
+            if recording["recording_id"] == item["recording_id"]
+            and frame["item_id"] == item["item_id"]
+        )
+        app.state.pipeline_revision_store.list_manifests = lambda: [
+            SimpleNamespace(
+                revision_id=item["editor_target"]["revision_id"],
+                recording_id=item["recording_id"],
+                content_type="visible_cards",
+                content_sha256=raw_frame["m1_revision_sha256"],
+            )
+        ]
+        app.state.pipeline_reference_store.get = lambda _recording, _stage: SimpleNamespace(
+            draft=SimpleNamespace(
+                revision=7,
+                source_revision_id=item["editor_target"]["revision_id"],
+                items=(SimpleNamespace(item_id=item["item_id"], review_state="accepted"),),
+            )
+        )
+        stale = client.put(
+            route,
+            json={
+                "queue_digest": page["queue_digest"],
+                "action": "save_review",
+                "draft_revision": 6,
+            },
+        )
+        assert stale.status_code == 409
+        assert (
+            app.state.frame_review_workflow_store.read_receipt(
+                "0096-M4", f'["{item["recording_id"]}","{item["item_id"]}"]'
+            )
+            is None
+        )
+
+        saved = client.put(
+            route,
+            json={
+                "queue_digest": page["queue_digest"],
+                "action": "save_review",
+                "draft_revision": 7,
+            },
+        )
+        assert saved.status_code == 200
+        refreshed = client.get("/api/frame-reviews/0096-M4?limit=100").json()
+        saved_item = next(
+            candidate
+            for candidate in refreshed["items"]
+            if candidate["recording_id"] == item["recording_id"]
+            and candidate["item_id"] == item["item_id"]
+        )
+        assert saved_item["state"] == "saved_review"

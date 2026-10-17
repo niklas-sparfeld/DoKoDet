@@ -334,7 +334,8 @@ export interface DokoDetectorClient {
     itemId: string,
     payload: {
       queue_digest: string;
-      action: "defer" | "resume" | "set_resume";
+      action: "defer" | "resume" | "set_resume" | "save_review";
+      draft_revision?: number;
     },
     init?: RequestInit,
   ): Promise<FrameReviewWorkflowResponse>;

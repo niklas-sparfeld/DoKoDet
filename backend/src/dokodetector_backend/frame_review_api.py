@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
@@ -65,7 +66,8 @@ class FrameReviewPageResponse(ContractModel):
 
 class FrameReviewWorkflowRequest(ContractModel):
     queue_digest: str = Field(min_length=64, max_length=64)
-    action: Literal["defer", "resume", "set_resume"]
+    action: Literal["defer", "resume", "set_resume", "save_review"]
+    draft_revision: int | None = Field(default=None, ge=1)
 
 
 class FrameReviewWorkflowResponse(ContractModel):
@@ -251,19 +253,82 @@ def update_frame_review_workflow(
     if not any(item.recording_id == recording_id and item.item_id == item_id for item in items):
         raise HTTPException(status_code=404, detail="The frame is not in this frozen review queue.")
     store: FrameReviewWorkflowStore = request.app.state.frame_review_workflow_store
-    progress = store.update(
-        QUEUE_ID,
-        digest,
-        action=payload.action,
-        item_key=_item_key(recording_id, item_id),
-    )
+    item_key = _item_key(recording_id, item_id)
+    if payload.action == "save_review":
+        queue_item = next(
+            item for item in items if item.recording_id == recording_id and item.item_id == item_id
+        )
+        if payload.draft_revision is None or queue_item.source_revision_id is None:
+            raise HTTPException(
+                status_code=422, detail="A saved review needs an exact draft revision."
+            )
+        reference = request.app.state.pipeline_reference_store.get(recording_id, "visible_cards")
+        decided = next(
+            (draft_item for draft_item in reference.draft.items if draft_item.item_id == item_id),
+            None,
+        )
+        if (
+            reference.draft.revision != payload.draft_revision
+            or reference.draft.source_revision_id != queue_item.source_revision_id
+            or decided is None
+            or decided.review_state
+            not in {"accepted", "corrected", "rejected", "empty", "unusable"}
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "The maintained draft does not contain a saved decision for "
+                    "this exact queue result."
+                ),
+            )
+        store.write_receipt(
+            QUEUE_ID,
+            item_key,
+            {
+                "schema_version": "frame-review-receipt/v1",
+                "queue_id": QUEUE_ID,
+                "queue_digest": digest,
+                "recording_id": recording_id,
+                "stage": queue_item.stage,
+                "item_id": item_id,
+                "source_revision_id": queue_item.source_revision_id,
+                "source_revision_sha256": queue_item.source_revision_sha256,
+                "scene_run_id": queue_item.scene_run_id,
+                "scene_revision_id": queue_item.scene_revision_id,
+                "draft_revision": reference.draft.revision,
+                "decision_item_ids": [item_id],
+                "saved_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        # Keep earlier saved decisions current as other frames in the same draft are saved.
+        current_decisions = {draft_item.item_id for draft_item in reference.draft.items}
+        for previous in items:
+            if previous.recording_id != recording_id or previous.item_id == item_id:
+                continue
+            previous_key = _item_key(recording_id, previous.item_id)
+            prior = store.read_receipt(QUEUE_ID, previous_key)
+            if prior is None or prior.get("source_revision_id") != previous.source_revision_id:
+                continue
+            decisions = prior.get("decision_item_ids")
+            if not isinstance(decisions, list) or not set(decisions) <= current_decisions:
+                continue
+            prior["draft_revision"] = reference.draft.revision
+            store.write_receipt(QUEUE_ID, previous_key, prior)
+        progress = store.read(QUEUE_ID, digest)
+    else:
+        progress = store.update(
+            QUEUE_ID,
+            digest,
+            action=payload.action,
+            item_key=item_key,
+        )
     resume_recording_id = resume_item_id = None
     if progress["resume_item_key"] is not None:
         resume_recording_id, resume_item_id = json.loads(progress["resume_item_key"])
     return FrameReviewWorkflowResponse(
         queue_id=QUEUE_ID,
         queue_digest=digest,
-        deferred=_item_key(recording_id, item_id) in set(progress["deferred_item_keys"]),
+        deferred=item_key in set(progress["deferred_item_keys"]),
         resume_recording_id=resume_recording_id,
         resume_item_id=resume_item_id,
     )
