@@ -46,6 +46,9 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
    failures. Identity runs completed, but observation assembly rejected all three outputs because
    candidate probabilities did not sum to one. No downstream quality claim or model selection was
    made. See the [M4 result](../reports/0050-M4_Diagnostic_Result.md).
+7. **0095 M1:** Active. Relax the observation sum check only for omitted class probability mass,
+   then assemble observations from the exact retained 0050 revisions. See
+   [0095](3-in-progress/0095-Partial_Identity_Probability_Observations.md).
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
 are explicit work in 0093/0094. Require a new measured scope for future geometry or crop work.
@@ -83,9 +86,9 @@ The shared target architecture is
 
 ### In Progress
 
-| Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| *No in-progress epics* |  |  |
+| Epic                                                                                                                   | Depends on                  | Outcome                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [0095 — Partial identity probability observations](3-in-progress/0095-Partial_Identity_Probability_Observations.md) | 0050 M4 diagnostic complete | M0 contract correction complete. M1 may run up to three local observation assemblies from exact retained inputs only. |
 
 ### Blocked
 

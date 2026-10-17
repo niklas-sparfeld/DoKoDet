@@ -49,6 +49,26 @@ def test_mixed_card_sides_cross_the_analyzer_contract() -> None:
     assert json.loads(canonical_json_bytes(observation)) == payload
 
 
+def test_identity_candidate_probabilities_can_exclude_other_classes() -> None:
+    _, payload = load_fixture("observations/minimal.json")
+    payload["cards"][0]["identity_candidates"][0]["probability"] = 0.42
+
+    observation = TableObservation.model_validate(payload)
+
+    assert observation.cards[0].identity_candidates[0].probability == 0.42
+
+
+def test_identity_candidate_probabilities_cannot_exceed_one() -> None:
+    _, payload = load_fixture("observations/minimal.json")
+    payload["cards"][0]["identity_candidates"] = [
+        {"card": "HEARTS_TEN", "probability": 0.6},
+        {"card": "CLUBS_NINE", "probability": 0.5},
+    ]
+
+    with pytest.raises(ValidationError, match="must not exceed one"):
+        TableObservation.model_validate(payload)
+
+
 def test_face_down_assembly_fixture_crosses_the_analyzer_contract() -> None:
     raw, payload = load_fixture("observations/face-down-boundary.json")
 
@@ -123,7 +143,7 @@ def test_observed_and_insufficient_evidence_are_distinct() -> None:
         lambda payload: payload["cards"][0]["identity_candidates"].append(
             {"card": "CLUBS_ACE", "probability": 0.5}
         ),
-        lambda payload: payload["cards"][0]["identity_candidates"][0].update(probability=0.4),
+        lambda payload: payload["cards"][0]["identity_candidates"][0].update(probability=0.0),
         lambda payload: payload["cards"][0].update(extra="not allowed"),
     ],
 )

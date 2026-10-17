@@ -182,14 +182,9 @@ class ObservedCard(ContractModel):
         probabilities = [candidate.probability for candidate in self.identity_candidates]
         if probabilities != sorted(probabilities, reverse=True):
             raise ValueError("identity candidates must be ordered by descending probability.")
-        if not math.isclose(
-            sum(probabilities),
-            1.0,
-            rel_tol=0.0,
-            abs_tol=OBSERVATION_PROBABILITY_TOLERANCE,
-        ):
+        if sum(probabilities) > 1.0 + OBSERVATION_PROBABILITY_TOLERANCE:
             raise ValueError(
-                "identity candidate probabilities must sum to one within the contract tolerance."
+                "identity candidate probabilities must not exceed one within the contract tolerance."
             )
         if self.association_candidates is not None:
             linked_ids = [candidate.observed_card_id for candidate in self.association_candidates]
