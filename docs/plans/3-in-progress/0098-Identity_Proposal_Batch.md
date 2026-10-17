@@ -16,7 +16,10 @@
   Exclude three protected source groups and account for five upstream failures. See the
   [frozen input report](../../reports/0098-M0_Frozen_Inputs.md) and its
   [machine-readable manifest](../../reports/0098-M0_Frozen_Inputs.json).
-- **M1:** Not started — run the fixed local identity batch.
+- **M1:** Complete with an RSS sampling deviation — 26 local runs classified 2,994 frozen crops;
+  no crops failed or remained unprocessed. The runner sampled every 10.010–16.330 seconds instead
+  of every 10 seconds. See the [M1 result](../../reports/0098-M1_Identity_Batch.md) and
+  [machine-readable result](../../reports/0098-M1_Identity_Batch.json).
 - **M2:** Not started — report coverage, diagnostics, and supported identity comparisons.
 - **M3:** Not started — publish a frozen identity review queue and handoff.
 

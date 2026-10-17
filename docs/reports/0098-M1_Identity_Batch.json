@@ -1,0 +1,1400 @@
+{
+  "active_processing_seconds": 1867.067,
+  "backend_base_url": "http://127.0.0.1:8001",
+  "backend_pid": 15365,
+  "classifier": {
+    "bundle_path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/dinov3-identity-0088/m12-final-lock/m6-candidate-bundle",
+    "bundle_sha256": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+    "checkpoint_sha256": "ff560c5a4e2fff70f7e6ab0ff0cef6e7fa8cab8bbdfbcd25af4c569ee4bdfb1a",
+    "device": "mps",
+    "max_concurrent_requests": 1,
+    "provider": "local-dinov3",
+    "temperature": 0.6487642659
+  },
+  "cloud_requests": 0,
+  "coverage": {
+    "crop_inputs": 2994,
+    "frozen_crop_cap": 2994,
+    "outcomes_by_status": {
+      "classified": 2913,
+      "face_down": 81
+    },
+    "output_outcomes": 2994,
+    "recordings_completed": 26,
+    "unprocessed": 0
+  },
+  "deviations": [
+    {
+      "details": "The completed run used 10-second target sampling checked on the 2-second status-poll loop. Measured intervals ranged from 10.010 to 16.330 seconds. Peak observed RSS was 1,120,511,144 bytes, far below the 34,359,738,368-byte cap. The runner now samples on an independent 10-second schedule. No classifier run was repeated.",
+      "kind": "rss_sampling_interval"
+    }
+  ],
+  "epic": "0098",
+  "execution": {
+    "backend_checkout": "/Users/niklas.sparfeld/Developer/doko_detector",
+    "backend_commit_at_start": "4031f36f921a7fa4a7609a020066c3cd254f1958",
+    "backend_pid": 15365,
+    "backend_port": 8001,
+    "cloud_requests": 0,
+    "request_purpose": "auto_approval_comparison (preserves generated identity selection)"
+  },
+  "finished_at": "2026-10-17T14:04:20.194212+00:00",
+  "frozen_manifest_sha256": "38ead572914fc3b5628dad2da2e6bcab8414a44701657b12d6a7428d75a50c0f",
+  "integrity_checks": {
+    "calibration_revision_digests_match": 26,
+    "identity_selection_draft_and_state_hashes_match": 78,
+    "identity_selection_files_modified": false,
+    "included_recordings": 26,
+    "m6_bundle_and_checkpoint_match_m0": true,
+    "output_revision_content_digests_match": 26,
+    "protected_groups_included": 0,
+    "scene_revision_content_digests_match": 26,
+    "source_video_bytes_rehashed": 4733710147,
+    "source_video_hashes_match": true,
+    "upstream_revisions_modified": false,
+    "visible_card_revision_content_digests_match": 26
+  },
+  "limits": {
+    "active_processing_seconds": 28800,
+    "cloud_requests": 0,
+    "crop_cap": 2994,
+    "maximum_parallel_runs": 1,
+    "maximum_recordings": 29,
+    "maximum_source_frames": 1513,
+    "process_rss_bytes": 34359738368,
+    "rss_sample_interval_seconds": 10
+  },
+  "maximum_rss_bytes": 1120518144,
+  "milestone": "M1",
+  "recordings": {
+    "5a1f4037-d8ad-48da-9950-2ed2272811a5": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:36:24.836438Z",
+      "crop_input_item_count": 179,
+      "crop_input_manifest_digest": "67f8e36d224c9bd3805e03bdb6bacf43e431211d31fc37ff2a7da8a91fdb3440",
+      "elapsed_poll_seconds": 190.873,
+      "input_revision_ids": [
+        "visible-cards-291ad680-2792-5695-a710-4f5bd6685347-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 178,
+        "face_down": 1
+      },
+      "output_content_sha256": "dc264674e6f2f57cdb7e9911552fada6e9f4c4f89e8c3a0bce0d4540b8efe175",
+      "output_outcome_count": 179,
+      "output_revision_id": "visual-identities-visual_identities-run-dc3a059c-508d-5e96-acab-7a2803e97bd2-attempt-1",
+      "run_id": "visual_identities-run-dc3a059c-508d-5e96-acab-7a2803e97bd2",
+      "started_at": "2026-10-17T13:33:20.343108Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0091": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:39:13.878585Z",
+      "crop_input_item_count": 99,
+      "crop_input_manifest_digest": "515042e8e8e7a8d58ef68fd2445b232a8b2fe01d6f41674eff05b367ff0af309",
+      "elapsed_poll_seconds": 165.559,
+      "input_revision_ids": [
+        "visible-cards-1897c4e9-12b5-5918-9021-ac59f84e63ce-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 99
+      },
+      "output_content_sha256": "082648497595d8b004c4f525efd160e61bb3431ec56114756fa991fe657075b1",
+      "output_outcome_count": 99,
+      "output_revision_id": "visual-identities-visual_identities-run-a3570a03-9573-506a-8bb0-c7811ff61005-attempt-1",
+      "run_id": "visual_identities-run-a3570a03-9573-506a-8bb0-c7811ff61005",
+      "started_at": "2026-10-17T13:36:34.557966Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0095": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:41:54.596903Z",
+      "crop_input_item_count": 109,
+      "crop_input_manifest_digest": "b887afc6bca9208a72ad19ef6361431449cab2ee0dc746435a66dc20cd077d98",
+      "elapsed_poll_seconds": 147.241,
+      "input_revision_ids": [
+        "visible-cards-7e6dc749-4c85-5352-9dde-23825547228a-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 109
+      },
+      "output_content_sha256": "6267d90db6191378aaa23bb81e3c2cd9e430efc1244a486e2f9c7c7d763273a6",
+      "output_outcome_count": 109,
+      "output_revision_id": "visual-identities-visual_identities-run-ce3ae3e9-75f1-5377-9c2d-90f6f8ea56c6-attempt-1",
+      "run_id": "visual_identities-run-ce3ae3e9-75f1-5377-9c2d-90f6f8ea56c6",
+      "started_at": "2026-10-17T13:39:30.397184Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0096": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:44:37.453413Z",
+      "crop_input_item_count": 135,
+      "crop_input_manifest_digest": "d6382ef9900decb6868b41e9c5cb642e356907b849d6d0d7211de51889000373",
+      "elapsed_poll_seconds": 162.199,
+      "input_revision_ids": [
+        "visible-cards-e9f4a529-3edd-56d8-9a76-99594eb011a7-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 135
+      },
+      "output_content_sha256": "54e459cc1f0e4c614a03ac37d13ffb0adff9053ddd270404ec407196e3134c50",
+      "output_outcome_count": 135,
+      "output_revision_id": "visual-identities-visual_identities-run-17069c6c-1c0c-5b97-bfa3-da8f5c280f62-attempt-1",
+      "run_id": "visual_identities-run-17069c6c-1c0c-5b97-bfa3-da8f5c280f62",
+      "started_at": "2026-10-17T13:42:02.012875Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0097": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:46:25.877565Z",
+      "crop_input_item_count": 101,
+      "crop_input_manifest_digest": "f2b6d1822f246aeea2987b59bc532781c6984331953ef4b1f0c9c1a4eead0d1d",
+      "elapsed_poll_seconds": 103.135,
+      "input_revision_ids": [
+        "visible-cards-07c4a94f-3820-52ea-8435-29dd0a9ff2d7-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 101
+      },
+      "output_content_sha256": "03b76751989793e02ba620f762a7820c8a56cf400f4debec91147fd1204582a6",
+      "output_outcome_count": 101,
+      "output_revision_id": "visual-identities-visual_identities-run-a7d64027-6713-5daa-8bb9-dcc5e6bc9773-attempt-1",
+      "run_id": "visual_identities-run-a7d64027-6713-5daa-8bb9-dcc5e6bc9773",
+      "started_at": "2026-10-17T13:44:48.552394Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0636": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:47:19.261465Z",
+      "crop_input_item_count": 99,
+      "crop_input_manifest_digest": "dba92f9621c4e18a1d5ba7eaa3f67c67c8b30046c9b305c6c6b9096651dbf5a7",
+      "elapsed_poll_seconds": 47.613,
+      "input_revision_ids": [
+        "visible-cards-4e943e69-0cd3-5841-bbac-a89906613f30-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 99
+      },
+      "output_content_sha256": "4c937a2cdab837e8605a01deff9616b0f76125975554b0fd33d19dddce557096",
+      "output_outcome_count": 99,
+      "output_revision_id": "visual-identities-visual_identities-run-2af5db10-ddab-5c7a-8ebb-7bfd9a85ff6b-attempt-1",
+      "run_id": "visual_identities-run-2af5db10-ddab-5c7a-8ebb-7bfd9a85ff6b",
+      "started_at": "2026-10-17T13:46:34.125760Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0637": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:47:56.469705Z",
+      "crop_input_item_count": 100,
+      "crop_input_manifest_digest": "d6d13c6f613c6e79e97e1d61f36a0eae1878365934ac65f938ab6c76e5b6ac31",
+      "elapsed_poll_seconds": 35.568,
+      "input_revision_ids": [
+        "visible-cards-c017b765-b14e-5b31-a7c2-b4716d5adc61-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 100
+      },
+      "output_content_sha256": "a9f8cccae91515b9d80dd1f99f07783be19e9ed0551d43dc27971b9f34ab8448",
+      "output_outcome_count": 100,
+      "output_revision_id": "visual-identities-visual_identities-run-002d0344-84bd-5ceb-ae0a-4a700f1b83f7-attempt-1",
+      "run_id": "visual_identities-run-002d0344-84bd-5ceb-ae0a-4a700f1b83f7",
+      "started_at": "2026-10-17T13:47:23.222459Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0638": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:48:39.518333Z",
+      "crop_input_item_count": 100,
+      "crop_input_manifest_digest": "d817dc6ddb10ce3e160ee93fe66573d078baf2e217e92b203c756474f28cbc29",
+      "elapsed_poll_seconds": 42.732,
+      "input_revision_ids": [
+        "visible-cards-2369cabe-007b-50c9-b2a0-25f7b2752091-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 99,
+        "face_down": 1
+      },
+      "output_content_sha256": "7074d502e81c51b5751235793fa15262c080a1db1865c405a618c3ba3d7b384c",
+      "output_outcome_count": 100,
+      "output_revision_id": "visual-identities-visual_identities-run-2b6a7f7d-57ec-5e18-bbce-3e31cf31f3b6-attempt-1",
+      "run_id": "visual_identities-run-2b6a7f7d-57ec-5e18-bbce-3e31cf31f3b6",
+      "started_at": "2026-10-17T13:48:00.458400Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0639": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:49:19.725841Z",
+      "crop_input_item_count": 99,
+      "crop_input_manifest_digest": "ae7cd44709a12c2f58ba59f95f8367df49d9621d06d52df9314c4fb737b88b85",
+      "elapsed_poll_seconds": 37.421,
+      "input_revision_ids": [
+        "visible-cards-8afe8966-3696-5a59-bfb3-34271d063183-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 99
+      },
+      "output_content_sha256": "00a943697739d18886f50a0bc002fecba12f78f3229f8159acf6c3c60f605047",
+      "output_outcome_count": 99,
+      "output_revision_id": "visual-identities-visual_identities-run-2d8f5a5b-486d-5d45-a8a1-1b135343ce4f-attempt-1",
+      "run_id": "visual_identities-run-2d8f5a5b-486d-5d45-a8a1-1b135343ce4f",
+      "started_at": "2026-10-17T13:48:44.767253Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0640": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:50:09.530352Z",
+      "crop_input_item_count": 100,
+      "crop_input_manifest_digest": "bfcbd0522688c28e0fd3388bfa3fcd8364afd85570b5a5367dfa30845b0f2cca",
+      "elapsed_poll_seconds": 48.166,
+      "input_revision_ids": [
+        "visible-cards-673070df-fc36-5404-a5ec-7d4305131002-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 100
+      },
+      "output_content_sha256": "304875102e1f1dde47ebf58e1bd91cbee6b3d94fe494270300cb331ed4365c31",
+      "output_outcome_count": 100,
+      "output_revision_id": "visual-identities-visual_identities-run-b07e5b6b-fe9d-58bb-a9ee-10a44c26119f-attempt-1",
+      "run_id": "visual_identities-run-b07e5b6b-fe9d-58bb-a9ee-10a44c26119f",
+      "started_at": "2026-10-17T13:49:23.982256Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0642": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:50:45.886658Z",
+      "crop_input_item_count": 99,
+      "crop_input_manifest_digest": "b6680618bffaa79d402a4f6a64879e5ab79423021c457568f3895232021e4cff",
+      "elapsed_poll_seconds": 33.559,
+      "input_revision_ids": [
+        "visible-cards-93489b3b-9078-5b53-a779-b9f8aa609c19-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 99
+      },
+      "output_content_sha256": "b91f51f923211095d321de9d059218bf61084cbe9b8adb6323c241f28ae71feb",
+      "output_outcome_count": 99,
+      "output_revision_id": "visual-identities-visual_identities-run-967585ee-dc37-5aa9-8234-a07c240480c7-attempt-1",
+      "run_id": "visual_identities-run-967585ee-dc37-5aa9-8234-a07c240480c7",
+      "started_at": "2026-10-17T13:50:13.658900Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0643": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:51:35.010163Z",
+      "crop_input_item_count": 103,
+      "crop_input_manifest_digest": "b821428345443c93d51138df78f2d5d94ec952553c5a82ecc0d4403d64a0270d",
+      "elapsed_poll_seconds": 48.459,
+      "input_revision_ids": [
+        "visible-cards-4e9dd1fd-86a9-5f1f-a846-24611110cf44-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 102,
+        "face_down": 1
+      },
+      "output_content_sha256": "d03352969707c3415265454c68de92a809fcb2ecc84d219e4a032efc68430142",
+      "output_outcome_count": 103,
+      "output_revision_id": "visual-identities-visual_identities-run-fb28b9ac-3d9e-51ae-854e-cada37796776-attempt-1",
+      "run_id": "visual_identities-run-fb28b9ac-3d9e-51ae-854e-cada37796776",
+      "started_at": "2026-10-17T13:50:48.959457Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0644": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:53:56.610333Z",
+      "crop_input_item_count": 208,
+      "crop_input_manifest_digest": "011a19de87aa77075c1f07caaa3744a4c384d9f75dad9d386dcfa523c54bd17e",
+      "elapsed_poll_seconds": 139.785,
+      "input_revision_ids": [
+        "visible-cards-61cac67a-56c9-5141-9278-82f0f8e7abe1-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 200,
+        "face_down": 8
+      },
+      "output_content_sha256": "1c2f8b507e30302d2369d7409e38d05e671588ef9aa47fc08b627d8afb2a7042",
+      "output_outcome_count": 208,
+      "output_revision_id": "visual-identities-visual_identities-run-aac9f8ee-03d4-5241-bf25-d79cba195b53-attempt-1",
+      "run_id": "visual_identities-run-aac9f8ee-03d4-5241-bf25-d79cba195b53",
+      "started_at": "2026-10-17T13:51:40.112387Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0645": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:54:28.335537Z",
+      "crop_input_item_count": 106,
+      "crop_input_manifest_digest": "45ee3ce901c43036624d2dbce020c502dbe7b3af46a183bd7c01e37ed7fd1059",
+      "elapsed_poll_seconds": 29.79,
+      "input_revision_ids": [
+        "visible-cards-22f665b9-2c77-5c8a-9cc1-eed1d90a168e-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 105,
+        "face_down": 1
+      },
+      "output_content_sha256": "154ed3c91dbdbfa7a7a75f95e34be2984f4e88049d49fc7e7ed63b2aef13bc35",
+      "output_outcome_count": 106,
+      "output_revision_id": "visual-identities-visual_identities-run-65743860-8cd7-56fb-bfbd-3606ae858c6e-attempt-1",
+      "run_id": "visual_identities-run-65743860-8cd7-56fb-bfbd-3606ae858c6e",
+      "started_at": "2026-10-17T13:54:01.686755Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0650": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:54:59.901844Z",
+      "crop_input_item_count": 71,
+      "crop_input_manifest_digest": "49b58f4d42e99455441a26df9859a33227f500b391ef6837f40ec936041850f0",
+      "elapsed_poll_seconds": 29.231,
+      "input_revision_ids": [
+        "visible-cards-6e0c5fdf-9438-56d1-8253-e9912b25d5bf-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 71
+      },
+      "output_content_sha256": "a7d0414297413838e6b8b6bc584fda8fb701de37a927db7620d8d6d9fcae6da5",
+      "output_outcome_count": 71,
+      "output_revision_id": "visual-identities-visual_identities-run-6dfb3228-4ce8-5099-a223-db623ee74a0e-attempt-1",
+      "run_id": "visual_identities-run-6dfb3228-4ce8-5099-a223-db623ee74a0e",
+      "started_at": "2026-10-17T13:54:32.977011Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0651": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:55:36.669787Z",
+      "crop_input_item_count": 102,
+      "crop_input_manifest_digest": "def94506990d4ad1fa1f87e9ea082bc46d9c92317b05f103d2c214e73bf4aca4",
+      "elapsed_poll_seconds": 35.563,
+      "input_revision_ids": [
+        "visible-cards-2a2ac876-25ab-51ac-bf51-39ff20caffdf-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 101,
+        "face_down": 1
+      },
+      "output_content_sha256": "336fcbcf2ef8ef32bef0f00b0afbc339bfe5eee592a1ab82d22b97d5f4577719",
+      "output_outcome_count": 102,
+      "output_revision_id": "visual-identities-visual_identities-run-ae3603a9-0362-5e28-8c01-cf98ca493282-attempt-1",
+      "run_id": "visual_identities-run-ae3603a9-0362-5e28-8c01-cf98ca493282",
+      "started_at": "2026-10-17T13:55:03.762475Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0652": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:56:41.334216Z",
+      "crop_input_item_count": 102,
+      "crop_input_manifest_digest": "d35f6f5bc49d5ca63b02552f8f7bec32385652289e456e425d778ef99bc2e58a",
+      "elapsed_poll_seconds": 62.488,
+      "input_revision_ids": [
+        "visible-cards-8a7d7ce8-e811-5dd5-a483-699ca6fc2445-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 102
+      },
+      "output_content_sha256": "91673b5b48a34b34230576e86a35527b4fa30dc9f2dd3d35f4e6cab3db873f79",
+      "output_outcome_count": 102,
+      "output_revision_id": "visual-identities-visual_identities-run-264558f2-f12d-5aa9-b6a3-0e9957625f97-attempt-1",
+      "run_id": "visual_identities-run-264558f2-f12d-5aa9-b6a3-0e9957625f97",
+      "started_at": "2026-10-17T13:55:41.376158Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0653": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:57:35.621124Z",
+      "crop_input_item_count": 98,
+      "crop_input_manifest_digest": "7eb21594d0f1afbf7abe5d715dc4cee3ad7ecc2bba3673fa75adb50ba705b485",
+      "elapsed_poll_seconds": 52.432,
+      "input_revision_ids": [
+        "visible-cards-338183e7-1eb9-56e9-b4ab-18dd8ac02ad8-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 98
+      },
+      "output_content_sha256": "06efd1d7563f08ea8b0f1f8adf6b90c8018ffdc134bc3fd8780cc5ef07f18a74",
+      "output_outcome_count": 98,
+      "output_revision_id": "visual-identities-visual_identities-run-0f3c2e79-f375-5ee7-add0-740f84c700d9-attempt-1",
+      "run_id": "visual_identities-run-0f3c2e79-f375-5ee7-add0-740f84c700d9",
+      "started_at": "2026-10-17T13:56:46.016039Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0655": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:58:25.245403Z",
+      "crop_input_item_count": 104,
+      "crop_input_manifest_digest": "4a67779d803940327416cd75a53646ad6d3d522534bfa851750dae620e3e8d21",
+      "elapsed_poll_seconds": 48.764,
+      "input_revision_ids": [
+        "visible-cards-6850a399-0c9a-5949-add6-41d5cc77cbcb-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 104
+      },
+      "output_content_sha256": "e3091923bf7cd4427629060b6ac69d8e17ecebaed7796dfded6d60b0426a5ada",
+      "output_outcome_count": 104,
+      "output_revision_id": "visual-identities-visual_identities-run-ab658de2-a919-5437-b8ae-f45e063dfcf2-attempt-1",
+      "run_id": "visual_identities-run-ab658de2-a919-5437-b8ae-f45e063dfcf2",
+      "started_at": "2026-10-17T13:57:40.311690Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0657": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:59:25.718658Z",
+      "crop_input_item_count": 103,
+      "crop_input_manifest_digest": "27c597f90d56689d9ea8cc7dbb2557670a7b33319ce67adab7b68787a1873764",
+      "elapsed_poll_seconds": 57.39,
+      "input_revision_ids": [
+        "visible-cards-7f18ab0c-4019-5557-a004-b5d10070d6b4-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 102,
+        "face_down": 1
+      },
+      "output_content_sha256": "7f77e76e24ad3fae4940fe1fb41d776813e70e4a934e82ce7b64ee7be13f4624",
+      "output_outcome_count": 103,
+      "output_revision_id": "visual-identities-visual_identities-run-ff755de1-68d0-5899-8a5b-d32f667d6133-attempt-1",
+      "run_id": "visual_identities-run-ff755de1-68d0-5899-8a5b-d32f667d6133",
+      "started_at": "2026-10-17T13:58:31.107511Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0658": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T13:59:59.830762Z",
+      "crop_input_item_count": 100,
+      "crop_input_manifest_digest": "1afb006623adf5e97caa3b01b84bd82100643c77e736760161dca344b453cb4a",
+      "elapsed_poll_seconds": 31.281,
+      "input_revision_ids": [
+        "visible-cards-ef78d951-2932-57a9-b9cd-16914a8d15af-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 100
+      },
+      "output_content_sha256": "3992f0d304f65d227e083b758e6f300db747511a9f4f44367554a354c3edf2ca",
+      "output_outcome_count": 100,
+      "output_revision_id": "visual-identities-visual_identities-run-1c176060-fea7-5cfb-be63-33550135a475-attempt-1",
+      "run_id": "visual_identities-run-1c176060-fea7-5cfb-be63-33550135a475",
+      "started_at": "2026-10-17T13:59:30.083519Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0661": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T14:00:48.498610Z",
+      "crop_input_item_count": 109,
+      "crop_input_manifest_digest": "952fe0c38b49203ea7691a9f12f14aad0d2b845e47a4a9d87796441fdb83e942",
+      "elapsed_poll_seconds": 49.107,
+      "input_revision_ids": [
+        "visible-cards-bc980ec3-a5df-53ab-9726-c5057101c7bd-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 106,
+        "face_down": 3
+      },
+      "output_content_sha256": "3fa4b831b2ee6be5491bf3b4f7ad228a311c3206b48f2e66b27c63343b64bb89",
+      "output_outcome_count": 109,
+      "output_revision_id": "visual-identities-visual_identities-run-713a9fad-b9f7-5645-99fc-a9d3fc65213f-attempt-1",
+      "run_id": "visual_identities-run-713a9fad-b9f7-5645-99fc-a9d3fc65213f",
+      "started_at": "2026-10-17T14:00:03.449440Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "cardeventnet-IMG_0662": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T14:01:29.728782Z",
+      "crop_input_item_count": 98,
+      "crop_input_manifest_digest": "00147553dc395f6270bdf99fe1e37740de1aab7142cc368124b361ed2987c6fd",
+      "elapsed_poll_seconds": 37.701,
+      "input_revision_ids": [
+        "visible-cards-6e2f3f6f-b5c3-5bb0-8056-47a34bf54327-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 98
+      },
+      "output_content_sha256": "3555ee0dbe14551697a2fc576eccbcf3e104324053a6a42f0829edcf5ad9ef1b",
+      "output_outcome_count": 98,
+      "output_revision_id": "visual-identities-visual_identities-run-97025beb-d610-57d8-8877-b168d47010d1-attempt-1",
+      "run_id": "visual_identities-run-97025beb-d610-57d8-8877-b168d47010d1",
+      "started_at": "2026-10-17T14:00:54.441427Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "game-2026-09-18-01-001": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T14:02:26.640369Z",
+      "crop_input_item_count": 165,
+      "crop_input_manifest_digest": "ede302f15040627f7407131d2f87cc171aa10e70bc5c264f74788e9614317d61",
+      "elapsed_poll_seconds": 56.473,
+      "input_revision_ids": [
+        "visible-cards-920c891d-1c86-577c-8094-55abd0989bf8-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 142,
+        "face_down": 23
+      },
+      "output_content_sha256": "2c422d5d6f6b1b782551ad2fe357d57d5fbe72c895e0aabfa7cac2cec22e0ef0",
+      "output_outcome_count": 165,
+      "output_revision_id": "visual-identities-visual_identities-run-7e4b56bb-99aa-55f4-9b35-5e5f8cc8b086-attempt-1",
+      "run_id": "visual_identities-run-7e4b56bb-99aa-55f4-9b35-5e5f8cc8b086",
+      "started_at": "2026-10-17T14:01:33.674776Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "game-2026-09-18-01-002": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T14:03:30.232718Z",
+      "crop_input_item_count": 161,
+      "crop_input_manifest_digest": "deea9d5802d3204b311251e626f119f432f329417f769e89365f24b420fb73cd",
+      "elapsed_poll_seconds": 61.052,
+      "input_revision_ids": [
+        "visible-cards-847f395f-dfd0-56c7-b3b0-fd9725cdf2a9-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 134,
+        "face_down": 27
+      },
+      "output_content_sha256": "b5be1dcaa8460c5d7cd64e3f9b35067f1fa5fef7d2847b4a2430d6db29567a47",
+      "output_outcome_count": 161,
+      "output_revision_id": "visual-identities-visual_identities-run-418601c6-632d-5c82-b83a-7fdc6f9a374e-attempt-1",
+      "run_id": "visual_identities-run-418601c6-632d-5c82-b83a-7fdc6f9a374e",
+      "started_at": "2026-10-17T14:02:31.672558Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    },
+    "game-2026-09-18-01-003": {
+      "attempt": 1,
+      "classifier_identities": [
+        "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+      ],
+      "completed_at": "2026-10-17T14:04:17.305504Z",
+      "crop_input_item_count": 144,
+      "crop_input_manifest_digest": "5bf4728b0a6ffdcdd32a079a563dd264dc564532f07e04e57226f01089fd3010",
+      "elapsed_poll_seconds": 45.642,
+      "input_revision_ids": [
+        "visible-cards-15c12eef-4ce8-5568-8af7-761d2d553b66-attempt-1"
+      ],
+      "latency_ms_count": 0,
+      "latency_ms_sum": 0,
+      "outcomes_by_status": {
+        "classified": 130,
+        "face_down": 14
+      },
+      "output_content_sha256": "3422e1b7bffa47981a8a19b040b5133495273b1c6b9255704d0ece40bd3b518e",
+      "output_outcome_count": 144,
+      "output_revision_id": "visual-identities-visual_identities-run-27461e2a-35ce-5b3c-9d66-f6ccc1ebec2a-attempt-1",
+      "run_id": "visual_identities-run-27461e2a-35ce-5b3c-9d66-f6ccc1ebec2a",
+      "started_at": "2026-10-17T14:03:34.206702Z",
+      "status": "complete",
+      "unprocessed_count": 0
+    }
+  },
+  "rss_samples": [
+    {
+      "rss_bytes": 177684480,
+      "sampled_at": "2026-10-17T13:33:13.119320+00:00"
+    },
+    {
+      "rss_bytes": 673644544,
+      "sampled_at": "2026-10-17T13:33:23.283071+00:00"
+    },
+    {
+      "rss_bytes": 738967552,
+      "sampled_at": "2026-10-17T13:33:33.990333+00:00"
+    },
+    {
+      "rss_bytes": 743882752,
+      "sampled_at": "2026-10-17T13:33:44.775005+00:00"
+    },
+    {
+      "rss_bytes": 750026752,
+      "sampled_at": "2026-10-17T13:33:55.593586+00:00"
+    },
+    {
+      "rss_bytes": 749715456,
+      "sampled_at": "2026-10-17T13:34:07.010719+00:00"
+    },
+    {
+      "rss_bytes": 705822720,
+      "sampled_at": "2026-10-17T13:34:18.473717+00:00"
+    },
+    {
+      "rss_bytes": 709820416,
+      "sampled_at": "2026-10-17T13:34:29.921712+00:00"
+    },
+    {
+      "rss_bytes": 716275712,
+      "sampled_at": "2026-10-17T13:34:41.676938+00:00"
+    },
+    {
+      "rss_bytes": 719929344,
+      "sampled_at": "2026-10-17T13:34:53.341550+00:00"
+    },
+    {
+      "rss_bytes": 734347264,
+      "sampled_at": "2026-10-17T13:35:05.396178+00:00"
+    },
+    {
+      "rss_bytes": 724566016,
+      "sampled_at": "2026-10-17T13:35:17.694545+00:00"
+    },
+    {
+      "rss_bytes": 725352448,
+      "sampled_at": "2026-10-17T13:35:29.635596+00:00"
+    },
+    {
+      "rss_bytes": 742014976,
+      "sampled_at": "2026-10-17T13:35:41.854596+00:00"
+    },
+    {
+      "rss_bytes": 747487232,
+      "sampled_at": "2026-10-17T13:35:53.972481+00:00"
+    },
+    {
+      "rss_bytes": 752304128,
+      "sampled_at": "2026-10-17T13:36:06.256836+00:00"
+    },
+    {
+      "rss_bytes": 757645312,
+      "sampled_at": "2026-10-17T13:36:18.795917+00:00"
+    },
+    {
+      "rss_bytes": 816103424,
+      "sampled_at": "2026-10-17T13:36:34.714459+00:00"
+    },
+    {
+      "rss_bytes": 805830656,
+      "sampled_at": "2026-10-17T13:36:47.051860+00:00"
+    },
+    {
+      "rss_bytes": 824344576,
+      "sampled_at": "2026-10-17T13:36:58.270598+00:00"
+    },
+    {
+      "rss_bytes": 1004109824,
+      "sampled_at": "2026-10-17T13:37:08.402266+00:00"
+    },
+    {
+      "rss_bytes": 974667776,
+      "sampled_at": "2026-10-17T13:37:18.848508+00:00"
+    },
+    {
+      "rss_bytes": 953892864,
+      "sampled_at": "2026-10-17T13:37:30.563502+00:00"
+    },
+    {
+      "rss_bytes": 932790272,
+      "sampled_at": "2026-10-17T13:37:42.761437+00:00"
+    },
+    {
+      "rss_bytes": 937869312,
+      "sampled_at": "2026-10-17T13:37:54.558978+00:00"
+    },
+    {
+      "rss_bytes": 936869888,
+      "sampled_at": "2026-10-17T13:38:06.515288+00:00"
+    },
+    {
+      "rss_bytes": 936886272,
+      "sampled_at": "2026-10-17T13:38:17.412865+00:00"
+    },
+    {
+      "rss_bytes": 939606016,
+      "sampled_at": "2026-10-17T13:38:28.751608+00:00"
+    },
+    {
+      "rss_bytes": 945143808,
+      "sampled_at": "2026-10-17T13:38:41.011771+00:00"
+    },
+    {
+      "rss_bytes": 948224000,
+      "sampled_at": "2026-10-17T13:38:51.492887+00:00"
+    },
+    {
+      "rss_bytes": 1010483200,
+      "sampled_at": "2026-10-17T13:39:03.898583+00:00"
+    },
+    {
+      "rss_bytes": 972324864,
+      "sampled_at": "2026-10-17T13:39:16.955806+00:00"
+    },
+    {
+      "rss_bytes": 885407744,
+      "sampled_at": "2026-10-17T13:39:30.627935+00:00"
+    },
+    {
+      "rss_bytes": 949420032,
+      "sampled_at": "2026-10-17T13:39:42.404474+00:00"
+    },
+    {
+      "rss_bytes": 1104429056,
+      "sampled_at": "2026-10-17T13:39:54.635400+00:00"
+    },
+    {
+      "rss_bytes": 1115193344,
+      "sampled_at": "2026-10-17T13:40:04.859875+00:00"
+    },
+    {
+      "rss_bytes": 1120518144,
+      "sampled_at": "2026-10-17T13:40:15.822033+00:00"
+    },
+    {
+      "rss_bytes": 1105723392,
+      "sampled_at": "2026-10-17T13:40:28.076125+00:00"
+    },
+    {
+      "rss_bytes": 1105362944,
+      "sampled_at": "2026-10-17T13:40:38.483835+00:00"
+    },
+    {
+      "rss_bytes": 1054572544,
+      "sampled_at": "2026-10-17T13:40:49.391309+00:00"
+    },
+    {
+      "rss_bytes": 1008680960,
+      "sampled_at": "2026-10-17T13:41:00.372086+00:00"
+    },
+    {
+      "rss_bytes": 1010417664,
+      "sampled_at": "2026-10-17T13:41:11.281798+00:00"
+    },
+    {
+      "rss_bytes": 1011646464,
+      "sampled_at": "2026-10-17T13:41:22.101109+00:00"
+    },
+    {
+      "rss_bytes": 1012924416,
+      "sampled_at": "2026-10-17T13:41:33.288597+00:00"
+    },
+    {
+      "rss_bytes": 1014775808,
+      "sampled_at": "2026-10-17T13:41:45.931604+00:00"
+    },
+    {
+      "rss_bytes": 958283776,
+      "sampled_at": "2026-10-17T13:42:02.261781+00:00"
+    },
+    {
+      "rss_bytes": 960856064,
+      "sampled_at": "2026-10-17T13:42:12.351879+00:00"
+    },
+    {
+      "rss_bytes": 961150976,
+      "sampled_at": "2026-10-17T13:42:24.442927+00:00"
+    },
+    {
+      "rss_bytes": 966852608,
+      "sampled_at": "2026-10-17T13:42:36.079794+00:00"
+    },
+    {
+      "rss_bytes": 967016448,
+      "sampled_at": "2026-10-17T13:42:48.200278+00:00"
+    },
+    {
+      "rss_bytes": 970080256,
+      "sampled_at": "2026-10-17T13:43:00.633433+00:00"
+    },
+    {
+      "rss_bytes": 945487872,
+      "sampled_at": "2026-10-17T13:43:13.066702+00:00"
+    },
+    {
+      "rss_bytes": 945897472,
+      "sampled_at": "2026-10-17T13:43:25.849841+00:00"
+    },
+    {
+      "rss_bytes": 947929088,
+      "sampled_at": "2026-10-17T13:43:39.104924+00:00"
+    },
+    {
+      "rss_bytes": 950435840,
+      "sampled_at": "2026-10-17T13:43:52.353005+00:00"
+    },
+    {
+      "rss_bytes": 952614912,
+      "sampled_at": "2026-10-17T13:44:02.419908+00:00"
+    },
+    {
+      "rss_bytes": 955547648,
+      "sampled_at": "2026-10-17T13:44:13.552595+00:00"
+    },
+    {
+      "rss_bytes": 956530688,
+      "sampled_at": "2026-10-17T13:44:23.909805+00:00"
+    },
+    {
+      "rss_bytes": 975077376,
+      "sampled_at": "2026-10-17T13:44:36.592082+00:00"
+    },
+    {
+      "rss_bytes": 962330624,
+      "sampled_at": "2026-10-17T13:44:48.764154+00:00"
+    },
+    {
+      "rss_bytes": 926400512,
+      "sampled_at": "2026-10-17T13:45:00.565005+00:00"
+    },
+    {
+      "rss_bytes": 926384128,
+      "sampled_at": "2026-10-17T13:45:10.730990+00:00"
+    },
+    {
+      "rss_bytes": 925843456,
+      "sampled_at": "2026-10-17T13:45:20.923387+00:00"
+    },
+    {
+      "rss_bytes": 924565504,
+      "sampled_at": "2026-10-17T13:45:31.506071+00:00"
+    },
+    {
+      "rss_bytes": 925368320,
+      "sampled_at": "2026-10-17T13:45:42.186001+00:00"
+    },
+    {
+      "rss_bytes": 926384128,
+      "sampled_at": "2026-10-17T13:45:52.904842+00:00"
+    },
+    {
+      "rss_bytes": 926990336,
+      "sampled_at": "2026-10-17T13:46:03.820879+00:00"
+    },
+    {
+      "rss_bytes": 927989760,
+      "sampled_at": "2026-10-17T13:46:14.872223+00:00"
+    },
+    {
+      "rss_bytes": 940130304,
+      "sampled_at": "2026-10-17T13:46:25.492973+00:00"
+    },
+    {
+      "rss_bytes": 925876224,
+      "sampled_at": "2026-10-17T13:46:36.470219+00:00"
+    },
+    {
+      "rss_bytes": 858947584,
+      "sampled_at": "2026-10-17T13:46:48.401091+00:00"
+    },
+    {
+      "rss_bytes": 857899008,
+      "sampled_at": "2026-10-17T13:47:00.543133+00:00"
+    },
+    {
+      "rss_bytes": 865026048,
+      "sampled_at": "2026-10-17T13:47:12.971462+00:00"
+    },
+    {
+      "rss_bytes": 841793536,
+      "sampled_at": "2026-10-17T13:47:23.295832+00:00"
+    },
+    {
+      "rss_bytes": 840843264,
+      "sampled_at": "2026-10-17T13:47:34.153781+00:00"
+    },
+    {
+      "rss_bytes": 840843264,
+      "sampled_at": "2026-10-17T13:47:45.845272+00:00"
+    },
+    {
+      "rss_bytes": 840826880,
+      "sampled_at": "2026-10-17T13:47:56.278157+00:00"
+    },
+    {
+      "rss_bytes": 833568768,
+      "sampled_at": "2026-10-17T13:48:07.098305+00:00"
+    },
+    {
+      "rss_bytes": 833585152,
+      "sampled_at": "2026-10-17T13:48:18.546767+00:00"
+    },
+    {
+      "rss_bytes": 833585152,
+      "sampled_at": "2026-10-17T13:48:30.598478+00:00"
+    },
+    {
+      "rss_bytes": 823181312,
+      "sampled_at": "2026-10-17T13:48:44.844174+00:00"
+    },
+    {
+      "rss_bytes": 822198272,
+      "sampled_at": "2026-10-17T13:48:55.747833+00:00"
+    },
+    {
+      "rss_bytes": 822198272,
+      "sampled_at": "2026-10-17T13:49:07.131861+00:00"
+    },
+    {
+      "rss_bytes": 822132736,
+      "sampled_at": "2026-10-17T13:49:19.669997+00:00"
+    },
+    {
+      "rss_bytes": 815906816,
+      "sampled_at": "2026-10-17T13:49:31.063110+00:00"
+    },
+    {
+      "rss_bytes": 815906816,
+      "sampled_at": "2026-10-17T13:49:43.448317+00:00"
+    },
+    {
+      "rss_bytes": 815906816,
+      "sampled_at": "2026-10-17T13:49:53.602434+00:00"
+    },
+    {
+      "rss_bytes": 818298880,
+      "sampled_at": "2026-10-17T13:50:03.811101+00:00"
+    },
+    {
+      "rss_bytes": 817184768,
+      "sampled_at": "2026-10-17T13:50:15.959041+00:00"
+    },
+    {
+      "rss_bytes": 816152576,
+      "sampled_at": "2026-10-17T13:50:27.612776+00:00"
+    },
+    {
+      "rss_bytes": 816168960,
+      "sampled_at": "2026-10-17T13:50:39.770200+00:00"
+    },
+    {
+      "rss_bytes": 814071808,
+      "sampled_at": "2026-10-17T13:50:51.449660+00:00"
+    },
+    {
+      "rss_bytes": 814071808,
+      "sampled_at": "2026-10-17T13:51:03.554892+00:00"
+    },
+    {
+      "rss_bytes": 814071808,
+      "sampled_at": "2026-10-17T13:51:15.989443+00:00"
+    },
+    {
+      "rss_bytes": 816693248,
+      "sampled_at": "2026-10-17T13:51:26.070649+00:00"
+    },
+    {
+      "rss_bytes": 817217536,
+      "sampled_at": "2026-10-17T13:51:40.259021+00:00"
+    },
+    {
+      "rss_bytes": 819658752,
+      "sampled_at": "2026-10-17T13:51:51.998014+00:00"
+    },
+    {
+      "rss_bytes": 819658752,
+      "sampled_at": "2026-10-17T13:52:03.916908+00:00"
+    },
+    {
+      "rss_bytes": 819658752,
+      "sampled_at": "2026-10-17T13:52:15.946373+00:00"
+    },
+    {
+      "rss_bytes": 821854208,
+      "sampled_at": "2026-10-17T13:52:28.205525+00:00"
+    },
+    {
+      "rss_bytes": 822378496,
+      "sampled_at": "2026-10-17T13:52:40.636981+00:00"
+    },
+    {
+      "rss_bytes": 823640064,
+      "sampled_at": "2026-10-17T13:52:50.647061+00:00"
+    },
+    {
+      "rss_bytes": 825491456,
+      "sampled_at": "2026-10-17T13:53:00.808603+00:00"
+    },
+    {
+      "rss_bytes": 828145664,
+      "sampled_at": "2026-10-17T13:53:11.078590+00:00"
+    },
+    {
+      "rss_bytes": 831520768,
+      "sampled_at": "2026-10-17T13:53:21.863244+00:00"
+    },
+    {
+      "rss_bytes": 782761984,
+      "sampled_at": "2026-10-17T13:53:32.340311+00:00"
+    },
+    {
+      "rss_bytes": 783237120,
+      "sampled_at": "2026-10-17T13:53:42.925082+00:00"
+    },
+    {
+      "rss_bytes": 783761408,
+      "sampled_at": "2026-10-17T13:53:53.664576+00:00"
+    },
+    {
+      "rss_bytes": 811548672,
+      "sampled_at": "2026-10-17T13:54:03.910109+00:00"
+    },
+    {
+      "rss_bytes": 810582016,
+      "sampled_at": "2026-10-17T13:54:14.988283+00:00"
+    },
+    {
+      "rss_bytes": 809566208,
+      "sampled_at": "2026-10-17T13:54:26.659674+00:00"
+    },
+    {
+      "rss_bytes": 803356672,
+      "sampled_at": "2026-10-17T13:54:37.678576+00:00"
+    },
+    {
+      "rss_bytes": 803356672,
+      "sampled_at": "2026-10-17T13:54:49.178467+00:00"
+    },
+    {
+      "rss_bytes": 803291136,
+      "sampled_at": "2026-10-17T13:54:59.606865+00:00"
+    },
+    {
+      "rss_bytes": 800210944,
+      "sampled_at": "2026-10-17T13:55:10.573141+00:00"
+    },
+    {
+      "rss_bytes": 800210944,
+      "sampled_at": "2026-10-17T13:55:22.132015+00:00"
+    },
+    {
+      "rss_bytes": 800210944,
+      "sampled_at": "2026-10-17T13:55:34.182579+00:00"
+    },
+    {
+      "rss_bytes": 796033024,
+      "sampled_at": "2026-10-17T13:55:46.069856+00:00"
+    },
+    {
+      "rss_bytes": 796049408,
+      "sampled_at": "2026-10-17T13:55:56.495003+00:00"
+    },
+    {
+      "rss_bytes": 796049408,
+      "sampled_at": "2026-10-17T13:56:06.794523+00:00"
+    },
+    {
+      "rss_bytes": 794378240,
+      "sampled_at": "2026-10-17T13:56:17.690313+00:00"
+    },
+    {
+      "rss_bytes": 794918912,
+      "sampled_at": "2026-10-17T13:56:28.439603+00:00"
+    },
+    {
+      "rss_bytes": 820674560,
+      "sampled_at": "2026-10-17T13:56:40.974870+00:00"
+    },
+    {
+      "rss_bytes": 835551232,
+      "sampled_at": "2026-10-17T13:56:52.616825+00:00"
+    },
+    {
+      "rss_bytes": 835174400,
+      "sampled_at": "2026-10-17T13:57:04.078914+00:00"
+    },
+    {
+      "rss_bytes": 836730880,
+      "sampled_at": "2026-10-17T13:57:15.753030+00:00"
+    },
+    {
+      "rss_bytes": 839811072,
+      "sampled_at": "2026-10-17T13:57:27.794560+00:00"
+    },
+    {
+      "rss_bytes": 828047360,
+      "sampled_at": "2026-10-17T13:57:40.406845+00:00"
+    },
+    {
+      "rss_bytes": 827064320,
+      "sampled_at": "2026-10-17T13:57:52.002069+00:00"
+    },
+    {
+      "rss_bytes": 828391424,
+      "sampled_at": "2026-10-17T13:58:03.886849+00:00"
+    },
+    {
+      "rss_bytes": 784711680,
+      "sampled_at": "2026-10-17T13:58:16.127986+00:00"
+    },
+    {
+      "rss_bytes": 792395776,
+      "sampled_at": "2026-10-17T13:58:26.402242+00:00"
+    },
+    {
+      "rss_bytes": 789512192,
+      "sampled_at": "2026-10-17T13:58:38.074187+00:00"
+    },
+    {
+      "rss_bytes": 789676032,
+      "sampled_at": "2026-10-17T13:58:50.114218+00:00"
+    },
+    {
+      "rss_bytes": 789676032,
+      "sampled_at": "2026-10-17T13:59:02.393409+00:00"
+    },
+    {
+      "rss_bytes": 791740416,
+      "sampled_at": "2026-10-17T13:59:14.875363+00:00"
+    },
+    {
+      "rss_bytes": 814235648,
+      "sampled_at": "2026-10-17T13:59:25.682671+00:00"
+    },
+    {
+      "rss_bytes": 829227008,
+      "sampled_at": "2026-10-17T13:59:36.652504+00:00"
+    },
+    {
+      "rss_bytes": 830521344,
+      "sampled_at": "2026-10-17T13:59:47.656624+00:00"
+    },
+    {
+      "rss_bytes": 830521344,
+      "sampled_at": "2026-10-17T13:59:58.767381+00:00"
+    },
+    {
+      "rss_bytes": 826327040,
+      "sampled_at": "2026-10-17T14:00:10.129835+00:00"
+    },
+    {
+      "rss_bytes": 827621376,
+      "sampled_at": "2026-10-17T14:00:21.335719+00:00"
+    },
+    {
+      "rss_bytes": 827621376,
+      "sampled_at": "2026-10-17T14:00:32.767420+00:00"
+    },
+    {
+      "rss_bytes": 829620224,
+      "sampled_at": "2026-10-17T14:00:44.406669+00:00"
+    },
+    {
+      "rss_bytes": 786612224,
+      "sampled_at": "2026-10-17T14:00:54.615491+00:00"
+    },
+    {
+      "rss_bytes": 785661952,
+      "sampled_at": "2026-10-17T14:01:05.703029+00:00"
+    },
+    {
+      "rss_bytes": 785645568,
+      "sampled_at": "2026-10-17T14:01:17.218094+00:00"
+    },
+    {
+      "rss_bytes": 785907712,
+      "sampled_at": "2026-10-17T14:01:29.600541+00:00"
+    },
+    {
+      "rss_bytes": 787234816,
+      "sampled_at": "2026-10-17T14:01:40.258675+00:00"
+    },
+    {
+      "rss_bytes": 787267584,
+      "sampled_at": "2026-10-17T14:01:51.646084+00:00"
+    },
+    {
+      "rss_bytes": 787267584,
+      "sampled_at": "2026-10-17T14:02:03.482848+00:00"
+    },
+    {
+      "rss_bytes": 787267584,
+      "sampled_at": "2026-10-17T14:02:15.534306+00:00"
+    },
+    {
+      "rss_bytes": 786399232,
+      "sampled_at": "2026-10-17T14:02:27.591272+00:00"
+    },
+    {
+      "rss_bytes": 788578304,
+      "sampled_at": "2026-10-17T14:02:38.700141+00:00"
+    },
+    {
+      "rss_bytes": 789708800,
+      "sampled_at": "2026-10-17T14:02:50.223962+00:00"
+    },
+    {
+      "rss_bytes": 789708800,
+      "sampled_at": "2026-10-17T14:03:01.909280+00:00"
+    },
+    {
+      "rss_bytes": 789708800,
+      "sampled_at": "2026-10-17T14:03:14.121861+00:00"
+    },
+    {
+      "rss_bytes": 792985600,
+      "sampled_at": "2026-10-17T14:03:26.546938+00:00"
+    },
+    {
+      "rss_bytes": 798048256,
+      "sampled_at": "2026-10-17T14:03:38.494084+00:00"
+    },
+    {
+      "rss_bytes": 798081024,
+      "sampled_at": "2026-10-17T14:03:49.576145+00:00"
+    },
+    {
+      "rss_bytes": 799309824,
+      "sampled_at": "2026-10-17T14:04:00.840179+00:00"
+    },
+    {
+      "rss_bytes": 799309824,
+      "sampled_at": "2026-10-17T14:04:12.307054+00:00"
+    }
+  ],
+  "rss_sampling": {
+    "deviation": "The 2-second status polling loop and backend request time caused gaps above the requested 10 seconds. Maximum observed interval was 16.330 seconds. The runner now uses an independent periodic sampler; completed inference was not repeated.",
+    "maximum_observed_interval_seconds": 16.33,
+    "mean_observed_interval_seconds": 11.548,
+    "method": "sample on runner status-poll loop",
+    "minimum_observed_interval_seconds": 10.01,
+    "requested_interval_seconds": 10,
+    "sample_count": 162
+  },
+  "runner": {
+    "path": "operations/scripts/run_0098_m1_identity_batch.py",
+    "sampling_fix_applied_after_batch": true,
+    "sha256_after_sampling_fix": "3886d5027ca95eb1b3aa0434964b23a25d1fc91fd0fbf2b224405b0ad765a3cd"
+  },
+  "schema_version": "0098-m1-identity-batch/v1",
+  "started_at": "2026-10-17T13:33:13.114594+00:00",
+  "status": "complete",
+  "stop_reason": null
+}
