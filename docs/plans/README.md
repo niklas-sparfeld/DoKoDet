@@ -26,7 +26,7 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Active: **[0097 — Frame review mode](3-in-progress/0097-Frame_Review_Mode.md)** (M0–M2 complete; M3 not started), **[0099 — Detection failure diagnostics and bounded fixes](3-in-progress/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md)** (M0 complete; M1–M3 not started), and **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review.
+Active: **[0097 — Frame review mode](3-in-progress/0097-Frame_Review_Mode.md)** (M0–M2 complete; M3 not started), **[0099 — Detection failure diagnostics and bounded fixes](3-in-progress/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md)** (M0–M1 complete; M2–M3 not started), and **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review.
 
 While 0096 waits for human review, autonomous work is available in this preferred order:
 
