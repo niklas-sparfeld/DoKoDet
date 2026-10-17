@@ -18,6 +18,8 @@ from table_evidence_analyzer.pipeline_data import (
     ProposedCardSceneData,
     ProposedCardSceneFrame,
     VisibleCardData,
+    VisibleCardFrameIdentity,
+    VisibleCardPileRegion,
 )
 
 from .card_plane_calibration import (
@@ -33,7 +35,7 @@ from .card_plane_initialization import (
 )
 from .pipeline_data import canonical_json_bytes
 
-PROPOSED_CARD_SCENE_PROCESSOR_SCHEMA_VERSION = "proposed-card-scene-processor/v1"
+PROPOSED_CARD_SCENE_PROCESSOR_SCHEMA_VERSION = "proposed-card-scene-processor/v2"
 PROPOSED_CARD_SCENE_PROCESSOR_TYPE = "visible-card-scene-proposal"
 
 
@@ -82,6 +84,10 @@ def visible_card_data_to_local_result(
     frames: list[dict[str, Any]] = []
     unresolvable_frames: list[dict[str, str]] = []
     for outcome in data.outcomes:
+        if outcome.status == "failed":
+            raise ProposedCardSceneProcessorError(
+                f"detector outcome {outcome.event_id} failed: {outcome.error}"
+            )
         identity = outcome.frame_identity
         if identity is None:
             unresolvable_frames.append(
@@ -91,7 +97,9 @@ def visible_card_data_to_local_result(
         predictions: list[dict[str, Any]] = []
         for candidate in outcome.candidates:
             if not isinstance(candidate.geometry, PredictedVisibleRegionGeometry):
-                continue
+                raise ProposedCardSceneProcessorError(
+                    f"detector candidate {candidate.card_id} has unusable geometry"
+                )
             polygons = candidate.geometry.polygons
             source_polygons = [
                 [
@@ -121,6 +129,8 @@ def visible_card_data_to_local_result(
                 "source_transform": identity.transform_version,
                 "predictions": predictions,
                 "outcome_status": outcome.status,
+                "source_identity": identity.to_mapping(),
+                "pile_regions": [pile.to_mapping() for pile in outcome.pile_regions],
             }
         )
     if not frames and not unresolvable_frames:
@@ -141,7 +151,7 @@ class ProposedCardSceneProcessorResult:
 
     status: str
     data: ProposedCardSceneData | None
-    calibration_run: CalibrationRun
+    calibration_run: CalibrationRun | None
     failure: Mapping[str, str] | None
     result_digest: str
 
@@ -150,7 +160,9 @@ class ProposedCardSceneProcessorResult:
             "schema_version": PROPOSED_CARD_SCENE_PROCESSOR_SCHEMA_VERSION,
             "status": self.status,
             "data": None if self.data is None else self.data.to_mapping(),
-            "calibration_run": self.calibration_run.to_mapping(),
+            "calibration_run": (
+                None if self.calibration_run is None else self.calibration_run.to_mapping()
+            ),
             "failure": None if self.failure is None else dict(self.failure),
         }
         return {**value, "result_digest": _digest(value)}
@@ -175,22 +187,33 @@ def build_proposed_card_scenes(
         raise ProposedCardSceneProcessorError(
             "local result source revision does not match the selected detector revision"
         )
-    if progress_callback is not None:
-        progress_callback(
-            "calibration",
-            0,
-            3,
-            "Calibrating virtual cards",
-            1,
-            3,
-        )
-    run = calibrate_recording(
-        selected,
-        recipe=calibration_recipe,
-        size_reference=calibration_size_reference,
-        size_reference_revision=calibration_size_reference_revision,
+    frames = selected.get("frames")
+    if not isinstance(frames, list):
+        raise ProposedCardSceneProcessorError("local result.frames must be a list")
+    has_card_candidates = any(
+        isinstance(frame, Mapping)
+        and isinstance(frame.get("predictions", []), list)
+        and bool(frame.get("predictions", []))
+        for frame in frames
     )
-    if run.status != "published" or run.calibration is None:
+    run: CalibrationRun | None = None
+    if has_card_candidates:
+        if progress_callback is not None:
+            progress_callback(
+                "calibration",
+                0,
+                3,
+                "Calibrating virtual cards",
+                1,
+                3,
+            )
+        run = calibrate_recording(
+            selected,
+            recipe=calibration_recipe,
+            size_reference=calibration_size_reference,
+            size_reference_revision=calibration_size_reference_revision,
+        )
+    if run is not None and (run.status != "published" or run.calibration is None):
         if progress_callback is not None:
             progress_callback(
                 "calibration",
@@ -216,16 +239,17 @@ def build_proposed_card_scenes(
             result_digest=_digest(value),
         )
 
-    if calibration_store is not None:
+    if run is not None and calibration_store is not None:
         calibration_store.publish(run)
-    calibration = run.calibration
-    assert calibration is not None
+    calibration = None if run is None else run.calibration
+    if run is not None:
+        assert calibration is not None
     if progress_callback is not None:
         raw_frames = selected.get("frames", [])
         unresolved = selected.get("unresolvable_frames", [])
-        total_frames = (
-            len(raw_frames) if isinstance(raw_frames, list) else 0
-        ) + (len(unresolved) if isinstance(unresolved, list) else 0)
+        total_frames = (len(raw_frames) if isinstance(raw_frames, list) else 0) + (
+            len(unresolved) if isinstance(unresolved, list) else 0
+        )
         progress_callback(
             "initialization",
             0,
@@ -239,7 +263,11 @@ def build_proposed_card_scenes(
         detector_revision_id=detector_revision_id,
         detector_revision_digest=detector_revision_digest,
         calibration=calibration,
-        calibration_diagnostics=run.diagnostics,
+        calibration_diagnostics=(
+            {"status": "skipped", "reason": "no_card_candidates"}
+            if run is None
+            else run.diagnostics
+        ),
         pose_recipe=pose_recipe,
         progress_callback=progress_callback,
     )
@@ -252,12 +280,16 @@ def build_proposed_card_scenes(
             3,
             3,
         )
-    status = "complete" if all(item.status == "supported" for item in data.frames) else "partial"
+    status = (
+        "complete"
+        if all(item.status in {"supported", "no_cards_detected"} for item in data.frames)
+        else "partial"
+    )
     value = {
         "schema_version": PROPOSED_CARD_SCENE_PROCESSOR_SCHEMA_VERSION,
         "status": status,
         "data": data.to_mapping(),
-        "calibration_run": run.to_mapping(),
+        "calibration_run": None if run is None else run.to_mapping(),
         "failure": None,
     }
     return ProposedCardSceneProcessorResult(
@@ -274,7 +306,7 @@ def build_proposed_card_scene_data(
     *,
     detector_revision_id: str,
     detector_revision_digest: str,
-    calibration: Any,
+    calibration: Any | None,
     calibration_diagnostics: Mapping[str, Any],
     pose_recipe: PoseFitRecipe | None = None,
     progress_callback: ProgressCallback | None = None,
@@ -299,6 +331,78 @@ def build_proposed_card_scene_data(
             raise ProposedCardSceneProcessorError("local result frame_id must be a string")
         seen_frame_ids.add(frame_id)
         source_digest = _source_frame_digest(frame)
+        raw_identity = frame.get("source_identity")
+        source_identity = (
+            None
+            if raw_identity is None
+            else VisibleCardFrameIdentity.from_mapping(
+                _mapping(raw_identity, f"frame {frame_id} source_identity")
+            )
+        )
+        detector_status = frame.get("outcome_status")
+        if detector_status == "failed":
+            raise ProposedCardSceneProcessorError(f"detector outcome {frame_id} failed")
+        raw_piles = frame.get("pile_regions", [])
+        if not isinstance(raw_piles, list):
+            raise ProposedCardSceneProcessorError(f"frame {frame_id} pile_regions must be a list")
+        piles = tuple(
+            VisibleCardPileRegion.from_mapping(
+                _mapping(value, f"frame {frame_id} pile region"),
+                f"frame {frame_id} pile_regions[{index}]",
+            )
+            for index, value in enumerate(raw_piles)
+        )
+        predictions = frame.get("predictions", [])
+        if not isinstance(predictions, list):
+            raise ProposedCardSceneProcessorError(f"frame {frame_id} predictions must be a list")
+        if not predictions:
+            if source_digest is not None and source_identity is not None:
+                if detector_status not in {"detected", "empty"}:
+                    raise ProposedCardSceneProcessorError(
+                        f"detector outcome {frame_id} has no valid success status"
+                    )
+                frames.append(
+                    ProposedCardSceneFrame(
+                        frame_id=frame_id,
+                        source_frame_digest=source_digest,
+                        status="no_cards_detected",
+                        proposal=None,
+                        unsupported_reason=None,
+                        source_identity=source_identity,
+                        detector_status=detector_status,
+                        pile_regions=piles,
+                    )
+                )
+                completed_frames += 1
+                if progress_callback is not None:
+                    progress_callback(
+                        "initialization",
+                        completed_frames,
+                        total_frames,
+                        f"No individual cards detected in frame {frame_id}",
+                        2,
+                        3,
+                    )
+                continue
+            frames.append(
+                ProposedCardSceneFrame(
+                    frame_id=frame_id,
+                    source_frame_digest=source_digest,
+                    status="unsupported",
+                    proposal=None,
+                    unsupported_reason=(
+                        "source_identity_unavailable"
+                        if source_digest is not None
+                        else "source_frame_digest_unavailable"
+                    ),
+                )
+            )
+            completed_frames += 1
+            continue
+        if calibration is None:
+            raise ProposedCardSceneProcessorError(
+                "card candidates need a valid recording calibration"
+            )
         if source_digest is None:
             frames.append(
                 ProposedCardSceneFrame(
@@ -368,6 +472,9 @@ def build_proposed_card_scene_data(
                     status="unsupported",
                     proposal=proposal,
                     unsupported_reason=reason,
+                    source_identity=source_identity,
+                    detector_status=detector_status,
+                    pile_regions=piles,
                 )
             )
             completed_frames += 1
@@ -413,6 +520,9 @@ def build_proposed_card_scene_data(
                 status="supported",
                 proposal=proposal,
                 unsupported_reason=None,
+                source_identity=source_identity,
+                detector_status=detector_status,
+                pile_regions=piles,
             )
         )
         completed_frames += 1
@@ -465,9 +575,11 @@ def build_proposed_card_scene_data(
     return ProposedCardSceneData.create(
         detector_revision_id=detector_revision_id,
         detector_revision_digest=detector_revision_digest,
-        calibration_revision_id=calibration.calibration_revision_id,
-        calibration_digest=calibration.calibration_digest,
-        calibration=calibration.to_mapping(),
+        calibration_revision_id=(
+            None if calibration is None else calibration.calibration_revision_id
+        ),
+        calibration_digest=None if calibration is None else calibration.calibration_digest,
+        calibration=None if calibration is None else calibration.to_mapping(),
         calibration_diagnostics=calibration_diagnostics,
         frames=frames,
     )

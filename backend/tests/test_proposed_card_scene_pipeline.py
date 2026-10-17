@@ -123,9 +123,7 @@ def _visible_data() -> VisibleCardData:
                             "policy_id": "full-frame-0-1000/v1",
                         },
                         "side": "unknown",
-                        "model_scores": [
-                            {"producer_id": "local-rfdetr-fine-frame", "score": 0.98}
-                        ],
+                        "model_scores": [{"producer_id": "local-rfdetr-fine-frame", "score": 0.98}],
                     }
                 ],
                 "ignored_regions": [],
@@ -204,6 +202,99 @@ def test_service_publishes_proposal_without_changing_detector_input(
         canonical_json_bytes(revisions.require(input_revision.revision_id).content.to_mapping())
         == original_bytes
     )
+
+
+def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
+    tmp_path: Path,
+) -> None:
+    runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
+    revisions = PipelineRevisionStore(runtime)
+    runs = ProcessorRunStore(runtime, revision_store=revisions)
+    selections = PipelineSelectionStore(runtime, revision_store=revisions, run_store=runs)
+    source = RecordingVideoSource(
+        recording_id="recording-0073",
+        relative_path="recordings/recording-0073/video.mov",
+        video_sha256=DIGEST,
+        byte_length=100,
+        duration_us=20_000_000,
+    )
+    mapping = _visible_data().to_mapping()
+    mapping["schema_version"] = "visible-card-data/v2"
+    outcomes = mapping["outcomes"]
+    for index, outcome in enumerate(outcomes):
+        outcome["candidates"] = []
+        outcome["status"] = "detected" if index == 0 else "empty"
+        outcome["pile_regions"] = []
+    outcomes[0]["pile_regions"] = [
+        {
+            "pile_id": "pile-001",
+            "geometry": {
+                "kind": "pile-region/v1",
+                "polygons": [
+                    [
+                        {"x": 100, "y": 100},
+                        {"x": 300, "y": 100},
+                        {"x": 300, "y": 250},
+                        {"x": 100, "y": 250},
+                    ]
+                ],
+            },
+            "normalization": {
+                "width": 1920,
+                "height": 1080,
+                "policy_id": "full-frame-0-1000/v1",
+            },
+            "source_candidates": [],
+        }
+    ]
+    content = VisibleCardData.from_mapping(mapping)
+    input_revision = DataRevision(
+        revision_id="visible-cards-zero-only",
+        content_type="visible_cards",
+        content_schema="visible-card-data/v2",
+        recording_id=source.recording_id,
+        source=source,
+        content_sha256=sha256_bytes(canonical_visible_card_data_bytes(content)),
+        input_revision_ids=(),
+        origin="processor",
+        producer=ProcessorProducer(
+            run_id="detector-run-zero-only",
+            processor_type="visible-card-detection",
+            implementation_id="local-rfdetr-fine-frame/v1",
+            model_id="local-rfdetr-fine-frame",
+        ),
+        coverage={"kind": "requested-event-frames"},
+        created_at="2026-09-21T10:00:00Z",
+    )
+    revisions.publish(input_revision, content)
+    service = ProposedCardScenePipelineService(
+        _Settings(tmp_path), revision_store=revisions, run_store=runs, selection_store=selections
+    )
+
+    started = service.start_proposal(
+        source.recording_id,
+        {"run_id": "proposal-zero-only", "visible_card_revision_id": input_revision.revision_id},
+    )
+    asyncio.run(service.stop())
+    result = service.get_run(source.recording_id, started.run_id)
+
+    assert result.state.status == "complete"
+    assert result.state.terminal_failure is None
+    assert not any(
+        entry["message"] == "Calibrating virtual cards" for entry in result.state.metrics["logs"]
+    )
+    output_revision = revisions.require(result.state.output_revision_ids[0])
+    output = output_revision.content
+    assert output_revision.manifest.producer.implementation_id == (
+        "proposed-card-scene-processor/v2"
+    )
+    assert output_revision.manifest.coverage["no_card_frame_count"] == len(output.frames)
+    assert output.calibration is None
+    assert output.calibration_revision_id is None
+    assert output.frames[0].status == "no_cards_detected"
+    assert output.frames[0].pile_regions[0].pile_id == "pile-001"
+    assert output.frames[0].source_identity is not None
+    assert all(frame.status == "no_cards_detected" for frame in output.frames)
 
 
 def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> None:

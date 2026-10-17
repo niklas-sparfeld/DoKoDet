@@ -106,7 +106,7 @@ def _campaign_inputs(root: Path, *, uncertain: bool = False) -> tuple[Path, Path
                     "status": "supported",
                 }
             ],
-            "schema_version": "proposed-card-scene-data/v1",
+            "schema_version": "proposed-card-scene-data/v2",
         }
         revision = {
             "revision_id": revision_id,

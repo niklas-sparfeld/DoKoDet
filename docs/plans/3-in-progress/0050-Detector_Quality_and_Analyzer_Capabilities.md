@@ -20,8 +20,8 @@
 
 - **M0:** Complete — [freeze retained evidence and contracts](../../reports/0050-M0_Diagnostic_Freeze.md); M4 preflight needs the exact real-round video restored.
 - **M1:** Complete — [corrected frame comparison](../../reports/0050-M1_Frame_Comparison_Correction.md).
-- **M2:** Not started — next; handle zero-card and pile-only scene inputs at the processor and service boundaries.
-- **M3:** Not started — verify identity, observation, and coordinator handling of those inputs.
+- **M2:** Complete — zero-card and pile-only frames publish explicit outcomes without calibration or pose fitting; mixed-frame gates and real failures remain active.
+- **M3:** Not started — next; verify zero-card behavior through identity, observation, and coordinator boundaries.
 - **M4:** Not started — run the bounded diagnostic and publish the next decision.
 
 ## 1. Evidence and question
@@ -166,7 +166,28 @@ Acceptance: focused processor and backend tests pass; zero-card inputs no longer
 `no_initialized_candidates` solely because there was no candidate to initialize; actual failures
 remain actionable and blocking; revised outputs have explicit implementation lineage.
 
+M2 completed with `proposed-card-scene-data/v2` and
+`proposed-card-scene-processor/v2`. A frame with no individual-card candidates now has the explicit
+`no_cards_detected` outcome, full source-frame identity, detector status, and separate pile regions.
+A recording with no card candidates records a skipped-calibration reason and has no calibration
+revision. Mixed recordings still calibrate and fit card-bearing frames. Failed detector outcomes
+and unusable candidate geometry stop the processor. The backend publishes the new implementation
+lineage and counts no-card frames separately. M2 used local fixtures only; it did not run model
+stages or change retained 0090 artifacts.
+
 ### M3 — Verify downstream and coordinator behavior
+
+Next handoff: start with the M2 processor and output contract, then inspect
+`backend/src/dokodetector_backend/visual_identity_pipeline_service.py`,
+`backend/src/dokodetector_backend/pipeline_coordinator.py`, and
+`table_evidence_analyzer/src/table_evidence_analyzer/observation_assembly.py`. Add focused cases to
+`backend/tests/test_visual_identity_pipeline_api.py`,
+`backend/tests/test_pipeline_coordinator.py`, and
+`table_evidence_analyzer/tests/test_observation_assembly.py`. Add local fixtures for the M2
+`no_cards_detected` output in mixed and all-zero recordings. Prove identity makes no crop or model
+calls, observation assembly keeps event coverage and pile regions, and the coordinator continues
+only from an explicit successful scene revision with the exact retained upstream IDs. Keep failure
+and resume/reuse behavior strict.
 
 Verify and repair only the downstream contracts needed for M2 outputs. Zero-card frames must invoke
 no identity model or crop extraction. Retain event/frame coverage and separate pile evidence in

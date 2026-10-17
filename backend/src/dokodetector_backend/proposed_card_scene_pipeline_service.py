@@ -28,6 +28,7 @@ from doko_operations.proposed_card_scene_processor import (
     visible_card_data_to_local_result,
 )
 from table_evidence_analyzer.pipeline_data import (
+    PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
     ProposedCardSceneData,
     VisibleCardData,
     canonical_proposed_card_scene_data_bytes,
@@ -216,7 +217,7 @@ class ProposedCardScenePipelineService:
             source=revision.manifest.source,
             input_revision_ids=(revision_id,),
             implementation=ImplementationIdentity(
-                name="proposed-card-scene-processor", version="v1"
+                name="proposed-card-scene-processor", version="v2"
             ),
             model=None,
             configuration=dict(configuration),
@@ -274,7 +275,11 @@ class ProposedCardScenePipelineService:
                         **self._current_metrics(run_id),
                         "schema_version": "proposed-card-scene-failure-diagnostics/v1",
                         "processor_result_digest": processor_result.result_digest,
-                        "calibration_run": processor_result.calibration_run.to_mapping(),
+                        "calibration_run": (
+                            None
+                            if processor_result.calibration_run is None
+                            else processor_result.calibration_run.to_mapping()
+                        ),
                     },
                 )
                 return
@@ -330,7 +335,7 @@ class ProposedCardScenePipelineService:
         manifest = DataRevision(
             revision_id=revision_id,
             content_type="card_scene_proposals",
-            content_schema="proposed-card-scene-data/v1",
+            content_schema=PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
             recording_id=run.request.source.recording_id,
             source=run.request.source,
             content_sha256=sha256_bytes(canonical_proposed_card_scene_data_bytes(data)),
@@ -339,7 +344,7 @@ class ProposedCardScenePipelineService:
             producer=ProcessorProducer(
                 run_id=run.run_id,
                 processor_type=run.request.processor_type,
-                implementation_id="proposed-card-scene-processor/v1",
+                implementation_id="proposed-card-scene-processor/v2",
                 model_id=None,
             ),
             coverage={
@@ -349,6 +354,9 @@ class ProposedCardScenePipelineService:
                 "calibration_revision_id": data.calibration_revision_id,
                 "calibration_digest": data.calibration_digest,
                 "supported_frame_count": sum(frame.status == "supported" for frame in data.frames),
+                "no_card_frame_count": sum(
+                    frame.status == "no_cards_detected" for frame in data.frames
+                ),
                 "unsupported_frame_count": sum(
                     frame.status == "unsupported" for frame in data.frames
                 ),

@@ -38,6 +38,7 @@ from table_evidence_analyzer.card_scene_contract import (
     CalibrationReflowReceipt,
 )
 from table_evidence_analyzer.pipeline_data import (
+    PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
     ProposedCardSceneData,
     VisibleCardData,
     canonical_proposed_card_scene_data_bytes,
@@ -306,15 +307,18 @@ class CalibrationRefinementService:
             )
         frame_scenes = self._frame_scenes(recording_id, data)
         effective_draft = exclude_anchors_in_reviewed_ignore_regions(draft, frame_scenes)
-        receipt_id = "reflow-" + hashlib.sha256(
-            canonical_json_bytes(
-                {
-                    "draft_id": effective_draft.draft_id,
-                    "draft_digest": effective_draft.draft_digest,
-                    "preview_digest": preview_digest,
-                }
-            )
-        ).hexdigest()[:24]
+        receipt_id = (
+            "reflow-"
+            + hashlib.sha256(
+                canonical_json_bytes(
+                    {
+                        "draft_id": effective_draft.draft_id,
+                        "draft_digest": effective_draft.draft_digest,
+                        "preview_digest": preview_digest,
+                    }
+                )
+            ).hexdigest()[:24]
+        )
         try:
             previous_receipt = self.receipt_store.load(recording_id, receipt_id)
         except CalibrationRefinementError:
@@ -348,19 +352,14 @@ class CalibrationRefinementService:
             )
         if preview.candidate_calibration is None or (
             preview.failure is not None
-            and (
-                preview.failure.code != "reviewed_displacement_exceeded"
-                or not confirm_affected
-            )
+            and (preview.failure.code != "reviewed_displacement_exceeded" or not confirm_affected)
         ):
             action = "inspect and correct the blocked calibration gate"
             if preview.failure is not None:
                 action = preview.failure.action
             raise CalibrationRefinementInputError(action)
         try:
-            current_reference = self.reference_service.get_reference(
-                recording_id, "visible_cards"
-            )
+            current_reference = self.reference_service.get_reference(recording_id, "visible_cards")
         except PipelineReferenceNotFound as error:
             raise CalibrationRefinementInputError(
                 "the maintained visible-card draft is missing; reload the pipeline"
@@ -393,16 +392,14 @@ class CalibrationRefinementService:
                 "source_calibration_revision_id": data.calibration_revision_id,
                 "source_calibration_digest": data.calibration_digest,
                 "refinement_preview_digest": preview_digest,
-                "anchor_command_digests": [
-                    command.command_digest for command in draft.commands
-                ],
+                "anchor_command_digests": [command.command_digest for command in draft.commands],
             },
         )
         target_proposal_revision_id = f"card-scene-reflow-{receipt_id}"
         target_manifest = DataRevision(
             revision_id=target_proposal_revision_id,
             content_type="card_scene_proposals",
-            content_schema="proposed-card-scene-data/v1",
+            content_schema=PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
             recording_id=recording_id,
             source=source.manifest.source,
             content_sha256=sha256_bytes(canonical_proposed_card_scene_data_bytes(target_data)),
@@ -502,9 +499,12 @@ class CalibrationRefinementService:
         candidate = preview.candidate_calibration
         if candidate is None:
             raise CalibrationRefinementInputError("the calibration preview has no candidate")
-        target_id = "calibration-refined-" + hashlib.sha256(
-            canonical_json_bytes({"draft": draft.draft_digest, "preview": preview_digest})
-        ).hexdigest()[:24]
+        target_id = (
+            "calibration-refined-"
+            + hashlib.sha256(
+                canonical_json_bytes({"draft": draft.draft_digest, "preview": preview_digest})
+            ).hexdigest()[:24]
+        )
         return TablePlaneCalibration.create(
             calibration_revision_id=target_id,
             recording_id=draft.recording_id,
@@ -562,9 +562,7 @@ class CalibrationRefinementService:
     ) -> dict[str, Any]:
         if not include_frame_scenes:
             return self._pending_response(recording_id, proposal_revision_id, draft)
-        frame_scenes = (
-            self._frame_scenes(recording_id, data)
-        )
+        frame_scenes = self._frame_scenes(recording_id, data)
         effective_draft = exclude_anchors_in_reviewed_ignore_regions(draft, frame_scenes)
         preview = build_calibration_preview(
             effective_draft,
@@ -613,9 +611,7 @@ class CalibrationRefinementService:
             ),
             fit_residual=0.0,
             accepted_anchor_count=sum(
-                1
-                for anchor in draft.anchors
-                if anchor.state in {"accepted", "adjusted", "pinned"}
+                1 for anchor in draft.anchors if anchor.state in {"accepted", "adjusted", "pinned"}
             ),
             rejected_candidate_count=0,
             held_out_alignment_change_px=0.0,
@@ -642,16 +638,11 @@ class CalibrationRefinementService:
         except PipelineReferenceNotFound:
             reference = None
         if reference is not None and reference.draft.items:
-            return tuple(
-                {"item_id": item.item_id, **item.item}
-                for item in reference.draft.items
-            )
+            return tuple({"item_id": item.item_id, **item.item} for item in reference.draft.items)
         return tuple(
             {
                 "frame_id": frame.frame_id,
-                "scene": frame.proposal.initialized_scene
-                if frame.proposal is not None
-                else None,
+                "scene": frame.proposal.initialized_scene if frame.proposal is not None else None,
             }
             for frame in data.frames
             if frame.proposal is not None

@@ -24,6 +24,7 @@ from doko_operations.pipeline_data import (
 )
 from fastapi.testclient import TestClient
 from table_evidence_analyzer.pipeline_data import (
+    PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
     ProposedCardScene,
     ProposedCardSceneData,
     ProposedCardSceneFrame,
@@ -396,7 +397,7 @@ def _proposal_revision(
     manifest = DataRevision(
         revision_id=revision_id,
         content_type="card_scene_proposals",
-        content_schema="proposed-card-scene-data/v1",
+        content_schema=PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
         recording_id=SOURCE.recording_id,
         source=SOURCE,
         content_sha256=sha256_bytes(canonical_proposed_card_scene_data_bytes(content)),

@@ -21,7 +21,7 @@ from .table_observation import TableObservation, parse_observation_bytes
 
 VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v2"
 LEGACY_VISIBLE_CARD_DATA_SCHEMA_VERSION = "visible-card-data/v1"
-PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION = "proposed-card-scene-data/v1"
+PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION = "proposed-card-scene-data/v2"
 VISUAL_IDENTITY_DATA_SCHEMA_VERSION = "visual-identity-data/v2"
 TABLE_OBSERVATION_DATA_SCHEMA_VERSION = "table-observation-data/v1"
 EXACT_EVENT_FRAME_SCHEMA_VERSION = "exact-event/v1"
@@ -1550,7 +1550,8 @@ class VisibleCardOutcome:
             )
         if status == "failed" and (candidates or ignored_regions or pile_regions or error is None):
             raise PipelineDataError(
-                f"{context}.failed outcome needs an error and no candidates, ignored regions, or pile regions"
+                f"{context}.failed outcome needs an error and no candidates, ignored regions, "
+                "or pile regions"
             )
         if status in {"detected", "empty"} and frame is None:
             raise PipelineDataError(f"{context}.{status} outcome needs a frame identity")
@@ -1650,22 +1651,33 @@ class ProposedCardSceneFrame:
 
     frame_id: str
     source_frame_digest: str | None
-    status: Literal["supported", "unsupported"]
+    status: Literal["supported", "unsupported", "no_cards_detected"]
     proposal: ProposedCardScene | None
     unsupported_reason: str | None
+    source_identity: VisibleCardFrameIdentity | None = None
+    detector_status: Literal["detected", "empty"] | None = None
+    pile_regions: tuple[VisibleCardPileRegion, ...] = ()
 
     @classmethod
     def from_mapping(
         cls, raw: Mapping[str, Any], context: str = "proposed frame"
     ) -> "ProposedCardSceneFrame":
         data = _mapping(raw, context)
-        _strict(
-            data,
-            {"frame_id", "source_frame_digest", "status", "proposal", "unsupported_reason"},
-            context,
+        expected = {
+            "frame_id",
+            "source_frame_digest",
+            "status",
+            "proposal",
+            "unsupported_reason",
+        }
+        expected.update(
+            field
+            for field in ("source_identity", "detector_status", "pile_regions")
+            if field in data
         )
+        _strict(data, expected, context)
         status = data["status"]
-        if status not in {"supported", "unsupported"}:
+        if status not in {"supported", "unsupported", "no_cards_detected"}:
             raise PipelineDataError(f"{context}.status is unsupported")
         proposal_raw = data["proposal"]
         proposal = (
@@ -1678,6 +1690,24 @@ class ProposedCardSceneFrame:
         reason = data["unsupported_reason"]
         if reason is not None:
             reason = _text(reason, f"{context}.unsupported_reason")
+        identity_raw = data.get("source_identity")
+        identity = (
+            None
+            if identity_raw is None
+            else VisibleCardFrameIdentity.from_mapping(
+                _mapping(identity_raw, f"{context}.source_identity")
+            )
+        )
+        detector_status = data.get("detector_status")
+        if detector_status not in {None, "detected", "empty"}:
+            raise PipelineDataError(f"{context}.detector_status is unsupported")
+        raw_piles = data.get("pile_regions", [])
+        if not isinstance(raw_piles, list):
+            raise PipelineDataError(f"{context}.pile_regions must be a list")
+        piles = tuple(
+            VisibleCardPileRegion.from_mapping(value, f"{context}.pile_regions[{index}]")
+            for index, value in enumerate(raw_piles)
+        )
         if status == "supported":
             if (
                 proposal is None
@@ -1687,10 +1717,21 @@ class ProposedCardSceneFrame:
                 or proposal.source_frame_digest != data["source_frame_digest"]
             ):
                 raise PipelineDataError(f"{context} has inconsistent supported proposal fields")
-        elif proposal is not None and proposal.status != "unsupported":
+        elif status == "unsupported" and proposal is not None and proposal.status != "unsupported":
             raise PipelineDataError(f"{context} has an inconsistent unsupported proposal")
         if status == "unsupported" and reason is None:
             raise PipelineDataError(f"{context}.unsupported_reason is required")
+        if status == "no_cards_detected" and (
+            proposal is not None
+            or reason is not None
+            or data["source_frame_digest"] is None
+            or identity is None
+            or identity.image_sha256 != data["source_frame_digest"]
+            or detector_status not in {"detected", "empty"}
+        ):
+            raise PipelineDataError(f"{context} has inconsistent no-card outcome fields")
+        if identity is not None and identity.image_sha256 != data["source_frame_digest"]:
+            raise PipelineDataError(f"{context}.source_identity digest does not match its frame")
         return cls(
             frame_id=_identifier(data["frame_id"], f"{context}.frame_id"),
             source_frame_digest=_optional_digest(
@@ -1699,6 +1740,9 @@ class ProposedCardSceneFrame:
             status=status,
             proposal=proposal,
             unsupported_reason=reason,
+            source_identity=identity,
+            detector_status=detector_status,
+            pile_regions=piles,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -1708,6 +1752,11 @@ class ProposedCardSceneFrame:
             "status": self.status,
             "proposal": None if self.proposal is None else self.proposal.to_mapping(),
             "unsupported_reason": self.unsupported_reason,
+            "source_identity": (
+                None if self.source_identity is None else self.source_identity.to_mapping()
+            ),
+            "detector_status": self.detector_status,
+            "pile_regions": [region.to_mapping() for region in self.pile_regions],
         }
 
 
@@ -1717,10 +1766,10 @@ class ProposedCardSceneData:
 
     detector_revision_id: str
     detector_revision_digest: str
-    calibration_revision_id: str
-    calibration_digest: str
-    calibration: dict[str, Any]
-    calibration_diagnostics: dict[str, Any]
+    calibration_revision_id: str | None
+    calibration_digest: str | None
+    calibration: dict[str, Any] | None
+    calibration_diagnostics: dict[str, Any] | None
     frames: tuple[ProposedCardSceneFrame, ...]
     data_digest: str
 
@@ -1730,10 +1779,10 @@ class ProposedCardSceneData:
         *,
         detector_revision_id: str,
         detector_revision_digest: str,
-        calibration_revision_id: str,
-        calibration_digest: str,
-        calibration: Mapping[str, Any],
-        calibration_diagnostics: Mapping[str, Any],
+        calibration_revision_id: str | None,
+        calibration_digest: str | None,
+        calibration: Mapping[str, Any] | None,
+        calibration_diagnostics: Mapping[str, Any] | None,
         frames: tuple[ProposedCardSceneFrame, ...] | list[ProposedCardSceneFrame],
     ) -> "ProposedCardSceneData":
         normalized_frames = tuple(frames)
@@ -1744,24 +1793,56 @@ class ProposedCardSceneData:
         frame_ids = [item.frame_id for item in normalized_frames]
         if len(frame_ids) != len(set(frame_ids)):
             raise PipelineDataError("proposed card scene frames must have unique IDs")
-        calibration_mapping = _mapping(calibration, "proposed calibration")
-        diagnostics_mapping = _mapping(calibration_diagnostics, "proposed calibration diagnostics")
-        if not calibration_mapping or not diagnostics_mapping:
-            raise PipelineDataError("proposed calibration values must not be empty")
-        _validate_json(calibration_mapping, "proposed calibration")
-        _validate_json(diagnostics_mapping, "proposed calibration diagnostics")
-        calibration_value = json.loads(canonical_json_bytes(calibration_mapping).decode("utf-8"))
-        diagnostics_value = json.loads(canonical_json_bytes(diagnostics_mapping).decode("utf-8"))
+        geometry_fields = (calibration_revision_id, calibration_digest, calibration)
+        if all(value is None for value in geometry_fields):
+            calibration_id_value = calibration_digest_value = None
+            calibration_value = None
+            diagnostics_mapping = _mapping(
+                calibration_diagnostics, "proposed calibration diagnostics"
+            )
+            if (
+                diagnostics_mapping.get("status") != "skipped"
+                or diagnostics_mapping.get("reason") != "no_card_candidates"
+            ):
+                raise PipelineDataError(
+                    "missing calibration needs an explicit no-card skip diagnostic"
+                )
+            _validate_json(diagnostics_mapping, "proposed calibration diagnostics")
+            diagnostics_value = json.loads(
+                canonical_json_bytes(diagnostics_mapping).decode("utf-8")
+            )
+            if any(
+                item.status not in {"no_cards_detected", "unsupported"}
+                for item in normalized_frames
+            ):
+                raise PipelineDataError("uncalibrated data cannot contain card proposals")
+        elif any(value is None for value in geometry_fields) or calibration_diagnostics is None:
+            raise PipelineDataError("proposed calibration fields must be all present or all absent")
+        else:
+            calibration_mapping = _mapping(calibration, "proposed calibration")
+            diagnostics_mapping = _mapping(
+                calibration_diagnostics, "proposed calibration diagnostics"
+            )
+            if not calibration_mapping or not diagnostics_mapping:
+                raise PipelineDataError("proposed calibration values must not be empty")
+            _validate_json(calibration_mapping, "proposed calibration")
+            _validate_json(diagnostics_mapping, "proposed calibration diagnostics")
+            calibration_id_value = _identifier(calibration_revision_id, "calibration_revision_id")
+            calibration_digest_value = _digest(calibration_digest, "calibration_digest")
+            calibration_value = json.loads(
+                canonical_json_bytes(calibration_mapping).decode("utf-8")
+            )
+            diagnostics_value = json.loads(
+                canonical_json_bytes(diagnostics_mapping).decode("utf-8")
+            )
         core = {
             "schema_version": PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
             "detector_revision_id": _identifier(detector_revision_id, "detector_revision_id"),
             "detector_revision_digest": _digest(
                 detector_revision_digest, "detector_revision_digest"
             ),
-            "calibration_revision_id": _identifier(
-                calibration_revision_id, "calibration_revision_id"
-            ),
-            "calibration_digest": _digest(calibration_digest, "calibration_digest"),
+            "calibration_revision_id": calibration_id_value,
+            "calibration_digest": calibration_digest_value,
             "calibration": calibration_value,
             "calibration_diagnostics": diagnostics_value,
             "frames": [item.to_mapping() for item in normalized_frames],
@@ -1815,9 +1896,15 @@ class ProposedCardSceneData:
             detector_revision_digest=data["detector_revision_digest"],
             calibration_revision_id=data["calibration_revision_id"],
             calibration_digest=data["calibration_digest"],
-            calibration=_mapping(data["calibration"], "proposed calibration"),
-            calibration_diagnostics=_mapping(
-                data["calibration_diagnostics"], "proposed calibration diagnostics"
+            calibration=(
+                None
+                if data["calibration"] is None
+                else _mapping(data["calibration"], "proposed calibration")
+            ),
+            calibration_diagnostics=(
+                None
+                if data["calibration_diagnostics"] is None
+                else _mapping(data["calibration_diagnostics"], "proposed calibration diagnostics")
             ),
             frames=tuple(
                 ProposedCardSceneFrame.from_mapping(item, f"frames[{index}]")
