@@ -1,0 +1,1485 @@
+{
+  "coverage": {
+    "classifier_errors": 0,
+    "crop_inputs": 2994,
+    "crop_unusable": 0,
+    "outcomes_by_status": {
+      "classified": 2913,
+      "face_down": 81
+    },
+    "prediction_outcomes": 2994,
+    "protected_recordings_excluded": 3,
+    "recordings": 26,
+    "unprocessed": 0,
+    "upstream_failed_recordings_excluded": 5,
+    "zero_crop_frames_from_m0": 197
+  },
+  "epic": "0098",
+  "inputs": {
+    "m0_manifest_sha256": "38ead572914fc3b5628dad2da2e6bcab8414a44701657b12d6a7428d75a50c0f",
+    "m1_report_sha256": "2669f0d439f73448fa126749cacafa0414618dada11a05622a35384c39824586",
+    "pipeline_store": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline"
+  },
+  "milestone": "M2",
+  "prediction_diagnostics": {
+    "confidence_bins": {
+      "[0.00, 0.50)": 415,
+      "[0.50, 0.75)": 370,
+      "[0.75, 0.90)": 366,
+      "[0.90, 0.95)": 284,
+      "[0.95, 1.00]": 1478
+    },
+    "confidence_count": 2913,
+    "confidence_percentiles": {
+      "max": 0.9999388819644406,
+      "mean": 0.8270771846475996,
+      "min": 0.17229690634590433,
+      "p50": 0.9537101658795013,
+      "p90": 0.9981163311442687
+    },
+    "confidence_semantics": "top-ranked classifier probability; diagnostic only",
+    "top1_identity_counts": {
+      "CLUBS_ACE": 162,
+      "CLUBS_JACK": 116,
+      "CLUBS_KING": 239,
+      "CLUBS_QUEEN": 126,
+      "CLUBS_TEN": 123,
+      "DIAMONDS_ACE": 139,
+      "DIAMONDS_JACK": 120,
+      "DIAMONDS_KING": 173,
+      "DIAMONDS_QUEEN": 128,
+      "DIAMONDS_TEN": 125,
+      "HEARTS_ACE": 183,
+      "HEARTS_JACK": 137,
+      "HEARTS_KING": 156,
+      "HEARTS_QUEEN": 157,
+      "HEARTS_TEN": 155,
+      "SPADES_ACE": 116,
+      "SPADES_JACK": 117,
+      "SPADES_KING": 186,
+      "SPADES_QUEEN": 128,
+      "SPADES_TEN": 127
+    },
+    "top1_minus_top2_margin_bins": {
+      "[0.00, 0.10)": 202,
+      "[0.10, 0.25)": 217,
+      "[0.25, 0.50)": 237,
+      "[0.50, 0.75)": 296,
+      "[0.75, 1.00]": 1961
+    },
+    "top1_minus_top2_margin_count": 2913,
+    "top1_minus_top2_margin_percentiles": {
+      "max": 0.9998924912777553,
+      "mean": 0.7499252245909188,
+      "min": 4.352628968234962e-05,
+      "p50": 0.9285206393487135,
+      "p90": 0.9971318825758659
+    }
+  },
+  "recordings": [
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9995443252033179,
+        "mean": 0.8382371643254563,
+        "min": 0.21548954662776715,
+        "p50": 0.9417494831310115,
+        "p90": 0.9980536570150884
+      },
+      "crop_inputs": 179,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 179,
+      "outcomes_by_status": {
+        "classified": 178,
+        "face_down": 1
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "dc264674e6f2f57cdb7e9911552fada6e9f4c4f89e8c3a0bce0d4540b8efe175",
+        "crop_input_manifest_digest": "67f8e36d224c9bd3805e03bdb6bacf43e431211d31fc37ff2a7da8a91fdb3440",
+        "input_revision_ids": [
+          "visible-cards-291ad680-2792-5695-a710-4f5bd6685347-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-dc3a059c-508d-5e96-acab-7a2803e97bd2-attempt-1",
+        "run_id": "visual_identities-run-dc3a059c-508d-5e96-acab-7a2803e97bd2"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9993425732394987,
+        "mean": 0.7576318925056466,
+        "min": 0.0004180371395829663,
+        "p50": 0.9089692146422501,
+        "p90": 0.9973030101492425
+      },
+      "recording_id": "5a1f4037-d8ad-48da-9950-2ed2272811a5",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {},
+        "reviewed_decisions": 0,
+        "selected_reference_content_sha256": null,
+        "selected_reference_revision_id": null
+      },
+      "run_elapsed_poll_seconds": 190.873,
+      "source_group_id": "source-group-1a54047735d209dc",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9986530507022046,
+        "mean": 0.7752469209639945,
+        "min": 0.22707502904631294,
+        "p50": 0.8554991460549829,
+        "p90": 0.9863592420272709
+      },
+      "crop_inputs": 99,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 99,
+      "outcomes_by_status": {
+        "classified": 99
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "082648497595d8b004c4f525efd160e61bb3431ec56114756fa991fe657075b1",
+        "crop_input_manifest_digest": "515042e8e8e7a8d58ef68fd2445b232a8b2fe01d6f41674eff05b367ff0af309",
+        "input_revision_ids": [
+          "visible-cards-1897c4e9-12b5-5918-9021-ac59f84e63ce-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-a3570a03-9573-506a-8bb0-c7811ff61005-attempt-1",
+        "run_id": "visual_identities-run-a3570a03-9573-506a-8bb0-c7811ff61005"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9979169956822389,
+        "mean": 0.6673322230549981,
+        "min": 4.352628968234962e-05,
+        "p50": 0.7977075778196572,
+        "p90": 0.9791409967059834
+      },
+      "recording_id": "cardeventnet-IMG_0091",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 98
+        },
+        "reviewed_decisions": 100,
+        "selected_reference_content_sha256": "41f5e23a4669633bda1c9278d82c6b357a26980cd8abbb64ab17c6ad4608e191",
+        "selected_reference_revision_id": "reference-visual_identities-dinov3-predicted-crop-86aa4295f374c763c3a79b5f144d1b92"
+      },
+      "run_elapsed_poll_seconds": 165.559,
+      "source_group_id": "source-group-8cec7a8a6927f21e",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9996636505041885,
+        "mean": 0.7361070949241635,
+        "min": 0.3347942331060153,
+        "p50": 0.7855205757957583,
+        "p90": 0.9883057612377556
+      },
+      "crop_inputs": 109,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 109,
+      "outcomes_by_status": {
+        "classified": 109
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "6267d90db6191378aaa23bb81e3c2cd9e430efc1244a486e2f9c7c7d763273a6",
+        "crop_input_manifest_digest": "b887afc6bca9208a72ad19ef6361431449cab2ee0dc746435a66dc20cd077d98",
+        "input_revision_ids": [
+          "visible-cards-7e6dc749-4c85-5352-9dde-23825547228a-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-ce3ae3e9-75f1-5377-9c2d-90f6f8ea56c6-attempt-1",
+        "run_id": "visual_identities-run-ce3ae3e9-75f1-5377-9c2d-90f6f8ea56c6"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9994766793740527,
+        "mean": 0.6068315747992818,
+        "min": 0.015367268866533113,
+        "p50": 0.6922949693448861,
+        "p90": 0.9837961464204296
+      },
+      "recording_id": "cardeventnet-IMG_0095",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 106
+        },
+        "reviewed_decisions": 105,
+        "selected_reference_content_sha256": "2ba0dd1e6324d5af6202ca04b0e607368a481bb9015ad1012146d4c60c6a6298",
+        "selected_reference_revision_id": "reference-visual_identities-2fb8d0169ee012968d93a50fff8756c5"
+      },
+      "run_elapsed_poll_seconds": 147.241,
+      "source_group_id": "source-group-94db7dc13473c394",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9993215840389629,
+        "mean": 0.6560033913201887,
+        "min": 0.17852564569476034,
+        "p50": 0.6667824057466996,
+        "p90": 0.9173611588700666
+      },
+      "crop_inputs": 135,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 135,
+      "outcomes_by_status": {
+        "classified": 135
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "54e459cc1f0e4c614a03ac37d13ffb0adff9053ddd270404ec407196e3134c50",
+        "crop_input_manifest_digest": "d6382ef9900decb6868b41e9c5cb642e356907b849d6d0d7211de51889000373",
+        "input_revision_ids": [
+          "visible-cards-e9f4a529-3edd-56d8-9a76-99594eb011a7-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-17069c6c-1c0c-5b97-bfa3-da8f5c280f62-attempt-1",
+        "run_id": "visual_identities-run-17069c6c-1c0c-5b97-bfa3-da8f5c280f62"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9990255792871339,
+        "mean": 0.5157751425660452,
+        "min": 0.004140823829778761,
+        "p50": 0.5242840461386438,
+        "p90": 0.8883427987065013
+      },
+      "recording_id": "cardeventnet-IMG_0096",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 126
+        },
+        "reviewed_decisions": 100,
+        "selected_reference_content_sha256": "5aab319dab4d3494eaf716b7777842ab590977f162dc7e629795883ddf177b48",
+        "selected_reference_revision_id": "reference-visual_identities-dinov3-predicted-crop-25c780e9204ccdcbbe46f2492812ef16"
+      },
+      "run_elapsed_poll_seconds": 162.199,
+      "source_group_id": "source-group-ceb8d8d64720a9ff",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.99951746414563,
+        "mean": 0.7295522417743936,
+        "min": 0.24064790639637199,
+        "p50": 0.7752500540587848,
+        "p90": 0.9824909283844232
+      },
+      "crop_inputs": 101,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 101,
+      "outcomes_by_status": {
+        "classified": 101
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "03b76751989793e02ba620f762a7820c8a56cf400f4debec91147fd1204582a6",
+        "crop_input_manifest_digest": "f2b6d1822f246aeea2987b59bc532781c6984331953ef4b1f0c9c1a4eead0d1d",
+        "input_revision_ids": [
+          "visible-cards-07c4a94f-3820-52ea-8435-29dd0a9ff2d7-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-a7d64027-6713-5daa-8bb9-dcc5e6bc9773-attempt-1",
+        "run_id": "visual_identities-run-a7d64027-6713-5daa-8bb9-dcc5e6bc9773"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9992375499921929,
+        "mean": 0.5904923755024799,
+        "min": 0.004334420158531138,
+        "p50": 0.6674312454717846,
+        "p90": 0.971600340522318
+      },
+      "recording_id": "cardeventnet-IMG_0097",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 101
+        },
+        "reviewed_decisions": 231,
+        "selected_reference_content_sha256": "5ecc73a224067a15db0be670142e85b1dbf63f63140233eef3b0c5927e605891",
+        "selected_reference_revision_id": "reference-visual_identities-dinov3-predicted-crop-f0b137ed9b5e8b9d021071d86915bce3"
+      },
+      "run_elapsed_poll_seconds": 103.135,
+      "source_group_id": "source-group-2a2a1962c2651613",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9997785898758768,
+        "mean": 0.895992180869465,
+        "min": 0.3543797082591476,
+        "p50": 0.9834044484627438,
+        "p90": 0.9985237707114556
+      },
+      "crop_inputs": 99,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 99,
+      "outcomes_by_status": {
+        "classified": 99
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "4c937a2cdab837e8605a01deff9616b0f76125975554b0fd33d19dddce557096",
+        "crop_input_manifest_digest": "dba92f9621c4e18a1d5ba7eaa3f67c67c8b30046c9b305c6c6b9096651dbf5a7",
+        "input_revision_ids": [
+          "visible-cards-4e943e69-0cd3-5841-bbac-a89906613f30-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-2af5db10-ddab-5c7a-8ebb-7bfd9a85ff6b-attempt-1",
+        "run_id": "visual_identities-run-2af5db10-ddab-5c7a-8ebb-7bfd9a85ff6b"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9996143585628793,
+        "mean": 0.8368672390725155,
+        "min": 0.0666439525519863,
+        "p50": 0.974565032367156,
+        "p90": 0.9975941905207777
+      },
+      "recording_id": "cardeventnet-IMG_0636",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 96
+        },
+        "reviewed_decisions": 101,
+        "selected_reference_content_sha256": "729e80f09a599b56b7155f8e967bebe95bcd3f93e3e8f92bc411e6038e667253",
+        "selected_reference_revision_id": "reference-visual_identities-4fdddcfc58b5f21f4a55c7e9f063798b"
+      },
+      "run_elapsed_poll_seconds": 47.613,
+      "source_group_id": "source-group-78be3628c945da39",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9995095896503828,
+        "mean": 0.9126271141623509,
+        "min": 0.4065126713019367,
+        "p50": 0.9806358324370421,
+        "p90": 0.998302848170555
+      },
+      "crop_inputs": 100,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 100,
+      "outcomes_by_status": {
+        "classified": 100
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "a9f8cccae91515b9d80dd1f99f07783be19e9ed0551d43dc27971b9f34ab8448",
+        "crop_input_manifest_digest": "d6d13c6f613c6e79e97e1d61f36a0eae1878365934ac65f938ab6c76e5b6ac31",
+        "input_revision_ids": [
+          "visible-cards-c017b765-b14e-5b31-a7c2-b4716d5adc61-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-002d0344-84bd-5ceb-ae0a-4a700f1b83f7-attempt-1",
+        "run_id": "visual_identities-run-002d0344-84bd-5ceb-ae0a-4a700f1b83f7"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9991538796309144,
+        "mean": 0.8637752934315328,
+        "min": 0.0376336568659531,
+        "p50": 0.9725200793992663,
+        "p90": 0.996828679233279
+      },
+      "recording_id": "cardeventnet-IMG_0637",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 100
+        },
+        "reviewed_decisions": 98,
+        "selected_reference_content_sha256": "b970262b28bfc6bef6da999fbdca5ba141a34bfe66f10f7adcf0ce8cdb6a6a78",
+        "selected_reference_revision_id": "reference-visual_identities-dinov3-predicted-crop-a7318f3fcf7b3b8f7006590127ecfa71"
+      },
+      "run_elapsed_poll_seconds": 35.568,
+      "source_group_id": "source-group-ab000f6f3cbb10a1",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9999149110186323,
+        "mean": 0.9230575080377459,
+        "min": 0.2595905140232789,
+        "p50": 0.9844356702522055,
+        "p90": 0.9994411168639561
+      },
+      "crop_inputs": 100,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 100,
+      "outcomes_by_status": {
+        "classified": 99,
+        "face_down": 1
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "7074d502e81c51b5751235793fa15262c080a1db1865c405a618c3ba3d7b384c",
+        "crop_input_manifest_digest": "d817dc6ddb10ce3e160ee93fe66573d078baf2e217e92b203c756474f28cbc29",
+        "input_revision_ids": [
+          "visible-cards-2369cabe-007b-50c9-b2a0-25f7b2752091-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-2b6a7f7d-57ec-5e18-bbce-3e31cf31f3b6-attempt-1",
+        "run_id": "visual_identities-run-2b6a7f7d-57ec-5e18-bbce-3e31cf31f3b6"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9998877716141589,
+        "mean": 0.8853848159696522,
+        "min": 0.0099464199330698,
+        "p50": 0.9765059555304065,
+        "p90": 0.9989820686882338
+      },
+      "recording_id": "cardeventnet-IMG_0638",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 99
+        },
+        "reviewed_decisions": 126,
+        "selected_reference_content_sha256": "6ef5d542f2785dcbe96f92dcf03de46182b0f76baf88821d0a47f042b86a3012",
+        "selected_reference_revision_id": "reference-visual_identities-dinov3-predicted-crop-0724985ebad2bbb8f8a84d2fd1f31220"
+      },
+      "run_elapsed_poll_seconds": 42.732,
+      "source_group_id": "source-group-310b6a289a2f2956",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9999388819644406,
+        "mean": 0.8768916513526982,
+        "min": 0.2501265732231457,
+        "p50": 0.972011066130931,
+        "p90": 0.997819152266943
+      },
+      "crop_inputs": 99,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 99,
+      "outcomes_by_status": {
+        "classified": 99
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "00a943697739d18886f50a0bc002fecba12f78f3229f8159acf6c3c60f605047",
+        "crop_input_manifest_digest": "ae7cd44709a12c2f58ba59f95f8367df49d9621d06d52df9314c4fb737b88b85",
+        "input_revision_ids": [
+          "visible-cards-8afe8966-3696-5a59-bfb3-34271d063183-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-2d8f5a5b-486d-5d45-a8a1-1b135343ce4f-attempt-1",
+        "run_id": "visual_identities-run-2d8f5a5b-486d-5d45-a8a1-1b135343ce4f"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9998908616777151,
+        "mean": 0.8037645678294203,
+        "min": 0.007472932793736564,
+        "p50": 0.9538425050629694,
+        "p90": 0.9964142561389837
+      },
+      "recording_id": "cardeventnet-IMG_0639",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {},
+        "reviewed_decisions": 0,
+        "selected_reference_content_sha256": null,
+        "selected_reference_revision_id": null
+      },
+      "run_elapsed_poll_seconds": 37.421,
+      "source_group_id": "source-group-a51871a5c395907e",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9999161118966455,
+        "mean": 0.92923941682383,
+        "min": 0.3053643150309216,
+        "p50": 0.9765418628341618,
+        "p90": 0.9961400612011887
+      },
+      "crop_inputs": 100,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 100,
+      "outcomes_by_status": {
+        "classified": 100
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "304875102e1f1dde47ebf58e1bd91cbee6b3d94fe494270300cb331ed4365c31",
+        "crop_input_manifest_digest": "bfcbd0522688c28e0fd3388bfa3fcd8364afd85570b5a5367dfa30845b0f2cca",
+        "input_revision_ids": [
+          "visible-cards-673070df-fc36-5404-a5ec-7d4305131002-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-b07e5b6b-fe9d-58bb-a9ee-10a44c26119f-attempt-1",
+        "run_id": "visual_identities-run-b07e5b6b-fe9d-58bb-a9ee-10a44c26119f"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9998656508150584,
+        "mean": 0.8853899511479978,
+        "min": 0.11620530838794685,
+        "p50": 0.9622966502630292,
+        "p90": 0.9946658228312961
+      },
+      "recording_id": "cardeventnet-IMG_0640",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 100
+        },
+        "reviewed_decisions": 128,
+        "selected_reference_content_sha256": "ed8bd3ebe163300466cefe1707e91d598d0875e356bb2689bc89de2ab554a772",
+        "selected_reference_revision_id": "reference-visual_identities-b39c75b15b321bc369a8df70bb6f36d2"
+      },
+      "run_elapsed_poll_seconds": 48.166,
+      "source_group_id": "source-group-e4feeb0f21b69c4b",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9996979067302584,
+        "mean": 0.8767156928112413,
+        "min": 0.20288096471142297,
+        "p50": 0.9546172312587629,
+        "p90": 0.9962832328405052
+      },
+      "crop_inputs": 99,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 99,
+      "outcomes_by_status": {
+        "classified": 99
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "b91f51f923211095d321de9d059218bf61084cbe9b8adb6323c241f28ae71feb",
+        "crop_input_manifest_digest": "b6680618bffaa79d402a4f6a64879e5ab79423021c457568f3895232021e4cff",
+        "input_revision_ids": [
+          "visible-cards-93489b3b-9078-5b53-a779-b9f8aa609c19-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-967585ee-dc37-5aa9-8234-a07c240480c7-attempt-1",
+        "run_id": "visual_identities-run-967585ee-dc37-5aa9-8234-a07c240480c7"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9996219094197488,
+        "mean": 0.8104696742316628,
+        "min": 0.03883984134089774,
+        "p50": 0.9277467562526344,
+        "p90": 0.9949185080404589
+      },
+      "recording_id": "cardeventnet-IMG_0642",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 99
+        },
+        "reviewed_decisions": 128,
+        "selected_reference_content_sha256": "af8abeddb91c16c74726e78be7ef282149a76dd1c32d651da9accaabfd147c37",
+        "selected_reference_revision_id": "reference-visual_identities-3577b2c55e0bf4f687109d9ecbab84ab"
+      },
+      "run_elapsed_poll_seconds": 33.559,
+      "source_group_id": "source-group-e35c8d5e37798185",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9997568093705935,
+        "mean": 0.9398027321628419,
+        "min": 0.333246476376632,
+        "p50": 0.9740883525261703,
+        "p90": 0.9992078279839985
+      },
+      "crop_inputs": 103,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 103,
+      "outcomes_by_status": {
+        "classified": 102,
+        "face_down": 1
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "d03352969707c3415265454c68de92a809fcb2ecc84d219e4a032efc68430142",
+        "crop_input_manifest_digest": "b821428345443c93d51138df78f2d5d94ec952553c5a82ecc0d4403d64a0270d",
+        "input_revision_ids": [
+          "visible-cards-4e9dd1fd-86a9-5f1f-a846-24611110cf44-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-fb28b9ac-3d9e-51ae-854e-cada37796776-attempt-1",
+        "run_id": "visual_identities-run-fb28b9ac-3d9e-51ae-854e-cada37796776"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.999671560123838,
+        "mean": 0.904290981251211,
+        "min": 0.04007694207903234,
+        "p50": 0.9641349151258265,
+        "p90": 0.9985708561290472
+      },
+      "recording_id": "cardeventnet-IMG_0643",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 102
+        },
+        "reviewed_decisions": 130,
+        "selected_reference_content_sha256": "7f2ff1287ad3504fbcd53e263ae73ec5fe69d567ca9304c8d1f527fa1ba92582",
+        "selected_reference_revision_id": "reference-visual_identities-56054bd3465edc9b3ff5eb2da8b70ad4"
+      },
+      "run_elapsed_poll_seconds": 48.459,
+      "source_group_id": "source-group-8b3ea6e40f9f7584",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9997502818454317,
+        "mean": 0.7794576956173139,
+        "min": 0.27939885501343925,
+        "p50": 0.9108915867394631,
+        "p90": 0.9969626861404477
+      },
+      "crop_inputs": 208,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 208,
+      "outcomes_by_status": {
+        "classified": 200,
+        "face_down": 8
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "1c2f8b507e30302d2369d7409e38d05e671588ef9aa47fc08b627d8afb2a7042",
+        "crop_input_manifest_digest": "011a19de87aa77075c1f07caaa3744a4c384d9f75dad9d386dcfa523c54bd17e",
+        "input_revision_ids": [
+          "visible-cards-61cac67a-56c9-5141-9278-82f0f8e7abe1-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-aac9f8ee-03d4-5241-bf25-d79cba195b53-attempt-1",
+        "run_id": "visual_identities-run-aac9f8ee-03d4-5241-bf25-d79cba195b53"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9995396164574344,
+        "mean": 0.676068574669021,
+        "min": 0.004931330429517933,
+        "p50": 0.8524441070400373,
+        "p90": 0.995403556954626
+      },
+      "recording_id": "cardeventnet-IMG_0644",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 180
+        },
+        "reviewed_decisions": 145,
+        "selected_reference_content_sha256": "12587f3047011612a92fbd08b3d0cbe491440ca35d448aa59a5e8f9c7e2986f2",
+        "selected_reference_revision_id": "reference-visual_identities-7d199e7ea4796d9092ffbf140744a7f8"
+      },
+      "run_elapsed_poll_seconds": 139.785,
+      "source_group_id": "source-group-74db22eaac557781",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9994460184475173,
+        "mean": 0.6987009967563937,
+        "min": 0.18942964323019196,
+        "p50": 0.8240044380092696,
+        "p90": 0.9929595952842013
+      },
+      "crop_inputs": 106,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 106,
+      "outcomes_by_status": {
+        "classified": 105,
+        "face_down": 1
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "154ed3c91dbdbfa7a7a75f95e34be2984f4e88049d49fc7e7ed63b2aef13bc35",
+        "crop_input_manifest_digest": "45ee3ce901c43036624d2dbce020c502dbe7b3af46a183bd7c01e37ed7fd1059",
+        "input_revision_ids": [
+          "visible-cards-22f665b9-2c77-5c8a-9cc1-eed1d90a168e-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-65743860-8cd7-56fb-bfbd-3606ae858c6e-attempt-1",
+        "run_id": "visual_identities-run-65743860-8cd7-56fb-bfbd-3606ae858c6e"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9992538791996154,
+        "mean": 0.5915630620239609,
+        "min": 0.0018963515287561128,
+        "p50": 0.7431588467415005,
+        "p90": 0.9898499618598167
+      },
+      "recording_id": "cardeventnet-IMG_0645",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 99
+        },
+        "reviewed_decisions": 160,
+        "selected_reference_content_sha256": "99c0ff9d9ed0334af6d514d95f3a76879203125433b4c8426a68a1012fc4a538",
+        "selected_reference_revision_id": "reference-visual_identities-296e54987118b369a874be4ca868bc3c"
+      },
+      "run_elapsed_poll_seconds": 29.79,
+      "source_group_id": "source-group-c506b376602c7e9d",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9998350439183308,
+        "mean": 0.9734893617940895,
+        "min": 0.6495511789595215,
+        "p50": 0.9936127339524453,
+        "p90": 0.9993751379130245
+      },
+      "crop_inputs": 71,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 71,
+      "outcomes_by_status": {
+        "classified": 71
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "a7d0414297413838e6b8b6bc584fda8fb701de37a927db7620d8d6d9fcae6da5",
+        "crop_input_manifest_digest": "49b58f4d42e99455441a26df9859a33227f500b391ef6837f40ec936041850f0",
+        "input_revision_ids": [
+          "visible-cards-6e0c5fdf-9438-56d1-8253-e9912b25d5bf-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-6dfb3228-4ce8-5099-a223-db623ee74a0e-attempt-1",
+        "run_id": "visual_identities-run-6dfb3228-4ce8-5099-a223-db623ee74a0e"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9997768205432646,
+        "mean": 0.9549725827197149,
+        "min": 0.3757582111170002,
+        "p50": 0.9896337992752147,
+        "p90": 0.9990583812015815
+      },
+      "recording_id": "cardeventnet-IMG_0650",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 67
+        },
+        "reviewed_decisions": 79,
+        "selected_reference_content_sha256": "1f823eba7fc8ae56a23b318a7945c09cbf1af46b778f903130230ec3d1de9e1c",
+        "selected_reference_revision_id": "reference-visual_identities-0a2a2c166862dddefed171a8c2c6a3c6"
+      },
+      "run_elapsed_poll_seconds": 29.231,
+      "source_group_id": "source-group-f3594ecde1b64592",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9996391415450301,
+        "mean": 0.9618859185467176,
+        "min": 0.45831444385589043,
+        "p50": 0.9908242858842367,
+        "p90": 0.999126152576384
+      },
+      "crop_inputs": 102,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 102,
+      "outcomes_by_status": {
+        "classified": 101,
+        "face_down": 1
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "336fcbcf2ef8ef32bef0f00b0afbc339bfe5eee592a1ab82d22b97d5f4577719",
+        "crop_input_manifest_digest": "def94506990d4ad1fa1f87e9ea082bc46d9c92317b05f103d2c214e73bf4aca4",
+        "input_revision_ids": [
+          "visible-cards-2a2ac876-25ab-51ac-bf51-39ff20caffdf-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-ae3603a9-0362-5e28-8c01-cf98ca493282-attempt-1",
+        "run_id": "visual_identities-run-ae3603a9-0362-5e28-8c01-cf98ca493282"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.999420539693937,
+        "mean": 0.9427886626003704,
+        "min": 0.11399924637216607,
+        "p50": 0.9864470800660957,
+        "p90": 0.9983892395026807
+      },
+      "recording_id": "cardeventnet-IMG_0651",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 101
+        },
+        "reviewed_decisions": 142,
+        "selected_reference_content_sha256": "d3da8df7f5f778777d2a7d2b60dc14dc9964fa75b8bd86682232c9022deb30cc",
+        "selected_reference_revision_id": "reference-visual_identities-c7db0edb4ac689a6907f269f9f7fc911"
+      },
+      "run_elapsed_poll_seconds": 35.563,
+      "source_group_id": "source-group-36e848a99cdde7b6",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9996844140479069,
+        "mean": 0.9310227625145925,
+        "min": 0.43742136107254576,
+        "p50": 0.9811411087863131,
+        "p90": 0.9985049483754427
+      },
+      "crop_inputs": 102,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 102,
+      "outcomes_by_status": {
+        "classified": 102
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "91673b5b48a34b34230576e86a35527b4fa30dc9f2dd3d35f4e6cab3db873f79",
+        "crop_input_manifest_digest": "d35f6f5bc49d5ca63b02552f8f7bec32385652289e456e425d778ef99bc2e58a",
+        "input_revision_ids": [
+          "visible-cards-8a7d7ce8-e811-5dd5-a483-699ca6fc2445-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-264558f2-f12d-5aa9-b6a3-0e9957625f97-attempt-1",
+        "run_id": "visual_identities-run-264558f2-f12d-5aa9-b6a3-0e9957625f97"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9995226215356585,
+        "mean": 0.8933876410910314,
+        "min": 0.044916427027095585,
+        "p50": 0.9719197789937868,
+        "p90": 0.9974625347492636
+      },
+      "recording_id": "cardeventnet-IMG_0652",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {},
+        "reviewed_decisions": 0,
+        "selected_reference_content_sha256": null,
+        "selected_reference_revision_id": null
+      },
+      "run_elapsed_poll_seconds": 62.488,
+      "source_group_id": "source-group-4be2eb0c7a2c819b",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9998786604313903,
+        "mean": 0.9603982078510754,
+        "min": 0.3083867637207292,
+        "p50": 0.9937816585068333,
+        "p90": 0.9992170348217743
+      },
+      "crop_inputs": 98,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 98,
+      "outcomes_by_status": {
+        "classified": 98
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "06efd1d7563f08ea8b0f1f8adf6b90c8018ffdc134bc3fd8780cc5ef07f18a74",
+        "crop_input_manifest_digest": "7eb21594d0f1afbf7abe5d715dc4cee3ad7ecc2bba3673fa75adb50ba705b485",
+        "input_revision_ids": [
+          "visible-cards-338183e7-1eb9-56e9-b4ab-18dd8ac02ad8-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-0f3c2e79-f375-5ee7-add0-740f84c700d9-attempt-1",
+        "run_id": "visual_identities-run-0f3c2e79-f375-5ee7-add0-740f84c700d9"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9998014137391843,
+        "mean": 0.9446763225187346,
+        "min": 0.06048717915351401,
+        "p50": 0.9906896918202776,
+        "p90": 0.9987511205352158
+      },
+      "recording_id": "cardeventnet-IMG_0653",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 94
+        },
+        "reviewed_decisions": 131,
+        "selected_reference_content_sha256": "f8326018da5b1bf4c03f4c0a38a113ab395b6393ab831b62cb6a6ecb1458f0fe",
+        "selected_reference_revision_id": "reference-visual_identities-34cd8a4e196bc11614c5fcebd9c62ab6"
+      },
+      "run_elapsed_poll_seconds": 52.432,
+      "source_group_id": "source-group-f862b0dd4644e0a4",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9996742047625794,
+        "mean": 0.9221578151018833,
+        "min": 0.26072890335735455,
+        "p50": 0.9909272725280287,
+        "p90": 0.9985438723985913
+      },
+      "crop_inputs": 104,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 104,
+      "outcomes_by_status": {
+        "classified": 104
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "e3091923bf7cd4427629060b6ac69d8e17ecebaed7796dfded6d60b0426a5ada",
+        "crop_input_manifest_digest": "4a67779d803940327416cd75a53646ad6d3d522534bfa851750dae620e3e8d21",
+        "input_revision_ids": [
+          "visible-cards-6850a399-0c9a-5949-add6-41d5cc77cbcb-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-ab658de2-a919-5437-b8ae-f45e063dfcf2-attempt-1",
+        "run_id": "visual_identities-run-ab658de2-a919-5437-b8ae-f45e063dfcf2"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9994917897305157,
+        "mean": 0.8876342800125706,
+        "min": 0.06118389585734413,
+        "p50": 0.9845290335372399,
+        "p90": 0.997733950834581
+      },
+      "recording_id": "cardeventnet-IMG_0655",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 102
+        },
+        "reviewed_decisions": 135,
+        "selected_reference_content_sha256": "f99c8dd7ca6aa3dbe8284de45a728b0b80a1f417b0d29cde0cae6af936295446",
+        "selected_reference_revision_id": "reference-visual_identities-bb637de5a368ab1901f9d2a3967b43d0"
+      },
+      "run_elapsed_poll_seconds": 48.764,
+      "source_group_id": "source-group-02678145fee64ad8",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9997507027755258,
+        "mean": 0.9292751322864836,
+        "min": 0.3480430337876497,
+        "p50": 0.988103496574888,
+        "p90": 0.9988350112114153
+      },
+      "crop_inputs": 103,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 103,
+      "outcomes_by_status": {
+        "classified": 102,
+        "face_down": 1
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "7f77e76e24ad3fae4940fe1fb41d776813e70e4a934e82ce7b64ee7be13f4624",
+        "crop_input_manifest_digest": "27c597f90d56689d9ea8cc7dbb2557670a7b33319ce67adab7b68787a1873764",
+        "input_revision_ids": [
+          "visible-cards-7f18ab0c-4019-5557-a004-b5d10070d6b4-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-ff755de1-68d0-5899-8a5b-d32f667d6133-attempt-1",
+        "run_id": "visual_identities-run-ff755de1-68d0-5899-8a5b-d32f667d6133"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9996057105584379,
+        "mean": 0.8895240286731788,
+        "min": 0.005539327532738614,
+        "p50": 0.982054711532268,
+        "p90": 0.9980861324225144
+      },
+      "recording_id": "cardeventnet-IMG_0657",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 96
+        },
+        "reviewed_decisions": 117,
+        "selected_reference_content_sha256": "186aa09f1599990395f800a17e18ad81ed970909a65726f4779d69fe9aa341ad",
+        "selected_reference_revision_id": "reference-visual_identities-cd3866d5633c58efaff44bf46ef7637f"
+      },
+      "run_elapsed_poll_seconds": 57.39,
+      "source_group_id": "source-group-9d6d4824b53bc4a9",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9998825222756377,
+        "mean": 0.9474118073885652,
+        "min": 0.3233108904934156,
+        "p50": 0.986786946142306,
+        "p90": 0.9983325359936198
+      },
+      "crop_inputs": 100,
+      "crop_unusable": 0,
+      "m6_training_overlap": true,
+      "outcomes": 100,
+      "outcomes_by_status": {
+        "classified": 100
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "3992f0d304f65d227e083b758e6f300db747511a9f4f44367554a354c3edf2ca",
+        "crop_input_manifest_digest": "1afb006623adf5e97caa3b01b84bd82100643c77e736760161dca344b453cb4a",
+        "input_revision_ids": [
+          "visible-cards-ef78d951-2932-57a9-b9cd-16914a8d15af-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-1c176060-fea7-5cfb-be63-33550135a475-attempt-1",
+        "run_id": "visual_identities-run-1c176060-fea7-5cfb-be63-33550135a475"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9998514276502803,
+        "mean": 0.9245513052913976,
+        "min": 0.06702783322388739,
+        "p50": 0.9801974707620518,
+        "p90": 0.9975137445199659
+      },
+      "recording_id": "cardeventnet-IMG_0658",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 96
+        },
+        "reviewed_decisions": 128,
+        "selected_reference_content_sha256": "e657116e55416ee8b585ae6c5590a431f8a25890bc9b1d6313fd01b34829ffa7",
+        "selected_reference_revision_id": "reference-visual_identities-0a4681cf5e13a20efe47c6c9c16ed8fe"
+      },
+      "run_elapsed_poll_seconds": 31.281,
+      "source_group_id": "source-group-2b810ac8d5dc1281",
+      "source_group_quality_comparison_eligible": false,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9997810920768566,
+        "mean": 0.8808343695783535,
+        "min": 0.2785816419315535,
+        "p50": 0.9750967891802872,
+        "p90": 0.9978560860404674
+      },
+      "crop_inputs": 109,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 109,
+      "outcomes_by_status": {
+        "classified": 106,
+        "face_down": 3
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "3fa4b831b2ee6be5491bf3b4f7ad228a311c3206b48f2e66b27c63343b64bb89",
+        "crop_input_manifest_digest": "952fe0c38b49203ea7691a9f12f14aad0d2b845e47a4a9d87796441fdb83e942",
+        "input_revision_ids": [
+          "visible-cards-bc980ec3-a5df-53ab-9726-c5057101c7bd-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-713a9fad-b9f7-5645-99fc-a9d3fc65213f-attempt-1",
+        "run_id": "visual_identities-run-713a9fad-b9f7-5645-99fc-a9d3fc65213f"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9996945299595081,
+        "mean": 0.8127259903283686,
+        "min": 0.011693597614785,
+        "p50": 0.9635499391549623,
+        "p90": 0.9960757991991832
+      },
+      "recording_id": "cardeventnet-IMG_0661",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 71
+        },
+        "reviewed_decisions": 104,
+        "selected_reference_content_sha256": "34e9e4accdeaac0574ef2c8abf6b829ca2a9646030d21329376f0576be69ae1a",
+        "selected_reference_revision_id": "reference-visual_identities-dinov3-predicted-crop-4454e3ae8c2d7be50783d3e64d5174e5"
+      },
+      "run_elapsed_poll_seconds": 49.107,
+      "source_group_id": "source-group-054a8b15a79ebfeb",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9996137780168811,
+        "mean": 0.8980145137057755,
+        "min": 0.38343731646957113,
+        "p50": 0.9694455440084564,
+        "p90": 0.99773629706201
+      },
+      "crop_inputs": 98,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 98,
+      "outcomes_by_status": {
+        "classified": 98
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "3555ee0dbe14551697a2fc576eccbcf3e104324053a6a42f0829edcf5ad9ef1b",
+        "crop_input_manifest_digest": "00147553dc395f6270bdf99fe1e37740de1aab7142cc368124b361ed2987c6fd",
+        "input_revision_ids": [
+          "visible-cards-6e2f3f6f-b5c3-5bb0-8056-47a34bf54327-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-97025beb-d610-57d8-8877-b168d47010d1-attempt-1",
+        "run_id": "visual_identities-run-97025beb-d610-57d8-8877-b168d47010d1"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9994576001743444,
+        "mean": 0.8413976374643416,
+        "min": 0.062466648102394384,
+        "p50": 0.9490583579737519,
+        "p90": 0.9964595757808531
+      },
+      "recording_id": "cardeventnet-IMG_0662",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {
+          "same_frame": 93
+        },
+        "reviewed_decisions": 109,
+        "selected_reference_content_sha256": "f782a4c5b9aac7e59be952a7e3f3254a0d472f71787aeff45f0242d6cf1aef99",
+        "selected_reference_revision_id": "reference-visual_identities-4026272dca1192019417b0b8ad200eeb"
+      },
+      "run_elapsed_poll_seconds": 37.701,
+      "source_group_id": "source-group-d4543cb23cc73b35",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9995895700283142,
+        "mean": 0.6269951404018597,
+        "min": 0.17229690634590433,
+        "p50": 0.6274621198922021,
+        "p90": 0.9952826571279176
+      },
+      "crop_inputs": 165,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 165,
+      "outcomes_by_status": {
+        "classified": 142,
+        "face_down": 23
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "2c422d5d6f6b1b782551ad2fe357d57d5fbe72c895e0aabfa7cac2cec22e0ef0",
+        "crop_input_manifest_digest": "ede302f15040627f7407131d2f87cc171aa10e70bc5c264f74788e9614317d61",
+        "input_revision_ids": [
+          "visible-cards-920c891d-1c86-577c-8094-55abd0989bf8-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-7e4b56bb-99aa-55f4-9b35-5e5f8cc8b086-attempt-1",
+        "run_id": "visual_identities-run-7e4b56bb-99aa-55f4-9b35-5e5f8cc8b086"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9993794725772238,
+        "mean": 0.49593172149841397,
+        "min": 0.0021399256883465057,
+        "p50": 0.4870564131483045,
+        "p90": 0.994098256436995
+      },
+      "recording_id": "game-2026-09-18-01-001",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {},
+        "reviewed_decisions": 0,
+        "selected_reference_content_sha256": null,
+        "selected_reference_revision_id": null
+      },
+      "run_elapsed_poll_seconds": 56.473,
+      "source_group_id": "source-group-2dd9a75aca490621",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9997855489590809,
+        "mean": 0.6079545909048711,
+        "min": 0.19731177287911228,
+        "p50": 0.502249340570442,
+        "p90": 0.9959875210449691
+      },
+      "crop_inputs": 161,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 161,
+      "outcomes_by_status": {
+        "classified": 134,
+        "face_down": 27
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "b5be1dcaa8460c5d7cd64e3f9b35067f1fa5fef7d2847b4a2430d6db29567a47",
+        "crop_input_manifest_digest": "deea9d5802d3204b311251e626f119f432f329417f769e89365f24b420fb73cd",
+        "input_revision_ids": [
+          "visible-cards-847f395f-dfd0-56c7-b3b0-fd9725cdf2a9-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-418601c6-632d-5c82-b83a-7fdc6f9a374e-attempt-1",
+        "run_id": "visual_identities-run-418601c6-632d-5c82-b83a-7fdc6f9a374e"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9995987177879561,
+        "mean": 0.47857573265870634,
+        "min": 0.005250662381847654,
+        "p50": 0.2874242472849956,
+        "p90": 0.9934970529202785
+      },
+      "recording_id": "game-2026-09-18-01-002",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {},
+        "reviewed_decisions": 0,
+        "selected_reference_content_sha256": null,
+        "selected_reference_revision_id": null
+      },
+      "run_elapsed_poll_seconds": 61.052,
+      "source_group_id": "source-group-2dd9a75aca490621",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    },
+    {
+      "classifier_errors": 0,
+      "confidence": {
+        "max": 0.9999131313948948,
+        "mean": 0.6552940982831335,
+        "min": 0.1735310728696093,
+        "p50": 0.6660134843543222,
+        "p90": 0.9912354489155467
+      },
+      "crop_inputs": 144,
+      "crop_unusable": 0,
+      "m6_training_overlap": false,
+      "outcomes": 144,
+      "outcomes_by_status": {
+        "classified": 130,
+        "face_down": 14
+      },
+      "output_lineage": {
+        "classifier_identity": [
+          "{\"implementation\": {\"name\": \"visual-identity-classifier-adapter\", \"version\": \"v1\"}, \"model\": {\"name\": \"facebook/dinov3-vits16-pretrain-lvd1689m\", \"version\": \"dinov3-local-identity-v2\"}, \"provider\": \"local-dinov3\"}"
+        ],
+        "content_sha256": "3422e1b7bffa47981a8a19b040b5133495273b1c6b9255704d0ece40bd3b518e",
+        "crop_input_manifest_digest": "5bf4728b0a6ffdcdd32a079a563dd264dc564532f07e04e57226f01089fd3010",
+        "input_revision_ids": [
+          "visible-cards-15c12eef-4ce8-5568-8af7-761d2d553b66-attempt-1"
+        ],
+        "revision_id": "visual-identities-visual_identities-run-27461e2a-35ce-5b3c-9d66-f6ccc1ebec2a-attempt-1",
+        "run_id": "visual_identities-run-27461e2a-35ce-5b3c-9d66-f6ccc1ebec2a"
+      },
+      "per_crop_latency_ms": null,
+      "per_recording_rss_bytes": null,
+      "rank_margin_top1_minus_top2": {
+        "max": 0.9998924912777553,
+        "mean": 0.5231781700782026,
+        "min": 0.0013424754590029564,
+        "p50": 0.47155967255716197,
+        "p90": 0.9840546899383527
+      },
+      "recording_id": "game-2026-09-18-01-003",
+      "review_comparison": {
+        "eligible_exact_pairs": 0,
+        "potential_matches_by_lineage_level": {},
+        "reviewed_decisions": 0,
+        "selected_reference_content_sha256": null,
+        "selected_reference_revision_id": null
+      },
+      "run_elapsed_poll_seconds": 45.642,
+      "source_group_id": "source-group-2dd9a75aca490621",
+      "source_group_quality_comparison_eligible": true,
+      "unprocessed": 0
+    }
+  ],
+  "review_comparisons": {
+    "accuracy_claim": null,
+    "eligible_exact_pairs": 0,
+    "lineage_intersection_counts": {
+      "same_frame": 2026
+    },
+    "pairs": [],
+    "reason": "No M1 prediction has a matching reviewed card, frame, geometry, and crop lineage.",
+    "reviewed_reference_outcomes_inspected": 2497
+  },
+  "run_diagnostics": {
+    "memory": {
+      "batch_peak_sampled_rss_bytes": 1120518144,
+      "per_recording_rss_bytes": null,
+      "sampling_deviation": {
+        "deviation": "The 2-second status polling loop and backend request time caused gaps above the requested 10 seconds. Maximum observed interval was 16.330 seconds. The runner now uses an independent periodic sampler; completed inference was not repeated.",
+        "maximum_observed_interval_seconds": 16.33,
+        "mean_observed_interval_seconds": 11.548,
+        "method": "sample on runner status-poll loop",
+        "minimum_observed_interval_seconds": 10.01,
+        "requested_interval_seconds": 10,
+        "sample_count": 162
+      }
+    },
+    "per_crop_latency_ms": {
+      "available": false,
+      "reason": "M1 outputs contain zero latency samples"
+    },
+    "run_duration_basis": "elapsed_poll_seconds from the M1 runner; not per-crop inference latency",
+    "run_duration_seconds": {
+      "max": 190.873,
+      "mean": 69.20092307692308,
+      "min": 29.231,
+      "p50": 48.61150000000001,
+      "p90": 154.72000000000003
+    }
+  },
+  "schema_version": "epic-0098-m2-diagnostics/v1",
+  "status": "complete",
+  "training_overlap": {
+    "m6_training_overlap": {
+      "classified": 1174,
+      "face_down": 3,
+      "outcomes": 1177,
+      "recordings": 12
+    },
+    "non_training": {
+      "classified": 1739,
+      "face_down": 78,
+      "outcomes": 1817,
+      "recordings": 14
+    }
+  }
+}

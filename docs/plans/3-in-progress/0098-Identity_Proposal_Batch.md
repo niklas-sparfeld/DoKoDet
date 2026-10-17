@@ -20,7 +20,12 @@
   no crops failed or remained unprocessed. The runner sampled every 10.010–16.330 seconds instead
   of every 10 seconds. See the [M1 result](../../reports/0098-M1_Identity_Batch.md) and
   [machine-readable result](../../reports/0098-M1_Identity_Batch.json).
-- **M2:** Not started — report coverage, diagnostics, and supported identity comparisons.
+- **M2:** Complete — report all 2,994 outcomes, confidence and rank-margin distributions, class
+  counts, run durations, sampled batch memory, and separate M6 training-overlap coverage. The audit
+  inspected 2,497 saved human reference outcomes and found zero exact card/frame/geometry/crop
+  pairs. No accuracy claim is supported. Per-crop latency and per-recording memory were not
+  recorded. See the [M2 report](../../reports/0098-M2_Identity_Diagnostics.md) and its
+  [machine-readable lineage](../../reports/0098-M2_Identity_Diagnostics.json).
 - **M3:** Not started — publish a frozen identity review queue and handoff.
 
 ## Scope and evidence
@@ -119,3 +124,21 @@ close after this autonomous handoff; identity review remains explicitly pending 
 Run focused eligibility, crop-lineage, identity processor, resume, and pointer-preservation tests
 for changed code plus applicable static checks. Verify reports against stored artifact digests,
 check Markdown links, and run `git diff --check`. No new training or human review is required.
+
+## M2 implementation evidence — 2026-10-17
+
+The report builder verifies every M1 output digest against the retained immutable pipeline store.
+It records per-recording coverage and output lineage, confidence and top-1-minus-top-2 margin
+summaries, class counts, run durations, and available memory evidence. The 1,177 crops from M6
+training-overlap recordings remain separate from the 1,817 non-training crops.
+
+The selected maintained references contain 2,497 saved human outcomes. A total of 2,026 M1
+predictions share exact source-frame metadata with at least one saved human outcome. None share the
+complete card, frame, geometry, and crop lineage. M2 therefore reports zero comparison coverage and
+no accuracy claim. M1 has no per-crop latency samples and only a batch-level RSS series, so the
+report marks per-crop latency and per-recording memory as unavailable. The existing RSS sampling
+deviation remains visible.
+
+The diagnostic builder and both reports are linked above. The builder uses only frozen M0/M1
+records and retained output revisions. It does not change selections, rerun inference, tune
+thresholds, or transfer reviewed labels.
