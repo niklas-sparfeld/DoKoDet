@@ -67,7 +67,11 @@ M0–M3 use artifact inspection and local fixtures only. Do not run model or pro
 - Resume only unchanged durable work with the exact same request and inputs. Failed preflight starts no stages. A terminal failure blocks dependants for that recording; other recordings may continue. No undeclared retry or model substitution.
 - Do not use sealed holdout data. Keep the 0090 protected exclusions. Do not add manual annotation or collection.
 
-The two available staged source videos match their frozen SHA-256 values. Preflight found all three model artifacts at their frozen paths. The real-round video is missing at `data/intake/recordings/game-2026-08-20-01-001/videos/video-game-2026-08-20-01-001.mov`; its required SHA-256 is `2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa`. This blocks M4 until that exact source is restored and verified. Do not substitute another video or retained frames.
+The two staged source videos match their frozen SHA-256 values. The initial local preflight inventory also reported the real-round video missing because it used the wrong basename. It did not match the path already stored in the retained event request.
+
+## Preflight correction — 2026-10-17
+
+The exact real-round source exists at `data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov`. Its SHA-256 is `2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa`, which matches the frozen digest. M4 verified all 66 preflight checks before it started any stage. It used no substitute video or retained frame.
 
 ## M1 handoff
 

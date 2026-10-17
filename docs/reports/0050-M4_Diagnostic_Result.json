@@ -1,0 +1,709 @@
+{
+  "schema_version": "0050-m4-diagnostic-result/v1",
+  "status": "complete_with_observation_contract_failure",
+  "created_at_utc": "2026-10-17",
+  "purpose": "Bounded local diagnostic from retained automatic upstream results; not a model-quality qualification.",
+  "source_documents": {
+    "epic": "docs/plans/5-closed/0050-Detector_Quality_and_Analyzer_Capabilities.md",
+    "m0_freeze": "docs/reports/0050-M0_Diagnostic_Freeze.json",
+    "m1_report": "docs/reports/0050-M1_Frame_Comparison_Correction.md",
+    "0090_pilot": "docs/reports/0090-M3_Composed_Pilot.md"
+  },
+  "execution": {
+    "implementation_revision": "58ba9488c1f18cbe41461a8410e45e86ec788549",
+    "implementation_sha256_by_file": {
+      "operations/src/doko_operations/proposed_card_scene_processor.py": "1ecb58c1c91bde474f0c208ebc527377c175475be91272b11bf582a7069aabab",
+      "operations/src/doko_operations/card_plane_initialization.py": "a9fd847ab7a4884b4feacbb9621652750687c541e7c0099cb251b8fbce3dd76e",
+      "backend/src/dokodetector_backend/proposed_card_scene_pipeline_service.py": "2600633d146ab3c2f7a1a71169fe3ff9559f41842b12f556098a0a51b644406c",
+      "backend/src/dokodetector_backend/visual_identity_pipeline_service.py": "6d0ff1bc45c83d436dd67070bbaca358a86534befa4f91996a9138cea1a7bd67",
+      "table_evidence_analyzer/src/table_evidence_analyzer/dinov3_inference.py": "3e0b68f38e5a647ffab6a55a4e8bc32b8f94fcbe924c06d1764f8e5340a64150",
+      "table_evidence_analyzer/src/table_evidence_analyzer/observation_assembly.py": "181495df4e1bcf1546d57748dce2249f4c75b6a0d0ba880a9d74e7b49856f152",
+      "table_evidence_analyzer/src/table_evidence_analyzer/table_observation.py": "8cc0fd12d3479afe3cec5a45b377a84c05c61a6079639b58b0bcce92c7c23769",
+      "backend/src/dokodetector_backend/observation_pipeline_service.py": "9c127a4f15665d5e9f9d9dc1129a55720e29be6d517468ee7229b2ddc10436b0",
+      "backend/src/dokodetector_backend/pipeline_coordinator.py": "34d0fe560fada9b8d35d77c73c702fab5ea5f56401255efbdf952be1c67b24f7"
+    },
+    "started_at_utc": "2026-10-17T07:47:50.745353+00:00",
+    "finished_at_utc": "2026-10-17T07:59:13.158928+00:00",
+    "wall_seconds": 682.414,
+    "wall_hours": 0.18956,
+    "process_memory_max_sampled_rss_kib": 1083488,
+    "process_memory_max_sampled_rss_gib": 1.033,
+    "memory_sampling": "RSS samples were taken at progress checkpoints about every 30 seconds; this is the maximum observed sample, not continuous peak capture.",
+    "cloud_requests": 0,
+    "manual_annotation_or_collection": 0,
+    "new_event_inference_executions": 0,
+    "new_detector_inference_executions": 0,
+    "new_scene_processor_executions": 3,
+    "new_identity_processor_executions": 3,
+    "new_observation_processor_executions": 0,
+    "observation_api_requests_rejected_before_processor_creation": 3,
+    "new_reconstruction_executions": 0,
+    "new_stage_processor_executions": 6,
+    "budget_limits": {
+      "recordings": 3,
+      "reuse_event_inference_executions": 0,
+      "reuse_detector_inference_executions": 0,
+      "max_new_scene_executions_per_recording": 1,
+      "max_new_identity_executions_per_recording": 1,
+      "max_new_observation_executions_per_recording": 1,
+      "max_total_stage_executions": 9,
+      "max_reconstruction_executions": 1,
+      "max_total_wall_time_hours": 6,
+      "max_peak_process_memory_gib": 32,
+      "max_cloud_requests": 0,
+      "retry_policy": "Resume unchanged durable work with the same exact request and inputs only. No undeclared retry or model change. Failed preflight starts no stage. Terminal failure blocks dependants for that recording; other recordings may continue.",
+      "data_policy": "No sealed holdout sources, predictions, or scores. Preserve 0090 protected exclusions. No new annotation or collection."
+    },
+    "operator_intervention": [
+      "Started a local backend bound to 127.0.0.1 with local model providers and blank Gemini key.",
+      "The API temporarily rewrote three generated identity selection pointers when publishing outputs; after stopping the backend, each tracked pointer was restored byte-for-byte to its prior version.",
+      "No manual label, source, model, provider, or request change occurred."
+    ],
+    "implementation_identity_capture": "The main checkout was clean before execution and no source code changed during the batch. Per-file source digests were captured after the runs and are bound here to their exact requests, processor states, and output hashes. No separate pre-run digest record was saved."
+  },
+  "preflight": {
+    "status": "ready",
+    "checks_passed": 66,
+    "checks_failed": 0,
+    "real_round_video_path": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+    "real_round_expected_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+    "real_round_actual_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+    "original_0090_requests_states_revisions_verified": 9,
+    "references_verified": 8,
+    "models": {
+      "event_detector": {
+        "decision": "0063 M14 accepted development baseline",
+        "checkpoint_path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt",
+        "checkpoint_sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4",
+        "threshold": 0.4271905720233917,
+        "decoder": {
+          "algorithm": "causal_peak",
+          "peak_confirmation_s": 0.125,
+          "min_event_gap_s": 0.625,
+          "event_match_tolerance_s": 0.75
+        }
+      },
+      "visible_card_detector": {
+        "decision": "0092 M4 final refit",
+        "bundle_path": ".runtime/rfdetr-segmentation-0092-m4/bundle",
+        "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+        "manifest_sha256": "826ccba533531c62a2059be5889b9c48aa44800df5d216997575a238c37f5816",
+        "checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+        "classes": [
+          "visible_card",
+          "card_pile"
+        ]
+      },
+      "visual_identity": {
+        "decision": "0088 M15 primary diagnostic bundle",
+        "bundle_path": ".runtime/dinov3-identity-0088/m12-final-lock/m6-candidate-bundle",
+        "bundle_digest": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+        "checkpoint_sha256": "ff560c5a4e2fff70f7e6ab0ff0cef6e7fa8cab8bbdfbcd25af4c569ee4bdfb1a",
+        "quality_state": "unqualified",
+        "crop_policy": "predicted_visible_region",
+        "preprocessing": "224-pixel RGB P6 PPM; Lanczos resize; centered (128,128,128) letterbox",
+        "all_predictions_require_human_review": true
+      }
+    },
+    "preflight_correction": "M0 local inventory used an incorrect derived basename; the exact source path was already present in the frozen event request. Correct path and digest were verified before execution."
+  },
+  "recordings": [
+    {
+      "recording_id": "cardeventnet-IMG_0657",
+      "content_type": "staged_trick_sequence",
+      "source_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+      "source_video_path": "data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+      "retained_event_revision_id": "events-coord-d991572cdb65618247c1-attempt-1",
+      "retained_detector_revision_id": "visible-cards-coord-07d852bb91cfc6b19f7a-attempt-1",
+      "retained_event_run_id": "coord-d991572cdb65618247c1",
+      "retained_detector_run_id": "coord-07d852bb91cfc6b19f7a",
+      "reused_event_metrics": {
+        "predicted": 52,
+        "reviewed": 51,
+        "matched": 48,
+        "missed": 3,
+        "extra": 4,
+        "precision": 0.923,
+        "recall": 0.941,
+        "f1": 0.932
+      },
+      "cards_and_piles": {
+        "events": {
+          "predicted": 52,
+          "reviewed": 51,
+          "matched": 48,
+          "missed": 3,
+          "extra": 4,
+          "precision": 0.923,
+          "recall": 0.941,
+          "f1": 0.932
+        },
+        "cards": {
+          "detector_predictions": 113,
+          "reviewed": 117
+        },
+        "piles": {
+          "detector_predictions": 1,
+          "reviewed": 0
+        },
+        "reviewed_identity_outcomes": 117
+      },
+      "stages": {
+        "card_scene_and_calibration": {
+          "status": "complete",
+          "coordinator_stage_run_id": "coord-31d34d1b771c4c7354cd",
+          "processor_run_id": "coord-31d34d1b771c4c7354cd",
+          "input_revision_ids": [
+            "visible-cards-coord-07d852bb91cfc6b19f7a-attempt-1"
+          ],
+          "output_revision_ids": [
+            "card-scene-proposals-coord-31d34d1b771c4c7354cd-attempt-1"
+          ],
+          "failure": null,
+          "request_path": "data/operations/pipeline/runs/coord-31d34d1b771c4c7354cd/request.json",
+          "request_sha256": "89a2868844306ce16681182b0f11cf0ce0a00602259915b3d53be3222beba09e",
+          "state_path": "data/operations/pipeline/runs/coord-31d34d1b771c4c7354cd/state.json",
+          "state_sha256": "788914ef58d3cd3c44f0a66a59558666621f9182a9b13fe43a7d20450be8ed0c",
+          "processor_status": "complete",
+          "processor_started_at": "2026-10-17T07:47:50.745353Z",
+          "processor_completed_at": "2026-10-17T07:48:58.071662Z",
+          "progress": {
+            "completed": 52,
+            "total": 52
+          },
+          "implementation": {
+            "name": "proposed-card-scene-processor",
+            "version": "v2"
+          },
+          "request_model": null,
+          "request_configuration": {},
+          "output_revisions": [
+            {
+              "revision_id": "card-scene-proposals-coord-31d34d1b771c4c7354cd-attempt-1",
+              "manifest_path": "data/operations/pipeline/revisions/card-scene-proposals-coord-31d34d1b771c4c7354cd-attempt-1/manifest.json",
+              "manifest_sha256": "828405fae1386454f54ca8ce2e5fdb346aa17e15edf684f84916362145a49001",
+              "content_path": "data/operations/pipeline/revisions/card-scene-proposals-coord-31d34d1b771c4c7354cd-attempt-1/content.json",
+              "content_sha256": "1f550d1812065ec11c5d07edadb4ea4a38f4ed3efe2eabb18da7c0de6d9a7dc5"
+            }
+          ],
+          "measurement": {
+            "frames": 52,
+            "frame_outcomes": {
+              "no_cards_detected": 9,
+              "supported": 43
+            },
+            "failed_frames": [],
+            "pile_regions": 1,
+            "initialized_poses": 113,
+            "calibration_revision_id": "calibration-ec91fdd6cfe1ea0e8d2c7530"
+          }
+        },
+        "visual_identity_proposals": {
+          "status": "complete",
+          "coordinator_stage_run_id": "coord-7f86c3438d6cd9046e91",
+          "processor_run_id": "coord-7f86c3438d6cd9046e91",
+          "input_revision_ids": [
+            "visible-cards-coord-07d852bb91cfc6b19f7a-attempt-1"
+          ],
+          "output_revision_ids": [
+            "visual-identities-coord-7f86c3438d6cd9046e91-attempt-1"
+          ],
+          "failure": null,
+          "request_path": "data/operations/pipeline/runs/coord-7f86c3438d6cd9046e91/request.json",
+          "request_sha256": "3ab56308f9270e94bb8eb83e4badce3831b310eebbb5b82994776787f7c9968d",
+          "state_path": "data/operations/pipeline/runs/coord-7f86c3438d6cd9046e91/state.json",
+          "state_sha256": "d49bf9b97bcccdab09f7df99beb4fd5375de1eab25ff18fe1525dc9a5b2b6bd8",
+          "processor_status": "complete",
+          "processor_started_at": "2026-10-17T07:49:09.467360Z",
+          "processor_completed_at": "2026-10-17T07:50:15.991788Z",
+          "progress": {
+            "completed": 113,
+            "total": 113
+          },
+          "implementation": {
+            "name": "visual-identity-classifier-adapter",
+            "version": "v1"
+          },
+          "request_model": {
+            "name": "facebook/dinov3-vits16-pretrain-lvd1689m",
+            "version": "dinov3-local-identity-v2"
+          },
+          "request_configuration": {
+            "classifier": {
+              "name": "local-dinov3",
+              "version": "dinov3-local-identity-v2"
+            },
+            "provider": "local-dinov3"
+          },
+          "output_revisions": [
+            {
+              "revision_id": "visual-identities-coord-7f86c3438d6cd9046e91-attempt-1",
+              "manifest_path": "data/operations/pipeline/revisions/visual-identities-coord-7f86c3438d6cd9046e91-attempt-1/manifest.json",
+              "manifest_sha256": "efff644c8afaae210034a67a743504f1bd68ac027bbfe7dcd270fd909d59cec6",
+              "content_path": "data/operations/pipeline/revisions/visual-identities-coord-7f86c3438d6cd9046e91-attempt-1/content.json",
+              "content_sha256": "1cd4abf0ce96c89a028b07713ef95b53a2d8bbcaacb69c9fad70b3006200a6f4"
+            }
+          ],
+          "measurement": {
+            "outcomes": 113,
+            "statuses": {
+              "classified": 112,
+              "face_down": 1
+            },
+            "candidate_outcomes": 112,
+            "probability_sum_tolerance": 1e-06,
+            "candidate_probability_sums_outside_tolerance": 66,
+            "minimum_candidate_probability_sum": 0.9998767866321995,
+            "maximum_candidate_probability_sum": 0.9999999890485218,
+            "reviewed_crop_comparison": {
+              "predicted_outcomes": 113,
+              "reviewed_outcomes": 117,
+              "shared_frame_count": 0,
+              "same_frame_prediction_outcomes": 0,
+              "same_frame_reviewed_outcomes": 0,
+              "exact_crop_hash_pairs": 0
+            }
+          }
+        },
+        "table_observations": {
+          "status": "failed",
+          "coordinator_stage_run_id": "coord-08b3490c684687898593",
+          "processor_run_id": null,
+          "input_revision_ids": [
+            "events-coord-d991572cdb65618247c1-attempt-1",
+            "visible-cards-coord-07d852bb91cfc6b19f7a-attempt-1",
+            "visual-identities-coord-7f86c3438d6cd9046e91-attempt-1"
+          ],
+          "output_revision_ids": [],
+          "failure": {
+            "code": "coordinator_stage_failed",
+            "message": "Client error '422 Unprocessable Content' for url 'http://127.0.0.1:8765/api/recordings/cardeventnet-IMG_0657/pipeline/observations'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422"
+          },
+          "attempted_request": {
+            "input_revision_ids": [
+              "events-coord-d991572cdb65618247c1-attempt-1",
+              "visible-cards-coord-07d852bb91cfc6b19f7a-attempt-1",
+              "visual-identities-coord-7f86c3438d6cd9046e91-attempt-1"
+            ],
+            "request": {
+              "configuration": {}
+            },
+            "processor_created": false,
+            "http_status": 422,
+            "detail": "identity candidate probabilities must sum to one within the contract tolerance"
+          }
+        }
+      },
+      "reconstruction": {
+        "status": "not_applicable",
+        "reason": "Staged trick sequence; no real-round reconstruction requested."
+      }
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0662",
+      "content_type": "staged_trick_sequence",
+      "source_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+      "source_video_path": "data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+      "retained_event_revision_id": "events-coord-08c097cc5f1b4024e867-attempt-1",
+      "retained_detector_revision_id": "visible-cards-coord-aa2ab2751f97e23f4dd2-attempt-1",
+      "retained_event_run_id": "coord-08c097cc5f1b4024e867",
+      "retained_detector_run_id": "coord-aa2ab2751f97e23f4dd2",
+      "reused_event_metrics": {
+        "predicted": 52,
+        "reviewed": 50,
+        "matched": 42,
+        "missed": 8,
+        "extra": 10,
+        "precision": 0.808,
+        "recall": 0.84,
+        "f1": 0.824
+      },
+      "cards_and_piles": {
+        "events": {
+          "predicted": 52,
+          "reviewed": 50,
+          "matched": 42,
+          "missed": 8,
+          "extra": 10,
+          "precision": 0.808,
+          "recall": 0.84,
+          "f1": 0.824
+        },
+        "cards": {
+          "detector_predictions": 104,
+          "reviewed": 109
+        },
+        "piles": {
+          "detector_predictions": 85,
+          "reviewed": 70
+        },
+        "reviewed_identity_outcomes": 109
+      },
+      "stages": {
+        "card_scene_and_calibration": {
+          "status": "complete",
+          "coordinator_stage_run_id": "coord-4e31b4f28aa9a3a6d2b3",
+          "processor_run_id": "coord-4e31b4f28aa9a3a6d2b3",
+          "input_revision_ids": [
+            "visible-cards-coord-aa2ab2751f97e23f4dd2-attempt-1"
+          ],
+          "output_revision_ids": [
+            "card-scene-proposals-coord-4e31b4f28aa9a3a6d2b3-attempt-1"
+          ],
+          "failure": null,
+          "request_path": "data/operations/pipeline/runs/coord-4e31b4f28aa9a3a6d2b3/request.json",
+          "request_sha256": "6cc98048cf03b40c3112f87f6ab77d7fe6896a87fd30b9e8d650681f0e7b4779",
+          "state_path": "data/operations/pipeline/runs/coord-4e31b4f28aa9a3a6d2b3/state.json",
+          "state_sha256": "e8f9b837b1ac1a825b0241843696bb694924807676fb3e5e254aafc3c400e856",
+          "processor_status": "complete",
+          "processor_started_at": "2026-10-17T07:50:51.284364Z",
+          "processor_completed_at": "2026-10-17T07:51:29.066600Z",
+          "progress": {
+            "completed": 52,
+            "total": 52
+          },
+          "implementation": {
+            "name": "proposed-card-scene-processor",
+            "version": "v2"
+          },
+          "request_model": null,
+          "request_configuration": {},
+          "output_revisions": [
+            {
+              "revision_id": "card-scene-proposals-coord-4e31b4f28aa9a3a6d2b3-attempt-1",
+              "manifest_path": "data/operations/pipeline/revisions/card-scene-proposals-coord-4e31b4f28aa9a3a6d2b3-attempt-1/manifest.json",
+              "manifest_sha256": "76a3c50244dd8065380155b46e5662b2acb86a34050e21551844f30c2b8f6956",
+              "content_path": "data/operations/pipeline/revisions/card-scene-proposals-coord-4e31b4f28aa9a3a6d2b3-attempt-1/content.json",
+              "content_sha256": "bd30cee563ffdeaf486c3d9beb2d2065811cf7c6365b0b0c47e619b95b2ea4cd"
+            }
+          ],
+          "measurement": {
+            "frames": 52,
+            "frame_outcomes": {
+              "no_cards_detected": 8,
+              "supported": 44
+            },
+            "failed_frames": [],
+            "pile_regions": 85,
+            "initialized_poses": 104,
+            "calibration_revision_id": "calibration-83d290821e10ad43a93a59d9"
+          }
+        },
+        "visual_identity_proposals": {
+          "status": "complete",
+          "coordinator_stage_run_id": "coord-e87bca0f6a5c0b2f9882",
+          "processor_run_id": "coord-e87bca0f6a5c0b2f9882",
+          "input_revision_ids": [
+            "visible-cards-coord-aa2ab2751f97e23f4dd2-attempt-1"
+          ],
+          "output_revision_ids": [
+            "visual-identities-coord-e87bca0f6a5c0b2f9882-attempt-1"
+          ],
+          "failure": null,
+          "request_path": "data/operations/pipeline/runs/coord-e87bca0f6a5c0b2f9882/request.json",
+          "request_sha256": "d638e4f63fc71c20324863b2b89f795e49a005d2f3d8645cd9c653c90ec3e6b5",
+          "state_path": "data/operations/pipeline/runs/coord-e87bca0f6a5c0b2f9882/state.json",
+          "state_sha256": "b8fb629ff1c8fd2ed5320ddc1c0bfef2a34ce6f05cebca5b8a4bb31b52ecb05f",
+          "processor_status": "complete",
+          "processor_started_at": "2026-10-17T07:51:36.301183Z",
+          "processor_completed_at": "2026-10-17T07:52:16.877664Z",
+          "progress": {
+            "completed": 104,
+            "total": 104
+          },
+          "implementation": {
+            "name": "visual-identity-classifier-adapter",
+            "version": "v1"
+          },
+          "request_model": {
+            "name": "facebook/dinov3-vits16-pretrain-lvd1689m",
+            "version": "dinov3-local-identity-v2"
+          },
+          "request_configuration": {
+            "classifier": {
+              "name": "local-dinov3",
+              "version": "dinov3-local-identity-v2"
+            },
+            "provider": "local-dinov3"
+          },
+          "output_revisions": [
+            {
+              "revision_id": "visual-identities-coord-e87bca0f6a5c0b2f9882-attempt-1",
+              "manifest_path": "data/operations/pipeline/revisions/visual-identities-coord-e87bca0f6a5c0b2f9882-attempt-1/manifest.json",
+              "manifest_sha256": "721b832430c5a97ccaa0871147f6acfb9970eb47146933dbb2f74343ebfc71bb",
+              "content_path": "data/operations/pipeline/revisions/visual-identities-coord-e87bca0f6a5c0b2f9882-attempt-1/content.json",
+              "content_sha256": "07c3006bcfcd4807a5f7d083b8f4d9832727aaa76dd2ecb6464a9264727e5de4"
+            }
+          ],
+          "measurement": {
+            "outcomes": 104,
+            "statuses": {
+              "classified": 104
+            },
+            "candidate_outcomes": 104,
+            "probability_sum_tolerance": 1e-06,
+            "candidate_probability_sums_outside_tolerance": 61,
+            "minimum_candidate_probability_sum": 0.8887672886814689,
+            "maximum_candidate_probability_sum": 0.9999999980339415,
+            "reviewed_crop_comparison": {
+              "predicted_outcomes": 104,
+              "reviewed_outcomes": 109,
+              "shared_frame_count": 2,
+              "shared_frame_indices": [
+                300,
+                375
+              ],
+              "same_frame_prediction_outcomes": 7,
+              "same_frame_reviewed_outcomes": 7,
+              "exact_crop_hash_pairs": 0
+            }
+          }
+        },
+        "table_observations": {
+          "status": "failed",
+          "coordinator_stage_run_id": "coord-32d25a1f766455778057",
+          "processor_run_id": null,
+          "input_revision_ids": [
+            "events-coord-08c097cc5f1b4024e867-attempt-1",
+            "visible-cards-coord-aa2ab2751f97e23f4dd2-attempt-1",
+            "visual-identities-coord-e87bca0f6a5c0b2f9882-attempt-1"
+          ],
+          "output_revision_ids": [],
+          "failure": {
+            "code": "coordinator_stage_failed",
+            "message": "Client error '422 Unprocessable Content' for url 'http://127.0.0.1:8765/api/recordings/cardeventnet-IMG_0662/pipeline/observations'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422"
+          },
+          "attempted_request": {
+            "input_revision_ids": [
+              "events-coord-08c097cc5f1b4024e867-attempt-1",
+              "visible-cards-coord-aa2ab2751f97e23f4dd2-attempt-1",
+              "visual-identities-coord-e87bca0f6a5c0b2f9882-attempt-1"
+            ],
+            "request": {
+              "configuration": {}
+            },
+            "processor_created": false,
+            "http_status": 422,
+            "detail": "identity candidate probabilities must sum to one within the contract tolerance"
+          }
+        }
+      },
+      "reconstruction": {
+        "status": "not_applicable",
+        "reason": "Staged trick sequence; no real-round reconstruction requested."
+      }
+    },
+    {
+      "recording_id": "game-2026-08-20-01-001",
+      "content_type": "real_game",
+      "source_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+      "source_video_path": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+      "retained_event_revision_id": "events-coord-adf623bae2f082065bba-attempt-1",
+      "retained_detector_revision_id": "visible-cards-coord-d7821eb650044d5b3606-attempt-1",
+      "retained_event_run_id": "coord-adf623bae2f082065bba",
+      "retained_detector_run_id": "coord-d7821eb650044d5b3606",
+      "reused_event_metrics": {
+        "predicted": 43,
+        "reviewed": 49,
+        "matched": 39,
+        "missed": 10,
+        "extra": 4,
+        "precision": 0.907,
+        "recall": 0.796,
+        "f1": 0.848
+      },
+      "cards_and_piles": {
+        "events": {
+          "predicted": 43,
+          "reviewed": 49,
+          "matched": 39,
+          "missed": 10,
+          "extra": 4,
+          "precision": 0.907,
+          "recall": 0.796,
+          "f1": 0.848
+        },
+        "cards": {
+          "detector_predictions": 105,
+          "reviewed": 226
+        },
+        "piles": {
+          "detector_predictions": 21,
+          "reviewed": 0
+        },
+        "reviewed_identity_outcomes": null
+      },
+      "stages": {
+        "card_scene_and_calibration": {
+          "status": "complete",
+          "coordinator_stage_run_id": "coord-f354f77bbe6fc4af5e0d",
+          "processor_run_id": "coord-f354f77bbe6fc4af5e0d",
+          "input_revision_ids": [
+            "visible-cards-coord-d7821eb650044d5b3606-attempt-1"
+          ],
+          "output_revision_ids": [
+            "card-scene-proposals-coord-f354f77bbe6fc4af5e0d-attempt-1"
+          ],
+          "failure": null,
+          "request_path": "data/operations/pipeline/runs/coord-f354f77bbe6fc4af5e0d/request.json",
+          "request_sha256": "6bcf639a70f4cc37eb09875f62914cc4255173c223b65bfe89ac85ef05119dde",
+          "state_path": "data/operations/pipeline/runs/coord-f354f77bbe6fc4af5e0d/state.json",
+          "state_sha256": "f0fc34f22b68ded0cf08ff5c78bbbcacec195597081199674b93ac791f1dbcf8",
+          "processor_status": "complete",
+          "processor_started_at": "2026-10-17T07:52:43.963734Z",
+          "processor_completed_at": "2026-10-17T07:56:30.769127Z",
+          "progress": {
+            "completed": 43,
+            "total": 43
+          },
+          "implementation": {
+            "name": "proposed-card-scene-processor",
+            "version": "v2"
+          },
+          "request_model": null,
+          "request_configuration": {},
+          "output_revisions": [
+            {
+              "revision_id": "card-scene-proposals-coord-f354f77bbe6fc4af5e0d-attempt-1",
+              "manifest_path": "data/operations/pipeline/revisions/card-scene-proposals-coord-f354f77bbe6fc4af5e0d-attempt-1/manifest.json",
+              "manifest_sha256": "e0ce07e01d50546f5398531ec79ea15fa23898ae528874dae5478b7305d35694",
+              "content_path": "data/operations/pipeline/revisions/card-scene-proposals-coord-f354f77bbe6fc4af5e0d-attempt-1/content.json",
+              "content_sha256": "336731e9d6f5675eb3820eda705857ce5a3da676a2df2acdd0945525bad674cd"
+            }
+          ],
+          "measurement": {
+            "frames": 43,
+            "frame_outcomes": {
+              "no_cards_detected": 2,
+              "supported": 41
+            },
+            "failed_frames": [],
+            "pile_regions": 21,
+            "initialized_poses": 105,
+            "calibration_revision_id": "calibration-e47083c29e5e6ace85f1995c"
+          }
+        },
+        "visual_identity_proposals": {
+          "status": "complete",
+          "coordinator_stage_run_id": "coord-c62b303e207f5d15ad86",
+          "processor_run_id": "coord-c62b303e207f5d15ad86",
+          "input_revision_ids": [
+            "visible-cards-coord-d7821eb650044d5b3606-attempt-1"
+          ],
+          "output_revision_ids": [
+            "visual-identities-coord-c62b303e207f5d15ad86-attempt-1"
+          ],
+          "failure": null,
+          "request_path": "data/operations/pipeline/runs/coord-c62b303e207f5d15ad86/request.json",
+          "request_sha256": "d8280720284053f8806593552b9d9f0d1c091f2b3a853bedf5f98da8221a6b1c",
+          "state_path": "data/operations/pipeline/runs/coord-c62b303e207f5d15ad86/state.json",
+          "state_sha256": "8007564f5729dd20072a8e1683febf427481513baea3fc531e9135545dd71a32",
+          "processor_status": "complete",
+          "processor_started_at": "2026-10-17T07:56:45.363068Z",
+          "processor_completed_at": "2026-10-17T07:58:54.628753Z",
+          "progress": {
+            "completed": 105,
+            "total": 105
+          },
+          "implementation": {
+            "name": "visual-identity-classifier-adapter",
+            "version": "v1"
+          },
+          "request_model": {
+            "name": "facebook/dinov3-vits16-pretrain-lvd1689m",
+            "version": "dinov3-local-identity-v2"
+          },
+          "request_configuration": {
+            "classifier": {
+              "name": "local-dinov3",
+              "version": "dinov3-local-identity-v2"
+            },
+            "provider": "local-dinov3"
+          },
+          "output_revisions": [
+            {
+              "revision_id": "visual-identities-coord-c62b303e207f5d15ad86-attempt-1",
+              "manifest_path": "data/operations/pipeline/revisions/visual-identities-coord-c62b303e207f5d15ad86-attempt-1/manifest.json",
+              "manifest_sha256": "7c34cab14917b975f57ae7564664736f6bdf878fc386f14d484b13e51ca61350",
+              "content_path": "data/operations/pipeline/revisions/visual-identities-coord-c62b303e207f5d15ad86-attempt-1/content.json",
+              "content_sha256": "809d0bcba1c300ecfdff98497e4d103a7b0806b4cb4e791ca79b71f0b8a5a5ad"
+            }
+          ],
+          "measurement": {
+            "outcomes": 105,
+            "statuses": {
+              "classified": 100,
+              "face_down": 5
+            },
+            "candidate_outcomes": 100,
+            "probability_sum_tolerance": 1e-06,
+            "candidate_probability_sums_outside_tolerance": 60,
+            "minimum_candidate_probability_sum": 0.914684163952475,
+            "maximum_candidate_probability_sum": 0.9999999965733861,
+            "reviewed_crop_comparison": {
+              "predicted_outcomes": 105,
+              "reviewed_outcomes": null,
+              "shared_frame_count": null,
+              "same_frame_prediction_outcomes": null,
+              "same_frame_reviewed_outcomes": null,
+              "exact_crop_hash_pairs": null
+            }
+          }
+        },
+        "table_observations": {
+          "status": "failed",
+          "coordinator_stage_run_id": "coord-134fcfbadf2fdcb0fcab",
+          "processor_run_id": null,
+          "input_revision_ids": [
+            "events-coord-adf623bae2f082065bba-attempt-1",
+            "visible-cards-coord-d7821eb650044d5b3606-attempt-1",
+            "visual-identities-coord-c62b303e207f5d15ad86-attempt-1"
+          ],
+          "output_revision_ids": [],
+          "failure": {
+            "code": "coordinator_stage_failed",
+            "message": "Client error '422 Unprocessable Content' for url 'http://127.0.0.1:8765/api/recordings/game-2026-08-20-01-001/pipeline/observations'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422"
+          },
+          "attempted_request": {
+            "input_revision_ids": [
+              "events-coord-adf623bae2f082065bba-attempt-1",
+              "visible-cards-coord-d7821eb650044d5b3606-attempt-1",
+              "visual-identities-coord-c62b303e207f5d15ad86-attempt-1"
+            ],
+            "request": {
+              "configuration": {}
+            },
+            "processor_created": false,
+            "http_status": 422,
+            "detail": "identity candidate probabilities must sum to one within the contract tolerance"
+          }
+        }
+      },
+      "reconstruction": {
+        "status": "skipped",
+        "reason": "Frozen request has no explicit players, dealer, or first-trick leader; context must not be inferred."
+      }
+    }
+  ],
+  "comparison_summary": {
+    "reviewed_crop_identity_pairs": 0,
+    "reviewed_crop_identity_pair_scope": "A pair requires the exact decoded source frame and identical crop-image SHA-256. Two IMG_0662 shared frames had seven geometry-matched cards at polygon IoU >= 0.5, but none of their predicted-visible-region PPM crop hashes equaled an oracle-visible-region review crop hash.",
+    "geometry_coverage": "Two decoded frames in IMG_0662 only; seven card geometries matched at IoU >= 0.5. No exact geometry frame pairs for IMG_0657 or the real round. Pile comparisons remain unavailable on the paired frames.",
+    "quality_claim": "Not available. No exact reviewed identity crop pairs; M6 is unqualified; observation assembly accepted no outputs."
+  },
+  "observation_contract_failure": {
+    "endpoint": "/api/recordings/{recording_id}/pipeline/observations",
+    "http_status": 422,
+    "processor_run_created": false,
+    "validation_message": "identity candidate probabilities must sum to one within the contract tolerance",
+    "contract_tolerance_abs": 1e-06,
+    "root_cause_evidence": "DINOv3 inference uses a 25-class distribution including FACE_DOWN but emits only the 24 card-identity candidates for classified outcomes. The omitted FACE_DOWN probability mass is not represented in VisualIdentityOutcome; observed identity candidate probabilities therefore do not sum to one. This is supported by the stored candidate-sum deficits and current inference/output-adapter code. No output normalization or contract change was made in M4."
+  },
+  "decision": {
+    "next_limiting_boundary": "identity-to-observation probability contract",
+    "next_bounded_question": "How should the 25-class M6 output preserve FACE_DOWN probability mass while supplying a valid 24-card identity distribution to observation assembly, without treating FACE_DOWN as a card identity?",
+    "new_epic_required_for_implementation": true,
+    "selected_model_or_capability": null,
+    "reconstruction": "Skip; frozen real-round context is incomplete. No reviewed reconstruction target exists."
+  }
+}

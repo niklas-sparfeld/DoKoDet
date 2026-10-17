@@ -4,7 +4,7 @@
 
 - **Summary:** Correct two measured integration boundaries from the 0090 pilot, then measure
   downstream behavior with the same models and retained automatic inputs.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Completed 0048 and 0049; completed 0086 reviewed evidence; completed 0087 and
   0088 bundle decisions; completed 0092 M4 bundle; completed 0090 composed pilot report.
 - **Readiness:** The three original videos, frozen references, and retained 0090 processor results
@@ -12,17 +12,22 @@
   human review. Missing reconstruction context and review targets are explicit coverage limits.
 - **Supersedes:** The remaining detector and optional capability experiments from 0022.
 - **Outcome:** Correct comparison coverage, explicit handling of frames with no individual-card
-  detections, and a bounded report on identity and table observations. The report will select the
-  next evidence question, if one is justified.
+  detections, and a bounded report on identity and table observations. M4 found an identity-to-
+  observation probability-contract failure and selected one bounded follow-up question.
+- **Closure reason:** Complete
+- **Closure note:** M0–M4 delivered the frozen diagnostic and terminal outcomes for all recordings.
+  M6 identity results could not enter observation assembly because the 25-class output omits
+  `FACE_DOWN` probability mass from the 24 card identity candidates. No model or capability was
+  selected. Any contract change needs a new epic and budget.
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Milestone status
 
-- **M0:** Complete — [freeze retained evidence and contracts](../../reports/0050-M0_Diagnostic_Freeze.md); M4 preflight needs the exact real-round video restored.
+- **M0:** Complete — [freeze retained evidence and contracts](../../reports/0050-M0_Diagnostic_Freeze.md); its initial preflight path error was corrected before M4.
 - **M1:** Complete — [corrected frame comparison](../../reports/0050-M1_Frame_Comparison_Correction.md).
 - **M2:** Complete — zero-card and pile-only frames publish explicit outcomes without calibration or pose fitting; mixed-frame gates and real failures remain active.
 - **M3:** Complete — identity skips zero-card crop/model work; observations retain events and piles; the coordinator keeps exact lineage and stops on failures.
-- **M4:** Not started — preflight the bounded diagnostic; the exact real-round video is still required.
+- **M4:** Complete — [bounded diagnostic result](../../reports/0050-M4_Diagnostic_Result.md). Scene and identity runs completed for all three recordings. Observation assembly rejected all three identity outputs because their card probabilities did not sum to one. Reconstruction was skipped because round context is incomplete.
 
 ## 1. Evidence and question
 
@@ -188,9 +193,12 @@ The focused identity, observation, and coordinator regressions passed. The full 
 file has two other failures: preview regeneration expects a crop resolver call that does not occur,
 and a candidate-order test expects run-item fields that the result omits.
 
-Next handoff: preflight the bounded M4 diagnostic from the M0 freeze. Restore the exact real-round
-video and verify its frozen hash before starting any stage. Use the existing local stage APIs and
-the retained event and detector revisions. Keep the execution budget and stop rules unchanged.
+M4 preflight verified the real-round source at the path in its frozen event request. It reused the
+retained event and detector revisions and ran the bounded scene, identity, and observation path.
+The observation API rejected each identity revision because the M6 25-class output omitted
+`FACE_DOWN` probability mass from its 24 card identity candidates. M4 did not normalize scores or
+change runtime code. See the [M4 diagnostic report](../../reports/0050-M4_Diagnostic_Result.md) and
+its [machine-readable companion](../../reports/0050-M4_Diagnostic_Result.json).
 
 M3 verification covered `backend/tests/test_visual_identity_pipeline_api.py`,
 `backend/tests/test_pipeline_coordinator.py`, and
@@ -242,13 +250,13 @@ M0–M3 use artifact inspection and local fixtures. M4 has a new budget, separat
 - No new manual annotation or collection is required for the implementation phases. Report missing
   review coverage and reconstruction context as limits rather than inventing targets or setup.
 
-## 5. Verification and Luna handoff
+## 5. Verification and handoff
 
-Use targeted regression tests for changed contracts, applicable formatting/lint/type checks, local
-Markdown link checks after moves, and `git diff --check`. Keep commits focused and follow AGENTS.md
-for worktree integration. Do not push.
+M1–M3 used focused regression tests. M4 verified the frozen source, retained inputs, references,
+models, new run requests, processor states, and output revisions. It changed no runtime code. The
+report records the 6-hour wall-time and 32 GiB memory limits, zero cloud requests, exact stage
+lineage, and all output hashes.
 
-The first Luna task is **M0 only**. Start with the main checkout's retained artifacts at
-`d2948615df53527c6e8139c83bad7047d85d40a2` and this plan. It must produce the diagnostic freeze,
-verify the two findings, identify exact implementation boundaries, update the board, and commit.
-It must finish with an M1 handoff and stop before changing runtime code or starting model stages.
+The next bounded question is how to preserve `FACE_DOWN` probability mass while passing a valid
+24-card identity distribution to observation assembly. Any implementation requires a new epic with
+its own contract, measurements, and budget. M4 selected no model or additional capability.

@@ -4,7 +4,7 @@
   "created_at_utc": "2026-10-17",
   "purpose": "bounded local diagnostic; no inference during M0",
   "source_documents": {
-    "epic": "docs/plans/2-ready/0050-Detector_Quality_and_Analyzer_Capabilities.md",
+    "epic": "docs/plans/5-closed/0050-Detector_Quality_and_Analyzer_Capabilities.md",
     "0090_freeze": "docs/reports/0090-M0_Composed_Pilot_Freeze.json",
     "0090_report": "docs/reports/0090-M3_Composed_Pilot.md"
   },
@@ -13825,14 +13825,14 @@
         "digest_matches": true
       },
       {
-        "path": "data/intake/recordings/game-2026-08-20-01-001/videos/video-game-2026-08-20-01-001.mov",
+        "path": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
         "expected_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
-        "present": false,
-        "actual_sha256": null,
-        "digest_matches": false
+        "present": true,
+        "actual_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+        "digest_matches": true
       }
     ],
-    "result": "blocked for M4 until the missing real-round source is restored at the frozen path and its SHA-256 matches; do not substitute a different video or use retained frames as the source video.",
+    "result": "ready for M4 after correction of the inventory basename; the frozen event request already used the correct source path and hash.",
     "available_models": {
       "cardeventnet_checkpoint": true,
       "rfdetr_0092_m4_bundle": true,
@@ -13946,5 +13946,12 @@
   "m0_m3_execution_budget": {
     "execution": "Artifact inspection and local fixtures only. Do not run model or processor inference. No cloud requests, training, tuning, alternate providers, or production promotion. Run focused local tests only for code changed in M1-M3.",
     "local_assets": "Use the retained 0090 revisions; do not rewrite selections or substitute missing source assets."
+  },
+  "local_preflight_correction_2026_10_17": {
+    "incorrect_inventory_path": "data/intake/recordings/game-2026-08-20-01-001/videos/video-game-2026-08-20-01-001.mov",
+    "correct_path": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+    "expected_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+    "verified_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+    "result": "The exact frozen source exists. No alternate video or retained frame was substituted."
   }
 }

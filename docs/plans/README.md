@@ -42,9 +42,10 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
    quality is measured. Full provenance matching excluded two identical decoded IMG_0662 images;
    0050 owns the comparison correction. Downstream quality remains unmeasured. See the
    [M3 report](../reports/0090-M3_Composed_Pilot.md).
-6. **0050 M3:** Complete. Zero-card identity work uses no crops or model calls, observation assembly
-   keeps event coverage and separate pile evidence, and the coordinator preserves exact lineage and
-   failure gates. M4 has a separate bounded budget and still needs the exact real-round video.
+6. **0050 M4:** Complete. Corrected scene processing records all 19 zero-card frames without pose
+   failures. Identity runs completed, but observation assembly rejected all three outputs because
+   candidate probabilities did not sum to one. No downstream quality claim or model selection was
+   made. See the [M4 result](../reports/0050-M4_Diagnostic_Result.md).
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
 are explicit work in 0093/0094. Require a new measured scope for future geometry or crop work.
@@ -84,7 +85,7 @@ The shared target architecture is
 
 | Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0050 — Detector quality and analyzer capabilities](3-in-progress/0050-Detector_Quality_and_Analyzer_Capabilities.md) | Completed 0048/0049, 0086 evidence, 0087/0088 decisions, 0092 M4, and 0090 pilot | M0–M3 complete: [diagnostic freeze](../reports/0050-M0_Diagnostic_Freeze.md), [frame comparison correction](../reports/0050-M1_Frame_Comparison_Correction.md). M4 is next after the exact real-round video is restored and its frozen hash is verified. |
+| *No in-progress epics* |  |  |
 
 ### Blocked
 
@@ -96,6 +97,7 @@ The shared target architecture is
 
 | Epic                                                                                                                                             | Closure reason     | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0050 — Detector quality and analyzer capabilities](5-closed/0050-Detector_Quality_and_Analyzer_Capabilities.md)                                  | Complete           | M0–M4 complete. The corrected scene processor handles all 19 zero-card frames. Identity outputs completed, but observation assembly rejected all three because the 25-class M6 output omits `FACE_DOWN` probability mass from the 24 card candidates. No model or capability was selected. Any contract implementation needs a new epic. See the [M4 result](../reports/0050-M4_Diagnostic_Result.md). |
 | [0090 — Local end-to-end recording pipeline](5-closed/0090-Local_End_to_End_Recording_Pipeline.md)                                               | Complete           | M0–M3 complete. The pilot retained event, detector, and partial scene outputs. Event scores are reported; geometry, identity, observations, and reconstruction have no quality claim. No training or promotion. See the [M3 report](../reports/0090-M3_Composed_Pilot.md). |
 | [0092 — Expanded reviewed virtual-card RF-DETR campaign](5-closed/0092-Expanded_Reviewed_Virtual_Card_RF_DETR_Campaign.md)                       | Complete           | M0–M4 complete. M3 selected the expanded recipe. The 40-epoch all-recording M4 refit has a verified, selectable bundle with preserved M0/M1 lineage. M4 monitoring is in-sample; the sealed evaluator was not rerun. `gemini` remains the default. See [the M4 report](../reports/0092-M4_Final_Refit.md). |
 | [0089 — Virtual-card algorithm edge cases](5-closed/0089-Virtual_Card_Algorithm_Edge_Cases.md)                                                   | Complete           | M0 complete. Fresh 0087/0088 replay had zero matches across 494 proposals and 331 reviewed cards at polygon IoU 0.5, so no geometry or crop defect could be isolated and no algorithm change was selected. See the [M0 replay report](../reports/0089-M0_Fresh_Failure_Replay.md). |
@@ -199,9 +201,10 @@ The shared target architecture is
    0057 is complete.
 4. **Start 0044 from Ready.** Use the retained 0043 report to define promotion gates before any
    local cutover. Keep the 0043 bundle unpromoted until those gates pass.
-5. **Continue 0050 with its frozen bounded diagnostic.** M0–M3 are complete. M4 is next after the
-   exact real-round video is restored and its frozen hash is verified. Do not run an open-ended
-   search.
+5. **Define a new bounded epic only if the identity-to-observation contract needs repair.** M4
+   found that M6's 25-class distribution does not fit the 24-card observation candidate contract.
+   Decide how to preserve `FACE_DOWN` probability before implementation. Do not alter M6 or the
+   observation contract without a new measured scope.
 6. **Keep 0043’s measured limits as the input to 0044.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
 7. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,
