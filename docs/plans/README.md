@@ -77,7 +77,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0050 — Detector quality and analyzer capabilities](2-ready/0050-Detector_Quality_and_Analyzer_Capabilities.md) | Completed 0048/0049, 0086 evidence, 0087/0088 decisions, 0092 M4, and 0090 pilot | M0–M4 not started. Freeze retained evidence, correct decoded-image comparison and zero-card handling, verify downstream contracts, then run a bounded diagnostic with the same models. |
+| [0050 — Detector quality and analyzer capabilities](2-ready/0050-Detector_Quality_and_Analyzer_Capabilities.md) | Completed 0048/0049, 0086 evidence, 0087/0088 decisions, 0092 M4, and 0090 pilot | M0 complete: [diagnostic freeze](../reports/0050-M0_Diagnostic_Freeze.md). M1 is next; M2–M4 remain not started. The exact real-round video is missing for M4 preflight. |
 
 ### In Progress
 

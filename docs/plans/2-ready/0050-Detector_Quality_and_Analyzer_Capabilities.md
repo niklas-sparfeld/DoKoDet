@@ -18,8 +18,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — freeze retained inputs, comparison policy, stage contracts, and run budget.
-- **M1:** Not started — compare identical decoded images and correct the geometry coverage report.
+- **M0:** Complete — [freeze retained evidence and contracts](../../reports/0050-M0_Diagnostic_Freeze.md); M4 preflight needs the exact real-round video restored.
+- **M1:** Not started — next; compare identical decoded images and correct the geometry coverage report.
 - **M2:** Not started — handle scene inputs with no individual-card detections.
 - **M3:** Not started — verify identity, observation, and coordinator handling of those inputs.
 - **M4:** Not started — run the bounded diagnostic and publish the next decision.
