@@ -240,7 +240,7 @@ and tracking improve independently.
   DINO training, adapted-weight bundles and confidence contracts used by 0088.
 - [0089](plans/5-closed/0089-Virtual_Card_Algorithm_Edge_Cases.md) records the fresh no-fix algorithm handoff.
 - [0090](plans/5-closed/0090-Local_End_to_End_Recording_Pipeline.md) owns the composed local pilot.
-- [0050](plans/4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) owns later justified
+- [0050](plans/2-ready/0050-Detector_Quality_and_Analyzer_Capabilities.md) owns later justified
   optional analyzer capabilities after that pilot.
 - [0023](plans/0-to-specify/0023-Game_Reconstruction_Development.md),
   [0026](plans/0-to-specify/0026-Reconstruction_Review_Workflow.md), and

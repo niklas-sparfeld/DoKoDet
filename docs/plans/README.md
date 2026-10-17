@@ -38,9 +38,12 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
    and latency checks are recorded. `gemini` remains the default. No sealed evaluation was rerun.
 4. **0089:** Complete. Fresh output did not overlap reviewed cards enough to isolate a geometry or
    crop defect. No algorithm change was selected; see the [M0 replay report](../reports/0089-M0_Fresh_Failure_Replay.md).
-5. **0090 M3:** Complete. The three-recording pilot retained event, detector, and partial scene
-   outputs. Event quality is measured; geometry has no exact-frame review overlap, and downstream
-   identity, observation, and reconstruction quality remain unmeasured. See the [M3 report](../reports/0090-M3_Composed_Pilot.md).
+5. **0090 M3:** Complete. The pilot retained event, detector, and partial scene outputs. Event
+   quality is measured. Full provenance matching excluded two identical decoded IMG_0662 images;
+   0050 owns the comparison correction. Downstream quality remains unmeasured. See the
+   [M3 report](../reports/0090-M3_Composed_Pilot.md).
+6. **0050 M0:** Ready. Freeze the retained evidence and contracts before correcting image comparison,
+   zero-card scene outcomes, and downstream handling. M4 has a separate bounded diagnostic budget.
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
 are explicit work in 0093/0094. Require a new measured scope for future geometry or crop work.
@@ -74,7 +77,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| *No ready epics* |  |  |
+| [0050 — Detector quality and analyzer capabilities](2-ready/0050-Detector_Quality_and_Analyzer_Capabilities.md) | Completed 0048/0049, 0086 evidence, 0087/0088 decisions, 0092 M4, and 0090 pilot | M0–M4 not started. Freeze retained evidence, correct decoded-image comparison and zero-card handling, verify downstream contracts, then run a bounded diagnostic with the same models. |
 
 ### In Progress
 
@@ -86,7 +89,7 @@ The shared target architecture is
 
 | Epic                                                                                                              | Depends on                                                                                                                   | Outcome                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0050 — Detector quality and analyzer capabilities](4-blocked/0050-Detector_Quality_and_Analyzer_Capabilities.md) | 0086 reviewed evidence, 0087 and 0088 decisions, and 0090 composed report; 0048 and 0049 complete                            | M0–M3 not started. Use the later reports to select at most one new optional analyzer capability. Do not repeat the campaigns, bounded algorithm fixes, or composed pilot.                                                                                 |
+| *No blocked epics* |  |  |
 
 ### Closed
 
