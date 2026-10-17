@@ -26,17 +26,16 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Active: **[0099 — Detection failure diagnostics and bounded fixes](3-in-progress/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md)** (M0–M2 complete; M3 not started), and **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) is complete; its read-only queue check found all 165 frozen items unavailable because of the local revision catalog. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md).
+Active: **[0098 — Identity proposal batch](3-in-progress/0098-Identity_Proposal_Batch.md)** (M0 complete; M1 next), and **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) is complete; its read-only queue check found all 165 frozen items unavailable because of the local revision catalog. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md).
 
 While 0096 waits for human review, autonomous work is available in this preferred order:
 
 1. **[0098 — Identity proposal batch](3-in-progress/0098-Identity_Proposal_Batch.md):** run the pinned M6
    model on permitted successful 0096 scenes and publish a separate identity review queue.
-2. **0099 M3:** decide whether to retain the baseline and publish the final diagnostic handoff.
-
-0098 remains available from retained artifacts while 0096 awaits human review. Epic 0099
-started independently from the same retained evidence. None requires 0096 human-review completion.
-0098 can hand off a file-based queue. Identification remains outside 0096.
+0098 remains available from retained artifacts while 0096 awaits human review. Epic 0099 closed
+after both bounded candidates failed to improve a measured failure; its final handoff retains the
+baseline and records the limits of the evidence. The 0098 batch does not require 0096 human-review completion. Identification remains outside
+0096.
 No reconstruction or training campaign is scheduled by these epics.
 
 1. **0086 M4/M5:** Complete. The handoffs contain 20 eligible recordings, 1,391 identity crops,
@@ -100,7 +99,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0099 — Detection failure diagnostics and bounded fixes](3-in-progress/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md) | 0096 M1–M3 evidence | M0–M2 complete. M2 tested two transform-precision candidates; neither fixed IMG_0641, so the baseline remains unchanged. M3 not started. |
 | [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. The M4 review queue is frozen at 165 frames across 33 recordings; one M1 failure has no corrected output to inspect. Human review is pending. See the [M4 queue](../reports/0096-M4_Human_Review_Queue.md) and [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
 | [0098 — Identity proposal batch](3-in-progress/0098-Identity_Proposal_Batch.md) | 0096 M1/M2 outputs; 0088 M6; 0085/0093 crops | M0 complete: 26 permitted scene recordings, 2,994 frozen crop geometries, three protected groups excluded, five upstream failures accounted for. M1 is next. No classifier ran during preflight. See the [M0 report](../reports/0098-M0_Frozen_Inputs.md). |
 
@@ -114,6 +112,7 @@ The shared target architecture is
 
 | Epic                                                                                                                                             | Closure reason     | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0099 — Detection failure diagnostics and bounded fixes](5-closed/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md)                        | Complete           | M0–M3 complete. Both bounded transform-precision candidates failed to repair the saved `IMG_0641` calibration failure. No fix was selected; the existing baseline remains. Outside-training comparison counts did not change. Pile, pose, stacking-order, and zero-card quality remain unsupported. The 0096 queue of 165 frames remains pending human review. See the [M3 final handoff](../reports/0099-M3_Final_Diagnostic_Handoff.md). |
 | [0050 — Detector quality and analyzer capabilities](5-closed/0050-Detector_Quality_and_Analyzer_Capabilities.md)                                  | Complete           | M0–M4 complete. The corrected scene processor handles all 19 zero-card frames. Identity outputs completed, but observation assembly rejected all three because the 25-class M6 output omits `FACE_DOWN` probability mass from the 24 card candidates. No model or capability was selected. Any contract implementation needs a new epic. See the [M4 result](../reports/0050-M4_Diagnostic_Result.md). |
 | [0095 — Partial identity probability observations](5-closed/0095-Partial_Identity_Probability_Observations.md) | Complete | M0–M1 complete. The contract allows subunit sums while rejecting candidate totals above one; all three retained observation assemblies completed and produced 147 observations. No model or quality claim was made. See the [M1 result](../reports/0095-M1_Partial_Identity_Observation_Result.md). |
 | [0097 — Frame review mode](5-closed/0097-Frame_Review_Mode.md) | Complete | M0–M3 complete. The app supports saved-review receipts, defer/resume controls, and cross-recording navigation. A read-only check found all 165 frozen items unavailable because this worktree's revision catalog rejected the retained manifests. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md). |

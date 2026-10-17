@@ -1,0 +1,87 @@
+{
+  "schema_version": "0099-m3-final-diagnostic-handoff/v1",
+  "epic": "0099",
+  "milestone": "M3",
+  "status": "complete",
+  "date": "2026-10-17",
+  "decision": "retain the unchanged baseline; select no candidate",
+  "reason": "Both bounded candidates failed to repair the saved IMG_0641 calibration failure and neither improved a named measured failure.",
+  "evidence_scope": "Previously examined 0096 outputs and maintained references. The frozen candidate comparison is not holdout or generalization evidence.",
+  "comparison": {
+    "scoreable_frames": 323,
+    "true_positives": 786,
+    "false_positives": 90,
+    "false_negatives": 64,
+    "duplicate_proposals": 2,
+    "precision": 0.89726,
+    "recall": 0.924706,
+    "per_recording_delta_count": 8,
+    "per_recording_deltas_all_zero": true
+  },
+  "candidates": [
+    {
+      "id": "A",
+      "policy": "Preserve full-precision matrices and apply a strict 1e-9 reciprocal check.",
+      "result": "rejected",
+      "reason": "IMG_0641 still failed reciprocal-transform validation; no named failure improved.",
+      "candidate_source_sha256": "37efda69fdc80f1ffac9115ad01e18e1704f6021793d59d9dc91e92fdf9fcf8d",
+      "wall_time_seconds": 23.8,
+      "process_rss_peak_bytes": null
+    },
+    {
+      "id": "B",
+      "policy": "Preserve full-precision matrices and apply the frozen 0.001 reciprocal tolerance.",
+      "result": "rejected",
+      "reason": "IMG_0641 still failed reciprocal-transform validation; all four saved calibration runs remained failures.",
+      "candidate_source_sha256": "82d574130281c802e3e834009a5dfc1a3937b254e4666e86026138def45cc0b2",
+      "wall_time_seconds": 23.7,
+      "process_rss_peak_bytes": null
+    }
+  ],
+  "unsupported_measures": {
+    "pile_relations": "No reviewed pile-region targets.",
+    "pose_and_stacking_order": "No reviewed pose or stacking references.",
+    "zero_card_quality": "No explicit reviewed-empty frames."
+  },
+  "unresolved_review_questions": [
+    "Which unmatched predictions and misses correspond to visible cards, unreviewed card-like regions, or other objects?",
+    "Should later work add reviewed pile, pose, stacking-order, or explicit-empty references?"
+  ],
+  "preservation": {
+    "0096_m4_queue_selected_frames": 165,
+    "0096_m4_queue_reviewable_recordings": 33,
+    "0096_m4_queue_sha256": "8527a62a7a9241e27cb5d77d2d0ac396de2cb282fd787cb03849673e3288d832",
+    "0096_m4_selection_sha256": "fd54ee11448bb35fa26461538c7e58b15422d215ab0ee433ff8914aaa318126f",
+    "queue_awaits_human_review": true,
+    "terminal_backend_retried": false,
+    "candidate_process_rss_measured": false,
+    "candidate_runtime_changes_retained": false
+  },
+  "digests": {
+    "sources": {
+      "operations/src/doko_operations/card_plane_geometry.py": "f713a89b8cbd7722e69b4fe42c440080dbf6c50494c3415e06945f65ce9301d8",
+      "operations/scripts/evaluate_0096_m3.py": "aec308ac81c273fbd1e0e06c2ff241c248ba49e1d569f4b9b2a4faa03c1f7366",
+      "operations/tests/fixtures/0099_img_0641_reciprocal_transform.json": "ba97c9e285c4cc6c30ee21e82af06cd7c4d9c64e940b36aa1ca2033f9abf8c85"
+    },
+    "outputs": {
+      "docs/reports/0099-M0_Experiment_Manifest.json": "d9cdfe6ef6da1b6fd08b2c672dda980c29fa539c1ef876a7b87921a5646b8b9a",
+      "docs/reports/0099-M1_Failure_Diagnosis.json": "5a32df5db2125c8f41b677f53cfdd231beb8f112c39fbc431541070711af7293",
+      "docs/reports/0099-M2_Bounded_Candidate_Results.json": "a76b0b7c5ff2383101eecf7b667b27cc622b11730fe1575d83fbe7da8a85bcf7",
+      "docs/reports/0099-M2_Replay_Diagnostics.json": "706057d9652e9efad8a3bfbc220cc42e251391c21ef355cf565ce5c9dee34c93",
+      "docs/reports/0096-M3_Exact_Reference_Evaluation.json": "2714b4cd1bb6a70617cfa404835f276cf23dae472853cf772396313fff279c8f",
+      "docs/reports/0096-M4_Human_Review_Queue.json": "8527a62a7a9241e27cb5d77d2d0ac396de2cb282fd787cb03849673e3288d832"
+    },
+    "m2_candidate_source_sha256": {
+      "A": "37efda69fdc80f1ffac9115ad01e18e1704f6021793d59d9dc91e92fdf9fcf8d",
+      "B": "82d574130281c802e3e834009a5dfc1a3937b254e4666e86026138def45cc0b2"
+    }
+  },
+  "reproduction_commands": [
+    "mise exec -- uv run --project operations pytest -q operations/tests/test_0099_m1_calibration_fixture.py operations/tests/test_card_plane_geometry.py operations/tests/test_card_plane_calibration.py operations/tests/test_card_plane_calibration_refinement.py",
+    "python3 -m json.tool docs/reports/0099-M3_Final_Diagnostic_Handoff.json >/dev/null",
+    "python3 -m json.tool docs/reports/0099-M2_Bounded_Candidate_Results.json >/dev/null",
+    "shasum -a 256 docs/reports/0099-M0_Experiment_Manifest.json docs/reports/0099-M1_Failure_Diagnosis.json docs/reports/0099-M2_Bounded_Candidate_Results.json docs/reports/0099-M2_Replay_Diagnostics.json docs/reports/0096-M3_Exact_Reference_Evaluation.json docs/reports/0096-M4_Human_Review_Queue.json",
+    "git diff --check"
+  ],
+  "reproduction_limit": "The temporary evidence overlay and candidate replay invocation were not retained. These commands verify the preserved reports and fixtures; they do not rerun the candidate comparison."
+}

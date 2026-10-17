@@ -2,10 +2,14 @@
 
 ## Plan status
 
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Completed 0096 M1–M3 exact-frame outputs and comparison evidence.
 - **Outcome:** Reproducible failure diagnoses and a bounded decision to retain the baseline or
   select a measured software fix. No new human review is required for the diagnostic path.
+- **Closure reason:** Complete
+- **Closure note:** Both bounded candidates failed to repair the measured `IMG_0641` calibration
+  failure. The existing baseline remains. The final handoff records unsupported measures and
+  review questions without claiming completion of the separate 0096 human-review queue.
 
 ## Milestone status
 
@@ -19,7 +23,9 @@
   [M2 results](../../reports/0099-M2_Bounded_Candidate_Results.md),
   [machine report](../../reports/0099-M2_Bounded_Candidate_Results.json), and
   [replay diagnostics](../../reports/0099-M2_Replay_Diagnostics.json).
-- **M3:** Not started — decide once and publish measured results and remaining review needs.
+- **M3:** Complete — retained the unchanged baseline, rejected both candidates, and published the
+  final diagnostic handoff. See the [M3 handoff](../../reports/0099-M3_Final_Diagnostic_Handoff.md)
+  and [machine report](../../reports/0099-M3_Final_Diagnostic_Handoff.json).
 
 ## Scope and evidence
 
