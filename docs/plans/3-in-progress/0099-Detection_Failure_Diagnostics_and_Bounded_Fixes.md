@@ -14,7 +14,11 @@
   ranked exact-reference segmentation errors, and recorded the terminal backend failure. See the
   [M1 diagnosis](../../reports/0099-M1_Failure_Diagnosis.md) and
   [machine report](../../reports/0099-M1_Failure_Diagnosis.json).
-- **M2:** Not started — test at most two justified software candidates, or record no-fix evidence.
+- **M2:** Complete — tested two bounded transform-precision candidates. Neither fixed the saved
+  `IMG_0641` calibration failure. The baseline remains unchanged. See the
+  [M2 results](../../reports/0099-M2_Bounded_Candidate_Results.md),
+  [machine report](../../reports/0099-M2_Bounded_Candidate_Results.json), and
+  [replay diagnostics](../../reports/0099-M2_Replay_Diagnostics.json).
 - **M3:** Not started — decide once and publish measured results and remaining review needs.
 
 ## Scope and evidence
@@ -104,6 +108,15 @@ failures without a plan amendment.
 Acceptance: paired reports include counts, precision/recall, per-recording regressions, calibration
 outcomes, runtime, and all unsupported measures. A candidate that merely suppresses warnings or
 publishes an unsafe calibration cannot pass.
+
+**Result:** The frozen comparison replay reproduced 786 matches, 90 unmatched predictions, and 64
+misses over 323 scoreable outside-refit-training frames. Precision and recall remain `0.897260` and
+`0.924706`. Per-recording results match the frozen baseline. Candidate A preserved full transform
+precision and used a `1e-9` reciprocal check. Candidate B preserved full precision and used the
+frozen `0.001` tolerance. Both left all four calibration failure codes unchanged. `IMG_0641` still
+fails reciprocal-transform validation. Neither candidate is selected. Candidate process RSS was
+not captured, so the report makes no peak-memory claim. No detector inference, data writes, or
+terminal retry occurred. Pile, pose, stacking-order, and zero-card quality remain unsupported.
 
 ## M3 — Decide and hand off
 

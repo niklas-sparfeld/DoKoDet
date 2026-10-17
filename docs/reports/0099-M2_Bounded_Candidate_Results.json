@@ -1,0 +1,300 @@
+{
+  "schema_version": "0099-m2-bounded-candidate-results/v1",
+  "epic": "0099",
+  "milestone": "M2",
+  "status": "complete",
+  "date": "2026-10-17",
+  "decision": "no selected fix; both bounded precision candidates failed to repair the IMG_0641 replay",
+  "evidence_scope": "One unchanged frozen 0096 comparison replay and four calibration replays for each candidate. Inputs were read only. No detector inference, media access, selection write, human draft write, cloud request, or terminal backend retry occurred. These are previously examined sources, not a holdout.",
+  "frozen_inputs": {
+    "m0_manifest_sha256": "d9cdfe6ef6da1b6fd08b2c672dda980c29fa539c1ef876a7b87921a5646b8b9a",
+    "m1_diagnosis_sha256": "5a32df5db2125c8f41b677f53cfdd231beb8f112c39fbc431541070711af7293",
+    "0096_m3_evaluation_sha256": "2714b4cd1bb6a70617cfa404835f276cf23dae472853cf772396313fff279c8f",
+    "replay_diagnostics_path": "0099-M2_Replay_Diagnostics.json",
+    "replay_diagnostics_sha256": "706057d9652e9efad8a3bfbc220cc42e251391c21ef355cf565ce5c9dee34c93"
+  },
+  "baseline": {
+    "scoreable_frames": 323,
+    "true_positives": 786,
+    "false_positives": 90,
+    "false_negatives": 64,
+    "duplicate_proposals": 2,
+    "precision": 0.89726,
+    "recall": 0.924706
+  },
+  "candidate_comparison": {
+    "scoreable_frames": 323,
+    "true_positives": 786,
+    "false_positives": 90,
+    "false_negatives": 64,
+    "duplicate_proposals": 2,
+    "precision": 0.89726,
+    "recall": 0.924706
+  },
+  "per_recording_regressions": [
+    {
+      "recording_id": "cardeventnet-IMG_0642",
+      "before": {
+        "true_positives": 99,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "duplicate_proposals": 0
+      },
+      "after": {
+        "true_positives": 99,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "duplicate_proposals": 0
+      },
+      "regression": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      }
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0644",
+      "before": {
+        "true_positives": 111,
+        "false_positives": 76,
+        "false_negatives": 6,
+        "duplicate_proposals": 0
+      },
+      "after": {
+        "true_positives": 111,
+        "false_positives": 76,
+        "false_negatives": 6,
+        "duplicate_proposals": 0
+      },
+      "regression": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      }
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0645",
+      "before": {
+        "true_positives": 94,
+        "false_positives": 6,
+        "false_negatives": 43,
+        "duplicate_proposals": 0
+      },
+      "after": {
+        "true_positives": 94,
+        "false_positives": 6,
+        "false_negatives": 43,
+        "duplicate_proposals": 0
+      },
+      "regression": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      }
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0646",
+      "before": {
+        "true_positives": 96,
+        "false_positives": 7,
+        "false_negatives": 9,
+        "duplicate_proposals": 1
+      },
+      "after": {
+        "true_positives": 96,
+        "false_positives": 7,
+        "false_negatives": 9,
+        "duplicate_proposals": 1
+      },
+      "regression": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      }
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0648",
+      "before": {
+        "true_positives": 105,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "duplicate_proposals": 1
+      },
+      "after": {
+        "true_positives": 105,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "duplicate_proposals": 1
+      },
+      "regression": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      }
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0649",
+      "before": {
+        "true_positives": 109,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      },
+      "after": {
+        "true_positives": 109,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      },
+      "regression": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      }
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0091",
+      "before": {
+        "true_positives": 98,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "duplicate_proposals": 0
+      },
+      "after": {
+        "true_positives": 98,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "duplicate_proposals": 0
+      },
+      "regression": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      }
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0661",
+      "before": {
+        "true_positives": 74,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "duplicate_proposals": 0
+      },
+      "after": {
+        "true_positives": 74,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "duplicate_proposals": 0
+      },
+      "regression": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "duplicate_proposals": 0
+      }
+    }
+  ],
+  "calibration_replays": [
+    {
+      "recording_id": "cardeventnet-IMG_0090",
+      "baseline_failure_code": "inconsistent_card_geometry",
+      "candidate_a_failure_code": "inconsistent_card_geometry",
+      "candidate_b_failure_code": "inconsistent_card_geometry",
+      "candidate_b_error": null,
+      "candidate_b_replay_digest": "5c31799e8d1052c23f72fe8e39725649fdc6173e112c2cb7f4362f59616dfbc0",
+      "candidate_b_matches_frozen_run": true,
+      "failed_gates": [
+        "fit_quality",
+        "held_out_population"
+      ]
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0635",
+      "baseline_failure_code": "inconsistent_card_geometry",
+      "candidate_a_failure_code": "inconsistent_card_geometry",
+      "candidate_b_failure_code": "inconsistent_card_geometry",
+      "candidate_b_error": null,
+      "candidate_b_replay_digest": "2ce51b7e874053fda9e9c068de5bdeae402cc05e1f6986212f48ecba6e7d4d5d",
+      "candidate_b_matches_frozen_run": true,
+      "failed_gates": [
+        "fit_quality"
+      ]
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0641",
+      "baseline_failure_code": "unstable_table_transform",
+      "candidate_a_failure_code": null,
+      "candidate_b_failure_code": null,
+      "candidate_b_error": "image_to_table and table_to_image must be reciprocal transforms",
+      "candidate_b_replay_digest": "808bcd65e24e8b0abd9322ef270cea92ba2f11806c52cfc5dbfe2f0d9c871f0f",
+      "candidate_b_matches_frozen_run": false,
+      "failed_gates": []
+    },
+    {
+      "recording_id": "game-2026-08-20-01-005",
+      "baseline_failure_code": "insufficient_validation_population",
+      "candidate_a_failure_code": "insufficient_validation_population",
+      "candidate_b_failure_code": "insufficient_validation_population",
+      "candidate_b_error": null,
+      "candidate_b_replay_digest": "460f91d894ef90498ce6ced21959ee67549b518f4408e373eda436e175d4c6d6",
+      "candidate_b_matches_frozen_run": true,
+      "failed_gates": [
+        "held_out_population"
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "A",
+      "hypothesis": "Six-decimal matrix serialization causes the IMG_0641 reciprocal-transform failure.",
+      "policy": "Persist both fit matrices at full precision and apply a strict 1e-9 reciprocal check.",
+      "source_file": "operations/src/doko_operations/card_plane_geometry.py",
+      "candidate_source_sha256": "37efda69fdc80f1ffac9115ad01e18e1704f6021793d59d9dc91e92fdf9fcf8d",
+      "result": "rejected",
+      "reason": "IMG_0641 still failed with the same reciprocal-transform error; no named failure improved.",
+      "comparison_output_sha256": "706057d9652e9efad8a3bfbc220cc42e251391c21ef355cf565ce5c9dee34c93",
+      "wall_time_seconds": 23.8,
+      "process_rss_peak_bytes": null,
+      "cloud_requests": 0
+    },
+    {
+      "id": "B",
+      "hypothesis": "Six-decimal matrix serialization causes the IMG_0641 reciprocal-transform failure.",
+      "policy": "Persist both fit matrices at full precision and apply the frozen 0.001 reciprocal tolerance to the stored input matrices.",
+      "source_file": "operations/src/doko_operations/card_plane_geometry.py",
+      "candidate_source_sha256": "82d574130281c802e3e834009a5dfc1a3937b254e4666e86026138def45cc0b2",
+      "result": "rejected",
+      "reason": "IMG_0641 still failed with the same reciprocal-transform error; all four calibration failure codes stayed unchanged. No named failure improved.",
+      "comparison_output_sha256": "706057d9652e9efad8a3bfbc220cc42e251391c21ef355cf565ce5c9dee34c93",
+      "wall_time_seconds": 23.7,
+      "process_rss_peak_bytes": null,
+      "cloud_requests": 0
+    }
+  ],
+  "runtime_limits": {
+    "candidate_count_max": 2,
+    "candidates_run": 2,
+    "max_active_experiment_seconds": 43200,
+    "observed_candidate_wall_seconds_total": 47.5,
+    "process_rss_limit_bytes": 34359738368,
+    "candidate_peak_rss_measured": false,
+    "active_processor_runs": 0,
+    "fresh_segmentation_runs": 0
+  },
+  "unsupported_measures": {
+    "pile_relations": "unsupported; no reviewed pile-region targets",
+    "pose_and_stacking_order": "unsupported; no reviewed pose or stacking references",
+    "zero_card_quality": "unsupported; no explicit reviewed-empty frames"
+  },
+  "terminal_runtime_failure": "not retried; candidate replay did not invoke a processor",
+  "source_file_sha256": {
+    "operations/src/doko_operations/card_plane_geometry.py": "f713a89b8cbd7722e69b4fe42c440080dbf6c50494c3415e06945f65ce9301d8"
+  }
+}

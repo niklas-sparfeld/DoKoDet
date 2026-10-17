@@ -1,0 +1,391 @@
+{
+  "schema_version": "0099-m1-failure-diagnosis/v1",
+  "epic": "0099",
+  "milestone": "M1",
+  "status": "complete",
+  "evidence_scope": "Frozen 0096 detector outputs and maintained references. No media was opened, and no detector or scene proposal processor was rerun. The four calibration calls were replayed from saved detector outputs.",
+  "not_a_holdout": "The source groups were previously examined during 0096. These measurements do not establish generalization.",
+  "inputs": {
+    "m0_manifest_sha256": "d9cdfe6ef6da1b6fd08b2c672dda980c29fa539c1ef876a7b87921a5646b8b9a",
+    "frozen_artifact_sha256": {
+      "0096-M0_Event_Frame_Inputs.json": "7ab7a3244dd62029189738d5a7d1b93c3ac43424c6152a7f86f6ee124a742a46",
+      "0096-M0_Exact_Frame_Comparison.json": "c87bdc74e97b31a297368dcadeded5cb73ffc7b24b55d9caced89208b27cb533",
+      "0096-M0_Preflight.json": "74fb5de7efa018ac45112030b458ffe1c8158656c0edd59027329251c2fcfab3",
+      "0096-M1_Input_Anchor_Correction.json": "073032a1a525105ae4112c7de056744e78da5d018ed8a39e5c934f9ac9d5c38e",
+      "0096-M1_Run_Result.json": "85c7874dba6f04838c80f4d961be313bae2bbcc685e4a9da0fd4d88610464cbc",
+      "0096-M2_Proposed_Scene_Results.json": "e99c62c1d2b6e6c003690f730653a936084ab8a2cc5f3a7253074650c26d0ae3",
+      "0096-M3_Exact_Reference_Evaluation.json": "2714b4cd1bb6a70617cfa404835f276cf23dae472853cf772396313fff279c8f",
+      "0096-M4_Human_Review_Queue.json": "8527a62a7a9241e27cb5d77d2d0ac396de2cb282fd787cb03849673e3288d832"
+    },
+    "comparison_policy": "Reuse evaluate_0096_m3.py geometry, ignore-region, one-to-one matching, and duplicate policies."
+  },
+  "outside_refit_training": {
+    "scoreable_frames": 323,
+    "true_positives": 786,
+    "false_positives": 90,
+    "false_negatives": 64,
+    "duplicate_proposals": 2,
+    "precision": 0.89726,
+    "recall": 0.924706
+  },
+  "ranked_failure_families": [
+    {
+      "rank": 1,
+      "family": "unmatched predicted visible-card masks",
+      "count": 90,
+      "by_recording": {
+        "cardeventnet-IMG_0644": 76,
+        "cardeventnet-IMG_0645": 6,
+        "cardeventnet-IMG_0646": 7,
+        "cardeventnet-IMG_0648": 1
+      },
+      "geometry_tags": {
+        "frame_edge": 0,
+        "interior": 90,
+        "overlaps_reviewed_card_at_duplicate_threshold": 2,
+        "overlaps_another_prediction_at_iou_0_25": 2
+      },
+      "prediction_mask_area_pixels": {
+        "count": 90,
+        "minimum": 766,
+        "median": 2219,
+        "p90": 2856
+      },
+      "confidence_score": {
+        "count": 90,
+        "minimum": 0.501465,
+        "median": 0.668457,
+        "maximum": 0.953613
+      }
+    },
+    {
+      "rank": 2,
+      "family": "unmatched reviewed visible cards",
+      "count": 64,
+      "by_recording": {
+        "cardeventnet-IMG_0091": 2,
+        "cardeventnet-IMG_0642": 1,
+        "cardeventnet-IMG_0644": 6,
+        "cardeventnet-IMG_0645": 43,
+        "cardeventnet-IMG_0646": 9,
+        "cardeventnet-IMG_0661": 3
+      },
+      "geometry_tags": {
+        "frame_edge": 8,
+        "interior": 56
+      },
+      "reference_mask_area_pixels": {
+        "count": 64,
+        "minimum": 158,
+        "median": 5062,
+        "p90": 5383
+      }
+    }
+  ],
+  "context": {
+    "comparison_limits": {
+      "exact_paired_frames": 324,
+      "scoreable_frames": 323,
+      "ignored_region_frames": 142,
+      "unresolved_reference_frames": 1,
+      "explicit_reviewed_empty_frames": 0
+    },
+    "matched_reference_area_pixels": {
+      "count": 786,
+      "minimum": 640,
+      "median": 4997,
+      "p90": 17302
+    },
+    "matched_prediction_confidence_score": {
+      "count": 786,
+      "minimum": 0.57373,
+      "median": 0.956055,
+      "maximum": 0.976562
+    },
+    "predictions_without_confidence_score": 0,
+    "pile_status_in_scored_frames": {
+      "supported": 323
+    },
+    "pile_relation_quality": "unsupported: references contain no reviewed pile-region targets",
+    "pose_or_stacking_relation_quality": "unsupported: references contain no reviewed poses, outlines, or stacking order"
+  },
+  "calibration_failures": [
+    {
+      "recording_id": "cardeventnet-IMG_0090",
+      "run_id": "card-scene-proposal-26458f5b-c76c-46fd-a5cd-c28d02a79a59",
+      "failure_code": "inconsistent_card_geometry",
+      "progress": {
+        "completed": 1,
+        "total": 3
+      },
+      "unprocessed_frame_count": 50,
+      "run_state_sha256": "abf4098024ef9f35bfed25082632a3db70b1fd1c92a3628934aaaeef06ebf79a",
+      "m1_revision_sha256": "0464776ebe60d3ae980d84eaad6469bb546567cb4f01caa3b9a34ddece5148f0",
+      "run_digest": "5c31799e8d1052c23f72fe8e39725649fdc6173e112c2cb7f4362f59616dfbc0",
+      "replay_run_digest": "5c31799e8d1052c23f72fe8e39725649fdc6173e112c2cb7f4362f59616dfbc0",
+      "replay_matches_recorded_run": true,
+      "replay_failure_code": "inconsistent_card_geometry",
+      "candidate_yield": {
+        "accepted_count": 6,
+        "confidence_count": 18,
+        "deduplicated_count": 6,
+        "geometry_count": 42,
+        "quality_count": 42,
+        "raw_count": 73
+      },
+      "gates": {
+        "candidate_count": true,
+        "fit_quality": false,
+        "held_out_boundary": false,
+        "held_out_population": false,
+        "orientation_diversity": true,
+        "spatial_coverage": true,
+        "table_position_diversity": true,
+        "temporal_diversity": true
+      },
+      "advisory_checks": {
+        "held_out_boundary": false,
+        "spatial_coverage": true
+      },
+      "failed_gates": [
+        "fit_quality",
+        "held_out_population"
+      ],
+      "fit": {
+        "accepted_card_count": 6,
+        "fit_attempt_count": 2,
+        "median_boundary_error_px": 4.582272,
+        "p90_boundary_error_px": 12.288026,
+        "quality_passed": false
+      },
+      "validation": {
+        "fit_count": 6,
+        "held_out_count": 0,
+        "held_out_summary": {
+          "count": 0,
+          "median_boundary_distance_px": null,
+          "p90_boundary_distance_over_short_side": null,
+          "p90_boundary_distance_px": null,
+          "pass_count": 0,
+          "pass_fraction": 0.0,
+          "worst_boundary_distance_px": null
+        }
+      },
+      "calibration_error": null
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0635",
+      "run_id": "card-scene-proposal-b9c5b740-53e7-5c90-b6cd-5e9173a53d91",
+      "failure_code": "inconsistent_card_geometry",
+      "progress": {
+        "completed": 1,
+        "total": 3
+      },
+      "unprocessed_frame_count": 51,
+      "run_state_sha256": "0cf29c3a8fd2641183c435f49b0b1609f6ee92762b8641b0516229a59df29bc7",
+      "m1_revision_sha256": "3a543b7c862ab080a423b94408d1047014c32f79496a57df9d3859a018be7460",
+      "run_digest": "2ce51b7e874053fda9e9c068de5bdeae402cc05e1f6986212f48ecba6e7d4d5d",
+      "replay_run_digest": "2ce51b7e874053fda9e9c068de5bdeae402cc05e1f6986212f48ecba6e7d4d5d",
+      "replay_matches_recorded_run": true,
+      "replay_failure_code": "inconsistent_card_geometry",
+      "candidate_yield": {
+        "accepted_count": 21,
+        "confidence_count": 32,
+        "deduplicated_count": 21,
+        "geometry_count": 55,
+        "quality_count": 55,
+        "raw_count": 70
+      },
+      "gates": {
+        "candidate_count": true,
+        "fit_quality": false,
+        "held_out_boundary": false,
+        "held_out_population": true,
+        "orientation_diversity": true,
+        "spatial_coverage": true,
+        "table_position_diversity": true,
+        "temporal_diversity": true
+      },
+      "advisory_checks": {
+        "held_out_boundary": false,
+        "spatial_coverage": true
+      },
+      "failed_gates": [
+        "fit_quality"
+      ],
+      "fit": {
+        "accepted_card_count": 13,
+        "fit_attempt_count": 6,
+        "median_boundary_error_px": 5.266615,
+        "p90_boundary_error_px": 10.331182,
+        "quality_passed": false
+      },
+      "validation": {
+        "fit_count": 15,
+        "held_out_count": 6,
+        "held_out_summary": {
+          "count": 6,
+          "median_boundary_distance_px": 5.157418543304996,
+          "p90_boundary_distance_over_short_side": 0.11600397534094745,
+          "p90_boundary_distance_px": 28.882129164330617,
+          "pass_count": 0,
+          "pass_fraction": 0.0,
+          "worst_boundary_distance_px": 49.6853123939115
+        }
+      },
+      "calibration_error": null
+    },
+    {
+      "recording_id": "cardeventnet-IMG_0641",
+      "run_id": "card-scene-proposal-bc0d0aba-751b-54fb-976d-c1549c8dd09d",
+      "failure_code": "unstable_table_transform",
+      "progress": {
+        "completed": 1,
+        "total": 3
+      },
+      "unprocessed_frame_count": 53,
+      "run_state_sha256": "99d99b7ce36b04f49b00da0f766bede56a3fba59bda575bc31cbc1c927698d5e",
+      "m1_revision_sha256": "d7b41d38b67a10d8f6c0d4d1a15891b6401af1a8143f08fee0a3694094f7f8af",
+      "run_digest": "949e6b580e83ee1f9e5aca2d6ef71a6adf26869e6c34368e77b2632713328e52",
+      "replay_run_digest": "808bcd65e24e8b0abd9322ef270cea92ba2f11806c52cfc5dbfe2f0d9c871f0f",
+      "replay_matches_recorded_run": false,
+      "replay_failure_code": null,
+      "candidate_yield": {
+        "accepted_count": 60,
+        "confidence_count": 63,
+        "deduplicated_count": 60,
+        "geometry_count": 78,
+        "quality_count": 78,
+        "raw_count": 103
+      },
+      "gates": {
+        "candidate_count": true,
+        "fit_quality": true,
+        "held_out_boundary": false,
+        "held_out_population": true,
+        "orientation_diversity": true,
+        "spatial_coverage": true,
+        "table_position_diversity": true,
+        "temporal_diversity": true
+      },
+      "advisory_checks": {
+        "held_out_boundary": false,
+        "spatial_coverage": true
+      },
+      "failed_gates": [],
+      "fit": {
+        "accepted_card_count": 44,
+        "fit_attempt_count": 2,
+        "median_boundary_error_px": 1.028515,
+        "p90_boundary_error_px": 1.571953,
+        "quality_passed": true
+      },
+      "validation": {
+        "fit_count": 44,
+        "held_out_count": 16,
+        "held_out_summary": {
+          "count": 16,
+          "median_boundary_distance_px": 2.338355453512885,
+          "p90_boundary_distance_over_short_side": 0.037723523996420816,
+          "p90_boundary_distance_px": 7.073660012226227,
+          "pass_count": 6,
+          "pass_fraction": 0.375,
+          "worst_boundary_distance_px": 12.157290879937486
+        }
+      },
+      "calibration_error": "image_to_table and table_to_image must be reciprocal transforms"
+    },
+    {
+      "recording_id": "game-2026-08-20-01-005",
+      "run_id": "card-scene-proposal-a0aefa4e-caa8-567e-96b0-eba312dabbce",
+      "failure_code": "insufficient_validation_population",
+      "progress": {
+        "completed": 1,
+        "total": 3
+      },
+      "unprocessed_frame_count": 40,
+      "run_state_sha256": "13664d484f49e9e52d6cff75398b0a2a19add14b7286899609e4892d7aa7c0cf",
+      "m1_revision_sha256": "0888df60d625b2b6ddc286a913c1b038dae3c4273eedfbf4c0eefa14a1b70842",
+      "run_digest": "460f91d894ef90498ce6ced21959ee67549b518f4408e373eda436e175d4c6d6",
+      "replay_run_digest": "460f91d894ef90498ce6ced21959ee67549b518f4408e373eda436e175d4c6d6",
+      "replay_matches_recorded_run": true,
+      "replay_failure_code": "insufficient_validation_population",
+      "candidate_yield": {
+        "accepted_count": 7,
+        "confidence_count": 8,
+        "deduplicated_count": 7,
+        "geometry_count": 57,
+        "quality_count": 57,
+        "raw_count": 101
+      },
+      "gates": {
+        "candidate_count": true,
+        "fit_quality": true,
+        "held_out_boundary": false,
+        "held_out_population": false,
+        "orientation_diversity": true,
+        "spatial_coverage": false,
+        "table_position_diversity": true,
+        "temporal_diversity": true
+      },
+      "advisory_checks": {
+        "held_out_boundary": false,
+        "spatial_coverage": false
+      },
+      "failed_gates": [
+        "held_out_population"
+      ],
+      "fit": {
+        "accepted_card_count": 6,
+        "fit_attempt_count": 2,
+        "median_boundary_error_px": 4.469719,
+        "p90_boundary_error_px": 6.553699,
+        "quality_passed": true
+      },
+      "validation": {
+        "fit_count": 6,
+        "held_out_count": 1,
+        "held_out_summary": {
+          "count": 1,
+          "median_boundary_distance_px": 7.82054004763064,
+          "p90_boundary_distance_over_short_side": 0.0499818049520255,
+          "p90_boundary_distance_px": 22.924210190041702,
+          "pass_count": 0,
+          "pass_fraction": 0.0,
+          "worst_boundary_distance_px": 27.9389877817174
+        }
+      },
+      "calibration_error": null
+    }
+  ],
+  "terminal_runtime_failure": {
+    "recording_id": "game-2026-08-20-01-001",
+    "run_id": "97eaca74-c7be-5c22-9149-61ddce059fc8",
+    "failure": {
+      "code": "backend_restarted",
+      "message": "The event processor did not finish before the backend restarted."
+    },
+    "progress": {
+      "completed": 0,
+      "total": 49
+    },
+    "output_revision_ids": [],
+    "run_state_sha256": "3af989fc465d328aa99839a6cc66e4c0e107c807773be18fe1f139755447ded0",
+    "classification": "backend lifecycle failure before a frame completed; no detector or postprocessing behavior was exercised"
+  },
+  "fixture_decision": {
+    "calibration_handoff": "The IMG_0641 fit passes its fit-quality gate, but six-decimal transform serialization fails the reciprocal-transform gate. A minimal fixture is included.",
+    "segmentation_postprocessing": "No single postprocessing defect is reproduced by the retained scoreable outputs. Geometry tags do not establish cause."
+  },
+  "candidate_readiness": {
+    "automated_fix_evidence": [
+      "Exact reviewed-card references support bounded assessment of segmentation false positives and misses on the frozen corpus.",
+      "Confidence distributions overlap. M1 does not establish a confidence-only rule.",
+      "The IMG_0641 matrix serialization handoff has a reproducible fixture. Any fix must preserve calibration gates."
+    ],
+    "insufficient_evidence": [
+      "Pile relations, pose, stacking order, and zero-card quality have no reviewed truth.",
+      "The four calibration failures do not justify lowering population, fit, or transform safety gates."
+    ]
+  }
+}
