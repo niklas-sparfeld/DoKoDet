@@ -162,137 +162,143 @@ def add_frame(metric: dict, pred_outcome: dict, ref_outcome: dict) -> None:
     metric["iou_scores"].extend(score for _, _, score in pairs)
 
 
-m0_by = {row["recording_id"]: row for row in M0["recordings"]}
-m1_by = {row["recording_id"]: row for row in M1["corrective_runs"]}
-m2_by = {row["recording_id"]: row for row in M2["recordings"]}
-pair_by = {row["recording_id"]: row for row in PAIRS["records"]}
-groups = {"all_evaluable": empty_metrics(), "outside_m4_refit_training": empty_metrics(), "overlaps_m4_refit_training": empty_metrics()}
-per_recording = []
-lineage_errors = []
-exact_pairs = 0
-excluded_ineligible_pairs = 0
-unprocessed_exact_pairs = 0
+def generate_report():
+    m0_by = {row["recording_id"]: row for row in M0["recordings"]}
+    m1_by = {row["recording_id"]: row for row in M1["corrective_runs"]}
+    m2_by = {row["recording_id"]: row for row in M2["recordings"]}
+    pair_by = {row["recording_id"]: row for row in PAIRS["records"]}
+    groups = {"all_evaluable": empty_metrics(), "outside_m4_refit_training": empty_metrics(), "overlaps_m4_refit_training": empty_metrics()}
+    per_recording = []
+    lineage_errors = []
+    exact_pairs = 0
+    excluded_ineligible_pairs = 0
+    unprocessed_exact_pairs = 0
 
-for recording_id, preflight in m0_by.items():
-    pair_record = pair_by.get(recording_id)
-    if not pair_record:
-        continue
-    paired = [frame for frame in pair_record["frames"] if frame["paired"]]
-    if not paired:
-        continue
-    if not preflight["evaluation_eligibility"]["eligible"]:
-        excluded_ineligible_pairs += len(paired)
-        continue
-    exact_pairs += len(paired)
-    m1_row = m1_by.get(recording_id)
-    if not m1_row:
-        unprocessed_exact_pairs += len(paired)
-        continue
-    pred_outcomes = {outcome["event_id"]: outcome for outcome in load_revision(m1_row["output_revision_id"])["outcomes"]}
-    ref_revision = preflight["comparison"]["selected_visible_card_reference_revision_id"]
-    ref_outcomes = {outcome["event_id"]: outcome for outcome in load_revision(ref_revision)["outcomes"]}
-    record_metrics = empty_metrics()
-    frame_errors = []
-    for frame in paired:
-        event_id = frame["event_id"]
-        pred = pred_outcomes.get(event_id)
-        ref = ref_outcomes.get(event_id)
-        if pred is None or ref is None:
-            frame_errors.append({"event_id": event_id, "reason": "missing outcome"})
+    for recording_id, preflight in m0_by.items():
+        pair_record = pair_by.get(recording_id)
+        if not pair_record:
             continue
-        # The M0 pair flag is authoritative; verify that the prediction receipt and maintained
-        # reference still carry the exact same decoded image identity.
-        if pred.get("frame_identity") != ref.get("frame_identity"):
-            lineage_errors.append({"recording_id": recording_id, "event_id": event_id,
-                                   "reason": "prediction and reference frame receipts differ"})
+        paired = [frame for frame in pair_record["frames"] if frame["paired"]]
+        if not paired:
             continue
-        add_frame(record_metrics, pred, ref)
-    training_overlap = preflight["m4_training_overlap"]
-    group = "overlaps_m4_refit_training" if training_overlap else "outside_m4_refit_training"
-    for target in (groups["all_evaluable"], groups[group]):
-        for key in ("paired_frames", "scoreable_frames", "ignored_region_frames", "neutralized_predictions", "unresolved_reference_frames",
-                    "reviewed_empty_frames", "predicted_cards", "reviewed_cards", "true_positives",
-                    "false_positives", "false_negatives", "duplicate_proposals",
-                    "zero_card_outcomes_correct", "zero_card_outcomes_incorrect"):
-            target[key] += record_metrics[key]
-        target["iou_scores"].extend(record_metrics["iou_scores"])
-    per_recording.append({"recording_id": recording_id,
-                          "m4_training_overlap": training_overlap,
-                          "exact_paired_frames": len(paired),
-                          "metrics": {k: v for k, v in record_metrics.items() if k != "iou_scores"},
-                          "mean_matched_iou": round(sum(record_metrics["iou_scores"])/len(record_metrics["iou_scores"]), 6) if record_metrics["iou_scores"] else None,
-                          "lineage_errors": frame_errors})
+        if not preflight["evaluation_eligibility"]["eligible"]:
+            excluded_ineligible_pairs += len(paired)
+            continue
+        exact_pairs += len(paired)
+        m1_row = m1_by.get(recording_id)
+        if not m1_row:
+            unprocessed_exact_pairs += len(paired)
+            continue
+        pred_outcomes = {outcome["event_id"]: outcome for outcome in load_revision(m1_row["output_revision_id"])["outcomes"]}
+        ref_revision = preflight["comparison"]["selected_visible_card_reference_revision_id"]
+        ref_outcomes = {outcome["event_id"]: outcome for outcome in load_revision(ref_revision)["outcomes"]}
+        record_metrics = empty_metrics()
+        frame_errors = []
+        for frame in paired:
+            event_id = frame["event_id"]
+            pred = pred_outcomes.get(event_id)
+            ref = ref_outcomes.get(event_id)
+            if pred is None or ref is None:
+                frame_errors.append({"event_id": event_id, "reason": "missing outcome"})
+                continue
+            # The M0 pair flag is authoritative; verify that the prediction receipt and maintained
+            # reference still carry the exact same decoded image identity.
+            if pred.get("frame_identity") != ref.get("frame_identity"):
+                lineage_errors.append({"recording_id": recording_id, "event_id": event_id,
+                                       "reason": "prediction and reference frame receipts differ"})
+                continue
+            add_frame(record_metrics, pred, ref)
+        training_overlap = preflight["m4_training_overlap"]
+        group = "overlaps_m4_refit_training" if training_overlap else "outside_m4_refit_training"
+        for target in (groups["all_evaluable"], groups[group]):
+            for key in ("paired_frames", "scoreable_frames", "ignored_region_frames", "neutralized_predictions", "unresolved_reference_frames",
+                        "reviewed_empty_frames", "predicted_cards", "reviewed_cards", "true_positives",
+                        "false_positives", "false_negatives", "duplicate_proposals",
+                        "zero_card_outcomes_correct", "zero_card_outcomes_incorrect"):
+                target[key] += record_metrics[key]
+            target["iou_scores"].extend(record_metrics["iou_scores"])
+        per_recording.append({"recording_id": recording_id,
+                              "m4_training_overlap": training_overlap,
+                              "exact_paired_frames": len(paired),
+                              "metrics": {k: v for k, v in record_metrics.items() if k != "iou_scores"},
+                              "mean_matched_iou": round(sum(record_metrics["iou_scores"])/len(record_metrics["iou_scores"]), 6) if record_metrics["iou_scores"] else None,
+                              "lineage_errors": frame_errors})
 
 
-def finish(metric):
-    tp, fp, fn = metric["true_positives"], metric["false_positives"], metric["false_negatives"]
-    p = tp / (tp + fp) if tp + fp else None
-    r = tp / (tp + fn) if tp + fn else None
-    metric["precision"] = round(p, 6) if p is not None else None
-    metric["recall"] = round(r, 6) if r is not None else None
-    metric["f1"] = round(2*p*r/(p+r), 6) if p is not None and r is not None and p+r else None
-    scores = metric.pop("iou_scores")
-    metric["mean_matched_iou"] = round(sum(scores)/len(scores), 6) if scores else None
-    metric["matched_iou_count"] = len(scores)
-    return metric
+    def finish(metric):
+        tp, fp, fn = metric["true_positives"], metric["false_positives"], metric["false_negatives"]
+        p = tp / (tp + fp) if tp + fp else None
+        r = tp / (tp + fn) if tp + fn else None
+        metric["precision"] = round(p, 6) if p is not None else None
+        metric["recall"] = round(r, 6) if r is not None else None
+        metric["f1"] = round(2*p*r/(p+r), 6) if p is not None and r is not None and p+r else None
+        scores = metric.pop("iou_scores")
+        metric["mean_matched_iou"] = round(sum(scores)/len(scores), 6) if scores else None
+        metric["matched_iou_count"] = len(scores)
+        return metric
 
-for key in groups:
-    groups[key] = finish(groups[key])
+    for key in groups:
+        groups[key] = finish(groups[key])
 
-report = {
-    "schema_version": "0096-m3-exact-reference-evaluation/v1",
-    "epic": "0096", "milestone": "M3", "date": "2026-10-17", "status": "complete",
-    "inputs": {"m0_preflight": "0096-M0_Preflight.json", "m0_exact_frame_comparison": "0096-M0_Exact_Frame_Comparison.json",
-               "m1_result": "0096-M1_Run_Result.json", "m2_result": "0096-M2_Proposed_Scene_Results.json"},
-    "policy": {"pairing": "M0 paired exact decoded images only; check full M1 and reference frame receipts agree",
-               "eligibility": "M0 evaluation_eligibility must be true; exclude training-only recordings",
-               "association": "reuse the pipeline-comparison geometry IoU and greedy one-to-one matcher at threshold 0.5; this rasterizes normalized polygon unions with the maintained pixel-center even-odd rule, supports concave contours, and neutralizes predictions inside reviewed ignore regions",
-               "unscored_frames": "exclude reference outcomes with ignore regions or status other than detected/empty; report separate counts",
-               "duplicate_proposal": "unmatched predicted card with IoU >= 0.5 to any reviewed card in the same frame",
-               "zero_card": "score only explicit reviewed empty outcomes; missing candidates are not empty labels"},
-    "coverage": {"m0_exact_pairs_all_permissions": PAIRS["summary"]["paired_exact_frames"],
-                 "exact_pairs_excluded_by_evaluation_permission": excluded_ineligible_pairs,
-                 "exact_pairs_eligible": exact_pairs,
-                 "eligible_pairs_without_m1_output": unprocessed_exact_pairs,
-                 "scoreable_frame_count": groups["all_evaluable"]["scoreable_frames"],
-                 "M0_unpaired_reference_frames": PAIRS["summary"]["unpaired_reference_frames"]},
-    "segmentation": groups,
-    "scene_evaluation": {"calibration": {"published": M2["summary"]["completed_runs"], "failed": M2["summary"]["failed_runs"],
-                                           "publication_rate": round(M2["summary"]["completed_runs"] / len(M2["recordings"]), 6)},
-                         "pile_precision_recall": "unsupported: maintained references have no reviewed pile-region targets",
-                         "pose_outline_agreement": "unsupported: maintained references contain no reviewed 3D card poses or scene outlines",
-                         "stacking_order_agreement": "unsupported: maintained references contain no reviewed stacking order"},
-    "zero_card_review": {"explicit_reviewed_empty_frames": groups["all_evaluable"]["reviewed_empty_frames"],
-                         "correct": groups["all_evaluable"]["zero_card_outcomes_correct"],
-                         "incorrect": groups["all_evaluable"]["zero_card_outcomes_incorrect"],
-                         "status": "unsupported" if not groups["all_evaluable"]["reviewed_empty_frames"] else "scored"},
-    "lineage_errors": lineage_errors,
-    "recordings": per_recording,
-}
-# Record the frame that the user reviewed in the WebUI so visual feedback has exact lineage.
-example_recording = "cardeventnet-IMG_0645"
-example_event = "cardeventnet-event-img_0645-015"
-example_m1 = m1_by[example_recording]
-example_ref_id = m0_by[example_recording]["comparison"]["selected_visible_card_reference_revision_id"]
-example_pred = next(o for o in load_revision(example_m1["output_revision_id"])["outcomes"] if o["event_id"] == example_event)
-example_ref = next(o for o in load_revision(example_ref_id)["outcomes"] if o["event_id"] == example_event)
-example_metrics = empty_metrics()
-add_frame(example_metrics, example_pred, example_ref)
-report["user_reviewed_frame"] = {
-    "recording_id": example_recording, "event_id": example_event,
-    "m0_exact_decoded_image_pair": True,
-    "prediction_revision_id": example_m1["output_revision_id"],
-    "reference_revision_id": example_ref_id,
-    "prediction_candidate_count": len(example_pred["candidates"]),
-    "reviewed_candidate_count": len(example_ref["candidates"]),
-    "ignored_region_count": len(example_ref["ignored_regions"]),
-    "matched_card_count": example_metrics["true_positives"],
-    "unmatched_prediction_count": example_metrics["false_positives"],
-    "unmatched_reviewed_card_count": example_metrics["false_negatives"],
-    "matched_iou": example_metrics["iou_scores"][0] if example_metrics["iou_scores"] else None,
-    "neutralized_prediction_count": example_metrics["neutralized_predictions"],
-}
+    report = {
+        "schema_version": "0096-m3-exact-reference-evaluation/v1",
+        "epic": "0096", "milestone": "M3", "date": "2026-10-17", "status": "complete",
+        "inputs": {"m0_preflight": "0096-M0_Preflight.json", "m0_exact_frame_comparison": "0096-M0_Exact_Frame_Comparison.json",
+                   "m1_result": "0096-M1_Run_Result.json", "m2_result": "0096-M2_Proposed_Scene_Results.json"},
+        "policy": {"pairing": "M0 paired exact decoded images only; check full M1 and reference frame receipts agree",
+                   "eligibility": "M0 evaluation_eligibility must be true; exclude training-only recordings",
+                   "association": "reuse the pipeline-comparison geometry IoU and greedy one-to-one matcher at threshold 0.5; this rasterizes normalized polygon unions with the maintained pixel-center even-odd rule, supports concave contours, and neutralizes predictions inside reviewed ignore regions",
+                   "unscored_frames": "report frames with ignore regions; neutralize predictions that overlap ignored geometry; exclude reference outcomes with status other than detected/empty",
+                   "duplicate_proposal": "unmatched predicted card with IoU >= 0.5 to any reviewed card in the same frame",
+                   "zero_card": "score only explicit reviewed empty outcomes; missing candidates are not empty labels"},
+        "coverage": {"m0_exact_pairs_all_permissions": PAIRS["summary"]["paired_exact_frames"],
+                     "exact_pairs_excluded_by_evaluation_permission": excluded_ineligible_pairs,
+                     "exact_pairs_eligible": exact_pairs,
+                     "eligible_pairs_without_m1_output": unprocessed_exact_pairs,
+                     "scoreable_frame_count": groups["all_evaluable"]["scoreable_frames"],
+                     "M0_unpaired_reference_frames": PAIRS["summary"]["unpaired_reference_frames"]},
+        "segmentation": groups,
+        "scene_evaluation": {"calibration": {"published": M2["summary"]["completed_runs"], "failed": M2["summary"]["failed_runs"],
+                                               "publication_rate": round(M2["summary"]["completed_runs"] / len(M2["recordings"]), 6)},
+                             "pile_precision_recall": "unsupported: maintained references have no reviewed pile-region targets",
+                             "pose_outline_agreement": "unsupported: maintained references contain no reviewed 3D card poses or scene outlines",
+                             "stacking_order_agreement": "unsupported: maintained references contain no reviewed stacking order"},
+        "zero_card_review": {"explicit_reviewed_empty_frames": groups["all_evaluable"]["reviewed_empty_frames"],
+                             "correct": groups["all_evaluable"]["zero_card_outcomes_correct"],
+                             "incorrect": groups["all_evaluable"]["zero_card_outcomes_incorrect"],
+                             "status": "unsupported" if not groups["all_evaluable"]["reviewed_empty_frames"] else "scored"},
+        "lineage_errors": lineage_errors,
+        "recordings": per_recording,
+    }
+    # Record the frame that the user reviewed in the WebUI so visual feedback has exact lineage.
+    example_recording = "cardeventnet-IMG_0645"
+    example_event = "cardeventnet-event-img_0645-015"
+    example_m1 = m1_by[example_recording]
+    example_ref_id = m0_by[example_recording]["comparison"]["selected_visible_card_reference_revision_id"]
+    example_pred = next(o for o in load_revision(example_m1["output_revision_id"])["outcomes"] if o["event_id"] == example_event)
+    example_ref = next(o for o in load_revision(example_ref_id)["outcomes"] if o["event_id"] == example_event)
+    example_metrics = empty_metrics()
+    add_frame(example_metrics, example_pred, example_ref)
+    report["user_reviewed_frame"] = {
+        "recording_id": example_recording, "event_id": example_event,
+        "m0_exact_decoded_image_pair": True,
+        "prediction_revision_id": example_m1["output_revision_id"],
+        "reference_revision_id": example_ref_id,
+        "prediction_candidate_count": len(example_pred["candidates"]),
+        "reviewed_candidate_count": len(example_ref["candidates"]),
+        "ignored_region_count": len(example_ref["ignored_regions"]),
+        "matched_card_count": example_metrics["true_positives"],
+        "unmatched_prediction_count": example_metrics["false_positives"],
+        "unmatched_reviewed_card_count": example_metrics["false_negatives"],
+        "matched_iou": example_metrics["iou_scores"][0] if example_metrics["iou_scores"] else None,
+        "neutralized_prediction_count": example_metrics["neutralized_predictions"],
+    }
 
-(REPORTS / "0096-M3_Exact_Reference_Evaluation.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
-print(json.dumps({"coverage": report["coverage"], "segmentation": {k:v for k,v in report["segmentation"].items()},
-                  "zero_card_review":report["zero_card_review"],"lineage_errors":lineage_errors},indent=2))
+    (REPORTS / "0096-M3_Exact_Reference_Evaluation.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
+    print(json.dumps({"coverage": report["coverage"], "segmentation": report["segmentation"],
+                      "zero_card_review":report["zero_card_review"],"lineage_errors":lineage_errors},indent=2))
+    return report
+
+
+if __name__ == "__main__":
+    generate_report()
