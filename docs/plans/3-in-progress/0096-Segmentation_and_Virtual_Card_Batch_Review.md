@@ -17,7 +17,7 @@
   exact M0 frame outcomes; one recording remains unprocessed after its terminal backend failure.
 - **M2:** Complete — 29 scene runs cover 1,513 frames; four calibration failures leave 194 frames unprocessed. The separate M1 failure leaves 49 frames unprocessed.
 - **M3:** Complete — 880 exact-frame pairs were eligible; 870 had scoreable reference outcomes. The outside-refit-training set scored 0.897 precision and 0.925 recall at polygon IoU `>= 0.5`. Pile, pose, stacking-order, and zero-card quality remain unsupported by current references.
-- **M4:** In progress — prepare the bounded human-review queue and publish measured follow-up work.
+- **M4:** Awaiting human review — the frozen queue has 165 frames across 33 reviewable recordings. One M1 dependency failure has no frame to inspect.
 
 ## 1. Scope and current evidence
 
@@ -187,17 +187,17 @@ scenes, report pose/outline agreement and stacking-order agreement only where th
 supports those questions. Record crop-support failures as geometry diagnostics without running
 identification. Freeze any additional measurement definitions in M0 before looking at predictions.
 
-Acceptance: a reproducible report distinguishes segmentation, calibration, pose, stacking-order,
-and coverage problems. Each score has a supported denominator. Unsupported quality questions are
-explicit. Retained outputs are not rerun to improve scores.
+Acceptance: the [M3 evaluation](../../reports/0096-M3_Exact_Reference_Evaluation.md) distinguishes
+segmentation, calibration, and coverage. It reports supported denominators and names unsupported
+pile, pose, stacking-order, and zero-card measures. Retained outputs were not rerun to improve scores.
 
 ### M4 — Review results and publish follow-up work
 
-Prepare a deterministic review list from M3 outcomes. Cover every included recording with a result
-or an explicit failure to inspect. Select at most five frames per recording, at most 195 frames,
-for the initial human review. Prioritize calibration/pose failures, detector misses and extras,
-duplicates, pile fragments, overlap, small cards, frame edges, and a successful control when present.
-Freeze the selected frames, reasons, and result lineage before human review starts.
+The [frozen M4 review queue](../../reports/0096-M4_Human_Review_Queue.md) covers all 34 included
+recordings: 165 frames across 33 recordings and one explicit M1 dependency failure. It selects at
+most five frames per recording, below the 195-frame limit. Review the queue before any review
+decisions. The queue prioritizes calibration failures, detector misses and extras, pose and order
+diagnostics, pile regions, overlaps, small cards, frame edges, and successful controls.
 
 Use the existing recording workspace and maintained references. The operator accepts or corrects
 card geometry, calibration, and stacking order. Record inspected coverage, corrections, unresolved

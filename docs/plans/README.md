@@ -26,7 +26,7 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 human review is in progress.
+Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review.
 Start with M0 eligibility and input freeze. Run the pinned 0092 M4 segmentation bundle and proposed
 card scene processor across all eligible recordings, then evaluate and review the retained results.
 Identification, observation assembly, and reconstruction are outside this epic.
@@ -93,7 +93,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. M4 bounded human review is in progress. See the [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
+| [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. The M4 review queue is frozen at 165 frames across 33 recordings; one M1 failure has no corrected output to inspect. Human review is pending. See the [M4 queue](../reports/0096-M4_Human_Review_Queue.md) and [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
 
 ### Blocked
 
