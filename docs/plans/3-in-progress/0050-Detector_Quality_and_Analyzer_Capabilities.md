@@ -4,7 +4,7 @@
 
 - **Summary:** Correct two measured integration boundaries from the 0090 pilot, then measure
   downstream behavior with the same models and retained automatic inputs.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0048 and 0049; completed 0086 reviewed evidence; completed 0087 and
   0088 bundle decisions; completed 0092 M4 bundle; completed 0090 composed pilot report.
 - **Readiness:** The three original videos, frozen references, and retained 0090 processor results
@@ -19,8 +19,8 @@
 ## Milestone status
 
 - **M0:** Complete — [freeze retained evidence and contracts](../../reports/0050-M0_Diagnostic_Freeze.md); M4 preflight needs the exact real-round video restored.
-- **M1:** Not started — next; compare identical decoded images and correct the geometry coverage report.
-- **M2:** Not started — handle scene inputs with no individual-card detections.
+- **M1:** Complete — [corrected frame comparison](../../reports/0050-M1_Frame_Comparison_Correction.md).
+- **M2:** Not started — next; handle zero-card and pile-only scene inputs at the processor and service boundaries.
 - **M3:** Not started — verify identity, observation, and coordinator handling of those inputs.
 - **M4:** Not started — run the bounded diagnostic and publish the next decision.
 
@@ -145,6 +145,13 @@ Acceptance: deterministic pairing and metrics from retained outputs, meaningful 
 no inference, and a precise correction to the earlier coverage conclusion.
 
 ### M2 — Handle scene inputs with no card candidates
+
+Start with `operations/src/doko_operations/proposed_card_scene_processor.py` and
+`operations/src/doko_operations/card_plane_initialization.py`. Check the backend boundary in
+`backend/src/dokodetector_backend/proposed_card_scene_pipeline_service.py`. Add focused cases to
+`operations/tests/test_proposed_card_scene_processor.py` and
+`backend/tests/test_proposed_card_scene_pipeline.py`. Keep mixed-frame calibration and fitting gates
+unchanged; zero-card success must not hide a real detector, calibration, or fit failure.
 
 Implement the frozen scene outcome contract at the processor and service boundaries. Successful
 zero-card frames and pile-only frames must finish with an explicit valid outcome, without card

@@ -5,9 +5,11 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Mapping, Sequence
+from functools import lru_cache
 from typing import Any
 
 from table_evidence_analyzer.pipeline_data import (
+    CardSceneDraft,
     DetectorBoxGeometry,
     PipelineGeometry,
     PredictedVisibleRegionGeometry,
@@ -336,19 +338,48 @@ def geometry_iou(
     left: PipelineGeometry | ReviewedIgnoreRegionGeometry,
     right: PipelineGeometry | ReviewedIgnoreRegionGeometry,
 ) -> float:
-    """Calculate IoU for the declared boxes of two pipeline geometries."""
+    """Calculate IoU for the polygon unions of two normalized geometries."""
 
     left_box = geometry_box(left)
     right_box = geometry_box(right)
+    if (
+        left_box[2] <= right_box[0]
+        or right_box[2] <= left_box[0]
+        or left_box[3] <= right_box[1]
+        or right_box[3] <= left_box[1]
+    ):
+        return 0.0
+    left_mask = _geometry_mask(left)
+    right_mask = _geometry_mask(right)
     x_min = max(left_box[0], right_box[0])
     y_min = max(left_box[1], right_box[1])
     x_max = min(left_box[2], right_box[2])
     y_max = min(left_box[3], right_box[3])
-    intersection = max(0, x_max - x_min) * max(0, y_max - y_min)
-    left_area = (left_box[2] - left_box[0]) * (left_box[3] - left_box[1])
-    right_area = (right_box[2] - right_box[0]) * (right_box[3] - right_box[1])
-    union = left_area + right_area - intersection
+    start_x = max(0, int(x_min) - 1)
+    end_x = min(999, int(x_max) + 1)
+    start_y = max(0, int(y_min) - 1)
+    end_y = min(999, int(y_max) + 1)
+    intersection = 0
+    for y in range(start_y, end_y + 1):
+        start = y * 1_000 + start_x
+        end = y * 1_000 + end_x + 1
+        intersection += sum(
+            a and b for a, b in zip(left_mask[start:end], right_mask[start:end], strict=True)
+        )
+    union = _geometry_area(left) + _geometry_area(right) - intersection
     return intersection / union if union else 0.0
+
+
+@lru_cache(maxsize=64)
+def _geometry_mask(geometry: PipelineGeometry | ReviewedIgnoreRegionGeometry) -> bytearray:
+    """Rasterize one normalized polygon union with the shared ignore-region rules."""
+
+    return rasterize_geometry(geometry, width=1_000, height=1_000)
+
+
+@lru_cache(maxsize=64)
+def _geometry_area(geometry: PipelineGeometry | ReviewedIgnoreRegionGeometry) -> int:
+    return mask_count(_geometry_mask(geometry))
 
 
 def match_geometry_records(
@@ -457,8 +488,16 @@ def _validate_pose_scene_content(content: VisibleCardData) -> None:
         envelope = outcome.card_scene
         if envelope is None:
             continue
-        scene = envelope.get("scene")
-        projection = envelope.get("projection")
+        if isinstance(envelope, CardSceneDraft):
+            if envelope.reviewed is None:
+                continue
+            scene = envelope.reviewed.scene
+            projection = envelope.projection
+            receipt = envelope.derived_region_receipt
+        else:
+            scene = envelope.get("scene")
+            projection = envelope.get("projection")
+            receipt = envelope.get("derived_region_receipt")
         if not isinstance(scene, Mapping) or not isinstance(projection, Mapping):
             raise PipelineComparisonContractError("visible-card scene-derived view is incomplete")
         try:
@@ -466,7 +505,7 @@ def _validate_pose_scene_content(content: VisibleCardData) -> None:
                 scene,
                 projection,
                 [candidate.to_mapping() for candidate in outcome.candidates],
-                receipt=envelope.get("derived_region_receipt"),
+                receipt=receipt,
             )
         except (CardPlaneGeometryError, TypeError, ValueError) as error:
             raise PipelineComparisonContractError(
@@ -639,6 +678,8 @@ def _compare_visible_card_side(
                         side=side,
                         outcome="failure",
                         frame=content_outcome.frame_identity or reference_outcome.frame_identity,
+                        reference_frame_identity=reference_outcome.frame_identity,
+                        run_frame_identity=content_outcome.frame_identity,
                         reference_event_id=reference_outcome.event_id,
                         run_event_id=content_outcome.event_id,
                         reference_context=reference_outcome.to_mapping(),
@@ -664,6 +705,8 @@ def _compare_visible_card_side(
                         side=side,
                         outcome="ignored",
                         frame=content_outcome.frame_identity,
+                        reference_frame_identity=reference_outcome.frame_identity,
+                        run_frame_identity=content_outcome.frame_identity,
                         reference_event_id=reference_outcome.event_id,
                         run_event_id=content_outcome.event_id,
                         run_card=content_outcome.candidates[index],
@@ -677,6 +720,8 @@ def _compare_visible_card_side(
                             side=side,
                             outcome="empty",
                             frame=content_outcome.frame_identity,
+                            reference_frame_identity=reference_outcome.frame_identity,
+                            run_frame_identity=content_outcome.frame_identity,
                             reference_event_id=reference_outcome.event_id,
                             run_event_id=content_outcome.event_id,
                             reference_context=reference_outcome.to_mapping(),
@@ -704,6 +749,8 @@ def _compare_visible_card_side(
                         side=side,
                         outcome="match",
                         frame=content_outcome.frame_identity,
+                        reference_frame_identity=reference_outcome.frame_identity,
+                        run_frame_identity=content_outcome.frame_identity,
                         reference_event_id=reference_outcome.event_id,
                         run_event_id=content_outcome.event_id,
                         reference_card=reference_outcome.candidates[reference_index],
@@ -719,6 +766,8 @@ def _compare_visible_card_side(
                             side=side,
                             outcome="miss",
                             frame=content_outcome.frame_identity,
+                            reference_frame_identity=reference_outcome.frame_identity,
+                            run_frame_identity=content_outcome.frame_identity,
                             reference_event_id=reference_outcome.event_id,
                             run_event_id=content_outcome.event_id,
                             reference_card=candidate,
@@ -732,6 +781,8 @@ def _compare_visible_card_side(
                             side=side,
                             outcome="extra",
                             frame=content_outcome.frame_identity,
+                            reference_frame_identity=reference_outcome.frame_identity,
+                            run_frame_identity=content_outcome.frame_identity,
                             reference_event_id=reference_outcome.event_id,
                             run_event_id=content_outcome.event_id,
                             run_card=candidate,
@@ -969,6 +1020,8 @@ def _compare_identity_side(
                 side=side,
                 outcome=outcome,
                 frame=frame,
+                reference_frame_identity=reference_outcome.frame_identity,
+                run_frame_identity=content_outcome.frame_identity,
                 reference_card=reference_outcome,
                 run_card=content_outcome,
                 iou=iou,
@@ -1124,8 +1177,14 @@ def _vision_item(
     run_candidates: Sequence[Any] | None = None,
     reference_context: dict[str, Any] | None = None,
     run_context: dict[str, Any] | None = None,
+    reference_frame_identity: Any | None = None,
+    run_frame_identity: Any | None = None,
 ) -> PipelineComparisonItem:
     frame_mapping = None if frame is None else frame.to_mapping()
+    reference_frame_mapping = (
+        None if reference_frame_identity is None else reference_frame_identity.to_mapping()
+    )
+    run_frame_mapping = None if run_frame_identity is None else run_frame_identity.to_mapping()
     reference_card_mapping = _vision_mapping(reference_card)
     run_card_mapping = _vision_mapping(run_card)
     reference_card_id = _vision_id(reference_card)
@@ -1137,6 +1196,8 @@ def _vision_item(
         "side": side,
         "outcome": outcome,
         "frame_identity": frame_mapping,
+        "reference_frame_identity": reference_frame_mapping,
+        "run_frame_identity": run_frame_mapping,
         "reference_event_id": reference_event_id,
         "run_event_id": run_event_id,
         "reference_card_id": reference_card_id,
@@ -1176,6 +1237,8 @@ def _vision_item(
         delta_us=None,
         source_links=source_links,
         frame_identity=frame_mapping,
+        reference_frame_identity=reference_frame_mapping,
+        run_frame_identity=run_frame_mapping,
         reference_card_id=reference_card_id,
         run_card_id=run_card_id,
         reference_card=reference_card_mapping,

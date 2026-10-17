@@ -55,10 +55,7 @@ def _box(x_min: int, y_min: int, x_max: int, y_max: int) -> DetectorBoxGeometry:
 
 def _reviewed_box() -> ReviewedVisibleRegionGeometry:
     return ReviewedVisibleRegionGeometry(
-        polygons=(
-            ((100, 100), (200, 100), (200, 200), (100, 200)),
-            ((300, 300), (400, 300), (400, 400), (300, 400)),
-        )
+        polygons=(((100, 100), (200, 100), (200, 200), (100, 200)),)
     )
 
 
@@ -116,12 +113,12 @@ def test_visible_card_comparison_uses_derived_box_and_includes_iou_boundary() ->
                 "event-1",
                 frame,
                 "detected",
-                (_visible_candidate("run-card", _box(100, 100, 400, 250)),),
+                (_visible_candidate("run-card", _box(100, 100, 200, 300)),),
             ),
         )
     )
-    assert geometry_box(_reviewed_box()) == (100, 100, 400, 400)
-    assert geometry_iou(_reviewed_box(), _box(100, 100, 400, 250)) == 0.5
+    assert geometry_box(_reviewed_box()) == (100, 100, 200, 200)
+    assert geometry_iou(_reviewed_box(), _box(100, 100, 200, 300)) == 0.5
     scope = build_frame_comparison_scope(
         reviewed=[frame.to_mapping()], left=[frame.to_mapping()], right=[frame.to_mapping()]
     )
@@ -139,6 +136,19 @@ def test_visible_card_comparison_uses_derived_box_and_includes_iou_boundary() ->
     assert metrics["left"].precision == 1.0
     assert [item.outcome for item in items].count("match") == 2
     assert all(item.iou == 0.5 for item in items)
+
+
+def test_geometry_iou_uses_polygon_unions_instead_of_the_outer_box() -> None:
+    polygon_union = ReviewedVisibleRegionGeometry(
+        polygons=(
+            ((100, 100), (200, 100), (200, 200), (100, 200)),
+            ((300, 300), (400, 300), (400, 400), (300, 400)),
+        )
+    )
+    enclosing_box = _box(100, 100, 400, 400)
+
+    assert geometry_box(polygon_union) == geometry_box(enclosing_box)
+    assert geometry_iou(polygon_union, enclosing_box) == 2 / 9
 
 
 def test_visible_card_comparison_keeps_empty_failed_unreviewed_and_unpaired_distinct() -> None:
@@ -315,9 +325,9 @@ def test_identity_comparison_uses_exact_upstream_card_or_geometry_and_reports_di
     reference_outcome = _identity_outcome(
         "card-1", frame, _reviewed_box(), (_identity("CLUBS_NINE"),)
     )
-    exact = _identity_outcome("card-1", frame, _box(100, 100, 400, 400), (_identity("CLUBS_NINE"),))
+    exact = _identity_outcome("card-1", frame, _box(100, 100, 200, 200), (_identity("CLUBS_NINE"),))
     disagreement = _identity_outcome(
-        "different-card", frame, _box(100, 100, 400, 400), (_identity("SPADES_ACE"),)
+        "different-card", frame, _box(100, 100, 200, 200), (_identity("SPADES_ACE"),)
     )
     reference = VisualIdentityData(outcomes=(reference_outcome,))
     scope = build_frame_comparison_scope(

@@ -151,6 +151,8 @@ class PipelineComparisonItemResponse(ContractModel):
     delta_us: int | None
     source_links: dict[str, str]
     frame_identity: dict[str, Any] | None
+    reference_frame_identity: dict[str, Any] | None
+    run_frame_identity: dict[str, Any] | None
     reference_card_id: str | None
     run_card_id: str | None
     reference_card: dict[str, Any] | None

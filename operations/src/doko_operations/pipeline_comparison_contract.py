@@ -13,7 +13,7 @@ from .pipeline_data import CARD_STATE_CHANGED_EVENT_TYPE, canonical_json_bytes
 
 PIPELINE_COMPARISON_REQUEST_SCHEMA_VERSION = "pipeline-comparison-request/v1"
 PIPELINE_COMPARISON_SCHEMA_VERSION = "pipeline-comparison/v1"
-PIPELINE_COMPARISON_ALGORITHM_VERSION = "event-matching/v1"
+PIPELINE_COMPARISON_ALGORITHM_VERSION = "pipeline-comparison/v2"
 
 ComparisonMode = Literal["paired_processor", "upstream_experiment"]
 ComparisonOutcome = Literal[
@@ -553,7 +553,11 @@ def _sorted_unique_frame_identities(
 
 
 def _frame_identity_key(frame: Mapping[str, Any]) -> bytes:
-    return canonical_json_bytes(frame)
+    """Return the comparison-only key, excluding requested extraction time."""
+
+    comparable = dict(frame)
+    comparable.pop("requested_time_us", None)
+    return canonical_json_bytes(comparable)
 
 
 @dataclass(frozen=True, slots=True)
@@ -646,6 +650,8 @@ class PipelineComparisonItem:
     delta_us: int | None
     source_links: dict[str, str]
     frame_identity: dict[str, Any] | None = None
+    reference_frame_identity: dict[str, Any] | None = None
+    run_frame_identity: dict[str, Any] | None = None
     reference_card_id: str | None = None
     run_card_id: str | None = None
     reference_card: dict[str, Any] | None = None
@@ -670,6 +676,8 @@ class PipelineComparisonItem:
             "delta_us": self.delta_us,
             "source_links": self.source_links,
             "frame_identity": self.frame_identity,
+            "reference_frame_identity": self.reference_frame_identity,
+            "run_frame_identity": self.run_frame_identity,
             "reference_card_id": self.reference_card_id,
             "run_card_id": self.run_card_id,
             "reference_card": self.reference_card,
@@ -1031,6 +1039,8 @@ def _item_from_mapping(raw: Any, field: str, *, content_type: str) -> PipelineCo
             "delta_us",
             "source_links",
             "frame_identity",
+            "reference_frame_identity",
+            "run_frame_identity",
             "reference_card_id",
             "run_card_id",
             "reference_card",
@@ -1066,6 +1076,14 @@ def _item_from_mapping(raw: Any, field: str, *, content_type: str) -> PipelineCo
     frame_identity = data["frame_identity"]
     if frame_identity is not None:
         frame_identity = _object(frame_identity, f"{field}.frame_identity")
+    reference_frame_identity = data["reference_frame_identity"]
+    if reference_frame_identity is not None:
+        reference_frame_identity = _object(
+            reference_frame_identity, f"{field}.reference_frame_identity"
+        )
+    run_frame_identity = data["run_frame_identity"]
+    if run_frame_identity is not None:
+        run_frame_identity = _object(run_frame_identity, f"{field}.run_frame_identity")
     iou = data["iou"]
     if iou is not None:
         iou = _finite_number(iou, f"{field}.iou")
@@ -1100,6 +1118,8 @@ def _item_from_mapping(raw: Any, field: str, *, content_type: str) -> PipelineCo
         delta_us=delta,
         source_links=_string_map(data["source_links"], f"{field}.source_links"),
         frame_identity=frame_identity,
+        reference_frame_identity=reference_frame_identity,
+        run_frame_identity=run_frame_identity,
         reference_card_id=(
             None
             if data["reference_card_id"] is None

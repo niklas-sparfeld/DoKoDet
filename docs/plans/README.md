@@ -42,8 +42,9 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
    quality is measured. Full provenance matching excluded two identical decoded IMG_0662 images;
    0050 owns the comparison correction. Downstream quality remains unmeasured. See the
    [M3 report](../reports/0090-M3_Composed_Pilot.md).
-6. **0050 M0:** Ready. Freeze the retained evidence and contracts before correcting image comparison,
-   zero-card scene outcomes, and downstream handling. M4 has a separate bounded diagnostic budget.
+6. **0050 M1:** Complete. The comparison pairs two byte-identical decoded IMG_0662 frames and scores
+   seven cards at polygon IoU 0.5. M2 handles zero-card scene outcomes; M4 has a separate bounded
+   diagnostic budget and still needs the exact real-round video.
 
 Fix bounded annotation blockers during 0086. The larger annotation/crop and training foundations
 are explicit work in 0093/0094. Require a new measured scope for future geometry or crop work.
@@ -77,13 +78,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0050 — Detector quality and analyzer capabilities](2-ready/0050-Detector_Quality_and_Analyzer_Capabilities.md) | Completed 0048/0049, 0086 evidence, 0087/0088 decisions, 0092 M4, and 0090 pilot | M0 complete: [diagnostic freeze](../reports/0050-M0_Diagnostic_Freeze.md). M1 is next; M2–M4 remain not started. The exact real-round video is missing for M4 preflight. |
+| *No ready epics* |  |  |
 
 ### In Progress
 
 | Epic                                                                                                                            | Depends on                                                                                                          | Outcome                                                                                                                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| *No in-progress epics* |  |  |
+| [0050 — Detector quality and analyzer capabilities](3-in-progress/0050-Detector_Quality_and_Analyzer_Capabilities.md) | Completed 0048/0049, 0086 evidence, 0087/0088 decisions, 0092 M4, and 0090 pilot | M0–M1 complete: [diagnostic freeze](../reports/0050-M0_Diagnostic_Freeze.md), [frame comparison correction](../reports/0050-M1_Frame_Comparison_Correction.md). M2 is next; M3–M4 remain not started. The exact real-round video is missing for M4 preflight. |
 
 ### Blocked
 
@@ -198,9 +199,9 @@ The shared target architecture is
    0057 is complete.
 4. **Start 0044 from Ready.** Use the retained 0043 report to define promotion gates before any
    local cutover. Keep the 0043 bundle unpromoted until those gates pass.
-5. **Keep 0050 blocked until a future fixed identity baseline and sufficient reviewed evidence
-   exist.** Make it Ready only when a bounded detector/composed measurement has fixed inputs,
-   metrics, thresholds, and a budget. Do not run an open-ended search.
+5. **Continue 0050 with its frozen bounded diagnostic.** M0–M1 are complete and M2 is next. Keep
+   M4 blocked until the exact real-round video is restored and its frozen hash is verified. Do not
+   run an open-ended search.
 6. **Keep 0043’s measured limits as the input to 0044.** Reuse 0048/0049 rather than introducing
    another review lifecycle. Promotion and backend default changes remain explicit later actions.
 7. **Keep 0023, 0026, and 0024 as later specification work.** They do not block the current engine,

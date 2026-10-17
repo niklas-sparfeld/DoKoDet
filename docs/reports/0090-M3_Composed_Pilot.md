@@ -90,3 +90,14 @@ Use exact-frame reviewed coverage or add eligible reviewed geometry before makin
 claims. Diagnose why the scene initializer rejects detector outputs on the unsupported frames.
 Keep identity, observation, and reconstruction measurement behind a complete scene result. Do not
 promote M6 or change production defaults from this pilot.
+
+## Correction — 2026-10-17
+
+The original geometry-coverage statement above used complete frame-identity equality and therefore
+missed two byte-identical decoded images from `cardeventnet-IMG_0662`. The corrected comparison
+allows `requested_time_us` to differ when all other source, decoded-image, frame-location, dimension,
+and decoding fields agree. It pairs two frames and scores seven card geometries at polygon IoU 0.5.
+No images pair for `IMG_0657` or the real round. These two frames do not support a three-recording
+quality claim. The original run results and artifact counts above remain unchanged. See the
+[0050 M1 frame comparison correction](0050-M1_Frame_Comparison_Correction.md) for both full frame
+identities, revised coverage counts, separate card and pile results, and test evidence.

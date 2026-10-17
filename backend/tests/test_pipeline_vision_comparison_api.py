@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
 from app_factory import create_test_app
 from doko_operations.pipeline_comparison_contract import canonical_pipeline_comparison_bytes
 from doko_operations.pipeline_data import (
@@ -54,24 +56,28 @@ def _settings(tmp_path: Path) -> Settings:
     )
 
 
-def _frame(time_us: int, suffix: str = "a") -> VisibleCardFrameIdentity:
-    return VisibleCardFrameIdentity.from_mapping(
-        {
-            "schema_version": "exact-event/v1",
-            "source_video_sha256": "a" * 64,
-            "requested_time_us": time_us,
-            "frame_index": time_us // 1_000,
-            "presentation_timestamp_us": time_us,
-            "width": 1_000,
-            "height": 1_000,
-            "decoder_version": "decoder.v1",
-            "transform_version": "transform.v1",
-            "output_encoding": "jpeg",
-            "content_type": "image/jpeg",
-            "image_sha256": (suffix * 64)[:64],
-            "policy": "exact-event/v1",
-        }
-    )
+def _frame(
+    time_us: int,
+    suffix: str = "a",
+    **identity_changes: Any,
+) -> VisibleCardFrameIdentity:
+    identity = {
+        "schema_version": "exact-event/v1",
+        "source_video_sha256": "a" * 64,
+        "requested_time_us": time_us,
+        "frame_index": time_us // 1_000,
+        "presentation_timestamp_us": time_us,
+        "width": 1_000,
+        "height": 1_000,
+        "decoder_version": "decoder.v1",
+        "transform_version": "transform.v1",
+        "output_encoding": "jpeg",
+        "content_type": "image/jpeg",
+        "image_sha256": (suffix * 64)[:64],
+        "policy": "exact-event/v1",
+    }
+    identity.update(identity_changes)
+    return VisibleCardFrameIdentity.from_mapping(identity)
 
 
 def _publish(
@@ -174,12 +180,17 @@ def _visible_candidate(card_id: str, geometry: Any) -> VisibleCardCandidate:
     )
 
 
-def _visible_content(geometry: Any) -> VisibleCardData:
+def _visible_content(
+    geometry: Any,
+    *,
+    frame: VisibleCardFrameIdentity | None = None,
+    event_id: str = "event-1",
+) -> VisibleCardData:
     return VisibleCardData(
         outcomes=(
             VisibleCardOutcome(
-                event_id="event-1",
-                frame_identity=_frame(100_000),
+                event_id=event_id,
+                frame_identity=frame or _frame(100_000),
                 status="detected",
                 candidates=(_visible_candidate("card-1", geometry),),
             ),
@@ -245,6 +256,177 @@ def test_visible_card_comparison_route_uses_exact_frame_and_geometry_policy(tmp_
     assert body["items"][0]["iou"] == 1.0
     assert body["scope"]["common_frame_identities"]
     assert canonical_pipeline_comparison_bytes(body)
+
+
+@pytest.mark.parametrize(
+    ("frame_index", "requested_time_us", "presentation_timestamp_us", "image_sha256"),
+    [
+        (
+            300,
+            5_000_000,
+            5_005_000,
+            "bfc307c47fcb232270eed4b37b12c926bc1bd68cc192442bc660bdef88fbbcd0",
+        ),
+        (
+            375,
+            6_250_000,
+            6_256_667,
+            "f9a4fc3dc5f4460fa649b73882325db422544d53b739be93572fb7639805565f",
+        ),
+    ],
+)
+def test_visible_card_comparison_pairs_request_time_only_differences(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    frame_index: int,
+    requested_time_us: int,
+    presentation_timestamp_us: int,
+    image_sha256: str,
+) -> None:
+    source_digest = "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7"
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "SOURCE",
+        RecordingVideoSource(
+            recording_id=RECORDING_ID,
+            relative_path="recordings/recording-1/video.mov",
+            video_sha256=source_digest,
+            byte_length=158_680_194,
+            duration_us=94_875_000,
+        ),
+    )
+    app = create_test_app(_settings(tmp_path))
+    revisions = app.state.pipeline_revision_store
+    runs = app.state.pipeline_run_store
+    reviewed_time_us = requested_time_us + (4_836 if frame_index == 300 else 6_044)
+    reviewed_frame = _frame(
+        reviewed_time_us,
+        source_video_sha256=source_digest,
+        frame_index=frame_index,
+        presentation_timestamp_us=presentation_timestamp_us,
+        image_sha256=image_sha256,
+    )
+    predicted_frame = _frame(
+        requested_time_us,
+        source_video_sha256=source_digest,
+        frame_index=frame_index,
+        presentation_timestamp_us=presentation_timestamp_us,
+        image_sha256=image_sha256,
+    )
+    reviewed_geometry = ReviewedVisibleRegionGeometry(
+        polygons=(((100, 100), (200, 100), (200, 200), (100, 200)),)
+    )
+    detector_geometry = DetectorBoxGeometry(100, 100, 200, 200)
+    _publish(
+        revisions,
+        "reference-request-time",
+        "visible_cards",
+        _visible_content(reviewed_geometry, frame=reviewed_frame, event_id="review-event"),
+        origin="manual",
+    )
+    for run_id, revision_id, event_id in (
+        ("left-request-time", "left-request-time-output", "predicted-event"),
+        ("right-request-time", "right-request-time-output", "predicted-event"),
+    ):
+        _create_run(
+            runs,
+            revisions,
+            run_id=run_id,
+            revision_id=revision_id,
+            processor_type="visible-card-detection",
+            content_type="visible_cards",
+            content=_visible_content(detector_geometry, frame=predicted_frame, event_id=event_id),
+        )
+
+    payload = {
+        "schema_version": "pipeline-comparison-request/v1",
+        "recording_id": RECORDING_ID,
+        "content_type": "visible_cards",
+        "left_run_id": "left-request-time",
+        "right_run_id": "right-request-time",
+        "reference_revision_id": "reference-request-time",
+        "matching_policy": {
+            "policy_id": "visible-card-geometry/v1",
+            "kind": "visible_card_geometry",
+            "iou_threshold": 0.5,
+            "derived_box_policy": "bounding_box",
+        },
+    }
+    comparison = app.state.pipeline_comparison_service.compare(RECORDING_ID, payload)
+    result = comparison.to_mapping()
+    match = next(item for item in result["items"] if item["outcome"] == "match")
+
+    assert result["counts"]["left"]["matches"] == 1
+    assert result["scope"]["reviewed_frame_identities"] == [reviewed_frame.to_mapping()]
+    assert match["reference_event_id"] == "review-event"
+    assert match["run_event_id"] == "predicted-event"
+    assert match["reference_frame_identity"] == reviewed_frame.to_mapping()
+    assert match["run_frame_identity"] == predicted_frame.to_mapping()
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"source_video_sha256": "b" * 64},
+        {"image_sha256": "b" * 64},
+        {"frame_index": 101},
+        {"presentation_timestamp_us": 100_001},
+        {"width": 1_001},
+        {"height": 1_001},
+        {"decoder_version": "decoder.v2"},
+        {"transform_version": "transform.v2"},
+        {"output_encoding": "png"},
+        {"content_type": "image/png"},
+    ],
+)
+def test_visible_card_comparison_rejects_other_frame_identity_changes(
+    tmp_path: Path, change: dict[str, Any]
+) -> None:
+    app = create_test_app(_settings(tmp_path))
+    revisions = app.state.pipeline_revision_store
+    runs = app.state.pipeline_run_store
+    geometry = ReviewedVisibleRegionGeometry(
+        polygons=(((100, 100), (200, 100), (200, 200), (100, 200)),)
+    )
+    reviewed_frame = _frame(100_000)
+    changed_frame = _frame(100_000, **change)
+    _publish(
+        revisions,
+        "reference-identity-change",
+        "visible_cards",
+        _visible_content(geometry, frame=reviewed_frame),
+        origin="manual",
+    )
+    for run_id in ("left-identity-change", "right-identity-change"):
+        _create_run(
+            runs,
+            revisions,
+            run_id=run_id,
+            revision_id=f"{run_id}-output",
+            processor_type="visible-card-detection",
+            content_type="visible_cards",
+            content=_visible_content(DetectorBoxGeometry(100, 100, 200, 200), frame=changed_frame),
+        )
+    payload = {
+        "schema_version": "pipeline-comparison-request/v1",
+        "recording_id": RECORDING_ID,
+        "content_type": "visible_cards",
+        "left_run_id": "left-identity-change",
+        "right_run_id": "right-identity-change",
+        "reference_revision_id": "reference-identity-change",
+        "matching_policy": {
+            "policy_id": "visible-card-geometry/v1",
+            "kind": "visible_card_geometry",
+            "iou_threshold": 0.5,
+            "derived_box_policy": "bounding_box",
+        },
+    }
+
+    result = app.state.pipeline_comparison_service.compare(RECORDING_ID, payload).to_mapping()
+
+    assert result["counts"]["left"]["matches"] == 0
+    assert result["counts"]["left"]["not_reviewed"] == 1
+    assert result["items"][0]["outcome"] == "not_reviewed"
 
 
 def _identity_outcome(

@@ -79,7 +79,7 @@ remains sealed; a later authorized locked system evaluation is separate from thi
 
 No new model campaign, algorithm research, full review workflow, productive promotion UI, or
 production deployment belongs here. Broader capability selection stays in
-[0050](../2-ready/0050-Detector_Quality_and_Analyzer_Capabilities.md); productive identity operations stay in
+[0050](../3-in-progress/0050-Detector_Quality_and_Analyzer_Capabilities.md); productive identity operations stay in
 [0044](../1-backlog/0044-Productive_Local_Identity_Model_Operations.md).
 
 ## 2. Delivery milestones
