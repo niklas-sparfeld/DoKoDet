@@ -32,6 +32,13 @@
     "model_input": "224-pixel RGB; aspect-preserving Lanczos; centered (128,128,128) letterbox",
     "policy": "predicted_visible_region"
   },
+  "deviations": [
+    {
+      "detail": "Before protected groups were identified, an exploratory count read stored scene geometry for all 29 successful 0096 outputs, including the three now excluded. No source image pixels or identity classifier outputs were read.",
+      "m1_disposition": "exclude the three protected source groups",
+      "stage": "initial exploratory audit"
+    }
+  ],
   "epic": "0098",
   "excluded_recordings": [
     {
@@ -44773,7 +44780,7 @@
   ],
   "schema_version": "identity-proposal-batch-preflight/v1",
   "software": {
-    "application_commit": "8bdc68f4243835d2b0d9b02f812e87585d07fc01",
+    "preflight_script_sha256": "456b7d1545bb80cf331f8440fd297f4befae7386a59f7d68651823d62fb6063e",
     "python": "3.13.15"
   },
   "source_report_sha256": {

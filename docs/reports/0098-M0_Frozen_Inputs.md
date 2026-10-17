@@ -19,6 +19,14 @@ each materialized crop as classified, face-down, unusable, failed, or unprocesse
 The three protected recording groups are excluded before identity inference. M6 training
 overlap can supply review proposals but cannot supply quality comparison pairs.
 
+## Deviation
+
+An initial exploratory count read stored scene geometry for all 29 successful 0096
+outputs before the protected groups were identified. This included the three now
+excluded recordings. No source image pixels or identity classifier outputs were read.
+The three recordings have
+no crop geometry receipts in this manifest and remain excluded from M1.
+
 ## Pins
 
 - M6 bundle: `a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79`

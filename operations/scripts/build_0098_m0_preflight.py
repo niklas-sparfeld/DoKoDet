@@ -7,7 +7,6 @@ import argparse
 import hashlib
 import json
 import platform
-import subprocess
 import uuid
 from pathlib import Path
 from typing import Any
@@ -303,13 +302,6 @@ def build_manifest(store_root: Path, model_bundle: Path) -> dict[str, Any]:
         path.name: sha256(path)
         for path in (SCENE_REPORT, PREFLIGHT_REPORT, IDENTITY_REPORT, PIN_REPORT, M1_REPORT)
     }
-    application_commit = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPOSITORY,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
     return {
         "schema_version": "identity-proposal-batch-preflight/v1",
         "epic": "0098",
@@ -317,10 +309,21 @@ def build_manifest(store_root: Path, model_bundle: Path) -> dict[str, Any]:
         "status": "frozen",
         "created_on": "2026-10-17",
         "classifier_runs": 0,
+        "deviations": [
+            {
+                "stage": "initial exploratory audit",
+                "detail": (
+                    "Before protected groups were identified, an exploratory count read stored "
+                    "scene geometry for all 29 successful 0096 outputs, including the three "
+                    "now excluded. No source image pixels or identity classifier outputs were read."
+                ),
+                "m1_disposition": "exclude the three protected source groups",
+            }
+        ],
         "source_report_sha256": source_hashes,
         "software": {
-            "application_commit": application_commit,
             "python": platform.python_version(),
+            "preflight_script_sha256": sha256(Path(__file__).resolve()),
         },
         "upstream": {
             "successful_scene_recordings": 29,
@@ -410,6 +413,14 @@ def write_report(manifest: dict[str, Any]) -> None:
         "each materialized crop as classified, face-down, unusable, failed, or unprocessed.",
         "The three protected recording groups are excluded before identity inference. M6 training",
         "overlap can supply review proposals but cannot supply quality comparison pairs.",
+        "",
+        "## Deviation",
+        "",
+        "An initial exploratory count read stored scene geometry for all 29 successful 0096",
+        "outputs before the protected groups were identified. This included the three now",
+        "excluded recordings. No source image pixels or identity classifier outputs were read.",
+        "The three recordings have",
+        "no crop geometry receipts in this manifest and remain excluded from M1.",
         "",
         "## Pins",
         "",
