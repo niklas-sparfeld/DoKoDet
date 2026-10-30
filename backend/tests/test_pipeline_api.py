@@ -43,7 +43,7 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
 
     assert modules == {
         "dokodetector_backend.pipeline_workspace_api": 1,
-        "dokodetector_backend.pipeline_stage_api": 36,
+        "dokodetector_backend.pipeline_stage_api": 38,
         "dokodetector_backend.pipeline_comparison_api": 1,
         "dokodetector_backend.pipeline_reference_api": 6,
     }

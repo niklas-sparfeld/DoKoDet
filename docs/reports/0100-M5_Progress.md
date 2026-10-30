@@ -25,6 +25,30 @@ alone is not sufficient. A second isolated probe updated those references, recom
 draft digests, and published the reviewed copy. The complete repair must also update and validate
 crop-input digests, processor run requests, and reviewed identity copies together before publication.
 
+For `cardeventnet-IMG_0650`, an isolated prototype copied the complete scene, visible-card,
+generated identity, and reviewed identity chain. The replacement crop input retained all 79 card
+items, and one resolved crop matched its original image digest. The copied identity reference
+loaded after a store restart. This is a prototype, not a published repair. One other generated run
+has no saved crop-input descriptor: all 226 outcomes match the retained visible-card frame and
+geometry, and each stored crop identity matches its outcome. The repair still needs to validate
+the reconstructed crop input and crop bytes before using it.
+
+The prototype also created a separate scene-copy run and verified that its output names the copied
+scene. Its request records the original run and states that no inference occurred. This avoids
+claiming that the original run produced a new revision.
+
+The next isolated staging pass preserves legacy reviewed scene envelopes as well as current scene
+drafts. It checks geometry and review decisions while it copies scene and visible-card revisions.
+A dependent identity staging pass checks crop-input items and records that no inference took place.
+These passes write to a temporary store only. They do not publish repair receipts or update active
+selections. Their terminal results and the remaining crop checks must be inspected before any repair
+is applied.
+
+The normal selection update treated a selection with an invalid pointer as absent. A stale update
+with expected revision zero could overwrite it. The store now checks the existing selection's own
+revision before validating replacement pointers. A regression test covers repair, stale writes,
+and preservation of a malformed selection file.
+
 A local API audit resolved all 165 frozen 0096 detector frames and all 145 available exact scene
 frames. The other 20 frames belong to four failed scene runs and retain their recorded diagnostics.
 The separately unreviewable recording has no queue frames. For 0098, all 114 exact generated cards

@@ -568,6 +568,65 @@ def test_selection_store_validates_roles_and_optimistic_updates(tmp_path: Path) 
         )
 
 
+def test_selection_can_replace_an_invalid_pointer_with_revision_guard(tmp_path: Path) -> None:
+    revision_store = PipelineRevisionStore(tmp_path / "runtime")
+    for revision_id in ("reference-old", "reference-new"):
+        revision_store.publish(
+            revision(
+                revision_id=revision_id,
+                producer={"kind": "human", "review_id": "review-01", "operator_id": "operator-01"},
+                origin="manual",
+                content=event_content(with_score=False),
+            )
+        )
+    selections = PipelineSelectionStore(tmp_path / "runtime", revision_store=revision_store)
+    selections.update_pointers(
+        "recording-01",
+        "events",
+        expected_revision=0,
+        selected_generated_revision_id=None,
+        selected_completed_reference_revision_id="reference-old",
+    )
+    content_path = revision_store.revision_path("reference-old") / "content.json"
+    content_path.write_text("{}", encoding="utf-8")
+    assert selections.get("recording-01", "events") is None
+
+    with pytest.raises(PipelineSelectionConflict):
+        selections.update_pointers(
+            "recording-01",
+            "events",
+            expected_revision=0,
+            selected_generated_revision_id=None,
+            selected_completed_reference_revision_id="reference-new",
+        )
+    repaired = selections.update_pointers(
+        "recording-01",
+        "events",
+        expected_revision=1,
+        selected_generated_revision_id=None,
+        selected_completed_reference_revision_id="reference-new",
+    )
+    assert repaired.revision == 2
+    assert selections.get("recording-01", "events") == repaired
+
+
+def test_selection_update_preserves_invalid_selection_file(tmp_path: Path) -> None:
+    selections = PipelineSelectionStore(tmp_path / "runtime")
+    path = selections.selection_path("recording-01", "events")
+    path.parent.mkdir(parents=True)
+    path.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        selections.update_pointers(
+            "recording-01",
+            "events",
+            expected_revision=0,
+            selected_generated_revision_id=None,
+            selected_completed_reference_revision_id=None,
+        )
+    assert path.read_text(encoding="utf-8") == "{}"
+
+
 def test_atomic_selection_failure_keeps_previous_bytes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

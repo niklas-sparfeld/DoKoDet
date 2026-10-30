@@ -488,9 +488,7 @@ class PipelineRevisionStore:
                 if manifest.recording_id != recording_id:
                     continue
                 revision = (
-                    None
-                    if revision_cache is None
-                    else revision_cache.get(manifest.revision_id)
+                    None if revision_cache is None else revision_cache.get(manifest.revision_id)
                 )
                 if revision is None:
                     revision = self._read_path(path, revision_cache=revision_cache)
@@ -647,9 +645,7 @@ class PipelineRevisionStore:
             return revision, content
         if revision.content_type == "visible_cards" and isinstance(content, VisibleCardData):
             return revision, content
-        if revision.content_type == "visual_identities" and isinstance(
-            content, VisualIdentityData
-        ):
+        if revision.content_type == "visual_identities" and isinstance(content, VisualIdentityData):
             return revision, content
         if revision.content_type == "table_observations" and isinstance(
             content, TableObservationData
@@ -677,9 +673,7 @@ class PipelineRevisionStore:
             else 2**63 - 1
         )
         if manifest.content_type == "events":
-            return parse_event_data_bytes(
-                raw, duration_us=duration_us, allow_legacy=allow_legacy
-            )
+            return parse_event_data_bytes(raw, duration_us=duration_us, allow_legacy=allow_legacy)
         if manifest.content_type == "visible_cards":
             try:
                 return parse_visible_card_data_bytes(raw)
@@ -748,9 +742,7 @@ class PipelineRevisionStore:
                     "content_sha256 does not match canonical visible-card content"
                 )
             return
-        if manifest.content_type == "visual_identities" and isinstance(
-            content, VisualIdentityData
-        ):
+        if manifest.content_type == "visual_identities" and isinstance(content, VisualIdentityData):
             if (
                 sha256_bytes(canonical_visual_identity_data_bytes(content))
                 != manifest.content_sha256
@@ -771,9 +763,7 @@ class PipelineRevisionStore:
                 )
             producer = manifest.producer
             if not isinstance(producer, ProcessorProducer):
-                raise PipelineDataContractError(
-                    "table-observation content needs processor lineage"
-                )
+                raise PipelineDataContractError("table-observation content needs processor lineage")
             for observation in content.observations:
                 source = observation.source
                 if (
@@ -914,12 +904,8 @@ class PipelineRevisionStore:
             raise ValueError("pipeline revision must contain only manifest.json and content.json")
         manifest_bytes = (path / "manifest.json").read_bytes()
         content_bytes = (path / "content.json").read_bytes()
-        manifest = parse_data_revision_bytes(
-            manifest_bytes, content_bytes, allow_legacy=True
-        )
-        content = self._parse_content_bytes_for_manifest(
-            manifest, content_bytes, allow_legacy=True
-        )
+        manifest = parse_data_revision_bytes(manifest_bytes, content_bytes, allow_legacy=True)
+        content = self._parse_content_bytes_for_manifest(manifest, content_bytes, allow_legacy=True)
         _strict_json_file(
             manifest_bytes,
             canonical_data_revision_bytes(manifest),
@@ -1431,9 +1417,7 @@ class ProcessorRunStore:
             if existing != parsed_item:
                 self._write_item_file(run_id, parsed_item)
             next_item_ids = (
-                item_ids
-                if parsed_item.item_id in item_ids
-                else (*item_ids, parsed_item.item_id)
+                item_ids if parsed_item.item_id in item_ids else (*item_ids, parsed_item.item_id)
             )
             next_state = replace(current_state, progress=progress, updated_at=timestamp)
             atomic_replace_json(
@@ -1510,17 +1494,13 @@ class ProcessorRunStore:
         # Catalog loads (`include_items=False`) must not walk `items/`. Visual-identity
         # runs store hundreds of item files; a recursive scan dominates pipeline workspace
         # latency. Validate only the top-level run layout, then load items by ID when asked.
-        top_members = [
-            member for member in path.iterdir() if not _is_atomic_json_temp(member)
-        ]
+        top_members = [member for member in path.iterdir() if not _is_atomic_json_temp(member)]
         if any(member.is_symlink() for member in top_members):
             raise ValueError("processor run members must not be symlinks")
         top_files = {member.name for member in top_members if member.is_file()}
         top_dirs = {member.name for member in top_members if member.is_dir()}
         legacy_layout = not top_dirs and top_files == {"request.json", "state.json"}
-        split_layout = (
-            top_dirs == {"items"} and top_files == {"request.json", "state.json"}
-        )
+        split_layout = top_dirs == {"items"} and top_files == {"request.json", "state.json"}
         if not legacy_layout and not split_layout:
             raise ValueError("processor run has an unsupported file layout")
         if request_bytes is None:
@@ -1552,22 +1532,16 @@ class ProcessorRunStore:
             if include_items:
                 items_dir = path / "items"
                 item_members = [
-                    member
-                    for member in items_dir.iterdir()
-                    if not _is_atomic_json_temp(member)
+                    member for member in items_dir.iterdir() if not _is_atomic_json_temp(member)
                 ]
                 if any(member.is_symlink() for member in item_members):
                     raise ValueError("processor run members must not be symlinks")
                 if any(member.is_dir() for member in item_members):
                     raise ValueError("processor run has an unsupported file layout")
-                item_files = {
-                    member.name for member in item_members if member.is_file()
-                }
+                item_files = {member.name for member in item_members if member.is_file()}
                 if not all(name.endswith(".json") for name in item_files):
                     raise ValueError("processor run has an unsupported file layout")
-                if not {
-                    f"{item_id}.json" for item_id in item_ids
-                }.issubset(item_files):
+                if not {f"{item_id}.json" for item_id in item_ids}.issubset(item_files):
                     raise ValueError("processor run is missing a referenced item file")
                 items = tuple(
                     self._read_item_file(items_dir / f"{item_id}.json", item_id)
@@ -1814,7 +1788,11 @@ class PipelineSelectionStore:
             path.parent / f".{path.stem}.lock",
             self._lock,
         ):
-            current = self.get(recording_id, content_type, revision_cache=revision_cache)
+            current = (
+                None
+                if not path.exists() and not path.is_symlink()
+                else self._read_path(path, recording_id, content_type, validate_pointers=False)
+            )
             current_revision = 0 if current is None else current.revision
             if parsed_update.expected_revision != current_revision:
                 raise PipelineSelectionConflict(
@@ -1936,6 +1914,7 @@ class PipelineSelectionStore:
         *,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
         revision_manifests: Mapping[str, DataRevision] | None = None,
+        validate_pointers: bool = True,
     ) -> PipelineSelection:
         if path.is_symlink() or not path.is_file():
             raise OSError("pipeline selection is unavailable")
@@ -1946,22 +1925,23 @@ class PipelineSelectionStore:
             raise ValueError("selection identity differs from its path")
         if path.name != f"{content_type}.json":
             raise ValueError("selection content type differs from its path")
-        self._validate_pointer(
-            selection.selected_generated_revision_id,
-            recording_id,
-            content_type,
-            role="generated",
-            revision_cache=revision_cache,
-            revision_manifests=revision_manifests,
-        )
-        self._validate_pointer(
-            selection.selected_completed_reference_revision_id,
-            recording_id,
-            content_type,
-            role="completed reference",
-            revision_cache=revision_cache,
-            revision_manifests=revision_manifests,
-        )
+        if validate_pointers:
+            self._validate_pointer(
+                selection.selected_generated_revision_id,
+                recording_id,
+                content_type,
+                role="generated",
+                revision_cache=revision_cache,
+                revision_manifests=revision_manifests,
+            )
+            self._validate_pointer(
+                selection.selected_completed_reference_revision_id,
+                recording_id,
+                content_type,
+                role="completed reference",
+                revision_cache=revision_cache,
+                revision_manifests=revision_manifests,
+            )
         return selection
 
     @staticmethod
