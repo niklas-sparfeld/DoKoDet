@@ -28,7 +28,13 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. Its M0–M3 milestones are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) is complete; its read-only queue check found all 165 frozen items unavailable because of the local revision catalog. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md).
 
-While 0096 waits for human review, autonomous work is available in this preferred order:
+Next: **[0100 — Local pipeline compatibility](2-ready/0100-Local_Pipeline_Compatibility.md)**.
+M0–M6 are not started. Fix local package freshness, recording session identifiers, explicit round
+context, local model selection, and active revision/review-target access before one real operator
+trial. The final milestone verifies readiness with fixtures and bounded model probes. No iOS work,
+training, promotion, or human annotation completion is required. 0096 remains pending human review.
+
+The earlier autonomous work has these handoffs:
 
 0098 closed after the autonomous identity proposal and review handoff. Its 114-item queue covers all
 26 eligible recordings, and identity review remains pending. Epic 0099 closed
@@ -93,6 +99,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0100 — Local pipeline compatibility](2-ready/0100-Local_Pipeline_Compatibility.md) | Completed 0048/0049, 0090, 0092 M4, 0088 M6 decision, 0095, and 0097 | M0–M6 not started. Repair local code, configuration, session/context, and active retained-data boundaries; verify readiness for one real recording trial. Excludes iOS, training, promotion, and annotation completion. |
 
 ### In Progress
 
