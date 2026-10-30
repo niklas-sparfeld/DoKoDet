@@ -29,7 +29,9 @@
 - **M3:** Complete — remove hidden gameplay defaults, validate player and leader context, and
   reuse only saved explicit context. A dealer can sit out the round, as defined in the glossary.
 - **M4:** Complete — provide the [local model recipe](../../reports/0100-M4_Local_Model_Recipe.md), frozen-artifact preflight, and explicit device and bundle lineage. The retained providers load offline on CPU.
-- **M5:** Not started — repair active revision and review-target access.
+- **M5:** In progress — exact-target checks found 29 selected revisions with obsolete ancestors.
+  Review-preserving replacement and a repair receipt remain open. See the
+  [M5 progress report](../../reports/0100-M5_Progress.md).
 - **M6:** Not started — verify the combined workflow and publish a short trial guide.
 
 ## 1. Purpose and evidence

@@ -1156,7 +1156,7 @@ describe("PipelineVisualIdentityEditor", () => {
     ).toBeInTheDocument();
   });
 
-  it("switches an existing review to the selected generated result", async () => {
+  it("preserves an existing review until the operator switches results", async () => {
     const nextRevisionId = "identity-revision-2";
     const rebased = reference("pending", [], 1, nextRevisionId);
     let putBody: Record<string, unknown> | null = null;
@@ -1181,6 +1181,11 @@ describe("PipelineVisualIdentityEditor", () => {
     );
 
     await screen.findByRole("heading", { name: /Visual identity review/ });
+    const switchButton = await screen.findByRole("button", {
+      name: "Switch review to selected result",
+    });
+    expect(putBody).toBeNull();
+    await userEvent.setup().click(switchButton);
     await waitFor(() => expect(putBody).not.toBeNull());
     expect(putBody).toMatchObject({
       expected_revision: 1,

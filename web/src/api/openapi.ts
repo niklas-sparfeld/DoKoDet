@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Get Frame Review Queue
-         * @description Return a deterministic page and whole-queue counts without decoding result content.
+         * @description Return deterministic counts after validating the pinned revision content.
          */
         get: operations["get_frame_review_queue_api_frame_reviews_0096_M4_get"];
         put?: never;

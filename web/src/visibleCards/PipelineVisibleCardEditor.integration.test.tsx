@@ -563,7 +563,7 @@ describe("PipelineVisibleCardEditor", () => {
     expect(screen.getByText("Box")).toBeInTheDocument();
   });
 
-  it("opens a proposal review link without requiring the start button", async () => {
+  it("requires an explicit action before a proposal link changes a draft", async () => {
     window.localStorage.setItem("dokodetector.profile.name", "operator-01");
     window.history.pushState(
       {},
@@ -642,6 +642,14 @@ describe("PipelineVisibleCardEditor", () => {
       />,
     );
 
+    const start = await screen.findByRole("button", {
+      name: "Start review from proposed scenes",
+    });
+    expect(onReviewRequested).not.toHaveBeenCalled();
+    expect(
+      fetchImplementation.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+    await userEvent.click(start);
     await waitFor(() => expect(onReviewRequested).toHaveBeenCalledTimes(1));
     const rebaseCallIndex = fetchImplementation.mock.calls.findIndex(
       ([input, init]) =>

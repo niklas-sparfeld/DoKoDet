@@ -110,6 +110,29 @@ def _editor_target(item: FrameReviewItem) -> FrameReviewTarget | None:
     )
 
 
+def _revision_problem(item: FrameReviewItem, result: Any) -> str | None:
+    if not item.eligible:
+        return "The frozen selection has no detector revision. Check the recording's M1 dependency."
+    if result is None:
+        return (
+            "The pinned detector result is missing or invalid. "
+            "Restore that exact revision before review."
+        )
+    if (
+        result.manifest.recording_id != item.recording_id
+        or result.manifest.content_type != "visible_cards"
+    ):
+        return "The pinned detector revision belongs to a different recording or stage."
+    if (
+        item.source_revision_sha256 is not None
+        and result.manifest.content_sha256 != item.source_revision_sha256
+    ):
+        return "The pinned detector result digest changed. Restore the frozen result before review."
+    if not any(outcome.event_id == item.item_id for outcome in result.content.outcomes):
+        return "The pinned detector result does not contain this frame."
+    return None
+
+
 def _project(
     request: Request,
     item: FrameReviewItem,
@@ -118,27 +141,7 @@ def _project(
     reference_cache: dict[str, Any],
 ) -> FrameReviewItemResponse:
     result = by_id.get(item.source_revision_id or "")
-    unavailable_reason: str | None = None
-    if not item.eligible:
-        unavailable_reason = (
-            "The frozen selection has no detector revision. Check the recording's M1 dependency."
-        )
-    elif result is None:
-        unavailable_reason = (
-            "The pinned detector result is missing or invalid. "
-            "Restore that exact revision before review."
-        )
-    elif result.recording_id != item.recording_id or result.content_type != "visible_cards":
-        unavailable_reason = (
-            "The pinned detector revision belongs to a different recording or stage."
-        )
-    elif (
-        item.source_revision_sha256 is not None
-        and result.content_sha256 != item.source_revision_sha256
-    ):
-        unavailable_reason = (
-            "The pinned detector result digest changed. Restore the frozen result before review."
-        )
+    unavailable_reason = _revision_problem(item, result)
 
     item_key = _item_key(item.recording_id, item.item_id)
     receipt_raw = request.app.state.frame_review_workflow_store.read_receipt(QUEUE_ID, item_key)
@@ -193,15 +196,19 @@ def get_frame_review_queue(
     cursor: int = Query(default=0, ge=0),
     state: Literal["pending", "deferred", "saved_review", "unavailable"] | None = None,
 ) -> FrameReviewPageResponse:
-    """Return a deterministic page and whole-queue counts without decoding result content."""
+    """Return deterministic counts after validating the pinned revision content."""
     raw, items = _load_queue(request)
     digest = raw["selection_sha256"]
     workflow: FrameReviewWorkflowStore = request.app.state.frame_review_workflow_store
     progress = workflow.read(QUEUE_ID, digest)
     deferred_keys = set(progress["deferred_item_keys"])
-    # Build one manifest index for the whole page request. It reads only revision manifests.
-    revision_manifests = request.app.state.pipeline_revision_store.list_manifests()
-    by_id = {value.revision_id: value for value in revision_manifests}
+    store = request.app.state.pipeline_revision_store
+    by_id = {}
+    revision_cache = {}
+    for revision_id in {item.source_revision_id for item in items if item.source_revision_id}:
+        revision = store.get(revision_id, revision_cache=revision_cache)
+        if revision is not None:
+            by_id[revision_id] = revision
     reference_cache: dict[str, Any] = {}
     projected = [_project(request, item, deferred_keys, by_id, reference_cache) for item in items]
     counts_by_state = Counter(item.state for item in projected)
@@ -262,6 +269,10 @@ def update_frame_review_workflow(
             raise HTTPException(
                 status_code=422, detail="A saved review needs an exact draft revision."
             )
+        revision = request.app.state.pipeline_revision_store.get(queue_item.source_revision_id)
+        problem = _revision_problem(queue_item, revision)
+        if problem is not None:
+            raise HTTPException(status_code=409, detail=problem)
         reference = request.app.state.pipeline_reference_store.get(recording_id, "visible_cards")
         decided = next(
             (draft_item for draft_item in reference.draft.items if draft_item.item_id == item_id),

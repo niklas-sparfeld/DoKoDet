@@ -1,0 +1,562 @@
+{
+  "affected_selection_count": 29,
+  "direct_content_and_ancestor_checks": [
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1790184067452-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visible_cards-25c56fb38af9a5604283bbc57789e690"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1790184067452-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-debcf221-570-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1791801627026-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visible_cards-44e710d15fd7b579b9bf370f32e82466"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1791801627026-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-735f0c4a-23b-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1791801627026-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-6890d8749053ebb5d6212756a236ccb9"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-5a3fd358-1deb-46df-9105-707539580841-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-db44830d-dc3-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-5a3fd358-1deb-46df-9105-707539580841-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-34cd8a4e196bc11614c5fcebd9c62ab6"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0662-retry-b4a71957-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-c61b8f14-a2f-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0662-retry-b4a71957-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-4026272dca1192019417b0b8ad200eeb"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0095-ea960f0e-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-2fb8d0169ee012968d93a50fff8756c5"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-6b578a5c-244-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-bb637de5a368ab1901f9d2a3967b43d0"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1968d038-f7a0-4a53-ad96-cd9c010b1a29-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-3ee32ef7-c24-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1968d038-f7a0-4a53-ad96-cd9c010b1a29-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-0a2a2c166862dddefed171a8c2c6a3c6"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0657-retry-a248d2d7-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-6a62ff9e-2f6-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0657-retry-a248d2d7-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-cd3866d5633c58efaff44bf46ef7637f"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0659-retry-2d90b9d3-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visible_cards-66c6d076726185dcf2b6ba46be466bfb"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0659-retry-2d90b9d3-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-c936ba92-5f6-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0659-retry-2d90b9d3-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-fda27c625c4e218ba502674ac6a85157"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0658-retry-240ffe65-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-97b81e31-370-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0658-retry-240ffe65-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-0a4681cf5e13a20efe47c6c9c16ed8fe"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0660-retry-b3dac0ea-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visible_cards-314d94c1547364459b48839d55f2fa3d"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0660-retry-b3dac0ea-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-4ccde1de-b74-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0660-retry-b3dac0ea-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-9302ed25991c03e3314c4ad096ad3bf6"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1790321473362-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visible_cards-ee8687dd9e4620dfba423d9b8ba11cb8"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1790321473362-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-7ff67e07-7fe-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-1790321473362-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-a10b313d5852decefba3207d7371fa3c"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-b72d7b69-e3f1-4f25-8c81-b3327f921eed-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "visual-identities-visual_identities-run-816b3cde-8c5-attempt-1"
+    },
+    {
+      "ancestor": "card-scene-proposals-card-scene-proposal-b72d7b69-e3f1-4f25-8c81-b3327f921eed-attempt-1",
+      "ancestor_digest_matches": true,
+      "ancestor_schema": "proposed-card-scene-data/v1",
+      "direct_content_valid": true,
+      "same_recording": true,
+      "selected_revision": "reference-visual_identities-c7db0edb4ac689a6907f269f9f7fc911"
+    }
+  ],
+  "items": [
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1790184067452-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visible_cards-25c56fb38af9a5604283bbc57789e690",
+      "selection": "data/operations/pipeline/selections/game-2026-08-20-01-001/visible_cards.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1790184067452-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-debcf221-570-attempt-1",
+      "selection": "data/operations/pipeline/selections/game-2026-08-20-01-001/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1791801627026-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visible_cards-44e710d15fd7b579b9bf370f32e82466",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0654/visible_cards.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1791801627026-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-735f0c4a-23b-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0654/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1791801627026-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-6890d8749053ebb5d6212756a236ccb9",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0654/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-5a3fd358-1deb-46df-9105-707539580841-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-db44830d-dc3-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0653/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-5a3fd358-1deb-46df-9105-707539580841-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-34cd8a4e196bc11614c5fcebd9c62ab6",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0653/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0662-retry-b4a71957-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-c61b8f14-a2f-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0662/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0662-retry-b4a71957-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-4026272dca1192019417b0b8ad200eeb",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0662/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0095-ea960f0e-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-2fb8d0169ee012968d93a50fff8756c5",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0095/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-6b578a5c-244-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0655/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-bb637de5a368ab1901f9d2a3967b43d0",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0655/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1968d038-f7a0-4a53-ad96-cd9c010b1a29-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-3ee32ef7-c24-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0650/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1968d038-f7a0-4a53-ad96-cd9c010b1a29-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-0a2a2c166862dddefed171a8c2c6a3c6",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0650/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0657-retry-a248d2d7-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-6a62ff9e-2f6-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0657/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0657-retry-a248d2d7-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-cd3866d5633c58efaff44bf46ef7637f",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0657/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0659-retry-2d90b9d3-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visible_cards-66c6d076726185dcf2b6ba46be466bfb",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0659/visible_cards.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0659-retry-2d90b9d3-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-c936ba92-5f6-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0659/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0659-retry-2d90b9d3-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-fda27c625c4e218ba502674ac6a85157",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0659/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0658-retry-240ffe65-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-97b81e31-370-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0658/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0658-retry-240ffe65-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-0a4681cf5e13a20efe47c6c9c16ed8fe",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0658/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0660-retry-b3dac0ea-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visible_cards-314d94c1547364459b48839d55f2fa3d",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0660/visible_cards.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0660-retry-b3dac0ea-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-4ccde1de-b74-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0660/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0660-retry-b3dac0ea-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-9302ed25991c03e3314c4ad096ad3bf6",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0660/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1790321473362-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visible_cards-ee8687dd9e4620dfba423d9b8ba11cb8",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0656/visible_cards.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1790321473362-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-7ff67e07-7fe-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0656/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-1790321473362-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-a10b313d5852decefba3207d7371fa3c",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0656/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-b72d7b69-e3f1-4f25-8c81-b3327f921eed-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "visual-identities-visual_identities-run-816b3cde-8c5-attempt-1",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0651/visual_identities.json"
+    },
+    {
+      "obsolete_or_missing_ancestors": [
+        [
+          "card-scene-proposals-card-scene-proposal-b72d7b69-e3f1-4f25-8c81-b3327f921eed-attempt-1",
+          "proposed-card-scene-data/v1"
+        ]
+      ],
+      "reason": "missing_or_invalid_content_or_lineage",
+      "revision_id": "reference-visual_identities-c7db0edb4ac689a6907f269f9f7fc911",
+      "selection": "data/operations/pipeline/selections/cardeventnet-IMG_0651/visual_identities.json"
+    }
+  ],
+  "obsolete_scene_ancestor_count": 13,
+  "schema_version": "0100-m5-lineage-inventory/v1",
+  "selection_count": 180,
+  "valid_selection_count": 151
+}

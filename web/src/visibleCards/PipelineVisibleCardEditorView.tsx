@@ -191,7 +191,6 @@ export function PipelineVisibleCardEditorView({
     CalibrationFitDiagnosticOutline["status"][]
   >(["fit", "held_out", "discarded"]);
   const [proposalError, setProposalError] = useState<string | null>(null);
-  const autoStartReviewRef = useRef(false);
   const [calibrationRefinement, setCalibrationRefinement] =
     useState<CalibrationRefinementResponse | null>(null);
   const calibrationRefinementRef = useRef<CalibrationRefinementResponse | null>(
@@ -1557,34 +1556,6 @@ export function PipelineVisibleCardEditorView({
     proposalRevisionId,
     rebaseReferenceToProposal,
     setProposalError,
-  ]);
-
-  useEffect(() => {
-    if (!startReviewRequested) {
-      autoStartReviewRef.current = false;
-      return;
-    }
-    if (
-      autoStartReviewRef.current ||
-      loading ||
-      proposalLoading ||
-      proposalRevisionId === null
-    )
-      return;
-    if (operatorId.trim() === "") return;
-    const timer = window.setTimeout(() => {
-      if (autoStartReviewRef.current) return;
-      autoStartReviewRef.current = true;
-      void startReviewFromProposal();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [
-    loading,
-    operatorId,
-    proposalLoading,
-    proposalRevisionId,
-    startReviewFromProposal,
-    startReviewRequested,
   ]);
 
   const selectEditorPolygon = useCallback((polygonIndex: number) => {

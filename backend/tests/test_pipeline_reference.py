@@ -3002,7 +3002,7 @@ def test_identity_commands_preserve_geometry_and_support_manual_labels(
     assert revision_store.require(completed_id).content.outcomes[0].status == "face_down"
 
 
-def test_completed_identity_reference_repairs_visible_face_down_as_new_revision(
+def test_reading_completed_identity_reference_preserves_review_decisions(
     tmp_path: Path,
 ) -> None:
     service, revision_store = _service(tmp_path)
@@ -3069,27 +3069,15 @@ def test_completed_identity_reference_repairs_visible_face_down_as_new_revision(
     old_revision_id = completed.state.selected_completed_revision_id
     assert old_revision_id is not None
 
-    repaired = service.get_reference(SOURCE.recording_id, "visual_identities")
-    new_revision_id = repaired.state.selected_completed_revision_id
-    assert new_revision_id is not None
-    assert new_revision_id != old_revision_id
-    assert repaired.draft.items[0].review_state == "face_down"
-    assert repaired.draft.items[0].item["status"] == "face_down"
-    assert repaired.draft.coverage is not None
-    assert repaired.draft.coverage["cards"] == [{"card_id": "card-01", "decision": "face_down"}]
+    current = service.get_reference(SOURCE.recording_id, "visual_identities")
+    assert current == completed
+    assert current.draft.items[0].review_state == "identity_unusable"
     assert revision_store.require(old_revision_id).content.outcomes[0].status == "unusable"
-    assert revision_store.require(new_revision_id).content.outcomes[0].status == "face_down"
     assert (
         service.selection_store.get(
             SOURCE.recording_id, "visual_identities"
         ).selected_completed_reference_revision_id
-        == new_revision_id
-    )
-    assert (
-        service.get_reference(
-            SOURCE.recording_id, "visual_identities"
-        ).state.selected_completed_revision_id
-        == new_revision_id
+        == old_revision_id
     )
 
 

@@ -121,14 +121,19 @@ def test_save_review_receipt_requires_and_tracks_the_current_explicit_draft(
             if recording["recording_id"] == item["recording_id"]
             and frame["item_id"] == item["item_id"]
         )
-        app.state.pipeline_revision_store.list_manifests = lambda: [
+        app.state.pipeline_revision_store.get = lambda revision_id, **_kwargs: (
             SimpleNamespace(
-                revision_id=item["editor_target"]["revision_id"],
-                recording_id=item["recording_id"],
-                content_type="visible_cards",
-                content_sha256=raw_frame["m1_revision_sha256"],
+                manifest=SimpleNamespace(
+                    revision_id=item["editor_target"]["revision_id"],
+                    recording_id=item["recording_id"],
+                    content_type="visible_cards",
+                    content_sha256=raw_frame["m1_revision_sha256"],
+                ),
+                content=SimpleNamespace(outcomes=[SimpleNamespace(event_id=item["item_id"])]),
             )
-        ]
+            if revision_id == item["editor_target"]["revision_id"]
+            else None
+        )
         app.state.pipeline_reference_store.get = lambda _recording, _stage: SimpleNamespace(
             draft=SimpleNamespace(
                 revision=7,
@@ -152,6 +157,25 @@ def test_save_review_receipt_requires_and_tracks_the_current_explicit_draft(
             is None
         )
 
+        valid_get = app.state.pipeline_revision_store.get
+        app.state.pipeline_revision_store.get = lambda _revision_id, **_kwargs: None
+        invalid = client.put(
+            route,
+            json={
+                "queue_digest": page["queue_digest"],
+                "action": "save_review",
+                "draft_revision": 7,
+            },
+        )
+        assert invalid.status_code == 409
+        assert (
+            app.state.frame_review_workflow_store.read_receipt(
+                "0096-M4", f'["{item["recording_id"]}","{item["item_id"]}"]'
+            )
+            is None
+        )
+        app.state.pipeline_revision_store.get = valid_get
+
         saved = client.put(
             route,
             json={
@@ -169,3 +193,36 @@ def test_save_review_receipt_requires_and_tracks_the_current_explicit_draft(
             and candidate["item_id"] == item["item_id"]
         )
         assert saved_item["state"] == "saved_review"
+
+
+def test_queue_rejects_a_revision_without_the_pinned_frame(tmp_path: Path) -> None:
+    app = create_test_app(_settings(tmp_path))
+    with TestClient(app) as client:
+        page = client.get("/api/frame-reviews/0096-M4?limit=1").json()
+        item = page["items"][0]
+        raw = json.loads(
+            (REPOSITORY_ROOT / "docs/reports/0096-M4_Human_Review_Queue.json").read_text()
+        )
+        frame = next(
+            frame
+            for recording in raw["recordings"]
+            for frame in recording["review_frames"]
+            if recording["recording_id"] == item["recording_id"]
+            and frame["item_id"] == item["item_id"]
+        )
+        target = item["editor_target"]["revision_id"]
+        app.state.pipeline_revision_store.get = lambda revision_id, **_kwargs: (
+            SimpleNamespace(
+                manifest=SimpleNamespace(
+                    recording_id=item["recording_id"],
+                    content_type="visible_cards",
+                    content_sha256=frame["m1_revision_sha256"],
+                ),
+                content=SimpleNamespace(outcomes=[]),
+            )
+            if revision_id == target
+            else None
+        )
+        result = client.get("/api/frame-reviews/0096-M4?limit=1").json()["items"][0]
+        assert result["state"] == "unavailable"
+        assert "does not contain this frame" in result["unavailable_reason"]

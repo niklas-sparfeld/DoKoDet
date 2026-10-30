@@ -185,6 +185,20 @@ def test_revision_store_requires_published_lineage_and_reports_invalid_entries(
     assert "pipeline_revision_catalog_skipped" in caplog.text
 
 
+def test_revision_store_rejects_content_changed_after_publication(tmp_path: Path) -> None:
+    store = PipelineRevisionStore(tmp_path / "runtime")
+    saved, _ = store.publish(
+        revision(revision_id="revision-tampered", producer=processor_producer("import-01"))
+    )
+    path = store.revision_path(saved.manifest.revision_id) / "content.json"
+    content = json.loads(path.read_text(encoding="utf-8"))
+    content["events"][0]["event_id"] = "changed-event"
+    path.write_bytes(canonical_json_bytes(content))
+
+    assert store.get(saved.manifest.revision_id) is None
+    assert PipelineRevisionStore(tmp_path / "runtime").get(saved.manifest.revision_id) is None
+
+
 def test_pipeline_catalogs_filter_by_recording(tmp_path: Path) -> None:
     store = PipelineRevisionStore(tmp_path / "runtime")
     first = revision(revision_id="revision-first", producer=processor_producer("import-first"))
