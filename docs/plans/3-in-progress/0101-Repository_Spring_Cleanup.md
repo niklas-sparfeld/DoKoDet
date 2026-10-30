@@ -4,8 +4,8 @@
 
 - **Summary:** Investigate and remove justified code and interface clutter, simplify selected
   component boundaries, and fix reproducible bugs found during the review.
-- **Status:** Ready
-- **Depends on:** None. Work that overlaps 0100 must wait for its relevant milestone to land.
+- **Status:** In Progress
+- **Depends on:** None for M0–M2. M3 and M4 wait for 0100 M5. Recheck shared paths before M5.
 - **Outcome:** A short evidence-based inventory and a bounded set of verified improvements make
   common changes easier to locate and reduce unnecessary maintenance. Unsupported candidates can
   be rejected without forcing a change.
@@ -15,12 +15,13 @@
 
 ## Milestone status
 
-- **M0:** Not started — verify and rank the inventory and select bounded changes.
-- **M1:** Not started — remove proven obsolete development interfaces and their private code.
-- **M2:** Not started — simplify one operations command boundary.
-- **M3:** Not started — simplify one maintained-reference handler boundary.
-- **M4:** Not started — simplify one review-editor boundary.
-- **M5:** Not started — fix a bounded, reproduced bug or record why none was selected.
+- **M0:** Complete — published the [validated cleanup inventory](../../reports/0101-M0_Cleanup_Inventory.md),
+  selected one change per M1–M5, and reproduced order-dependent duplicate frame coverage.
+- **M1:** Not started — remove old-runtime evidence adoption and its private implementation.
+- **M2:** Not started — extract source lifecycle command execution and rendering.
+- **M3:** Not started — extract visible-card frame coverage parsing after 0100 M5.
+- **M4:** Not started — extract identity editor data conversion after 0100 M5.
+- **M5:** Not started — reject duplicate visible-card frame coverage before completion.
 - **M6:** Not started — verify the combined result and publish the remaining inventory.
 
 ## Purpose and evidence
@@ -44,6 +45,12 @@ The implementing model owns deeper tracing, selection, implementation, and regre
 It must avoid broad refactors and must not treat test-only references as proof of a supported runtime
 consumer or absence of references as proof that dynamic entry points are unused.
 
+M0's [inventory](../../reports/0101-M0_Cleanup_Inventory.md) supersedes these initial candidate
+questions for implementation. The user uses the web UI exclusively. Agents sometimes use the CLI.
+A documented use case does not establish a current user. Judge CLI retention by concrete agent,
+web, recovery, and reproduction dependencies. M0 selected old-runtime adoption for removal after
+checking its callers, current upload path, and absence of legacy packages in configured storage.
+
 ## M0 — Validate and select
 
 Use the current committed tree and check 0100's current state first. Produce
@@ -64,6 +71,16 @@ outcome or dependency requires one.
 
 ## M1 — Remove proven obsolete interfaces
 
+Selected scope: remove `adopt-evidence`, its `adopt-evidence-package` alias, and their import,
+registration, and dispatch in `operations/src/doko_operations/cli.py`. Delete the private
+`operations/src/doko_operations/evidence_adoption.py` module. Replace its command publication test
+in `operations/tests/test_operations.py` with rejection checks for both removed names. Remove the
+obsolete instructions from `README.md`, `operations/README.md`,
+`docs/Repository_Intake_Contract.md`, and `docs/Data_Lifecycle.md`. Preserve canonical evidence
+package readers, upload, validation, and fixtures. Recheck configured legacy storage before deletion.
+Run operations `test_operations.py`, `test_import_isolation.py`, and `test_intake_contract.py`;
+backend `test_intake_contract.py` and `test_api.py`; Ruff and local Markdown link checks.
+
 Implement only the M0-selected removal. Trace and update the command, private implementation,
 exports, tests, and current documentation together. Preserve any active recovery, reproduction, or
 data access path. Run relevant component tests and Ruff checks. If no candidate meets the evidence
@@ -71,12 +88,27 @@ gate, record the decision and complete the milestone without deletion.
 
 ## M2 — Operations command boundary
 
+Selected scope: move only impact and source-retirement execution plus `_render_impact_human` from
+`operations/src/doko_operations/cli.py` to `operations/src/doko_operations/source_lifecycle_cli.py`.
+Keep argument registration in `cli.py` and data behavior in `impact.py`. Add
+`operations/tests/test_source_lifecycle_cli.py`; retain the source preservation and idempotency
+checks in `test_operations.py`. Cover help, missing subcommands, argument errors, dispatch,
+human/JSON output, and failures. Run these files, `test_import_isolation.py`, and Ruff checks.
+
 Implement the selected small command-family change in `operations`; keep remaining behavior and
 consumer entry points consistent unless M0 proved an interface obsolete. Test representative help,
 argument validation, dispatch, failure, and output behavior for the affected family. Run the focused
 operations tests and Ruff checks. Do not restructure all commands or change campaign results.
 
 ## M3 — Maintained-reference boundary
+
+Selected scope, after 0100 M5: move `_frame_coverage_entries`, `_frame_coverage_key`, and
+`_item_frame_key` from `backend/src/dokodetector_backend/pipeline_reference_handlers.py` to
+`backend/src/dokodetector_backend/visible_card_reference_coverage.py`. Keep scene validation,
+expected decisions, review-state rules, and lifecycle in their current owners. Preserve current
+duplicate behavior until M5. Add `backend/tests/test_visible_card_reference_coverage.py`; run it
+with `test_pipeline_reference.py`, `test_frame_review_api.py`, and backend Ruff checks. Recheck
+0100's merged result before editing; skip this extraction if its benefit no longer exists.
 
 After the relevant 0100 work lands, implement at most one selected handler extraction. Preserve
 reference lifecycle ownership, concurrency and conflict handling, saved drafts, review decisions,
@@ -86,6 +118,15 @@ record that result instead.
 
 ## M4 — Review-editor boundary
 
+Selected scope, after 0100 M5: extract reference/result conversion, outcome and provenance parsing,
+coverage parsing, and proposal matching from
+`web/src/visualIdentities/PipelineVisualIdentityEditor.tsx` to `PipelineVisualIdentityData.ts` in
+the same directory. Add `PipelineVisualIdentityData.test.ts`. Preserve parsing behavior; leave
+requests, queued writes, retries, conflicts, navigation, and completion in the component. Run the
+new tests, `PipelineVisualIdentityEditor.test.tsx`, the existing Playwright workflow suite, web
+typecheck, boundary check, lint, format, and API verification. Exact-revision fallback concerns
+belong to 0100 M5; recheck its result before selecting helper boundaries.
+
 After the relevant 0100 work lands, implement at most one selected extraction in one editor. Keep
 review state, queued edits, draft preservation, navigation, and error behavior intact. Run focused
 component and browser workflow tests as appropriate, plus web typecheck, lint, formatting and API
@@ -93,6 +134,15 @@ verification. Do not change review decisions or frozen queues. Record a no-chang
 benefit does not justify the risk.
 
 ## M5 — Bounded bug fix
+
+Selected bug: duplicate coverage entries for the same frame can declare conflicting decisions.
+The last entry silently wins, so completion success depends on input order. The M0 inventory has
+a temporary-fixture service reproduction. Reject duplicate frame keys before publication, using
+item keys only for unresolved frames. Add failing regression cases for both orders and verify
+unchanged draft, selection, and published revisions on rejection. Cover identical duplicates,
+redundant item labels on resolved frames, and distinct unresolved items. Change the M3 parser, or
+the original handler if M3 is skipped. Run its parser tests, `test_pipeline_reference.py`,
+`test_frame_review_api.py`, and backend Ruff checks. Recheck overlap with 0100 before editing.
 
 Select at most one independently reproduced bug from M0 or the preceding milestones. Add a failing
 regression test when practical, fix its cause, and run the affected tests and checks. Give bugs owned
