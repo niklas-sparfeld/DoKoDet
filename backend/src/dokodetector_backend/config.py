@@ -79,6 +79,7 @@ class Settings(BaseSettings):
             "CARDEVENTNET_CHECKPOINT_PATH",
         ),
     )
+    card_event_device: Literal["cpu", "mps"] | None = None
     max_manifest_bytes: int = 1_000_000
     max_frame_bytes: int = 10_000_000
     max_video_bytes: int = 750_000

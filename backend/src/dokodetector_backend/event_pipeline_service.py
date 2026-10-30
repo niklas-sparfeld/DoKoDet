@@ -123,6 +123,13 @@ class CardEventFileProvider:
                 "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH "
                 "or publish a validated model-campaign integration contract."
             )
+        expected_digest = configuration.get("checkpoint_sha256")
+        if expected_digest is not None and (
+            not checkpoint.is_file() or _sha256_file(checkpoint) != expected_digest
+        ):
+            raise PipelineProviderError(
+                "The CardEventNet checkpoint changed or is missing. Restore the frozen checkpoint."
+            )
         cache_dir = (
             _configured_path(
                 configuration,
@@ -134,6 +141,7 @@ class CardEventFileProvider:
         batch_size = configuration.get("batch_size")
         threshold = configuration.get("threshold")
         merge_window = configuration.get("merge_window_s")
+        device = configuration.get("device")
         with tempfile.NamedTemporaryFile(suffix=".json") as output:
             kwargs: dict[str, Any] = {
                 "out_path": output.name,
@@ -145,6 +153,8 @@ class CardEventFileProvider:
                 kwargs["threshold"] = float(threshold)
             if merge_window is not None:
                 kwargs["merge_window_s"] = float(merge_window)
+            if device is not None:
+                kwargs["device_override"] = device
             if progress_callback is not None:
                 kwargs["progress_callback"] = progress_callback
             try:
@@ -308,9 +318,7 @@ class EventPipelineService:
         self.card_event_checkpoint_path = getattr(settings, "card_event_checkpoint_path", None)
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="event-pipeline")
         self._futures: dict[str, Future[None]] = {}
-        self._workspace_sources: dict[
-            str, tuple[tuple[int, int, str], RecordingVideoSource]
-        ] = {}
+        self._workspace_sources: dict[str, tuple[tuple[int, int, str], RecordingVideoSource]] = {}
         self._lock = RLock()
 
     def get_recording_source(self, recording_id: str) -> RecordingVideoSource:
@@ -512,13 +520,19 @@ class EventPipelineService:
         if not isinstance(provider, CardEventFileProvider):
             return request
         configuration = dict(request.configuration)
+        device = configuration.get("device", getattr(self.settings, "card_event_device", None))
+        if device is not None:
+            if not isinstance(device, str) or device not in {"cpu", "mps"}:
+                raise PipelineInputError("CardEventNet device must be cpu or mps.")
+            configuration["device"] = device
         checkpoint = (
             provider.resolve_checkpoint_path(configuration) or self.card_event_checkpoint_path
         )
-        defaults = None
+        defaults = _discover_checkpoint_defaults(self.settings.repository_root)
         if checkpoint is None:
-            defaults = _discover_checkpoint_defaults(self.settings.repository_root)
             checkpoint = None if defaults is None else defaults.path
+        elif defaults is not None and checkpoint != defaults.path:
+            defaults = None
         if checkpoint is None:
             raise PipelineInputError(
                 "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH "
@@ -535,6 +549,7 @@ class EventPipelineService:
         )
         if defaults is not None and defaults.merge_window_s is not None:
             configuration.setdefault("merge_window_s", defaults.merge_window_s)
+            configuration["checkpoint_sha256"] = _sha256_file(checkpoint)
         return replace(request, configuration=configuration)
 
     def _accepted_source(

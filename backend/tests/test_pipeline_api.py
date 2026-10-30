@@ -261,9 +261,7 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
         assert body["state"]["status"] == "complete"
         assert body["state"]["progress"] == {"completed": 1, "total": 1}
         assert body["state"]["items"][0]["item_id"] == "event-000000"
-        assert body["state"]["items"][0]["result"]["event_type"] == (
-            CARD_STATE_CHANGED_EVENT_TYPE
-        )
+        assert body["state"]["items"][0]["result"]["event_type"] == (CARD_STATE_CHANGED_EVENT_TYPE)
         assert body["revisions"][0]["content"]["events"][0]["start_us"] == 500_000
         assert body["revisions"][0]["content"]["events"][0]["event_type"] == (
             CARD_STATE_CHANGED_EVENT_TYPE
@@ -306,9 +304,7 @@ def test_cardeventnet_probability_metrics_are_stored_with_the_run(tmp_path: Path
             "threshold": 0.5,
             "events": [{"time_s": 0.5, "probability": 0.95}],
         }
-        result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/run-metrics/result"
-        )
+        result = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/run-metrics/result")
         assert result.status_code == 200
         assert result.json()["state"]["metrics"] == metrics
 
@@ -412,6 +408,7 @@ def test_default_card_event_provider_uses_0063_integration_checkpoint(
             ),
             "threshold": 0.4271905720233917,
             "merge_window_s": 0.625,
+            "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
         }
         assert (
             _wait_for_status(client, "run-0063-integration-cardevent", "complete")["state"][
@@ -551,9 +548,7 @@ def test_workspace_run_summary_omits_frozen_crop_items() -> None:
     assert request_mapping["crop_input"]["items"] is crop_items
 
 
-def test_stage_workspace_skips_inactive_reference_drafts(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_stage_workspace_skips_inactive_reference_drafts(tmp_path: Path, monkeypatch) -> None:
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
     reference_store = app.state.pipeline_reference_store
@@ -566,9 +561,7 @@ def test_stage_workspace_skips_inactive_reference_drafts(
 
     monkeypatch.setattr(reference_store, "get", traced_get)
 
-    workspace = app.state.pipeline_workspace_service.get_workspace(
-        RECORDING_ID, stage_key="events"
-    )
+    workspace = app.state.pipeline_workspace_service.get_workspace(RECORDING_ID, stage_key="events")
 
     assert workspace["schema_version"] == "pipeline-workspace/v1"
     assert draft_reads == []

@@ -300,6 +300,12 @@ class VisibleCardPipelineService:
         configuration = dict(configuration)
         configuration["provider"] = provider_name
         configuration["detector"] = {"name": provider_name, "version": provider_version}
+        bundle_identity = getattr(provider, "bundle_identity", None)
+        if isinstance(bundle_identity, Mapping):
+            configuration["bundle_identity"] = dict(bundle_identity)
+        device = getattr(provider, "device", None)
+        if isinstance(device, str):
+            configuration["device"] = device
         values["configuration"] = configuration
         values.setdefault(
             "extraction_policy", {"policy_id": "exact-event/v1", "output_encoding": "jpeg"}
@@ -518,12 +524,7 @@ class VisibleCardPipelineService:
         pile_regions = tuple(
             VisibleCardPileRegion(
                 pile_id=f"{_safe(run.run_id)}-{_safe(event.event_id)}-pile-{index:04d}",
-                polygons=(
-                    tuple(
-                        (point.x, point.y)
-                        for point in proposal.polygon
-                    ),
-                ),
+                polygons=(tuple((point.x, point.y) for point in proposal.polygon),),
                 normalization={
                     "width": frame.width,
                     "height": frame.height,
@@ -574,6 +575,15 @@ class VisibleCardPipelineService:
         provider = self._provider_for_selection(configuration_provider(run.request.configuration))
         if provider is None:
             raise VisibleCardPipelineError("The visible-card detector is unavailable.")
+        actual_provider = _base_provider(provider)
+        for field, actual in (
+            ("bundle_identity", getattr(actual_provider, "bundle_identity", None)),
+            ("device", getattr(actual_provider, "device", None)),
+        ):
+            if field in run.request.configuration and run.request.configuration[field] != actual:
+                raise VisibleCardPipelineError(
+                    f"The visible-card {field} changed since this run was created. Start a new run."
+                )
         model = run.request.model
         request = VisibleCardRequest(
             package_id=f"{run.run_id}-{event_id}",

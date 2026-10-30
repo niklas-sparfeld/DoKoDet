@@ -28,7 +28,7 @@
   reads. Conflicting observation overrides fail before a run starts.
 - **M3:** Complete — remove hidden gameplay defaults, validate player and leader context, and
   reuse only saved explicit context. A dealer can sit out the round, as defined in the glossary.
-- **M4:** Not started — provide one explicit recipe for the existing local models.
+- **M4:** Complete — provide the [local model recipe](../../reports/0100-M4_Local_Model_Recipe.md), frozen-artifact preflight, and explicit device and bundle lineage. The retained providers load offline on CPU.
 - **M5:** Not started — repair active revision and review-target access.
 - **M6:** Not started — verify the combined workflow and publish a short trial guide.
 

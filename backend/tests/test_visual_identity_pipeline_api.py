@@ -9,6 +9,7 @@ from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
 from app_factory import create_test_app
 from doko_operations.derived_view import crop_jpeg_preview_cache_key_for_source_digest
 from doko_operations.pipeline_data import (
@@ -1382,3 +1383,66 @@ def _wait_identity(client: TestClient, run_id: str) -> dict[str, Any]:
             return body
         time.sleep(0.01)
     return body
+
+
+def test_local_pipeline_requests_record_actual_bundle_and_crop(tmp_path: Any) -> None:
+    _install_recording(tmp_path)
+    detector = _Detector()
+    detector.name = "local-rfdetr-segmentation"
+    detector.bundle_identity = {"bundle_digest": "a" * 64}
+    detector.device = "cpu"
+    identity = _IdentityProvider()
+    identity.name = "local-dinov3"
+    identity.bundle_identity = {"bundle_digest": "b" * 64}
+    identity.device = "cpu"
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=detector,
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=identity,
+    )
+    with TestClient(app) as client:
+        assert (
+            client.post(
+                f"/api/recordings/{RECORDING_ID}/pipeline/events", json={"run_id": "events-local"}
+            ).status_code
+            == 202
+        )
+        _wait_event(client, "events-local")
+        response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={"run_id": "cards-local", "configuration": {"provider": detector.name}},
+        )
+        assert response.status_code == 202, response.text
+        assert (
+            response.json()["request"]["configuration"]["bundle_identity"]
+            == detector.bundle_identity
+        )
+        assert response.json()["request"]["configuration"]["device"] == "cpu"
+        _wait(client, "cards-local")
+        revision = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/cards-local/result"
+        ).json()["state"]["output_revision_ids"][0]
+        response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-local",
+                "visible_card_revision_id": revision,
+                "configuration": {"provider": "local"},
+                "crop_policy": {"policy_id": "predicted_visible_region", "output_encoding": "ppm"},
+            },
+        )
+        assert response.status_code == 202, response.text
+        saved = response.json()["request"]
+        assert saved["configuration"]["provider"] == identity.name
+        assert saved["configuration"]["bundle_identity"] == identity.bundle_identity
+        assert saved["configuration"]["device"] == "cpu"
+        assert saved["crop_policy"]["policy_id"] == "predicted_visible_region"
+        assert _wait_identity(client, "identity-local")["state"]["status"] == "complete"
+        request = app.state.visual_identity_pipeline_service.run_store.require(
+            "identity-local"
+        ).request
+        identity.device = "mps"
+        with pytest.raises(VisualIdentityPipelineError, match="device changed"):
+            app.state.visual_identity_pipeline_service._classifier_for_request(request)

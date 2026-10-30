@@ -3,10 +3,23 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from dokodetector_backend.event_pipeline_service import (
     CardEventFileProvider,
+    PipelineProviderError,
     _discover_checkpoint_defaults,
 )
+
+
+def test_card_event_rejects_changed_frozen_checkpoint(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "best.pt"
+    checkpoint.write_bytes(b"changed")
+    request = SimpleNamespace(
+        configuration={"checkpoint_path": "best.pt", "checkpoint_sha256": "0" * 64}
+    )
+    with pytest.raises(PipelineProviderError, match="checkpoint changed or is missing"):
+        CardEventFileProvider(tmp_path).infer(tmp_path / "video.mov", request=request)
 
 
 def test_card_event_file_provider_uses_installed_cardevent_package(
@@ -30,6 +43,7 @@ def test_card_event_file_provider_uses_installed_cardevent_package(
             "batch_size": 4,
             "threshold": 0.5,
             "merge_window_s": 1.25,
+            "device": "cpu",
         }
     )
     video_path = tmp_path / "recording.mov"
@@ -46,6 +60,7 @@ def test_card_event_file_provider_uses_installed_cardevent_package(
     assert kwargs["batch_size"] == 4
     assert kwargs["threshold"] == 0.5
     assert kwargs["merge_window_s"] == 1.25
+    assert kwargs["device_override"] == "cpu"
 
 
 def test_card_event_file_provider_uses_explicit_checkpoint_only(
@@ -109,7 +124,9 @@ def test_card_event_file_provider_forwards_progress_callback(
 
     monkeypatch.setattr(cardevent, "infer_from_files", fake_infer_from_files)
     provider = CardEventFileProvider(tmp_path)
-    progress = lambda current, total: None
+
+    def progress(current, total):
+        return None
 
     provider.infer(
         tmp_path / "recording.mov",

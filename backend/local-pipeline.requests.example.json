@@ -1,0 +1,42 @@
+{
+  "card_scene_and_calibration": {
+    "configuration": {}
+  },
+  "event_proposals": {
+    "configuration": {
+      "checkpoint_path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt",
+      "merge_window_s": 0.625,
+      "threshold": 0.4271905720233917
+    },
+    "extraction_policy": {
+      "output_encoding": "jpeg",
+      "policy_id": "exact-event/v1"
+    }
+  },
+  "reconstruction": {
+    "skip": true,
+    "skip_reason": "Staged sequence has no explicit game round setup."
+  },
+  "table_observations": {
+    "configuration": {}
+  },
+  "visible_card_and_pile_proposals": {
+    "configuration": {
+      "provider": "local-rfdetr-segmentation"
+    },
+    "extraction_policy": {
+      "output_encoding": "jpeg",
+      "policy_id": "exact-event/v1"
+    }
+  },
+  "visual_identity_proposals": {
+    "configuration": {
+      "provider": "local"
+    },
+    "crop_input_kind": "rfdetr_segment",
+    "crop_policy": {
+      "output_encoding": "ppm",
+      "policy_id": "predicted_visible_region"
+    }
+  }
+}

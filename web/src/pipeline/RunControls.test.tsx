@@ -654,6 +654,67 @@ describe("RunControls", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses the local classifier with the generated RF-DETR crop input", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(runResponse("identity-local")), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const visible = stage("visible_cards", {
+      input_options: [
+        {
+          ...option("rfdetr-one"),
+          content_type: "visible_cards",
+          producer: { kind: "processor", run_id: "rfdetr-run" },
+        },
+      ],
+      runs: [
+        {
+          run_id: "rfdetr-run",
+          output_revision_ids: ["rfdetr-one"],
+          configuration: { provider: "local-rfdetr-segmentation" },
+          request: { configuration: { provider: "local-rfdetr-segmentation" } },
+        },
+      ],
+    });
+    const identities = stage("visual_identities");
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={identities}
+        stages={[visible, identities]}
+        onRefresh={async () => undefined}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Local" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.find(([, init]) => init?.method === "POST"),
+      ).toBeDefined(),
+    );
+    const postCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      request: {
+        visible_card_revision_id: "rfdetr-one",
+        crop_input_kind: "rfdetr_segment",
+        configuration: { provider: "local" },
+        crop_policy: {
+          policy_id: "predicted_visible_region",
+          output_encoding: "ppm",
+        },
+      },
+    });
+  });
+
   it("explains why reviewed virtual-card input is unavailable", () => {
     const visible = stage("visible_cards", {
       input_options: [

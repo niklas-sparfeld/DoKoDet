@@ -955,6 +955,13 @@ class VisualIdentityPipelineService:
             )
         configuration["provider"] = classifier.name
         configuration["classifier"] = {"name": classifier.name, "version": classifier.version}
+        underlying = getattr(classifier, "classifier", classifier)
+        bundle_identity = getattr(underlying, "bundle_identity", None)
+        if isinstance(bundle_identity, Mapping):
+            configuration["bundle_identity"] = dict(bundle_identity)
+        device = getattr(underlying, "device", None)
+        if isinstance(device, str):
+            configuration["device"] = device
         values["configuration"] = configuration
         if values.get("model") is None or requested_provider is not None:
             values["model"] = {"name": classifier.model, "version": classifier.version}
@@ -1894,7 +1901,18 @@ class VisualIdentityPipelineService:
         return None
 
     def _classifier_for_request(self, request: ProcessorRunRequest) -> Any | None:
-        return self._classifier_for_selection(configuration_provider(request.configuration))
+        classifier = self._classifier_for_selection(configuration_provider(request.configuration))
+        if classifier is not None:
+            underlying = getattr(classifier, "classifier", classifier)
+            for field, actual in (
+                ("bundle_identity", getattr(underlying, "bundle_identity", None)),
+                ("device", getattr(underlying, "device", None)),
+            ):
+                if field in request.configuration and request.configuration[field] != actual:
+                    raise VisualIdentityPipelineError(
+                        f"The identity {field} changed since this run was created. Start a new run."
+                    )
+        return classifier
 
     def _publish_revision(
         self, run: StoredProcessorRun, content: VisualIdentityData

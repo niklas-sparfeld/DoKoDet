@@ -272,6 +272,7 @@ def test_fine_frame_provider_is_selectable_and_keeps_gemini_as_default(
     assert selected.name == "local-rfdetr-fine-frame"
     assert selected.bundle == bundle_path
     assert selected.device == "cpu"
+    monkeypatch.delenv("VISIBLE_CARD_PROVIDER", raising=False)
     assert Settings(_env_file=None, gemini_api_key="key").visible_card_provider == "gemini"
 
 
