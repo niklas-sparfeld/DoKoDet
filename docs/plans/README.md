@@ -99,6 +99,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0101 — Repository spring cleanup](2-ready/0101-Repository_Spring_Cleanup.md) | None; coordinate overlapping changes with 0100 | M0–M6 not started. Verify cleanup candidates, then make bounded removals, architecture improvements, and a reproduced bug fix where justified. |
 | [0100 — Local pipeline compatibility](2-ready/0100-Local_Pipeline_Compatibility.md) | Completed 0048/0049, 0090, 0092 M4, 0088 M6 decision, 0095, and 0097 | M0–M6 not started. Repair local code, configuration, session/context, and active retained-data boundaries; verify readiness for one real recording trial. Excludes iOS, training, promotion, and annotation completion. |
 
 ### In Progress
