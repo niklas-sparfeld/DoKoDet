@@ -26,11 +26,15 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. Its M0–M3 milestones are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) is complete; its read-only queue check found all 165 frozen items unavailable because of the local revision catalog. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md).
+Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. Its M0–M3 milestones are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) handoff reported all 165 targets unavailable in its checkout. The current 0100 M0 check loads all exact targets from the revision store; live editor navigation remains unverified. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md) and [0100 M0 inventory](../reports/0100-M0_Compatibility_Inventory.md).
 
-Next: **[0100 — Local pipeline compatibility](2-ready/0100-Local_Pipeline_Compatibility.md)**.
-M0–M6 are not started. Fix local package freshness, recording session identifiers, explicit round
-context, local model selection, and active revision/review-target access before one real operator
+Also active: **[0100 — Local pipeline compatibility](3-in-progress/0100-Local_Pipeline_Compatibility.md)**.
+M0 is complete; M1–M6 are not started. The [M0 inventory](../reports/0100-M0_Compatibility_Inventory.md)
+found stale installed engine packages, UUID-only analysis session IDs, seat defaults, and a mismatch
+between local settings and the first-trial model recipe. The current revision store loads all 165
+0096 and 114 0098 frozen targets with matching content; live editor navigation remains unverified.
+Fix local package freshness, recording session identifiers, explicit round context, local model
+selection, and active revision/review-target access before one real operator
 trial. The final milestone verifies readiness with fixtures and bounded model probes. No iOS work,
 training, promotion, or human annotation completion is required. 0096 remains pending human review.
 
@@ -100,13 +104,13 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0101 — Repository spring cleanup](2-ready/0101-Repository_Spring_Cleanup.md) | None; coordinate overlapping changes with 0100 | M0–M6 not started. Verify cleanup candidates, then make bounded removals, architecture improvements, and a reproduced bug fix where justified. |
-| [0100 — Local pipeline compatibility](2-ready/0100-Local_Pipeline_Compatibility.md) | Completed 0048/0049, 0090, 0092 M4, 0088 M6 decision, 0095, and 0097 | M0–M6 not started. Repair local code, configuration, session/context, and active retained-data boundaries; verify readiness for one real recording trial. Excludes iOS, training, promotion, and annotation completion. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. The M4 review queue is frozen at 165 frames across 33 recordings; one M1 failure has no corrected output to inspect. Human review is pending. See the [M4 queue](../reports/0096-M4_Human_Review_Queue.md) and [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
+| [0100 — Local pipeline compatibility](3-in-progress/0100-Local_Pipeline_Compatibility.md) | Completed 0048/0049, 0090, 0092 M4, 0088 M6 decision, 0095, and 0097 | M0 complete; M1–M6 not started. Current inventory found stale installed engine packages, UUID-only analysis session IDs, seat defaults, and a local model-recipe mismatch. The current store loads all 279 frozen review targets with matching content; live editor navigation remains unverified. See the [M0 inventory](../reports/0100-M0_Compatibility_Inventory.md). |
 
 ### Blocked
 

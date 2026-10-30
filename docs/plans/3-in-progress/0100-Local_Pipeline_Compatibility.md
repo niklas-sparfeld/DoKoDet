@@ -4,7 +4,7 @@
 
 - **Summary:** Remove current code, configuration, and data-contract blockers before an operator
   tries one recorded round from video to reconstruction with the existing local models.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Completed 0048/0049 recording pipeline, 0090 coordinator, 0092 M4 detector
   bundle, 0088 M6 identity bundle decision, 0095 observation contract, and 0097 review navigation.
   All implementation prerequisites are available. Pending 0096/0098 human review is not a dependency.
@@ -17,7 +17,8 @@
 
 ## Milestone status
 
-- **M0:** Not started — inventory active compatibility failures and freeze the repair scope.
+- **M0:** Complete — froze the current code, environment, revision, and review-target findings in
+  the [M0 compatibility inventory](../../reports/0100-M0_Compatibility_Inventory.md).
 - **M1:** Not started — make local package installation use the current engine source.
 - **M2:** Not started — use canonical recording session identifiers throughout analysis.
 - **M3:** Not started — require explicit round context without hidden gameplay defaults.
