@@ -132,7 +132,7 @@ class RoundAnalysisCreateRequest(ContractModel):
     analysis_id: UUID
     recording_id: Identifier
     round_id: Identifier
-    session_id: UUID
+    session_id: Identifier
     round_setup: AnalysisRoundSetup | None = None
     evidence_package_ids: list[UUID] = Field(default_factory=list)
     table_observation_revision_id: Identifier | None = None
@@ -236,7 +236,7 @@ class RoundAnalysisStatus(ContractModel):
     analysis_id: UUID
     recording_id: Identifier
     round_id: Identifier
-    session_id: UUID
+    session_id: Identifier
     state: Literal[
         "queued",
         "analyzing_evidence",

@@ -208,7 +208,7 @@ class RoundAnalysisTimeline(ContractModel):
     recording_id: str = Field(min_length=1, max_length=256)
     recording_video: TimelineRecordingVideo
     round_id: str = Field(min_length=1, max_length=128)
-    session_id: UUID
+    session_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
     reconstruction_status: Literal["resolved", "ambiguous", "incomplete", "impossible"]
     search: TimelineSearchLimits
     diagnostics: dict[str, Any]
@@ -659,13 +659,13 @@ class RoundAnalysisTimelineProjector:
             if package is None:
                 raise RoundAnalysisTimelineError("A source evidence package is unavailable.")
             try:
-                observation_session_id = UUID(observation.session.session_id)
+                observation_session_id = observation.session.session_id
             except (AttributeError, TypeError, ValueError) as error:
                 raise RoundAnalysisTimelineError(
                     "A source observation has an invalid session."
                 ) from error
             if (
-                package.session_id != observation_session_id
+                str(package.session_id) != observation_session_id
                 or package.event_sequence != observation.session.event_sequence
             ):
                 raise RoundAnalysisTimelineError(

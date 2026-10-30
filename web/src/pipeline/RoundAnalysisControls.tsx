@@ -12,7 +12,6 @@ import { describePipelineError } from "./ObservationRunFormatting";
 import {
   createUuid,
   DEFAULT_PLAYERS,
-  isUuid,
   parseSearchLimits,
   TERMINAL_ANALYSIS_STATES,
 } from "./RoundAnalysisFormatting";
@@ -166,10 +165,6 @@ export function RoundAnalysisControls({
     }
     if (activePlayers.length !== 4 || new Set(activePlayers).size !== 4) {
       setMessage("Round context needs four unique active players.");
-      return null;
-    }
-    if (!isUuid(sessionId.trim())) {
-      setMessage("Session ID must be a valid UUID.");
       return null;
     }
     const search = parseSearchLimits(

@@ -7,6 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import pytest
 from app_factory import create_test_app
 from doko_operations.pipeline_data import sha256_bytes
 from fastapi.testclient import TestClient
@@ -232,11 +233,14 @@ def _wait_observation(client: TestClient, run_id: str) -> dict[str, Any]:
     return body
 
 
+@pytest.mark.parametrize(
+    "session_id", ["6ba7b810-9dad-41d1-80b4-00c04fd430c8", "session-2026-08-20"]
+)
 def test_recording_analysis_uses_selected_observations_without_evidence_packages(
-    tmp_path: Path,
+    tmp_path: Path, session_id: str
 ) -> None:
     _install_recording(tmp_path)
-    _make_analysis_metadata(tmp_path)
+    _make_analysis_metadata(tmp_path, session_id=session_id)
     app = create_test_app(
         _settings(tmp_path),
         run_round_analysis_synchronously=True,
@@ -258,18 +262,34 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
             "visual-identities",
             input_revision_ids=[visible_revision_id],
         )
+        rejected_override = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/observations",
+            json={
+                "run_id": "analysis-observation-conflict",
+                "configuration": {"session_id": "wrong-session"},
+            },
+        )
+        assert rejected_override.status_code == 422
+        assert "must match the recording session ID" in rejected_override.text
         first_revision_id = _run_pipeline(
             client,
             "analysis-observation-01",
             "observations",
-            configuration={"session_id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"},
         )
+        observation = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/observations/analysis-observation-01/result"
+        ).json()["revisions"][0]["content"]["observations"][0]
+        assert observation["session"]["session_id"] == session_id
 
         first = client.post(f"/v1/recordings/{RECORDING_ID}/round-analyses")
         assert first.status_code == 202, first.text
         first_body = first.json()
         assert first_body["state"] == "complete"
+        assert first_body["session_id"] == session_id
         first_analysis_id = first_body["analysis_id"]
+        status = client.get(f"/v1/round-analyses/{first_analysis_id}")
+        assert status.status_code == 200
+        assert status.json()["session_id"] == session_id
         assert first_body["total_evidence_packages"] == 0
         input_path = (
             app.state.round_analysis_storage.analysis_path(first_analysis_id)
@@ -282,13 +302,35 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
         )
         timeline = client.get(f"/v1/round-analyses/{first_analysis_id}/timeline")
         assert timeline.status_code == 200, timeline.text
+        assert timeline.json()["session_id"] == session_id
         assert timeline.json()["rows"][0]["package_id"] is None
+        counterfactual_id = "550e8400-e29b-41d4-a716-446655440099"
+        counterfactual_payload = {
+            "schema_version": "round-analysis-counterfactual/v1",
+            "counterfactual_id": counterfactual_id,
+            "source_analysis_id": first_analysis_id,
+            "source_input_sha256": first_body["result"]["input_artifact_sha256"],
+            "source_result_sha256": first_body["result"]["result_artifact_sha256"],
+            "excluded_observation_ids": [timeline.json()["rows"][0]["observation_id"]],
+            "excluded_observed_cards": [],
+            "card_identity_overrides": [],
+            "candidate_probability_overrides": [],
+        }
+        counterfactual = client.post(
+            f"/v1/round-analyses/{first_analysis_id}/counterfactuals",
+            json=counterfactual_payload,
+        )
+        assert counterfactual.status_code == 201, counterfactual.text
+        counterfactual_read = client.get(
+            f"/v1/round-analyses/{first_analysis_id}/counterfactuals/{counterfactual_id}"
+        )
+        assert counterfactual_read.status_code == 200
+        assert counterfactual_read.json() == counterfactual.json()
 
         second_revision_id = _run_pipeline(
             client,
             "analysis-observation-02",
             "observations",
-            configuration={"session_id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"},
         )
         assert second_revision_id != first_revision_id
         second = client.post(f"/v1/recordings/{RECORDING_ID}/round-analyses")
@@ -296,16 +338,28 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
         assert second.json()["state"] == "complete"
         assert second.json()["analysis_id"] != first_analysis_id
 
+    restarted = create_test_app(_settings(tmp_path), run_round_analysis_synchronously=True)
+    with TestClient(restarted) as client:
+        status = client.get(f"/v1/round-analyses/{first_analysis_id}")
+        timeline = client.get(f"/v1/round-analyses/{first_analysis_id}/timeline")
+        counterfactual = client.get(
+            f"/v1/round-analyses/{first_analysis_id}/counterfactuals/{counterfactual_id}"
+        )
+        assert status.status_code == 200
+        assert status.json()["session_id"] == session_id
+        assert timeline.status_code == 200
+        assert timeline.json()["session_id"] == session_id
+        assert counterfactual.status_code == 200
 
-def _make_analysis_metadata(tmp_path: Path) -> None:
-    """Give the shared pipeline fixture UUID session metadata for round analysis."""
+
+def _make_analysis_metadata(tmp_path: Path, *, session_id: str) -> None:
+    """Give the shared pipeline fixture canonical session metadata for round analysis."""
 
     bundle = tmp_path / "recordings" / RECORDING_ID
     manifest_path = bundle / "manifest.json"
     source_path = bundle / "source-record.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     source = json.loads(source_path.read_text(encoding="utf-8"))
-    session_id = "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
     manifest["session_id"] = session_id
     source["session_id"] = session_id
     source["round_id"] = f"round-{RECORDING_ID}"

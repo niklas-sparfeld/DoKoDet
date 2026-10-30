@@ -370,7 +370,7 @@ class RoundAnalysisStore:
 
         try:
             analysis_id = UUID(_string(payload, "analysis_id"))
-            session_id = UUID(_string(payload, "session_id"))
+            session_id = _string(payload, "session_id")
             request_json = _string(payload, "request_json")
             request = parse_round_analysis_create_request_bytes(request_json.encode("utf-8"))
         except (TypeError, UnicodeError, ValueError) as error:

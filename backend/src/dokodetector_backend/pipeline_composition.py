@@ -146,6 +146,7 @@ def build_pipeline_composition(
         revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
+        recording_store=recording_store,
         runtime_root=settings.evidence_root,
         operations_root=settings.operations_root,
     )

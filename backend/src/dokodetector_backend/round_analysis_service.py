@@ -236,7 +236,7 @@ class RoundAnalysisService:
                 raise RoundAnalysisValidationError(
                     f"The evidence package {package_id} is not stored."
                 )
-            if package.session_id != request.session_id:
+            if str(package.session_id) != request.session_id:
                 raise RoundAnalysisValidationError(
                     "All evidence packages must use the analysis session."
                 )
@@ -432,11 +432,11 @@ class RoundAnalysisService:
             },
         )
 
-    def _analysis_identifiers(self, recording: StoredRecordingBundle) -> tuple[UUID, str, str]:
+    def _analysis_identifiers(self, recording: StoredRecordingBundle) -> tuple[str, str, str]:
         """Read analysis identifiers from one canonical recording source."""
 
         try:
-            session_id = UUID(recording.session_id)
+            session_id = recording.session_id
             source = parse_source_record(
                 (
                     self.repository_bundle_storage.bundle_path(recording.recording_id)

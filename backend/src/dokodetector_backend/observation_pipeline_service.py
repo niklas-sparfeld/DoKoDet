@@ -64,12 +64,14 @@ class ObservationPipelineService:
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
         selection_store: PipelineSelectionStore,
+        recording_store: Any,
         runtime_root: Any,
         operations_root: Any,
     ) -> None:
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
+        self.recording_store = recording_store
         self.storage = PipelineRuntimeStorage(runtime_root, operations_root)
         self._executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="observation-pipeline"
@@ -181,6 +183,23 @@ class ObservationPipelineService:
             )
         source = event_revision.manifest.source
         values = dict(raw)
+        recording = self.recording_store.get_metadata(recording_id)
+        if recording is None or not recording.session_id:
+            raise ObservationPipelineInputError(
+                "the recording has no valid canonical session ID"
+            )
+        configuration = values.get("configuration", {})
+        if not isinstance(configuration, Mapping):
+            raise ObservationPipelineInputError("configuration must be an object")
+        requested_session_id = configuration.get("session_id")
+        if requested_session_id is not None and requested_session_id != recording.session_id:
+            raise ObservationPipelineInputError(
+                "the observation session ID must match the recording session ID"
+            )
+        values["configuration"] = {
+            **configuration,
+            "session_id": recording.session_id,
+        }
         for field in (
             "event_revision_id",
             "visible_card_revision_id",

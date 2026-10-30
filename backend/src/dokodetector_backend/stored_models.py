@@ -51,7 +51,7 @@ class StoredPackage:
 
     package_id: UUID
     schema_version: str
-    session_id: UUID
+    session_id: str
     event_sequence: int
     event_time_ms: int
     manifest_json: str
@@ -118,7 +118,7 @@ class StoredRoundAnalysis:
     analysis_id: UUID
     recording_id: str
     round_id: str
-    session_id: UUID
+    session_id: str
     request_json: str
     request_sha256: str
     state: str

@@ -22,7 +22,10 @@
 - **M1:** Complete — made the engine dependency editable in operations, regenerated both lockfiles,
   refreshed both environments, and verified the coordinator, provider, observation, analysis, and
   reconstruction checks.
-- **M2:** Not started — use canonical recording session identifiers throughout analysis.
+- **M2:** Complete — use canonical recording session identifiers through observation assembly,
+  analysis requests and status, storage, timeline output, browser validation, and generated API
+  types. UUID and non-UUID identifiers pass analysis, status, restart, timeline, and counterfactual
+  reads. Conflicting observation overrides fail before a run starts.
 - **M3:** Not started — require explicit round context without hidden gameplay defaults.
 - **M4:** Not started — provide one explicit recipe for the existing local models.
 - **M5:** Not started — repair active revision and review-target access.

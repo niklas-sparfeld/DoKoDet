@@ -82,6 +82,18 @@ def test_round_analysis_state_supports_lifecycle_and_restart_conversion(tmp_path
     assert fresh_store.get(ANALYSIS_ID) == stored
 
 
+def test_round_analysis_store_reads_non_uuid_session_after_restart(tmp_path: Path) -> None:
+    store, _ = store_for(tmp_path)
+    payload = analysis_request().model_dump(mode="json")
+    payload["session_id"] = "session-2026-08-20"
+    request = RoundAnalysisCreateRequest.model_validate(payload)
+    store.create(request)
+
+    restarted = RoundAnalysisStore(RoundAnalysisArtifactStorage(tmp_path))
+
+    assert restarted.get(ANALYSIS_ID).session_id == "session-2026-08-20"
+
+
 def test_round_analysis_store_keeps_terminal_state_and_rejects_conflicts(
     tmp_path: Path,
 ) -> None:

@@ -101,6 +101,23 @@ def test_pipeline_create_request_requires_explicit_observation_context() -> None
         )
 
 
+@pytest.mark.parametrize("session_id", [str(SESSION_ID), "session-2026-08-20"])
+def test_analysis_session_id_accepts_canonical_identifiers(session_id: str) -> None:
+    request = RoundAnalysisCreateRequest.model_validate(
+        {**create_payload(), "session_id": session_id}
+    )
+
+    assert request.session_id == session_id
+
+
+@pytest.mark.parametrize("session_id", ["", "has whitespace", "/invalid"])
+def test_analysis_session_id_rejects_invalid_identifiers(session_id: str) -> None:
+    with pytest.raises(ValidationError):
+        RoundAnalysisCreateRequest.model_validate(
+            {**create_payload(), "session_id": session_id}
+        )
+
+
 @pytest.mark.parametrize(
     "change",
     [
@@ -139,7 +156,7 @@ def test_status_requires_result_for_complete_and_error_for_failed() -> None:
         analysis_id=ANALYSIS_ID,
         recording_id="recording-0032",
         round_id="round-0032",
-        session_id=SESSION_ID,
+        session_id=str(SESSION_ID),
         state="complete",
         total_evidence_packages=2,
         completed_evidence_packages=2,

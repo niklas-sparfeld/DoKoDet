@@ -3065,10 +3065,7 @@ export interface components {
              */
             schema_version: "round-analysis/v1";
             search: components["schemas"]["AnalysisSearchLimits"];
-            /**
-             * Session Id
-             * Format: uuid
-             */
+            /** Session Id */
             session_id: string;
             /** Table Observation Revision Id */
             table_observation_revision_id?: string | null;
@@ -3140,10 +3137,7 @@ export interface components {
             result?: components["schemas"]["RoundAnalysisResult"] | null;
             /** Round Id */
             round_id: string;
-            /**
-             * Session Id
-             * Format: uuid
-             */
+            /** Session Id */
             session_id: string;
             /** Started At */
             started_at?: string | null;
@@ -3197,10 +3191,7 @@ export interface components {
              */
             schema_version: "round-analysis-timeline/v1";
             search: components["schemas"]["TimelineSearchLimits"];
-            /**
-             * Session Id
-             * Format: uuid
-             */
+            /** Session Id */
             session_id: string;
             /** Warnings */
             warnings: components["schemas"]["TimelineWarning"][];
