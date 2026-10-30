@@ -18,7 +18,7 @@
 - **M0:** Complete — published the [validated cleanup inventory](../../reports/0101-M0_Cleanup_Inventory.md),
   selected one change per M1–M5, and reproduced order-dependent duplicate frame coverage.
 - **M1:** Complete — removed old-runtime evidence adoption and its private implementation; both command names are rejected.
-- **M2:** Not started — extract source lifecycle command execution and rendering.
+- **M2:** Complete — extracted source lifecycle command execution and rendering; focused checks passed.
 - **M3:** Not started — extract visible-card frame coverage parsing after 0100 M5.
 - **M4:** Not started — extract identity editor data conversion after 0100 M5.
 - **M5:** Not started — reject duplicate visible-card frame coverage before completion.
@@ -100,6 +100,10 @@ Keep argument registration in `cli.py` and data behavior in `impact.py`. Add
 `operations/tests/test_source_lifecycle_cli.py`; retain the source preservation and idempotency
 checks in `test_operations.py`. Cover help, missing subcommands, argument errors, dispatch,
 human/JSON output, and failures. Run these files, `test_import_isolation.py`, and Ruff checks.
+
+M2 moved execution and human rendering to `source_lifecycle_cli.py`. The parser and data
+behavior remain in their existing modules. The new command tests cover help, arguments, dispatch,
+output, and failures. All 32 focused tests passed with isolated fixtures; Ruff passed.
 
 Implement the selected small command-family change in `operations`; keep remaining behavior and
 consumer entry points consistent unless M0 proved an interface obsolete. Test representative help,
