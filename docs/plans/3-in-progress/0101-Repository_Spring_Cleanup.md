@@ -17,7 +17,7 @@
 
 - **M0:** Complete — published the [validated cleanup inventory](../../reports/0101-M0_Cleanup_Inventory.md),
   selected one change per M1–M5, and reproduced order-dependent duplicate frame coverage.
-- **M1:** Not started — remove old-runtime evidence adoption and its private implementation.
+- **M1:** Complete — removed old-runtime evidence adoption and its private implementation; both command names are rejected.
 - **M2:** Not started — extract source lifecycle command execution and rendering.
 - **M3:** Not started — extract visible-card frame coverage parsing after 0100 M5.
 - **M4:** Not started — extract identity editor data conversion after 0100 M5.
@@ -80,6 +80,12 @@ obsolete instructions from `README.md`, `operations/README.md`,
 package readers, upload, validation, and fixtures. Recheck configured legacy storage before deletion.
 Run operations `test_operations.py`, `test_import_isolation.py`, and `test_intake_contract.py`;
 backend `test_intake_contract.py` and `test_api.py`; Ruff and local Markdown link checks.
+
+M1 rechecked the default runtime root and the three legacy evidence locations. They are absent.
+No active caller was found. The canonical upload and package readers remain in place. The three
+operations test files passed with their fixtures in an isolated temporary checkout (23 tests).
+The direct run was stopped during a live data-store scan. Backend tests passed (31 tests). Ruff
+and local Markdown link checks passed.
 
 Implement only the M0-selected removal. Trace and update the command, private implementation,
 exports, tests, and current documentation together. Preserve any active recovery, reproduction, or

@@ -102,7 +102,6 @@ from .dinov3_identity_campaign import (
     render_dinov3_identity_training_handoff_human,
     validate_dinov3_identity_training_handoff,
 )
-from .evidence_adoption import EvidencePackageAdoptionError, adopt_runtime_evidence_package
 from .holdout import SystemHoldoutError, seal_system_holdout_group
 from .impact import (
     RETIREMENT_STATES,
@@ -1545,28 +1544,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     split_rounds.add_argument("--format", choices=("human", "json"), default="human")
     split_rounds.add_argument("--json", action="store_true", help="Alias for --format json.")
-    adopt = data_commands.add_parser(
-        "adopt-evidence",
-        aliases=("adopt-evidence-package",),
-        help="Adopt one legacy runtime evidence package into repository intake.",
-        description="Adopt one legacy runtime evidence package into repository intake.",
-    )
-    _add_path_options(adopt, suppress_defaults=True)
-    adopt.add_argument(
-        "--runtime-root",
-        type=Path,
-        required=True,
-        help="Legacy backend runtime root containing evidence/<package-id>.",
-    )
-    adopt.add_argument("--package-id", required=True)
-    adopt.add_argument(
-        "--metadata",
-        type=Path,
-        required=True,
-        help="JSON metadata object or directory with the package record, enrollment, and lineage.",
-    )
-    adopt.add_argument("--format", choices=("human", "json"), default="human")
-    adopt.add_argument("--json", action="store_true", help="Alias for --format json.")
     holdout = data_commands.add_parser("holdout", help="Manage the shared system holdout registry.")
     holdout_commands = holdout.add_subparsers(dest="holdout_command", metavar="COMMAND")
     seal = holdout_commands.add_parser(
@@ -3379,37 +3356,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"({_format_seconds(item.start_seconds)} - "
                     f"{_format_seconds(item.end_seconds)})\n"
                 )
-        return 0
-    if args.command == "data" and args.data_command in {
-        "adopt-evidence",
-        "adopt-evidence-package",
-    }:
-        try:
-            config = RepositoryConfig.from_environment(
-                args.repository_root,
-                intake_root=args.intake_root,
-                evidence_package_root=args.evidence_package_root,
-                pending_video_root=args.pending_video_root,
-                artifacts_root=args.artifacts_root,
-            )
-            result = adopt_runtime_evidence_package(
-                args.runtime_root,
-                args.package_id,
-                args.metadata,
-                evidence_package_root=config.evidence_package_intake_root,
-            )
-        except (ConfigurationError, OSError, EvidencePackageAdoptionError) as error:
-            print(f"error: {error}", file=sys.stderr)
-            return 2
-        if args.json or args.format == "json":
-            sys.stdout.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
-        else:
-            sys.stdout.write(
-                "Evidence package adopted\n"
-                f"package: {result['package_id']}\n"
-                f"state: {result['state']}\n"
-                f"path: {result['path']}\n"
-            )
         return 0
     if args.command == "model":
         if args.model_command is None:

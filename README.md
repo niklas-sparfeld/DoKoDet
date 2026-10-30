@@ -230,11 +230,7 @@ media into a component data directory. Inspect or validate the shared intake wit
 
 ```bash
 mise exec -- uv run --project operations doko data validate --repository-root .
-mise exec -- uv run --project operations doko data adopt-evidence \
-  --repository-root . --runtime-root .runtime \
-  --package-id <package-id> --metadata package-metadata.json
 ```
 
-The adoption command is for packages from the old runtime path. It keeps the old package until the
-operator verifies the new intake bundle. Durable pipeline records are stored below
+Durable pipeline records are stored below
 `data/operations/`; deleting `.runtime` cannot delete accepted source packages or pipeline data.

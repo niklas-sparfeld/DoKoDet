@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from doko_operations.cli import build_parser, main
-from doko_operations.evidence_package import load_evidence_package
 from doko_operations.holdout import (
     SystemHoldoutError,
     load_system_holdout_registry,
@@ -149,64 +148,11 @@ def test_complete_video_command_publishes_a_recording_bundle(tmp_path: Path, cap
     assert (tmp_path / "data" / "intake" / "recordings" / "recording-upload-001").is_dir()
 
 
-def test_adopt_evidence_command_publishes_canonical_bundle_without_deleting_runtime(
-    tmp_path: Path, capsys
-) -> None:
-    package_id = "550e8400-e29b-41d4-a716-446655440000"
-    legacy = tmp_path / "runtime" / "evidence" / package_id
-    shutil.copytree(EVIDENCE_PACKAGE_FIXTURE_ROOT / "frames", legacy / "frames")
-    shutil.copytree(EVIDENCE_PACKAGE_FIXTURE_ROOT / "video", legacy / "video")
-    shutil.copy(EVIDENCE_PACKAGE_FIXTURE_ROOT / "evidence-manifest.json", legacy / "manifest.json")
-    destination = tmp_path / "data" / "intake" / "evidence-packages"
-
-    assert (
-        main(
-            [
-                "data",
-                "adopt-evidence",
-                "--repository-root",
-                str(tmp_path),
-                "--runtime-root",
-                str(tmp_path / "runtime"),
-                "--package-id",
-                package_id,
-                "--metadata",
-                str(EVIDENCE_PACKAGE_FIXTURE_ROOT),
-                "--evidence-package-root",
-                str(destination),
-                "--format",
-                "json",
-            ]
-        )
-        == 0
-    )
-    output = json.loads(capsys.readouterr().out)
-    assert output["state"] == "adopted"
-    assert load_evidence_package(destination / package_id).bundle.package_id == package_id
-    assert legacy.is_dir()
-
-    assert (
-        main(
-            [
-                "data",
-                "adopt-evidence-package",
-                "--repository-root",
-                str(tmp_path),
-                "--runtime-root",
-                str(tmp_path / "runtime"),
-                "--package-id",
-                package_id,
-                "--metadata",
-                str(EVIDENCE_PACKAGE_FIXTURE_ROOT),
-                "--evidence-package-root",
-                str(destination),
-                "--format",
-                "json",
-            ]
-        )
-        == 0
-    )
-    assert json.loads(capsys.readouterr().out)["state"] == "already_adopted"
+@pytest.mark.parametrize("command", ["adopt-evidence", "adopt-evidence-package"])
+def test_removed_evidence_adoption_commands_are_rejected(command: str) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["data", command, "--help"])
+    assert error.value.code == 2
 
 
 def test_incomplete_bundle_is_reported_without_writing_the_bundle(tmp_path: Path) -> None:

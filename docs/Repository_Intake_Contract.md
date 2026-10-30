@@ -83,15 +83,4 @@ task. Lineage links the package to its parent recording and source asset when kn
 files remain in this shared bundle; task adapters read them in place.
 
 The backend rebuilds its searchable package index from these bundles at startup. Removing backend
-runtime state cannot remove an accepted source package. Use the operations command below only for
-one-time adoption of a package from the old runtime path:
-
-```bash
-mise exec -- uv run --project operations doko data adopt-evidence \
-  --repository-root . --runtime-root .runtime \
-  --package-id <package-id> --metadata package-metadata.json
-```
-
-The adoption operation validates all source bytes and metadata, publishes one canonical bundle, and
-keeps the old runtime package until the operator verifies the result. It is not a permanent
-second intake path.
+runtime state cannot remove an accepted source package.

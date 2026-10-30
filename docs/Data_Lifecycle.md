@@ -103,18 +103,3 @@ The recording pipeline validates table-observation revisions and their dataset l
 model processing. Do not promote data when source bytes changed, source permission is invalid, a
 review version is missing, lineage is ambiguous, a duplicate source is present, or a leakage group
 crosses partitions.
-
-## Adopt an old runtime package
-
-Packages from the old runtime evidence path need one explicit adoption. Validate and publish the
-package into shared intake:
-
-```bash
-mise exec -- uv run --project operations doko data adopt-evidence \
-  --repository-root . --runtime-root .runtime \
-  --package-id <package-id> --metadata package-metadata.json
-```
-
-The command keeps the old runtime package until the operator verifies the canonical bundle. After
-verification, backend runtime state can be deleted and rebuilt. It must not be used as a second
-source authority.

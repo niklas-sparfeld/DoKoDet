@@ -25,7 +25,7 @@ state, shared contracts, and component boundaries. This guide owns the `doko` co
 The retained `doko` commands are grouped by owner:
 
 - `doko data`: `status`, `validate`, `cardevent audit`, `cardevent migrate`, `cardevent readiness`, `cardevent freeze`, `cardevent interval-readiness`, `cardevent interval-freeze`, `resilience-baseline`,
-  `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `rfdetr-visible-card-detector`, `rfdetr-visible-card-detector-materialize`, `resilience-comparison`, `complete-video`, `split-rounds`, `adopt-evidence`, `holdout seal`,
+  `resilience-materialize`, `resilience-execute`, `rfdetr-segmentation`, `rfdetr-visible-card-detector`, `rfdetr-visible-card-detector-materialize`, `resilience-comparison`, `complete-video`, `split-rounds`, `holdout seal`,
   `impact`, and `source retire`.
 - `doko model`: `status`, `compare`, `improve`, `review-card-event-net`,
   `review-card-event-net-timing`, `promote`, and `evaluate-system`.
