@@ -282,14 +282,51 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
         assert observation["session"]["session_id"] == session_id
 
         first = client.post(f"/v1/recordings/{RECORDING_ID}/round-analyses")
+        assert first.status_code == 422
+        first = client.post(
+            "/v1/round-analyses",
+            json={
+                "analysis_id": "550e8400-e29b-41d4-a716-446655440081",
+                "recording_id": RECORDING_ID,
+                "round_id": "round-assembly",
+                "session_id": session_id,
+                "table_observation_revision_id": first_revision_id,
+                "round_context": {
+                    "game_id": "game-assembly",
+                    "round_id": "round-assembly",
+                    "active_players": ["north", "east", "south", "west"],
+                    "dealer": "east",
+                    "first_trick_leader": "south",
+                },
+                "rules_version": "v1",
+                "search": {
+                    "max_missing_plays": 1,
+                    "max_hypotheses": 8,
+                    "max_search_nodes": 1000,
+                },
+            },
+        )
         assert first.status_code == 202, first.text
         first_body = first.json()
         assert first_body["state"] == "complete"
         assert first_body["session_id"] == session_id
+        assert first_body["round_context"]["active_players"] == [
+            "north",
+            "east",
+            "south",
+            "west",
+        ]
         first_analysis_id = first_body["analysis_id"]
         status = client.get(f"/v1/round-analyses/{first_analysis_id}")
         assert status.status_code == 200
         assert status.json()["session_id"] == session_id
+        assert status.json()["round_context"]["dealer"] == "east"
+        assert status.json()["round_context"]["active_players"] == [
+            "north",
+            "east",
+            "south",
+            "west",
+        ]
         assert first_body["total_evidence_packages"] == 0
         input_path = (
             app.state.round_analysis_storage.analysis_path(first_analysis_id)
@@ -337,6 +374,7 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
         assert second.status_code == 202, second.text
         assert second.json()["state"] == "complete"
         assert second.json()["analysis_id"] != first_analysis_id
+        assert second.json()["round_context"] == first_body["round_context"]
 
     restarted = create_test_app(_settings(tmp_path), run_round_analysis_synchronously=True)
     with TestClient(restarted) as client:

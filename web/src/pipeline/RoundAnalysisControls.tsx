@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   createDokoDetectorClient,
@@ -11,7 +11,6 @@ import styles from "../App.module.css";
 import { describePipelineError } from "./ObservationRunFormatting";
 import {
   createUuid,
-  DEFAULT_PLAYERS,
   parseSearchLimits,
   TERMINAL_ANALYSIS_STATES,
 } from "./RoundAnalysisFormatting";
@@ -41,6 +40,7 @@ export function RoundAnalysisControls({
 }: RoundAnalysisControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const pageVisible = usePageVisibility();
+  const loadedContextAnalysisId = useRef<string | null>(null);
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
   const [observationRevisionId, setObservationRevisionId] = useState(
     () =>
@@ -53,10 +53,10 @@ export function RoundAnalysisControls({
     () => stage.analyses[0]?.round_id ?? "",
   );
   const [sessionId, setSessionId] = useState("");
-  const [players, setPlayers] = useState(DEFAULT_PLAYERS);
-  const [dealer, setDealer] = useState("seat-1");
-  const [firstTrickLeader, setFirstTrickLeader] = useState("seat-1");
-  const [rulesVersion, setRulesVersion] = useState<"v1" | "">("v1");
+  const [players, setPlayers] = useState("");
+  const [dealer, setDealer] = useState("");
+  const [firstTrickLeader, setFirstTrickLeader] = useState("");
+  const [rulesVersion, setRulesVersion] = useState<"v1" | "">("");
   const [maxMissingPlays, setMaxMissingPlays] = useState("1");
   const [maxHypotheses, setMaxHypotheses] = useState("256");
   const [maxSearchNodes, setMaxSearchNodes] = useState("250000");
@@ -93,6 +93,33 @@ export function RoundAnalysisControls({
       .catch(() => undefined);
     return () => controller.abort();
   }, [client, recordingId]);
+
+  useEffect(() => {
+    const savedAnalysis = stage.analyses[0];
+    if (
+      savedAnalysis === undefined ||
+      loadedContextAnalysisId.current === savedAnalysis.analysis_id
+    )
+      return;
+    loadedContextAnalysisId.current = savedAnalysis.analysis_id;
+    const controller = new AbortController();
+    void client
+      .getRoundAnalysisStatus(savedAnalysis.analysis_id, {
+        signal: controller.signal,
+      })
+      .then((status) => {
+        const context = status.round_context;
+        if (controller.signal.aborted || context == null) return;
+        setGameId(context.game_id);
+        setRoundId(context.round_id);
+        setPlayers(context.active_players.join(", "));
+        setDealer(context.dealer);
+        setFirstTrickLeader(context.first_trick_leader);
+        setRulesVersion(status.rules_version || "");
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [client, stage.analyses]);
 
   const activeAnalysisId = selectedAnalysisId ?? trackedAnalysisId;
 
@@ -150,10 +177,11 @@ export function RoundAnalysisControls({
       ["session ID", sessionId.trim()],
       ["dealer", dealer.trim()],
       ["first-trick leader", firstTrickLeader.trim()],
-    ].find(([, value]) => value === "");
-    if (missing !== undefined) {
+      ["four active players", activePlayers.length === 4 ? "set" : ""],
+    ].filter(([, value]) => value === "");
+    if (missing.length > 0) {
       setMessage(
-        `Enter an explicit ${missing[0]} before starting round analysis.`,
+        `Enter explicit ${missing.map(([name]) => name).join(", ")} before starting round analysis.`,
       );
       return null;
     }
@@ -164,7 +192,24 @@ export function RoundAnalysisControls({
       return null;
     }
     if (activePlayers.length !== 4 || new Set(activePlayers).size !== 4) {
-      setMessage("Round context needs four unique active players.");
+      setMessage("Round context needs four distinct active players.");
+      return null;
+    }
+    if (!activePlayers.includes(firstTrickLeader.trim())) {
+      setMessage("First-trick leader must be one of the four active players.");
+      return null;
+    }
+    const identifierPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+    if (
+      [
+        ...activePlayers,
+        dealer.trim(),
+        firstTrickLeader.trim(),
+        gameId.trim(),
+        roundId.trim(),
+      ].some((value) => !identifierPattern.test(value))
+    ) {
+      setMessage("Round context values must use valid identifiers.");
       return null;
     }
     const search = parseSearchLimits(
@@ -311,12 +356,19 @@ export function RoundAnalysisControls({
             label="Active players"
             value={players}
             onChange={setPlayers}
+            placeholder="Enter four player IDs in seat order"
           />
-          <ContextField label="Dealer" value={dealer} onChange={setDealer} />
+          <ContextField
+            label="Dealer"
+            value={dealer}
+            onChange={setDealer}
+            placeholder="Confirm dealer player ID"
+          />
           <ContextField
             label="First-trick leader"
             value={firstTrickLeader}
             onChange={setFirstTrickLeader}
+            placeholder="Confirm leader player ID"
           />
           <ContextField
             label="Max missing plays"
@@ -383,11 +435,13 @@ function ContextField({
   value,
   onChange,
   type = "text",
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: "text" | "number";
+  placeholder?: string;
 }) {
   return (
     <label className={styles.pipelineRunSelector}>
@@ -395,6 +449,7 @@ function ContextField({
       <input
         type={type}
         value={value}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
       />
     </label>

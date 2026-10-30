@@ -198,6 +198,17 @@ describe("observation and analysis controls", () => {
     );
 
     await userEvent.click(
+      screen.getByText("Round context and advanced analysis settings"),
+    );
+    await userEvent.type(
+      screen.getByLabelText("Active players"),
+      "north, east, south, west",
+    );
+    await userEvent.type(screen.getByLabelText("Dealer"), "east");
+    await userEvent.type(screen.getByLabelText("First-trick leader"), "south");
+    await userEvent.selectOptions(screen.getByLabelText("Rules version"), "v1");
+
+    await userEvent.click(
       screen.getByRole("button", { name: "Start reconstruction" }),
     );
 
@@ -214,7 +225,9 @@ describe("observation and analysis controls", () => {
       round_context: {
         game_id: "game-1",
         round_id: "round-1",
-        active_players: ["seat-1", "seat-2", "seat-3", "seat-4"],
+        active_players: ["north", "east", "south", "west"],
+        dealer: "east",
+        first_trick_leader: "south",
       },
       rules_version: "v1",
     });
@@ -266,7 +279,7 @@ describe("observation and analysis controls", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Enter an explicit game ID before starting round analysis.",
+      "Enter explicit game ID, round ID, session ID, dealer, first-trick leader, four active players before starting round analysis.",
     );
   });
 

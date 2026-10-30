@@ -260,19 +260,18 @@ def test_recording_catalog_starts_and_lists_analysis(backend_tmp_path: Path) -> 
 
     started = client.post(f"/v1/recordings/{RECORDING_ID}/round-analyses")
 
-    assert started.status_code == 202
-    analysis_id = started.json()["analysis_id"]
-    assert started.json()["recording_id"] == RECORDING_ID
-    assert started.json()["state"] == "complete"
+    assert started.status_code == 422
+    assert "Round context is required" in started.text
 
-    refreshed = client.get("/v1/recordings").json()["recordings"][0]
-    assert refreshed["analyses"][0]["analysis_id"] == analysis_id
-    assert refreshed["analyses"][0]["result_status"] in {
-        "resolved",
-        "ambiguous",
-        "incomplete",
-        "impossible",
-    }
+    explicit = client.post(
+        "/v1/round-analyses",
+        json=_analysis_payload(package_ids=[package_id]),
+    )
+    assert explicit.status_code == 202
+    started = client.post(f"/v1/recordings/{RECORDING_ID}/round-analyses")
+    assert started.status_code == 202
+    assert started.json()["state"] == "complete"
+    assert started.json()["round_context"]["dealer"] == "seat-1"
 
 
 def test_timeline_projects_exact_analysis_and_selects_central_frame(
@@ -617,9 +616,9 @@ def test_round_analysis_packages_are_bounded_and_persisted_in_input_order(
         assert status.json()["state"] == "complete"
 
     stored_input = json.loads(
-        (
-            app.state.round_analysis_storage.analysis_path(ANALYSIS_ID) / "input.json"
-        ).read_text(encoding="utf-8")
+        (app.state.round_analysis_storage.analysis_path(ANALYSIS_ID) / "input.json").read_text(
+            encoding="utf-8"
+        )
     )
     assert [item["source"]["package_id"] for item in stored_input["observations"]] == package_ids
 
@@ -633,6 +632,7 @@ def _install_two_observation_analyzer(app, package_ids: list[str]) -> None:
         / "observations"
         / "minimal.json"
     )
+
     class TwoObservationAnalyzer:
         name = "deterministic-local"
         version = "v1"

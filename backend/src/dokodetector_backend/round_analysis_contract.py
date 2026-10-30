@@ -172,9 +172,7 @@ class RoundAnalysisCreateRequest(ContractModel):
             if self.round_context.round_id != self.round_id:
                 raise ValueError("round_context.round_id must match round_id.")
         elif self.round_setup is None or not self.evidence_package_ids:
-            raise ValueError(
-                "legacy analysis needs round_setup and at least one evidence package."
-            )
+            raise ValueError("legacy analysis needs round_setup and at least one evidence package.")
         elif self.round_setup.round_id != self.round_id:
             raise ValueError("round_setup.round_id must match round_id.")
         return self
@@ -237,6 +235,8 @@ class RoundAnalysisStatus(ContractModel):
     recording_id: Identifier
     round_id: Identifier
     session_id: Identifier
+    round_context: AnalysisRoundContext | None = None
+    rules_version: Literal["v1"] | None = None
     state: Literal[
         "queued",
         "analyzing_evidence",
@@ -265,6 +265,10 @@ class RoundAnalysisStatus(ContractModel):
 
     @model_validator(mode="after")
     def validate_lifecycle(self) -> RoundAnalysisStatus:
+        if (self.round_context is None) != (self.rules_version is None):
+            raise ValueError("round_context and rules_version must be present together.")
+        if self.round_context is not None and self.round_context.round_id != self.round_id:
+            raise ValueError("round_context.round_id must match round_id.")
         if self.completed_evidence_packages > self.total_evidence_packages:
             raise ValueError("completed_evidence_packages cannot exceed total_evidence_packages.")
         if self.state == "complete":

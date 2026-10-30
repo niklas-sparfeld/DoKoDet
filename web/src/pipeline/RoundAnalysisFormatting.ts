@@ -1,7 +1,6 @@
 import type { RoundAnalysisCreateRequest } from "../api/client";
 
 export const TERMINAL_ANALYSIS_STATES = new Set(["complete", "failed"]);
-export const DEFAULT_PLAYERS = "seat-1, seat-2, seat-3, seat-4";
 
 export function analysisStatusMessage(status: string): string {
   return status === "complete"

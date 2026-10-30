@@ -277,9 +277,7 @@ class RoundAnalysisService:
             analyses = self.store.list_by_recording(recording.recording_id)
             try:
                 _, _, round_id = self._analysis_identifiers(recording)
-                has_pipeline_revision = self._has_selected_pipeline_revision(
-                    recording.recording_id
-                )
+                has_pipeline_revision = self._has_selected_pipeline_revision(recording.recording_id)
                 blocker = (
                     None
                     if has_pipeline_revision or packages
@@ -301,20 +299,21 @@ class RoundAnalysisService:
         return tuple(entries)
 
     def default_request_for_recording(self, recording_id: str) -> RoundAnalysisCreateRequest:
-        """Build an analysis request from one recording's selected pipeline revision."""
+        """Build a request only when this recording has saved explicit round context."""
 
         recording = self.recording_bundle_store.get(recording_id)
         if recording is None:
             raise RoundAnalysisValidationError("The recording bundle is not stored.")
         pipeline_revision = self._selected_pipeline_revision(recording_id)
         session_id, game_id, round_id = self._analysis_identifiers(recording)
-        context = AnalysisRoundContext(
-            game_id=game_id,
-            round_id=round_id,
-            active_players=["seat-1", "seat-2", "seat-3", "seat-4"],
-            dealer="seat-1",
-            first_trick_leader="seat-1",
-        )
+        context, rules_version = self._saved_round_context(recording_id)
+        if context is None or rules_version is None:
+            raise RoundAnalysisValidationError(
+                "Round context is required before analysis: provide four active players, "
+                "dealer, first-trick leader, game ID, round ID, and rules version."
+            )
+        game_id = context.game_id
+        round_id = context.round_id
         search = AnalysisSearchLimits(
             max_missing_plays=1,
             max_hypotheses=256,
@@ -328,7 +327,7 @@ class RoundAnalysisService:
                 session_id=session_id,
                 table_observation_revision_id=pipeline_revision.manifest.revision_id,
                 round_context=context,
-                rules_version="v1",
+                rules_version=rules_version,
                 search=search,
             )
 
@@ -347,9 +346,9 @@ class RoundAnalysisService:
             round_id=round_id,
             ruleset=AnalysisRoundRuleset(name="doko-normal", version="v1"),
             deck_variant="doko-40-v1",
-            active_players=["seat-1", "seat-2", "seat-3", "seat-4"],
-            dealer="seat-1",
-            first_trick_leader="seat-1",
+            active_players=context.active_players,
+            dealer=context.dealer,
+            first_trick_leader=context.first_trick_leader,
         )
         return RoundAnalysisCreateRequest(
             analysis_id=uuid4(),
@@ -360,6 +359,34 @@ class RoundAnalysisService:
             evidence_package_ids=list(packages),
             search=search,
         )
+
+    def _saved_round_context(
+        self, recording_id: str
+    ) -> tuple[AnalysisRoundContext | None, str | None]:
+        """Return the newest valid, explicitly saved context for this recording."""
+
+        for analysis in self.store.list_by_recording(recording_id):
+            try:
+                request = parse_round_analysis_create_request_bytes(
+                    analysis.request_json.encode("utf-8")
+                )
+            except (TypeError, UnicodeError, ValueError):
+                continue
+            if request.is_pipeline_analysis and request.round_context is not None:
+                return request.round_context, request.rules_version
+            if request.round_setup is not None:
+                setup = request.round_setup
+                return (
+                    AnalysisRoundContext(
+                        game_id=setup.game_id,
+                        round_id=setup.round_id,
+                        active_players=setup.active_players,
+                        dealer=setup.dealer,
+                        first_trick_leader=setup.first_trick_leader,
+                    ),
+                    setup.ruleset.version,
+                )
+        return None, None
 
     def _selected_pipeline_revision(self, recording_id: str) -> StoredPipelineRevision | None:
         """Return the selected table-observation revision when it belongs to a recording."""
@@ -743,15 +770,11 @@ class RoundAnalysisService:
                 (artifacts.input_path.read_bytes(), artifacts.result_path.read_bytes()),
             )
 
-    def _read_prepared_pipeline_observations(
-        self, analysis_id: UUID
-    ) -> list[TableObservation]:
+    def _read_prepared_pipeline_observations(self, analysis_id: UUID) -> list[TableObservation]:
         """Read the immutable observation copy prepared before queueing."""
 
         path = (
-            self.artifact_storage.analysis_path(analysis_id)
-            / "inputs"
-            / "table-observations.json"
+            self.artifact_storage.analysis_path(analysis_id) / "inputs" / "table-observations.json"
         )
         try:
             raw = path.read_bytes()
@@ -776,6 +799,8 @@ class RoundAnalysisService:
             recording_id=analysis.recording_id,
             round_id=analysis.round_id,
             session_id=analysis.session_id,
+            round_context=self._context_from_analysis(analysis),
+            rules_version=self._rules_version_from_analysis(analysis),
             state=analysis.state,  # type: ignore[arg-type]
             total_evidence_packages=analysis.total_evidence_packages,
             completed_evidence_packages=analysis.completed_evidence_packages,
@@ -785,6 +810,41 @@ class RoundAnalysisService:
             started_at=analysis.started_at,
             completed_at=analysis.completed_at,
         )
+
+    @staticmethod
+    def _context_from_analysis(analysis: StoredRoundAnalysis) -> AnalysisRoundContext | None:
+        try:
+            request = parse_round_analysis_create_request_bytes(
+                analysis.request_json.encode("utf-8")
+            )
+        except (TypeError, UnicodeError, ValueError):
+            return None
+        if request.round_context is not None:
+            return request.round_context
+        if request.round_setup is None:
+            return None
+        setup = request.round_setup
+        return AnalysisRoundContext(
+            game_id=setup.game_id,
+            round_id=setup.round_id,
+            active_players=setup.active_players,
+            dealer=setup.dealer,
+            first_trick_leader=setup.first_trick_leader,
+        )
+
+    @staticmethod
+    def _rules_version_from_analysis(analysis: StoredRoundAnalysis) -> str | None:
+        try:
+            request = parse_round_analysis_create_request_bytes(
+                analysis.request_json.encode("utf-8")
+            )
+        except (TypeError, UnicodeError, ValueError):
+            return None
+        if request.rules_version is not None:
+            return request.rules_version
+        if request.round_setup is not None:
+            return request.round_setup.ruleset.version
+        return None
 
     def timeline(self, analysis_id: UUID) -> RoundAnalysisTimeline:
         """Return the verified immutable timeline for one completed analysis."""

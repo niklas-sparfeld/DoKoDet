@@ -26,7 +26,8 @@
   analysis requests and status, storage, timeline output, browser validation, and generated API
   types. UUID and non-UUID identifiers pass analysis, status, restart, timeline, and counterfactual
   reads. Conflicting observation overrides fail before a run starts.
-- **M3:** Not started — require explicit round context without hidden gameplay defaults.
+- **M3:** Complete — remove hidden gameplay defaults, validate player and leader context, and
+  reuse only saved explicit context. A dealer can sit out the round, as defined in the glossary.
 - **M4:** Not started — provide one explicit recipe for the existing local models.
 - **M5:** Not started — repair active revision and review-target access.
 - **M6:** Not started — verify the combined workflow and publish a short trial guide.
@@ -154,7 +155,9 @@ Acceptance:
 
 - Missing context shows the exact missing fields before analysis starts; the web app does not submit
   an invented dealer or leader.
-- Four distinct players and dealer/leader membership are validated consistently in browser and API.
+- Four distinct active players, a valid dealer identifier, and first-trick-leader membership are
+  validated consistently in browser and API. A dealer can sit out the round, as defined in the
+  project glossary.
 - Explicit valid context reaches the engine unchanged and remains inspectable after reload.
 - Fixture context is sufficient for automated verification. Unknown real-round facts are listed as
   operator input for the next trial, not fabricated or treated as a dependency on annotation work.

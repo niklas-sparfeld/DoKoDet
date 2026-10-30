@@ -3135,8 +3135,11 @@ export interface components {
             /** Recording Id */
             recording_id: string;
             result?: components["schemas"]["RoundAnalysisResult"] | null;
+            round_context?: components["schemas"]["AnalysisRoundContext"] | null;
             /** Round Id */
             round_id: string;
+            /** Rules Version */
+            rules_version?: "v1" | null;
             /** Session Id */
             session_id: string;
             /** Started At */
