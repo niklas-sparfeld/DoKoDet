@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.13.*"
 
 [[package]]
@@ -355,7 +355,7 @@ wheels = [
 [[package]]
 name = "doko-game-engine"
 version = "0.1.0"
-source = { directory = "../game_engine" }
+source = { editable = "../game_engine" }
 dependencies = [
     { name = "pydantic" },
 ]
@@ -401,7 +401,7 @@ training = [
 [package.metadata]
 requires-dist = [
     { name = "av", specifier = "==15.1.0" },
-    { name = "doko-game-engine", directory = "../game_engine" },
+    { name = "doko-game-engine", editable = "../game_engine" },
     { name = "opencv-python", specifier = ">=4.10" },
     { name = "pillow", specifier = "==12.3.0" },
     { name = "pyyaml", specifier = ">=6.0,<7" },

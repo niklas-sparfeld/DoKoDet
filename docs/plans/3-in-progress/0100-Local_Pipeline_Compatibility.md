@@ -19,7 +19,9 @@
 
 - **M0:** Complete — froze the current code, environment, revision, and review-target findings in
   the [M0 compatibility inventory](../../reports/0100-M0_Compatibility_Inventory.md).
-- **M1:** Not started — make local package installation use the current engine source.
+- **M1:** Complete — made the engine dependency editable in operations, regenerated both lockfiles,
+  refreshed both environments, and verified the coordinator, provider, observation, analysis, and
+  reconstruction checks.
 - **M2:** Not started — use canonical recording session identifiers throughout analysis.
 - **M3:** Not started — require explicit round context without hidden gameplay defaults.
 - **M4:** Not started — provide one explicit recipe for the existing local models.

@@ -42,6 +42,14 @@ cd backend
 uv sync
 ```
 
+The operations environment also uses editable local package sources. After a toolchain or local
+package metadata change, refresh each affected environment from the repository root:
+
+```bash
+mise exec -- uv sync --project operations
+mise exec -- uv sync --project backend
+```
+
 The backend sync installs the local CardEventNet provider used by the event processor. The provider
 uses the digest-checked development integration checkpoint recorded in the model-campaign
 integration contract. Set `CARD_EVENT_CHECKPOINT_PATH` to select a specific checkpoint. It never

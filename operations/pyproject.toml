@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-doko-game-engine = { path = "../game_engine" }
+doko-game-engine = { path = "../game_engine", editable = true }
 table-evidence-analyzer = { path = "../table_evidence_analyzer", editable = true }
 
 [project.scripts]

@@ -29,7 +29,8 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. Its M0–M3 milestones are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) handoff reported all 165 targets unavailable in its checkout. The current 0100 M0 check loads all exact targets from the revision store; live editor navigation remains unverified. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md) and [0100 M0 inventory](../reports/0100-M0_Compatibility_Inventory.md).
 
 Also active: **[0100 — Local pipeline compatibility](3-in-progress/0100-Local_Pipeline_Compatibility.md)**.
-M0 is complete; M1–M6 are not started. The [M0 inventory](../reports/0100-M0_Compatibility_Inventory.md)
+M0 and M1 are complete; M2–M6 are not started. M1 now installs the engine from editable source in
+both environments. Targeted backend and operations checks pass. The [M0 inventory](../reports/0100-M0_Compatibility_Inventory.md)
 found stale installed engine packages, UUID-only analysis session IDs, seat defaults, and a mismatch
 between local settings and the first-trial model recipe. The current revision store loads all 165
 0096 and 114 0098 frozen targets with matching content; live editor navigation remains unverified.
@@ -110,7 +111,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. The M4 review queue is frozen at 165 frames across 33 recordings; one M1 failure has no corrected output to inspect. Human review is pending. See the [M4 queue](../reports/0096-M4_Human_Review_Queue.md) and [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
-| [0100 — Local pipeline compatibility](3-in-progress/0100-Local_Pipeline_Compatibility.md) | Completed 0048/0049, 0090, 0092 M4, 0088 M6 decision, 0095, and 0097 | M0 complete; M1–M6 not started. Current inventory found stale installed engine packages, UUID-only analysis session IDs, seat defaults, and a local model-recipe mismatch. The current store loads all 279 frozen review targets with matching content; live editor navigation remains unverified. See the [M0 inventory](../reports/0100-M0_Compatibility_Inventory.md). |
+| [0100 — Local pipeline compatibility](3-in-progress/0100-Local_Pipeline_Compatibility.md) | Completed 0048/0049, 0090, 0092 M4, 0088 M6 decision, 0095, and 0097 | M0–M1 complete; M2–M6 not started. Both environments now install the current editable game engine source. Targeted backend (75) and operations (36) checks pass. The current store loads all 279 frozen review targets with matching content; live editor navigation remains unverified. See the [M0 inventory](../reports/0100-M0_Compatibility_Inventory.md). |
 
 ### Blocked
 
