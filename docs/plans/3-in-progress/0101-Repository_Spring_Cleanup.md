@@ -19,7 +19,9 @@
   selected one change per M1–M5, and reproduced order-dependent duplicate frame coverage.
 - **M1:** Complete — removed old-runtime evidence adoption and its private implementation; both command names are rejected.
 - **M2:** Complete — extracted source lifecycle command execution and rendering; focused checks passed.
-- **M3:** Not started — extract visible-card frame coverage parsing after 0100 M5.
+- **M3:** Complete — moved visible-card frame coverage parsing and lookup keys to
+  `backend/src/dokodetector_backend/visible_card_reference_coverage.py`; focused parser tests were
+  added. The 0100 M5 gate was complete before this change.
 - **M4:** Not started — extract identity editor data conversion after 0100 M5.
 - **M5:** Not started — reject duplicate visible-card frame coverage before completion.
 - **M6:** Not started — verify the combined result and publish the remaining inventory.
@@ -112,19 +114,19 @@ operations tests and Ruff checks. Do not restructure all commands or change camp
 
 ## M3 — Maintained-reference boundary
 
-Selected scope, after 0100 M5: move `_frame_coverage_entries`, `_frame_coverage_key`, and
-`_item_frame_key` from `backend/src/dokodetector_backend/pipeline_reference_handlers.py` to
+Selected scope, after 0100 M5: move frame coverage parsing and lookup keys from
+`backend/src/dokodetector_backend/pipeline_reference_handlers.py` to
 `backend/src/dokodetector_backend/visible_card_reference_coverage.py`. Keep scene validation,
 expected decisions, review-state rules, and lifecycle in their current owners. Preserve current
 duplicate behavior until M5. Add `backend/tests/test_visible_card_reference_coverage.py`; run it
 with `test_pipeline_reference.py`, `test_frame_review_api.py`, and backend Ruff checks. Recheck
 0100's merged result before editing; skip this extraction if its benefit no longer exists.
 
-After the relevant 0100 work lands, implement at most one selected handler extraction. Preserve
-reference lifecycle ownership, concurrency and conflict handling, saved drafts, review decisions,
-coverage, serialization, and API behavior. Run focused reference and API tests, including edit,
-save, conflict, and reload cases, plus backend Ruff checks. If no useful independent boundary exists,
-record that result instead.
+The selected extraction keeps scene validation, lifecycle rules, and review-state behavior in the
+handler. `test_visible_card_reference_coverage.py`, `test_pipeline_reference.py`, and
+`test_frame_review_api.py` pass (55 tests total). Ruff check and formatting checks pass for the new
+module and tests. The handler had existing formatting differences; this change only corrected one
+line that failed Ruff's line-length check. No saved review or API behavior changed.
 
 ## M4 — Review-editor boundary
 

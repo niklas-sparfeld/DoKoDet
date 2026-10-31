@@ -52,6 +52,11 @@ from dokodetector_backend.pipeline_reference_errors import (
     identifier,
 )
 from dokodetector_backend.pipeline_store import StoredPipelineRevision
+from dokodetector_backend.visible_card_reference_coverage import (
+    frame_coverage_entries,
+    frame_coverage_key,
+    item_frame_key,
+)
 
 _ITEM_FIELDS = {
     "events": "event_id",
@@ -837,7 +842,9 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if draft.proposal.status != "supported" or not any(
             item.card_id == card_id for item in draft.card_states
         ):
-            raise PipelineReferenceInputError(f"card was not found in the reviewed scene: {card_id}")
+            raise PipelineReferenceInputError(
+                f"card was not found in the reviewed scene: {card_id}"
+            )
         states = tuple(
             CardReviewState.create(
                 card_id=item.card_id,
@@ -1877,8 +1884,8 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                     }
                 ],
             )
-        normalized_frames = self._frame_coverage_entries(raw_frames)
-        by_key = {self._frame_coverage_key(entry): entry for entry in normalized_frames}
+        normalized_frames = frame_coverage_entries(raw_frames)
+        by_key = {frame_coverage_key(entry): entry for entry in normalized_frames}
         details: list[dict[str, str]] = []
         for item in items:
             if item.item.get("card_scene") is not None:
@@ -1891,7 +1898,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                             "message": f"pose scene derivation is invalid: {error}",
                         }
                     )
-            entry = by_key.get(self._item_frame_key(item))
+            entry = by_key.get(item_frame_key(item))
             if entry is None:
                 details.append(
                     {
@@ -2135,76 +2142,6 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
             item.get("candidates", []),
             receipt=receipt,
         )
-
-    @staticmethod
-    def _frame_coverage_entries(raw_frames: list[Any]) -> list[dict[str, Any]]:
-        from table_evidence_analyzer.pipeline_data import VisibleCardFrameIdentity
-
-        normalized: list[dict[str, Any]] = []
-        for index, raw_frame in enumerate(raw_frames):
-            if not isinstance(raw_frame, Mapping):
-                raise PipelineReferenceInputError(f"coverage.frames[{index}] must be an object")
-            if set(raw_frame) not in (
-                {"frame_identity", "decision"},
-                {"item_id", "frame_identity", "decision"},
-            ):
-                raise PipelineReferenceInputError(
-                    f"coverage.frames[{index}] must contain frame_identity and decision"
-                )
-            frame_identity = raw_frame["frame_identity"]
-            if frame_identity is None:
-                if "item_id" not in raw_frame:
-                    raise PipelineReferenceInputError(
-                        f"coverage.frames[{index}] needs item_id when frame_identity is absent"
-                    )
-                normalized_frame = None
-            else:
-                try:
-                    normalized_frame = VisibleCardFrameIdentity.from_mapping(
-                        frame_identity
-                    ).to_mapping()
-                except (PipelineDataError, TypeError, ValueError) as error:
-                    raise PipelineReferenceInputError(
-                        f"coverage.frames[{index}].frame_identity is invalid"
-                    ) from error
-            decision = raw_frame["decision"]
-            if decision not in {
-                "cards",
-                "ignored",
-                "cards_and_ignored",
-                "piles",
-                "cards_and_piles",
-                "piles_and_ignored",
-                "cards_piles_and_ignored",
-                "empty",
-                "unusable",
-            }:
-                raise PipelineReferenceInputError(
-                    "coverage.frames[{}].decision must declare cards, piles, ignored, or a "
-                    "supported combination".format(index)
-                )
-            entry = {"frame_identity": normalized_frame, "decision": decision}
-            if "item_id" in raw_frame:
-                entry["item_id"] = identifier(
-                    raw_frame["item_id"], f"coverage.frames[{index}].item_id"
-                )
-            normalized.append(entry)
-        if len({json.dumps(entry, sort_keys=True) for entry in normalized}) != len(normalized):
-            raise PipelineReferenceInputError("coverage.frames must contain unique frames")
-        return normalized
-
-    @staticmethod
-    def _frame_coverage_key(entry: Mapping[str, Any]) -> str:
-        if entry.get("frame_identity") is None:
-            return f"item:{entry.get('item_id')}"
-        return json.dumps(entry["frame_identity"], sort_keys=True, separators=(",", ":"))
-
-    @staticmethod
-    def _item_frame_key(item: ReferenceDraftItem) -> str:
-        frame = item.item.get("frame_identity")
-        if frame is None:
-            return f"item:{item.item_id}"
-        return json.dumps(frame, sort_keys=True, separators=(",", ":"))
 
     @staticmethod
     def _visible_coverage_state(item: Mapping[str, Any], state: str) -> bool:
