@@ -27,7 +27,9 @@
   editor and data tests, typecheck, changed-file lint/format, and API verification passed.
   The existing Playwright suite had 9 failures in unrelated workspace and frame-announcement
   checks. The boundary check reports an existing integration test over its 800-line limit.
-- **M5:** Not started — reject duplicate visible-card frame coverage before completion.
+- **M5:** Complete — duplicate coverage now uses the normalized frame lookup key. Parser and
+  service regressions reject both decision orders without publishing a revision, changing
+  selection, or changing the draft.
 - **M6:** Not started — verify the combined result and publish the remaining inventory.
 
 ## Purpose and evidence
@@ -176,6 +178,12 @@ Select at most one independently reproduced bug from M0 or the preceding milesto
 regression test when practical, fix its cause, and run the affected tests and checks. Give bugs owned
 by 0100 to that epic; do not create a competing implementation. If none meets this gate, record that
 no bug was selected. Larger or ambiguous issues remain in the inventory for later planning.
+
+M5 changed duplicate detection to use the normalized frame lookup key. Parser tests cover identical
+entries, conflicting decisions, redundant item labels on resolved frames, and distinct unresolved
+items. Service tests cover both conflicting decision orders and confirm that rejection preserves the
+draft, selected revision, and published revision list. The three focused backend test files passed
+(60 tests); Ruff check and formatting checks passed.
 
 ## M6 — Verify and hand off
 

@@ -3396,6 +3396,54 @@ def test_each_vision_content_type_has_an_independent_reference(
     assert completed is not None
 
 
+@pytest.mark.parametrize(
+    "decisions",
+    [("empty", "cards"), ("cards", "empty")],
+)
+def test_duplicate_visible_frame_coverage_rejects_completion_without_publication(
+    tmp_path: Path, decisions: tuple[str, str]
+) -> None:
+    service, revision_store = _service(tmp_path)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    created = service.create_reference(
+        "recording-01",
+        "visible_cards",
+        {"operator_id": "operator-01", "source_revision_id": source_revision_id},
+    )
+    item = created.draft.items[0]
+    updated = service.update_draft(
+        "recording-01",
+        "visible_cards",
+        {
+            "operator_id": "operator-01",
+            "expected_revision": 0,
+            "operations": [{"operation": "accept", "item_id": item.item_id}],
+        },
+    )
+    revisions_before = {revision.manifest.revision_id for revision in revision_store.list()}
+    selection_before = service.selection_store.get("recording-01", "visible_cards")
+
+    frames = [
+        {"frame_identity": item.item["frame_identity"], "decision": decision}
+        for decision in decisions
+    ]
+    with pytest.raises(PipelineReferenceInputError, match="unique frames"):
+        service.complete_reference(
+            "recording-01",
+            "visible_cards",
+            {
+                "operator_id": "operator-01",
+                "expected_revision": updated.draft.revision,
+                "coverage": {"kind": "visible_frames", "frames": frames},
+            },
+        )
+
+    current = service.get_reference("recording-01", "visible_cards")
+    assert current.draft == updated.draft
+    assert {revision.manifest.revision_id for revision in revision_store.list()} == revisions_before
+    assert service.selection_store.get("recording-01", "visible_cards") == selection_before
+
+
 def test_reference_http_api_exposes_conflicts_and_completed_selection(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     app = create_test_app(settings)

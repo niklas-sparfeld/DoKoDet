@@ -67,7 +67,7 @@ def frame_coverage_entries(raw_frames: list[Any]) -> list[dict[str, Any]]:
         if "item_id" in raw_frame:
             entry["item_id"] = identifier(raw_frame["item_id"], f"coverage.frames[{index}].item_id")
         normalized.append(entry)
-    if len({json.dumps(entry, sort_keys=True) for entry in normalized}) != len(normalized):
+    if len({frame_coverage_key(entry) for entry in normalized}) != len(normalized):
         raise PipelineReferenceInputError("coverage.frames must contain unique frames")
     return normalized
 

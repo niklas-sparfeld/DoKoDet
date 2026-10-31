@@ -62,6 +62,40 @@ def test_duplicate_normalized_frame_coverage_is_rejected() -> None:
         frame_coverage_entries([duplicate, duplicate])
 
 
+@pytest.mark.parametrize(
+    "entries",
+    [
+        [
+            {"frame_identity": FRAME, "decision": "empty"},
+            {"frame_identity": FRAME, "decision": "cards"},
+        ],
+        [
+            {"frame_identity": FRAME, "decision": "cards", "item_id": "event-01"},
+            {"frame_identity": FRAME, "decision": "cards", "item_id": "event-02"},
+        ],
+    ],
+)
+def test_duplicate_frame_key_is_rejected_when_decision_or_item_label_differs(
+    entries: list[dict[str, object]],
+) -> None:
+    with pytest.raises(PipelineReferenceInputError, match="unique frames"):
+        frame_coverage_entries(entries)
+
+
+def test_distinct_unresolved_items_have_distinct_coverage_keys() -> None:
+    entries = frame_coverage_entries(
+        [
+            {"item_id": "event-01", "frame_identity": None, "decision": "unusable"},
+            {"item_id": "event-02", "frame_identity": None, "decision": "unusable"},
+        ]
+    )
+
+    assert [frame_coverage_key(entry) for entry in entries] == [
+        "item:event-01",
+        "item:event-02",
+    ]
+
+
 def test_invalid_frame_identity_is_reported_as_reference_input_error() -> None:
     with pytest.raises(PipelineReferenceInputError, match="frame_identity is invalid"):
         frame_coverage_entries(
