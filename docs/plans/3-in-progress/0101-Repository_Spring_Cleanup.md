@@ -22,7 +22,11 @@
 - **M3:** Complete — moved visible-card frame coverage parsing and lookup keys to
   `backend/src/dokodetector_backend/visible_card_reference_coverage.py`; focused parser tests were
   added. The 0100 M5 gate was complete before this change.
-- **M4:** Not started — extract identity editor data conversion after 0100 M5.
+- **M4:** Complete — extracted identity editor conversion and parsing to
+  `web/src/visualIdentities/PipelineVisualIdentityData.ts`; added focused tests. The focused
+  editor and data tests, typecheck, changed-file lint/format, and API verification passed.
+  The existing Playwright suite had 9 failures in unrelated workspace and frame-announcement
+  checks. The boundary check reports an existing integration test over its 800-line limit.
 - **M5:** Not started — reject duplicate visible-card frame coverage before completion.
 - **M6:** Not started — verify the combined result and publish the remaining inventory.
 
@@ -144,6 +148,18 @@ review state, queued edits, draft preservation, navigation, and error behavior i
 component and browser workflow tests as appropriate, plus web typecheck, lint, formatting and API
 verification. Do not change review decisions or frozen queues. Record a no-change decision if the
 benefit does not justify the risk.
+
+M4 moved reference and generated-result conversion, outcome and provenance parsing, coverage
+parsing, and generated-proposal matching to `PipelineVisualIdentityData.ts`. The editor keeps
+requests, queued writes, retries, conflicts, navigation, and completion. The new data tests and
+`PipelineVisualIdentityEditor.test.tsx` pass (35 tests); typecheck, API verification, and lint and
+format checks for changed files pass. The full Playwright suite reports 6 passed and 9 failed;
+failures include existing workspace route, accessible-name, and frame-announcement assertions.
+The boundary check reports that the existing
+`src/visibleCards/PipelineVisibleCardEditor.integration.test.tsx` is 876 nonblank lines, above its
+800-line limit. Full web lint and formatting checks also report existing issues in unrelated
+CardEvent and inspector files. No request, review-state, queued-write, navigation, or completion
+behavior changed.
 
 ## M5 — Bounded bug fix
 
