@@ -1,7 +1,7 @@
 # 0101 M0 cleanup inventory
 
 Date: 2026-10-30. Source baseline: `63bab3b2b8d1c6a0d26a5c0b4c47ee5e62378da3`.
-Owner: [epic 0101](../plans/3-in-progress/0101-Repository_Spring_Cleanup.md).
+Owner: [epic 0101](../plans/5-closed/0101-Repository_Spring_Cleanup.md).
 
 ## Scope and current use
 

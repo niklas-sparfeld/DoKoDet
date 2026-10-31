@@ -4,7 +4,8 @@
 
 - **Summary:** Investigate and remove justified code and interface clutter, simplify selected
   component boundaries, and fix reproducible bugs found during the review.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** None for M0–M2. M3 and M4 wait for 0100 M5. Recheck shared paths before M5.
 - **Outcome:** A short evidence-based inventory and a bounded set of verified improvements make
   common changes easier to locate and reduce unnecessary maintenance. Unsupported candidates can
@@ -30,7 +31,9 @@
 - **M5:** Complete — duplicate coverage now uses the normalized frame lookup key. Parser and
   service regressions reject both decision orders without publishing a revision, changing
   selection, or changing the draft.
-- **M6:** Not started — verify the combined result and publish the remaining inventory.
+- **M6:** Complete — combined focused checks passed for operations, backend, and the identity
+  editor; generated API consistency passed. The handoff records rejected candidates, remaining
+  issues, and verification limits.
 
 ## Purpose and evidence
 
@@ -189,10 +192,18 @@ draft, selected revision, and published revision list. The three focused backend
 
 Run the relevant combined checks for changed components and local Markdown link checks. Confirm
 generated API consistency when affected. Summarize changes, rejected candidates, remaining issues,
-known limitations, and verification in `docs/reports/0101-Cleanup_Handoff.md`. Check that no
-unrelated work or data changed. Close this epic when each milestone has a verified result or an
-explicit evidence-based no-change decision; do not claim that the repository is free of dead code
-or bugs.
+known limitations, and verification in [the cleanup handoff](../../reports/0101-Cleanup_Handoff.md).
+The focused combined checks passed, except the existing visible-card boundary limit. The full
+operations test command was stopped during its retained-artifact scan; the selected command tests
+passed. The local link check passed. The generated API matched. No unrelated work or data changed.
+Each milestone has a verified result. This closure does not claim that the repository is free of
+dead code or bugs.
+
+## Closure
+
+This epic is complete. The retained inventory in the M0 report lists candidates that were deferred
+or rejected, with the evidence and checks required before later work. See the [M6 handoff](../../reports/0101-Cleanup_Handoff.md)
+for combined verification and known limits.
 
 ## Boundaries and delivery
 
