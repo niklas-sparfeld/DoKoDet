@@ -4,13 +4,15 @@
 
 - **Summary:** Remove current code, configuration, and data-contract blockers before an operator
   tries one recorded round from video to reconstruction with the existing local models.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** Completed 0048/0049 recording pipeline, 0090 coordinator, 0092 M4 detector
   bundle, 0088 M6 identity bundle decision, 0095 observation contract, and 0097 review navigation.
   All implementation prerequisites are available. Pending 0096/0098 human review is not a dependency.
-- **Outcome:** A reproducible local setup can read current retained results, run the selected local
-  models, assemble observations, accept explicit round context, and publish a reconstruction result.
-  Existing review targets open without replacing human work. The next task is a real operator trial.
+- **Outcome:** The local setup reads current retained results, selects the declared local models,
+  assembles observations, accepts explicit round context, and stores a reconstruction result.
+  M6 verified the fixture workflow and bounded model probes. The [readiness report](../../reports/0100-Local_Trial_Readiness.md)
+  gives the setup and browser steps for one real operator trial.
 - **Requested scope:** Code and data compatibility first. Exclude the iOS app.
 - **Target architecture:**
   [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
@@ -32,7 +34,9 @@
 - **M5:** Complete — replaced obsolete active ancestry with review-preserving copies and a repair
   receipt. Exact queue targets resolve; one older identity result has unavailable original crop
   evidence. See the [M5 result](../../reports/0100-M5_Review_Access.md).
-- **M6:** Not started — verify the combined workflow and publish a short trial guide.
+- **M6:** Complete — fixture service and browser checks pass. The three frozen models completed
+  bounded CPU probes. The [readiness report](../../reports/0100-Local_Trial_Readiness.md) records
+  setup, source choice, required operator facts, limits, and known baseline check failures.
 
 ## 1. Purpose and evidence
 
@@ -255,6 +259,5 @@ Acceptance:
 
 ## Delivery rule
 
-Implement one milestone at a time. Commit each completed milestone directly to `main`, update this
-epic and the board, and report every milestone's current state. This planning change starts no
-implementation, data repair, model execution, or human review.
+M0–M6 are complete. M6 verifies readiness for one operator trial; it does not run that trial or
+make a model-quality or reconstruction-correctness claim.

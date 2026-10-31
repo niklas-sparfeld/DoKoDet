@@ -28,19 +28,13 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 Active: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**. Its M0–M3 milestones are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) handoff reported all 165 targets unavailable in its checkout. The 0100 M5 checks resolved all exact detector targets and reproduced their frame identities. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md) and [0100 M0 inventory](../reports/0100-M0_Compatibility_Inventory.md).
 
-Also active: **[0100 — Local pipeline compatibility](3-in-progress/0100-Local_Pipeline_Compatibility.md)**.
-M0–M3 are complete; M4–M6 are not started. M1 now installs the engine from editable source in
-both environments. M3 removes hidden seat defaults, validates four distinct players and an active
-first-trick leader, and lets the dealer sit out in line with the glossary. Saved explicit context is
-reusable through the recording shortcut. Targeted backend and operations checks pass. The
-[M0 inventory](../reports/0100-M0_Compatibility_Inventory.md) found stale installed engine packages,
-UUID-only analysis session IDs, seat defaults, and a mismatch between local settings and the
-first-trial model recipe. The current revision store loads all 165
-0096 and 114 0098 frozen targets with matching content; live editor navigation remains unverified.
-Fix local package freshness, recording session identifiers, explicit round context, local model
-selection, and active revision/review-target access before one real operator
-trial. The final milestone verifies readiness with fixtures and bounded model probes. No iOS work,
-training, promotion, or human annotation completion is required. 0096 remains pending human review.
+Epic **0100 — Local pipeline compatibility** is closed. M0–M6 are complete. M6 verified the
+fixture workflow, ran bounded CPU probes with the three frozen models, and published a direct
+handoff to one real operator trial. The [readiness report](../reports/0100-Local_Trial_Readiness.md)
+records setup steps, the suggested source, operator-supplied round facts, and known baseline check
+failures. The [M0 inventory](../reports/0100-M0_Compatibility_Inventory.md) and
+[M5 result](../reports/0100-M5_Review_Access.md) retain the repair evidence. The 0096 review queue
+still awaits human review.
 
 The earlier autonomous work has these handoffs:
 
@@ -115,7 +109,6 @@ The shared target architecture is
 | --- | --- | --- |
 | [0101 — Repository spring cleanup](3-in-progress/0101-Repository_Spring_Cleanup.md) | None for M1–M2; handler/editor extractions wait for 0100 M5 | M0–M4 complete; M5–M6 not started. Removed old-runtime evidence adoption, extracted source lifecycle CLI execution, moved visible-card frame coverage parsing, and extracted identity editor data conversion. Selected a reproduced duplicate-frame coverage bug. Human use is through the web UI; documentation alone does not establish CLI use. See the [M0 inventory](../reports/0101-M0_Cleanup_Inventory.md). |
 | [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. The M4 review queue is frozen at 165 frames across 33 recordings; one M1 failure has no corrected output to inspect. Human review is pending. See the [M4 queue](../reports/0096-M4_Human_Review_Queue.md) and [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
-| [0100 — Local pipeline compatibility](3-in-progress/0100-Local_Pipeline_Compatibility.md) | Completed 0048/0049, 0090, 0092 M4, 0088 M6 decision, 0095, and 0097 | M0–M5 complete; M6 not started. M5 repaired 29 selection pointers with review-preserving copies and recorded one unavailable original identity crop. See the [M5 result](../reports/0100-M5_Review_Access.md) and [M0 inventory](../reports/0100-M0_Compatibility_Inventory.md). |
 
 ### Blocked
 
@@ -127,6 +120,7 @@ The shared target architecture is
 
 | Epic                                                                                                                                             | Closure reason     | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0100 — Local pipeline compatibility](5-closed/0100-Local_Pipeline_Compatibility.md)                                                            | Complete           | M0–M6 complete. The local recipe passed preflight and three bounded CPU model probes. Fixture service checks cover event, detector, scene, identity, observation, and reconstruction persistence; focused browser inspection passes. The handoff names `game-2026-09-18-01-003` for the real trial and lists the missing round facts. Model quality and reconstruction correctness remain unqualified. See the [trial readiness report](../reports/0100-Local_Trial_Readiness.md). |
 | [0098 — Identity proposal batch](5-closed/0098-Identity_Proposal_Batch.md)                                                                         | Complete           | M0–M3 complete. 26 local M6 seed 17 runs produced 2,994 outcomes, with no crop failures or unprocessed items. M2 found zero complete reviewed identity crop pairs, so there is no accuracy claim. M3 froze 114 review frames across all 26 eligible recordings. The file queue pins exact M1 revisions and records ten conflicting drafts for preservation. The editor backend was unavailable during handoff. Identity review remains pending; no human decisions were created. See the [M3 queue and handoff](../reports/0098-M3_Identity_Review_Queue.md) and [M2 diagnostics](../reports/0098-M2_Identity_Diagnostics.md). |
 | [0099 — Detection failure diagnostics and bounded fixes](5-closed/0099-Detection_Failure_Diagnostics_and_Bounded_Fixes.md)                        | Complete           | M0–M3 complete. Both bounded transform-precision candidates failed to repair the saved `IMG_0641` calibration failure. No fix was selected; the existing baseline remains. Outside-training comparison counts did not change. Pile, pose, stacking-order, and zero-card quality remain unsupported. The 0096 queue of 165 frames remains pending human review. See the [M3 final handoff](../reports/0099-M3_Final_Diagnostic_Handoff.md). |
 | [0050 — Detector quality and analyzer capabilities](5-closed/0050-Detector_Quality_and_Analyzer_Capabilities.md)                                  | Complete           | M0–M4 complete. The corrected scene processor handles all 19 zero-card frames. Identity outputs completed, but observation assembly rejected all three because the 25-class M6 output omits `FACE_DOWN` probability mass from the 24 card candidates. No model or capability was selected. Any contract implementation needs a new epic. See the [M4 result](../reports/0050-M4_Diagnostic_Result.md). |

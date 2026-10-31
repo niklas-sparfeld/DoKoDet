@@ -923,8 +923,7 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
                         "manual scene changes the calibrated projection"
                     )
                 if any(
-                    pose.source_suggestion_id is not None
-                    or pose.fit_diagnostics_digest is not None
+                    pose.source_suggestion_id is not None or pose.fit_diagnostics_digest is not None
                     for pose in reviewed_scene.poses
                 ):
                     raise PipelineReferenceInputError(
@@ -1739,13 +1738,17 @@ class VisibleCardReferenceHandler(ReferenceContentHandler):
         if operation.operation == "delete_pile_region":
             updated["pile_regions"] = [region.to_mapping() for region in regions]
         self.validate_item(updated, source_revision_id)
-        return items[:index] + [
-            self._replace(
-                existing,
-                item=updated,
-                review_state="corrected" if empty_candidate_frame else existing.review_state,
-            )
-        ] + items[index + 1 :]
+        return (
+            items[:index]
+            + [
+                self._replace(
+                    existing,
+                    item=updated,
+                    review_state="corrected" if empty_candidate_frame else existing.review_state,
+                )
+            ]
+            + items[index + 1 :]
+        )
 
     @staticmethod
     def _deduplicate_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
