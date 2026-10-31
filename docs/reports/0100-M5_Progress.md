@@ -1,6 +1,6 @@
 # 0100 M5 progress
 
-Status: in progress. This is not a milestone completion report.
+Status: superseded by the [completed M5 result](0100-M5_Review_Access.md). This report records intermediate findings.
 
 ## Current findings
 
@@ -33,6 +33,13 @@ has no saved crop-input descriptor: all 226 outcomes match the retained visible-
 geometry, and each stored crop identity matches its outcome. The repair still needs to validate
 the reconstructed crop input and crop bytes before using it.
 
+The first crop from that older run did not resolve to the stored image bytes. The source video is
+present, and the current decoder reports the same frame index and timestamp, but its JPEG digest
+differs. A direct frame-index decode also returned different bytes. The retained cache did not
+contain the stored JPEG digest. Do not assert that reconstructed crop provenance was verified.
+Keep the original outcome and report the exact image evidence as unavailable unless the stored
+bytes can be recovered. The remaining copied runs need separate crop checks.
+
 The prototype also created a separate scene-copy run and verified that its output names the copied
 scene. Its request records the original run and states that no inference occurred. This avoids
 claiming that the original run produced a new revision.
@@ -49,8 +56,21 @@ with expected revision zero could overwrite it. The store now checks the existin
 revision before validating replacement pointers. A regression test covers repair, stale writes,
 and preservation of a malformed selection file.
 
+An isolated validation resolved all 18 affected selections and read all 26 copied references. It
+checked one crop from each of the other 12 identity runs. It preserved the older run's missing crop
+provenance and recorded the exact frame digest mismatch. A preflight and guarded publication command
+are in development. The command checks the complete source ancestry, copied review content, run
+lineage, draft changes, selection revisions, and the retained frame mismatch. It snapshots original
+drafts and selections and restores them if an ordinary write fails. A full publication test must
+pass on a separate copy before the active store changes.
+
+The first staged copies left the original scene revision in visible-card coverage. The preflight
+now rejects that inconsistency. The isolated conversion is being repeated with the coverage mapping
+and downstream crop lineage updated together. The earlier staged artifacts are not a repair input.
+
 A local API audit resolved all 165 frozen 0096 detector frames and all 145 available exact scene
 frames. The other 20 frames belong to four failed scene runs and retain their recorded diagnostics.
+An additional local decode check reproduced all 165 stored detector-frame identities.
 The separately unreviewable recording has no queue frames. For 0098, all 114 exact generated cards
 and crop requests resolved, and each target revision was present in its workspace. Eight maintained
 identity reference reads failed on the obsolete ancestor chain; three recordings had no reference.
