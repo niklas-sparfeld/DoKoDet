@@ -11,7 +11,7 @@
 
 - **M0:** Complete — model artifacts, permitted inputs, Python references, and comparison checks are frozen. See the [M0 report](../../reports/0103-M0_Model_and_Input_Inventory.md).
 - **M1:** Complete — Core ML conversion of the exact checkpoint is blocked by a reproducible encoder `int` conversion error. See the [M1 report](../../reports/0103-M1_RF-DETR_Core_ML_Export.md).
-- **M2:** Not started — export and compare the DINOv3 identity model.
+- **M2:** Complete — the exact DINOv3 weights reproduce both M0 Python references, but Core ML conversion fails in the attention graph. See the [M2 report](../../reports/0103-M2_DINOv3_Core_ML_Export.md).
 - **M3:** Not started — export and compare CardEventNet on fixed temporal input.
 - **M4:** Not started — run the exported models on an iPhone and report feasibility.
 
@@ -68,6 +68,11 @@ is in scope for CardEventNet if its input requires temporal context.
 - Compare candidate identities and scores with Python on the same fixed crops, including any
   face-down handling. Report numerical differences and changed rankings. Add focused comparison
   checks and document a reproducible failure if export cannot proceed.
+
+**Result:** The exact encoder and head loaded and matched both frozen 25-class Python logit vectors
+with zero absolute difference. Core ML Tools 9.0 failed at `encoder/model/0/attention/160` with
+`TypeError: only 0-dimensional arrays can be converted to Python scalars`. No package or exported
+output parity was produced. See the [M2 report](../../reports/0103-M2_DINOv3_Core_ML_Export.md).
 
 ## M3 — Export CardEventNet
 

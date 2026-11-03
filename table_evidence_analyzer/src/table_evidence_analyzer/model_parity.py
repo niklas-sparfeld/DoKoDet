@@ -27,6 +27,39 @@ def ranked_indices(scores: Sequence[float]) -> tuple[int, ...]:
     return tuple(sorted(range(len(scores)), key=lambda index: (-scores[index], index)))
 
 
+def compare_score_vectors(
+    reference: Sequence[float],
+    candidate: Sequence[float],
+    *,
+    atol: float,
+    rtol: float,
+) -> dict[str, Any]:
+    """Compare same-class scores and ranks for one fixed-size model output."""
+
+    if len(reference) != len(candidate) or not reference:
+        raise ValueError("score vectors must have the same non-zero length")
+    if not all(math.isfinite(value) for value in (*reference, *candidate)):
+        raise ValueError("scores must be finite")
+    if atol < 0 or rtol < 0:
+        raise ValueError("comparison tolerances must be non-negative")
+    differences = [abs(left - right) for left, right in zip(reference, candidate, strict=True)]
+    mismatches = [
+        index
+        for index, (left, right) in enumerate(zip(reference, candidate, strict=True))
+        if not within_tolerance(left, right, atol=atol, rtol=rtol)
+    ]
+    reference_rank = ranked_indices(reference)
+    candidate_rank = ranked_indices(candidate)
+    return {
+        "class_count": len(reference),
+        "max_absolute_difference": max(differences),
+        "mismatched_indices": mismatches,
+        "reference_rank": list(reference_rank),
+        "candidate_rank": list(candidate_rank),
+        "rank_changed": reference_rank != candidate_rank,
+    }
+
+
 def threshold_decision(score: float, threshold: float) -> bool:
     """Apply the model contract's inclusive score threshold."""
 
