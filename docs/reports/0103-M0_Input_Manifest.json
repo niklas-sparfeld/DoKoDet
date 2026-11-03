@@ -1,0 +1,177 @@
+{
+  "schema_version": "epic-0103-m0-inputs/v1",
+  "source": {
+    "recording_id": "cardeventnet-IMG_0657",
+    "path": "data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+    "sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+    "permission": "project_use",
+    "duration_s": 89.42,
+    "input_decision": "unreviewed development execution input"
+  },
+  "frames": [
+    {
+      "path": "inputs/frames/frame-02s.png",
+      "timestamp_s": 2,
+      "width": 1920,
+      "height": 1080,
+      "sha256": "319310ea744a1ac348a655ecacf380a4099ac944f339eac92473775d185ab50b"
+    },
+    {
+      "path": "inputs/frames/frame-08s.png",
+      "timestamp_s": 8,
+      "width": 1920,
+      "height": 1080,
+      "sha256": "c62d02e561f9c6c87abfcddf354d9cc653c13dab117e6a88fcd9dab5669a8e11"
+    },
+    {
+      "path": "inputs/frames/frame-12s.png",
+      "timestamp_s": 12,
+      "width": 1920,
+      "height": 1080,
+      "sha256": "c0ee137f1fc2db71d2688ad09e3484cf341730add97c37bdddffafc6e56a9cb0"
+    },
+    {
+      "path": "inputs/frames/frame-20s.png",
+      "timestamp_s": 20,
+      "width": 1920,
+      "height": 1080,
+      "sha256": "f1f18e81092d036b2dc9fcdab9e230a01be051aae7a17bc3e5df957452f86791"
+    },
+    {
+      "path": "inputs/frames/frame-40s.png",
+      "timestamp_s": 40,
+      "width": 1920,
+      "height": 1080,
+      "sha256": "045ceee47cf5598743785d56f58aed5fafef99b2d7ca97b563642b056ed55761"
+    },
+    {
+      "path": "inputs/frames/frame-70s.png",
+      "timestamp_s": 70,
+      "width": 1920,
+      "height": 1080,
+      "sha256": "880b265f29135fd0532bcc225291c96c8efc5e72fe0352feb849bdee6b11ddaf"
+    }
+  ],
+  "identity_crops": [
+    {
+      "path": "inputs/identity-crops/face-up-card-frame-08s.ppm",
+      "source_frame": "inputs/frames/frame-08s.png",
+      "crop_box_xyxy": [
+        900,
+        740,
+        1420,
+        1070
+      ],
+      "width": 520,
+      "height": 330,
+      "sha256": "995390fe66fec686780299d008e7b2dc018f7d71eea69b345ac9d1b5b047d770"
+    },
+    {
+      "path": "inputs/identity-crops/face-down-card-frame-40s.ppm",
+      "source_frame": "inputs/frames/frame-40s.png",
+      "crop_box_xyxy": [
+        1200,
+        560,
+        1660,
+        810
+      ],
+      "width": 460,
+      "height": 250,
+      "sha256": "2c9b1751c45762b945bbf8805ebacbd4913df1040af8384a5488fd0e6e064b3f"
+    }
+  ],
+  "event_window": {
+    "decision_time_s": 8.0,
+    "cache_fps": 10.0,
+    "frame_size": 224,
+    "preprocessing": "full_frame_letterbox_v1",
+    "offsets_s": [
+      -1.4,
+      -1.2,
+      -1.0,
+      -0.8,
+      -0.6,
+      -0.4,
+      -0.2,
+      0.0
+    ],
+    "frames": [
+      {
+        "path": "inputs/event-window/frame-00.jpg",
+        "cache_index": 66,
+        "timestamp_s": 6.606402985074626,
+        "width": 224,
+        "height": 224,
+        "sha256": "44685edf13c0cfee9e27125d3766d8f84c362e14e8c44afe6f22f438c42cf173"
+      },
+      {
+        "path": "inputs/event-window/frame-01.jpg",
+        "cache_index": 68,
+        "timestamp_s": 6.806597014925373,
+        "width": 224,
+        "height": 224,
+        "sha256": "2ed116de608c3b94ebe46ad64f3d6c9ab9b8106196671dae3647f12f85349e7a"
+      },
+      {
+        "path": "inputs/event-window/frame-02.jpg",
+        "cache_index": 70,
+        "timestamp_s": 7.0067910447761195,
+        "width": 224,
+        "height": 224,
+        "sha256": "75985161a6a02adda57ee3b13da7cfc07bb7ec5a4cdfbd3062fc1d48e6f49bf0"
+      },
+      {
+        "path": "inputs/event-window/frame-03.jpg",
+        "cache_index": 72,
+        "timestamp_s": 7.206985074626865,
+        "width": 224,
+        "height": 224,
+        "sha256": "c2f9ed04511123c3566118f798b42cbdd8c2e088bac84332df2f73593e769947"
+      },
+      {
+        "path": "inputs/event-window/frame-04.jpg",
+        "cache_index": 74,
+        "timestamp_s": 7.407179104477612,
+        "width": 224,
+        "height": 224,
+        "sha256": "74b5fb984a838b3c4986415b829168c18acc7d93f1a104b051f5560ab9988c89"
+      },
+      {
+        "path": "inputs/event-window/frame-05.jpg",
+        "cache_index": 76,
+        "timestamp_s": 7.607373134328358,
+        "width": 224,
+        "height": 224,
+        "sha256": "cd289c3169a055a20e7cabf70b4a26f70a4431dad0e3d568d21364b2e8b8085c"
+      },
+      {
+        "path": "inputs/event-window/frame-06.jpg",
+        "cache_index": 78,
+        "timestamp_s": 7.807567164179105,
+        "width": 224,
+        "height": 224,
+        "sha256": "0193c3ecfd025611a0571bf95b7c915a2eaa4a402b0561b4e6f0bca3f6888fa9"
+      },
+      {
+        "path": "inputs/event-window/frame-07.jpg",
+        "cache_index": 79,
+        "timestamp_s": 7.9076641791044775,
+        "width": 224,
+        "height": 224,
+        "sha256": "c5991ea38bcd4ee5e826a13773fe80a24cda42aa25f93b6900e51640af4774b7"
+      }
+    ]
+  },
+  "environment": {
+    "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+    "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+    "packages": {
+      "torch": "2.7.0",
+      "torchvision": "0.22.0",
+      "transformers": "5.22.1",
+      "rfdetr": "1.9.4",
+      "Pillow": "12.3.0",
+      "opencv-python": "5.0.0.93"
+    }
+  }
+}
