@@ -81,6 +81,61 @@ describe("PipelineVisibleCardEditor", () => {
     ).toHaveLength(1);
   });
 
+  it("loads the newly displayed generated revision without remounting", async () => {
+    const first = generatedResult();
+    const secondRevisionId = "generated-visible-card-revision-2";
+    const second = {
+      ...first.revisions[0],
+      manifest: { revision_id: secondRevisionId },
+      content: {
+        outcomes: first.revisions[0].content.outcomes.map((outcome) => ({
+          ...outcome,
+          event_id: SECOND_ITEM_ID,
+        })),
+      },
+    };
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        jsonResponse({ ...first, revisions: [first.revisions[0], second] }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchImplementation);
+    const railItems = vi.fn();
+    const props = {
+      recordingId: RECORDING_ID,
+      durationUs: 1_000_000,
+      generatedRevisionId: REVISION_ID,
+      generatedRunId: RUN_ID,
+      view: "generated" as const,
+      onRailItemsChange: railItems,
+    };
+    const { rerender } = render(
+      <PipelineVisibleCardEditor
+        {...props}
+        displayedRevisionId={REVISION_ID}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(railItems).toHaveBeenLastCalledWith([
+        expect.objectContaining({ itemId: ITEM_ID }),
+      ]),
+    );
+
+    rerender(
+      <PipelineVisibleCardEditor
+        {...props}
+        displayedRevisionId={secondRevisionId}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(railItems).toHaveBeenLastCalledWith([
+        expect.objectContaining({ itemId: SECOND_ITEM_ID }),
+      ]),
+    );
+  });
+
   it("shows failed fit diagnostics and opens the worst held-out frame", async () => {
     const diagnosticsRun = {
       run_id: "proposal-run-failed",

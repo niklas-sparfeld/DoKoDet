@@ -925,6 +925,9 @@ class PipelineRevisionStore:
 
     @staticmethod
     def _log_invalid(path: Path, error: BaseException) -> None:
+        if str(error) == "content_type and content_schema do not match":
+            LOGGER.debug("pipeline_revision_catalog_skipped path=%s reason=%s", path, error)
+            return
         LOGGER.warning("pipeline_revision_catalog_skipped path=%s reason=%s", path, error)
 
 

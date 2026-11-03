@@ -353,7 +353,14 @@ export function PipelineVisibleCardEditorView({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [loadGenerated, loadReference, startReviewRequested, view]);
+  }, [
+    generatedRunId,
+    generatedSourceRevisionId,
+    loadGenerated,
+    loadReference,
+    startReviewRequested,
+    view,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();

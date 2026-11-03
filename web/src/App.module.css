@@ -2747,6 +2747,10 @@ progress {
   overflow-x: auto;
 }
 
+.recordingTimelineLanesViewport {
+  overflow: hidden;
+}
+
 .recordingTimelineScrubber {
   display: grid;
   grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr);
