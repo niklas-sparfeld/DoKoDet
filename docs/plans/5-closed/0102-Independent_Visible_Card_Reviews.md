@@ -3,9 +3,11 @@
 ## Plan status
 
 - **Summary:** Create, resume, and switch independent visible-card reviews seeded from visible regions or proposed card scenes.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** None. The existing visible-card reference, proposal, and review workspace provide the starting implementation.
 - **Outcome:** Starting a review creates a new draft with exact input lineage. An operator can switch between reviews without replacing another draft or transferring its decisions.
+- **Closure reason:** Complete
+- **Closure note:** M0–M5 are complete. The reported proposal created a fresh local scene review through the review API. The legacy review and downstream selection remained unchanged. No detector or scene quality claim was made.
 
 ## Milestone status
 
@@ -14,7 +16,7 @@
 - **M2:** Complete — create, list, read, and edit isolated reviews through review-scoped APIs.
 - **M3:** Complete — publish completed reviews with exact lineage and select a downstream revision explicitly.
 - **M4:** Complete — integrate both review entry points and switching in the workspace.
-- **M5:** Not started — verify existing data, concurrent edits, restart, and the reported workflow.
+- **M5:** Complete — verify existing data, concurrent edits, restart, and the reported workflow.
 
 ## Problem and desired behavior
 
@@ -209,6 +211,19 @@ supports independent drafts. Keep the appropriate editor and input behavior for 
   restart, and clear error feedback.
 
 ## M5 — End-to-end acceptance and handoff
+
+- **Status:** Complete.
+- Backend lifecycle tests passed for review API creation, idempotent retries, isolated storage,
+  restart, completion, and explicit downstream selection. Frontend integration tests passed for
+  both entry points, review switching, URL restore, and review-scoped edits.
+- The local proposal `card-scene-proposal-1793741954253` and detector input were available. A fresh
+  49-item scene review was created through the normal review API in an isolated local data root.
+  The existing legacy review remained listed and its draft was unchanged. The checkout's review
+  files and downstream selection hashes were unchanged. No frames were accepted and no completed
+  reference was selected.
+- The frozen 0096 queue was not opened or changed. This workflow provides no detector or scene
+  quality evidence.
+- Verification passed: 56 backend tests, 24 frontend tests, and frontend TypeScript checks.
 
 - Use deterministic local fixtures to exercise creation, edits, switching, restart, completion, and
   downstream selection for both review types. Verify unchanged existing review content and queue
