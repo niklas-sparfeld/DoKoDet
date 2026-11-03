@@ -193,10 +193,11 @@ supports independent drafts. Keep the appropriate editor and input behavior for 
   draft. A missing calibration draft does not block review creation or loading.
 - Draft edits and completion use review-scoped routes. Calibration start, read, and edit requests
   use the selected review ID. The editor remounts when the URL selects another review. It disables
-  review switching and new-review actions while draft saves are pending.
+  review switching and new-review actions while a draft save, local editor, or calibration action
+  is active.
 - Frontend tests cover both review entry points, URL restore and switching, review-scoped edits,
-  and review API routes. Focused frontend verification passed: 59 tests, TypeScript, ESLint,
-  Prettier, and `git diff --check`.
+  pending-save isolation, and review API routes. Focused frontend verification passed: 60 tests,
+  TypeScript, ESLint, Prettier, and `git diff --check`.
 
 - Provide the same create, list, select, and resume interaction for visible-region and scene reviews.
   Show the input revision, status, and last update so the operator can distinguish reviews.
