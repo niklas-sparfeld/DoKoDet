@@ -191,6 +191,8 @@ class PipelineReferenceService:
         recording_id: str,
         content_type: str,
         payload: Mapping[str, Any],
+        *,
+        review_creation: bool = False,
     ) -> StoredPipelineReference:
         self._validate_content_type(content_type)
         if not isinstance(payload, Mapping):
@@ -208,7 +210,7 @@ class PipelineReferenceService:
             )
         operator_id = identifier(payload.get("operator_id"), "operator_id")
         del operator_id
-        existing = self.reference_store.get(recording_id, content_type)
+        existing = None if review_creation else self.reference_store.get(recording_id, content_type)
 
         proposal_revision_id = payload.get("proposal_revision_id")
         annotation_source = payload.get("annotation_source")
@@ -436,6 +438,8 @@ class PipelineReferenceService:
             updated_at=timestamp,
         )
         created = StoredPipelineReference(state=state, draft=draft)
+        if review_creation:
+            return created
         with self.reference_store.locked(recording_id, content_type):
             try:
                 current = self.reference_store.read_locked(recording_id, content_type)
@@ -808,7 +812,10 @@ class PipelineReferenceService:
         recording_id: str,
         content_type: str,
         payload: Mapping[str, Any],
+        *,
+        store_override: Any | None = None,
     ) -> StoredPipelineReference:
+        reference_store = store_override or self.reference_store
         self._validate_content_type(content_type)
         if not isinstance(payload, Mapping):
             raise PipelineReferenceInputError("the reference edit request must be an object")
@@ -876,12 +883,12 @@ class PipelineReferenceService:
         except PipelineReferenceContractError as error:
             raise PipelineReferenceInputError(str(error)) from error
 
-        with self.reference_store.locked(recording_id, content_type):
+        with reference_store.locked(recording_id, content_type):
             handler = self._handler(content_type)
-            current = self.reference_store.read_locked(recording_id, content_type)
+            current = reference_store.read_locked(recording_id, content_type)
             commands: dict[str, str] | None = None
             if command_id is not None and command_digest is not None:
-                commands = self.reference_store.read_commands_locked(recording_id, content_type)
+                commands = reference_store.read_commands_locked(recording_id, content_type)
                 previous_digest = commands.get(command_id)
                 if previous_digest is not None:
                     if previous_digest != command_digest:
@@ -907,7 +914,7 @@ class PipelineReferenceService:
                         )
                     assert operation.annotation_source is not None
                     annotation_source = operation.annotation_source
-                    visible_reference = self.reference_store.get(recording_id, "visible_cards")
+                    visible_reference = reference_store.get(recording_id, "visible_cards")
                     if (
                         visible_reference is None
                         or visible_reference.state.draft_state != "completed"
@@ -1177,13 +1184,11 @@ class PipelineReferenceService:
                 source_revision_id=draft.source_revision_id,
                 updated_at=timestamp,
             )
-            saved = self.reference_store.write_locked(
-                StoredPipelineReference(state=state, draft=draft)
-            )
+            saved = reference_store.write_locked(StoredPipelineReference(state=state, draft=draft))
             if command_id is not None and command_digest is not None:
                 assert commands is not None
                 commands[command_id] = command_digest
-                self.reference_store.write_commands_locked(recording_id, content_type, commands)
+                reference_store.write_commands_locked(recording_id, content_type, commands)
             return saved
 
     def complete_reference(

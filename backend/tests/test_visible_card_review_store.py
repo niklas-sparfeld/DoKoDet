@@ -13,6 +13,7 @@ from dokodetector_backend.pipeline_reference_store import (
     PipelineReferenceStore,
     StoredPipelineReference,
 )
+from dokodetector_backend.visible_card_review_service import VisibleCardReviewService
 from dokodetector_backend.visible_card_review_store import (
     VisibleCardReviewConflict,
     VisibleCardReviewStore,
@@ -117,9 +118,7 @@ def test_legacy_review_is_read_only_and_preserves_selected_completion(tmp_path: 
     draft_before = legacy.draft_path("recording-01", "visible_cards").read_bytes()
     commands_before = legacy.command_path("recording-01", "visible_cards").read_bytes()
 
-    store = VisibleCardReviewStore(
-        tmp_path / "pipeline-reviews", legacy_reference_store=legacy
-    )
+    store = VisibleCardReviewStore(tmp_path / "pipeline-reviews", legacy_reference_store=legacy)
     review = store.get("recording-01", "legacy-visible-cards")
     assert review.legacy
     assert review.reference.state.selected_completed_revision_id == "completed-visible-cards-01"
@@ -160,6 +159,39 @@ def test_interrupted_creation_does_not_replace_existing_review(tmp_path: Path, m
 
     restored = VisibleCardReviewStore(tmp_path / "pipeline-reviews")
     assert restored.get("recording-01", "review-01").to_mapping() == original.to_mapping()
-    assert [review.review_id for review in restored.list_reviews("recording-01")] == [
-        "review-01"
-    ]
+    assert [review.review_id for review in restored.list_reviews("recording-01")] == ["review-01"]
+
+
+def test_review_creation_idempotency_and_same_input_independence(tmp_path: Path) -> None:
+    class ReferenceService:
+        @staticmethod
+        def create_reference(_recording_id, _content_type, _payload, *, review_creation):
+            assert review_creation
+            reference = _reference()
+            draft = PipelineReferenceDraft.from_mapping(
+                {**reference.draft.to_mapping(), "source_revision_id": None}
+            )
+            state = PipelineReferenceState.from_mapping(
+                {**reference.state.to_mapping(), "source_revision_id": None}
+            )
+            return StoredPipelineReference(state=state, draft=draft)
+
+    store = VisibleCardReviewStore(tmp_path / "pipeline-reviews")
+    service = VisibleCardReviewService(store=store, reference_service=ReferenceService())
+    request = {"operator_id": "operator-01", "seed": "empty", "idempotency_key": "retry-01"}
+
+    first = service.create("recording-01", request)
+    retry = service.create("recording-01", request)
+    separate = service.create(
+        "recording-01",
+        {**request, "idempotency_key": "retry-02"},
+    )
+
+    assert first.review_id == retry.review_id
+    assert first.review_id != separate.review_id
+    assert {item.review_id for item in service.list("recording-01")} == {
+        first.review_id,
+        separate.review_id,
+    }
+    with pytest.raises(VisibleCardReviewConflict, match="different request"):
+        service.create("recording-01", {**request, "seed": "selected_generated"})

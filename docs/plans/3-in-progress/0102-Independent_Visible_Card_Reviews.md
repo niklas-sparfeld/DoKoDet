@@ -11,7 +11,7 @@
 
 - **M0:** Complete — trace the existing lifecycle and freeze the independent-review contract.
 - **M1:** Complete — persist isolated review records, list and retrieve them by review ID, and expose the legacy draft without rewriting it.
-- **M2:** Not started — create and edit reviews through review-scoped APIs.
+- **M2:** Complete — create, list, read, and edit isolated reviews through review-scoped APIs.
 - **M3:** Not started — publish, select, and consume completed reviews safely.
 - **M4:** Not started — integrate both review entry points and switching in the workspace.
 - **M5:** Not started — verify existing data, concurrent edits, restart, and the reported workflow.
@@ -128,6 +128,24 @@ supports independent drafts. Keep the appropriate editor and input behavior for 
   preservation of an existing draft. Check that a partial write cannot silently replace a review.
 
 ## M2 — Scope review creation and commands
+
+- **Status:** Complete.
+- Added review-scoped create, list, read, and draft-edit endpoints. Each fresh request creates a
+  separate review. A repeated idempotency key with identical request data returns the same review;
+  reuse with different data returns a conflict.
+- Seed a visible-region review from the selected detector revision or a scene review from its
+  proposal through the existing validated seed logic. Creation does not call rebase or copy another
+  review's decisions. The frozen lineage includes detector and proposal digests, calibration
+  identity, and per-frame identities, image digests, and explicit outcomes.
+- Draft edits use the existing operation validators with a review-specific store adapter. The
+  review ID scopes each command. Expected revisions and command digests reject stale edits and
+  mismatched retries without applying operations to another review. Successful edits return a
+  command receipt.
+- Calibration refinement start, read, and anchor-edit endpoints verify the proposal against the
+  selected review and store the refinement under that review ID.
+- Tests cover create/list/read through the API, restart, same-key retries, distinct reviews from the
+  same request, changed-request conflicts, isolated storage, and stale-edit rejection. Existing
+  maintained-reference tests remain green.
 
 - Add review-scoped create, list, read, and draft-command operations. Seed a fresh visible-region
   draft from the selected detector revision or a fresh scene draft directly from the selected

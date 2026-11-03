@@ -9,6 +9,7 @@ from dokodetector_backend.pipeline_comparison_api import router as comparison_ro
 from dokodetector_backend.pipeline_reference_api import router as reference_router
 from dokodetector_backend.pipeline_stage_api import router as stage_router
 from dokodetector_backend.pipeline_workspace_api import router as workspace_router
+from dokodetector_backend.visible_card_review_api import router as visible_card_review_router
 
 router = APIRouter()
 router.include_router(workspace_router)
@@ -16,5 +17,6 @@ router.include_router(stage_router)
 router.include_router(comparison_router)
 router.include_router(calibration_refinement_router)
 router.include_router(reference_router)
+router.include_router(visible_card_review_router)
 
 __all__ = ["router"]

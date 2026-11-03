@@ -25,6 +25,7 @@ from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.visible_card_pipeline_service import VisibleCardPipelineService
+from dokodetector_backend.visible_card_review_service import VisibleCardReviewService
 from dokodetector_backend.visible_card_review_store import VisibleCardReviewStore
 from dokodetector_backend.visual_identity_pipeline_service import VisualIdentityPipelineService
 
@@ -38,6 +39,7 @@ class PipelineComposition:
     selection_store: PipelineSelectionStore
     reference_store: PipelineReferenceStore
     visible_card_review_store: VisibleCardReviewStore
+    visible_card_review_service: VisibleCardReviewService
     reference_service: PipelineReferenceService
     event_service: EventPipelineService
     comparison_service: PipelineComparisonService
@@ -96,6 +98,10 @@ def build_pipeline_composition(
         reference_store=reference_store,
         revision_store=revision_store,
         selection_store=selection_store,
+    )
+    visible_card_review_service = VisibleCardReviewService(
+        store=visible_card_review_store,
+        reference_service=reference_service,
     )
     event_service = EventPipelineService(
         settings,
@@ -170,6 +176,7 @@ def build_pipeline_composition(
         selection_store=selection_store,
         reference_store=reference_store,
         visible_card_review_store=visible_card_review_store,
+        visible_card_review_service=visible_card_review_service,
         reference_service=reference_service,
         event_service=event_service,
         comparison_service=comparison_service,
@@ -190,6 +197,7 @@ def install_pipeline_composition(state: Any, composition: PipelineComposition) -
     state.pipeline_selection_store = composition.selection_store
     state.pipeline_reference_store = composition.reference_store
     state.visible_card_review_store = composition.visible_card_review_store
+    state.visible_card_review_service = composition.visible_card_review_service
     state.pipeline_reference_service = composition.reference_service
     state.event_pipeline_service = composition.event_service
     state.pipeline_comparison_service = composition.comparison_service

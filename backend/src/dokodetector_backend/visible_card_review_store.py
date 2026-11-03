@@ -9,7 +9,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
-from threading import RLock
+from threading import RLock, local
 from typing import Any
 
 from doko_operations.pipeline_reference import (
@@ -21,6 +21,7 @@ from doko_operations.pipeline_reference import (
 )
 
 from dokodetector_backend.filesystem import (
+    atomic_write_json,
     commit_staged_directory,
     contained_path,
     staging_directory,
@@ -97,11 +98,40 @@ class VisibleCardReviewStore:
         self.root = Path(root).expanduser().resolve()
         self.legacy_reference_store = legacy_reference_store
         self._lock = RLock()
+        self._lock_state = local()
 
     def review_root(self, recording_id: str, review_id: str) -> Path:
         _safe_id(recording_id, "recording_id")
         _safe_id(review_id, "review_id")
         return contained_path(self.root, Path(recording_id) / "visible_cards" / review_id)
+
+    def find_idempotent(
+        self, recording_id: str, idempotency_key: str, request_digest: str
+    ) -> StoredVisibleCardReview | None:
+        """Return a prior create or reject reuse of its key with different request bytes."""
+
+        _safe_id(recording_id, "recording_id")
+        _safe_id(idempotency_key, "idempotency_key")
+        if not re.fullmatch(r"[0-9a-f]{64}", request_digest):
+            raise ValueError("request_digest must be a SHA-256 digest")
+        parent = contained_path(self.root, Path(recording_id) / "visible_cards")
+        with self._recording_lock(recording_id):
+            if not parent.is_dir() or parent.is_symlink():
+                return None
+            for path in sorted(parent.iterdir(), key=lambda item: item.name):
+                if path.name.startswith(".") or not path.is_dir() or path.is_symlink():
+                    continue
+                try:
+                    manifest = _read_json(path / "review.json")
+                except (OSError, ValueError):
+                    continue
+                if manifest.get("idempotency_key") == idempotency_key:
+                    if manifest.get("request_digest") != request_digest:
+                        raise VisibleCardReviewConflict(
+                            "idempotency_key was already used with a different request"
+                        )
+                    return self.get(recording_id, manifest["review_id"])
+        return None
 
     def create(
         self,
@@ -113,6 +143,8 @@ class VisibleCardReviewStore:
         reference: StoredPipelineReference,
         commands: Mapping[str, str] | None = None,
         created_at: str | None = None,
+        idempotency_key: str | None = None,
+        request_digest: str | None = None,
     ) -> StoredVisibleCardReview:
         """Publish one complete review directory; a failed write leaves prior reviews intact."""
 
@@ -138,6 +170,25 @@ class VisibleCardReviewStore:
         destination = self.review_root(recording_id, review_id)
 
         with self._recording_lock(recording_id):
+            if idempotency_key is not None:
+                _safe_id(idempotency_key, "idempotency_key")
+                if request_digest is None or not re.fullmatch(r"[0-9a-f]{64}", request_digest):
+                    raise ValueError("request_digest must be a SHA-256 digest")
+                for existing_path in (
+                    destination.parent.iterdir() if destination.parent.exists() else ()
+                ):
+                    if existing_path.name.startswith(".") or not existing_path.is_dir():
+                        continue
+                    try:
+                        prior = _read_json(existing_path / "review.json")
+                    except (OSError, ValueError):
+                        continue
+                    if prior.get("idempotency_key") == idempotency_key:
+                        if prior.get("request_digest") != request_digest:
+                            raise VisibleCardReviewConflict(
+                                "idempotency_key was already used with a different request"
+                            )
+                        return self.get(recording_id, prior["review_id"])
             if destination.exists() or destination.is_symlink():
                 raise VisibleCardReviewConflict(f"visible-card review already exists: {review_id}")
             manifest = {
@@ -149,6 +200,8 @@ class VisibleCardReviewStore:
                 "lineage": lineage_value,
                 "created_at": timestamp,
                 "updated_at": reference.draft.updated_at,
+                "idempotency_key": idempotency_key,
+                "request_digest": request_digest,
             }
             try:
                 with staging_directory(destination.parent, prefix=f".{review_id}-") as staging:
@@ -223,9 +276,7 @@ class VisibleCardReviewStore:
                 recording_id, "visible_cards"
             )
         source = (
-            "card_scenes"
-            if reference.draft.proposal_revision_id is not None
-            else "visible_regions"
+            "card_scenes" if reference.draft.proposal_revision_id is not None else "visible_regions"
         )
         lineage: dict[str, Any] = {
             "source_revision_id": reference.draft.source_revision_id,
@@ -251,8 +302,16 @@ class VisibleCardReviewStore:
             raise OSError("visible-card review contains a symlink")
         manifest = _read_json(path / "review.json")
         expected = {
-            "schema_version", "review_id", "recording_id", "status", "source", "lineage",
-            "created_at", "updated_at",
+            "schema_version",
+            "review_id",
+            "recording_id",
+            "status",
+            "source",
+            "lineage",
+            "created_at",
+            "updated_at",
+            "idempotency_key",
+            "request_digest",
         }
         if set(manifest) != expected or manifest.get("schema_version") != "visible-card-review/v1":
             raise ValueError("visible-card review manifest has invalid fields")
@@ -272,8 +331,10 @@ class VisibleCardReviewStore:
         ):
             raise ValueError("visible-card review data is not canonical")
         if (
-            state.recording_id != recording_id or state.content_type != "visible_cards"
-            or draft.recording_id != recording_id or draft.content_type != "visible_cards"
+            state.recording_id != recording_id
+            or state.content_type != "visible_cards"
+            or draft.recording_id != recording_id
+            or draft.content_type != "visible_cards"
             or state.draft_revision != draft.revision
             or state.source_revision_id != draft.source_revision_id
         ):
@@ -295,15 +356,59 @@ class VisibleCardReviewStore:
         )
 
     @contextmanager
+    def locked_review(self, recording_id: str, review_id: str) -> Iterator[None]:
+        """Lock one review while a service applies and persists a command."""
+
+        with self._recording_lock(recording_id):
+            self.get(recording_id, review_id)
+            yield
+
+    def update_review(
+        self,
+        recording_id: str,
+        review_id: str,
+        reference: StoredPipelineReference,
+        commands: Mapping[str, str],
+    ) -> StoredVisibleCardReview:
+        """Persist one edited review and its command ledger under the review lock."""
+
+        if review_id == _LEGACY_REVIEW_ID:
+            raise VisibleCardReviewConflict("the legacy visible-card review is read-only")
+        path = self.review_root(recording_id, review_id)
+        with self._recording_lock(recording_id):
+            current = self.get(recording_id, review_id)
+            if reference.draft.revision not in {
+                current.reference.state.draft_revision,
+                current.reference.state.draft_revision + 1,
+            }:
+                raise VisibleCardReviewConflict("review revision changed before publication")
+            manifest = _read_json(path / "review.json")
+            manifest["status"] = (
+                "completed" if reference.state.draft_state == "completed" else "draft"
+            )
+            manifest["updated_at"] = reference.draft.updated_at
+            atomic_write_json(path / "draft.json", canonical_reference_draft_bytes(reference.draft))
+            atomic_write_json(path / "state.json", canonical_reference_state_bytes(reference.state))
+            atomic_write_json(path / "commands.json", canonical_json_bytes(dict(commands)))
+            atomic_write_json(path / "review.json", canonical_json_bytes(manifest))
+            return self.get(recording_id, review_id)
+
+    @contextmanager
     def _recording_lock(self, recording_id: str) -> Iterator[None]:
         path = contained_path(self.root, Path(recording_id) / ".visible-card-reviews.lock")
         with self._lock:
+            held = getattr(self._lock_state, "recordings", set())
+            if recording_id in held:
+                yield
+                return
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a+b") as handle:
                 flock(handle.fileno(), LOCK_EX)
+                self._lock_state.recordings = {*held, recording_id}
                 try:
                     yield
                 finally:
+                    self._lock_state.recordings = held
                     flock(handle.fileno(), LOCK_UN)
 
     @staticmethod
