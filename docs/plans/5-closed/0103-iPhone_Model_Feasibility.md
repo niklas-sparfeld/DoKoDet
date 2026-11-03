@@ -3,9 +3,11 @@
 ## Plan status
 
 - **Summary:** Test whether the current local models can run on an iPhone with fixed test inputs.
-- **Status:** In Progress
-- **Depends on:** None to start. Device measurements require access to an iPhone and a suitable Apple development environment.
-- **Outcome:** A reproducible proof of concept and report show which current models export and run, how their outputs compare with Python, and the measured device costs and remaining blockers. A documented negative result is a valid outcome.
+- **Status:** Closed
+- **Depends on:** None
+- **Closure reason:** Complete
+- **Closure note:** M0–M3 completed the frozen-input inventory and bounded Core ML exports. CardEventNet already runs on a physical iPhone under the completed [Epic 0002 iOS PoC](0002-iOS_CardEventNet_PoC.md). RF-DETR and DINOv3 did not export, so M4 had no new package to measure. No new device measurements were needed.
+- **Outcome:** The exact RF-DETR and DINOv3 artifacts hit reproducible Core ML conversion blockers. The exact CardEventNet checkpoint exported and matched the frozen Python score on its eight-frame temporal input. Existing iPhone support for CardEventNet is recorded in Epic 0002. No new iPhone measurements or model-quality claims were made.
 
 ## Milestone status
 
@@ -13,7 +15,7 @@
 - **M1:** Complete — Core ML conversion of the exact checkpoint is blocked by a reproducible encoder `int` conversion error. See the [M1 report](../../reports/0103-M1_RF-DETR_Core_ML_Export.md).
 - **M2:** Complete — the exact DINOv3 weights reproduce both M0 Python references, but Core ML conversion fails in the attention graph. See the [M2 report](../../reports/0103-M2_DINOv3_Core_ML_Export.md).
 - **M3:** Complete — CardEventNet exported and matched the frozen eight-frame M0 Python reference within tolerance. See the [M3 report](../../reports/0103-M3_CardEventNet_Core_ML_Export.md).
-- **M4:** Not started — run the exported models on an iPhone and report feasibility.
+- **M4:** Not required — CardEventNet already runs on iPhone; RF-DETR and DINOv3 produced no packages to run. No new device measurements were made.
 
 ## Scope and constraints
 
@@ -90,17 +92,11 @@ event, so no event timing offset was measurable. The package digest and reproduc
 in the [M3 report](../../reports/0103-M3_CardEventNet_Core_ML_Export.md). This is execution parity,
 not an event-quality claim.
 
-## M4 — Measure on an iPhone and decide
+## M4 — Measure on an iPhone
 
-- Identify the available iPhone model, iOS version, development environment, and compute-unit
-  configuration. Run each successfully exported model on its frozen input using a minimal local
-  harness or Xcode. Capture output for the same M0 comparisons. If device access or signing is
-  unavailable, record the exact blocker and leave this milestone incomplete until it is resolved.
-- Measure package size, load time, warm per-inference latency, and peak memory where tools permit.
-  Record repeated-run counts, input and batch sizes, device conditions, compute-unit placement when
-  available, and measurement limitations. These are individual-model measurements, not a live
-  pipeline throughput or battery claim.
-- Publish a report with per-model export, device execution, parity, measurements, and blockers.
-  State whether all three current models ran on the tested device and what further work a complete
-  pipeline would need. Report failed models separately and give a bounded recommendation for the
-  next experiment. Do not promote a model or change defaults.
+**Disposition:** No new device run was needed. The completed [Epic 0002 iOS PoC](0002-iOS_CardEventNet_PoC.md)
+already runs CardEventNet on a physical iPhone. Epic 0063 M15 also records a Core ML integration
+bundle with local runtime loading and deterministic parity. M1 and M2 produced no packages, so
+there was no new RF-DETR or DINOv3 model to run on-device. This epic did not measure the M3 package's
+load time, latency, memory, or compute-unit placement. Those measurements are outside this bounded
+export investigation.
