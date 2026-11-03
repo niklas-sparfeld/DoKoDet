@@ -101,7 +101,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| *No ready epics* |  |  |
+| [0104 — Core ML export compatibility](2-ready/0104-CoreML_Export_Compatibility.md) | 0103 M0–M3 complete; exact 0092 and 0088 bundles available | M0 selects one bounded export route per model. M1 attempts RF-DETR export and M2 attempts DINOv3 export with frozen 0103 parity checks. Device measurements are outside this epic. |
 
 ### In Progress
 
