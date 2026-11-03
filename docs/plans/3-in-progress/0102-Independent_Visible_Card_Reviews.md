@@ -196,7 +196,7 @@ supports independent drafts. Keep the appropriate editor and input behavior for 
   review switching and new-review actions while a draft save, local editor, or calibration action
   is active.
 - Frontend tests cover both review entry points, URL restore and switching, review-scoped edits,
-  pending-save isolation, and review API routes. Focused frontend verification passed: 60 tests,
+  pending-save isolation, and review API routes. Focused frontend verification passed: 59 tests,
   TypeScript, ESLint, Prettier, and `git diff --check`.
 
 - Provide the same create, list, select, and resume interaction for visible-region and scene reviews.
