@@ -101,12 +101,13 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0104 — Core ML export compatibility](2-ready/0104-CoreML_Export_Compatibility.md) | 0103 M0–M3 complete; exact 0092 and 0088 bundles available | M0 selects one bounded export route per model. M1 attempts RF-DETR export and M2 attempts DINOv3 export with frozen 0103 parity checks. Device measurements are outside this epic. |
+| *No ready epics* | | |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0104 — Core ML export compatibility](3-in-progress/0104-CoreML_Export_Compatibility.md) | 0103 M0–M3 complete; exact 0092 and 0088 bundles available | M0 complete: selected one bounded converter fix per model. M1 and M2 export and compare the frozen models. See the [route report](../reports/0104-M0_Core_ML_Compatibility_Routes.md). |
 | [0101 — Repository spring cleanup](5-closed/0101-Repository_Spring_Cleanup.md) | None for M1–M2; handler/editor extractions waited for 0100 M5 | Closed — M0–M6 complete. Removed obsolete evidence adoption, extracted two focused boundaries, and fixed order-dependent duplicate frame coverage validation. See the [M0 inventory](../reports/0101-M0_Cleanup_Inventory.md) and [cleanup handoff](../reports/0101-Cleanup_Handoff.md). |
 | [0102 — Independent visible-card reviews](3-in-progress/0102-Independent_Visible_Card_Reviews.md) | None | M0–M4 complete. The workspace creates, lists, resumes, and switches isolated visible-region and proposed-scene reviews. Review IDs scope draft commands and calibration actions. M5 remains. |
 | [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. The M4 review queue is frozen at 165 frames across 33 recordings; one M1 failure has no corrected output to inspect. Human review is pending. See the [M4 queue](../reports/0096-M4_Human_Review_Queue.md) and [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |

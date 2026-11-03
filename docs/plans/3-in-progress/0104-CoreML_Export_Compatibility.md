@@ -4,7 +4,7 @@
 
 - **Summary:** Export the exact frozen RF-DETR and DINOv3 models to Core ML, or record a
   bounded compatibility blocker for each model.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Epic 0103 M0–M3 complete. The exact 0092 RF-DETR and 0088 DINOv3 bundles are
   available in the local runtime paths recorded by the 0103 reports.
 - **Outcome:** Each model has either a Core ML package that passes the frozen 0103 Python output
@@ -22,7 +22,10 @@ Do not retrain, replace, or modify the frozen weights. Do not access sealed test
 
 Limit compatibility work to one selected route for each model. A route can use a supported converter path or a narrow graph rewrite. The route must preserve the exact model outputs. Do not run an open-ended converter-version sweep. If no safe route is available, record the blocker and stop that model's attempt.
 
-## M0 — Select bounded compatibility routes
+## M0 — Select bounded compatibility routes — Complete
+
+The [M0 route report](../../reports/0104-M0_Core_ML_Compatibility_Routes.md) records the
+reproduced converter failure, selected routes, version pins, and stop conditions.
 
 - Reproduce or inspect the recorded integer-conversion failures at the RF-DETR encoder node and
   DINOv3 attention node. Keep the exact checkpoint and bundle digests fixed.
