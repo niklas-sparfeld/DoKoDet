@@ -10,7 +10,7 @@
 ## Milestone status
 
 - **M0:** Complete — trace the existing lifecycle and freeze the independent-review contract.
-- **M1:** Not started — store and select independent visible-card reviews.
+- **M1:** Complete — persist isolated review records, list and retrieve them by review ID, and expose the legacy draft without rewriting it.
 - **M2:** Not started — create and edit reviews through review-scoped APIs.
 - **M3:** Not started — publish, select, and consume completed reviews safely.
 - **M4:** Not started — integrate both review entry points and switching in the workspace.
@@ -105,6 +105,18 @@ supports independent drafts. Keep the appropriate editor and input behavior for 
   changing downstream selection.
 
 ## M1 — Persist and select reviews
+
+- **Status:** Complete.
+- `VisibleCardReviewStore` writes each new review to its own directory. The directory contains the
+  manifest, state, draft, command ledger, and exact input lineage. It publishes the directory with
+  one atomic rename while holding a recording-scoped creation lock.
+- The store lists reviews by update time, then review ID. A review is selected by its ID. The
+  active review remains client URL state; the store does not add a shared active-review pointer.
+- The existing maintained draft is exposed as `legacy-visible-cards`. Reads include its exact
+  state, draft, command ledger, and selected completed revision. They do not write or migrate the
+  legacy files.
+- Store tests cover two isolated reviews, restart, ID lookup, concurrent creation, duplicate IDs,
+  legacy preservation, and interrupted publication.
 
 - Implement review-scoped durable storage and a list of reviews for visible cards. Store each
   draft, command ledger, state, and input lineage independently. Define selection separately from
