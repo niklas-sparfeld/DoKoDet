@@ -53,6 +53,8 @@ from dokodetector_backend.pipeline_store import (
     PipelineSelectionStore,
     ProcessorRunStore,
 )
+from dokodetector_backend.visible_card_review_service import VisibleCardReviewService
+from dokodetector_backend.visible_card_review_store import VisibleCardReviewStore
 
 DIGEST = "a" * 64
 SOURCE = RecordingVideoSource(
@@ -3517,6 +3519,106 @@ def test_reference_http_api_exposes_conflicts_and_completed_selection(tmp_path: 
         response = client.get("/api/recordings/recording-01/pipeline/references/events")
         assert response.status_code == 200
         assert response.json()["state"]["selected_completed_revision_id"] == revision_id
+
+
+def test_independent_review_completion_requires_explicit_downstream_selection(
+    tmp_path: Path,
+) -> None:
+    reference_service, revision_store = _service(tmp_path)
+    reference_service._source_for = lambda recording_id, source_revision_id: SOURCE
+    review_store = VisibleCardReviewStore(
+        tmp_path / "operations" / "pipeline-references",
+        legacy_reference_store=reference_service.reference_store,
+    )
+    reviews = VisibleCardReviewService(store=review_store, reference_service=reference_service)
+    source_revision_id = _vision_source_revision(revision_store, "visible_cards")
+    first = reviews.create(
+        "recording-01",
+        {
+            "operator_id": "operator-01",
+            "source_revision_id": source_revision_id,
+            "idempotency_key": "create-01",
+        },
+    )
+    second = reviews.create(
+        "recording-01",
+        {
+            "operator_id": "operator-01",
+            "source_revision_id": source_revision_id,
+            "idempotency_key": "create-02",
+        },
+    )
+
+    for command_id, review in (("accept-01", first), ("accept-02", second)):
+        item = review.reference.draft.items[0]
+        reviews.update(
+            "recording-01",
+            review.review_id,
+            {
+                "operator_id": "operator-01",
+                "command_id": command_id,
+                "expected_revision": review.reference.draft.revision,
+                "operations": [{"operation": "accept", "item_id": item.item_id}],
+            },
+        )
+
+    first = reviews.complete(
+        "recording-01",
+        first.review_id,
+        {
+            "operator_id": "operator-01",
+            "expected_revision": first.reference.draft.revision + 1,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": first.reference.draft.items[0].item["frame_identity"],
+                        "decision": "cards",
+                    }
+                ],
+            },
+        },
+    )
+    second = reviews.complete(
+        "recording-01",
+        second.review_id,
+        {
+            "operator_id": "operator-01",
+            "expected_revision": second.reference.draft.revision + 1,
+            "coverage": {
+                "kind": "visible_frames",
+                "frames": [
+                    {
+                        "frame_identity": second.reference.draft.items[0].item["frame_identity"],
+                        "decision": "cards",
+                    }
+                ],
+            },
+        },
+    )
+
+    assert first.status == second.status == "completed"
+    first_revision = first.reference.state.selected_completed_revision_id
+    second_revision = second.reference.state.selected_completed_revision_id
+    assert first_revision != second_revision
+    assert reference_service.selection_store.get("recording-01", "visible_cards") is None
+    first_manifest = revision_store.require(first_revision).manifest
+    assert first_manifest.producer.review_id == first.review_id
+    assert first_manifest.coverage["visible_card_review"] == {
+        "review_id": first.review_id,
+        "lineage": first.lineage,
+    }
+
+    selected = reviews.select_completed("recording-01", first.review_id, 0)
+    assert selected["selected_completed_reference_revision_id"] == first_revision
+    with pytest.raises(PipelineReferenceConflict, match="selection changed"):
+        reviews.select_completed("recording-01", second.review_id, 0)
+    selected = reviews.select_completed("recording-01", second.review_id, 1)
+    assert selected["selected_completed_reference_revision_id"] == second_revision
+    assert (
+        reference_service._selected_revision("recording-01", "visible_cards").manifest.revision_id
+        == second_revision
+    )
 
 
 def test_identity_annotation_reference_keeps_one_latest_observation_per_card(

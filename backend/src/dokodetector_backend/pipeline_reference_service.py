@@ -1196,6 +1196,11 @@ class PipelineReferenceService:
         recording_id: str,
         content_type: str,
         payload: Mapping[str, Any],
+        *,
+        store_override: Any | None = None,
+        select_completed: bool = True,
+        producer_review_id: str | None = None,
+        review_lineage: Mapping[str, Any] | None = None,
     ) -> StoredPipelineReference:
         # Share lineage validation within this completion, then discard it.
         revision_cache: dict[str, StoredPipelineRevision] = {}
@@ -1209,8 +1214,9 @@ class PipelineReferenceService:
             )
         expected = _expected_revision(payload.get("expected_revision"))
         operator_id = identifier(payload.get("operator_id"), "operator_id")
-        with self.reference_store.locked(recording_id, content_type):
-            current = self.reference_store.read_locked(recording_id, content_type)
+        reference_store = store_override or self.reference_store
+        with reference_store.locked(recording_id, content_type):
+            current = reference_store.read_locked(recording_id, content_type)
             if current.state.draft_revision != expected:
                 raise PipelineReferenceConflict(
                     "the maintained reference draft changed; reload the current revision",
@@ -1285,7 +1291,27 @@ class PipelineReferenceService:
                 content_type,
                 content_sha256,
                 base_revision_id,
+                scope_id=producer_review_id,
             )
+            completed_coverage = {
+                **coverage,
+                "impact": list(current.draft.impact),
+                **(
+                    {}
+                    if current.draft.proposal_revision_id is None
+                    else {"proposal_revision_id": current.draft.proposal_revision_id}
+                ),
+                **(
+                    {}
+                    if producer_review_id is None
+                    else {
+                        "visible_card_review": {
+                            "review_id": producer_review_id,
+                            "lineage": dict(review_lineage or {}),
+                        }
+                    }
+                ),
+            }
             manifest = DataRevision(
                 revision_id=revision_id,
                 content_type=content_type,
@@ -1296,19 +1322,11 @@ class PipelineReferenceService:
                 input_revision_ids=input_revision_ids,
                 origin=origin,
                 producer=HumanProducer(
-                    review_id=f"reference-{recording_id}-{content_type}",
+                    review_id=producer_review_id or f"reference-{recording_id}-{content_type}",
                     operator_id=operator_id,
                     base_revision_id=base_revision_id,
                 ),
-                coverage={
-                    **coverage,
-                    "impact": list(current.draft.impact),
-                    **(
-                        {}
-                        if current.draft.proposal_revision_id is None
-                        else {"proposal_revision_id": current.draft.proposal_revision_id}
-                    ),
-                },
+                coverage=completed_coverage,
                 created_at=_now(),
             )
             try:
@@ -1323,10 +1341,10 @@ class PipelineReferenceService:
                     or replace(existing.manifest, created_at=manifest.created_at) != manifest
                 ):
                     raise
-            selected = self._select_completed(
-                recording_id, content_type, revision_id, revision_cache=revision_cache
-            )
-            del selected
+            if select_completed:
+                self._select_completed(
+                    recording_id, content_type, revision_id, revision_cache=revision_cache
+                )
             timestamp = _now()
             completed_draft = replace(
                 current.draft,
@@ -1355,7 +1373,7 @@ class PipelineReferenceService:
                 selected_completed_revision_id=revision_id,
                 updated_at=timestamp,
             )
-            return self.reference_store.write_locked(
+            return reference_store.write_locked(
                 StoredPipelineReference(state=completed_state, draft=completed_draft)
             )
 
@@ -1543,8 +1561,12 @@ class PipelineReferenceService:
         content_type: str,
         content_sha256: str,
         base_revision_id: str | None,
+        *,
+        scope_id: str | None = None,
     ) -> str:
         seed = f"{recording_id}:{content_type}:{content_sha256}:{base_revision_id or 'empty'}"
+        if scope_id is not None:
+            seed += f":{scope_id}"
         suffix = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
         return f"reference-{content_type}-{suffix}"
 

@@ -12,7 +12,7 @@ from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceInputError,
 )
 from dokodetector_backend.pipeline_reference_store import StoredPipelineReference
-from dokodetector_backend.pipeline_store import PipelineNotFound
+from dokodetector_backend.pipeline_store import PipelineNotFound, PipelineSelectionConflict
 from dokodetector_backend.visible_card_review_store import (
     StoredVisibleCardReview,
     VisibleCardReviewConflict,
@@ -133,6 +133,78 @@ class VisibleCardReviewService:
                 str(error), adapter.get(recording_id, "visible_cards")
             ) from error
         return self.store.get(recording_id, review_id)
+
+    def complete(
+        self, recording_id: str, review_id: str, payload: Mapping[str, Any]
+    ) -> StoredVisibleCardReview:
+        if review_id == "legacy-visible-cards":
+            raise PipelineReferenceInputError("the legacy visible-card review is read-only")
+        if not isinstance(payload, Mapping):
+            raise PipelineReferenceInputError("the review completion request must be an object")
+        review = self.store.get(recording_id, review_id)
+        if review.status == "completed":
+            raise PipelineReferenceInputError("the visible-card review is already complete")
+        adapter = _ReviewReferenceStore(self.store, recording_id, review_id)
+        self.reference_service.complete_reference(
+            recording_id,
+            "visible_cards",
+            payload,
+            store_override=adapter,
+            select_completed=False,
+            producer_review_id=review_id,
+            review_lineage=review.lineage,
+        )
+        return self.store.get(recording_id, review_id)
+
+    def select_completed(
+        self, recording_id: str, review_id: str, expected_selection_revision: Any
+    ) -> dict[str, Any]:
+        if isinstance(expected_selection_revision, bool) or not isinstance(
+            expected_selection_revision, int
+        ) or expected_selection_revision < 0:
+            raise PipelineReferenceInputError(
+                "expected_selection_revision must be a non-negative integer"
+            )
+        review = self.store.get(recording_id, review_id)
+        revision_id = review.reference.state.selected_completed_revision_id
+        if review.status != "completed" or revision_id is None:
+            raise PipelineReferenceInputError("the review has no completed revision to select")
+        try:
+            revision = self.reference_service.revision_store.require(revision_id)
+        except PipelineNotFound as error:
+            raise PipelineReferenceInputError(
+                "the completed review revision is unavailable"
+            ) from error
+        if (
+            revision.manifest.recording_id != recording_id
+            or revision.manifest.content_type != "visible_cards"
+            or revision.manifest.producer.review_id != review_id
+        ):
+            raise PipelineReferenceInputError(
+                "the completed revision does not belong to this review"
+            )
+        selection_store = self.reference_service.selection_store
+        current = selection_store.get(recording_id, "visible_cards")
+        current_revision = 0 if current is None else current.revision
+        if current_revision != expected_selection_revision:
+            raise PipelineReferenceConflict(
+                "the downstream visible-card selection changed; reload it", review.reference
+            )
+        try:
+            selected = selection_store.update_pointers(
+                recording_id,
+                "visible_cards",
+                expected_revision=expected_selection_revision,
+                selected_generated_revision_id=(
+                    None if current is None else current.selected_generated_revision_id
+                ),
+                selected_completed_reference_revision_id=revision_id,
+            )
+        except PipelineSelectionConflict as error:
+            raise PipelineReferenceConflict(
+                "the downstream visible-card selection changed; reload it", review.reference
+            ) from error
+        return selected.to_mapping()
 
     def _lineage(self, recording_id: str, reference: StoredPipelineReference) -> dict[str, Any]:
         lineage: dict[str, Any] = {

@@ -10,6 +10,7 @@ from dokodetector_backend.errors import APIErrorDetail, ContractError
 from dokodetector_backend.pipeline_api_contracts import validate_recording_id
 from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceConflict,
+    PipelineReferenceCoverageError,
     PipelineReferenceError,
     PipelineReferenceInputError,
 )
@@ -131,4 +132,60 @@ def update_visible_card_review(
         ) from error
 
 
+@router.post(BASE + "/{review_id}/complete", status_code=201)
+def complete_visible_card_review(
+    recording_id: str, review_id: str, payload: dict[str, Any], request: Request
+) -> dict[str, Any]:
+    validate_recording_id(recording_id)
+    try:
+        return _detail(_service(request).complete(recording_id, review_id, payload))
+    except PipelineReferenceConflict as error:
+        raise ContractError("visible_card_review_conflict", str(error), status_code=409) from error
+    except PipelineReferenceCoverageError as error:
+        raise ContractError(
+            "incomplete_visible_card_review",
+            str(error),
+            status_code=422,
+            details=[APIErrorDetail(**detail) for detail in error.details],
+        ) from error
+    except PipelineReferenceInputError as error:
+        raise ContractError(
+            "invalid_visible_card_review_completion", str(error), status_code=422
+        ) from error
+    except PipelineReferenceError as error:
+        raise ContractError(
+            "visible_card_review_unavailable", str(error), status_code=503
+        ) from error
+
+
+@router.post(BASE + "/{review_id}/select")
+def select_completed_visible_card_review(
+    recording_id: str, review_id: str, payload: dict[str, Any], request: Request
+) -> dict[str, Any]:
+    validate_recording_id(recording_id)
+    if set(payload) != {"expected_selection_revision"}:
+        raise ContractError(
+            "invalid_visible_card_review_selection",
+            "expected_selection_revision is required",
+            status_code=422,
+        )
+    try:
+        selection = _service(request).select_completed(
+            recording_id, review_id, payload["expected_selection_revision"]
+        )
+    except PipelineReferenceConflict as error:
+        raise ContractError(
+            "visible_card_review_selection_conflict", str(error), status_code=409
+        ) from error
+    except PipelineReferenceNotFound as error:
+        raise ContractError("visible_card_review_not_found", str(error), status_code=404) from error
+    except PipelineReferenceInputError as error:
+        raise ContractError(
+            "invalid_visible_card_review_selection", str(error), status_code=422
+        ) from error
+    except (PipelineReferenceError, VisibleCardReviewStoreError) as error:
+        raise ContractError(
+            "visible_card_review_unavailable", str(error), status_code=503
+        ) from error
+    return {"selection": selection}
 __all__ = ["router"]

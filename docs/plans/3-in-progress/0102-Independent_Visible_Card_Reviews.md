@@ -12,7 +12,7 @@
 - **M0:** Complete — trace the existing lifecycle and freeze the independent-review contract.
 - **M1:** Complete — persist isolated review records, list and retrieve them by review ID, and expose the legacy draft without rewriting it.
 - **M2:** Complete — create, list, read, and edit isolated reviews through review-scoped APIs.
-- **M3:** Not started — publish, select, and consume completed reviews safely.
+- **M3:** Complete — publish completed reviews with exact lineage and select a downstream revision explicitly.
 - **M4:** Not started — integrate both review entry points and switching in the workspace.
 - **M5:** Not started — verify existing data, concurrent edits, restart, and the reported workflow.
 
@@ -157,6 +157,21 @@ supports independent drafts. Keep the appropriate editor and input behavior for 
   must start with its own unreviewed decisions.
 
 ## M3 — Completion and downstream selection
+
+- **Status:** Complete.
+- Completed reviews publish immutable visible-card revisions whose producer and coverage record the
+  review ID and frozen input lineage. Each review gets a distinct revision ID, even when its input
+  and reviewed content match another review.
+- Completion updates only the selected review's state. It does not change the downstream completed
+  reference pointer. A separate selection command requires the current selection revision and
+  verifies that the completed revision belongs to the requested review.
+- Existing downstream consumers continue to resolve the explicit completed-reference pointer.
+  Selecting a review revision makes that exact revision available to identity annotation and other
+  consumers that use the maintained selection. Calibration refinement remains scoped to its review
+  ID and proposal as established in M2.
+- Tests cover two completed reviews from one input, immutable lineage, unchanged downstream
+  selection on completion, explicit switching, stale selection rejection, and downstream revision
+  resolution.
 
 - Publish immutable completed data revisions with the review ID and exact input lineage. Make
   selecting a completed revision explicit. Ensure a later completion does not silently change the
