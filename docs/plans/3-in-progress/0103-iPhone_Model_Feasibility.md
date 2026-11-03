@@ -12,7 +12,7 @@
 - **M0:** Complete — model artifacts, permitted inputs, Python references, and comparison checks are frozen. See the [M0 report](../../reports/0103-M0_Model_and_Input_Inventory.md).
 - **M1:** Complete — Core ML conversion of the exact checkpoint is blocked by a reproducible encoder `int` conversion error. See the [M1 report](../../reports/0103-M1_RF-DETR_Core_ML_Export.md).
 - **M2:** Complete — the exact DINOv3 weights reproduce both M0 Python references, but Core ML conversion fails in the attention graph. See the [M2 report](../../reports/0103-M2_DINOv3_Core_ML_Export.md).
-- **M3:** Not started — export and compare CardEventNet on fixed temporal input.
+- **M3:** Complete — CardEventNet exported and matched the frozen eight-frame M0 Python reference within tolerance. See the [M3 report](../../reports/0103-M3_CardEventNet_Core_ML_Export.md).
 - **M4:** Not started — run the exported models on an iPhone and report feasibility.
 
 ## Scope and constraints
@@ -82,6 +82,13 @@ output parity was produced. See the [M2 report](../../reports/0103-M2_DINOv3_Cor
 - Compare scores and decoded event proposals with Python on the frozen sequence. Report timing
   offsets and threshold crossings. Add focused checks for the comparison and document any
   reproducible export blocker.
+
+**Result:** The exact 0063 checkpoint exported to a 4,282,574-byte Core ML package. On the frozen
+eight-frame input, the logit difference was `0.000030041` and the probability difference was
+`0.0000000234`, within `atol=1e-4`, `rtol=1e-4`. Both outputs stayed below threshold and decoded no
+event, so no event timing offset was measurable. The package digest and reproduction command are
+in the [M3 report](../../reports/0103-M3_CardEventNet_Core_ML_Export.md). This is execution parity,
+not an event-quality claim.
 
 ## M4 — Measure on an iPhone and decide
 
