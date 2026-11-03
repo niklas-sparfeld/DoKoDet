@@ -1,0 +1,79 @@
+{
+  "schema_version": "visible-card-review-lifecycle-contract/v1",
+  "recording_id": "game-contract-01",
+  "downstream_selection": {
+    "selected_completed_revision_id": "visible-cards-completed-legacy",
+    "selected_by_operator": true,
+    "changes_when_review_is_created_or_completed": false
+  },
+  "legacy_single_draft": {
+    "review_id_after_addressing": "review-legacy-visible-cards",
+    "source_revision_id": "visible-cards-detector-7",
+    "draft_revision": 12,
+    "status": "draft",
+    "command_ids": ["cmd-legacy-11", "cmd-legacy-12"],
+    "items": [
+      {"item_id": "card-keep-1", "kind": "visible_card", "review_state": "accepted"},
+      {"item_id": "pile-keep-1", "kind": "pile_region", "review_state": "accepted"},
+      {"item_id": "ignore-keep-1", "kind": "ignore_region", "review_state": "accepted"}
+    ],
+    "must_remain_byte_equivalent_until_explicit_edit": true
+  },
+  "reviews": [
+    {
+      "review_id": "review-visible-region-a",
+      "create_idempotency_key": "create-visible-a",
+      "source": {
+        "kind": "visible_region",
+        "detector_revision_id": "visible-cards-detector-8"
+      },
+      "status": "draft",
+      "draft_revision": 0,
+      "items": [
+        {"item_id": "region-a-1", "kind": "visible_card", "review_state": "unreviewed"}
+      ]
+    },
+    {
+      "review_id": "review-proposed-scenes-a",
+      "create_idempotency_key": "create-scene-a",
+      "source": {
+        "kind": "proposed_scene",
+        "proposal_revision_id": "card-scene-proposal-4",
+        "detector_revision_id": "visible-cards-detector-8",
+        "calibration_revision_id": "calibration-3",
+        "frames": [
+          {
+            "frame_id": "frame-a",
+            "image_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "outcome": "cards_proposed"
+          },
+          {
+            "frame_id": "frame-b",
+            "image_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "outcome": "no_cards_proposed"
+          },
+          {
+            "frame_id": "frame-c",
+            "image_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "outcome": "unsupported"
+          }
+        ]
+      },
+      "status": "draft",
+      "draft_revision": 0,
+      "items": [
+        {"item_id": "scene-card-a-1", "kind": "visible_card", "review_state": "unreviewed"}
+      ]
+    }
+  ],
+  "acceptance": {
+    "same_input_with_new_key_creates_distinct_review": true,
+    "same_key_and_same_request_returns_same_review_id": true,
+    "same_key_and_different_request_conflicts": true,
+    "different_frame_digests_are_valid_when_each_matches_its_frame": true,
+    "draft_edits_do_not_change_downstream_selection": true,
+    "completion_does_not_change_downstream_selection": true,
+    "explicit_completed_selection_changes_downstream_pointer": true,
+    "missing_input_does_not_mutate_any_review": true
+  }
+}

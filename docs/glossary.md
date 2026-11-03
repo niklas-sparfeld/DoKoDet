@@ -129,9 +129,20 @@ A run can consume unreviewed inputs. Review and dataset eligibility are separate
 
 ### Maintained reference
 
-The single human-maintained reference for one recording and review stage. It has at most one current
-draft and selects one completed data revision when available. Earlier completed revisions remain
-available to runs and datasets. A model rerun does not replace the maintained reference.
+The downstream reference for one recording and review stage. It identifies the completed data
+revision that downstream work uses. Earlier completed revisions remain available to runs and
+datasets. A model rerun does not replace the maintained reference.
+
+### Review draft
+
+Mutable human work in one independently addressable review. A review draft has its own identity,
+revision, commands, status, and immutable input lineage. Two review drafts can use the same inputs.
+They do not share decisions or edits.
+
+### Selected completed reference
+
+The completed data revision that an operator explicitly selects for downstream use. Completing a
+review does not select its output. Draft selection and completed-reference selection are separate.
 
 ### Review coverage
 
