@@ -10,7 +10,7 @@
 ## Milestone status
 
 - **M0:** Complete — model artifacts, permitted inputs, Python references, and comparison checks are frozen. See the [M0 report](../../reports/0103-M0_Model_and_Input_Inventory.md).
-- **M1:** Not started — export and compare the RF-DETR segmentation model.
+- **M1:** Complete — Core ML conversion of the exact checkpoint is blocked by a reproducible encoder `int` conversion error. See the [M1 report](../../reports/0103-M1_RF-DETR_Core_ML_Export.md).
 - **M2:** Not started — export and compare the DINOv3 identity model.
 - **M3:** Not started — export and compare CardEventNet on fixed temporal input.
 - **M4:** Not started — run the exported models on an iPhone and report feasibility.
