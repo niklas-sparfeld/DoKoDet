@@ -36,7 +36,10 @@ reproduced converter failure, selected routes, version pins, and stop conditions
 - If no safe route exists for a model, record the evidence. Do not change its weights to make
   conversion pass.
 
-## M1 — Export RF-DETR
+## M1 — Export RF-DETR — Complete
+
+The [M1 result](../../reports/0104-M1_RF-DETR_Compatibility.md) records the reproducible
+`meshgrid` conversion blocker. No package or parity result was produced.
 
 - Use the selected M0 route with the exact 0092 M4 checkpoint and bundle digest.
 - Export the fixed `[1,3,432,432]` input and the frozen boxes, class logits, and mask logits.
