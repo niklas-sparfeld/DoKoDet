@@ -234,6 +234,21 @@ export type PipelineReferenceDraftUpdateRequest = {
   command_id?: string;
   operations: PipelineReferenceOperation[];
 };
+export type VisibleCardReviewSummary = {
+  review_id: string;
+  recording_id: string;
+  status: "draft" | "completed";
+  source: string;
+  lineage: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  draft_revision: number;
+  legacy: boolean;
+};
+export type VisibleCardReviewDetail = VisibleCardReviewSummary & {
+  state: PipelineReferenceResource["state"];
+  draft: PipelineReferenceResource["draft"];
+};
 export type PipelineReferenceCompletionRequest = {
   expected_revision: number;
   operator_id: string;
@@ -418,12 +433,14 @@ export interface DokoDetectorClient {
     recordingId: string,
     payload: { proposal_revision_id: string; draft_id?: string },
     init?: RequestInit,
+    reviewId?: string,
   ): Promise<CalibrationRefinementResponse>;
   getCalibrationRefinement(
     recordingId: string,
     proposalRevisionId: string,
     draftId?: string,
     init?: RequestInit,
+    reviewId?: string,
   ): Promise<CalibrationRefinementResponse>;
   updateCalibrationRefinement(
     recordingId: string,
@@ -434,6 +451,7 @@ export interface DokoDetectorClient {
       command: Record<string, unknown>;
     },
     init?: RequestInit,
+    reviewId?: string,
   ): Promise<CalibrationRefinementResponse>;
   discardCalibrationRefinement(
     recordingId: string,
@@ -511,6 +529,32 @@ export interface DokoDetectorClient {
     contentType: PipelineSelectableContentType,
     init?: RequestInit,
   ): Promise<PipelineReferenceResource>;
+  listVisibleCardReviews(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<{ recording_id: string; reviews: VisibleCardReviewSummary[] }>;
+  getVisibleCardReview(
+    recordingId: string,
+    reviewId: string,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewDetail>;
+  createVisibleCardReview(
+    recordingId: string,
+    payload: PipelineReferenceCreateRequest & { idempotency_key: string },
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewDetail>;
+  updateVisibleCardReviewDraft(
+    recordingId: string,
+    reviewId: string,
+    payload: PipelineReferenceDraftUpdateRequest,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewDetail>;
+  completeVisibleCardReview(
+    recordingId: string,
+    reviewId: string,
+    payload: PipelineReferenceCompletionRequest,
+    init?: RequestInit,
+  ): Promise<VisibleCardReviewDetail>;
   createPipelineReference(
     recordingId: string,
     contentType: PipelineSelectableContentType,
@@ -716,10 +760,12 @@ export function createDokoDetectorClient(
         pipelineProposedCardSceneResultPath(recordingId, runId),
         init,
       ),
-    startCalibrationRefinement: (recordingId, payload, init) =>
+    startCalibrationRefinement: (recordingId, payload, init, reviewId) =>
       requestJson<CalibrationRefinementResponse>(
         fetchImplementation,
-        pipelineCalibrationRefinementPath(recordingId),
+        reviewId === undefined
+          ? pipelineCalibrationRefinementPath(recordingId)
+          : `${pipelineCalibrationRefinementPath(recordingId)}/reviews/${encodeURIComponent(reviewId)}`,
         {
           ...init,
           method: "POST",
@@ -732,14 +778,17 @@ export function createDokoDetectorClient(
       proposalRevisionId,
       draftId,
       init,
+      reviewId,
     ) =>
       requestJson<CalibrationRefinementResponse>(
         fetchImplementation,
-        pipelineCalibrationRefinementReadPath(
-          recordingId,
-          proposalRevisionId,
-          draftId,
-        ),
+        reviewId === undefined
+          ? pipelineCalibrationRefinementReadPath(
+              recordingId,
+              proposalRevisionId,
+              draftId,
+            )
+          : `${pipelineCalibrationRefinementPath(recordingId)}/reviews/${encodeURIComponent(reviewId)}?proposal_revision_id=${encodeURIComponent(proposalRevisionId)}`,
         init,
       ),
     updateCalibrationRefinement: (
@@ -747,10 +796,16 @@ export function createDokoDetectorClient(
       proposalRevisionId,
       payload,
       init,
+      reviewId,
     ) =>
       requestJson<CalibrationRefinementResponse>(
         fetchImplementation,
-        pipelineCalibrationRefinementReadPath(recordingId, proposalRevisionId),
+        reviewId === undefined
+          ? pipelineCalibrationRefinementReadPath(
+              recordingId,
+              proposalRevisionId,
+            )
+          : `${pipelineCalibrationRefinementPath(recordingId)}/reviews/${encodeURIComponent(reviewId)}?proposal_revision_id=${encodeURIComponent(proposalRevisionId)}`,
         {
           ...init,
           method: "PUT",
@@ -871,6 +926,47 @@ export function createDokoDetectorClient(
         fetchImplementation,
         pipelineReferencePath(recordingId, contentType),
         init,
+      ),
+    listVisibleCardReviews: (recordingId, init) =>
+      requestJson(
+        fetchImplementation,
+        visibleCardReviewsPath(recordingId),
+        init,
+      ),
+    getVisibleCardReview: (recordingId, reviewId, init) =>
+      requestJson(
+        fetchImplementation,
+        visibleCardReviewPath(recordingId, reviewId),
+        init,
+      ),
+    createVisibleCardReview: (recordingId, payload, init) =>
+      requestJson(fetchImplementation, visibleCardReviewsPath(recordingId), {
+        ...init,
+        method: "POST",
+        headers: jsonHeaders(init?.headers),
+        body: JSON.stringify(payload),
+      }),
+    updateVisibleCardReviewDraft: (recordingId, reviewId, payload, init) =>
+      requestJson(
+        fetchImplementation,
+        `${visibleCardReviewPath(recordingId, reviewId)}/draft`,
+        {
+          ...init,
+          method: "PUT",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    completeVisibleCardReview: (recordingId, reviewId, payload, init) =>
+      requestJson(
+        fetchImplementation,
+        `${visibleCardReviewPath(recordingId, reviewId)}/complete`,
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
       ),
     createPipelineReference: (recordingId, contentType, payload, init) =>
       requestJson<PipelineReferenceResource>(
@@ -1045,6 +1141,17 @@ export function pipelineEventRunRetryPath(
 
 export function pipelineVisibleCardRunsPath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visible-cards`;
+}
+
+export function visibleCardReviewsPath(recordingId: string): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visible-card-reviews`;
+}
+
+export function visibleCardReviewPath(
+  recordingId: string,
+  reviewId: string,
+): string {
+  return `${visibleCardReviewsPath(recordingId)}/${encodeURIComponent(reviewId)}`;
 }
 
 export function pipelineVisibleCardRunPath(

@@ -5,7 +5,11 @@ import {
   type CalibrationRefinementResponse,
   type PipelineReferenceOperation,
   type PipelineReferenceResource,
+  type PipelineReferenceDraftUpdateRequest,
+  type PipelineReferenceCompletionRequest,
   type PipelineProposalRunResponse,
+  type VisibleCardReviewSummary,
+  type VisibleCardReviewDetail,
 } from "../api/client";
 import {
   describeCommand,
@@ -30,9 +34,21 @@ import {
   withCalibrationAnchorCommandDigest,
   type CalibrationAnchorCommand,
 } from "./PoseBasedVisibleCardScene";
+import { updatePipelineUrl } from "./PipelineVisibleCardUrl";
 
 const CONTENT_TYPE = "visible_cards" as const;
 const RETRY_LIMIT = 3;
+
+function reviewReference(
+  review: VisibleCardReviewDetail,
+): PipelineReferenceResource {
+  return {
+    recording_id: review.recording_id,
+    content_type: "visible_cards",
+    state: review.state,
+    draft: review.draft,
+  };
+}
 
 function proposalInputRevisionId(
   proposalRun: PipelineProposalRunResponse | null,
@@ -51,6 +67,7 @@ type Client = ReturnType<typeof createDokoDetectorClient>;
 type ControllerInput = {
   client?: Client;
   recordingId: string;
+  reviewId: string | null;
   operatorId: string;
   generatedRevisionId: string | null;
   generatedSourceRevisionId: string | null;
@@ -91,6 +108,7 @@ type ControllerInput = {
   setCreatingReference: (creating: boolean) => void;
   setCompletionBusy: (busy: boolean) => void;
   setReviewerId: (update: (current: string) => string) => void;
+  setReviews: (reviews: VisibleCardReviewSummary[]) => void;
   calibrationProposalRevisionId: string | null;
 };
 
@@ -169,10 +187,19 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
       return;
     }
     try {
-      const loaded = await current.client.getCalibrationRefinement(
-        current.recordingId,
-        current.calibrationProposalRevisionId,
-      );
+      const loaded =
+        current.reviewId === null
+          ? await current.client.getCalibrationRefinement(
+              current.recordingId,
+              current.calibrationProposalRevisionId,
+            )
+          : await current.client.getCalibrationRefinement(
+              current.recordingId,
+              current.calibrationProposalRevisionId,
+              undefined,
+              undefined,
+              current.reviewId,
+            );
       const latest = current.calibrationRefinementRef.current;
       if (
         latest !== null &&
@@ -201,10 +228,21 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     current.setCalibrationLoading(true);
     current.setCalibrationError(null);
     try {
-      const started = await current.client.startCalibrationRefinement(
-        current.recordingId,
-        { proposal_revision_id: current.calibrationProposalRevisionId },
-      );
+      const payload = {
+        proposal_revision_id: current.calibrationProposalRevisionId,
+      };
+      const started =
+        current.reviewId === null
+          ? await current.client.startCalibrationRefinement(
+              current.recordingId,
+              payload,
+            )
+          : await current.client.startCalibrationRefinement(
+              current.recordingId,
+              payload,
+              undefined,
+              current.reviewId,
+            );
       current.calibrationRefinementRef.current = started;
       current.setCalibrationRefinement(started);
     } catch (reason: unknown) {
@@ -223,13 +261,22 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     current.setCalibrationLoading(true);
     current.setCalibrationError(null);
     try {
-      const refreshed = await current.client.startCalibrationRefinement(
-        current.recordingId,
-        {
-          proposal_revision_id: proposalRevisionId,
-          draft_id: draftId,
-        },
-      );
+      const payload = {
+        proposal_revision_id: proposalRevisionId,
+        draft_id: draftId,
+      };
+      const refreshed =
+        current.reviewId === null
+          ? await current.client.startCalibrationRefinement(
+              current.recordingId,
+              payload,
+            )
+          : await current.client.startCalibrationRefinement(
+              current.recordingId,
+              payload,
+              undefined,
+              current.reviewId,
+            );
       current.calibrationRefinementRef.current = refreshed;
       current.setCalibrationRefinement(refreshed);
     } catch (reason: unknown) {
@@ -277,15 +324,25 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
           try {
             const digested =
               await withCalibrationAnchorCommandDigest(orderedCommand);
-            const updated = await current.client.updateCalibrationRefinement(
-              current.recordingId,
-              refinement.proposal_revision_id,
-              {
-                draft_id: draftId,
-                expected_revision: revision,
-                command: digested,
-              },
-            );
+            const payload = {
+              draft_id: draftId,
+              expected_revision: revision,
+              command: digested,
+            };
+            const updated =
+              current.reviewId === null
+                ? await current.client.updateCalibrationRefinement(
+                    current.recordingId,
+                    refinement.proposal_revision_id,
+                    payload,
+                  )
+                : await current.client.updateCalibrationRefinement(
+                    current.recordingId,
+                    refinement.proposal_revision_id,
+                    payload,
+                    undefined,
+                    current.reviewId,
+                  );
             current.calibrationRefinementRef.current = updated;
             current.setCalibrationRefinement(updated);
             return true;
@@ -448,49 +505,69 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
           );
         });
         for (const frame of stalePoseFrames) {
-          const refreshed = await current.client.updatePipelineReferenceDraft(
-            current.recordingId,
-            CONTENT_TYPE,
-            {
-              expected_revision: current.serverRevisionRef.current,
-              operator_id: reviewerId.trim() || current.operatorId.trim(),
-              command_id: `pipeline-visible-card-completion-${Date.now()}`,
-              operations: [
-                {
-                  operation: "accept_frame_suggestions",
-                  item_id: frame.itemId,
-                },
-              ],
-            },
-          );
+          const payload: PipelineReferenceDraftUpdateRequest = {
+            expected_revision: current.serverRevisionRef.current,
+            operator_id: reviewerId.trim() || current.operatorId.trim(),
+            command_id: `pipeline-visible-card-completion-${Date.now()}`,
+            operations: [
+              {
+                operation: "accept_frame_suggestions",
+                item_id: frame.itemId,
+              },
+            ],
+          };
+          const refreshed =
+            current.reviewId === null
+              ? await current.client.updatePipelineReferenceDraft(
+                  current.recordingId,
+                  CONTENT_TYPE,
+                  payload,
+                )
+              : reviewReference(
+                  await current.client.updateVisibleCardReviewDraft(
+                    current.recordingId,
+                    current.reviewId,
+                    payload,
+                  ),
+                );
           hydrateReference(refreshed);
         }
         const framesForCoverage = current.getFrames();
-        const completed = await current.client.completePipelineReference(
-          current.recordingId,
-          CONTENT_TYPE,
-          {
-            expected_revision: current.serverRevisionRef.current,
-            operator_id: reviewerId.trim(),
-            coverage: {
-              kind: "visible_frames",
-              frames: framesForCoverage.map((frame) => ({
-                item_id: frame.itemId,
-                frame_identity: frame.outcome.frame_identity,
-                decision: frameDecision(frame) as
-                  | "cards"
-                  | "ignored"
-                  | "cards_and_ignored"
-                  | "piles"
-                  | "cards_and_piles"
-                  | "piles_and_ignored"
-                  | "cards_piles_and_ignored"
-                  | "empty"
-                  | "unusable",
-              })),
-            },
+        const payload: PipelineReferenceCompletionRequest = {
+          expected_revision: current.serverRevisionRef.current,
+          operator_id: reviewerId.trim(),
+          coverage: {
+            kind: "visible_frames",
+            frames: framesForCoverage.map((frame) => ({
+              item_id: frame.itemId,
+              frame_identity: frame.outcome.frame_identity,
+              decision: frameDecision(frame) as
+                | "cards"
+                | "ignored"
+                | "cards_and_ignored"
+                | "piles"
+                | "cards_and_piles"
+                | "piles_and_ignored"
+                | "cards_piles_and_ignored"
+                | "empty"
+                | "unusable",
+            })),
           },
-        );
+        };
+        const completed =
+          current.reviewId === null
+            ? await current.client.completePipelineReference(
+                current.recordingId,
+                CONTENT_TYPE,
+                payload,
+              )
+            : reviewReference(
+                await current.client.completeVisibleCardReview(
+                  current.recordingId,
+                  current.reviewId,
+                  payload,
+                ),
+              );
         hydrateReference(completed, false);
         current.setSaveState("saved");
         current.setNotice(
@@ -540,11 +617,20 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
       const current = inputRef.current;
       current.setLoading(true);
       try {
-        const loaded = await current.client.getPipelineReference(
-          current.recordingId,
-          CONTENT_TYPE,
-          { signal },
-        );
+        const loaded =
+          current.reviewId === null
+            ? await current.client.getPipelineReference(
+                current.recordingId,
+                CONTENT_TYPE,
+                { signal },
+              )
+            : reviewReference(
+                await current.client.getVisibleCardReview(
+                  current.recordingId,
+                  current.reviewId,
+                  { signal },
+                ),
+              );
         if (!signal?.aborted) {
           hydrateReference(loaded);
           current.setSaveState("saved");
@@ -712,16 +798,26 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     if (current.referenceRef.current === null) return;
     processingRef.current = true;
     try {
-      const nextReference = await current.client.updatePipelineReferenceDraft(
-        current.recordingId,
-        CONTENT_TYPE,
-        {
-          expected_revision: current.serverRevisionRef.current,
-          operator_id: current.operatorId.trim(),
-          command_id: command.commandId,
-          operations: command.operations,
-        },
-      );
+      const payload: PipelineReferenceDraftUpdateRequest = {
+        expected_revision: current.serverRevisionRef.current,
+        operator_id: current.operatorId.trim(),
+        command_id: command.commandId,
+        operations: command.operations,
+      };
+      const nextReference =
+        current.reviewId === null
+          ? await current.client.updatePipelineReferenceDraft(
+              current.recordingId,
+              CONTENT_TYPE,
+              payload,
+            )
+          : reviewReference(
+              await current.client.updateVisibleCardReviewDraft(
+                current.recordingId,
+                current.reviewId,
+                payload,
+              ),
+            );
       queueRef.current.shift();
       hydrateReference(nextReference, true, queueRef.current.length > 0);
       setQueueLength(queueRef.current.length);
@@ -767,6 +863,78 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
       inputRef.current.setSaveState("saved");
     }
   }, [hydrateReference]);
+
+  const loadReviews = useCallback(async () => {
+    const current = inputRef.current;
+    try {
+      const response = await current.client.listVisibleCardReviews(
+        current.recordingId,
+      );
+      current.setReviews(
+        Array.isArray(response?.reviews) ? response.reviews : [],
+      );
+    } catch {
+      current.setReviews([]);
+    }
+  }, []);
+
+  const startIndependentReview = useCallback(
+    async (source: "visible_regions" | "card_scenes" = "visible_regions") => {
+      const current = inputRef.current;
+      if (current.operatorId.trim() === "") return false;
+      if (current.saveState !== "saved") {
+        current.setError(
+          "Wait for the current visible-card changes to save before starting another review.",
+        );
+        return false;
+      }
+      const proposalRevisionId =
+        source === "card_scenes" ? current.proposalRevisionId : null;
+      const sourceRevisionId =
+        source === "card_scenes"
+          ? proposalRevisionId === null
+            ? null
+            : proposalInputRevisionId(current.proposalRun, proposalRevisionId)
+          : current.generatedSourceRevisionId;
+      if (proposalRevisionId === null && sourceRevisionId === null) {
+        current.setError(
+          "Select a visible-card result before starting a review.",
+        );
+        return false;
+      }
+      current.setCreatingReference(true);
+      current.setError(null);
+      try {
+        const created = await current.client.createVisibleCardReview(
+          current.recordingId,
+          {
+            operator_id: current.operatorId.trim(),
+            seed:
+              proposalRevisionId === null ? "selected_generated" : "proposal",
+            ...(proposalRevisionId === null
+              ? { source_revision_id: sourceRevisionId! }
+              : { proposal_revision_id: proposalRevisionId }),
+            idempotency_key: `visible-card-review-${crypto.randomUUID()}`,
+          },
+        );
+        const reference = reviewReference(created);
+        hydrateReference(reference, false);
+        current.setReviewerId(
+          (reviewer) => reviewer || current.operatorId.trim(),
+        );
+        updatePipelineUrl({ review: created.review_id, view: "reviewed" });
+        current.setNotice("A new independent visible-card review is open.");
+        await loadReviews();
+        return true;
+      } catch (reason: unknown) {
+        current.setError(describeError(reason));
+        return false;
+      } finally {
+        current.setCreatingReference(false);
+      }
+    },
+    [hydrateReference, loadReviews],
+  );
 
   useEffect(() => {
     processQueueRef.current = () => void processQueue();
@@ -1015,6 +1183,8 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     retryQueuedCommands,
     reloadWinningDraft,
     startReference,
+    loadReviews,
+    startIndependentReview,
     rebaseReference,
     rebaseReferenceToProposal,
     hasPendingCommands,

@@ -12,6 +12,8 @@ export function readPipelineEditorUrlState(): {
 export function updatePipelineUrl(values: {
   item?: string | null;
   t_us?: number | null;
+  review?: string | null;
+  view?: "generated" | "reviewed" | null;
 }): void {
   const params = new URLSearchParams(window.location.search);
   for (const [key, value] of Object.entries(values)) {

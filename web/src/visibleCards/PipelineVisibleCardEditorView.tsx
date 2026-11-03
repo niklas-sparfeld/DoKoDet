@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import styles from "../App.module.css";
+import type { VisibleCardReviewSummary } from "../api/client";
 import {
   findAdjacentUnfinishedItem,
   ignoresReviewNavigationShortcut,
@@ -101,6 +102,7 @@ export type PipelineVisibleCardEditorProps = {
   displayedRevisionId?: string | null;
   generatedRunId: string | null;
   startReviewRequested?: boolean;
+  reviewId?: string | null;
   view: "generated" | "reviewed";
   onRailItemsChange?: (items: PipelineVisibleCardRailItem[]) => void;
   onReviewRequested?: () => void;
@@ -116,6 +118,7 @@ export function PipelineVisibleCardEditorView({
   displayedRevisionId = generatedRevisionId,
   generatedRunId,
   startReviewRequested = false,
+  reviewId = null,
   view,
   onRailItemsChange,
   onReviewRequested,
@@ -178,6 +181,7 @@ export function PipelineVisibleCardEditorView({
     );
   }, [saveState, reference]);
   const [creatingReference, setCreatingReference] = useState(false);
+  const [reviews, setReviews] = useState<VisibleCardReviewSummary[]>([]);
   const [rebasingReference, setRebasingReference] = useState(false);
   const [rebasingProposal, setRebasingProposal] = useState(false);
   const [completionBusy, setCompletionBusy] = useState(false);
@@ -270,6 +274,7 @@ export function PipelineVisibleCardEditorView({
 
   const commandController = usePipelineVisibleCardEditorController({
     recordingId,
+    reviewId,
     operatorId,
     generatedRevisionId,
     generatedSourceRevisionId,
@@ -306,6 +311,7 @@ export function PipelineVisibleCardEditorView({
     setCreatingReference,
     setCompletionBusy,
     setReviewerId,
+    setReviews,
     calibrationProposalRevisionId,
   });
   const {
@@ -315,7 +321,8 @@ export function PipelineVisibleCardEditorView({
     firstUnappliedCommand,
     retryQueuedCommands,
     reloadWinningDraft,
-    startReference,
+    loadReviews,
+    startIndependentReview,
     rebaseReference,
     rebaseReferenceToProposal,
     hasPendingCommands,
@@ -332,7 +339,6 @@ export function PipelineVisibleCardEditorView({
     updateCalibrationAnchor,
     discardCalibrationRefinement,
     applyCalibrationRefinement,
-    createReference: createReferenceInController,
     completeReference: completeReferenceInController,
   } = commandController;
 
@@ -342,9 +348,13 @@ export function PipelineVisibleCardEditorView({
   }, [calibrationProposalRevisionId, loadCalibrationRefinement]);
 
   useEffect(() => {
+    void loadReviews();
+  }, [loadReviews, recordingId]);
+
+  useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      if (view === "reviewed" || startReviewRequested)
+      if (reviewId !== null || view === "reviewed" || startReviewRequested)
         void loadReference(controller.signal);
       else setLoading(false);
       void loadGenerated(controller.signal);
@@ -358,6 +368,7 @@ export function PipelineVisibleCardEditorView({
     generatedSourceRevisionId,
     loadGenerated,
     loadReference,
+    reviewId,
     startReviewRequested,
     view,
   ]);
@@ -1533,36 +1544,28 @@ export function PipelineVisibleCardEditorView({
     saveState,
   ]);
 
-  const createReference = useCallback(async () => {
-    await createReferenceInController();
-  }, [createReferenceInController]);
-
   const startReviewFromProposal = useCallback(async () => {
     if (proposalRevisionId === null) return;
+    if (hasPendingCommands() || isProcessing() || saveState !== "saved") {
+      setProposalError(
+        "Wait for pending visible-card changes to save before starting another review.",
+      );
+      return;
+    }
     if (operatorId.trim() === "") {
       setProposalError("Set a profile name before starting this review.");
       return;
     }
-    if (referenceRef.current === null) {
-      await createReference();
-    }
-    if (
-      referenceRef.current?.draft.proposal_revision_id !== proposalRevisionId
-    ) {
-      await rebaseReferenceToProposal();
-    }
-    if (
-      referenceRef.current?.draft.proposal_revision_id === proposalRevisionId
-    ) {
-      onReviewRequested?.();
-    }
+    if (await startIndependentReview("card_scenes")) onReviewRequested?.();
   }, [
-    createReference,
     onReviewRequested,
+    hasPendingCommands,
+    isProcessing,
     operatorId,
     proposalRevisionId,
-    rebaseReferenceToProposal,
+    saveState,
     setProposalError,
+    startIndependentReview,
   ]);
 
   const selectEditorPolygon = useCallback((polygonIndex: number) => {
@@ -1707,6 +1710,11 @@ export function PipelineVisibleCardEditorView({
   ]);
 
   const displayedFrames = usesMaintainedFrames ? frames : generatedFrames;
+  const selectedReview = reviews.find((item) => item.review_id === reviewId);
+  const reviewInputRevisionId = readReviewInputRevisionId(
+    selectedReview?.lineage,
+    selectedReview?.source,
+  );
   const activeFrame =
     displayedFrames.find((frame) => frame.itemId === selectedFrameId) ??
     displayedFrames[0] ??
@@ -2016,7 +2024,7 @@ export function PipelineVisibleCardEditorView({
       rebasingProposal={rebasingProposal}
       rebaseReferenceToProposal={rebaseReferenceToProposal}
       referenceNeedsSeed={referenceNeedsSeed}
-      startReference={startReference}
+      startReference={() => void startIndependentReview("visible_regions")}
       completionBusy={completionBusy}
       completionBlocker={completionBlocker}
       proposalRun={proposalRun}
@@ -2029,7 +2037,9 @@ export function PipelineVisibleCardEditorView({
       retryQueuedCommands={retryQueuedCommands}
       reloadWinningDraft={reloadWinningDraft}
       completeReference={completeReference}
-      createReference={createReference}
+      createReference={async () => {
+        await startIndependentReview("visible_regions");
+      }}
       onReviewRequested={onReviewRequested}
       calibrationRefinement={calibrationRefinement}
       calibrationLoading={calibrationLoading}
@@ -2135,6 +2145,60 @@ export function PipelineVisibleCardEditorView({
         className={visibleStyles.reviewPage}
         aria-label={`${reviewed ? "Visible-card maintained reference" : "Generated visible-card result"} workbench`}
       >
+        <div
+          className={visibleStyles.reviewToolbar}
+          aria-label="Independent reviews"
+        >
+          <label>
+            Review
+            <select
+              aria-label="Select visible-card review"
+              value={reviewId ?? ""}
+              disabled={queueLength > 0 || saveState !== "saved"}
+              onChange={(event) =>
+                updatePipelineUrl({
+                  review: event.target.value || null,
+                  view: "reviewed",
+                })
+              }
+            >
+              <option value="">Maintained reference</option>
+              {reviews.map((review) => (
+                <option key={review.review_id} value={review.review_id}>
+                  {review.source === "card_scenes"
+                    ? "Proposed scenes"
+                    : "Visible regions"}{" "}
+                  ·{" "}
+                  {readReviewInputRevisionId(review.lineage, review.source) ??
+                    "input unavailable"}{" "}
+                  · {review.status} ·{" "}
+                  {new Date(review.updated_at).toLocaleString()}
+                </option>
+              ))}
+            </select>
+          </label>
+          {reviewId !== null ? (
+            <span>
+              Input {reviewInputRevisionId ?? "revision unavailable"} ·{" "}
+              {selectedReview?.status ?? "loading"}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            disabled={
+              creatingReference ||
+              queueLength > 0 ||
+              saveState !== "saved" ||
+              (proposalRevisionId === null &&
+                generatedSourceRevisionId === null)
+            }
+            onClick={() => void startIndependentReview()}
+          >
+            {creatingReference
+              ? "Starting review…"
+              : "Start visible-region review"}
+          </button>
+        </div>
         {activeFrame === null ? (
           <p className={styles.detailEmptyState}>
             {view === "generated"
@@ -2243,4 +2307,20 @@ export function PipelineVisibleCardEditorView({
       </section>
     </>
   );
+}
+
+function readReviewInputRevisionId(
+  lineage: Record<string, unknown> | undefined,
+  source?: string,
+): string | null {
+  if (lineage === undefined) return null;
+  const keys =
+    source === "card_scenes"
+      ? ["source_revision_id", "proposal_revision_id", "detector_revision_id"]
+      : ["source_revision_id", "detector_revision_id", "proposal_revision_id"];
+  for (const key of keys) {
+    const value = lineage[key];
+    if (typeof value === "string") return value;
+  }
+  return null;
 }

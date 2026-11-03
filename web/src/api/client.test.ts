@@ -119,6 +119,39 @@ describe("DokoDetector API client", () => {
     );
   });
 
+  it("uses review-scoped routes for independent visible-card drafts", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        jsonResponse({ recording_id: "recording/1", reviews: [] }),
+      ),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+    await client.listVisibleCardReviews("recording/1");
+    await client.getVisibleCardReview("recording/1", "review/1");
+    await client.createVisibleCardReview("recording/1", {
+      operator_id: "operator-1",
+      seed: "selected_generated",
+      source_revision_id: "revision-1",
+      idempotency_key: "retry-1",
+    });
+    await client.updateVisibleCardReviewDraft("recording/1", "review/1", {
+      expected_revision: 0,
+      operator_id: "operator-1",
+      command_id: "command-1",
+      operations: [],
+    });
+
+    expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
+      "/api/recordings/recording%2F1/pipeline/visible-card-reviews",
+      "/api/recordings/recording%2F1/pipeline/visible-card-reviews/review%2F1",
+      "/api/recordings/recording%2F1/pipeline/visible-card-reviews",
+      "/api/recordings/recording%2F1/pipeline/visible-card-reviews/review%2F1/draft",
+    ]);
+    expect(fetchImplementation.mock.calls[2]?.[1]?.method).toBe("POST");
+    expect(fetchImplementation.mock.calls[3]?.[1]?.method).toBe("PUT");
+    expect(fetchImplementation.mock.calls[3]?.[1]?.body).toContain("command-1");
+  });
+
   it("plans and applies guarded visual identity auto-approval", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse({})),

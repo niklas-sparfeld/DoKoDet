@@ -618,7 +618,7 @@ describe("PipelineVisibleCardEditor", () => {
     expect(screen.getByText("Box")).toBeInTheDocument();
   });
 
-  it("requires an explicit action before a proposal link changes a draft", async () => {
+  it("creates a fresh review from a proposal only after explicit action", async () => {
     window.localStorage.setItem("dokodetector.profile.name", "operator-01");
     window.history.pushState(
       {},
@@ -657,8 +657,30 @@ describe("PipelineVisibleCardEditor", () => {
         proposal_revision_id: fixtures.PROPOSAL_REVISION_ID,
       },
     };
+    const createdReview = {
+      review_id: "visible-cards-review-from-proposal",
+      recording_id: RECORDING_ID,
+      status: "draft",
+      source: "card_scenes",
+      lineage: { proposal_revision_id: fixtures.PROPOSAL_REVISION_ID },
+      created_at: "2026-11-04T00:00:00Z",
+      updated_at: "2026-11-04T00:00:00Z",
+      draft_revision: 0,
+      legacy: false,
+      state: proposalReference.state,
+      draft: proposalReference.draft,
+    };
     const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
       const url = String(input);
+      if (
+        url.endsWith("/pipeline/visible-card-reviews") &&
+        init?.method === "POST"
+      )
+        return Promise.resolve(jsonResponse(createdReview));
+      if (url.endsWith("/pipeline/visible-card-reviews"))
+        return Promise.resolve(
+          jsonResponse({ recording_id: RECORDING_ID, reviews: [] }),
+        );
       if (url.endsWith("/pipeline/proposed-card-scenes"))
         return Promise.resolve(
           jsonResponse({
@@ -666,16 +688,6 @@ describe("PipelineVisibleCardEditor", () => {
             runs: [proposalRun, olderProposalRun],
           }),
         );
-      if (
-        url.endsWith("/pipeline/references/visible_cards") &&
-        init?.method === "POST"
-      )
-        return Promise.resolve(jsonResponse({ detail: "already exists" }, 409));
-      if (
-        url.endsWith("/pipeline/references/visible_cards/draft") &&
-        init?.method === "PUT"
-      )
-        return Promise.resolve(jsonResponse(proposalReference));
       if (url.endsWith("/pipeline/references/visible_cards"))
         return Promise.resolve(jsonResponse(currentReference));
       if (url.endsWith("/result"))
@@ -702,39 +714,63 @@ describe("PipelineVisibleCardEditor", () => {
     });
     expect(onReviewRequested).not.toHaveBeenCalled();
     expect(
-      fetchImplementation.mock.calls.some(([, init]) => init?.method === "PUT"),
+      fetchImplementation.mock.calls.some(
+        ([, init]) => init?.method === "POST",
+      ),
     ).toBe(false);
     await userEvent.click(start);
     await waitFor(() => expect(onReviewRequested).toHaveBeenCalledTimes(1));
-    const rebaseCallIndex = fetchImplementation.mock.calls.findIndex(
+    const createCallIndex = fetchImplementation.mock.calls.findIndex(
       ([input, init]) =>
-        String(input).endsWith("/pipeline/references/visible_cards/draft") &&
-        init?.method === "PUT",
+        String(input).endsWith("/pipeline/visible-card-reviews") &&
+        init?.method === "POST",
     );
-    expect(rebaseCallIndex).toBeGreaterThanOrEqual(0);
+    expect(createCallIndex).toBeGreaterThanOrEqual(0);
     const requestBody = JSON.parse(
-      String(fetchImplementation.mock.calls[rebaseCallIndex]?.[1]?.body),
+      String(fetchImplementation.mock.calls[createCallIndex]?.[1]?.body),
     );
-    expect(requestBody.operations).toEqual([
-      {
-        operation: "rebase",
-        source_revision_id: REVISION_ID,
-        proposal_revision_id: fixtures.PROPOSAL_REVISION_ID,
-      },
-    ]);
+    expect(requestBody).toMatchObject({
+      seed: "proposal",
+      proposal_revision_id: fixtures.PROPOSAL_REVISION_ID,
+    });
+    expect(requestBody.idempotency_key).toEqual(expect.any(String));
+    expect(new URLSearchParams(window.location.search).get("review")).toBe(
+      createdReview.review_id,
+    );
     expect(onReviewRequested.mock.invocationCallOrder[0]).toBeGreaterThan(
-      fetchImplementation.mock.invocationCallOrder[rebaseCallIndex] ?? 0,
+      fetchImplementation.mock.invocationCallOrder[createCallIndex] ?? 0,
     );
   });
 
-  it("shows generated proposals when an existing maintained reference is empty", async () => {
+  it("starts a fresh visible-region review from an empty maintained reference", async () => {
+    const current = emptyReference();
+    const createdReview = {
+      review_id: "visible-cards-review-from-regions",
+      recording_id: RECORDING_ID,
+      status: "draft",
+      source: "visible_regions",
+      lineage: { detector_revision_id: REVISION_ID },
+      created_at: "2026-11-04T00:00:00Z",
+      updated_at: "2026-11-04T00:00:00Z",
+      draft_revision: 0,
+      legacy: false,
+      state: current.state,
+      draft: current.draft,
+    };
     const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
-      if (init?.method === "PUT") {
-        return Promise.resolve(jsonResponse(reference()));
-      }
+      const url = String(input);
+      if (
+        url.endsWith("/pipeline/visible-card-reviews") &&
+        init?.method === "POST"
+      )
+        return Promise.resolve(jsonResponse(createdReview));
+      if (url.endsWith("/pipeline/visible-card-reviews"))
+        return Promise.resolve(
+          jsonResponse({ recording_id: RECORDING_ID, reviews: [] }),
+        );
       return String(input).includes("/result")
         ? Promise.resolve(jsonResponse(generatedResult()))
-        : Promise.resolve(jsonResponse(emptyReference()));
+        : Promise.resolve(jsonResponse(current));
     });
     vi.stubGlobal("fetch", fetchImplementation);
 
@@ -763,25 +799,130 @@ describe("PipelineVisibleCardEditor", () => {
     await user.click(screen.getByRole("button", { name: "Start review" }));
 
     await waitFor(() =>
-      expect(
-        fetchImplementation.mock.calls.some(
-          ([, init]) => init?.method === "PUT",
-        ),
-      ).toBe(true),
+      expect(new URLSearchParams(window.location.search).get("review")).toBe(
+        createdReview.review_id,
+      ),
     );
     const requestBody = JSON.parse(
       String(
         fetchImplementation.mock.calls.find(
-          ([, init]) => init?.method === "PUT",
+          ([input, init]) =>
+            String(input).endsWith("/pipeline/visible-card-reviews") &&
+            init?.method === "POST",
         )?.[1]?.body,
       ),
     );
-    expect(requestBody.operations).toEqual([
-      { operation: "rebase", source_revision_id: REVISION_ID },
-    ]);
+    expect(requestBody).toMatchObject({
+      seed: "selected_generated",
+      source_revision_id: REVISION_ID,
+    });
+    expect(
+      fetchImplementation.mock.calls.some(
+        ([input, init]) =>
+          String(input).endsWith("/pipeline/references/visible_cards/draft") &&
+          init?.method === "PUT",
+      ),
+    ).toBe(false);
     expect(
       await screen.findByRole("button", { name: "Select proposal 1" }),
     ).toBeInTheDocument();
+  });
+
+  it("resumes a URL-selected review and saves commands to that review only", async () => {
+    window.history.pushState(
+      {},
+      "",
+      `/recordings/${RECORDING_ID}/pipeline/visible_cards?view=reviewed&review=review-a`,
+    );
+    const resource = reference();
+    const detail = {
+      review_id: "review-a",
+      recording_id: RECORDING_ID,
+      status: "draft",
+      source: "visible_regions",
+      lineage: { detector_revision_id: REVISION_ID },
+      created_at: "2026-11-03T00:00:00Z",
+      updated_at: "2026-11-04T00:00:00Z",
+      draft_revision: resource.draft.revision,
+      legacy: false,
+      state: resource.state,
+      draft: resource.draft,
+    };
+    const fetchImplementation = vi.fn<typeof fetch>((input, init) => {
+      const url = String(input);
+      if (
+        url.endsWith("/pipeline/visible-card-reviews") &&
+        init?.method !== "POST"
+      )
+        return Promise.resolve(
+          jsonResponse({
+            recording_id: RECORDING_ID,
+            reviews: [
+              { ...detail, draft: undefined },
+              {
+                ...detail,
+                review_id: "review-b",
+                updated_at: "2026-11-03T00:00:00Z",
+                draft: undefined,
+              },
+            ],
+          }),
+        );
+      if (
+        url.endsWith("/pipeline/visible-card-reviews/review-a/draft") &&
+        init?.method === "PUT"
+      )
+        return Promise.resolve(jsonResponse(detail));
+      if (url.endsWith("/pipeline/visible-card-reviews/review-a"))
+        return Promise.resolve(jsonResponse(detail));
+      if (url.endsWith("/pipeline/proposed-card-scenes"))
+        return Promise.resolve(
+          jsonResponse({ recording_id: RECORDING_ID, runs: [] }),
+        );
+      if (url.endsWith("/result"))
+        return Promise.resolve(jsonResponse(generatedResult()));
+      return Promise.resolve(jsonResponse(resource));
+    });
+    vi.stubGlobal("fetch", fetchImplementation);
+
+    render(
+      <PipelineVisibleCardEditor
+        recordingId={RECORDING_ID}
+        durationUs={1_000_000}
+        generatedRevisionId={REVISION_ID}
+        generatedRunId={RUN_ID}
+        reviewId="review-a"
+        view="reviewed"
+      />,
+    );
+
+    const selector = await screen.findByRole("combobox", {
+      name: "Select visible-card review",
+    });
+    expect(selector).toHaveValue("review-a");
+    expect(
+      await screen.findByRole("img", { name: /visible-card proposal/ }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mark empty" }));
+    await waitFor(() =>
+      expect(
+        fetchImplementation.mock.calls.some(
+          ([input, init]) =>
+            String(input).endsWith(
+              "/pipeline/visible-card-reviews/review-a/draft",
+            ) && init?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    await userEvent.selectOptions(selector, "review-b");
+    expect(new URLSearchParams(window.location.search).get("review")).toBe(
+      "review-b",
+    );
+    expect(
+      fetchImplementation.mock.calls.some(([input]) =>
+        String(input).endsWith("/pipeline/visible-card-reviews/review-b/draft"),
+      ),
+    ).toBe(false);
   });
 
   it("queues rapid virtual-card deletions while the first save is in flight", async () => {

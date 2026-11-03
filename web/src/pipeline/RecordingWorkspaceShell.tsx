@@ -19,6 +19,7 @@ import { ComparisonView } from "./ComparisonView";
 import { PipelineObservationWorkbench } from "./PipelineObservationWorkbench";
 import { PipelineRoundAnalysisWorkbench } from "./PipelineRoundAnalysisWorkbench";
 import {
+  readPipelineUrlState,
   recordingPipelinePath,
   type PipelineUrlState,
   type PipelineView,
@@ -275,12 +276,20 @@ export function RecordingWorkspaceTaskSurface({
             inspectorEnabled={action.kind !== "blocked"}
             onRailItemsChange={onEventRailItemsChange}
             onReviewRequested={() =>
-              onNavigate(actionHref(recordingId, stage.key, "review", urlState))
+              onNavigate(
+                actionHref(
+                  recordingId,
+                  stage.key,
+                  "review",
+                  readPipelineUrlState(window.location.search),
+                ),
+              )
             }
           />
         ) : null}
         {stage.key === "visible_cards" && !compare ? (
           <PipelineVisibleCardEditor
+            key={urlState.review ?? "maintained-reference"}
             recordingId={recordingId}
             durationUs={workspace.video.duration_us}
             selectionItemId={presentation.surface.selectedItemId}
@@ -291,6 +300,7 @@ export function RecordingWorkspaceTaskSurface({
             }
             generatedRunId={selectedVisibleCardRunId}
             startReviewRequested={urlState.startReview === "proposal"}
+            reviewId={urlState.review}
             view={activeView}
             inspectorEnabled={action.kind !== "blocked"}
             onRailItemsChange={onVisibleCardRailItemsChange}

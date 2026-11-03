@@ -201,6 +201,7 @@ type PipelineRun = PipelineWorkspaceStage["runs"][number];
 const EMPTY_URL_STATE: PipelineUrlState = {
   view: null,
   startReview: null,
+  review: null,
   revision: null,
   item: null,
   tUs: null,

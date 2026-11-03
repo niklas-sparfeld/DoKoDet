@@ -13,7 +13,7 @@
 - **M1:** Complete — persist isolated review records, list and retrieve them by review ID, and expose the legacy draft without rewriting it.
 - **M2:** Complete — create, list, read, and edit isolated reviews through review-scoped APIs.
 - **M3:** Complete — publish completed reviews with exact lineage and select a downstream revision explicitly.
-- **M4:** Not started — integrate both review entry points and switching in the workspace.
+- **M4:** Complete — integrate both review entry points and switching in the workspace.
 - **M5:** Not started — verify existing data, concurrent edits, restart, and the reported workflow.
 
 ## Problem and desired behavior
@@ -183,6 +183,20 @@ supports independent drafts. Keep the appropriate editor and input behavior for 
   downstream input resolution, and isolation of calibration changes to the intended review.
 
 ## M4 — Workspace review lifecycle
+
+- **Status:** Complete.
+- The visible-card workspace lists reviews by source, input revision, status, and last update.
+  Operators can select a review from the list or open one from its review ID in the URL. The URL
+  restores the selected draft after a reload.
+- The visible-region and proposed-scene entry points create fresh reviews through the review API.
+  A proposed-scene review uses its proposal revision directly and does not rebase the maintained
+  draft. A missing calibration draft does not block review creation or loading.
+- Draft edits and completion use review-scoped routes. Calibration start, read, and edit requests
+  use the selected review ID. The editor remounts when the URL selects another review. It disables
+  review switching and new-review actions while draft saves are pending.
+- Frontend tests cover both review entry points, URL restore and switching, review-scoped edits,
+  and review API routes. Focused frontend verification passed: 59 tests, TypeScript, ESLint,
+  Prettier, and `git diff --check`.
 
 - Provide the same create, list, select, and resume interaction for visible-region and scene reviews.
   Show the input revision, status, and last update so the operator can distinguish reviews.

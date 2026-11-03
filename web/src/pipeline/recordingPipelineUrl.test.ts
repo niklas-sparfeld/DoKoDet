@@ -57,11 +57,12 @@ describe("recording pipeline URL helpers", () => {
   it("reads encoded selection and analysis state", () => {
     expect(
       readPipelineUrlState(
-        "?view=reviewed&revision=revision%2F1&item=event%2F1&t_us=-17&left=run%2F1&right=run%2F2&reference=ref%2F1&analysis=analysis-1",
+        "?view=reviewed&review=visible-card-review-1&revision=revision%2F1&item=event%2F1&t_us=-17&left=run%2F1&right=run%2F2&reference=ref%2F1&analysis=analysis-1",
       ),
     ).toEqual({
       view: "reviewed",
       startReview: null,
+      review: "visible-card-review-1",
       revision: "revision/1",
       item: "event/1",
       tUs: -17,
@@ -81,6 +82,7 @@ describe("recording pipeline URL helpers", () => {
     ).toEqual({
       view: null,
       startReview: null,
+      review: null,
       revision: null,
       item: null,
       tUs: null,

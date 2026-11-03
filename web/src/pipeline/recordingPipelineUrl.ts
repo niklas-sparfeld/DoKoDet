@@ -13,6 +13,7 @@ export type PipelineView = "generated" | "reviewed";
 export type PipelineUrlState = {
   view: PipelineView | null;
   startReview: "proposal" | null;
+  review: string | null;
   revision: string | null;
   item: string | null;
   tUs: number | null;
@@ -65,6 +66,7 @@ export function readPipelineUrlState(search: string): PipelineUrlState {
   return {
     view: readView(params.get("view")),
     startReview: params.get("start_review") === "proposal" ? "proposal" : null,
+    review: readOptionalParameter(params.get("review")),
     revision: readOptionalParameter(params.get("revision")),
     item: readOptionalParameter(params.get("item")),
     tUs: rawTime !== null && /^-?\d+$/.test(rawTime) ? Number(rawTime) : null,
@@ -102,6 +104,8 @@ function pipelineSearch(
     params.set("view", state.view);
   if (state.startReview === "proposal")
     params.set("start_review", state.startReview);
+  if (state.review !== null && state.review !== undefined)
+    params.set("review", state.review);
   if (state.revision !== null && state.revision !== undefined)
     params.set("revision", state.revision);
   if (state.item !== null && state.item !== undefined)
