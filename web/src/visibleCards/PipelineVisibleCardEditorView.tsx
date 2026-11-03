@@ -2154,7 +2154,12 @@ export function PipelineVisibleCardEditorView({
             <select
               aria-label="Select visible-card review"
               value={reviewId ?? ""}
-              disabled={queueLength > 0 || saveState !== "saved"}
+              disabled={
+                queueLength > 0 ||
+                saveState !== "saved" ||
+                editor !== null ||
+                calibrationLoading
+              }
               onChange={(event) =>
                 updatePipelineUrl({
                   review: event.target.value || null,
@@ -2189,6 +2194,8 @@ export function PipelineVisibleCardEditorView({
               creatingReference ||
               queueLength > 0 ||
               saveState !== "saved" ||
+              editor !== null ||
+              calibrationLoading ||
               (proposalRevisionId === null &&
                 generatedSourceRevisionId === null)
             }

@@ -903,6 +903,14 @@ describe("PipelineVisibleCardEditor", () => {
     expect(
       await screen.findByRole("img", { name: /visible-card proposal/ }),
     ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /Draw ignore region in shared workbench/,
+      }),
+    );
+    expect(selector).toBeDisabled();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(selector).not.toBeDisabled());
     await userEvent.click(screen.getByRole("button", { name: "Mark empty" }));
     await waitFor(() =>
       expect(
