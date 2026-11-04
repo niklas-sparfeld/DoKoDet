@@ -16,6 +16,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.staticfiles import StaticFiles
 
 from dokodetector_backend.api import router
+from dokodetector_backend.automated_pipeline_run import (
+    AutomatedPipelineRunService,
+    AutomatedPipelineRunStore,
+)
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.event_pipeline_service import EventProcessorProvider
@@ -38,6 +42,7 @@ from dokodetector_backend.pipeline_composition import (
     build_pipeline_composition,
     install_pipeline_composition,
 )
+from dokodetector_backend.pipeline_run_preflight import validate_local_stage_providers
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.recording_thumbnail import RecordingThumbnailCache
 from dokodetector_backend.recordings_api import router as recordings_router
@@ -55,6 +60,18 @@ if TYPE_CHECKING:
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _recording_session_id(recording_store: RecordingBundleStore):
+    """Return the stored session identity for one accepted recording."""
+
+    def resolve(recording_id: str) -> str:
+        recording = recording_store.get(recording_id)
+        if recording is None:
+            raise ValueError(f"The recording bundle was not found: {recording_id}.")
+        return recording.session_id
+
+    return resolve
 
 
 def create_app(
@@ -221,6 +238,20 @@ def create_app(
         pipeline_selection_store=app.state.pipeline_selection_store,
         max_concurrent_requests=app_settings.gemini_max_concurrent_requests,
     )
+    app.state.automated_pipeline_run_service = AutomatedPipelineRunService(
+        store=AutomatedPipelineRunStore(app_settings.pipeline_root / "automated-runs"),
+        recording_source_provider=app.state.event_pipeline_service.get_recording_source,
+        recording_provider_validator=lambda recording_id, stage_requests: (
+            validate_local_stage_providers(
+                recording_id,
+                stage_requests,
+                event_service=app.state.event_pipeline_service,
+                visible_card_service=app.state.visible_card_pipeline_service,
+                visual_identity_service=app.state.visual_identity_pipeline_service,
+            )
+        ),
+        round_session_provider=_recording_session_id(app.state.recording_bundle_store),
+    )
     lifecycle_services = (
         *pipeline_composition.lifecycle_services,
         app.state.round_analysis_service,
@@ -253,6 +284,7 @@ def create_app(
             _check_evidence_directory(app.state.repository_bundle_storage.root)
             _check_evidence_directory(app.state.pending_video_storage.root)
             _check_evidence_directory(app.state.event_pipeline_service.storage.pipeline_root)
+            _check_evidence_directory(app.state.automated_pipeline_run_service.store.root)
             _check_atomic_runtime_probe(app.state.storage.root)
         except OSError:
             log_event(

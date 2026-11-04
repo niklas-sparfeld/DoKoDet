@@ -7,12 +7,14 @@ from fastapi import APIRouter
 from dokodetector_backend.calibration_refinement_api import router as calibration_refinement_router
 from dokodetector_backend.pipeline_comparison_api import router as comparison_router
 from dokodetector_backend.pipeline_reference_api import router as reference_router
+from dokodetector_backend.pipeline_run_api import router as run_router
 from dokodetector_backend.pipeline_stage_api import router as stage_router
 from dokodetector_backend.pipeline_workspace_api import router as workspace_router
 from dokodetector_backend.visible_card_review_api import router as visible_card_review_router
 
 router = APIRouter()
 router.include_router(workspace_router)
+router.include_router(run_router)
 router.include_router(stage_router)
 router.include_router(comparison_router)
 router.include_router(calibration_refinement_router)

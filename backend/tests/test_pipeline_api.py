@@ -19,6 +19,7 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.pipeline_api import router as pipeline_router
 from dokodetector_backend.pipeline_comparison_api import router as comparison_router
 from dokodetector_backend.pipeline_reference_api import router as reference_router
+from dokodetector_backend.pipeline_run_api import router as run_router
 from dokodetector_backend.pipeline_stage_api import router as stage_router
 from dokodetector_backend.pipeline_workspace_api import router as workspace_router
 from dokodetector_backend.pipeline_workspace_service import RecordingPipelineWorkspaceService
@@ -28,7 +29,13 @@ RECORDING_ID = "recording-both"
 
 
 def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
-    child_routers = (workspace_router, stage_router, comparison_router, reference_router)
+    child_routers = (
+        workspace_router,
+        run_router,
+        stage_router,
+        comparison_router,
+        reference_router,
+    )
     routes = [
         route
         for child_router in child_routers
@@ -43,11 +50,12 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
 
     assert modules == {
         "dokodetector_backend.pipeline_workspace_api": 1,
-        "dokodetector_backend.pipeline_stage_api": 38,
+        "dokodetector_backend.pipeline_run_api": 2,
+        "dokodetector_backend.pipeline_stage_api": 39,
         "dokodetector_backend.pipeline_comparison_api": 1,
         "dokodetector_backend.pipeline_reference_api": 6,
     }
-    assert len(pipeline_router.routes) == len(child_routers) + 1
+    assert len(pipeline_router.routes) == len(child_routers) + 2
 
 
 def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Path) -> None:

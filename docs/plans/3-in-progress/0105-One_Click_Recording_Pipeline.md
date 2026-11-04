@@ -7,8 +7,8 @@
 - **Status:** In Progress
 - **Depends on:** Existing recording workspace and stage services; the retained 0090 coordinator is
   available for assessment. No human review campaign is a prerequisite.
-- **Outcome:** M0 complete. M1–M4 not started. Each new run creates fresh stage results and requires
-  all necessary information before it starts.
+- **Outcome:** M0–M1 complete. M2–M4 not started. Each new run creates fresh stage results and
+  requires all necessary information before it starts.
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Purpose
@@ -67,7 +67,7 @@ Result: [0105 M0 execution contract](../../reports/0105-M0_Execution_Contract.md
 The report freezes the six-stage graph, automatic crop path, valid empty outputs, blocking failures,
 preflight facts, restart and duplicate-start rules, and deterministic fixture acceptance.
 
-### M1 — Start and persist an automated run
+### M1 — Start and persist an automated run — Complete
 
 Add a recording-scoped start and status boundary and durable run record. Freeze and validate inputs
 before scheduling. Reuse the existing coordinator or stage services where they satisfy the contract.
@@ -75,6 +75,11 @@ Prevent duplicate concurrent runs for the same recording and retain actionable p
 
 Acceptance: fixture tests cover valid and invalid starts, status reads, duplicate starts, and frozen
 inputs. No work starts for a failed preflight.
+
+Result: [0105 M1 run start and preflight](../../reports/0105-M1_Run_Start_and_Preflight.md). The
+recording-scoped API validates the recording, local providers, session, round facts, search limits,
+and stage settings before it writes an `accepted` run. Same-key retries return that run; another
+active start for the recording conflicts. M2 owns stage scheduling and restart recovery.
 
 ### M2 — Execute and retain intermediate results
 
