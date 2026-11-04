@@ -7,8 +7,9 @@
 - **Status:** In Progress
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
-  0105 M4 is available; this comparison is required for M11.
-- **Outcome:** M0–M3 complete. M4–M11 remain. Live capture retains event proposals and frame timing;
+  0105 M4 is available; this comparison is required for M13.
+- **Outcome:** M0–M4 complete. M5–M13 remain. The iOS package now derives a deterministic
+  table-plane fit seed. Live capture retains event proposals and frame timing;
   the visible-card stage retains event-frame provenance, model lineage, and proposal outcomes. No
   device result or model-quality claim exists.
 
@@ -113,17 +114,38 @@ or scene outputs.
 The [M3 result](../../reports/0106-M3_Table_Plane_Geometry.md) records the Python fixture parity
 and verification results.
 
-### M4 — Fit and validate recording calibration
+### M4 — Derive a deterministic calibration seed — Complete
 
-Port `card_plane_calibration.py` and its robust `fit_table_plane` path. Consume the exact visible-card
-revision, retain candidate evidence and failure diagnostics, and publish a table-plane calibration
-only when all required gates pass. Preserve the Python schema and algorithm lineage.
+Port the deterministic `initial_image_to_table` seed selection from `card_plane_geometry.py`. Keep
+the result as a fit initializer. Do not treat it as a recording calibration or publish it.
+
+Acceptance: fixed quadrilateral fixtures compare the selected seed, orientation, homography, and
+median residual with Python. Cover empty and invalid input. Record the numeric tolerance needed for
+the Python float32 seed and Swift float64 solve.
+
+The [M4 result](../../reports/0106-M4_Calibration_Seed.md) records the seed selection and fixture
+parity. The output is a fit initializer only; it is not a recording calibration.
+
+### M5 — Fit a robust table plane
+
+Port the weighted, bounded robust boundary fit from `fit_table_plane`. Preserve deterministic seed
+selection, robust outlier handling, fit diagnostics, and finite-transform checks. This is a fit
+candidate only; recording-level candidate selection and publication gates remain in M6.
+
+Acceptance: fixed synthetic card boundaries compare transforms, inliers, residuals, and fit quality
+with Python. Cover empty, degenerate, outlier, and successful fits.
+
+### M6 — Select and validate recording calibration
+
+Port `card_plane_calibration.py` for the exact visible-card revision. Retain candidate evidence and
+failure diagnostics. Publish a table-plane calibration only when all required gates pass. Preserve
+the Python schema and algorithm lineage.
 
 Acceptance: fixed detector fixtures compare calibration matrices, dimensions, candidate decisions,
 and publication status with Python. Cover empty input, insufficient candidates, outliers, and a
 published synthetic recording.
 
-### M5 — Refine calibration from anchors
+### M7 — Refine calibration from anchors
 
 Port `card_plane_calibration_refinement.py` as an immutable preview calculation. Preserve anchor
 eligibility, deduplication, weighted fitting, displacement gates, and source revision lineage.
@@ -132,7 +154,7 @@ Previews must not mutate a published calibration or a maintained reference.
 Acceptance: fixtures compare eligible and rejected anchors, weighted fit results, gate failures,
 and a successful preview with Python. Verify that the base calibration remains unchanged.
 
-### M6 — Initialize proposed card scenes
+### M8 — Initialize proposed card scenes
 
 Port `proposed_card_scene_processor.py` for calibration-backed per-frame scene initialization. Save
 an outcome for every input frame, including valid empty and failed frames, with calibration and
@@ -141,7 +163,7 @@ visible-card lineage.
 Acceptance: fixed visible-card and calibration fixtures compare poses, stacking-order evidence,
 and frame outcomes with Python. Cover empty scenes, partial scenes, and failure.
 
-### M7 — Fit overlapping card scenes
+### M9 — Fit overlapping card scenes
 
 Port `card_scene_joint_fit.py` with its bounded joint pose and order search. Preserve unresolved
 overlap relations and fit diagnostics; do not infer a definite order when evidence is ambiguous.
@@ -150,7 +172,7 @@ Measure geometry runtime and peak memory.
 Acceptance: deterministic overlapping-card fixtures compare poses, order, score, and margins with
 Python, including the card-count limit and unchanged non-overlap scenes.
 
-### M8 — Run visual identity and assemble observations
+### M10 — Run visual identity and assemble observations
 
 Run the selected DINOv3 model on the defined crops and assemble table observations using the 0105
 contracts. Preserve all candidates, abstentions, face-down evidence, and per-item errors under the
@@ -160,7 +182,7 @@ Acceptance: fixtures cover crop transforms, identity outputs, empty and unusable
 probabilities, and observation handoff. Compare the frozen DINOv3 crops with their reference and
 report differences.
 
-### M9 — Reconstruct and retain the round analysis
+### M11 — Reconstruct and retain the round analysis
 
 Run the remaining reconstruction and analysis on device from the saved observations and explicit
 round facts. Retain intermediate state, terminal output, stage timings, and errors; preserve partial
@@ -169,7 +191,7 @@ results when a stage fails.
 Acceptance: deterministic fixtures cover a complete path, valid empty inputs where applicable,
 missing facts, and a reconstruction failure. The saved output can be inspected after app restart.
 
-### M10 — Add minimal controls and diagnostic export
+### M12 — Add minimal controls and diagnostic export
 
 Provide the required input, recording and processing controls, progress, final status, error detail,
 and access to the saved diagnostic bundle and log. Make the run lifecycle and storage limits clear.
@@ -177,7 +199,7 @@ and access to the saved diagnostic bundle and log. Make the run lifecycle and st
 Acceptance: automated app or component tests cover a complete fixture run, missing input, failure,
 and reopening or exporting diagnostics. Log lines identify the run and failing stage.
 
-### M11 — Verify the end-to-end iPhone trial
+### M13 — Verify the end-to-end iPhone trial
 
 Run relevant automated checks and a bounded real-device recording with staged activity. Record the
 device and OS, setup, artifact digests, inputs, event and stage counts, frame mapping, latency,

@@ -71,10 +71,49 @@ final class DeviceCardPlaneGeometryTests: XCTestCase {
     }
   }
 
+  func testInitialTablePlaneFitSeedMatchesPythonFixture() throws {
+    let fixture = try loadFitSeedFixture()
+    let input = try XCTUnwrap(fixture["source_quads"] as? [[[Double]]]).map { quad in
+      try quad.map { try DevicePoint2D(x: $0[0], y: $0[1]) }
+    }
+    let seed = try DeviceTablePlaneFit.initialImageToTable(input)
+    let expected = try XCTUnwrap(fixture["expected_homography"] as? [[Double]])
+    for row in 0..<3 {
+      for column in 0..<3 {
+        XCTAssertEqual(seed.imageToTable.rows[row][column], expected[row][column], accuracy: 2e-6)
+      }
+    }
+    XCTAssertEqual(seed.seedObservationIndex, try XCTUnwrap(fixture["expected_seed_index"] as? Int))
+    XCTAssertEqual(
+      seed.seedOrientationIndex, try XCTUnwrap(fixture["expected_orientation_index"] as? Int))
+    XCTAssertEqual(
+      seed.medianCardResidual,
+      try XCTUnwrap(fixture["expected_median_residual"] as? Double),
+      accuracy: 2e-6
+    )
+  }
+
+  func testInitialTablePlaneFitSeedRejectsEmptyAndInvalidInput() throws {
+    XCTAssertThrowsError(try DeviceTablePlaneFit.initialImageToTable([])) {
+      XCTAssertEqual($0 as? DeviceTablePlaneFitSeedError, .noObservations)
+    }
+    XCTAssertThrowsError(try DeviceTablePlaneFit.initialImageToTable([[]])) {
+      XCTAssertEqual($0 as? DeviceTablePlaneFitSeedError, .invalidQuadrilateral)
+    }
+  }
+
   private func loadFixture() throws -> [String: Any] {
     let url = try XCTUnwrap(
       Bundle.module.url(
         forResource: "table_plane_geometry_v1", withExtension: "json", subdirectory: "Fixtures"))
+    return try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+  }
+
+  private func loadFitSeedFixture() throws -> [String: Any] {
+    let url = try XCTUnwrap(
+      Bundle.module.url(
+        forResource: "table_plane_fit_seed_v1", withExtension: "json", subdirectory: "Fixtures"))
     return try XCTUnwrap(
       JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
   }
