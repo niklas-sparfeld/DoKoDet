@@ -4,12 +4,12 @@
 
 - **Summary:** Record video and detect card-state changes live on iOS, then run the remaining
   recording pipeline on the resulting event proposals and collect diagnostics.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M6.
-- **Outcome:** M0–M6 not started. A bounded on-device trial is planned; no device result or
-  model-quality claim exists yet.
+- **Outcome:** M0 complete. M1–M6 remain. The device contract identifies the required ports and
+  frozen model packages; no device result or model-quality claim exists yet.
 
 ## Purpose and scope
 
@@ -53,7 +53,10 @@ and record the exact artifact identities and limitations used in each trial.
 
 ## Milestones
 
-### M0 — Freeze the device execution contract
+### M0 — Freeze the device execution contract — Complete
+
+The [device execution contract](../../reports/0106-M0_Device_Execution_Contract.md) records the
+model identities, stage ports, time mapping, failure rules, diagnostics, and fixture obligations.
 
 Inventory the existing iOS capture, event decoder, recording and diagnostics, the 0105 stage graph,
 and exact Core ML artifacts. Map each stage to an iOS implementation or a bounded port, including
