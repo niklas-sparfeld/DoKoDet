@@ -42,6 +42,9 @@ let package = Package(
                 "Core/CameraSourceRate.swift",
                 "Core/DeviceCaptureContract.swift",
                 "Core/DeviceCaptureTimeline.swift",
+                "Core/VisibleCardStage.swift",
+                "Core/DeviceVisibleCardPipeline.swift",
+                "Inference/RfdetrCoreMLRunner.swift",
                 "Core/CausalEventDecoder.swift",
                 "Core/EvidenceCaptureConfiguration.swift",
                 "Core/EvidenceFrameRing.swift",
@@ -87,7 +90,8 @@ let package = Package(
             path: "CardEventProbeTests",
             resources: [
                 .copy("Fixtures"),
-            ]
+            ],
+            linkerSettings: [.linkedLibrary("z")]
         ),
     ]
 )

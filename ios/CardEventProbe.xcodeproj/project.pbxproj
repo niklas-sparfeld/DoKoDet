@@ -64,6 +64,10 @@
 		A00000000000000000000032 /* CameraSourceRate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000032 /* CameraSourceRate.swift */; };
 		A00000000000000000000045 /* DeviceCaptureContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000045 /* DeviceCaptureContract.swift */; };
 		A00000000000000000000046 /* DeviceCaptureTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000046 /* DeviceCaptureTimeline.swift */; };
+		A00000000000000000000047 /* VisibleCardStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000047 /* VisibleCardStage.swift */; };
+		A00000000000000000000048 /* RfdetrCoreMLRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000048 /* RfdetrCoreMLRunner.swift */; };
+		A00000000000000000000049 /* DeviceVisibleCardPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000049 /* DeviceVisibleCardPipeline.swift */; };
+		A00000000000000000000050 /* RFDETRSegMedium.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000050 /* RFDETRSegMedium.mlpackage */; };
 		A00000000000000000000039 /* RecordingProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000039 /* RecordingProfile.swift */; };
 		A0000000000000000000003A /* RecordingWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003A /* RecordingWorkspace.swift */; };
 		A00000000000000000000036 /* RepositoryIntakeDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000036 /* RepositoryIntakeDocuments.swift */; };
@@ -98,6 +102,10 @@
 		B00000000000000000000044 /* CardEventNet0103M3.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = CardEventProbe/Runtime/CardEventNet0103M3.mlpackage; sourceTree = "<group>"; };
 		B00000000000000000000045 /* DeviceCaptureContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCaptureContract.swift; sourceTree = "<group>"; };
 		B00000000000000000000046 /* DeviceCaptureTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCaptureTimeline.swift; sourceTree = "<group>"; };
+		B00000000000000000000047 /* VisibleCardStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisibleCardStage.swift; sourceTree = "<group>"; };
+		B00000000000000000000048 /* RfdetrCoreMLRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RfdetrCoreMLRunner.swift; sourceTree = "<group>"; };
+		B00000000000000000000049 /* DeviceVisibleCardPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceVisibleCardPipeline.swift; sourceTree = "<group>"; };
+		B00000000000000000000050 /* RFDETRSegMedium.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = CardEventProbe/Runtime/RFDETRSegMedium.mlpackage; sourceTree = "<group>"; };
 		B00000000000000000000011 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		B00000000000000000000012 /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		B00000000000000000000013 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
@@ -188,6 +196,7 @@
 				D00000000000000000000003 /* Products */,
 				D00000000000000000000004 /* Frameworks */,
 				B00000000000000000000044 /* CardEventNet0103M3.mlpackage */,
+				B00000000000000000000050 /* RFDETRSegMedium.mlpackage */,
 				854184EA3037408D009260B8 /* Recovered References */,
 			);
 			sourceTree = "<group>";
@@ -256,6 +265,8 @@
 				B00000000000000000000032 /* CameraSourceRate.swift */,
 				B00000000000000000000045 /* DeviceCaptureContract.swift */,
 				B00000000000000000000046 /* DeviceCaptureTimeline.swift */,
+				B00000000000000000000047 /* VisibleCardStage.swift */,
+				B00000000000000000000049 /* DeviceVisibleCardPipeline.swift */,
 				B00000000000000000000039 /* RecordingProfile.swift */,
 				B0000000000000000000003A /* RecordingWorkspace.swift */,
 				B0000000000000000000003B /* RecordingWorkspacePresentation.swift */,
@@ -286,6 +297,7 @@
 		D00000000000000000000008 /* Inference */ = {
 			isa = PBXGroup;
 			children = (
+				B00000000000000000000048 /* RfdetrCoreMLRunner.swift */,
 				B00000000000000000000005 /* ModelContract.swift */,
 				B00000000000000000000006 /* VideoFrame.swift */,
 				B00000000000000000000007 /* CardEventModelRunner.swift */,
@@ -400,14 +412,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Verify frozen CardEventNet input";
+			name = "Verify frozen device model inputs";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "python3 \"$SRCROOT/../scripts/0106_m1_prepare_ios_model.py\"";
+			shellScript = "python3 \"$SRCROOT/../scripts/0106_m1_prepare_ios_model.py\"\npython3 \"$SRCROOT/../scripts/0106_m2_prepare_ios_rfdetr.py\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -461,6 +473,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000044 /* CardEventNet0103M3.mlpackage in Resources */,
+				A00000000000000000000050 /* RFDETRSegMedium.mlpackage in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -550,6 +563,9 @@
 				A00000000000000000000032 /* CameraSourceRate.swift in Sources */,
 				A00000000000000000000045 /* DeviceCaptureContract.swift in Sources */,
 				A00000000000000000000046 /* DeviceCaptureTimeline.swift in Sources */,
+				A00000000000000000000047 /* VisibleCardStage.swift in Sources */,
+				A00000000000000000000048 /* RfdetrCoreMLRunner.swift in Sources */,
+				A00000000000000000000049 /* DeviceVisibleCardPipeline.swift in Sources */,
 				A00000000000000000000039 /* RecordingProfile.swift in Sources */,
 				A0000000000000000000003A /* RecordingWorkspace.swift in Sources */,
 				A0000000000000000000003B /* RecordingWorkspacePresentation.swift in Sources */,

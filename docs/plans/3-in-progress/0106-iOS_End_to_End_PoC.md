@@ -7,9 +7,10 @@
 - **Status:** In Progress
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
-  0105 M4 is available; this comparison is required for M6.
-- **Outcome:** M0 and M1 complete. M2–M6 remain. Live capture retains event proposals, frame timing,
-  frozen model lineage, and interruption evidence. No device result or model-quality claim exists.
+  0105 M4 is available; this comparison is required for M7.
+- **Outcome:** M0–M2 complete. M3–M7 remain. Live capture retains event proposals and frame timing;
+  the visible-card stage retains event-frame provenance, model lineage, and proposal outcomes. No
+  device result or model-quality claim exists.
 
 ## Purpose and scope
 
@@ -82,17 +83,33 @@ its event proposals.
 The [M1 result](../../reports/0106-M1_Live_Capture.md) records the frozen model input, retained
 timeline, error and interruption evidence, and verification results.
 
-### M2 — Run visible-card and geometry stages
+### M2 — Extract event frames and run visible-card detection — Complete
 
-Implement the bounded on-device event-frame extraction, RF-DETR inference and postprocessing, and
-the 0105 automatic calibration and geometry path. Save inputs, outputs, timings, and failures for
-each stage, including empty outputs.
+Implement the bounded on-device event-frame extraction and RF-DETR inference and postprocessing.
+Save the event-keyed `visible_cards` revision, image provenance, model lineage, timings, and failures,
+including complete empty outputs. Freeze the extraction policy, class map, and thresholds from the
+0105 contract.
 
-Acceptance: local fixtures exercise frame mapping, preprocessing, detection and geometry handoffs,
-empty events and detections, and a blocking calibration or processing failure. Compare supported
-fixed inputs with the frozen reference and record mismatches and the known RF-DETR parity limit.
+Acceptance: local fixtures exercise nearest-frame mapping, preprocessing, masks, coordinate
+transforms, missing frames, and zero detections. Compare all six frozen 0103 frames with the Python
+reference. Report threshold-free and above-threshold differences separately and retain the known
+RF-DETR parity limit.
 
-### M3 — Run visual identity and assemble observations
+The [M2 result](../../reports/0106-M2_Visible_Cards.md) records event-frame extraction, proposal
+lineage, fixture results, six-frame parity, and the remaining score difference.
+
+### M3 — Calibrate the table and fit card scenes
+
+Port the 0105 automatic calibration and geometry path, including `card_plane_calibration.py`,
+`card_plane_calibration_refinement.py`, `proposed_card_scene_processor.py`, and
+`card_scene_joint_fit.py`, to an iOS-compatible implementation. Persist calibration candidates,
+publish a calibration only when valid, and save per-frame scene outcomes and fit diagnostics.
+
+Acceptance: fixtures compare fixed detector inputs, calibration, and scene results with Python.
+They cover empty input, insufficient calibration, partial scenes, and failure. Measure geometry
+runtime and memory before M7. Do not use a placeholder for a required stage.
+
+### M4 — Run visual identity and assemble observations
 
 Run the selected DINOv3 model on the defined crops and assemble table observations using the 0105
 contracts. Preserve all candidates, abstentions, face-down evidence, and per-item errors under the
@@ -102,7 +119,7 @@ Acceptance: fixtures cover crop transforms, identity outputs, empty and unusable
 probabilities, and observation handoff. Compare the frozen DINOv3 crops with their reference and
 report differences.
 
-### M4 — Reconstruct and retain the round analysis
+### M5 — Reconstruct and retain the round analysis
 
 Run the remaining reconstruction and analysis on device from the saved observations and explicit
 round facts. Retain intermediate state, terminal output, stage timings, and errors; preserve partial
@@ -111,7 +128,7 @@ results when a stage fails.
 Acceptance: deterministic fixtures cover a complete path, valid empty inputs where applicable,
 missing facts, and a reconstruction failure. The saved output can be inspected after app restart.
 
-### M5 — Add minimal controls and diagnostic export
+### M6 — Add minimal controls and diagnostic export
 
 Provide the required input, recording and processing controls, progress, final status, error detail,
 and access to the saved diagnostic bundle and log. Make the run lifecycle and storage limits clear.
@@ -119,7 +136,7 @@ and access to the saved diagnostic bundle and log. Make the run lifecycle and st
 Acceptance: automated app or component tests cover a complete fixture run, missing input, failure,
 and reopening or exporting diagnostics. Log lines identify the run and failing stage.
 
-### M6 — Verify the end-to-end iPhone trial
+### M7 — Verify the end-to-end iPhone trial
 
 Run relevant automated checks and a bounded real-device recording with staged activity. Record the
 device and OS, setup, artifact digests, inputs, event and stage counts, frame mapping, latency,
