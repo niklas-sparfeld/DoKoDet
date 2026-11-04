@@ -18,7 +18,7 @@ its event proposals and the recorded video to run the remaining applicable stage
 analysis on the device. Provide only the controls and status needed to run and inspect the PoC.
 Keep intermediate results, diagnostics, and readable debugging log lines for each run.
 
-Follow the stage semantics and input requirements of [Epic 0105](../3-in-progress/0105-One_Click_Recording_Pipeline.md)
+Follow the stage semantics and input requirements of [Epic 0105](../5-closed/0105-One_Click_Recording_Pipeline.md)
 without assuming its backend worker or Python services already run on iOS. M0 must identify the
 on-device implementation or port for every stage, including calibration, proposed card scenes,
 crops, table observations, and reconstruction. Use local fixtures for routine development. A real
