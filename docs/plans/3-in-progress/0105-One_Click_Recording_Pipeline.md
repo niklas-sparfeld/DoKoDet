@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing recording workspace and stage services; the retained 0090 coordinator is
   available for assessment. No human review campaign is a prerequisite.
-- **Outcome:** M0–M1 complete. M2–M4 not started. Each new run creates fresh stage results and
+- **Outcome:** M0–M2 complete. M3–M4 not started. Each new run creates fresh stage results and
   requires all necessary information before it starts.
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -89,6 +89,12 @@ blocking failure. Make interruption and restart safe without duplicating complet
 
 Acceptance: fixture tests exercise full lineage, ordinary workspace visibility, failure, empty
 results, interruption, and restart. Existing review drafts and selections remain unchanged.
+
+Result: [0105 M2 execution and lineage](../../reports/0105-M2_Execution_and_Lineage.md). The
+backend worker now runs the frozen six-stage graph outside the request and browser lifecycle. It
+stores stage requests, processor run IDs, exact input and output revision IDs, and failures in the
+overall run. Startup resumes accepted or interrupted runs from the coordinator manifest and retries
+an interrupted processor request. Completed stages keep their retained outputs.
 
 ### M3 — Add the recording workspace action
 

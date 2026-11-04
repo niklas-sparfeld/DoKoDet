@@ -20,6 +20,7 @@ from dokodetector_backend.automated_pipeline_run import (
     AutomatedPipelineRunService,
     AutomatedPipelineRunStore,
 )
+from dokodetector_backend.automated_pipeline_worker import AutomatedPipelineWorker
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.event_pipeline_service import EventProcessorProvider
@@ -103,7 +104,7 @@ def create_app(
         try:
             yield
         finally:
-            for service in lifecycle_services:
+            for service in reversed(lifecycle_services):
                 await service.stop()
 
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
@@ -252,9 +253,14 @@ def create_app(
         ),
         round_session_provider=_recording_session_id(app.state.recording_bundle_store),
     )
+    app.state.automated_pipeline_worker = AutomatedPipelineWorker(
+        app.state.automated_pipeline_run_service,
+        app.state,
+    )
     lifecycle_services = (
         *pipeline_composition.lifecycle_services,
         app.state.round_analysis_service,
+        app.state.automated_pipeline_worker,
     )
     register_error_handlers(app)
     app.include_router(router)

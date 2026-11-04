@@ -104,6 +104,9 @@ def start_automated_pipeline_run(
             message = f"{message} Active run: {error.active_run_id}."
         raise ContractError("pipeline_run_conflict", message, status_code=409) from error
     response.status_code = 200 if idempotent else 202
+    worker = getattr(request.app.state, "automated_pipeline_worker", None)
+    if not idempotent and worker is not None:
+        worker.enqueue(str(document["run_id"]))
     return AutomatedPipelineRunResponse.model_validate(document)
 
 

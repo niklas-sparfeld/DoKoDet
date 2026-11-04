@@ -104,6 +104,26 @@ class AutomatedPipelineRunStore:
         run_id = pointer.get("run_id") if isinstance(pointer, dict) else None
         return self.get(run_id) if isinstance(run_id, str) else None
 
+    def resumable(self) -> list[dict[str, Any]]:
+        """Return accepted or interrupted runs for worker startup recovery."""
+        if not self.runs_root.exists():
+            return []
+        documents = [
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in sorted(self.runs_root.glob("*.json"))
+        ]
+        return [document for document in documents if document.get("status") in ACTIVE_STATES]
+
+    def update(self, run_id: str, mutate: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+        """Atomically update one run document."""
+        document = self.get(run_id)
+        with self.locked_recording(str(document["recording_id"])):
+            document = self.get(run_id)
+            mutate(document)
+            document["updated_at"] = _now()
+            _atomic_json(self._run_path(run_id), document)
+            return document
+
     def get_idempotent(self, recording_id: str, key: str) -> dict[str, Any] | None:
         try:
             pointer = json.loads(

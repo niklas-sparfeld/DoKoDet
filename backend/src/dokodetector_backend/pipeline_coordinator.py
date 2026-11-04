@@ -68,6 +68,7 @@ class PipelineCoordinator:
     def __init__(self, root: Path, executor: StageExecutor) -> None:
         self.root = root
         self.executor = executor
+        self.on_update = None
 
     def run(
         self,
@@ -250,6 +251,8 @@ class PipelineCoordinator:
         finally:
             if os.path.exists(temporary_path):
                 os.unlink(temporary_path)
+        if self.on_update is not None:
+            self.on_update(dict(document))
 
 
 class RetainedPipelineStageExecutor:
@@ -286,7 +289,20 @@ class RetainedPipelineStageExecutor:
         service_name, method_name = self._STAGE_METHODS[stage]
         service = getattr(self.composition, service_name)
         payload = self._request_payload(stage, run_id, request, input_revision_ids)
-        run = getattr(service, method_name)(recording_id, payload)
+        existing = self.composition.run_store.get(run_id)
+        if existing is not None and existing.state.status in {"queued", "running"}:
+            self.composition.run_store.fail(
+                run_id,
+                {
+                    "code": "backend_restarted",
+                    "message": "The stage was interrupted by a backend restart.",
+                },
+            )
+            existing = self.composition.run_store.require(run_id)
+        if existing is not None and existing.state.status in {"partial", "failed"}:
+            run = service.retry(recording_id, run_id)
+        else:
+            run = getattr(service, method_name)(recording_id, payload)
         while run.state.status in {"queued", "running"}:
             time.sleep(self.poll_interval_s)
             run = self.composition.run_store.require(run_id)
