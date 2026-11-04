@@ -44,6 +44,7 @@ let package = Package(
                 "Core/DeviceCaptureTimeline.swift",
                 "Core/VisibleCardStage.swift",
                 "Core/DeviceVisibleCardPipeline.swift",
+                "Core/DeviceCardPlaneGeometry.swift",
                 "Inference/RfdetrCoreMLRunner.swift",
                 "Core/CausalEventDecoder.swift",
                 "Core/EvidenceCaptureConfiguration.swift",

@@ -7,8 +7,8 @@
 - **Status:** In Progress
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
-  0105 M4 is available; this comparison is required for M7.
-- **Outcome:** M0–M2 complete. M3–M7 remain. Live capture retains event proposals and frame timing;
+  0105 M4 is available; this comparison is required for M11.
+- **Outcome:** M0–M3 complete. M4–M11 remain. Live capture retains event proposals and frame timing;
   the visible-card stage retains event-frame provenance, model lineage, and proposal outcomes. No
   device result or model-quality claim exists.
 
@@ -98,18 +98,59 @@ RF-DETR parity limit.
 The [M2 result](../../reports/0106-M2_Visible_Cards.md) records event-frame extraction, proposal
 lineage, fixture results, six-frame parity, and the remaining score difference.
 
-### M3 — Calibrate the table and fit card scenes
+### M3 — Add table-plane geometry primitives — Complete
 
-Port the 0105 automatic calibration and geometry path, including `card_plane_calibration.py`,
-`card_plane_calibration_refinement.py`, `proposed_card_scene_processor.py`, and
-`card_scene_joint_fit.py`, to an iOS-compatible implementation. Persist calibration candidates,
-publish a calibration only when valid, and save per-frame scene outcomes and fit diagnostics.
+Port the versioned coordinate, homography, card-pose, and full-card projection primitives used by
+`card_plane_geometry.py` to the iOS package. Keep source-pixel boundary coordinates, table short-side
+units, cyclic corner order, and the positive-y angle convention explicit. Reject non-finite points,
+singular transforms, and projections at infinity.
 
-Acceptance: fixtures compare fixed detector inputs, calibration, and scene results with Python.
-They cover empty input, insufficient calibration, partial scenes, and failure. Measure geometry
-runtime and memory before M7. Do not use a placeholder for a required stage.
+Acceptance: deterministic synthetic fixtures compare homography application and inversion,
+quadrilateral ordering, card vectors, residuals, and fixed-card projection with Python. Empty point
+sets and invalid geometry must have explicit results. This milestone does not publish calibration
+or scene outputs.
 
-### M4 — Run visual identity and assemble observations
+The [M3 result](../../reports/0106-M3_Table_Plane_Geometry.md) records the Python fixture parity
+and verification results.
+
+### M4 — Fit and validate recording calibration
+
+Port `card_plane_calibration.py` and its robust `fit_table_plane` path. Consume the exact visible-card
+revision, retain candidate evidence and failure diagnostics, and publish a table-plane calibration
+only when all required gates pass. Preserve the Python schema and algorithm lineage.
+
+Acceptance: fixed detector fixtures compare calibration matrices, dimensions, candidate decisions,
+and publication status with Python. Cover empty input, insufficient candidates, outliers, and a
+published synthetic recording.
+
+### M5 — Refine calibration from anchors
+
+Port `card_plane_calibration_refinement.py` as an immutable preview calculation. Preserve anchor
+eligibility, deduplication, weighted fitting, displacement gates, and source revision lineage.
+Previews must not mutate a published calibration or a maintained reference.
+
+Acceptance: fixtures compare eligible and rejected anchors, weighted fit results, gate failures,
+and a successful preview with Python. Verify that the base calibration remains unchanged.
+
+### M6 — Initialize proposed card scenes
+
+Port `proposed_card_scene_processor.py` for calibration-backed per-frame scene initialization. Save
+an outcome for every input frame, including valid empty and failed frames, with calibration and
+visible-card lineage.
+
+Acceptance: fixed visible-card and calibration fixtures compare poses, stacking-order evidence,
+and frame outcomes with Python. Cover empty scenes, partial scenes, and failure.
+
+### M7 — Fit overlapping card scenes
+
+Port `card_scene_joint_fit.py` with its bounded joint pose and order search. Preserve unresolved
+overlap relations and fit diagnostics; do not infer a definite order when evidence is ambiguous.
+Measure geometry runtime and peak memory.
+
+Acceptance: deterministic overlapping-card fixtures compare poses, order, score, and margins with
+Python, including the card-count limit and unchanged non-overlap scenes.
+
+### M8 — Run visual identity and assemble observations
 
 Run the selected DINOv3 model on the defined crops and assemble table observations using the 0105
 contracts. Preserve all candidates, abstentions, face-down evidence, and per-item errors under the
@@ -119,7 +160,7 @@ Acceptance: fixtures cover crop transforms, identity outputs, empty and unusable
 probabilities, and observation handoff. Compare the frozen DINOv3 crops with their reference and
 report differences.
 
-### M5 — Reconstruct and retain the round analysis
+### M9 — Reconstruct and retain the round analysis
 
 Run the remaining reconstruction and analysis on device from the saved observations and explicit
 round facts. Retain intermediate state, terminal output, stage timings, and errors; preserve partial
@@ -128,7 +169,7 @@ results when a stage fails.
 Acceptance: deterministic fixtures cover a complete path, valid empty inputs where applicable,
 missing facts, and a reconstruction failure. The saved output can be inspected after app restart.
 
-### M6 — Add minimal controls and diagnostic export
+### M10 — Add minimal controls and diagnostic export
 
 Provide the required input, recording and processing controls, progress, final status, error detail,
 and access to the saved diagnostic bundle and log. Make the run lifecycle and storage limits clear.
@@ -136,7 +177,7 @@ and access to the saved diagnostic bundle and log. Make the run lifecycle and st
 Acceptance: automated app or component tests cover a complete fixture run, missing input, failure,
 and reopening or exporting diagnostics. Log lines identify the run and failing stage.
 
-### M7 — Verify the end-to-end iPhone trial
+### M11 — Verify the end-to-end iPhone trial
 
 Run relevant automated checks and a bounded real-device recording with staged activity. Record the
 device and OS, setup, artifact digests, inputs, event and stage counts, frame mapping, latency,
