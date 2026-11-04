@@ -106,6 +106,8 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 
+| [0106 — iOS end-to-end proof of concept](2-ready/0106-iOS_End_to_End_PoC.md) | 0105 M0–M2; 0103 and 0104 model artifacts. 0105 M4 is required for the final comparison. | M0–M6 not started. Plan live card-state change detection, on-device downstream processing, minimal controls, and retained diagnostics. |
+
 ### In Progress
 
 | Epic | Depends on | Outcome |
