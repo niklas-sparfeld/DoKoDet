@@ -20,7 +20,7 @@ attempts are in `scripts/0103_m1_export_rfdetr.py` and `scripts/0103_m2_export_d
 
 Do not retrain, replace, or modify the frozen weights. Do not access sealed tests, run a sealed evaluator, change model selection, or change runtime defaults. Record every converter and dependency version. Keep generated packages outside Git. Do not claim model quality from export parity.
 
-Limit compatibility work to one selected route for each model. A route can use a supported converter path or a narrow graph rewrite. The route must preserve the exact model outputs. Do not run an open-ended converter-version sweep. If no safe route is available, record the blocker and stop that model's attempt.
+The user authorized continued RF-DETR export work across multiple blockers. For DINOv3, limit compatibility work to one selected route. A route can use a supported converter path or a narrow graph rewrite. The route must preserve the exact model outputs. Do not run an open-ended converter-version sweep. If no safe route is available, record the blocker and stop that model's attempt.
 
 ## M0 — Select bounded compatibility routes — Complete
 
@@ -38,8 +38,10 @@ reproduced converter failure, selected routes, version pins, and stop conditions
 
 ## M1 — Export RF-DETR — Complete
 
-The [M1 result](../../reports/0104-M1_RF-DETR_Compatibility.md) records the reproducible
-`meshgrid` conversion blocker. No package or parity result was produced.
+The [M1 follow-up](../../reports/0104-M1_RF-DETR_Export_Followup.md) records the user-requested
+continued export. The package runs, but the full frozen parity comparison has unmatched and
+out-of-tolerance candidates. The [earlier attempt](../../reports/0104-M1_RF-DETR_Compatibility.md)
+records the original `meshgrid` blocker.
 
 - Use the selected M0 route with the exact 0092 M4 checkpoint and bundle digest.
 - Export the fixed `[1,3,432,432]` input and the frozen boxes, class logits, and mask logits.

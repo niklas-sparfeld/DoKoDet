@@ -7,6 +7,7 @@ import platform
 import sys
 from pathlib import Path
 
+from coreml_rfdetr_fixes import rfdetr_export_fixes
 from coreml_singleton_int import singleton_int_fix
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -59,7 +60,8 @@ def main():
 
     ct.convert = patched_convert
     try:
-        result = exporter.main()
+        with rfdetr_export_fixes():
+            result = exporter.main()
     finally:
         ct.convert = convert
     report = json.loads(exporter.REPORT.read_text())
@@ -70,7 +72,9 @@ def main():
             (d.metadata["Name"], d.version) for d in importlib.metadata.distributions()
         )
     )
-    report["route"] = "guarded singleton constant aten::Int conversion"
+    report["route"] = (
+        "guarded singleton aten::Int and linspace fixes; inference depthwise convolution"
+    )
     exporter.REPORT.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     return result
 
