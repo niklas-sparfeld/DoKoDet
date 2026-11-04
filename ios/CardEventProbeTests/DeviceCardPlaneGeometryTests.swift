@@ -102,6 +102,114 @@ final class DeviceCardPlaneGeometryTests: XCTestCase {
     }
   }
 
+  func testRobustTablePlaneFitReturnsFiniteCandidateForSyntheticBoundaries() throws {
+    let tableToImage = try DeviceHomography(rows: [
+      [720, 80, 900], [24, 560, 250], [0.0003, 0.0006, 1],
+    ])
+    let positions: [(Double, Double)] = [
+      (0, 0), (4, 0), (8, 0), (0, 3), (4, 3), (8, 3), (0, 6), (4, 6), (8, 6),
+    ]
+    let quads = try positions.enumerated().map { index, center in
+      try DeviceCardPlaneGeometry.projectFixedCard(
+        tableToImage: tableToImage,
+        center: DevicePoint2D(x: center.0, y: center.1),
+        rotationDegrees: Double(index % 4) * 9,
+        shortSize: 1,
+        longSize: DeviceCardPlaneGeometry.cardAspectRatio
+      )
+    }
+    let boundaries = quads.map { quad in
+      (0..<64).map { sample -> DevicePoint2D in
+        let position = Double(sample) * 4 / 64
+        let edge = Int(position)
+        let fraction = position - Double(edge)
+        let first = quad[edge]
+        let second = quad[(edge + 1) % 4]
+        return try! DevicePoint2D(
+          x: first.x + fraction * (second.x - first.x),
+          y: first.y + fraction * (second.y - first.y))
+      }
+    }
+
+    let fit = try DeviceTablePlaneFit.fitTablePlane(quads, boundarySamples: boundaries)
+    XCTAssertTrue(fit.imageToTable.rows.flatMap { $0 }.allSatisfy(\.isFinite))
+    XCTAssertEqual(fit.inlierIndices.count, quads.count)
+    XCTAssertTrue(fit.medianBoundaryResidual.isFinite)
+    XCTAssertFalse(fit.convergenceReason.isEmpty)
+    let pythonMatrix = [
+      [0.001391, -0.000198, -1.202112],
+      [-0.000057, 0.001785, -0.394631],
+      [0, -0.000001, 1.000606],
+    ]
+    for row in 0..<3 {
+      for column in 0..<3 {
+        XCTAssertEqual(
+          fit.imageToTable.rows[row][column], pythonMatrix[row][column], accuracy: 0.00001)
+      }
+    }
+    XCTAssertEqual(fit.medianBoundaryResidual, 0.002054, accuracy: 0.0001)
+    XCTAssertTrue(fit.qualityPassed)
+  }
+
+  func testRobustTablePlaneFitRejectsOneInconsistentBoundary() throws {
+    let tableToImage = try DeviceHomography(rows: [
+      [210, 18, 520], [12, 172, 315], [0.0002, 0.0005, 1],
+    ])
+    let positions: [(Double, Double)] = [
+      (0, 0), (4, 0), (8, 0), (0, 3), (4, 3), (8, 3), (0, 6), (4, 6), (8, 6),
+    ]
+    let quads = try positions.enumerated().map { index, center in
+      try DeviceCardPlaneGeometry.projectFixedCard(
+        tableToImage: tableToImage,
+        center: DevicePoint2D(x: center.0, y: center.1),
+        rotationDegrees: Double(index % 4) * 9,
+        shortSize: 1,
+        longSize: DeviceCardPlaneGeometry.cardAspectRatio
+      )
+    }
+    let boundaries = try quads.enumerated().map { index, quad in
+      let center = try DevicePoint2D(
+        x: quad.map(\.x).reduce(0, +) / 4, y: quad.map(\.y).reduce(0, +) / 4)
+      let observed =
+        index == 4
+        ? quad.map { point in
+          try! DevicePoint2D(
+            x: center.x + 0.72 * (point.x - center.x), y: center.y + 0.72 * (point.y - center.y))
+        } : quad
+      return (0..<64).map { sample -> DevicePoint2D in
+        let position = Double(sample) * 4 / 64
+        let edge = Int(position)
+        let fraction = position - Double(edge)
+        let first = observed[edge]
+        let second = observed[(edge + 1) % 4]
+        return try! DevicePoint2D(
+          x: first.x + fraction * (second.x - first.x),
+          y: first.y + fraction * (second.y - first.y))
+      }
+    }
+
+    let fit = try DeviceTablePlaneFit.fitTablePlane(quads, boundarySamples: boundaries)
+    XCTAssertEqual(fit.rejectedIndices, [4])
+    XCTAssertEqual(fit.inlierIndices.count, 8)
+    XCTAssertTrue(fit.qualityPassed)
+  }
+
+  func testRobustTablePlaneFitRejectsEmptyAndInvalidWeights() throws {
+    XCTAssertThrowsError(try DeviceTablePlaneFit.fitTablePlane([])) {
+      XCTAssertEqual($0 as? DeviceTablePlaneBoundaryFitError, .noObservations)
+    }
+    let quad = try (0..<4).map { index in
+      try DevicePoint2D(x: Double(index % 2), y: Double(index / 2))
+    }
+    XCTAssertThrowsError(try DeviceTablePlaneFit.fitTablePlane([quad], observationWeights: [-1]))
+    let degenerate = try (0..<4).map { index in
+      try DevicePoint2D(x: Double(index), y: Double(index))
+    }
+    XCTAssertThrowsError(try DeviceTablePlaneFit.fitTablePlane([degenerate])) {
+      XCTAssertEqual($0 as? DeviceTablePlaneBoundaryFitError, .invalidQuadrilateral)
+    }
+  }
+
   private func loadFixture() throws -> [String: Any] {
     let url = try XCTUnwrap(
       Bundle.module.url(

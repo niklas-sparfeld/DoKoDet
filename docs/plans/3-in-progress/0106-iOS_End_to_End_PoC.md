@@ -8,8 +8,8 @@
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M13.
-- **Outcome:** M0–M4 complete. M5–M13 remain. The iOS package now derives a deterministic
-  table-plane fit seed. Live capture retains event proposals and frame timing;
+- **Outcome:** M0–M5 complete. M6–M13 remain. The iOS package now derives a deterministic
+  table-plane fit candidate from robust boundary evidence. Live capture retains event proposals and frame timing;
   the visible-card stage retains event-frame provenance, model lineage, and proposal outcomes. No
   device result or model-quality claim exists.
 
@@ -126,7 +126,7 @@ the Python float32 seed and Swift float64 solve.
 The [M4 result](../../reports/0106-M4_Calibration_Seed.md) records the seed selection and fixture
 parity. The output is a fit initializer only; it is not a recording calibration.
 
-### M5 — Fit a robust table plane
+### M5 — Fit a robust table plane — Complete
 
 Port the weighted, bounded robust boundary fit from `fit_table_plane`. Preserve deterministic seed
 selection, robust outlier handling, fit diagnostics, and finite-transform checks. This is a fit
@@ -134,6 +134,9 @@ candidate only; recording-level candidate selection and publication gates remain
 
 Acceptance: fixed synthetic card boundaries compare transforms, inliers, residuals, and fit quality
 with Python. Cover empty, degenerate, outlier, and successful fits.
+
+The [M5 result](../../reports/0106-M5_Robust_Table_Plane_Fit.md) records the fit API, Python fixture
+parity, outlier refit, and verification. The result remains a candidate for M6.
 
 ### M6 — Select and validate recording calibration
 

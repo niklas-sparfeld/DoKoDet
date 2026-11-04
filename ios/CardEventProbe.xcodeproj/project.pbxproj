@@ -68,6 +68,8 @@
 		A00000000000000000000048 /* RfdetrCoreMLRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000048 /* RfdetrCoreMLRunner.swift */; };
 		A00000000000000000000049 /* DeviceVisibleCardPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000049 /* DeviceVisibleCardPipeline.swift */; };
 		A00000000000000000000052 /* DeviceCardPlaneGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000052 /* DeviceCardPlaneGeometry.swift */; };
+		A00000000000000000000053 /* DeviceTablePlaneFitSeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000053 /* DeviceTablePlaneFitSeed.swift */; };
+		A00000000000000000000054 /* DeviceTablePlaneBoundaryFit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000054 /* DeviceTablePlaneBoundaryFit.swift */; };
 		A00000000000000000000050 /* RFDETRSegMedium.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000050 /* RFDETRSegMedium.mlpackage */; };
 		A00000000000000000000039 /* RecordingProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000039 /* RecordingProfile.swift */; };
 		A0000000000000000000003A /* RecordingWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003A /* RecordingWorkspace.swift */; };
@@ -108,6 +110,7 @@
 		B00000000000000000000049 /* DeviceVisibleCardPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceVisibleCardPipeline.swift; sourceTree = "<group>"; };
 		B00000000000000000000052 /* DeviceCardPlaneGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCardPlaneGeometry.swift; sourceTree = "<group>"; };
 		B00000000000000000000053 /* DeviceTablePlaneFitSeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTablePlaneFitSeed.swift; sourceTree = "<group>"; };
+		B00000000000000000000054 /* DeviceTablePlaneBoundaryFit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTablePlaneBoundaryFit.swift; sourceTree = "<group>"; };
 		B00000000000000000000050 /* RFDETRSegMedium.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = CardEventProbe/Runtime/RFDETRSegMedium.mlpackage; sourceTree = "<group>"; };
 		B00000000000000000000011 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		B00000000000000000000012 /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
@@ -272,6 +275,7 @@
 				B00000000000000000000049 /* DeviceVisibleCardPipeline.swift */,
 				B00000000000000000000052 /* DeviceCardPlaneGeometry.swift */,
 				B00000000000000000000053 /* DeviceTablePlaneFitSeed.swift */,
+				B00000000000000000000054 /* DeviceTablePlaneBoundaryFit.swift */,
 				B00000000000000000000039 /* RecordingProfile.swift */,
 				B0000000000000000000003A /* RecordingWorkspace.swift */,
 				B0000000000000000000003B /* RecordingWorkspacePresentation.swift */,
@@ -573,6 +577,7 @@
 				A00000000000000000000049 /* DeviceVisibleCardPipeline.swift in Sources */,
 				A00000000000000000000052 /* DeviceCardPlaneGeometry.swift in Sources */,
 				A00000000000000000000053 /* DeviceTablePlaneFitSeed.swift in Sources */,
+				A00000000000000000000054 /* DeviceTablePlaneBoundaryFit.swift in Sources */,
 				A00000000000000000000039 /* RecordingProfile.swift in Sources */,
 				A0000000000000000000003A /* RecordingWorkspace.swift in Sources */,
 				A0000000000000000000003B /* RecordingWorkspacePresentation.swift in Sources */,

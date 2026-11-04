@@ -46,6 +46,7 @@ let package = Package(
                 "Core/DeviceVisibleCardPipeline.swift",
                 "Core/DeviceCardPlaneGeometry.swift",
                 "Core/DeviceTablePlaneFitSeed.swift",
+                "Core/DeviceTablePlaneBoundaryFit.swift",
                 "Inference/RfdetrCoreMLRunner.swift",
                 "Core/CausalEventDecoder.swift",
                 "Core/EvidenceCaptureConfiguration.swift",
