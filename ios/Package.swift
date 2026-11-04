@@ -28,6 +28,7 @@ let package = Package(
                 "Diagnostics",
                 "UI",
                 "Replay",
+                "Runtime",
                 "Info.plist",
                 "CardEventNetTransitionV2.mlpackage",
                 "Inference/CardEventModelRunner.swift",
@@ -39,6 +40,8 @@ let package = Package(
             sources: [
                 "Core/DetectionEvent.swift",
                 "Core/CameraSourceRate.swift",
+                "Core/DeviceCaptureContract.swift",
+                "Core/DeviceCaptureTimeline.swift",
                 "Core/CausalEventDecoder.swift",
                 "Core/EvidenceCaptureConfiguration.swift",
                 "Core/EvidenceFrameRing.swift",

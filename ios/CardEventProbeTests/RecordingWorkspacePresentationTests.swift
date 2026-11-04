@@ -52,7 +52,6 @@ final class RecordingWorkspacePresentationTests: XCTestCase {
                     operatorConfigured: false,
                     cameraReady: false,
                     modelReady: false,
-                    backendConnected: false,
                     diskSpaceAvailable: false,
                     queueReady: false
                 ),
@@ -147,7 +146,6 @@ final class RecordingWorkspacePresentationTests: XCTestCase {
         operatorConfigured: Bool = true,
         cameraReady: Bool = true,
         modelReady: Bool = true,
-        backendConnected: Bool = true,
         diskSpaceAvailable: Bool = true,
         queueReady: Bool = true,
         replayRunning: Bool = false
@@ -159,7 +157,6 @@ final class RecordingWorkspacePresentationTests: XCTestCase {
             operatorConfigured: operatorConfigured,
             cameraReady: cameraReady,
             modelReady: modelReady,
-            backendConnected: backendConnected,
             diskSpaceAvailable: diskSpaceAvailable,
             queueReady: queueReady,
             replayRunning: replayRunning

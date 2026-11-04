@@ -39,6 +39,7 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
                 inferenceDurationMs: 11.0
             )
         )
+        coordinator.recordInferenceFailure(at: time(100.15), message: "fixture inference failure")
 
         let result = waitForStop(coordinator)
         let bundleURL = try XCTUnwrap(try result.get())
@@ -62,6 +63,28 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
         XCTAssertEqual(proposal.probabilities[1].timeS, 0.1, accuracy: 0.000001)
         XCTAssertEqual(proposal.eventProposals.count, 1)
         XCTAssertEqual(proposal.eventProposals[0].emittedAtS, 0.1, accuracy: 0.000001)
+        let timeline = try DeviceCaptureTimeline.load(from: bundleURL)
+        XCTAssertEqual(timeline.recordingID, "recording-fixture-001")
+        XCTAssertEqual(timeline.sourceTimeZero.cmTime, time(100.0))
+        XCTAssertEqual(timeline.frames.count, 2)
+        XCTAssertEqual(timeline.frames[0].frameIndex, 0)
+        XCTAssertEqual(timeline.frames[0].movieTime.cmTime, .zero)
+        XCTAssertEqual(timeline.frames[1].frameIndex, 1)
+        XCTAssertEqual(CMTimeGetSeconds(timeline.frames[1].movieTime.cmTime), 0.1, accuracy: 0.000001)
+        XCTAssertEqual(timeline.frames.map(\.orientation), ["up", "up"])
+        XCTAssertEqual(timeline.receivedFrameCount, 2)
+        XCTAssertEqual(timeline.writtenFrameCount, 2)
+        XCTAssertEqual(timeline.droppedFrameCount, 0)
+        XCTAssertEqual(timeline.predictionSampleCount, 2)
+        XCTAssertEqual(timeline.eventProposalCount, 1)
+        XCTAssertEqual(timeline.issues.count, 1)
+        XCTAssertEqual(timeline.issues[0].stage, "card_event_inference")
+        XCTAssertEqual(timeline.issues[0].message, "fixture inference failure")
+        XCTAssertEqual(
+            CMTimeGetSeconds(try XCTUnwrap(timeline.issues[0].sourceTime).cmTime),
+            0.15,
+            accuracy: 0.000001
+        )
         XCTAssertEqual(source.gameID, "game-550e8400-e29b-41d4-a716-446655440010")
         XCTAssertEqual(source.tableSetup, "default_table_setup")
         XCTAssertEqual(
@@ -183,6 +206,73 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
         let result = waitForStop(coordinator)
         XCTAssertNoThrow(try result.get())
         XCTAssertEqual(coordinator.metrics.writtenFrameCount, 1)
+    }
+
+    func testFirstAcceptedVideoFrameDefinesTheSavedTimelineZero() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let writer = FakeVideoWriterFactory(readiness: [false, true])
+        let coordinator = TrainingRecordingCoordinator(
+            configuration: configuration(root: root),
+            writerFactory: writer
+        )
+
+        try coordinator.start()
+        coordinator.consume(frame(at: 40.0))
+        coordinator.drain()
+        coordinator.consume(frame(at: 40.2))
+        coordinator.drain()
+        coordinator.consume(
+            ModelPrediction(
+                timestamp: time(40.2),
+                cardEventProbability: 0.8,
+                inferenceDurationMs: 8.0
+            ),
+            event: DetectionEvent(
+                timestamp: time(40.2),
+                emittedAt: time(40.3),
+                peakProbability: 0.8
+            )
+        )
+
+        let bundleURL = try XCTUnwrap(try waitForStop(coordinator).get())
+        let timeline = try DeviceCaptureTimeline.load(from: bundleURL)
+        let proposalURL = bundleURL.appendingPathComponent(
+            "predictions/proposal-recording-fixture-001-device.json"
+        )
+        let proposal = try decodeRepositoryJSON(
+            RepositoryProposalGeneratorRun.self,
+            data: Data(contentsOf: proposalURL)
+        )
+
+        XCTAssertEqual(timeline.sourceTimeZero.cmTime, time(40.2))
+        XCTAssertEqual(timeline.frames.count, 1)
+        XCTAssertEqual(timeline.frames[0].movieTime.cmTime, .zero)
+        XCTAssertEqual(proposal.probabilities[0].timeS, 0.0, accuracy: 0.000001)
+        XCTAssertEqual(proposal.eventProposals[0].timeS, 0.0, accuracy: 0.000001)
+        XCTAssertEqual(proposal.eventProposals[0].emittedAtS, 0.1, accuracy: 0.000001)
+        XCTAssertEqual(coordinator.metrics.droppedFrameCount, 1)
+    }
+
+    func testInterruptedCaptureRetainsItsTimelineAndIssue() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let coordinator = TrainingRecordingCoordinator(
+            configuration: configuration(root: root),
+            writerFactory: FakeVideoWriterFactory()
+        )
+
+        try coordinator.start()
+        coordinator.consume(frame(at: 50.0))
+        coordinator.drain()
+        coordinator.markInterrupted()
+
+        let bundleURL = try XCTUnwrap(try waitForStop(coordinator).get())
+        let timeline = try DeviceCaptureTimeline.load(from: bundleURL)
+        XCTAssertTrue(timeline.interrupted)
+        XCTAssertEqual(timeline.frames.count, 1)
+        XCTAssertEqual(timeline.issues.last?.stage, "capture")
+        XCTAssertEqual(timeline.issues.last?.message, "Capture was interrupted.")
     }
 
     func testWriterFailureIsReportedAndDoesNotProduceACompleteBundle() throws {
@@ -319,12 +409,18 @@ final class TrainingRecordingCoordinatorTests: XCTestCase {
 private final class FakeVideoWriterFactory: TrainingRecordingVideoWriterFactory {
     let appendResult: Bool
     let appendGate: DispatchSemaphore?
+    let readiness: [Bool]
     private(set) var makeCount = 0
     private(set) var writer: FakeVideoWriter?
 
-    init(appendResult: Bool = true, appendGate: DispatchSemaphore? = nil) {
+    init(
+        appendResult: Bool = true,
+        appendGate: DispatchSemaphore? = nil,
+        readiness: [Bool] = []
+    ) {
         self.appendResult = appendResult
         self.appendGate = appendGate
+        self.readiness = readiness
     }
 
     func makeWriter(
@@ -340,7 +436,8 @@ private final class FakeVideoWriterFactory: TrainingRecordingVideoWriterFactory 
             height: height,
             frameRate: frameRate,
             appendResult: appendResult,
-            appendGate: appendGate
+            appendGate: appendGate,
+            readiness: readiness
         )
         self.writer = writer
         return writer
@@ -352,6 +449,7 @@ private final class FakeVideoWriter: TrainingRecordingVideoWriter {
     let output: TrainingRecordingVideoWriterOutput
     let appendResult: Bool
     let appendGate: DispatchSemaphore?
+    private var readiness: [Bool]
     private(set) var finishCount = 0
 
     init(
@@ -360,16 +458,21 @@ private final class FakeVideoWriter: TrainingRecordingVideoWriter {
         height: Int,
         frameRate: Double,
         appendResult: Bool,
-        appendGate: DispatchSemaphore?
+        appendGate: DispatchSemaphore?,
+        readiness: [Bool]
     ) {
         self.outputURL = outputURL
         output = TrainingRecordingVideoWriterOutput(width: width, height: height, frameRate: frameRate)
         self.appendResult = appendResult
         self.appendGate = appendGate
+        self.readiness = readiness
         try? Data("fake h264 bytes".utf8).write(to: outputURL)
     }
 
-    var isReadyForMoreMediaData: Bool { true }
+    var isReadyForMoreMediaData: Bool {
+        guard !readiness.isEmpty else { return true }
+        return readiness.removeFirst()
+    }
 
     func append(_ frame: VideoFrame, presentationTime: CMTime) -> Bool {
         _ = appendGate?.wait(timeout: .now() + 3)

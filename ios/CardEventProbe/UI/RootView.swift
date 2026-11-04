@@ -51,6 +51,7 @@ struct RootView: View {
             if newPhase == .active {
                 updateIdleTimer()
             } else {
+                appState.interruptRecording()
                 UIApplication.shared.isIdleTimerDisabled = false
             }
         }

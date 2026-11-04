@@ -4,6 +4,29 @@ import XCTest
 @testable import CardEventProbeCore
 
 final class CausalEventDecoderTests: XCTestCase {
+    func testDeviceCaptureContractFreezesCoreMLAndDecoderInputs() {
+        XCTAssertEqual(DeviceCaptureContract.modelName, "CardEventNet")
+        XCTAssertEqual(
+            DeviceCaptureContract.modelVersion,
+            "CardEventNet0103M3-b3f41726c2029e6047bd9ea04ab742fc55868e815f2601410dc266a8ca736bfd"
+        )
+        XCTAssertEqual(
+            DeviceCaptureContract.sourcePackageSHA256,
+            "b3f41726c2029e6047bd9ea04ab742fc55868e815f2601410dc266a8ca736bfd"
+        )
+        XCTAssertEqual(DeviceCaptureContract.decoderConfiguration.threshold, 0.4271905720, accuracy: 1e-10)
+        XCTAssertEqual(
+            CMTimeGetSeconds(DeviceCaptureContract.decoderConfiguration.peakConfirmation),
+            0.125,
+            accuracy: 1e-9
+        )
+        XCTAssertEqual(
+            CMTimeGetSeconds(DeviceCaptureContract.decoderConfiguration.minimumEventGap),
+            0.625,
+            accuracy: 1e-9
+        )
+    }
+
     func testMatchesSharedFixture() throws {
         let fixture = try loadFixture()
         let configuration = CausalEventDecoder.Configuration(

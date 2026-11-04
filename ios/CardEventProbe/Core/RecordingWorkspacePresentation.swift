@@ -42,7 +42,6 @@ public struct RecordingWorkspaceStartRequirements: Equatable, Sendable {
     public let operatorConfigured: Bool
     public let cameraReady: Bool
     public let modelReady: Bool
-    public let backendConnected: Bool
     public let diskSpaceAvailable: Bool
     public let queueReady: Bool
     public let replayRunning: Bool
@@ -54,7 +53,6 @@ public struct RecordingWorkspaceStartRequirements: Equatable, Sendable {
         operatorConfigured: Bool,
         cameraReady: Bool,
         modelReady: Bool,
-        backendConnected: Bool,
         diskSpaceAvailable: Bool,
         queueReady: Bool,
         replayRunning: Bool
@@ -65,7 +63,6 @@ public struct RecordingWorkspaceStartRequirements: Equatable, Sendable {
         self.operatorConfigured = operatorConfigured
         self.cameraReady = cameraReady
         self.modelReady = modelReady
-        self.backendConnected = backendConnected
         self.diskSpaceAvailable = diskSpaceAvailable
         self.queueReady = queueReady
         self.replayRunning = replayRunning
@@ -92,7 +89,6 @@ public struct RecordingWorkspaceStartRequirements: Equatable, Sendable {
 
         guard cameraReady else { return "Camera is not ready." }
         guard modelReady else { return "The detection model is not ready." }
-        guard backendConnected else { return "Connect to a backend before recording." }
         guard diskSpaceAvailable else { return "There is not enough free space for a recording." }
         guard queueReady else { return "The previous recording is still finishing." }
         return nil

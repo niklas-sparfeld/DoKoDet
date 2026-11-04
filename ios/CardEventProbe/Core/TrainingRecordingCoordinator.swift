@@ -295,7 +295,14 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
     private var sourceTimestamp: CMTime?
     private var latestTimelineTime: CMTime?
     private var lastWrittenFrameTime: CMTime?
+    private var lastReceivedFrameTime: CMTime?
     private var firstOrientation: String?
+    private var captureTimelineFrames: [DeviceCaptureFrameTime] = []
+    private var pendingPredictions: [(ModelPrediction, DetectionEvent?)] = []
+    private var deviceCaptureIssues: [DeviceCaptureIssue] = []
+    private var wasInterrupted = false
+    private var sampledFrameCount = 0
+    private var busyFrameDropCount = 0
     private var frameWriteInFlight = false
     private var finalizationCollectionMetadata: TrainingRecordingCollectionMetadata?
     private var finalizationTaskEnrollments: [RepositoryTaskEnrollment]?
@@ -432,16 +439,23 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
             return
         }
 
-        if sourceTimestamp == nil {
-            sourceTimestamp = timestamp
-            firstOrientation = Self.orientationName(frame.orientation)
+        let orientation = Self.orientationName(frame.orientation)
+        if let firstOrientation, firstOrientation != orientation {
+            setFailureLocked(.validationFailed("camera orientation changed during recording"))
+            incrementDroppedFrameLocked()
+            lock.unlock()
+            return
+        } else if firstOrientation == nil {
+            firstOrientation = orientation
         }
-        guard let sourceTimestamp else {
+        if let lastReceivedFrameTime, CMTimeCompare(timestamp, lastReceivedFrameTime) <= 0 {
+            setFailureLocked(.validationFailed("camera timestamps are not strictly increasing"))
             incrementDroppedFrameLocked()
             lock.unlock()
             return
         }
-        let relativeTime = CMTimeSubtract(timestamp, sourceTimestamp)
+        lastReceivedFrameTime = timestamp
+        let relativeTime = sourceTimestamp.map { CMTimeSubtract(timestamp, $0) } ?? .zero
         guard CMTimeGetSeconds(relativeTime).isFinite,
               CMTimeCompare(relativeTime, .zero) >= 0 else {
             incrementDroppedFrameLocked()
@@ -467,8 +481,12 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
     public func consume(_ prediction: ModelPrediction, event: DetectionEvent? = nil) {
         lock.lock()
         guard stateValue == .recording,
-              let sourceTimestamp,
               CMTimeGetSeconds(prediction.timestamp).isFinite else {
+            lock.unlock()
+            return
+        }
+        guard let sourceTimestamp else {
+            pendingPredictions.append((prediction, event))
             lock.unlock()
             return
         }
@@ -536,6 +554,42 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
                 emittedRelativeTime: emittedRelativeTime
             )
         }
+    }
+
+    public func recordInferenceFailure(at timestamp: CMTime, message: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard deviceCaptureIssues.count < 100,
+              !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let relativeTime = sourceTimestamp.map { CMTimeSubtract(timestamp, $0) }
+        let sourceTime = relativeTime.flatMap { try? DeviceMediaTime($0) }
+        deviceCaptureIssues.append(
+            DeviceCaptureIssue(stage: "card_event_inference", sourceTime: sourceTime, message: message)
+        )
+    }
+
+    public func markInterrupted() {
+        lock.lock()
+        wasInterrupted = true
+        if deviceCaptureIssues.count < 100 {
+            let time = latestTimelineTime.flatMap { try? DeviceMediaTime($0) }
+            deviceCaptureIssues.append(
+                DeviceCaptureIssue(stage: "capture", sourceTime: time, message: "Capture was interrupted.")
+            )
+        }
+        lock.unlock()
+    }
+
+    public func recordSampledFrame() {
+        lock.lock()
+        sampledFrameCount += 1
+        lock.unlock()
+    }
+
+    public func recordBusyFrameDrop() {
+        lock.lock()
+        busyFrameDropCount += 1
+        lock.unlock()
     }
 
     /// Finalizes the writer and atomically moves the complete bundle out of staging.
@@ -628,9 +682,31 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
             return
         }
 
-        let appended = writer.append(frame, presentationTime: relativeTime)
+        let presentationTime: CMTime
         lock.lock()
+        presentationTime = sourceTimestamp.map { CMTimeSubtract(frame.timestamp, $0) } ?? .zero
+        lock.unlock()
+        let appended = writer.append(frame, presentationTime: presentationTime)
+        lock.lock()
+        var predictionsToWrite: [(ModelPrediction, DetectionEvent?)] = []
         if appended {
+            if sourceTimestamp == nil {
+                sourceTimestamp = frame.timestamp
+                predictionsToWrite = pendingPredictions
+                pendingPredictions.removeAll(keepingCapacity: true)
+            }
+            let sourceTime = sourceTimestamp ?? frame.timestamp
+            let movieTime = CMTimeSubtract(frame.timestamp, sourceTime)
+            if let mapping = try? DeviceCaptureFrameTime(
+                frameIndex: captureTimelineFrames.count,
+                sourceTime: DeviceMediaTime(frame.timestamp),
+                movieTime: DeviceMediaTime(movieTime),
+                orientation: Self.orientationName(frame.orientation)
+            ) {
+                captureTimelineFrames.append(mapping)
+            } else {
+                setFailureLocked(.validationFailed("a written frame has an invalid presentation timestamp"))
+            }
             metricsValue = TrainingRecordingMetrics(
                 receivedFrameCount: metricsValue.receivedFrameCount,
                 writtenFrameCount: metricsValue.writtenFrameCount + 1,
@@ -644,6 +720,9 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
             incrementDroppedFrameLocked()
         }
         lock.unlock()
+        for (prediction, event) in predictionsToWrite {
+            consume(prediction, event: event)
+        }
     }
 
     private func writePrediction(
@@ -906,6 +985,36 @@ public final class TrainingRecordingCoordinator: @unchecked Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let manifestData = try encoder.encode(bundle)
+        let timelineDirectory = stagingDirectory.appendingPathComponent(".device", isDirectory: true)
+        try fileManager.createDirectory(at: timelineDirectory, withIntermediateDirectories: true)
+        lock.lock()
+        let timelineOrigin = sourceTimestamp
+        let timelineFrames = captureTimelineFrames
+        let timelineIssues = deviceCaptureIssues
+        let interrupted = wasInterrupted
+        let timelineMetrics = metricsValue
+        let sampledFrameCount = self.sampledFrameCount
+        let busyFrameDropCount = self.busyFrameDropCount
+        lock.unlock()
+        guard let timelineOrigin else {
+            throw TrainingRecordingError.validationFailed("the video timeline has no accepted source frame")
+        }
+        let timeline = DeviceCaptureTimeline(
+            recordingID: configuration.recordingID,
+            sourceTimeZero: try DeviceMediaTime(timelineOrigin),
+            frames: timelineFrames,
+            issues: timelineIssues,
+            interrupted: interrupted,
+            metrics: timelineMetrics,
+            sampledFrameCount: sampledFrameCount,
+            busyFrameDropCount: busyFrameDropCount
+        )
+        let timelineEncoder = JSONEncoder()
+        timelineEncoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try timelineEncoder.encode(timeline).write(
+            to: timelineDirectory.appendingPathComponent("capture-timeline.json"),
+            options: .atomic
+        )
         let manifestURL = stagingDirectory.appendingPathComponent("manifest.json", isDirectory: false)
         try sourceRecordData.write(
             to: stagingDirectory.appendingPathComponent("source-record.json"),

@@ -325,10 +325,6 @@ final class AppState: ObservableObject {
                 if case .ready = modelState { return true }
                 return false
             }(),
-            backendConnected: {
-                if case .connected = backendDiscovery.state { return true }
-                return false
-            }(),
             diskSpaceAvailable: hasEnoughFreeDiskSpace(),
             queueReady: recordingWorkflow.queueReady,
             replayRunning: replayRunning
@@ -470,12 +466,13 @@ final class AppState: ObservableObject {
     }
 
     func startRecording(profile: RecordingProfile) {
+        liveCoordinator?.beginDeviceRecording()
+        eventDecoder.updateConfiguration(DeviceCaptureContract.decoderConfiguration)
         let model = TrainingRecordingModel(
-            name: "CardEventNet",
-            version: modelRunner?.contract.metadata["version"] ?? "transition-v2-run-20260825-235429",
-            weightsSHA256: modelRunner?.contract.metadata["weights_sha256"]
-                ?? "f5eccd8e580d1dccecfa7835b3a0d9d5858cc47fdd0098aa33c3c47f01a38d04",
-            preprocessing: "full_frame_letterbox_v1"
+            name: DeviceCaptureContract.modelName,
+            version: DeviceCaptureContract.modelVersion,
+            weightsSHA256: DeviceCaptureContract.checkpointSHA256,
+            preprocessing: DeviceCaptureContract.preprocessing
         )
         let decoderConfiguration = eventDecoder.configuration
         let decoder = TrainingRecordingDecoder(
@@ -506,7 +503,17 @@ final class AppState: ObservableObject {
     }
 
     func stopRecording() {
+        liveCoordinator?.flushDeviceRecording()
         recordingWorkflow.stopRecording()
+    }
+
+    func interruptRecording() {
+        guard recordingWorkflow.trainingRecordingState == .recording else { return }
+        liveCoordinator?.flushDeviceRecording()
+        recordingWorkflow.stopRecording(interrupted: true)
+        cameraSession.setFrameHandler(nil)
+        cameraSession.stop()
+        stopPreviewInference()
     }
 
     func updateTrainingRecordingClock(now: Date = Date()) {

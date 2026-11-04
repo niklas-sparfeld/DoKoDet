@@ -16,7 +16,7 @@ public final class CoreMLCardEventModelRunner: CardEventModelRunner {
         configuration: MLModelConfiguration = MLModelConfiguration()
     ) throws {
         guard let modelURL = bundle.url(
-            forResource: "CardEventNetTransitionV2",
+            forResource: "CardEventNet0103M3",
             withExtension: "mlmodelc"
         ) else {
             throw CardEventModelRunnerError.modelResourceMissing

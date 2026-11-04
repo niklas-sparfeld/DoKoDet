@@ -25,7 +25,7 @@
 		A0000000000000000000000C /* DiagnosticsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000C /* DiagnosticsPanel.swift */; };
 		A0000000000000000000000E /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000E /* ReplayView.swift */; };
 		A0000000000000000000000F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000F /* RootView.swift */; };
-		A00000000000000000000010 /* CardEventNetTransitionV2.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000010 /* CardEventNetTransitionV2.mlpackage */; };
+		A00000000000000000000044 /* CardEventNet0103M3.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000044 /* CardEventNet0103M3.mlpackage */; };
 		A00000000000000000000011 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000011 /* AVFoundation.framework */; };
 		A00000000000000000000012 /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000012 /* CoreML.framework */; };
 		A00000000000000000000013 /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B00000000000000000000013 /* CoreMedia.framework */; };
@@ -62,6 +62,8 @@
 		A00000000000000000000030 /* EvidenceVideoSnippet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000030 /* EvidenceVideoSnippet.swift */; };
 		A00000000000000000000031 /* EvidenceLiveVideoSnippet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000031 /* EvidenceLiveVideoSnippet.swift */; };
 		A00000000000000000000032 /* CameraSourceRate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000032 /* CameraSourceRate.swift */; };
+		A00000000000000000000045 /* DeviceCaptureContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000045 /* DeviceCaptureContract.swift */; };
+		A00000000000000000000046 /* DeviceCaptureTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000046 /* DeviceCaptureTimeline.swift */; };
 		A00000000000000000000039 /* RecordingProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000039 /* RecordingProfile.swift */; };
 		A0000000000000000000003A /* RecordingWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003A /* RecordingWorkspace.swift */; };
 		A00000000000000000000036 /* RepositoryIntakeDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000036 /* RepositoryIntakeDocuments.swift */; };
@@ -93,7 +95,9 @@
 		B0000000000000000000000C /* DiagnosticsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsPanel.swift; sourceTree = "<group>"; };
 		B0000000000000000000000E /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000F /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		B00000000000000000000010 /* CardEventNetTransitionV2.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = CardEventProbe/CardEventNetTransitionV2.mlpackage; sourceTree = "<group>"; };
+		B00000000000000000000044 /* CardEventNet0103M3.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = CardEventProbe/Runtime/CardEventNet0103M3.mlpackage; sourceTree = "<group>"; };
+		B00000000000000000000045 /* DeviceCaptureContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCaptureContract.swift; sourceTree = "<group>"; };
+		B00000000000000000000046 /* DeviceCaptureTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCaptureTimeline.swift; sourceTree = "<group>"; };
 		B00000000000000000000011 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		B00000000000000000000012 /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		B00000000000000000000013 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
@@ -183,7 +187,7 @@
 				D0000000000000000000000D /* CardEventProbeAppTests */,
 				D00000000000000000000003 /* Products */,
 				D00000000000000000000004 /* Frameworks */,
-				B00000000000000000000010 /* CardEventNetTransitionV2.mlpackage */,
+				B00000000000000000000044 /* CardEventNet0103M3.mlpackage */,
 				854184EA3037408D009260B8 /* Recovered References */,
 			);
 			sourceTree = "<group>";
@@ -250,6 +254,8 @@
 			isa = PBXGroup;
 			children = (
 				B00000000000000000000032 /* CameraSourceRate.swift */,
+				B00000000000000000000045 /* DeviceCaptureContract.swift */,
+				B00000000000000000000046 /* DeviceCaptureTimeline.swift */,
 				B00000000000000000000039 /* RecordingProfile.swift */,
 				B0000000000000000000003A /* RecordingWorkspace.swift */,
 				B0000000000000000000003B /* RecordingWorkspacePresentation.swift */,
@@ -349,6 +355,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = E00000000000000000000003 /* Build configuration list for PBXNativeTarget "CardEventProbe" */;
 			buildPhases = (
+				C10000000000000000000005 /* Verify frozen CardEventNet input */,
 				C00000000000000000000001 /* Frameworks */,
 				E00000000000000000000004 /* Sources */,
 				E00000000000000000000005 /* Resources */,
@@ -381,6 +388,28 @@
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C10000000000000000000005 /* Verify frozen CardEventNet input */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Verify frozen CardEventNet input";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "python3 \"$SRCROOT/../scripts/0106_m1_prepare_ios_model.py\"";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		A00000000000000000000042 /* CardEventProbe target dependency */ = {
@@ -431,7 +460,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A00000000000000000000010 /* CardEventNetTransitionV2.mlpackage in Resources */,
+				A00000000000000000000044 /* CardEventNet0103M3.mlpackage in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -519,6 +548,8 @@
 				A0000000000000000000002D /* TrainingRecordingCoordinator.swift in Sources */,
 				A0000000000000000000002E /* TrainingRecordingQueue.swift in Sources */,
 				A00000000000000000000032 /* CameraSourceRate.swift in Sources */,
+				A00000000000000000000045 /* DeviceCaptureContract.swift in Sources */,
+				A00000000000000000000046 /* DeviceCaptureTimeline.swift in Sources */,
 				A00000000000000000000039 /* RecordingProfile.swift in Sources */,
 				A0000000000000000000003A /* RecordingWorkspace.swift in Sources */,
 				A0000000000000000000003B /* RecordingWorkspacePresentation.swift in Sources */,

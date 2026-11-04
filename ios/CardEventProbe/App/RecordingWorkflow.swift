@@ -196,7 +196,7 @@ final class RecordingWorkflow {
             return false
         }
         guard recordingWorkspaceState.acceptsRecordingStart else {
-            trainingRecordingError = "Start the recording workspace preview with a ready backend before recording."
+            trainingRecordingError = "Start the camera preview before recording."
             publish()
             return false
         }
@@ -349,7 +349,7 @@ final class RecordingWorkflow {
         return true
     }
 
-    func stopRecording() {
+    func stopRecording(interrupted: Bool = false) {
         guard trainingRecordingState == .recording else { return }
         guard recordingWorkspaceLifecycle.stopRecording() else { return }
         publish()
@@ -364,6 +364,9 @@ final class RecordingWorkflow {
         guard let activeRecordingSnapshot else {
             failRecording("The recording start snapshot is not available.")
             return
+        }
+        if interrupted {
+            coordinator.markInterrupted()
         }
         do {
             _ = try roundRecordingStateStore.closeEvidenceMembership(recordingID: recordingID)

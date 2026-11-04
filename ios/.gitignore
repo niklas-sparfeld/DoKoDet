@@ -1,4 +1,5 @@
 \.build/
 DerivedData/
+CardEventProbe/Runtime/
 *.xcuserstate
 xcuserdata/

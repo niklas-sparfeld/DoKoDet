@@ -8,8 +8,8 @@
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M6.
-- **Outcome:** M0 complete. M1–M6 remain. The device contract identifies the required ports and
-  frozen model packages; no device result or model-quality claim exists yet.
+- **Outcome:** M0 and M1 complete. M2–M6 remain. Live capture retains event proposals, frame timing,
+  frozen model lineage, and interruption evidence. No device result or model-quality claim exists.
 
 ## Purpose and scope
 
@@ -69,7 +69,7 @@ Acceptance: a reproducible contract maps live event proposals to every downstrea
 identifies artifact locations and digests or actionable missing prerequisites, and names the
 implementation and tests for each remaining milestone.
 
-### M1 — Capture live events and retain a recording
+### M1 — Capture live events and retain a recording — Complete
 
 Connect recording and causal event detection to one run. Persist event proposals and the timing and
 frame mapping defined in M0 with the recording and model lineage. Record capture and inference
@@ -78,6 +78,9 @@ errors and bounded diagnostic logs.
 Acceptance: deterministic capture and decoder fixtures cover event timestamps, frame selection,
 dropped frames, empty events, stop, and interruption. A saved run can be reopened without changing
 its event proposals.
+
+The [M1 result](../../reports/0106-M1_Live_Capture.md) records the frozen model input, retained
+timeline, error and interruption evidence, and verification results.
 
 ### M2 — Run visible-card and geometry stages
 

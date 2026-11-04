@@ -67,6 +67,27 @@ final class FrameInferenceCoordinator {
         lock.unlock()
     }
 
+    func beginDeviceRecording() {
+        inferenceQueue.sync {
+            runner.reset()
+            eventDecoder.updateConfiguration(DeviceCaptureContract.decoderConfiguration)
+        }
+        lock.lock()
+        samplingPolicy.reset()
+        lock.unlock()
+    }
+
+    func flushDeviceRecording() {
+        inferenceQueue.sync {
+            if let event = eventDecoder.flush() {
+                lock.lock()
+                let recorder = trainingRecordingCoordinator
+                lock.unlock()
+                recorder?.record(event)
+            }
+        }
+    }
+
     func consume(_ frame: VideoFrame) {
         evidenceSampler.consume(frame)
         videoCapture?.consume(frame)
@@ -89,15 +110,21 @@ final class FrameInferenceCoordinator {
         case .sampledTooSoon:
             framesSkippedForSampling += 1
             lock.unlock()
+            trainingRecordingCoordinator?.recordSampledFrame()
             if shouldPublishMetrics { publishMetrics() }
             return
         case .inferenceBusy:
             framesDroppedWhileBusy += 1
             lock.unlock()
+            trainingRecordingCoordinator?.recordBusyFrameDrop()
             if shouldPublishMetrics { publishMetrics() }
             return
         case .invalidTimestamp:
             lock.unlock()
+            trainingRecordingCoordinator?.recordInferenceFailure(
+                at: frame.timestamp,
+                message: "The camera produced a frame with an invalid timestamp."
+            )
             Self.logger.error("Dropped a camera frame with an invalid timestamp.")
             publish(
                 prediction: nil,
@@ -138,6 +165,13 @@ final class FrameInferenceCoordinator {
             }
         } catch {
             errorMessage = error.localizedDescription
+            lock.lock()
+            let trainingRecordingCoordinator = self.trainingRecordingCoordinator
+            lock.unlock()
+            trainingRecordingCoordinator?.recordInferenceFailure(
+                at: frame.timestamp,
+                message: error.localizedDescription
+            )
             Self.logger.error("Model inference failed: \(error.localizedDescription, privacy: .public)")
         }
 
