@@ -4,7 +4,9 @@
 
 - **Summary:** Export the exact frozen RF-DETR and DINOv3 models to Core ML, or record a
   bounded compatibility blocker for each model.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** DINOv3 passes the frozen comparisons. RF-DETR exports but has a documented full-parity blocker; the user accepts its limited results for a PoC.
 - **Depends on:** Epic 0103 M0–M3 complete. The exact 0092 RF-DETR and 0088 DINOv3 bundles are
   available in the local runtime paths recorded by the 0103 reports.
 - **Outcome:** Each model has either a Core ML package that passes the frozen 0103 Python output
@@ -51,7 +53,10 @@ records the original `meshgrid` blocker.
 - Add focused checks for any graph rewrite. A bounded conversion failure may complete M1 only when
   the exact failure and attempted route are reproducible.
 
-## M2 — Export DINOv3
+## M2 — Export DINOv3 — Complete
+
+The [M2 report](../../reports/0104-M2_DINOv3_Core_ML_Export.md) records the exported package
+and successful frozen-crop parity checks.
 
 - Use the selected M0 route with the exact 0088 M6 encoder, head, configuration, target map, and
   calibration.
@@ -65,6 +70,6 @@ records the original `meshgrid` blocker.
 ## Handoff
 
 This epic does not run models on an iPhone. Report the package path and digest, or the blocker, for
-each model. A later device-measurement plan can use only packages that pass the frozen Python
-comparisons. CardEventNet's existing iPhone support is recorded in
+each model. The user accepts RF-DETR for a bounded proof of concept despite its full-parity gap. This does
+not qualify it as an equivalent replacement. DINOv3 passes the frozen Python comparisons. CardEventNet's existing iPhone support is recorded in
 [Epic 0002](../5-closed/0002-iOS_CardEventNet_PoC.md).
