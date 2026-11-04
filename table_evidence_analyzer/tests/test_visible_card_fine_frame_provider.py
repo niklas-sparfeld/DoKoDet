@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,9 +12,10 @@ from PIL import Image
 from table_evidence_analyzer.visible_card_fine_frame_provider import (
     FINE_FRAME_PROVIDER_NAME,
     SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION,
+    LocalVisibleCardCropReviewProvider,
     LocalVisibleCardFineFrameProvider,
 )
-from table_evidence_analyzer.visible_cards import VisibleCardRequest
+from table_evidence_analyzer.visible_cards import CachedVisibleCardProvider, VisibleCardRequest
 
 
 def _digest(value: object) -> str:
@@ -34,7 +36,7 @@ def _bundle(root: Path) -> Path:
         "schema_version": "rfdetr-segmentation-bundle/v1",
         "component": "visible-card-segmentation",
         "quality_state": "unreviewed",
-        "model": {"class": "RFDETRSegMedium"},
+        "model": {"class": "RFDETRSegMedium", "num_classes": 1},
         "model_variant": "rfdetr-seg-medium",
         "package": {"name": "rfdetr", "version": "1.9.4"},
         "class_map": {"1": "visible_card"},
@@ -81,6 +83,51 @@ class _Detector:
             # source-frame prediction as the prepass result.
             boxes = [[5, 5, 15, 15]]
         return SimpleNamespace(xyxy=boxes, confidence=[0.9] * len(boxes), class_id=[0] * len(boxes))
+
+
+def test_pile_predictions_can_be_cached(tmp_path: Path) -> None:
+    class PileDetector:
+        def predict(self, image: Image.Image, **_kwargs: object) -> object:
+            return SimpleNamespace(xyxy=[[20, 20, 40, 40]], confidence=[0.9], class_id=[1])
+
+    provider = LocalVisibleCardFineFrameProvider(
+        _bundle(tmp_path), device="cpu", detector=PileDetector()
+    )
+    provider._class_map = {"1": "visible_card", "2": "card_pile"}
+    cached = CachedVisibleCardProvider(provider, tmp_path / "cache")
+
+    result = cached.propose(_request())
+
+    assert len(result.pile_proposals) == 1
+    assert result.raw_response["pile_detection_supported"] is True
+    assert cached.propose(_request()).cache_hit is True
+
+
+def test_crop_review_refines_large_card_and_preserves_full_frame_pile(tmp_path: Path) -> None:
+    class Detector:
+        def predict(self, image: Image.Image, **_kwargs: object) -> object:
+            if image.size == (100, 80):
+                return SimpleNamespace(
+                    xyxy=[[20, 20, 40, 40], [70, 50, 90, 70]],
+                    confidence=[0.95, 0.9],
+                    class_id=[0, 1],
+                )
+            return SimpleNamespace(xyxy=[[10, 10, 29, 29]], confidence=[0.8], class_id=[0])
+
+    provider = LocalVisibleCardCropReviewProvider(
+        _bundle(tmp_path), device="cpu", detector=Detector()
+    )
+    provider._class_map = {"1": "visible_card", "2": "card_pile"}
+    request = replace(_request(), provider=provider.name, model=provider.name)
+    result = CachedVisibleCardProvider(provider, tmp_path / "cache").propose(request)
+
+    assert result.status == "ok"
+    assert len(result.proposals) == 1
+    assert len(result.pile_proposals) == 1
+    assert result.raw_response["arbitration"]["routed_cluster_count"] == 1
+    assert result.raw_response["final_provenance"][0]["source"] == "crop_refinement"
+    assert result.raw_response["detector_scores"] == [0.8]
+    assert result.raw_response["provider_manifest"]["matched_crop_policy"] == "prefer_crop"
 
 
 def test_provider_keeps_full_frame_when_matching_crop_has_no_score_gain(

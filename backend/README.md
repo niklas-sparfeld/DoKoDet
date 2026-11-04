@@ -122,10 +122,11 @@ to use a validated native detector bundle. Set `VISIBLE_CARD_SEGMENTATION_BUNDLE
 the RF-DETR options in the Web UI. Select `local-rfdetr-segmentation` for full-frame RF-DETR or
 `local-rfdetr-fine-frame` for full-frame detection with size-gated crop refinement. Both options use
 the same `rfdetr-segmentation-bundle/v1` bundle and `VISIBLE_CARD_DEVICE` setting. The fine-frame
-provider is version `local-rfdetr-fine-frame-v6`; it uses a 0.5 confidence threshold and stays
-non-default, with the threshold applied to full-frame and crop detections. The older
-`VISIBLE_CARD_BUNDLE_PATH` remains a fallback when the segmentation bundle path is unset. The
-visible-card selector sends the chosen provider in each run request.
+provider is version `local-rfdetr-fine-frame-v8`; it applies the 0.5 confidence threshold during
+full-frame and crop inference. Two-class bundles keep `card_pile` proposals separate from
+individual-card proposals; pile geometry comes from full-frame inference. The provider stays
+non-default. The older `VISIBLE_CARD_BUNDLE_PATH` remains a fallback when the segmentation bundle
+path is unset. The visible-card selector sends the chosen provider in each run request.
 Set
 `VISIBLE_CARD_IDENTITY_CLASSIFIER=local`, `VISIBLE_CARD_IDENTITY_BUNDLE_PATH`, and
 `VISIBLE_CARD_IDENTITY_DEVICE=cpu` or `mps` to use the validated local DINOv3 identity bundle.

@@ -163,7 +163,11 @@ class VisibleCardPipelineService:
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
         return tuple(
             run
-            for run in self.run_store.list_for_recording(recording_id, include_items=False)
+            for run in self.run_store.list_for_recording(
+                recording_id,
+                include_items=False,
+                processor_types={"visible-card-detection"},
+            )
             if run.request.source.recording_id == recording_id
             and run.request.processor_type == "visible-card-detection"
         )

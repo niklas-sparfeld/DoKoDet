@@ -21,6 +21,9 @@ from table_evidence_analyzer import (
     VisibleCardTableAnalyzer,
     get_shared_gemini_request_limiter,
 )
+from table_evidence_analyzer.visible_card_fine_frame_provider import (
+    LocalVisibleCardCropReviewProvider,
+)
 
 from dokodetector_backend.config import ConfigurationError, Settings
 
@@ -205,6 +208,7 @@ def _create_visible_card_provider(
         "local",
         "local-rfdetr-segmentation",
         "local-rfdetr-fine-frame",
+        "local-rfdetr-crop-review",
     }:
         bundle_path = _bundle_path_for_provider(settings, provider_name)
         if bundle_path is None:
@@ -222,6 +226,7 @@ def _create_visible_card_provider(
                 "local": LocalVisibleCardProvider,
                 "local-rfdetr-segmentation": LocalVisibleCardSegmentationProvider,
                 "local-rfdetr-fine-frame": LocalVisibleCardFineFrameProvider,
+                "local-rfdetr-crop-review": LocalVisibleCardCropReviewProvider,
             }[provider_name]
             provider_kwargs: dict[str, Any] = {"device": settings.visible_card_device}
             provider = provider_class(bundle_path, **provider_kwargs)
@@ -286,6 +291,7 @@ def _configured_local_visible_provider(settings: Settings) -> str:
         "local",
         "local-rfdetr-segmentation",
         "local-rfdetr-fine-frame",
+        "local-rfdetr-crop-review",
     }:
         return settings.visible_card_provider
     bundle_path = settings.visible_card_bundle_path
@@ -307,13 +313,21 @@ def _configured_local_visible_provider(settings: Settings) -> str:
 
 
 def _bundle_path_for_provider(settings: Settings, provider_name: str) -> Path | None:
-    if provider_name in {"local-rfdetr-segmentation", "local-rfdetr-fine-frame"}:
+    if provider_name in {
+        "local-rfdetr-segmentation",
+        "local-rfdetr-fine-frame",
+        "local-rfdetr-crop-review",
+    }:
         return settings.visible_card_segmentation_bundle_path or settings.visible_card_bundle_path
     return settings.visible_card_bundle_path
 
 
 def _bundle_setting_name(provider_name: str) -> str:
-    if provider_name in {"local-rfdetr-segmentation", "local-rfdetr-fine-frame"}:
+    if provider_name in {
+        "local-rfdetr-segmentation",
+        "local-rfdetr-fine-frame",
+        "local-rfdetr-crop-review",
+    }:
         return "VISIBLE_CARD_SEGMENTATION_BUNDLE_PATH"
     return "VISIBLE_CARD_BUNDLE_PATH"
 
@@ -355,6 +369,12 @@ def create_configured_processor_registries(
             "local-rfdetr-fine-frame": lambda: _create_visible_card_provider(
                 settings,
                 "local-rfdetr-fine-frame",
+                cache_root=cache_root,
+                request_limiter=request_limiter,
+            ),
+            "local-rfdetr-crop-review": lambda: _create_visible_card_provider(
+                settings,
+                "local-rfdetr-crop-review",
                 cache_root=cache_root,
                 request_limiter=request_limiter,
             ),

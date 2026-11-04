@@ -1052,6 +1052,7 @@ class VisualIdentityCropInputProvenance:
         if kind not in {
             "gemini_polygon",
             "rfdetr_segment",
+            "proposed_virtual_cards",
             "reviewed_virtual_card",
             "reviewed_visible_card",
         }:

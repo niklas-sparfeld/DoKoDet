@@ -29,14 +29,15 @@ from .visible_card_cluster_geometry import (
 from .visible_cards import (
     ProviderResult,
     VisibleCardError,
+    VisibleCardPileProposal,
     VisibleCardProposal,
     VisibleCardRequest,
     _elapsed_ms,
 )
 
 FINE_FRAME_PROVIDER_NAME = "local-rfdetr-fine-frame"
-FINE_FRAME_PROVIDER_VERSION = "local-rfdetr-fine-frame-v6"
-FINE_FRAME_SCHEMA = "local-rfdetr-fine-frame/v6"
+FINE_FRAME_PROVIDER_VERSION = "local-rfdetr-fine-frame-v8"
+FINE_FRAME_SCHEMA = "local-rfdetr-fine-frame/v8"
 FINE_FRAME_THRESHOLD = 0.5
 CROP_DUPLICATE_IOU_THRESHOLD = DUPLICATE_IOU_THRESHOLD
 SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION = 1 / 8
@@ -54,7 +55,7 @@ FINE_FRAME_PROVIDER_MANIFEST = {
     "model_class": "RFDETRSegMedium",
     "model_variant": "rfdetr-seg-medium",
     "input_size": [432, 432],
-    "class_name": "visible_card",
+    "class_ids": {"visible_card": 0, "card_pile": 1},
     "confidence_threshold": FINE_FRAME_THRESHOLD,
     "crop_routing_threshold": FINE_FRAME_THRESHOLD,
     "result_policy": "full_frame_main_with_far_cluster_refinement",
@@ -105,6 +106,20 @@ def _normalized_polygon_area(polygon: tuple[Any, ...]) -> int:
     )
 
 
+def _pile_diagnostics(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "prediction_order": record["prediction_order"],
+            "score": record["score"],
+            "polygons": [
+                [{"x": point.x, "y": point.y} for point in polygon]
+                for polygon in record["polygons"]
+            ],
+        }
+        for record in records
+    ]
+
+
 def _source_frame_mapping(request: VisibleCardRequest) -> dict[str, Any]:
     return {
         "package_id": request.package_id,
@@ -142,6 +157,7 @@ def _far_cluster_metrics(
     frame_width: int,
     frame_height: int,
     model_input_size: int,
+    max_card_fraction: float = SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION,
 ) -> dict[str, Any]:
     frame_long_edge = max(frame_width, frame_height)
     model_scale = model_input_size / frame_long_edge
@@ -161,7 +177,7 @@ def _far_cluster_metrics(
         (item["visible_card_size_model_px"] for item in member_sizes),
         default=0.0,
     )
-    maximum_card_size = model_input_size * SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION
+    maximum_card_size = model_input_size * max_card_fraction
     crop_scale_gain = frame_long_edge / cluster.crop_width
     far = (
         bool(member_sizes)
@@ -173,7 +189,7 @@ def _far_cluster_metrics(
         "member_card_sizes_model_px": member_sizes,
         "minimum_card_size_model_px": minimum_card_size,
         "maximum_card_size_model_px": maximum_card_size,
-        "maximum_card_size_fraction_of_model_input": SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION,
+        "maximum_card_size_fraction_of_model_input": max_card_fraction,
         "crop_scale_gain": crop_scale_gain,
         "route": far,
         "reason": (
@@ -190,6 +206,8 @@ class LocalVisibleCardFineFrameProvider:
     name = FINE_FRAME_PROVIDER_NAME
     version = FINE_FRAME_PROVIDER_VERSION
     event_concurrency_limit = 1
+    max_card_fraction = SMALL_CARD_CLUSTER_MAX_SIZE_FRACTION
+    prefer_matched_crop = False
 
     def __init__(
         self,
@@ -213,6 +231,7 @@ class LocalVisibleCardFineFrameProvider:
         self.confidence_threshold = FINE_FRAME_THRESHOLD
         self.load_latency_ms = self._segmentation.load_latency_ms
         self._detector = self._segmentation._detector
+        self._class_map = self.bundle.manifest["class_map"]
         self._inference_lock = Lock()
 
     @property
@@ -225,16 +244,16 @@ class LocalVisibleCardFineFrameProvider:
             "model_class": "RFDETRSegMedium",
             "model_variant": "rfdetr-seg-medium",
             "input_size": [self.input_size, self.input_size],
-            "class_name": "visible_card",
+            "class_map": self._class_map,
         }
 
-    def _predict(self, image: Image.Image) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    def _predict(
+        self, image: Image.Image
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
         with self._inference_lock:
             output = self._detector.predict(
                 image,
-                # Apply the frozen >= 0.5 rule below. A runtime threshold of zero keeps
-                # detections exactly on the boundary available for deterministic filtering.
-                threshold=0.0,
+                threshold=self.confidence_threshold,
                 shape=(self.input_size, self.input_size),
                 include_source_image=False,
             )
@@ -259,6 +278,8 @@ class LocalVisibleCardFineFrameProvider:
         width, height = image.size
         diagnostics: list[dict[str, Any]] = []
         predictions: list[dict[str, Any]] = []
+        pile_predictions: list[dict[str, Any]] = []
+        pile_boxes: list[PixelBox] = []
         for index, (coordinates, raw_score, raw_class_id) in enumerate(
             zip(boxes, scores, class_ids, strict=True)
         ):
@@ -268,7 +289,7 @@ class LocalVisibleCardFineFrameProvider:
                 class_id = int(raw_class_id)
                 if not math.isfinite(score) or not 0 <= score <= 1:
                     raise ValueError("confidence must be finite in [0, 1]")
-                if class_id not in self._segmentation.accepted_class_ids:
+                if class_id not in {0, 1} or (class_id == 1 and len(self._class_map) != 2):
                     raise ValueError(f"unsupported class id: {class_id}")
                 if score < self.confidence_threshold:
                     record.update(
@@ -320,13 +341,43 @@ class LocalVisibleCardFineFrameProvider:
                     **mask_diagnostics,
                 )
                 diagnostics.append(record)
-                predictions.append(
-                    {"prediction_order": index, "score": score, "box": box, "polygons": polygons}
-                )
+                if class_id == 0:
+                    predictions.append(
+                        {
+                            "prediction_order": index,
+                            "score": score,
+                            "box": box,
+                            "polygons": polygons,
+                        }
+                    )
+                else:
+                    duplicate_of = next(
+                        (
+                            previous_index
+                            for previous_index, previous_box in enumerate(pile_boxes)
+                            if _box_iou(box, previous_box) >= 0.9
+                        ),
+                        None,
+                    )
+                    if duplicate_of is not None:
+                        diagnostics[-1].update(
+                            status="rejected",
+                            reason="duplicate_pile_prediction",
+                            duplicate_of=duplicate_of,
+                        )
+                        continue
+                    pile_boxes.append(box)
+                    pile_predictions.append(
+                        {
+                            "prediction_order": index,
+                            "score": score,
+                            "polygons": polygons,
+                        }
+                    )
             except (TypeError, ValueError, OverflowError, VisibleCardError) as error:
                 record.update(status="rejected", reason="invalid_geometry", error=str(error))
                 diagnostics.append(record)
-        return diagnostics, predictions
+        return diagnostics, predictions, pile_predictions
 
     @staticmethod
     def _map_predictions(
@@ -367,11 +418,28 @@ class LocalVisibleCardFineFrameProvider:
             "device": self.device,
             "source_frame": _source_frame_mapping(request),
             "bundle_identity": self.bundle_identity,
-            "provider_manifest": FINE_FRAME_PROVIDER_MANIFEST,
+            "pile_detection_supported": len(self._class_map) == 2,
+            "provider_manifest": {
+                **FINE_FRAME_PROVIDER_MANIFEST,
+                "provider": self.name,
+                "version": self.version,
+                "far_cluster_routing": {
+                    **FINE_FRAME_PROVIDER_MANIFEST["far_cluster_routing"],
+                    "max_card_size_fraction_of_model_input": self.max_card_fraction,
+                    "max_card_size_model_input_px": 432 * self.max_card_fraction,
+                },
+                "matched_crop_policy": (
+                    "prefer_crop" if self.prefer_matched_crop else "minimum_score_gain"
+                ),
+            },
             "confidence_threshold": self.confidence_threshold,
             "crop_routing_threshold": self.confidence_threshold,
             "crop_duplicate_iou_threshold": CROP_DUPLICATE_IOU_THRESHOLD,
-            "far_cluster_routing": FINE_FRAME_PROVIDER_MANIFEST["far_cluster_routing"],
+            "far_cluster_routing": {
+                **FINE_FRAME_PROVIDER_MANIFEST["far_cluster_routing"],
+                "max_card_size_fraction_of_model_input": self.max_card_fraction,
+                "max_card_size_model_input_px": 432 * self.max_card_fraction,
+            },
             "refinement_match": FINE_FRAME_PROVIDER_MANIFEST["refinement_match"],
             "new_crop_candidate_minimum_score": CROP_ADDITION_MIN_SCORE,
             "load_latency_ms": self.load_latency_ms,
@@ -407,7 +475,7 @@ class LocalVisibleCardFineFrameProvider:
 
         inference_started = time.monotonic()
         try:
-            diagnostics, records = self._predict(source_image)
+            diagnostics, records, pile_records = self._predict(source_image)
             full_frame_inference_ms = _elapsed_ms(inference_started)
             full_frame_predictions = self._map_predictions(records, origin="full_frame")
             layout_started = time.monotonic()
@@ -440,6 +508,7 @@ class LocalVisibleCardFineFrameProvider:
             "threshold": self.confidence_threshold,
             "detections": diagnostics,
             "predictions": [item.to_mapping() for item in full_frame_predictions],
+            "pile_predictions": _pile_diagnostics(pile_records),
         }
         full_frame_by_id = {item.prediction_id: item for item in full_frame_predictions}
         cluster_routing = {
@@ -449,6 +518,7 @@ class LocalVisibleCardFineFrameProvider:
                 frame_width=request.width,
                 frame_height=request.height,
                 model_input_size=self.input_size,
+                max_card_fraction=self.max_card_fraction,
             )
             for cluster in layout.clusters
         }
@@ -495,7 +565,7 @@ class LocalVisibleCardFineFrameProvider:
             try:
                 crop_image = crop_source_image(source_image, cluster)
                 crop_digest = _png_digest(crop_image)
-                crop_diagnostics, crop_records = self._predict(crop_image)
+                crop_diagnostics, crop_records, crop_pile_records = self._predict(crop_image)
                 mapped = self._map_predictions(crop_records, origin="cluster_crop", cluster=cluster)
                 in_frame: list[MappedPrediction] = []
                 rejected: list[dict[str, Any]] = []
@@ -525,6 +595,7 @@ class LocalVisibleCardFineFrameProvider:
                         "threshold": self.confidence_threshold,
                         "detections": crop_diagnostics,
                         "predictions": [item.to_mapping() for item in in_frame],
+                        "pile_predictions": _pile_diagnostics(crop_pile_records),
                         "rejected_predictions": rejected,
                     }
                 )
@@ -697,7 +768,7 @@ class LocalVisibleCardFineFrameProvider:
                 continue
             crop_prediction, box_iou, mask_iou = match
             score_gain = crop_prediction.score - full_prediction.score
-            refined = score_gain >= REFINEMENT_MIN_SCORE_GAIN
+            refined = self.prefer_matched_crop or score_gain >= REFINEMENT_MIN_SCORE_GAIN
             match_diagnostics.append(
                 {
                     "full_frame_prediction_id": full_prediction.prediction_id,
@@ -831,6 +902,7 @@ class LocalVisibleCardFineFrameProvider:
             raw,
             predictions,
             final_provenance,
+            pile_records,
         )
 
     def _result(
@@ -840,8 +912,10 @@ class LocalVisibleCardFineFrameProvider:
         raw: dict[str, Any],
         predictions: tuple[MappedPrediction, ...],
         final_provenance: dict[str, dict[str, Any]],
+        pile_predictions: list[dict[str, Any]],
     ) -> ProviderResult:
         proposals: list[VisibleCardProposal] = []
+        emitted_predictions: list[MappedPrediction] = []
         for prediction in predictions:
             polygons = tuple(
                 normalized
@@ -853,6 +927,7 @@ class LocalVisibleCardFineFrameProvider:
             )
             if not polygons:
                 continue
+            emitted_predictions.append(prediction)
             proposals.append(
                 VisibleCardProposal(
                     box_2d=visible_cards._tight_box_for_polygon(
@@ -864,7 +939,36 @@ class LocalVisibleCardFineFrameProvider:
                     polygons=polygons,
                 )
             )
-        raw["final_provenance"] = [final_provenance[p.prediction_id] for p in predictions]
+        raw["final_provenance"] = [final_provenance[p.prediction_id] for p in emitted_predictions]
+        raw["detector_scores"] = [p.score for p in emitted_predictions]
+        pile_proposals = tuple(
+            VisibleCardPileProposal(
+                polygon=_normalized_polygon(polygon, width=request.width, height=request.height),
+                confidence=record["score"],
+                model_lineage={
+                    "provider": self.name,
+                    "provider_version": self.version,
+                    "bundle_identity": self.bundle_identity,
+                    "class_id": 1,
+                    "class_name": "card_pile",
+                },
+            )
+            for record in pile_predictions
+            for polygon in record["polygons"]
+            if _normalized_polygon_area(
+                _normalized_polygon(polygon, width=request.width, height=request.height)
+            )
+            > 0
+        )
+        raw["pile_proposals"] = [
+            {
+                "prediction_order": record["prediction_order"],
+                "score": record["score"],
+                "class_id": 1,
+                "class_name": "card_pile",
+            }
+            for record in pile_predictions
+        ]
         raw["timing"] = {
             "load_latency_ms": self.load_latency_ms,
             "inference_latency_ms": raw["full_frame"].get("latency_ms", 0.0),
@@ -875,13 +979,24 @@ class LocalVisibleCardFineFrameProvider:
         return ProviderResult(
             status="ok",
             proposals=tuple(proposals),
+            pile_proposals=pile_proposals,
             raw_response=raw,
             latency_ms=_elapsed_ms(started),
         )
+
+
+class LocalVisibleCardCropReviewProvider(LocalVisibleCardFineFrameProvider):
+    """Compare matched crop geometry on clusters with useful enlargement."""
+
+    name = "local-rfdetr-crop-review"
+    version = "local-rfdetr-crop-review-v2"
+    max_card_fraction = 1.0
+    prefer_matched_crop = True
 
 
 __all__ = [
     "FINE_FRAME_PROVIDER_NAME",
     "FINE_FRAME_PROVIDER_VERSION",
     "LocalVisibleCardFineFrameProvider",
+    "LocalVisibleCardCropReviewProvider",
 ]

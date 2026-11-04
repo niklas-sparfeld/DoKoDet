@@ -298,6 +298,28 @@ def test_fine_frame_provider_is_discoverable_without_becoming_default(
     assert visible["local-rfdetr-fine-frame"].provider.name == "local-rfdetr-fine-frame"
 
 
+def test_crop_review_provider_is_discoverable_with_segmentation_bundle(
+    tmp_path: Path, monkeypatch
+) -> None:
+    class FakeCropReviewProvider(FakeLocalFineFrameProvider):
+        name = "local-rfdetr-crop-review"
+
+    bundle_path = tmp_path / "segmentation-bundle"
+    bundle_path.mkdir()
+    monkeypatch.setattr(
+        gemini_analyzer, "LocalVisibleCardCropReviewProvider", FakeCropReviewProvider
+    )
+    visible, _ = gemini_analyzer.create_configured_processor_registries(
+        _settings(
+            tmp_path, visible_card_segmentation_bundle_path=bundle_path, visible_card_device="cpu"
+        )
+    )
+
+    selected = visible["local-rfdetr-crop-review"].provider
+    assert selected.name == "local-rfdetr-crop-review"
+    assert selected.bundle == bundle_path
+
+
 def test_local_pipeline_selection_detects_segmentation_bundle_with_cloud_default(
     tmp_path: Path, monkeypatch
 ) -> None:
