@@ -148,6 +148,10 @@ Acceptance: fixed detector fixtures compare calibration matrices, dimensions, ca
 and publication status with Python. Cover empty input, insufficient candidates, outliers, and a
 published synthetic recording.
 
+The [M6 progress report](../../reports/0106-M6_Calibration_Selection_Progress.md) records the
+initial Swift selector. M6 remains incomplete until candidate filtering, diagnostics, serialization,
+and Python parity pass.
+
 ### M7 — Refine calibration from anchors
 
 Port `card_plane_calibration_refinement.py` as an immutable preview calculation. Preserve anchor
