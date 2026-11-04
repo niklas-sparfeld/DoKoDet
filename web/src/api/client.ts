@@ -49,9 +49,11 @@ export type PipelineRunStartRequest = {
     input_revision_ids?: string[];
     event_revision_id?: string;
     visible_card_revision_id?: string;
+    card_scene_proposal_revision_id?: string;
     crop_input_kind?:
       | "gemini_polygon"
       | "rfdetr_segment"
+      | "proposed_virtual_cards"
       | "reviewed_virtual_card"
       | "reviewed_visible_card";
     processor_type?: string;
@@ -475,6 +477,21 @@ export interface DokoDetectorClient {
     payload: PipelineRunStartRequest,
     init?: RequestInit,
   ): Promise<PipelineRunResponse>;
+  listVisualIdentityProposedCropInputs(
+    recordingId: string,
+    init?: RequestInit,
+  ): Promise<{
+    recording_id: string;
+    inputs: Array<{
+      revision_id: string;
+      created_at: string;
+      proposal_data_digest: string;
+      detector_revision_id: string;
+      calibration_revision_id: string;
+      supported_frame_count: number;
+      unsupported_frame_count: number;
+    }>;
+  }>;
   getVisualIdentityRun(
     recordingId: string,
     runId: string,
@@ -850,6 +867,12 @@ export function createDokoDetectorClient(
           headers: jsonHeaders(init?.headers),
           body: JSON.stringify(payload),
         },
+      ),
+    listVisualIdentityProposedCropInputs: (recordingId, init) =>
+      requestJson(
+        fetchImplementation,
+        `${pipelineVisualIdentityRunsPath(recordingId)}/proposed-crop-inputs`,
+        init,
       ),
     getVisualIdentityRun: (recordingId, runId, init) =>
       requestJson<PipelineRunResponse>(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ApiError,
@@ -81,6 +81,7 @@ export function RecordingPipelineWorkspace({
     readPipelineUrlState(window.location.search),
   );
   const [selectionBusy, setSelectionBusy] = useState(false);
+  const workspaceLoadIdentityRef = useRef<string | null>(null);
 
   const loadWorkspace = useCallback(
     async (signal?: AbortSignal) => {
@@ -123,16 +124,24 @@ export function RecordingPipelineWorkspace({
     if (workspace !== null && loadedStageKey === (stageKey ?? "events")) {
       return;
     }
+    const loadIdentity = `${recordingId}:${stageKey ?? "events"}`;
+    if (workspaceLoadIdentityRef.current === loadIdentity) {
+      return;
+    }
     const controller = new AbortController();
     const timer = window.setTimeout(
-      () => void loadWorkspace(controller.signal),
+      () => {
+        if (workspaceLoadIdentityRef.current === loadIdentity) return;
+        workspaceLoadIdentityRef.current = loadIdentity;
+        void loadWorkspace(controller.signal);
+      },
       0,
     );
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [loadWorkspace, loadedStageKey, stageKey, workspace]);
+  }, [loadWorkspace, loadedStageKey, recordingId, stageKey, workspace]);
 
   useEffect(() => {
     const updateUrlState = () => {

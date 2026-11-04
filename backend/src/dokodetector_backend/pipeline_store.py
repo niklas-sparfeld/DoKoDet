@@ -502,11 +502,27 @@ class PipelineRevisionStore:
     def list_manifests(self) -> tuple[DataRevision, ...]:
         """Return valid revision manifests without reading revision content."""
 
+        return self._list_manifests(recording_id=None)
+
+    def list_manifests_for_recording(self, recording_id: str) -> tuple[DataRevision, ...]:
+        """Return valid revision manifests for one recording without reading content."""
+
+        _safe_id(recording_id, "recording_id")
+        return self._list_manifests(recording_id=recording_id)
+
+    def _list_manifests(self, *, recording_id: str | None) -> tuple[DataRevision, ...]:
+        """Read valid manifests, optionally filtering by their canonical recording field."""
+
         enumeration = enumerate_resource_directories(self.root)
         for diagnostic in enumeration.diagnostics:
             self._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
 
         manifests: list[DataRevision] = []
+        recording_marker = (
+            None
+            if recording_id is None
+            else f'"recording_id":"{recording_id}"'.encode("ascii")
+        )
         for path in enumeration.paths:
             try:
                 if path.is_symlink() or not path.is_dir():
@@ -520,6 +536,8 @@ class PipelineRevisionStore:
                         "pipeline revision must contain only manifest.json and content.json"
                     )
                 manifest_bytes = (path / "manifest.json").read_bytes()
+                if recording_marker is not None and recording_marker not in manifest_bytes:
+                    continue
                 manifest = parse_data_revision_manifest_bytes(manifest_bytes)
                 _strict_json_file(
                     manifest_bytes,
@@ -852,6 +870,10 @@ class PipelineRevisionStore:
     ) -> None:
         for input_revision_id in manifest.input_revision_ids:
             if self.get(input_revision_id, revision_cache=revision_cache) is None:
+                if self.has_revision(input_revision_id):
+                    raise PipelineDataContractError(
+                        f"input pipeline revision is present but invalid: {input_revision_id}"
+                    )
                 raise PipelineNotFound(
                     f"The input pipeline revision was not found: {input_revision_id}"
                 )
@@ -925,7 +947,10 @@ class PipelineRevisionStore:
 
     @staticmethod
     def _log_invalid(path: Path, error: BaseException) -> None:
-        if str(error) == "content_type and content_schema do not match":
+        reason = str(error)
+        if reason == "content_type and content_schema do not match" or reason.startswith(
+            "input pipeline revision is present but invalid:"
+        ):
             LOGGER.debug("pipeline_revision_catalog_skipped path=%s reason=%s", path, error)
             return
         LOGGER.warning("pipeline_revision_catalog_skipped path=%s reason=%s", path, error)
@@ -1014,8 +1039,9 @@ class ProcessorRunStore:
         include_items: bool = True,
         validate_output_revisions: bool = True,
         include_items_for_processor_types: Collection[str] | None = None,
+        processor_types: Collection[str] | None = None,
     ) -> tuple[StoredProcessorRun, ...]:
-        """Return validated runs for one recording without parsing other recordings."""
+        """Return validated runs for one recording and optional processor types."""
 
         _safe_id(recording_id, "recording_id")
         enumeration = enumerate_resource_directories(self.root)
@@ -1029,10 +1055,22 @@ class ProcessorRunStore:
         # present. A false positive is harmless because the parsed request below is
         # still checked against the requested recording.
         recording_marker = f'"recording_id":"{recording_id}"'.encode("ascii")
+        processor_markers = (
+            None
+            if processor_types is None
+            else tuple(
+                f'"processor_type":"{processor_type}"'.encode("ascii")
+                for processor_type in processor_types
+            )
+        )
         for path in enumeration.paths:
             try:
                 request_bytes = (path / "request.json").read_bytes()
                 if recording_marker not in request_bytes:
+                    continue
+                if processor_markers is not None and not any(
+                    marker in request_bytes for marker in processor_markers
+                ):
                     continue
                 request = parse_processor_run_request_bytes(request_bytes)
                 if request.source.recording_id != recording_id:
@@ -1525,11 +1563,17 @@ class ProcessorRunStore:
             "processor run request",
         )
         if legacy_layout:
-            state = (
-                _parse_processor_run_state_bytes_compat(state_bytes)
-                if include_items
-                else _parse_processor_run_metadata_bytes(state_bytes)
-            )
+            state_data = _parse_json_object(state_bytes, "processor run state")
+            if "item_ids" in state_data:
+                state, item_ids = _parse_split_state_bytes(state_bytes)
+                if item_ids:
+                    raise ValueError("processor run is missing its items directory")
+            else:
+                state = (
+                    _parse_processor_run_state_bytes_compat(state_bytes)
+                    if include_items
+                    else _parse_processor_run_metadata_bytes(state_bytes)
+                )
         else:
             metadata_state, item_ids = _parse_split_state_bytes(state_bytes)
             if include_items:
@@ -1671,6 +1715,10 @@ class ProcessorRunStore:
                 validate_lineage=validate_lineage,
             )
             if revision is None:
+                if self.revision_store.has_revision(revision_id):
+                    raise PipelineDataContractError(
+                        f"run output revision is present but invalid: {revision_id}"
+                    )
                 raise PipelineStateError(f"run output revision is not published: {revision_id}")
             manifest = revision.manifest
             producer = manifest.producer
@@ -1694,6 +1742,9 @@ class ProcessorRunStore:
 
     @staticmethod
     def _log_invalid(path: Path, error: BaseException) -> None:
+        if str(error).startswith("run output revision is present but invalid:"):
+            LOGGER.debug("processor_run_catalog_skipped path=%s reason=%s", path, error)
+            return
         LOGGER.warning("processor_run_catalog_skipped path=%s reason=%s", path, error)
 
 

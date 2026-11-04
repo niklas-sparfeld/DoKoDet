@@ -21,16 +21,26 @@ from table_evidence_analyzer.pipeline_data import (
     parse_pipeline_geometry,
 )
 
-VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION = "visual-identity-crop-input/v2"
+VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION = "visual-identity-crop-input/v3"
 VISUAL_IDENTITY_CROP_INPUT_KINDS = frozenset(
-    {"gemini_polygon", "rfdetr_segment", "reviewed_virtual_card", "reviewed_visible_card"}
+    {
+        "gemini_polygon",
+        "rfdetr_segment",
+        "proposed_virtual_cards",
+        "reviewed_virtual_card",
+        "reviewed_visible_card",
+    }
 )
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 
 CropInputKind = Literal[
-    "gemini_polygon", "rfdetr_segment", "reviewed_virtual_card", "reviewed_visible_card"
+    "gemini_polygon",
+    "rfdetr_segment",
+    "proposed_virtual_cards",
+    "reviewed_virtual_card",
+    "reviewed_visible_card",
 ]
 CropInputFailurePhase = Literal["pre_queue", "per_item"]
 
@@ -187,6 +197,66 @@ class ReviewedVirtualCardLineage:
 
 
 @dataclass(frozen=True, slots=True)
+class ProposedVirtualCardLineage:
+    """Lineage for crop regions derived from an unreviewed proposed scene."""
+
+    detector_revision_id: str
+    detector_revision_digest: str
+    detector_data_digest: str
+    calibration_revision_id: str
+    calibration_digest: str
+    derivation_policy: str
+    unsupported_frame_ids: tuple[str, ...]
+    hidden_cards: tuple[str, ...]
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "detector_revision_id": self.detector_revision_id,
+            "detector_revision_digest": self.detector_revision_digest,
+            "detector_data_digest": self.detector_data_digest,
+            "calibration_revision_id": self.calibration_revision_id,
+            "calibration_digest": self.calibration_digest,
+            "derivation_policy": self.derivation_policy,
+            "unsupported_frame_ids": list(self.unsupported_frame_ids),
+            "hidden_cards": list(self.hidden_cards),
+        }
+
+    @classmethod
+    def from_mapping(cls, raw: Mapping[str, Any]) -> "ProposedVirtualCardLineage":
+        data = _mapping(raw, "proposed_virtual_card_lineage")
+        fields = {
+            "detector_revision_id",
+            "detector_revision_digest",
+            "detector_data_digest",
+            "calibration_revision_id",
+            "calibration_digest",
+            "derivation_policy",
+            "unsupported_frame_ids",
+            "hidden_cards",
+        }
+        _strict(data, fields, "proposed_virtual_card_lineage")
+        unsupported, hidden = data["unsupported_frame_ids"], data["hidden_cards"]
+        if not isinstance(unsupported, list) or not isinstance(hidden, list):
+            raise VisualIdentityCropInputError("proposed lineage frame and card lists are invalid")
+        return cls(
+            detector_revision_id=_identifier(data["detector_revision_id"], "detector_revision_id"),
+            detector_revision_digest=_digest(
+                data["detector_revision_digest"], "detector_revision_digest"
+            ),
+            detector_data_digest=_digest(data["detector_data_digest"], "detector_data_digest"),
+            calibration_revision_id=_identifier(
+                data["calibration_revision_id"], "calibration_revision_id"
+            ),
+            calibration_digest=_digest(data["calibration_digest"], "calibration_digest"),
+            derivation_policy=_identifier(data["derivation_policy"], "derivation_policy"),
+            unsupported_frame_ids=tuple(
+                _identifier(value, "unsupported_frame_id") for value in unsupported
+            ),
+            hidden_cards=tuple(_identifier(value, "hidden_card") for value in hidden),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class VisualIdentityCropInputItem:
     """One ordered frame/card geometry item supplied to identity classification."""
 
@@ -267,6 +337,7 @@ class VisualIdentityCropInput:
     source_view_digest: str
     items: tuple[VisualIdentityCropInputItem, ...]
     virtual_card_lineage: ReviewedVirtualCardLineage | None = None
+    proposed_virtual_card_lineage: ProposedVirtualCardLineage | None = None
     manifest_digest: str | None = None
 
     def __post_init__(self) -> None:
@@ -309,6 +380,18 @@ class VisualIdentityCropInput:
             raise VisualIdentityCropInputError(
                 "generated crop inputs cannot carry virtual-card lineage"
             )
+        if (
+            self.input_kind == "proposed_virtual_cards"
+            and self.proposed_virtual_card_lineage is None
+        ):
+            raise VisualIdentityCropInputError("proposed virtual cards need proposal lineage")
+        if (
+            self.input_kind != "proposed_virtual_cards"
+            and self.proposed_virtual_card_lineage is not None
+        ):
+            raise VisualIdentityCropInputError(
+                "only proposed virtual cards can carry proposal lineage"
+            )
         if self.manifest_digest is not None:
             _digest(self.manifest_digest, "manifest_digest")
             expected = _sha256_mapping(self._manifest_mapping())
@@ -331,6 +414,9 @@ class VisualIdentityCropInput:
                 if self.virtual_card_lineage is None
                 else self.virtual_card_lineage.to_mapping()
             ),
+            "proposed_virtual_card_lineage": None
+            if self.proposed_virtual_card_lineage is None
+            else self.proposed_virtual_card_lineage.to_mapping(),
         }
         return value
 
@@ -359,6 +445,7 @@ class VisualIdentityCropInput:
                 "source_view_digest",
                 "items",
                 "virtual_card_lineage",
+                "proposed_virtual_card_lineage",
                 "manifest_digest",
             },
             "crop_input",
@@ -397,6 +484,16 @@ class VisualIdentityCropInput:
                 if lineage is None
                 else ReviewedVirtualCardLineage.from_mapping(
                     _mapping(lineage, "crop_input.virtual_card_lineage")
+                )
+            ),
+            proposed_virtual_card_lineage=(
+                None
+                if data["proposed_virtual_card_lineage"] is None
+                else ProposedVirtualCardLineage.from_mapping(
+                    _mapping(
+                        data["proposed_virtual_card_lineage"],
+                        "crop_input.proposed_virtual_card_lineage",
+                    )
                 )
             ),
             manifest_digest=_digest(data["manifest_digest"], "crop_input.manifest_digest"),

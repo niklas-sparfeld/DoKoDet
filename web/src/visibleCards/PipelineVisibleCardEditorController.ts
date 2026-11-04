@@ -178,6 +178,7 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
   >(null);
   const calibrationCommandQueueRef = useRef<Promise<void>>(Promise.resolve());
   const calibrationCommandsPendingRef = useRef(0);
+  const loadedGeneratedResultRef = useRef<string | null>(null);
 
   const loadCalibrationRefinement = useCallback(async () => {
     const current = inputRef.current;
@@ -590,8 +591,15 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
   const loadGenerated = useCallback(async (signal?: AbortSignal) => {
     const current = inputRef.current;
     const revisionId = current.generatedSourceRevisionId;
-    if (current.generatedRunId === null || revisionId === null) {
+    const runId = current.generatedRunId;
+    if (runId === null || revisionId === null) {
+      loadedGeneratedResultRef.current = null;
       current.setGeneratedFrames([]);
+      current.setGeneratedLoading(false);
+      return;
+    }
+    const resultKey = `${current.recordingId}:${runId}:${revisionId}`;
+    if (loadedGeneratedResultRef.current === resultKey) {
       current.setGeneratedLoading(false);
       return;
     }
@@ -599,11 +607,12 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     try {
       const result = await current.client.getVisibleCardResult(
         current.recordingId,
-        current.generatedRunId,
+        runId,
         { signal },
       );
       if (!signal?.aborted) {
         current.setGeneratedFrames(readFramesFromResult(result, revisionId));
+        loadedGeneratedResultRef.current = resultKey;
       }
     } catch (reason: unknown) {
       if (!signal?.aborted) current.setError(describeError(reason));

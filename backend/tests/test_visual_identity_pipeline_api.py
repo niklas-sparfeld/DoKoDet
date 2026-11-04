@@ -1030,7 +1030,9 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
     )
 
 
-def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> None:
+def test_visual_identity_candidates_are_bounded_and_ordered(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
     _install_recording(tmp_path)
     active = 0
     maximum = 0
@@ -1101,6 +1103,16 @@ def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> No
             visible_result["revisions"][0]["content"]["outcomes"][0]["frame_identity"],
             "visible-for-identity-blocking",
         )
+        resolve_calls = []
+        original_resolve = visual_identity_pipeline_service_module.resolve_exact_event
+
+        def record_frame(*args: Any, **kwargs: Any) -> Any:
+            resolve_calls.append(1)
+            return original_resolve(*args, **kwargs)
+
+        monkeypatch.setattr(
+            visual_identity_pipeline_service_module, "resolve_exact_event", record_frame
+        )
         identity_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
@@ -1116,6 +1128,7 @@ def test_visual_identity_candidates_are_bounded_and_ordered(tmp_path: Any) -> No
         result = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-blocking/result"
         ).json()
+        assert len(resolve_calls) == 1
 
     outcomes = result["revisions"][0]["content"]["outcomes"]
     assert [outcome["card_id"] for outcome in outcomes] == [
@@ -1379,7 +1392,7 @@ def _wait_identity(client: TestClient, run_id: str) -> dict[str, Any]:
     while time.monotonic() < deadline:
         response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{run_id}")
         body = response.json()
-        if body["state"]["status"] in {"complete", "failed"}:
+        if body["state"]["status"] in {"complete", "partial", "failed"}:
             return body
         time.sleep(0.01)
     return body
@@ -1446,3 +1459,270 @@ def test_local_pipeline_requests_record_actual_bundle_and_crop(tmp_path: Any) ->
         identity.device = "mps"
         with pytest.raises(VisualIdentityPipelineError, match="device changed"):
             app.state.visual_identity_pipeline_service._classifier_for_request(request)
+
+
+def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
+    tmp_path: Any,
+) -> None:
+    from doko_operations.card_plane_calibration import CalibrationRun
+    from doko_operations.card_plane_geometry import (
+        CardPose,
+        CardStackingOrder,
+        ReviewedCardScene,
+        TablePlaneCalibration,
+    )
+    from table_evidence_analyzer import (
+        PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
+        ProposedCardScene,
+        ProposedCardSceneData,
+        ProposedCardSceneFrame,
+        canonical_proposed_card_scene_data_bytes,
+    )
+
+    _install_recording(tmp_path)
+
+    class RetryIdentityProvider(_IdentityProvider):
+        name = "local-dinov3"
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.fail = False
+
+        def classify(self, request: VisualIdentityRequest) -> CardClassificationResult:
+            if self.fail:
+                return CardClassificationResult(status="unavailable", error="retry fixture")
+            return super().classify(request)
+
+    identity = RetryIdentityProvider()
+    settings = _settings(tmp_path)
+    app = create_test_app(
+        settings,
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=identity,
+    )
+    service = app.state.visual_identity_pipeline_service
+    with TestClient(app) as client:
+        assert (
+            client.post(
+                f"/api/recordings/{RECORDING_ID}/pipeline/events",
+                json={"run_id": "events-for-proposed-identity"},
+            ).status_code
+            == 202
+        )
+        _wait_event(client, "events-for-proposed-identity")
+        assert (
+            client.post(
+                f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+                json={"run_id": "cards-for-proposed-identity"},
+            ).status_code
+            == 202
+        )
+        _wait(client, "cards-for-proposed-identity")
+        detector_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/"
+            "cards-for-proposed-identity/result"
+        ).json()["state"]["output_revision_ids"][0]
+        detector_revision = app.state.pipeline_revision_store.require(detector_revision_id)
+        frame_outcome = detector_revision.content.outcomes[0]
+        frame_identity = frame_outcome.frame_identity
+        assert frame_identity is not None
+
+        calibration = TablePlaneCalibration.create(
+            calibration_revision_id="calibration-proposed-identity",
+            recording_id=RECORDING_ID,
+            source_revision=detector_revision_id,
+            frame_width=frame_identity.width,
+            frame_height=frame_identity.height,
+            image_to_table=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            table_to_image=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            card_short_size=20.0,
+            card_long_size=30.0,
+            candidate_receipt_digests=(),
+            diagnostics={"fixture": True},
+        )
+        service.calibration_store.publish(
+            CalibrationRun(
+                recording_id=RECORDING_ID,
+                source_revision=detector_revision_id,
+                status="published",
+                candidate_receipts=(),
+                diagnostics={"fixture": True},
+                calibration=calibration,
+                calibration_fit_candidate=None,
+                failure=None,
+                run_digest="",
+            )
+        )
+        scene = ReviewedCardScene.create(
+            source_frame_id=frame_outcome.event_id,
+            source_frame_width=frame_identity.width,
+            source_frame_height=frame_identity.height,
+            calibration_revision_id=calibration.calibration_revision_id,
+            calibration_digest=calibration.calibration_digest,
+            poses=(
+                CardPose("proposal-card-01", (32.0, 32.0), 0.0, "suggestion-01", None),
+                CardPose("proposal-hidden-01", (32.0, 32.0), 0.0, "suggestion-02", None),
+            ),
+            stacking_order=CardStackingOrder(
+                card_ids=("proposal-card-01", "proposal-hidden-01"),
+                uncertain_edges=(),
+                contradictions=(),
+            ),
+        )
+        proposal = ProposedCardScene.create(
+            proposal_id="proposal-card-scene-01",
+            source_frame_id=frame_outcome.event_id,
+            source_frame_digest=frame_identity.image_sha256,
+            detector_revision_id=detector_revision_id,
+            detector_revision_digest=detector_revision.manifest.content_sha256,
+            calibration_revision_id=calibration.calibration_revision_id,
+            calibration_digest=calibration.calibration_digest,
+            initializer_recipe_version="fixture-initializer/v1",
+            status="supported",
+            initialized_scene=scene.to_mapping(),
+            fit_diagnostics={"fixture": True},
+        )
+        proposal_data = ProposedCardSceneData.create(
+            detector_revision_id=detector_revision_id,
+            detector_revision_digest=detector_revision.manifest.content_sha256,
+            calibration_revision_id=calibration.calibration_revision_id,
+            calibration_digest=calibration.calibration_digest,
+            calibration=calibration.to_mapping(),
+            calibration_diagnostics={"fixture": True},
+            frames=(
+                ProposedCardSceneFrame(
+                    frame_id=frame_outcome.event_id,
+                    source_frame_digest=frame_identity.image_sha256,
+                    status="supported",
+                    proposal=proposal,
+                    unsupported_reason=None,
+                    source_identity=frame_identity,
+                    detector_status="detected",
+                ),
+                ProposedCardSceneFrame(
+                    frame_id="unsupported-frame-01",
+                    source_frame_digest=frame_identity.image_sha256,
+                    status="unsupported",
+                    proposal=None,
+                    unsupported_reason="fixture unsupported pose",
+                ),
+            ),
+        )
+        proposal_revision_id = "card-scene-proposals-identity-fixture"
+        proposal_manifest = DataRevision(
+            revision_id=proposal_revision_id,
+            content_type="card_scene_proposals",
+            content_schema=PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
+            recording_id=RECORDING_ID,
+            source=detector_revision.manifest.source,
+            content_sha256=sha256_bytes(canonical_proposed_card_scene_data_bytes(proposal_data)),
+            input_revision_ids=(detector_revision_id,),
+            origin="processor",
+            producer=ProcessorProducer(
+                run_id="proposal-run-fixture",
+                processor_type="visible-card-scene-proposal",
+                implementation_id="proposed-card-scene-processor/v2",
+            ),
+            coverage={
+                "kind": "proposed-card-scenes",
+                "detector_revision_digest": detector_revision.manifest.content_sha256,
+            },
+            created_at="2026-11-04T00:00:00Z",
+        )
+        app.state.pipeline_revision_store.publish(proposal_manifest, proposal_data)
+        frozen = service._freeze_crop_input(
+            RECORDING_ID,
+            app.state.pipeline_revision_store.require(proposal_revision_id),
+            source=detector_revision.manifest.source,
+            requested_kind="proposed_virtual_cards",
+        )
+        assert frozen.proposed_virtual_card_lineage is not None
+        stale_lineage = replace(
+            frozen.proposed_virtual_card_lineage,
+            calibration_digest="0" * 64,
+        )
+        stale_crop_input = replace(
+            frozen,
+            proposed_virtual_card_lineage=stale_lineage,
+            manifest_digest=None,
+        )
+        with pytest.raises(VisualIdentityPipelineError, match="descriptor does not match"):
+            service._build_request(
+                RECORDING_ID,
+                {
+                    "run_id": "identity-stale-proposal-lineage",
+                    "card_scene_proposal_revision_id": proposal_revision_id,
+                    "crop_input_kind": "proposed_virtual_cards",
+                    "crop_input": stale_crop_input.to_mapping(),
+                    "configuration": {"provider": "local"},
+                },
+            )
+        listed = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/proposed-crop-inputs"
+        ).json()["inputs"]
+        assert [item["revision_id"] for item in listed] == [proposal_revision_id]
+
+        def fail_result_publish(*_args: Any, **_kwargs: Any) -> Any:
+            raise OSError("fixture temporary publish failure")
+
+        service._publish_revision = fail_result_publish
+
+        started = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-from-proposal",
+                "input_revision_ids": [proposal_revision_id],
+                "card_scene_proposal_revision_id": proposal_revision_id,
+                "crop_input_kind": "proposed_virtual_cards",
+                "configuration": {"provider": "local"},
+            },
+        )
+        assert started.status_code == 202, started.text
+        assert _wait_identity(client, "identity-from-proposal")["state"]["status"] == "failed"
+        crop_input = started.json()["request"]["crop_input"]
+        assert started.json()["request"]["input_revision_ids"] == [proposal_revision_id]
+        assert crop_input["input_kind"] == "proposed_virtual_cards"
+        assert crop_input["source_revision_id"] == proposal_revision_id
+        lineage = crop_input["proposed_virtual_card_lineage"]
+        assert lineage["detector_revision_id"] == detector_revision_id
+        assert lineage["calibration_revision_id"] == calibration.calibration_revision_id
+        assert lineage["unsupported_frame_ids"] == ["unsupported-frame-01"]
+        assert lineage["hidden_cards"] == [f"{frame_outcome.event_id}:proposal-hidden-01"]
+
+    restarted = create_test_app(
+        settings,
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=identity,
+    )
+    with TestClient(restarted) as client:
+        reopened = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-from-proposal"
+        )
+        assert reopened.status_code == 200, reopened.text
+        assert reopened.json()["request"]["crop_input"] == crop_input
+        retried = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/"
+            "identity-from-proposal/retry"
+        )
+        assert retried.status_code == 202, retried.text
+        assert _wait_identity(client, "identity-from-proposal")["state"]["status"] == "complete"
+        reopened = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/"
+            "identity-from-proposal/result"
+        )
+        assert reopened.status_code == 200, reopened.text
+        outcomes = reopened.json()["revisions"][0]["content"]["outcomes"]
+        assert len(outcomes) == 1
+        outcome = outcomes[0]
+        assert outcome["card_id"] == "proposal-card-01"
+        assert outcome["geometry"]["kind"] == "visible-region/v1"
+        assert outcome["crop_input_provenance"]["input_kind"] == "proposed_virtual_cards"
+        revision_id = reopened.json()["state"]["output_revision_ids"][0]
+        card_id = reopened.json()["revisions"][0]["content"]["outcomes"][0]["card_id"]
+        preview = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
+            f"{revision_id}/{card_id}?preview=browser"
+        )
+        assert preview.status_code == 200, preview.text

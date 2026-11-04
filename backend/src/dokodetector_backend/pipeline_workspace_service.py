@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
@@ -12,10 +13,12 @@ from doko_operations.pipeline_data import EventData, RecordingVideoSource
 from table_evidence_analyzer import ObservationAssemblyError, assemble_table_observations
 from table_evidence_analyzer.pipeline_data import VisibleCardData, VisualIdentityData
 
+from dokodetector_backend.filesystem import enumerate_resource_directories
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineSelectionStore,
     PipelineStoreError,
+    ProcessorRunStatus,
     ProcessorRunStore,
     StoredProcessorRun,
 )
@@ -111,11 +114,7 @@ class RecordingPipelineWorkspaceService:
 
         source = self.recording_source_provider(recording_id)
         revision_cache: dict[str, Any] = {}
-        revisions = tuple(
-            manifest
-            for manifest in self.revision_store.list_manifests()
-            if manifest.recording_id == recording_id
-        )
+        revisions = self.revision_store.list_manifests_for_recording(recording_id)
         runs = self.run_store.list_for_recording(
             recording_id,
             revision_cache=revision_cache,
@@ -213,11 +212,10 @@ class RecordingPipelineWorkspaceService:
                 )
 
         runs_by_recording: dict[str, list[tuple[str, str]]] = {}
-        for run in self.run_store.list_statuses():
-            if run.recording_id in requested_ids:
-                runs_by_recording.setdefault(run.recording_id, []).append(
-                    (run.processor_type, run.status)
-                )
+        for run in self._list_statuses_for_recordings(requested_ids):
+            runs_by_recording.setdefault(run.recording_id, []).append(
+                (run.processor_type, run.status)
+            )
 
         references_by_recording: dict[str, dict[str, Any]] = {}
         for reference in self.reference_store.list_states():
@@ -256,6 +254,58 @@ class RecordingPipelineWorkspaceService:
                 "stages": stages,
             }
         return statuses
+
+    def _list_statuses_for_recordings(self, recording_ids: Collection[str]) -> tuple[Any, ...]:
+        """Read run status only for the requested recordings."""
+
+        if not recording_ids:
+            return ()
+
+        enumeration = enumerate_resource_directories(self.run_store.root)
+        for diagnostic in enumeration.diagnostics:
+            self.run_store._log_invalid(diagnostic.path, ValueError(diagnostic.reason))
+
+        requested = set(recording_ids)
+        statuses = []
+        for path in enumeration.paths:
+            try:
+                # Run requests can contain large image and crop payloads. JSON
+                # decoding validates the document syntax without running the
+                # full nested contract validators used by workspace detail APIs.
+                request = json.loads((path / "request.json").read_bytes())
+                if not isinstance(request, dict):
+                    raise ValueError("processor run request must be an object")
+                run_id = request.get("run_id")
+                processor_type = request.get("processor_type")
+                source = request.get("source")
+                if (
+                    not isinstance(run_id, str)
+                    or run_id != path.name
+                    or not isinstance(processor_type, str)
+                    or not isinstance(source, dict)
+                ):
+                    raise ValueError("processor run request has invalid status fields")
+                recording_id = source.get("recording_id")
+                if not isinstance(recording_id, str) or recording_id not in requested:
+                    continue
+                state = json.loads((path / "state.json").read_bytes())
+                if (
+                    not isinstance(state, dict)
+                    or state.get("run_id") != run_id
+                    or not isinstance(state.get("status"), str)
+                ):
+                    raise ValueError("processor run state has invalid status fields")
+                statuses.append(
+                    ProcessorRunStatus(
+                        run_id=run_id,
+                        recording_id=recording_id,
+                        processor_type=processor_type,
+                        status=state["status"],
+                    )
+                )
+            except (OSError, TypeError, UnicodeError, ValueError) as error:
+                self.run_store._log_invalid(path, error)
+        return tuple(sorted(statuses, key=lambda item: item.run_id))
 
     @staticmethod
     def _compact_stage_state(

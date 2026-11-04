@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ApiError,
@@ -24,10 +24,15 @@ type RunStageKey = Extract<
 type InputOrigin = "generated" | "reviewed";
 type ProcessorOrigin = "cloud" | "local";
 type VisibleCardModelVariant =
-  "gemini" | "local" | "local-rfdetr-segmentation" | "local-rfdetr-fine-frame";
+  | "gemini"
+  | "local"
+  | "local-rfdetr-segmentation"
+  | "local-rfdetr-fine-frame"
+  | "local-rfdetr-crop-review";
 type CropInputKind =
   | "gemini_polygon"
   | "rfdetr_segment"
+  | "proposed_virtual_cards"
   | "reviewed_virtual_card"
   | "reviewed_visible_card";
 type CropInputOption = {
@@ -49,6 +54,10 @@ const VISIBLE_CARD_MODEL_VARIANTS: readonly {
   {
     value: "local-rfdetr-fine-frame",
     label: "Local · RF-DETR fine-frame refinement",
+  },
+  {
+    value: "local-rfdetr-crop-review",
+    label: "Local · RF-DETR crop refinement review",
   },
 ];
 
@@ -117,23 +126,65 @@ export function RunControls({
     );
   const [historicalRevisionId, setHistoricalRevisionId] = useState<string>("");
   const [cropInputSelection, setCropInputSelection] = useState("");
+  const [proposedCropInputs, setProposedCropInputs] = useState<
+    Array<{
+      revision_id: string;
+      created_at: string;
+      detector_revision_id: string;
+      calibration_revision_id: string;
+      supported_frame_count: number;
+      unsupported_frame_count: number;
+    }>
+  >([]);
+  const [proposedCropInputsLoadedFor, setProposedCropInputsLoadedFor] =
+    useState<string | null>(null);
   const [trackedRunId, setTrackedRunId] = useState<string | null>(
     () =>
       stage.runs.find(
         (run) => run.status === "queued" || run.status === "running",
       )?.run_id ?? null,
   );
+  const terminalRunIdsRef = useRef(new Set<string>());
   const [liveRun, setLiveRun] = useState<PipelineRunResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => {
+    if (runStage !== "visual_identities") return;
+    const controller = new AbortController();
+    void client
+      .listVisualIdentityProposedCropInputs(recordingId, {
+        signal: controller.signal,
+      })
+      .then((response) => {
+        setProposedCropInputs(
+          Array.isArray(response.inputs) ? response.inputs : [],
+        );
+        setProposedCropInputsLoadedFor(recordingId);
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) setMessage(describeRunError(reason));
+      });
+    return () => controller.abort();
+  }, [client, recordingId, runStage]);
   const cropInputOptions =
     runStage === "visual_identities" && upstreamStage !== undefined
-      ? buildCropInputOptions(upstreamStage)
+      ? [
+          ...buildCropInputOptions(upstreamStage),
+          ...proposedCropInputs.map((input) => ({
+            kind: "proposed_virtual_cards" as const,
+            revisionId: input.revision_id,
+            label: `Proposed virtual cards · ${input.revision_id} · ${input.supported_frame_count} supported frames · calibration ${input.calibration_revision_id}`,
+          })),
+        ]
       : [];
   const selectedCropInput =
     cropInputOptions.find(
       (option) => cropInputKey(option) === cropInputSelection,
     ) ?? (cropInputOptions.length === 1 ? cropInputOptions[0] : null);
+  const selectedProcessorOrigin =
+    selectedCropInput?.kind === "proposed_virtual_cards"
+      ? "local"
+      : processorOrigin;
   const selectedRevisionId =
     runStage === "visual_identities"
       ? (selectedCropInput?.revisionId ?? null)
@@ -175,6 +226,9 @@ export function RunControls({
     if (runStage === null || trackedRunId === null || !pageVisible) {
       return;
     }
+    if (terminalRunIdsRef.current.has(trackedRunId)) {
+      return;
+    }
     let cancelled = false;
     let timer: number | null = null;
     let controller: AbortController | null = null;
@@ -191,6 +245,7 @@ export function RunControls({
         }
         setLiveRun(response);
         if (TERMINAL_STATES.has(response.status)) {
+          terminalRunIdsRef.current.add(trackedRunId);
           await onRefresh();
           return;
         }
@@ -245,12 +300,13 @@ export function RunControls({
           selectedRevisionId,
           latestRun,
           inputOrigin,
-          processorOrigin,
+          selectedProcessorOrigin,
           visibleCardModelVariant,
           selectedCropInput?.kind ?? null,
         ),
       );
       setLiveRun(response);
+      terminalRunIdsRef.current.delete(response.run_id);
       setTrackedRunId(response.run_id);
       await onRefresh();
     } catch (reason: unknown) {
@@ -274,6 +330,7 @@ export function RunControls({
         runId,
       );
       setLiveRun(response);
+      terminalRunIdsRef.current.delete(response.run_id);
       setTrackedRunId(response.run_id);
       await onRefresh();
     } catch (reason: unknown) {
@@ -291,7 +348,10 @@ export function RunControls({
   const hasGenerated = generatedRevisionId !== null;
   const hasReviewed = reviewedRevisionId !== null;
   const canStart =
-    stage.can_run && (runStage === "events" || selectedRevisionId !== null);
+    stage.can_run &&
+    (runStage === "events" || selectedRevisionId !== null) &&
+    (runStage !== "visual_identities" ||
+      proposedCropInputsLoadedFor === recordingId);
 
   return (
     <section
@@ -357,11 +417,20 @@ export function RunControls({
                     </p>
                   ) : (
                     <p className={styles.pipelineRunInputValue}>
-                      {cropInputOptions.length === 0
-                        ? "No generated crop inputs are available."
-                        : "Choose an input. Multiple crop inputs are available; none is selected automatically."}
+                      {proposedCropInputsLoadedFor !== recordingId
+                        ? "Loading proposed scene revisions…"
+                        : cropInputOptions.length === 0
+                          ? "No compatible crop inputs are available."
+                          : "Choose an input. Multiple crop inputs are available; none is selected automatically."}
                     </p>
                   )}
+                  {selectedCropInput?.kind === "proposed_virtual_cards" ? (
+                    <p className={styles.pipelineRunInputValue}>
+                      Uses the local classifier. The crop geometry is
+                      proposal-derived, not reviewed ground truth or training
+                      authority.
+                    </p>
+                  ) : null}
                   {reviewedRevisionId === null ? (
                     <p className={styles.pipelineRunInputValue}>
                       Reviewed virtual-card input unavailable: complete a
@@ -448,25 +517,28 @@ export function RunControls({
                   >
                     <button
                       className={
-                        processorOrigin === "cloud"
+                        selectedProcessorOrigin === "cloud"
                           ? styles.pipelineToggleActive
                           : styles.pipelineToggle
                       }
                       type="button"
-                      aria-pressed={processorOrigin === "cloud"}
-                      disabled={busy}
+                      aria-pressed={selectedProcessorOrigin === "cloud"}
+                      disabled={
+                        busy ||
+                        selectedCropInput?.kind === "proposed_virtual_cards"
+                      }
                       onClick={() => setProcessorOrigin("cloud")}
                     >
                       Cloud
                     </button>
                     <button
                       className={
-                        processorOrigin === "local"
+                        selectedProcessorOrigin === "local"
                           ? styles.pipelineToggleActive
                           : styles.pipelineToggle
                       }
                       type="button"
-                      aria-pressed={processorOrigin === "local"}
+                      aria-pressed={selectedProcessorOrigin === "local"}
                       disabled={busy}
                       onClick={() => setProcessorOrigin("local")}
                     >
@@ -793,9 +865,12 @@ function buildRunRequest(
         ? { input_revision_ids: [] }
         : {
             input_revision_ids: [inputRevisionId],
-            ...(stage === "visible_cards"
-              ? { event_revision_id: inputRevisionId }
-              : { visible_card_revision_id: inputRevisionId }),
+            ...(stage === "visual_identities" &&
+            cropInputKind === "proposed_virtual_cards"
+              ? { card_scene_proposal_revision_id: inputRevisionId }
+              : stage === "visible_cards"
+                ? { event_revision_id: inputRevisionId }
+                : { visible_card_revision_id: inputRevisionId }),
           }),
       ...(stage === "visual_identities" && cropInputKind !== null
         ? { crop_input_kind: cropInputKind }
@@ -869,6 +944,8 @@ function formatCropInputKind(kind: CropInputKind): string {
       return "Generated · Gemini";
     case "rfdetr_segment":
       return "Generated · RF-DETR";
+    case "proposed_virtual_cards":
+      return "Proposed virtual cards";
     case "reviewed_virtual_card":
       return "Reviewed virtual cards";
     case "reviewed_visible_card":
@@ -890,6 +967,7 @@ function describeCropInputRun(request: Record<string, unknown>): string {
   const kindLabel =
     kind === "gemini_polygon" ||
     kind === "rfdetr_segment" ||
+    kind === "proposed_virtual_cards" ||
     kind === "reviewed_virtual_card" ||
     kind === "reviewed_visible_card"
       ? formatCropInputKind(kind)
@@ -897,6 +975,14 @@ function describeCropInputRun(request: Record<string, unknown>): string {
   return [
     kindLabel,
     sourceRevisionId === null ? null : `source ${sourceRevisionId}`,
+    readString(
+      readObject(cropInput?.proposed_virtual_card_lineage)
+        ?.detector_revision_id,
+    ),
+    readString(
+      readObject(cropInput?.proposed_virtual_card_lineage)
+        ?.calibration_revision_id,
+    ),
     items === null ? null : `${items} crop inputs`,
     policy === null ? null : `policy ${policy}`,
   ]

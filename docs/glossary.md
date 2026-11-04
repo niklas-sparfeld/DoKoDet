@@ -238,6 +238,12 @@ The pixels of one visible card that can be reviewed in a source frame. A visible
 include hidden card pixels, an occluding card, a human hand, or the background. One visible region
 can use more than one polygon when an occluder splits the visible pixels.
 
+### Proposed virtual card region
+
+A visible region derived from one proposed card scene, its poses, its stacking order, and its
+frozen calibration. It is a derived view. It is not reviewed geometry, ground truth, or training
+authority. A fully hidden card has no proposed virtual card region.
+
 ### Card cluster
 
 A spatial group of one or more visible cards that must be processed together by a fine visible-card

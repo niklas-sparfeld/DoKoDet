@@ -808,6 +808,22 @@ def list_visual_identity_runs(recording_id: str, request: Request) -> dict[str, 
     return {"recording_id": recording_id, "runs": [run_response(run) for run in runs]}
 
 
+@router.get(VISUAL_IDENTITY_BASE + "/proposed-crop-inputs")
+def list_visual_identity_proposed_crop_inputs(
+    recording_id: str, request: Request
+) -> dict[str, Any]:
+    """List applicable exact proposed-scene revisions for visual identity crops."""
+
+    validate_recording_id(recording_id)
+    try:
+        inputs = _visual_identity_service(request).list_proposed_crop_inputs(recording_id)
+    except PipelineNotFound as error:
+        raise ContractError("recording_not_found", str(error), status_code=404) from error
+    except VisualIdentityPipelineError as error:
+        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
+    return {"recording_id": recording_id, "inputs": list(inputs)}
+
+
 @router.get(VISUAL_IDENTITY_BASE + "/selection")
 @router.get(VISUAL_IDENTITY_BASE + "/generated-selection", include_in_schema=False)
 def get_visual_identity_selection(recording_id: str, request: Request) -> dict[str, Any]:

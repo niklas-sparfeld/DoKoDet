@@ -16,9 +16,14 @@ from pathlib import Path
 from threading import RLock
 from typing import Any
 
+from doko_operations.card_plane_calibration import (
+    CalibrationRevisionStore,
+    CardPlaneCalibrationError,
+)
 from doko_operations.card_plane_geometry import (
     CardPlaneGeometryError,
     ReviewedCardScene,
+    derive_pose_scene_visible_regions,
     validate_pose_scene_candidate_view,
 )
 from doko_operations.derived_view import (
@@ -51,7 +56,9 @@ from table_evidence_analyzer.pipeline_data import (
     DetectorBoxGeometry,
     PipelineGeometry,
     PredictedVisibleRegionGeometry,
+    ProposedCardSceneData,
     ReviewedVisibleRegionGeometry,
+    VisibleCardCandidate,
     VisibleCardData,
     VisibleCardOutcome,
     VisualIdentityCandidate,
@@ -60,6 +67,7 @@ from table_evidence_analyzer.pipeline_data import (
     VisualIdentityCropInputProvenance,
     VisualIdentityData,
     VisualIdentityOutcome,
+    canonical_proposed_card_scene_data_bytes,
     canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
 )
@@ -69,6 +77,7 @@ from table_evidence_analyzer.visual_identity import (
     VisualIdentityRequest,
 )
 from table_evidence_analyzer.visual_identity_crop_input import (
+    ProposedVirtualCardLineage,
     ReviewedVirtualCardLineage,
     VisualIdentityCropInput,
     VisualIdentityCropInputError,
@@ -208,6 +217,7 @@ class VisualIdentityPipelineService:
         self.run_store = run_store
         self.selection_store = selection_store
         self.reference_store = reference_store
+        self.calibration_store = CalibrationRevisionStore(settings.operations_root)
         self.identity_classifiers = identity_classifiers
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.cloud_max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
@@ -288,6 +298,69 @@ class VisualIdentityPipelineService:
             for run in self.run_store.list_for_recording(recording_id)
             if run.request.source.recording_id == recording_id
             and run.request.processor_type == "visual-card-identity"
+        )
+
+    def list_proposed_crop_inputs(self, recording_id: str) -> tuple[dict[str, Any], ...]:
+        """List exact proposal revisions that can supply identity crop geometry."""
+
+        _, source = self._accepted_source(recording_id)
+        values = []
+        for manifest in self.revision_store.list_manifests_for_recording(recording_id):
+            if manifest.content_type != "card_scene_proposals":
+                continue
+            revision = self.revision_store.require(manifest.revision_id)
+            if (
+                revision.manifest.source != source
+                or not isinstance(revision.content, ProposedCardSceneData)
+                or revision.content.calibration_revision_id is None
+                or not any(frame.status == "supported" for frame in revision.content.frames)
+                or any(
+                    frame.status == "supported" and frame.source_identity is None
+                    for frame in revision.content.frames
+                )
+            ):
+                continue
+            data = revision.content
+            try:
+                detector = self.revision_store.require(data.detector_revision_id)
+            except PipelineNotFound:
+                continue
+            if (
+                detector.manifest.content_type != "visible_cards"
+                or detector.manifest.source != source
+                or detector.manifest.content_sha256 != data.detector_revision_digest
+            ):
+                continue
+            try:
+                calibration_run = self.calibration_store.load(
+                    recording_id, data.calibration_revision_id
+                )
+            except CardPlaneCalibrationError:
+                continue
+            calibration = calibration_run.calibration
+            if (
+                calibration is None
+                or calibration.calibration_digest != data.calibration_digest
+                or calibration.to_mapping() != data.calibration
+            ):
+                continue
+            values.append(
+                {
+                    "revision_id": manifest.revision_id,
+                    "created_at": manifest.created_at,
+                    "proposal_data_digest": data.data_digest,
+                    "detector_revision_id": data.detector_revision_id,
+                    "calibration_revision_id": data.calibration_revision_id,
+                    "supported_frame_count": sum(
+                        frame.status == "supported" for frame in data.frames
+                    ),
+                    "unsupported_frame_count": sum(
+                        frame.status == "unsupported" for frame in data.frames
+                    ),
+                }
+            )
+        return tuple(
+            sorted(values, key=lambda item: (item["created_at"], item["revision_id"]), reverse=True)
         )
 
     def plan_auto_approval(
@@ -909,27 +982,45 @@ class VisualIdentityPipelineService:
         if not isinstance(raw, Mapping):
             raise VisualIdentityPipelineInputError("request must be an object.")
         _, source = self._accepted_source(recording_id)
-        visible_revision_id = self._visible_revision_id(raw)
-        visible_revision = self.revision_store.require(visible_revision_id)
-        if (
-            visible_revision.manifest.content_type != "visible_cards"
-            or visible_revision.manifest.source != source
-            or not isinstance(visible_revision.content, VisibleCardData)
-        ):
-            raise VisualIdentityPipelineInputError(
-                "The selected visible-card revision does not match the accepted recording video."
-            )
         requested_crop_input = raw.get("crop_input")
         requested_kind = raw.get("crop_input_kind")
+        if requested_kind == "proposed_virtual_cards":
+            visible_revision_id = raw.get("card_scene_proposal_revision_id")
+            if not isinstance(visible_revision_id, str) or not visible_revision_id:
+                raise VisualIdentityPipelineInputError(
+                    "Select one exact proposed card-scene revision."
+                )
+            values = dict(raw)
+            values.pop("card_scene_proposal_revision_id", None)
+            revision = self.revision_store.require(visible_revision_id)
+            if (
+                revision.manifest.content_type != "card_scene_proposals"
+                or revision.manifest.source != source
+            ):
+                raise VisualIdentityPipelineInputError(
+                    "The selected proposal revision does not match the accepted recording video."
+                )
+        else:
+            visible_revision_id = self._visible_revision_id(raw)
+            values = dict(raw)
+            revision = self.revision_store.require(visible_revision_id)
+            if (
+                revision.manifest.content_type != "visible_cards"
+                or revision.manifest.source != source
+                or not isinstance(revision.content, VisibleCardData)
+            ):
+                raise VisualIdentityPipelineInputError(
+                    "The selected visible-card revision does not match the accepted recording "
+                    "video."
+                )
         crop_input = self._freeze_crop_input(
             recording_id,
-            visible_revision,
+            revision,
             source=source,
             requested=requested_crop_input,
             requested_kind=requested_kind,
             require_current_reference=True,
         )
-        values = dict(raw)
         values.pop("visible_card_revision_id", None)
         values.pop("crop_input_kind", None)
         values.setdefault("schema_version", "processor-run-request/v1")
@@ -967,7 +1058,11 @@ class VisualIdentityPipelineService:
             values["model"] = {"name": classifier.model, "version": classifier.version}
         values.setdefault("extraction_policy", {"policy_id": "exact-event/v1"})
         if values.get("crop_policy") is None:
-            values["crop_policy"] = _default_crop_policy(visible_revision.content)
+            values["crop_policy"] = (
+                {"policy_id": "predicted_visible_region", "output_encoding": "ppm"}
+                if requested_kind == "proposed_virtual_cards"
+                else _default_crop_policy(revision.content)
+            )
         try:
             validate_crop_policy_compatibility(crop_input, str(values["crop_policy"]["policy_id"]))
         except (KeyError, TypeError, VisualIdentityCropInputError) as error:
@@ -1015,8 +1110,6 @@ class VisualIdentityPipelineService:
     ) -> VisualIdentityCropInput:
         """Resolve one exact generated or reviewed revision into its crop-input manifest."""
 
-        if not isinstance(revision.content, VisibleCardData):
-            raise VisualIdentityPipelineInputError("The selected crop input is unavailable.")
         try:
             supplied = (
                 None if requested is None else VisualIdentityCropInput.from_mapping(requested)
@@ -1027,12 +1120,18 @@ class VisualIdentityPipelineService:
                         "the selected input kind does not match its crop-input descriptor"
                     )
                 requested_kind = supplied.input_kind
-            source_view_bytes = canonical_visible_card_data_bytes(revision.content)
+            source_view_bytes = (
+                canonical_proposed_card_scene_data_bytes(revision.content)
+                if isinstance(revision.content, ProposedCardSceneData)
+                else canonical_visible_card_data_bytes(revision.content)
+            )
             source_view_digest = sha256_bytes(source_view_bytes)
             if source_view_digest != revision.manifest.content_sha256:
                 raise VisualIdentityCropInputError("the selected source view changed")
             producer = revision.manifest.producer
-            if isinstance(producer, ProcessorProducer):
+            if isinstance(revision.content, ProposedCardSceneData):
+                source_kind = "proposed_virtual_cards"
+            elif isinstance(producer, ProcessorProducer):
                 producer_run = self.run_store.require(
                     producer.run_id, revision_cache=revision_cache
                 )
@@ -1053,6 +1152,120 @@ class VisualIdentityPipelineService:
                     "the selected input kind does not match its processor source"
                 )
             kind = source_kind
+
+            if kind == "proposed_virtual_cards":
+                if not isinstance(revision.content, ProposedCardSceneData):
+                    raise VisualIdentityCropInputError("the selected proposal revision is invalid")
+                data = revision.content
+                if (
+                    data.calibration is None
+                    or data.calibration_revision_id is None
+                    or data.calibration_digest is None
+                ):
+                    raise VisualIdentityCropInputError("the proposal has no frozen calibration")
+                detector_revision = self.revision_store.require(data.detector_revision_id)
+                if (
+                    detector_revision.manifest.recording_id != recording_id
+                    or detector_revision.manifest.content_type != "visible_cards"
+                    or detector_revision.manifest.source != source
+                    or detector_revision.manifest.content_sha256 != data.detector_revision_digest
+                ):
+                    raise VisualIdentityCropInputError("the detector lineage is stale")
+                calibration_run = self.calibration_store.load(
+                    recording_id, data.calibration_revision_id
+                )
+                calibration = calibration_run.calibration
+                if calibration is None or calibration.calibration_digest != data.calibration_digest:
+                    raise VisualIdentityCropInputError("the frozen calibration lineage is stale")
+                if data.calibration != calibration.to_mapping():
+                    raise VisualIdentityCropInputError("the proposal calibration contents changed")
+                projection = {
+                    "table_to_image_homography": [list(row) for row in calibration.table_to_image],
+                    "card_short_size": calibration.card_short_size,
+                    "card_long_size": calibration.card_long_size,
+                }
+                items = []
+                unsupported_frames: list[str] = []
+                hidden_cards: list[str] = []
+                for frame in data.frames:
+                    if frame.status == "unsupported":
+                        unsupported_frames.append(frame.frame_id)
+                        continue
+                    if frame.status == "no_cards_detected":
+                        continue
+                    if frame.proposal is None or frame.source_identity is None:
+                        raise VisualIdentityCropInputError(
+                            "a supported proposal has no exact frame identity"
+                        )
+                    identity = frame.source_identity
+                    if identity.source_video_sha256 != source.video_sha256:
+                        raise VisualIdentityCropInputError(
+                            "a proposal frame uses different video bytes"
+                        )
+                    scene = ReviewedCardScene.from_mapping(frame.proposal.initialized_scene)
+                    if (
+                        scene.source_frame_id != frame.frame_id
+                        or scene.source_frame_width != identity.width
+                        or scene.source_frame_height != identity.height
+                        or scene.calibration_revision_id != data.calibration_revision_id
+                        or scene.calibration_digest != data.calibration_digest
+                    ):
+                        raise VisualIdentityCropInputError(
+                            "proposal scene and exact frame identity differ"
+                        )
+                    derivation = derive_pose_scene_visible_regions(scene, projection)
+                    hidden_cards.extend(
+                        f"{frame.frame_id}:{card_id}" for card_id in derivation.hidden_card_ids
+                    )
+                    for region in derivation.regions:
+                        raw_geometry = dict(region["geometry"])
+                        raw_geometry["kind"] = "visible-region/v1"
+                        geometry = PredictedVisibleRegionGeometry.from_mapping(raw_geometry)
+                        items.append(
+                            VisualIdentityCropInputItem(
+                                card_id=region["card_id"],
+                                frame_identity=identity,
+                                geometry=geometry,
+                                side="unknown",
+                                identity_usable=True,
+                            )
+                        )
+                items.sort(key=lambda item: (item.frame_identity.frame_index, item.card_id))
+                input_value = VisualIdentityCropInput(
+                    input_kind=kind,
+                    recording_id=recording_id,
+                    accepted_video_sha256=source.video_sha256,
+                    accepted_video_byte_length=source.byte_length,
+                    source_revision_id=revision.manifest.revision_id,
+                    source_revision_digest=sha256_bytes(
+                        json.dumps(
+                            revision.manifest.to_mapping(), sort_keys=True, separators=(",", ":")
+                        ).encode("utf-8")
+                    ),
+                    source_view_digest=sha256_bytes(canonical_proposed_card_scene_data_bytes(data)),
+                    items=tuple(items),
+                    proposed_virtual_card_lineage=ProposedVirtualCardLineage(
+                        detector_revision_id=data.detector_revision_id,
+                        detector_revision_digest=data.detector_revision_digest,
+                        detector_data_digest=sha256_bytes(
+                            canonical_visible_card_data_bytes(detector_revision.content)
+                        ),
+                        calibration_revision_id=data.calibration_revision_id,
+                        calibration_digest=data.calibration_digest,
+                        derivation_policy="pose-scene-stacking-visible-regions.v1",
+                        unsupported_frame_ids=tuple(sorted(unsupported_frames)),
+                        hidden_cards=tuple(sorted(hidden_cards)),
+                    ),
+                )
+                input_value = VisualIdentityCropInput.from_mapping(input_value.to_mapping())
+                if supplied is not None and supplied.to_mapping() != input_value.to_mapping():
+                    raise VisualIdentityCropInputError(
+                        "the selected crop-input descriptor does not match its proposal revision"
+                    )
+                return input_value
+
+            if not isinstance(revision.content, VisibleCardData):
+                raise VisualIdentityCropInputError("the selected crop input is unavailable")
 
             if kind == "reviewed_visible_card":
                 if not isinstance(producer, HumanProducer):
@@ -1452,8 +1665,6 @@ class VisualIdentityPipelineService:
             if len(run.request.input_revision_ids) != 1 or run.request.crop_input is None:
                 raise VisualIdentityPipelineError("The frozen crop input is unavailable.")
             visible_revision = self.revision_store.require(run.request.input_revision_ids[0])
-            if not isinstance(visible_revision.content, VisibleCardData):
-                raise VisualIdentityPipelineError("The visible-card input revision is invalid.")
             _, source = self._accepted_source(run.request.source.recording_id)
             frozen_input = self._freeze_crop_input(
                 run.request.source.recording_id,
@@ -1463,12 +1674,44 @@ class VisualIdentityPipelineService:
             )
             if frozen_input.to_mapping() != run.request.crop_input:
                 raise VisualIdentityPipelineError("The frozen crop input changed.")
-            candidate_lookup = {
-                (outcome.frame_identity.frame_index, candidate.card_id): (outcome, candidate)
-                for outcome in visible_revision.content.outcomes
-                if outcome.status == "detected" and outcome.frame_identity is not None
-                for candidate in outcome.candidates
-            }
+            if isinstance(visible_revision.content, VisibleCardData):
+                candidate_lookup = {
+                    (outcome.frame_identity.frame_index, candidate.card_id): (outcome, candidate)
+                    for outcome in visible_revision.content.outcomes
+                    if outcome.status == "detected" and outcome.frame_identity is not None
+                    for candidate in outcome.candidates
+                }
+                self._validate_scene_derived_views(visible_revision.content)
+            elif isinstance(visible_revision.content, ProposedCardSceneData):
+                grouped: dict[int, list[VisualIdentityCropInputItem]] = {}
+                for crop_item in frozen_input.items:
+                    grouped.setdefault(crop_item.frame_identity.frame_index, []).append(crop_item)
+                candidate_lookup = {}
+                for frame_index, frame_items in grouped.items():
+                    frame_identity = frame_items[0].frame_identity
+                    candidates_for_frame = tuple(
+                        VisibleCardCandidate(
+                            card_id=item.card_id,
+                            geometry=item.geometry,
+                            normalization={
+                                "width": frame_identity.width,
+                                "height": frame_identity.height,
+                                "policy_id": "full-frame-0-1000/v1",
+                            },
+                            side=item.side,
+                        )
+                        for item in frame_items
+                    )
+                    synthetic = VisibleCardOutcome(
+                        event_id=f"proposal-frame-{frame_index}",
+                        frame_identity=frame_identity,
+                        status="detected",
+                        candidates=candidates_for_frame,
+                    )
+                    for candidate in candidates_for_frame:
+                        candidate_lookup[(frame_index, candidate.card_id)] = (synthetic, candidate)
+            else:
+                raise VisualIdentityPipelineError("The visual identity input revision is invalid.")
             item_ids = self._identity_item_ids(frozen_input.items)
             candidates: list[tuple[Any, Any, VisualIdentityCropInputItem, str]] = []
             for crop_item, item_id in zip(frozen_input.items, item_ids, strict=True):
@@ -1484,7 +1727,6 @@ class VisualIdentityPipelineService:
                         "The frozen crop input no longer matches its source."
                     )
                 candidates.append((pair[0], pair[1], crop_item, item_id))
-            self._validate_scene_derived_views(visible_revision.content)
             outcomes_by_index: list[VisualIdentityOutcome | None] = [None] * len(candidates)
             prior_items = {item.item_id: item for item in run.state.items}
             candidate_ids = {item_id for _, _, _, item_id in candidates}
@@ -1524,6 +1766,12 @@ class VisualIdentityPipelineService:
                 run_id,
                 progress=RunProgress(completed=completed, total=len(candidates)),
             )
+            provenance = (
+                self._crop_input_provenance(frozen_input, frozen_input.items[0])
+                if candidates
+                else None
+            )
+            frame_cache: OrderedDict[tuple[int, str], Any] = OrderedDict()
             with ThreadPoolExecutor(
                 max_workers=self._max_concurrent_requests(run.request),
                 thread_name_prefix="visual-identity-card",
@@ -1536,6 +1784,8 @@ class VisualIdentityPipelineService:
                         candidate,
                         crop_item,
                         item_id,
+                        provenance,
+                        frame_cache,
                     ): index
                     for index, outcome, candidate, crop_item, item_id in pending_candidates
                 }
@@ -1558,9 +1808,7 @@ class VisualIdentityPipelineService:
                             status="failed",
                             candidates=(),
                             error="The visual identity classifier failed for this card.",
-                            crop_input_provenance=self._crop_input_provenance(
-                                frozen_input, crop_item
-                            ),
+                            crop_input_provenance=provenance,
                         )
                     outcomes_by_index[index] = result
                     item = RunItemOutcome(
@@ -1608,6 +1856,8 @@ class VisualIdentityPipelineService:
         card: Any,
         crop_item: VisualIdentityCropInputItem,
         item_id: str,
+        provenance: VisualIdentityCropInputProvenance | None,
+        frame_cache: OrderedDict[tuple[int, str], Any],
         *,
         timings: dict[str, float | None] | None = None,
     ) -> VisualIdentityOutcome:
@@ -1615,23 +1865,27 @@ class VisualIdentityPipelineService:
         frame_identity = visible_outcome.frame_identity
         geometry: PipelineGeometry = card.geometry
         classifier_identity = self._classifier_identity(run.request)
-        crop_input = VisualIdentityCropInput.from_mapping(run.request.crop_input or {})
-        provenance = self._crop_input_provenance(crop_input, crop_item)
         frame = None
         try:
             started = time.monotonic()
             with self._derived_view_lock:
-                frame = resolve_exact_event(
-                    self._video_path(run.request.source.recording_id),
-                    source=run.request.source,
-                    requested_time_us=frame_identity.requested_time_us,
-                    cache=self.storage.derived_views_root,
-                    resolver=self.frame_resolver,
-                    output_encoding=frame_identity.output_encoding,
-                    # The accepted source was hashed when the run request was built. Avoid
-                    # hashing the complete video again for every card.
-                    validate_source=False,
-                )
+                key = (frame_identity.requested_time_us, frame_identity.output_encoding)
+                frame = frame_cache.get(key)
+                if frame is None:
+                    frame = resolve_exact_event(
+                        self._video_path(run.request.source.recording_id),
+                        source=run.request.source,
+                        requested_time_us=frame_identity.requested_time_us,
+                        cache=self.storage.derived_views_root,
+                        resolver=self.frame_resolver,
+                        output_encoding=frame_identity.output_encoding,
+                        validate_source=False,
+                    )
+                    frame_cache[key] = frame
+                    if len(frame_cache) > 4:
+                        frame_cache.popitem(last=False)
+                else:
+                    frame_cache.move_to_end(key)
             if frame.identity_mapping() != frame_identity.to_mapping():
                 raise DerivedViewError("the resolved frame identity changed")
         except (DerivedViewError, OSError, RuntimeError):
@@ -1823,12 +2077,21 @@ class VisualIdentityPipelineService:
         card: Any,
         crop_item: VisualIdentityCropInputItem,
         item_id: str,
+        provenance: VisualIdentityCropInputProvenance | None,
+        frame_cache: OrderedDict[tuple[int, str], Any],
     ) -> VisualIdentityOutcome:
         started = time.monotonic()
         timings: dict[str, float | None] = {}
         try:
             return self._process_card(
-                run, visible_outcome, card, crop_item, item_id, timings=timings
+                run,
+                visible_outcome,
+                card,
+                crop_item,
+                item_id,
+                provenance,
+                frame_cache,
+                timings=timings,
             )
         finally:
             LOGGER.info(

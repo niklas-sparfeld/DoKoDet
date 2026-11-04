@@ -7,6 +7,7 @@ import pytest
 
 from table_evidence_analyzer.pipeline_data import canonical_json_bytes
 from table_evidence_analyzer.visual_identity_crop_input import (
+    ProposedVirtualCardLineage,
     ReviewedVirtualCardLineage,
     VisualIdentityCropInput,
     VisualIdentityCropInputError,
@@ -101,9 +102,22 @@ def _virtual_lineage() -> dict[str, str]:
     }
 
 
+def _proposed_lineage() -> dict[str, object]:
+    return {
+        "detector_revision_id": "detector-revision-01",
+        "detector_revision_digest": "a" * 64,
+        "detector_data_digest": "b" * 64,
+        "calibration_revision_id": "calibration-revision-01",
+        "calibration_digest": "c" * 64,
+        "derivation_policy": "pose-scene-stacking-visible-regions.v1",
+        "unsupported_frame_ids": ["frame-unsupported-01"],
+        "hidden_cards": ["frame-01:card-hidden-01"],
+    }
+
+
 def _mapping(kind: str = "gemini_polygon") -> dict[str, object]:
     value: dict[str, object] = {
-        "schema_version": "visual-identity-crop-input/v2",
+        "schema_version": "visual-identity-crop-input/v3",
         "input_kind": kind,
         "recording_id": "recording-01",
         "accepted_video_sha256": VIDEO_DIGEST,
@@ -113,6 +127,7 @@ def _mapping(kind: str = "gemini_polygon") -> dict[str, object]:
         "source_view_digest": "3" * 64,
         "items": [_item("card-01", 0)],
         "virtual_card_lineage": None,
+        "proposed_virtual_card_lineage": None,
         "manifest_digest": "0" * 64,
     }
     if kind == "rfdetr_segment":
@@ -133,6 +148,8 @@ def _mapping(kind: str = "gemini_polygon") -> dict[str, object]:
         value["virtual_card_lineage"] = _virtual_lineage()
     if kind == "reviewed_visible_card":
         value["items"] = [_item("card-01", 0, geometry_kind="reviewed-visible-region/v1")]
+    if kind == "proposed_virtual_cards":
+        value["proposed_virtual_card_lineage"] = _proposed_lineage()
     # The contract computes the digest from the manifest.  Build once without a
     # supplied digest, then freeze the resulting canonical mapping.
     value["manifest_digest"] = None
@@ -153,13 +170,24 @@ def _mapping(kind: str = "gemini_polygon") -> dict[str, object]:
             if value["virtual_card_lineage"] is None
             else ReviewedVirtualCardLineage.from_mapping(value["virtual_card_lineage"])
         ),
+        proposed_virtual_card_lineage=(
+            None
+            if value["proposed_virtual_card_lineage"] is None
+            else ProposedVirtualCardLineage.from_mapping(value["proposed_virtual_card_lineage"])
+        ),
     )
     return built.to_mapping()
 
 
 @pytest.mark.parametrize(
     "kind",
-    ["gemini_polygon", "rfdetr_segment", "reviewed_virtual_card", "reviewed_visible_card"],
+    [
+        "gemini_polygon",
+        "rfdetr_segment",
+        "proposed_virtual_cards",
+        "reviewed_virtual_card",
+        "reviewed_visible_card",
+    ],
 )
 def test_supported_inputs_round_trip_with_stable_manifest_digest(kind: str) -> None:
     raw = _mapping(kind)
@@ -174,6 +202,9 @@ def test_supported_inputs_round_trip_with_stable_manifest_digest(kind: str) -> N
     if kind == "reviewed_virtual_card":
         assert parsed.virtual_card_lineage is not None
         assert parsed.items[0].geometry.to_mapping()["kind"] == "reviewed-visible-region/v1"
+    if kind == "proposed_virtual_cards":
+        assert parsed.proposed_virtual_card_lineage is not None
+        assert parsed.items[0].geometry.to_mapping()["kind"] == "visible-region/v1"
 
 
 def test_contract_keeps_crop_policy_separate_and_checks_geometry_compatibility() -> None:

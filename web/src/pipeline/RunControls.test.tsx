@@ -471,6 +471,48 @@ describe("RunControls", () => {
     });
   });
 
+  it("starts a visible-card crop refinement review run", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(runResponse("visible-run-crop-review")), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const events = stage("events", {
+      selected_generated_revision_id: "events-generated",
+    });
+    const visible = stage("visible_cards");
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={visible}
+        stages={[events, visible]}
+        onRefresh={async () => undefined}
+      />,
+    );
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Model variant" }),
+      "local-rfdetr-crop-review",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.find(([, init]) => init?.method === "POST"),
+      ).toBeDefined(),
+    );
+    const postCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      request: { configuration: { provider: "local-rfdetr-crop-review" } },
+    });
+  });
+
   it("uses polygon crop policies for visual identity runs", async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(
@@ -573,6 +615,111 @@ describe("RunControls", () => {
     });
   });
 
+  it("lists exact proposed scene revisions and requires a choice when several exist", async () => {
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      if (String(input).endsWith("/visual-identities/proposed-crop-inputs")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              recording_id: "recording-run-controls",
+              inputs: [
+                {
+                  revision_id: "proposal-one",
+                  created_at: "2026-11-03T00:00:00Z",
+                  proposal_data_digest: "a".repeat(64),
+                  detector_revision_id: "detector-one",
+                  calibration_revision_id: "calibration-one",
+                  supported_frame_count: 2,
+                  unsupported_frame_count: 1,
+                },
+                {
+                  revision_id: "proposal-two",
+                  created_at: "2026-11-04T00:00:00Z",
+                  proposal_data_digest: "b".repeat(64),
+                  detector_revision_id: "detector-two",
+                  calibration_revision_id: "calibration-two",
+                  supported_frame_count: 4,
+                  unsupported_frame_count: 0,
+                },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(runResponse("identity-proposal")), {
+            status: 202,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(runResponse("identity-proposal")), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const visible = stage("visible_cards");
+    const identities = stage("visual_identities");
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={identities}
+        stages={[visible, identities]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    const selector = screen.getByRole("combobox", {
+      name: "Crop geometry input",
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("option", { name: /proposal-two/ }),
+      ).toBeInTheDocument(),
+    );
+    expect(selector).toHaveValue("");
+    expect(
+      screen.getByRole("button", { name: "Run processor" }),
+    ).toBeDisabled();
+    await userEvent.selectOptions(
+      selector,
+      "proposed_virtual_cards:proposal-two",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Run processor" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([, init]) => init?.method === "POST"),
+      ).toBe(true),
+    );
+    const body = JSON.parse(
+      String(
+        fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
+          ?.body,
+      ),
+    );
+    expect(body).toMatchObject({
+      request: {
+        input_revision_ids: ["proposal-two"],
+        card_scene_proposal_revision_id: "proposal-two",
+        crop_input_kind: "proposed_virtual_cards",
+        configuration: { provider: "local" },
+        crop_policy: {
+          policy_id: "predicted_visible_region",
+          output_encoding: "ppm",
+        },
+      },
+    });
+    expect(body.request.visible_card_revision_id).toBeUndefined();
+  });
+
   it("preselects one crop input and requires an explicit choice when several exist", async () => {
     const oneInput = stage("visible_cards", {
       input_options: [
@@ -649,9 +796,11 @@ describe("RunControls", () => {
     expect(
       screen.getByRole("button", { name: "Run processor" }),
     ).toBeDisabled();
-    expect(
-      screen.getByText(/none is selected automatically/i),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByText(/none is selected automatically/i),
+      ).toBeInTheDocument(),
+    );
   });
 
   it("uses the local classifier with the generated RF-DETR crop input", async () => {
