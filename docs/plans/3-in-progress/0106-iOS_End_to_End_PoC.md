@@ -8,7 +8,7 @@
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M13.
-- **Outcome:** M0–M5 complete. M6–M13 remain. The iOS package now derives a deterministic
+- **Outcome:** M0–M6 complete. M7–M13 remain. The iOS package now derives a deterministic
   table-plane fit candidate from robust boundary evidence. Live capture retains event proposals and frame timing;
   the visible-card stage retains event-frame provenance, model lineage, and proposal outcomes. No
   device result or model-quality claim exists.
@@ -138,7 +138,7 @@ with Python. Cover empty, degenerate, outlier, and successful fits.
 The [M5 result](../../reports/0106-M5_Robust_Table_Plane_Fit.md) records the fit API, Python fixture
 parity, outlier refit, and verification. The result remains a candidate for M6.
 
-### M6 — Select and validate recording calibration
+### M6 — Select and validate recording calibration — Complete
 
 Port `card_plane_calibration.py` for the exact visible-card revision. Retain candidate evidence and
 failure diagnostics. Publish a table-plane calibration only when all required gates pass. Preserve
@@ -148,9 +148,10 @@ Acceptance: fixed detector fixtures compare calibration matrices, dimensions, ca
 and publication status with Python. Cover empty input, insufficient candidates, outliers, and a
 published synthetic recording.
 
-The [M6 progress report](../../reports/0106-M6_Calibration_Selection_Progress.md) records the
-initial Swift selector. M6 remains incomplete until candidate filtering, diagnostics, serialization,
-and Python parity pass.
+The [M6 result](../../reports/0106-M6_Calibration_Selection_Progress.md) records the selector,
+frozen visible-card revision adapter, retained candidate evidence, Python fixture parity, and
+simulator verification. Contour-derived quality values use the normalized M2 polygons. They remain
+diagnostic inputs and do not qualify the detector.
 
 ### M7 — Refine calibration from anchors
 

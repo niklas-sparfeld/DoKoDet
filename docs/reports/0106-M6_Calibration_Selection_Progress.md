@@ -1,34 +1,37 @@
-# Epic 0106 M6: recording calibration selection progress
+# Epic 0106 M6: recording calibration selection
 
-This report records an incomplete M6 implementation. The Swift package now has a deterministic
-recording-level selector around the M5 fit candidate. It checks recording dimensions and source
-transform identity, confidence, held-out geometry, time, position, and orientation diversity. It
-returns an in-memory calibration only when its gates pass. It does not write a calibration
-revision.
+M6 is complete. Swift now selects and validates a recording calibration from an exact frozen
+`DeviceVisibleCardRevision`. It keeps candidate decisions, quality metrics, bins, boundary evidence,
+receipt digests, fit membership, held-out membership, failure codes, and publication gates.
+
+The selector reads normalized visible-card polygons from the M2 revision. It reconstructs oriented
+quadrilaterals, samples the contour boundary, estimates candidate quality, rejects overlaps and
+scale outliers, applies frame/time/position/bin limits, and validates the robust table-plane fit.
+It does not change the M2 revision. A failed revision or failed required gate returns diagnostics and
+no calibration.
+
+Published values use `table-plane-calibration/v1`, `card-plane-geometry/v6`, the canonical
+coordinate and corner conventions, the Python recipe digest, accepted candidate receipt digests, a
+deterministic calibration revision ID, and a calibration digest. The Python fixture test compares
+receipt hashes, revision ID, decisions, gates, dimensions, status, and matrix behavior. The Swift
+fit's matrix coefficients are not byte-identical to Python. Landmark differences stay below 0.002
+table units for image-to-table and 0.2 pixels for table-to-image on the fixed fixture.
+
+Quality values derived from M2 use its normalized, integer contour polygon. The frozen Python
+fixture also exercises full mask-derived candidate metrics and boundary samples. These checks verify
+implementation parity on supplied evidence; they do not qualify RF-DETR quality or replace human
+review.
 
 ## Verification
 
-- The synthetic twelve-card case publishes a finite transform and preserves the visible-card
-  revision identifier and frame dimensions.
-- Empty input does not publish. Changed frame geometry throws an explicit input error.
-- All Swift package tests pass: 135 passed, one optional RF-DETR parity test skipped in the
-  full-suite invocation because the reference root was not set.
-- The optional RF-DETR parity test was then run with
-  `DEVICE_VISIBLE_CARD_REFERENCE_ROOT=/Users/niklas.sparfeld/Developer/doko_detector` and passed
-  all six frozen frames. Above-threshold masks matched every reference mask with minimum IoU
-  greater than 0.9999. One small frame-70s score and box difference remained; the test accepts it.
-- The iOS app test scheme built and ran on the iPhone 18 Pro simulator with iOS 27.2.
-- Swift format lint and `git diff --check` passed.
-
-## Remaining M6 work
-
-This is not the `card_plane_calibration.py` port and does not meet M6 acceptance yet. The Python
-selector derives candidate quality and boundary samples from segmentation masks, applies frame,
-overlap, scale, and grouped-bin filters, and records candidate receipts, diagnostics, schema
-versions, digests, and publication lineage. The current Swift selector receives already formed
-quadrilaterals and uses confidence as its fit weight. It does not produce those diagnostics or
-serialized revisions.
-
-The fixed Python calibration fixture publishes after it rejects `candidate-011` during quality
-selection. The current Swift test does not reproduce that decision or compare the published matrix
-with Python. Complete those parity gaps before marking M6 complete or using this output downstream.
+- `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --package-path ios` passed
+  139 tests with one optional frozen-model parity test skipped.
+- `DEVICE_VISIBLE_CARD_REFERENCE_ROOT=/Users/niklas.sparfeld/Developer/doko_detector`
+  `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --package-path ios --filter VisibleCardReferenceParityTests`
+  passed all six frozen RF-DETR frames. Above-threshold masks matched with minimum IoU 0.999976;
+  the known small score/box difference remains on frame 70s.
+- `xcodebuild test -project ios/CardEventProbe.xcodeproj -scheme CardEventProbeAppTests` passed
+  five app workflow tests on the iPhone 18 Pro simulator running iOS 27.2.
+- Focused calibration tests cover Python fixture parity, direct M2 revision selection, publication,
+  empty and insufficient input, changed geometry, and wrong revision lineage.
+- Swift format lint and `git diff --check` pass.
