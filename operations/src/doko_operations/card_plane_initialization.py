@@ -29,11 +29,12 @@ from .card_plane_geometry import (
     project_fixed_card,
     rasterize_polygon,
 )
+from .card_scene_joint_fit import search_joint_scene
 from .pipeline_data import canonical_json_bytes
 
 INITIALIZATION_PROCESSOR_SCHEMA_VERSION = "card-plane-initialization-processor/v1"
 INITIALIZATION_RUN_SCHEMA_VERSION = "card-plane-initialization-run/v1"
-POSE_FIT_RECIPE_VERSION = "fixed-card-pose-grid-search/v5"
+POSE_FIT_RECIPE_VERSION = "fixed-card-pose-joint-search/v6"
 
 
 class CardPlaneInitializationError(ValueError):
@@ -290,6 +291,16 @@ class PoseFitRecipe:
     def to_mapping(self) -> dict[str, Any]:
         return {
             "recipe_version": POSE_FIT_RECIPE_VERSION,
+            "joint_search": {
+                "beam_width": 3,
+                "maximum_cards": 8,
+                "max_changed_cards": 2,
+                "coarse_scale": 8,
+                "fine_scale": 4,
+                "edge_occlusion_margin_source_pixels": 32,
+                "fine_angle_step_degrees": 1,
+                "fine_center_step_axis_fraction": 0.025,
+            },
             "center_search_radius": _round(self.center_search_radius),
             "angle_search_degrees": _round(self.angle_search_degrees),
             "center_steps": self.center_steps,
@@ -1034,6 +1045,48 @@ def initialize_card_scene(
         refitted.append(selected)
         occluder = np.maximum(occluder, selected.full_mask)
     fitted = sorted(refitted, key=lambda item: item.pose.card_id)
+    initial_order, _, _, _ = (
+        _order_candidates(fitted, selected_recipe) if fitted else ((), (), (), [])
+    )
+    joint = search_joint_scene(selected_calibration, fitted, initial_order)
+    if joint["poses"]:
+        updated = []
+        for item in fitted:
+            replacement = joint["poses"].get(item.pose.card_id)
+            if replacement is None:
+                updated.append(item)
+                continue
+            diagnostic = PoseFitDiagnostics.from_mapping(
+                PoseFitDiagnostics(
+                    card_id=item.pose.card_id,
+                    source_suggestion_id=item.candidate.suggestion_id,
+                    residual=_round(1.0 - joint["score"]),
+                    accepted=True,
+                    failure_reason=None,
+                    diagnostics_digest="",
+                ).to_mapping()
+            )
+            pose = CardPose(
+                card_id=item.pose.card_id,
+                center=tuple(_round(float(x)) for x in replacement["center"]),
+                rotation_degrees=_round(replacement["angle"] % 180.0),
+                source_suggestion_id=item.candidate.suggestion_id,
+                fit_diagnostics_digest=diagnostic.diagnostics_digest,
+            )
+            mask = rasterize_polygon(
+                project_fixed_card(
+                    np.asarray(selected_calibration.table_to_image), pose.center,
+                    pose.rotation_degrees, selected_calibration.card_short_size,
+                    selected_calibration.card_long_size,
+                ), width, height,
+            )
+            updated.append(_FittedCandidate(
+                candidate=item.candidate, pose=pose, diagnostic=diagnostic,
+                score=_round(joint["score"]),
+                low_confidence=joint["score"] < selected_recipe.low_confidence_score,
+                full_mask=mask,
+            ))
+        fitted = updated
     fit_diagnostics.extend(item.diagnostic for item in fitted)
     fit_diagnostics.sort(key=lambda item: item.source_suggestion_id)
     low_confidence = [
@@ -1042,6 +1095,8 @@ def initialize_card_scene(
     order, uncertain_edges, contradictions, edge_diagnostics = (
         _order_candidates(fitted, selected_recipe) if fitted else ((), (), (), [])
     )
+    if joint["order"]:
+        order = tuple(joint["order"])
     by_id = {item.pose.card_id: item for item in fitted}
     ordered_fitted = [by_id[card_id] for card_id in order]
     scene = None
@@ -1091,6 +1146,8 @@ def initialize_card_scene(
                 for key in sorted(occlusion_removed_boundary_fractions)
             },
         },
+        "joint_scene_search": {**joint, "changed_card_ids": sorted(joint["poses"]),
+                               "residual_basis": "joint_scene_mask_iou"},
         "order": {
             "edges": edge_diagnostics,
             "uncertain_edges": [list(edge) for edge in uncertain_edges],

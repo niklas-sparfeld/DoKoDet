@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from copy import deepcopy
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -366,6 +368,89 @@ def _calibration_result() -> tuple[dict[str, object], object]:
     return result, run.calibration
 
 
+def test_event_000012_joint_search_fits_partial_card() -> None:
+    fixture_path = Path(__file__).parent / "fixtures/card-scene-event-000012-pose-order.json"
+    fixture = json.loads(fixture_path.read_text())
+    identity = fixture["frame_identity"]
+    width, height = identity["width"], identity["height"]
+    predictions = []
+    for candidate in fixture["detector_candidates"]:
+        polygons = candidate["geometry"]["visible_region"]["polygons"]
+        predictions.append(
+            {
+                "candidate_id": candidate["card_id"],
+                "confidence": 1.0,
+                "polygons": [
+                    [
+                        [point["x"] / 1000.0 * width, point["y"] / 1000.0 * height]
+                        for point in polygon
+                    ]
+                    for polygon in polygons
+                ],
+            }
+        )
+    result = {
+        "recording_id": fixture["lineage"]["recording_id"],
+        "source_revision": fixture["calibration"]["source_revision"],
+        "frames": [
+            {
+                "frame_id": fixture["lineage"]["source_frame_id"],
+                "width": width,
+                "height": height,
+                "source_identity": identity,
+                "predictions": predictions,
+            }
+        ],
+    }
+
+    run = initialize_card_scene(result, fixture["calibration"])
+
+    saved = fixture["saved_scene"]
+    assert run.scene is not None
+    order = run.scene.stacking_order.card_ids
+    assert [card[-4:] for card in order] == ["0000", "0003", "0002", "0001"]
+    actual = {
+        pose.source_suggestion_id: (pose.center, pose.rotation_degrees) for pose in run.scene.poses
+    }
+    expected = {
+        pose["source_suggestion_id"]: (tuple(pose["center"]), pose["rotation_degrees"])
+        for pose in saved["poses"]
+    }
+    target = next(key for key in actual if key.endswith("card-0003"))
+    assert np.allclose(actual[target][0], (1.203976, 1.047226), atol=0.002)
+    assert abs(actual[target][1] - 49.366157) < 0.1
+    assert all(actual[key] == expected[key] for key in actual if key != target)
+    joint = run.diagnostics["joint_scene_search"]
+    assert joint["score"] > joint["baseline_score"]
+    assert joint["changed_card_ids"] == [f"pose-{target}"]
+    assert joint["margin"] is not None
+    assert fixture["lineage"]["source_video_sha256"] == identity["source_video_sha256"]
+    assert fixture["lineage"]["calibration_digest"] == fixture["calibration"]["calibration_digest"]
+    experiment = fixture["bounded_mask_experiment"]
+    assert experiment["limits"] == {
+        "orientation_candidates_per_card": 2,
+        "order_hypotheses": 2,
+        "rendered_scenes": 4,
+    }
+    assert experiment["metric_scope"].endswith("not reviewed ground truth")
+    assert [2, 3] not in experiment["order_hypotheses"]["proposed_edges"]
+    hypotheses = experiment["hypotheses"]
+    saved = next(
+        item
+        for item in hypotheses
+        if item["orientation_index"] == 0 and item["order_name"] == "saved"
+    )
+    alternate = next(
+        item
+        for item in hypotheses
+        if item["orientation_index"] == 1 and item["order_name"] == "proposed"
+    )
+    assert (
+        sum(metric["iou"] for metric in alternate["metrics"]) / 4
+        > sum(metric["iou"] for metric in saved["metrics"]) / 4
+    )
+
+
 def _frame_result(calibration_result: dict[str, object], frame_index: int = 0) -> dict[str, object]:
     return {
         "recording_id": "recording-1",
@@ -412,7 +497,7 @@ def test_pose_uses_calibrated_dimensions_and_low_confidence_is_visible() -> None
     assert run.diagnostics["low_confidence_suggestion_ids"] == ["candidate-000"]
     pose = run.scene.poses[0]
     assert pose.rotation_degrees == pose.rotation_degrees % 180.0
-    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-grid-search/v5"
+    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-joint-search/v6"
 
 
 def test_failed_candidate_does_not_block_a_scene_or_manual_addition() -> None:
