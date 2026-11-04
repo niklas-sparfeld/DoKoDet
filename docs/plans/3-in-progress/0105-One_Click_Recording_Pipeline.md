@@ -4,11 +4,11 @@
 
 - **Summary:** Start the complete recording pipeline from one web workspace action and retain each
   intermediate result for later review.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Existing recording workspace and stage services; the retained 0090 coordinator is
   available for assessment. No human review campaign is a prerequisite.
-- **Outcome:** M0–M4 not started. Each new run creates fresh stage results and requires all
-  necessary information before it starts.
+- **Outcome:** M0 complete. M1–M4 not started. Each new run creates fresh stage results and requires
+  all necessary information before it starts.
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
 ## Purpose
@@ -50,7 +50,7 @@ It must not silently skip a required stage or report a partial result as complet
 
 ## Milestones
 
-### M0 — Freeze the execution contract
+### M0 — Freeze the execution contract — Complete
 
 Inspect current manual requests, workspace persistence, calibration requirements, coordinator,
 model configuration, and analysis inputs. Record the stage graph, inputs, output lineage, valid empty
@@ -61,6 +61,11 @@ Select a small deterministic fixture and define acceptance before implementation
 Acceptance: the contract maps each output to the next input and to its existing review view; it
 requires no input after start and does not change review authority. The implementation milestones
 below are adjusted if the inspection finds a material gap.
+
+Result: [0105 M0 execution contract](../../reports/0105-M0_Execution_Contract.md). The retained
+0090 coordinator is a CLI reference. M1 must add a durable recording-scoped start/status boundary.
+The report freezes the six-stage graph, automatic crop path, valid empty outputs, blocking failures,
+preflight facts, restart and duplicate-start rules, and deterministic fixture acceptance.
 
 ### M1 — Start and persist an automated run
 

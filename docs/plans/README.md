@@ -105,12 +105,12 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0105 — One-click recording pipeline](2-ready/0105-One_Click_Recording_Pipeline.md) | Existing recording pipeline | M0–M4 not started. Start a fresh complete run from one workspace action and retain results for review. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0105 — One-click recording pipeline](3-in-progress/0105-One_Click_Recording_Pipeline.md) | Existing recording pipeline | M0 complete; M1–M4 not started. Add one workspace action for a fresh complete run and retain its results for review. See the [M0 execution contract](../reports/0105-M0_Execution_Contract.md). |
 | [0101 — Repository spring cleanup](5-closed/0101-Repository_Spring_Cleanup.md) | None for M1–M2; handler/editor extractions waited for 0100 M5 | Closed — M0–M6 complete. Removed obsolete evidence adoption, extracted two focused boundaries, and fixed order-dependent duplicate frame coverage validation. See the [M0 inventory](../reports/0101-M0_Cleanup_Inventory.md) and [cleanup handoff](../reports/0101-Cleanup_Handoff.md). |
 | [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. The M4 review queue is frozen at 165 frames across 33 recordings; one M1 failure has no corrected output to inspect. Human review is pending. See the [M4 queue](../reports/0096-M4_Human_Review_Queue.md) and [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
 
