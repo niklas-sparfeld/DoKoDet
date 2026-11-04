@@ -73,6 +73,46 @@ export type PipelineRunResponse = {
   request: Record<string, unknown>;
   state: Record<string, unknown>;
 };
+export type AutomatedPipelineRun = {
+  schema_version: "automated-pipeline-run/v1";
+  run_id: string;
+  recording_id: string;
+  status:
+    "accepted" | "queued" | "running" | "complete" | "failed" | "cancelled";
+  failure: Record<string, unknown> | null;
+  request: Record<string, unknown>;
+  stages: Array<{
+    name: string;
+    status:
+      "pending" | "queued" | "running" | "complete" | "partial" | "failed";
+    run_id: string | null;
+    input_revision_ids: string[];
+    output_revision_ids: string[];
+    failure: Record<string, unknown> | null;
+  }>;
+};
+export type AutomatedPipelineStartRequest = {
+  idempotency_key: string;
+  session_id: string;
+  round_id: string;
+  round_context: {
+    game_id: string;
+    round_id: string;
+    active_players: string[];
+    dealer: string;
+    first_trick_leader: string;
+  };
+  rules_version: "v1";
+  search: {
+    max_missing_plays: number;
+    max_hypotheses: number;
+    max_search_nodes: number;
+  };
+  stage_requests: Record<
+    string,
+    { configuration: Record<string, unknown>; [key: string]: unknown }
+  >;
+};
 export type PipelineProposalRunResponse = PipelineRunResponse;
 export type PipelineProposalResultResponse = PipelineRunResponse & {
   revisions: Array<{
@@ -340,6 +380,16 @@ export class ApiError extends Error {
 const PIPELINE_REFERENCE_DRAFT_UPDATE_TIMEOUT_MS = 60_000;
 
 export interface DokoDetectorClient {
+  startAutomatedPipelineRun(
+    recordingId: string,
+    payload: AutomatedPipelineStartRequest,
+    init?: RequestInit,
+  ): Promise<AutomatedPipelineRun>;
+  getAutomatedPipelineRun(
+    recordingId: string,
+    runId: string,
+    init?: RequestInit,
+  ): Promise<AutomatedPipelineRun>;
   getFrameReviewPage(options?: {
     cursor?: number;
     limit?: number;
@@ -628,6 +678,23 @@ export function createDokoDetectorClient(
   fetchImplementation: typeof fetch = fetch,
 ): DokoDetectorClient {
   return {
+    startAutomatedPipelineRun: (recordingId, payload, init) =>
+      requestJson<AutomatedPipelineRun>(
+        fetchImplementation,
+        `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/runs`,
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify(payload),
+        },
+      ),
+    getAutomatedPipelineRun: (recordingId, runId, init) =>
+      requestJson<AutomatedPipelineRun>(
+        fetchImplementation,
+        `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/runs/${encodeURIComponent(runId)}`,
+        init,
+      ),
     getFrameReviewPage: (options = {}) => {
       const params = new URLSearchParams();
       if (options.limit !== undefined)

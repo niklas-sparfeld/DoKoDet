@@ -22,6 +22,7 @@ import {
 import type { RecordingWorkspacePresentation } from "./recordingWorkspacePresentation";
 import { RecordingWorkspaceStatusBadge } from "./RecordingWorkspaceStatusBadge";
 import inspectorStyles from "./RecordingWorkspaceInspector.module.css";
+import { AutomatedPipelineControls } from "./AutomatedPipelineControls";
 
 export type RecordingWorkspaceInspectorProps = {
   recordingId: string;
@@ -146,6 +147,19 @@ export function RecordingWorkspaceInspector({
           </p>
         )}
       </section>
+
+      {!compare ? (
+        <section
+          className={`${styles.pipelineInspectorSection} ${inspectorStyles.section}`}
+          data-inspector-section="automated-pipeline"
+        >
+          <AutomatedPipelineControls
+            recordingId={recordingId}
+            workspace={workspace}
+            onRefresh={onRefresh}
+          />
+        </section>
+      ) : null}
 
       <section
         className={`${styles.pipelineInspectorSection} ${inspectorStyles.section}`}

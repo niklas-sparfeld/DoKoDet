@@ -212,6 +212,7 @@ describe("recording pipeline workspace", () => {
       ),
     ).toEqual([
       "progress",
+      "automated-pipeline",
       "action",
       "save-state",
       "selection",

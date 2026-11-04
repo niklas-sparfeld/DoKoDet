@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing recording workspace and stage services; the retained 0090 coordinator is
   available for assessment. No human review campaign is a prerequisite.
-- **Outcome:** M0–M2 complete. M3–M4 not started. Each new run creates fresh stage results and
+- **Outcome:** M0–M3 complete. M4 remains. Each new run creates fresh stage results and
   requires all necessary information before it starts.
 - **Target architecture:** [Table Observation and Game Reconstruction](../../TableObservationReconstruction.md)
 
@@ -96,13 +96,19 @@ stores stage requests, processor run IDs, exact input and output revision IDs, a
 overall run. Startup resumes accepted or interrupted runs from the coordinator manifest and retries
 an interrupted processor request. Completed stages keep their retained outputs.
 
-### M3 — Add the recording workspace action
+### M3 — Add the recording workspace action — Complete
 
 Expose prerequisite entry and validation, one start action, progress, failure details, and links to
 the existing stage results and saved analysis. Restore the run status after navigation and reload.
 
 Acceptance: browser-level fixture tests start once and observe all stages and the saved analysis
 without intermediate input. They cover missing inputs and a failed stage.
+
+Result: [0105 M3 workspace action](../../reports/0105-M3_Workspace_Action.md). The recording
+inspector now collects explicit round facts, starts one complete run, restores its saved run ID
+after reload, and polls durable status. It shows stage state, failure causes, and links to the
+existing stage and analysis views. Browser fixtures cover preflight, start, reload, and stage
+failure. M4 must verify the full local workflow with the backend fixture.
 
 ### M4 — Verify the complete local workflow
 
