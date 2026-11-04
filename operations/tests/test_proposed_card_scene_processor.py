@@ -6,10 +6,12 @@ import numpy as np
 import pytest
 from table_evidence_analyzer.pipeline_data import VisibleCardData
 
+from doko_operations.card_plane_calibration import calibrate_recording
 from doko_operations.card_plane_geometry import project_fixed_card
 from doko_operations.card_plane_initialization import PoseFitRecipe
 from doko_operations.proposed_card_scene_processor import (
     ProposedCardSceneProcessorError,
+    build_proposed_card_scene_data,
     build_proposed_card_scenes,
     visible_card_data_to_local_result,
 )
@@ -19,6 +21,29 @@ TABLE_TO_IMAGE = np.asarray(
     dtype=np.float64,
 )
 DIGEST = "a" * 64
+
+
+def test_parallel_frames_match_serial_results_and_failures() -> None:
+    local_result = _local_result()
+    calibration = calibrate_recording(local_result).calibration
+    assert calibration is not None
+    local_result["frames"] = local_result["frames"][:3]
+    local_result["frames"][1]["predictions"][0]["polygon"] = []
+    updates = []
+    args = dict(
+        detector_revision_id="visible-cards-001",
+        detector_revision_digest=DIGEST,
+        calibration=calibration,
+        calibration_diagnostics={"status": "published"},
+        pose_recipe=PoseFitRecipe(center_steps=3, angle_steps=3, refinement_stages=0),
+    )
+    serial = build_proposed_card_scene_data(local_result, max_workers=1, **args)
+    parallel = build_proposed_card_scene_data(
+        local_result, max_workers=2, progress_callback=lambda *args: updates.append(args), **args
+    )
+    assert parallel.to_mapping() == serial.to_mapping()
+    assert parallel.frames[1].status == "unsupported"
+    assert [item[1] for item in updates] == [1, 2, 3]
 
 
 def _local_result(*, include_unresolvable: bool = False) -> dict[str, object]:

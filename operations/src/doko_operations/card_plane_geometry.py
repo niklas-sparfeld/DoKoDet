@@ -1548,12 +1548,10 @@ class TablePlaneCalibration:
             "frame_width": _positive_int(frame_width, "frame_width"),
             "frame_height": _positive_int(frame_height, "frame_height"),
             "image_to_table": [
-                [_round(value) for value in row]
-                for row in _matrix(image_to_table, "image_to_table")
+                [float(value) for value in row] for row in _matrix(image_to_table, "image_to_table")
             ],
             "table_to_image": [
-                [_round(value) for value in row]
-                for row in _matrix(table_to_image, "table_to_image")
+                [float(value) for value in row] for row in _matrix(table_to_image, "table_to_image")
             ],
             "card_short_size": _round(_positive(card_short_size, "card_short_size")),
             "card_long_size": _round(_positive(card_long_size, "card_long_size")),
@@ -1573,10 +1571,7 @@ class TablePlaneCalibration:
         if not np.allclose(
             image_to_table_array @ table_to_image_array,
             np.eye(3),
-            # Homographies can contain both sub-pixel perspective terms and large translation
-            # terms.  The frozen six-decimal serialization can therefore introduce a small
-            # reciprocal error after both matrices are rounded.  Keep the validation strict while
-            # allowing that representation error.
+            # Allow previously serialized six-decimal matrices to remain readable.
             atol=10 ** (-NUMERIC_PRECISION_DECIMALS + 3),
         ):
             raise CardPlaneGeometryError(

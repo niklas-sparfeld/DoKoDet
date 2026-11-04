@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping
-from dataclasses import dataclass
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import nullcontext
+from dataclasses import dataclass, replace
 from typing import Any, Callable
 
 from table_evidence_analyzer.card_scene_contract import ProposedCardScene
@@ -30,6 +32,8 @@ from .card_plane_calibration import (
 )
 from .card_plane_initialization import (
     INITIALIZATION_PROCESSOR_SCHEMA_VERSION,
+    InitializationFailure,
+    InitializationRun,
     PoseFitRecipe,
     initialize_card_scene,
 )
@@ -113,6 +117,7 @@ def visible_card_data_to_local_result(
             prediction: dict[str, Any] = {
                 "candidate_id": candidate.card_id,
                 "confidence": confidence,
+                "confidence_available": bool(scores),
                 "polygons": source_polygons,
             }
             if scores:
@@ -301,6 +306,25 @@ def build_proposed_card_scenes(
     )
 
 
+def _initialize_worker_process() -> None:
+    import cv2
+
+    cv2.setNumThreads(1)
+
+
+def _initialize_frame_worker(
+    local_result: Mapping[str, Any], calibration: Any, frame_id: str, recipe: PoseFitRecipe | None
+) -> tuple[InitializationRun, tuple[str, str, str] | None]:
+    result = initialize_card_scene(
+        local_result, calibration, source_frame_id=frame_id, recipe=recipe
+    )
+    failure = result.failure
+    if failure is None:
+        return result, None
+    # Custom exceptions need explicit serialization across process boundaries.
+    return replace(result, failure=None), (failure.code, failure.message, failure.action)
+
+
 def build_proposed_card_scene_data(
     local_result: Mapping[str, Any],
     *,
@@ -310,6 +334,7 @@ def build_proposed_card_scene_data(
     calibration_diagnostics: Mapping[str, Any],
     pose_recipe: PoseFitRecipe | None = None,
     progress_callback: ProgressCallback | None = None,
+    max_workers: int = 4,
 ) -> ProposedCardSceneData:
     """Initialize proposal scenes from a supplied immutable calibration."""
 
@@ -324,50 +349,204 @@ def build_proposed_card_scene_data(
         len(raw_unresolvable_frames) if isinstance(raw_unresolvable_frames, list) else 0
     )
     completed_frames = 0
-    for raw_frame in raw_frames:
-        frame = _mapping(raw_frame, "local result frame")
-        frame_id = frame.get("frame_id")
-        if not isinstance(frame_id, str) or not frame_id:
-            raise ProposedCardSceneProcessorError("local result frame_id must be a string")
-        seen_frame_ids.add(frame_id)
-        source_digest = _source_frame_digest(frame)
-        raw_identity = frame.get("source_identity")
-        source_identity = (
-            None
-            if raw_identity is None
-            else VisibleCardFrameIdentity.from_mapping(
-                _mapping(raw_identity, f"frame {frame_id} source_identity")
-            )
+    if max_workers < 1:
+        raise ProposedCardSceneProcessorError("max_workers must be positive")
+    eligible = (
+        [
+            (index, frame)
+            for index, frame in enumerate(raw_frames)
+            if isinstance(frame, Mapping)
+            and isinstance(frame.get("frame_id"), str)
+            and frame.get("frame_id")
+            and isinstance(frame.get("predictions"), list)
+            and frame.get("predictions")
+            and isinstance(frame.get("source_frame_digest"), str)
+        ]
+        if calibration is not None
+        else []
+    )
+    use_pool = max_workers > 1 and len(eligible) > 1
+    pool_context = (
+        ProcessPoolExecutor(
+            max_workers=min(max_workers, len(eligible)), initializer=_initialize_worker_process
         )
-        detector_status = frame.get("outcome_status")
-        if detector_status == "failed":
-            raise ProposedCardSceneProcessorError(f"detector outcome {frame_id} failed")
-        raw_piles = frame.get("pile_regions", [])
-        if not isinstance(raw_piles, list):
-            raise ProposedCardSceneProcessorError(f"frame {frame_id} pile_regions must be a list")
-        piles = tuple(
-            VisibleCardPileRegion.from_mapping(
-                _mapping(value, f"frame {frame_id} pile region"),
-                f"frame {frame_id} pile_regions[{index}]",
+        if use_pool
+        else nullcontext(None)
+    )
+    with pool_context as pool:
+        pending = {}
+        if pool is not None:
+            for index, frame in eligible:
+                pending[index] = pool.submit(
+                    _initialize_frame_worker,
+                    {
+                        "recording_id": selected["recording_id"],
+                        "source_revision": detector_revision_id,
+                        "frames": [frame],
+                    },
+                    calibration,
+                    frame["frame_id"],
+                    pose_recipe,
+                )
+        for frame_index, raw_frame in enumerate(raw_frames):
+            frame = _mapping(raw_frame, "local result frame")
+            frame_id = frame.get("frame_id")
+            if not isinstance(frame_id, str) or not frame_id:
+                raise ProposedCardSceneProcessorError("local result frame_id must be a string")
+            seen_frame_ids.add(frame_id)
+            source_digest = _source_frame_digest(frame)
+            raw_identity = frame.get("source_identity")
+            source_identity = (
+                None
+                if raw_identity is None
+                else VisibleCardFrameIdentity.from_mapping(
+                    _mapping(raw_identity, f"frame {frame_id} source_identity")
+                )
             )
-            for index, value in enumerate(raw_piles)
-        )
-        predictions = frame.get("predictions", [])
-        if not isinstance(predictions, list):
-            raise ProposedCardSceneProcessorError(f"frame {frame_id} predictions must be a list")
-        if not predictions:
-            if source_digest is not None and source_identity is not None:
-                if detector_status not in {"detected", "empty"}:
-                    raise ProposedCardSceneProcessorError(
-                        f"detector outcome {frame_id} has no valid success status"
+            detector_status = frame.get("outcome_status")
+            if detector_status == "failed":
+                raise ProposedCardSceneProcessorError(f"detector outcome {frame_id} failed")
+            raw_piles = frame.get("pile_regions", [])
+            if not isinstance(raw_piles, list):
+                raise ProposedCardSceneProcessorError(
+                    f"frame {frame_id} pile_regions must be a list"
+                )
+            piles = tuple(
+                VisibleCardPileRegion.from_mapping(
+                    _mapping(value, f"frame {frame_id} pile region"),
+                    f"frame {frame_id} pile_regions[{index}]",
+                )
+                for index, value in enumerate(raw_piles)
+            )
+            predictions = frame.get("predictions", [])
+            if not isinstance(predictions, list):
+                raise ProposedCardSceneProcessorError(
+                    f"frame {frame_id} predictions must be a list"
+                )
+            if not predictions:
+                if source_digest is not None and source_identity is not None:
+                    if detector_status not in {"detected", "empty"}:
+                        raise ProposedCardSceneProcessorError(
+                            f"detector outcome {frame_id} has no valid success status"
+                        )
+                    frames.append(
+                        ProposedCardSceneFrame(
+                            frame_id=frame_id,
+                            source_frame_digest=source_digest,
+                            status="no_cards_detected",
+                            proposal=None,
+                            unsupported_reason=None,
+                            source_identity=source_identity,
+                            detector_status=detector_status,
+                            pile_regions=piles,
+                        )
                     )
+                    completed_frames += 1
+                    if progress_callback is not None:
+                        progress_callback(
+                            "initialization",
+                            completed_frames,
+                            total_frames,
+                            f"No individual cards detected in frame {frame_id}",
+                            2,
+                            3,
+                        )
+                    continue
                 frames.append(
                     ProposedCardSceneFrame(
                         frame_id=frame_id,
                         source_frame_digest=source_digest,
-                        status="no_cards_detected",
+                        status="unsupported",
                         proposal=None,
-                        unsupported_reason=None,
+                        unsupported_reason=(
+                            "source_identity_unavailable"
+                            if source_digest is not None
+                            else "source_frame_digest_unavailable"
+                        ),
+                    )
+                )
+                completed_frames += 1
+                continue
+            if calibration is None:
+                raise ProposedCardSceneProcessorError(
+                    "card candidates need a valid recording calibration"
+                )
+            if source_digest is None:
+                frames.append(
+                    ProposedCardSceneFrame(
+                        frame_id=frame_id,
+                        source_frame_digest=None,
+                        status="unsupported",
+                        proposal=None,
+                        unsupported_reason="source_frame_digest_unavailable",
+                    )
+                )
+                completed_frames += 1
+                if progress_callback is not None:
+                    progress_callback(
+                        "initialization",
+                        completed_frames,
+                        total_frames,
+                        f"Initializing virtual card frame {frame_id}",
+                        2,
+                        3,
+                    )
+                continue
+            if frame_index in pending:
+                initialized, failure_args = pending[frame_index].result()
+                if failure_args is not None:
+                    initialized = replace(initialized, failure=InitializationFailure(*failure_args))
+            else:
+                initialized = initialize_card_scene(
+                    {
+                        "recording_id": selected["recording_id"],
+                        "source_revision": detector_revision_id,
+                        "frames": [frame],
+                    },
+                    calibration,
+                    source_frame_id=frame_id,
+                    recipe=pose_recipe,
+                )
+            if initialized.scene is None:
+                reason = (
+                    initialized.failure.message
+                    if initialized.failure is not None
+                    else "no_initialized_candidates"
+                )
+                proposal = ProposedCardScene.create(
+                    proposal_id=f"proposal-{frame_id}",
+                    source_frame_id=frame_id,
+                    source_frame_digest=source_digest,
+                    detector_revision_id=detector_revision_id,
+                    detector_revision_digest=detector_revision_digest,
+                    calibration_revision_id=calibration.calibration_revision_id,
+                    calibration_digest=calibration.calibration_digest,
+                    initializer_recipe_version=(
+                        initialized.diagnostics.get("recipe", {}).get(
+                            "recipe_version", "fixed-card-pose-grid-search/v5"
+                        )
+                    ),
+                    status="unsupported",
+                    initialized_scene=None,
+                    fit_diagnostics={
+                        "initialization_processor_schema_version": (
+                            INITIALIZATION_PROCESSOR_SCHEMA_VERSION
+                        ),
+                        "run_digest": initialized.run_digest,
+                        "diagnostics": initialized.diagnostics,
+                        "fit_diagnostics": [
+                            item.to_mapping() for item in initialized.fit_diagnostics
+                        ],
+                    },
+                    unsupported_reason=reason,
+                )
+                frames.append(
+                    ProposedCardSceneFrame(
+                        frame_id=frame_id,
+                        source_frame_digest=source_digest,
+                        status="unsupported",
+                        proposal=proposal,
+                        unsupported_reason=reason,
                         source_identity=source_identity,
                         detector_status=detector_status,
                         pile_regions=piles,
@@ -379,67 +558,11 @@ def build_proposed_card_scene_data(
                         "initialization",
                         completed_frames,
                         total_frames,
-                        f"No individual cards detected in frame {frame_id}",
+                        f"Initializing virtual card frame {frame_id}",
                         2,
                         3,
                     )
                 continue
-            frames.append(
-                ProposedCardSceneFrame(
-                    frame_id=frame_id,
-                    source_frame_digest=source_digest,
-                    status="unsupported",
-                    proposal=None,
-                    unsupported_reason=(
-                        "source_identity_unavailable"
-                        if source_digest is not None
-                        else "source_frame_digest_unavailable"
-                    ),
-                )
-            )
-            completed_frames += 1
-            continue
-        if calibration is None:
-            raise ProposedCardSceneProcessorError(
-                "card candidates need a valid recording calibration"
-            )
-        if source_digest is None:
-            frames.append(
-                ProposedCardSceneFrame(
-                    frame_id=frame_id,
-                    source_frame_digest=None,
-                    status="unsupported",
-                    proposal=None,
-                    unsupported_reason="source_frame_digest_unavailable",
-                )
-            )
-            completed_frames += 1
-            if progress_callback is not None:
-                progress_callback(
-                    "initialization",
-                    completed_frames,
-                    total_frames,
-                    f"Initializing virtual card frame {frame_id}",
-                    2,
-                    3,
-                )
-            continue
-        initialized = initialize_card_scene(
-            {
-                "recording_id": selected["recording_id"],
-                "source_revision": detector_revision_id,
-                "frames": [frame],
-            },
-            calibration,
-            source_frame_id=frame_id,
-            recipe=pose_recipe,
-        )
-        if initialized.scene is None:
-            reason = (
-                initialized.failure.message
-                if initialized.failure is not None
-                else "no_initialized_candidates"
-            )
             proposal = ProposedCardScene.create(
                 proposal_id=f"proposal-{frame_id}",
                 source_frame_id=frame_id,
@@ -453,8 +576,8 @@ def build_proposed_card_scene_data(
                         "recipe_version", "fixed-card-pose-grid-search/v5"
                     )
                 ),
-                status="unsupported",
-                initialized_scene=None,
+                status="supported",
+                initialized_scene=initialized.scene.to_mapping(),
                 fit_diagnostics={
                     "initialization_processor_schema_version": (
                         INITIALIZATION_PROCESSOR_SCHEMA_VERSION
@@ -462,16 +585,16 @@ def build_proposed_card_scene_data(
                     "run_digest": initialized.run_digest,
                     "diagnostics": initialized.diagnostics,
                     "fit_diagnostics": [item.to_mapping() for item in initialized.fit_diagnostics],
+                    "suggestions": list(initialized.suggestions),
                 },
-                unsupported_reason=reason,
             )
             frames.append(
                 ProposedCardSceneFrame(
                     frame_id=frame_id,
                     source_frame_digest=source_digest,
-                    status="unsupported",
+                    status="supported",
                     proposal=proposal,
-                    unsupported_reason=reason,
+                    unsupported_reason=None,
                     source_identity=source_identity,
                     detector_status=detector_status,
                     pile_regions=piles,
@@ -487,54 +610,6 @@ def build_proposed_card_scene_data(
                     2,
                     3,
                 )
-            continue
-        proposal = ProposedCardScene.create(
-            proposal_id=f"proposal-{frame_id}",
-            source_frame_id=frame_id,
-            source_frame_digest=source_digest,
-            detector_revision_id=detector_revision_id,
-            detector_revision_digest=detector_revision_digest,
-            calibration_revision_id=calibration.calibration_revision_id,
-            calibration_digest=calibration.calibration_digest,
-            initializer_recipe_version=(
-                initialized.diagnostics.get("recipe", {}).get(
-                    "recipe_version", "fixed-card-pose-grid-search/v5"
-                )
-            ),
-            status="supported",
-            initialized_scene=initialized.scene.to_mapping(),
-            fit_diagnostics={
-                "initialization_processor_schema_version": (
-                    INITIALIZATION_PROCESSOR_SCHEMA_VERSION
-                ),
-                "run_digest": initialized.run_digest,
-                "diagnostics": initialized.diagnostics,
-                "fit_diagnostics": [item.to_mapping() for item in initialized.fit_diagnostics],
-                "suggestions": list(initialized.suggestions),
-            },
-        )
-        frames.append(
-            ProposedCardSceneFrame(
-                frame_id=frame_id,
-                source_frame_digest=source_digest,
-                status="supported",
-                proposal=proposal,
-                unsupported_reason=None,
-                source_identity=source_identity,
-                detector_status=detector_status,
-                pile_regions=piles,
-            )
-        )
-        completed_frames += 1
-        if progress_callback is not None:
-            progress_callback(
-                "initialization",
-                completed_frames,
-                total_frames,
-                f"Initializing virtual card frame {frame_id}",
-                2,
-                3,
-            )
 
     unresolvable_frames = raw_unresolvable_frames
     if not isinstance(unresolvable_frames, list):

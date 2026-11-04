@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
 
 from doko_operations.card_plane_calibration import calibrate_recording
 from doko_operations.card_plane_geometry import (
+    TablePlaneCalibration,
     apply_homography,
     project_fixed_card,
     rasterize_polygon,
@@ -17,10 +19,15 @@ from doko_operations.card_plane_initialization import (
     PoseFitRecipe,
     _boundary_mask,
     _Candidate,
+    _clipped_distances_to_boundary,
     _fit_candidate,
     _fit_evidence_mask,
     _fit_score,
     _fit_score_projected,
+    _FittedCandidate,
+    _mark_contained_alternatives,
+    _mask_area_seed,
+    _suppress_contained_fragments,
     initialize_card_scene,
 )
 
@@ -28,6 +35,42 @@ TABLE_TO_IMAGE = np.asarray(
     [[120.0, 20.0, 420.0], [15.0, 100.0, 240.0], [0.0002, 0.0004, 1.0]],
     dtype=np.float64,
 )
+
+
+def test_clipped_boundary_distances_match_full_transform() -> None:
+    rng = np.random.default_rng(87)
+    for tolerance in (0.5, 8.0, 17.5):
+        for _ in range(20):
+            boundary = np.zeros((120, 160), dtype=np.uint8)
+            evidence = np.zeros_like(boundary)
+            for mask in (boundary, evidence):
+                x, y = rng.integers(0, 130), rng.integers(0, 90)
+                mask[y:y + 30, x:x + 30] = (rng.random((30, 30)) > 0.95) * 255
+            expected = cv2.distanceTransform(cv2.bitwise_not(boundary), cv2.DIST_L2, 3)
+            expected = np.minimum(expected[evidence > 0], tolerance)
+            np.testing.assert_array_equal(
+                _clipped_distances_to_boundary(boundary, evidence, tolerance), expected
+            )
+
+
+def test_fit_score_matches_boolean_overlap_for_binary_masks() -> None:
+    rng = np.random.default_rng(42)
+    for density in (0.0, 0.1, 0.5, 1.0):
+        source = (rng.random((41, 57)) < density).astype(np.uint8) * 255
+        projected = (rng.random((41, 57)) < 0.4).astype(np.uint8) * 255
+        intersection = np.count_nonzero((projected > 0) & (source > 0))
+        union = np.count_nonzero((projected > 0) | (source > 0))
+        source_area = int(np.count_nonzero(source))
+        expected = (
+            0.0
+            if not intersection
+            else (
+                0.55 * intersection / union
+                + 0.30 * intersection / max(source_area, 1)
+                + 0.15 * intersection / max(np.count_nonzero(projected), 1)
+            )
+        )
+        assert np.isclose(_fit_score(projected, source, source_area), expected)
 
 
 def test_projected_pose_score_matches_full_frame_score() -> None:
@@ -55,6 +98,19 @@ def test_projected_pose_score_matches_full_frame_score() -> None:
         )
 
 
+def test_boundary_mask_matches_binary_erosion_for_mask_types() -> None:
+    rng = np.random.default_rng(19)
+    for dtype in (np.uint8, np.bool_, np.int64):
+        mask = (rng.random((37, 43)) > 0.3).astype(dtype)
+        values = np.where(mask > 0, 255, 0).astype(np.uint8)
+        eroded = cv2.erode(
+            values, np.ones((7, 7), dtype=np.uint8),
+            borderType=cv2.BORDER_CONSTANT, borderValue=0,
+        )
+        expected = np.where((values > 0) & (eroded == 0), 255, 0).astype(np.uint8)
+        np.testing.assert_array_equal(_boundary_mask(mask, width=3), expected)
+
+
 def test_occlusion_evidence_removes_existing_edges_without_inventing_cut_edges() -> None:
     source = np.zeros((64, 64), dtype=np.uint8)
     cv2.rectangle(source, (10, 10), (54, 54), 255, thickness=-1)
@@ -68,6 +124,14 @@ def test_occlusion_evidence_removes_existing_edges_without_inventing_cut_edges()
     assert not np.any((evidence > 0) & (occluder > 0))
     assert np.count_nonzero(evidence) > 0
     assert not np.any(evidence[:, 28:41] > 0)
+
+
+def test_frame_border_is_not_counted_as_an_observed_card_edge() -> None:
+    source = np.zeros((64, 64), dtype=np.uint8)
+    cv2.rectangle(source, (20, 10), (63, 50), 255, thickness=-1)
+    evidence = _fit_evidence_mask(source, None, edge_width_pixels=3, occlusion_margin_pixels=0)
+    assert not np.any(evidence[:, -3:])
+    assert np.any(evidence[10:13, 25:55])
 
 
 def test_occlusion_mask_removes_hidden_projected_edge_from_fit_score() -> None:
@@ -239,6 +303,11 @@ def test_occlusion_fit_considers_the_quarter_turn_orientation_family() -> None:
     assert with_alternate is not None
     assert with_alternate.score > without_alternate.score
     assert with_alternate.pose.rotation_degrees == 0.0
+    assert len(with_alternate.search_evidence["orientation_hypotheses"]) == 2
+    assert all(
+        {"score", "center", "angle"} <= set(hypothesis)
+        for hypothesis in with_alternate.search_evidence["orientation_hypotheses"]
+    )
 
 
 def test_half_occluded_card_fit_resolves_a_quarter_turn() -> None:
@@ -497,7 +566,7 @@ def test_pose_uses_calibrated_dimensions_and_low_confidence_is_visible() -> None
     assert run.diagnostics["low_confidence_suggestion_ids"] == ["candidate-000"]
     pose = run.scene.poses[0]
     assert pose.rotation_degrees == pose.rotation_degrees % 180.0
-    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-joint-search/v6"
+    assert run.diagnostics["recipe"]["recipe_version"] == "fixed-card-pose-joint-search/v8"
 
 
 def test_failed_candidate_does_not_block_a_scene_or_manual_addition() -> None:
@@ -517,7 +586,7 @@ def test_failed_candidate_does_not_block_a_scene_or_manual_addition() -> None:
     assert failed[0].failure_reason
 
 
-def test_duplicate_predictions_are_stable_and_overlapping_evidence_is_uncertain() -> None:
+def test_duplicate_predictions_keep_evidence_but_use_one_pose() -> None:
     result, calibration = _calibration_result()
     selected = _frame_result(result)
     frame = selected["frames"][0]  # type: ignore[index]
@@ -529,21 +598,168 @@ def test_duplicate_predictions_are_stable_and_overlapping_evidence_is_uncertain(
     run = initialize_card_scene(selected, calibration)
 
     assert run.scene is not None
-    assert run.scene.stacking_order.uncertain_edges == (
-        ("pose-candidate-000", "pose-candidate-duplicate"),
+    assert len(run.scene.poses) == 1
+    assert len(run.suggestions) == 2
+    assert run.diagnostics["duplicate_groups"][0]["suppressed_suggestion_ids"] == [
+        "candidate-duplicate"
+    ]
+
+
+def test_low_detector_confidence_is_retained_and_cannot_occlude_another_card() -> None:
+    result, calibration = _calibration_result()
+    selected = _frame_result(result)
+    frame = selected["frames"][0]  # type: ignore[index]
+    original = frame["predictions"][0]  # type: ignore[index]
+    weak = deepcopy(original)
+    weak["candidate_id"] = "aaa-weak"
+    weak["confidence"] = 0.6
+    weak["polygon"] = [[point[0] + 35, point[1]] for point in weak["polygon"]]
+    frame["predictions"] = [weak, original]  # type: ignore[index]
+    baseline = initialize_card_scene(_frame_result(result), calibration)
+    run = initialize_card_scene(selected, calibration)
+    assert run.scene is not None and baseline.scene is not None
+    assert len(run.scene.poses) == 2
+    assert "aaa-weak" in run.diagnostics["low_confidence_suggestion_ids"]
+    assert run.diagnostics["occlusion_refit"]["removed_boundary_fractions"]["candidate-000"] == 0
+    assert run.scene.stacking_order.uncertain_edges == (("pose-aaa-weak", "pose-candidate-000"),)
+    strong = next(p for p in run.scene.poses if p.source_suggestion_id == "candidate-000")
+    assert strong.center == baseline.scene.poses[0].center
+    assert strong.rotation_degrees == baseline.scene.poses[0].rotation_degrees
+
+
+def test_contained_mask_is_retained_as_uncertain_evidence() -> None:
+    large = np.zeros((100, 100), dtype=np.uint8)
+    large[10:90, 10:90] = 255
+    small = np.zeros_like(large)
+    small[20:80, 20:80] = 255
+
+    def fitted(card_id: str, mask: np.ndarray) -> _FittedCandidate:
+        candidate = _Candidate(card_id, "frame", (), mask, 0.9, {}, np.empty((0, 2)))
+        return _FittedCandidate(candidate, SimpleNamespace(card_id=card_id), None, 0.9, False, mask)
+
+    result, reasons = _mark_contained_alternatives([fitted("large", large), fitted("small", small)])
+    assert [item.low_confidence for item in result] == [False, True]
+    assert reasons == [{"suggestion_id": "small", "contained_in_suggestion_id": "large"}]
+
+
+def test_contained_fragment_requires_an_internal_straight_edge() -> None:
+    large = np.zeros((160, 160), dtype=np.uint8)
+    large[20:140, 20:140] = 255
+    fragment = np.zeros_like(large)
+    fragment[65:95, 50:110] = 255
+    # An irregular, disconnected partial region remains an uncertain alternative.
+    partial = np.zeros_like(large)
+    cv2.circle(partial, (55, 55), 7, 255, -1)
+    cv2.circle(partial, (75, 70), 6, 255, -1)
+
+    def fitted(card_id: str, mask: np.ndarray) -> _FittedCandidate:
+        candidate = _Candidate(card_id, "frame", (), mask, 0.9, {}, np.empty((0, 2)))
+        return _FittedCandidate(candidate, SimpleNamespace(card_id=card_id), None, 0.9, False, mask)
+
+    kept, decisions = _suppress_contained_fragments(
+        [fitted("large", large), fitted("fragment", fragment), fitted("partial", partial)]
     )
-    assert run.scene.stacking_order.contradictions == ()
-    assert run.diagnostics["order"]["edges"][0]["decision"] == "uncertain"
-    assert run.diagnostics["occlusion_refit"]["margin_pixels"] == 4
-    assert run.diagnostics["occlusion_refit"]["minimum_boundary_fraction"] == 0.05
-    assert run.diagnostics["occlusion_refit"]["provisional_order"] == list(
-        run.scene.stacking_order.card_ids
+    assert [item.pose.card_id for item in kept] == ["large", "partial"]
+    assert decisions[0]["suggestion_id"] == "fragment"
+    assert decisions[0]["contained_in_suggestion_id"] == "large"
+
+
+def test_img_0661_contained_fragment_keeps_source_and_one_pose() -> None:
+    path = Path(__file__).parent / "fixtures/card-scene-img-0661-027-fragment.json"
+    fixture = json.loads(path.read_text())
+    candidates = []
+    for suggestion in fixture["suggestions"]:
+        polygons = tuple(np.asarray(poly) for poly in suggestion["polygons"])
+        mask = np.zeros((fixture["height"], fixture["width"]), dtype=np.uint8)
+        for polygon in polygons:
+            cv2.fillPoly(mask, [np.rint(polygon).astype(np.int32)], 255)
+        card_id = suggestion["source_suggestion_id"]
+        candidate = _Candidate(card_id, fixture["source_frame_id"], polygons, mask,
+                               suggestion["confidence"], {}, np.empty((0, 2)))
+        candidates.append(_FittedCandidate(
+            candidate, SimpleNamespace(card_id=card_id), None, 0.9, False, mask,
+        ))
+    kept, decisions = _suppress_contained_fragments(candidates)
+    assert len(kept) == 1 and kept[0].candidate.suggestion_id.endswith("0000")
+    assert decisions[0]["suggestion_id"].endswith("0003")
+    assert len(fixture["suggestions"]) == 2
+
+
+def test_mask_area_seed_does_not_depend_on_polygon_vertex_density() -> None:
+    mask = np.zeros((100, 100), dtype=np.uint8)
+    mask[20:60, 30:70] = 255
+    center = _mask_area_seed(mask, np.eye(3))
+    np.testing.assert_allclose(center, [49.5, 39.5])
+
+
+def test_img_0645_offset_uses_area_seed_for_the_real_mask() -> None:
+    path = Path(__file__).parent / "fixtures/card-scene-img-0645-006-offset.json"
+    fixture = json.loads(path.read_text())
+    calibration = TablePlaneCalibration.create(
+        calibration_revision_id="fixture-0645", recording_id=fixture["source_recording"],
+        source_revision=fixture["detector_revision_id"], frame_width=fixture["width"],
+        frame_height=fixture["height"], image_to_table=fixture["image_to_table"],
+        table_to_image=fixture["table_to_image"], card_short_size=fixture["card_short_size"],
+        card_long_size=fixture["card_long_size"], candidate_receipt_digests=(), diagnostics={},
     )
-    assert run.diagnostics["occlusion_refit"]["refitted_suggestion_ids"] == []
-    assert run.diagnostics["occlusion_refit"]["removed_boundary_fractions"] == {
-        "candidate-000": 0.0,
-        "candidate-duplicate": 1.0,
-    }
+    suggestion = fixture["suggestion"]
+    polygons = tuple(np.asarray(polygon) for polygon in suggestion["polygons"])
+    mask = np.zeros((fixture["height"], fixture["width"]), dtype=np.uint8)
+    for polygon in polygons:
+        cv2.fillPoly(mask, [np.rint(polygon).astype(np.int32)], 255)
+    candidate = _Candidate(
+        suggestion["source_suggestion_id"], fixture["source_frame_id"], polygons, mask,
+        suggestion["confidence"], {},
+        apply_homography(calibration.image_to_table, np.concatenate(polygons)),
+    )
+    fitted = _fit_candidate(
+        candidate, calibration, PoseFitRecipe(), fixture["width"], fixture["height"]
+    )
+    assert fitted is not None
+    assert fitted.search_evidence["seed_source"] == "mask_area"
+    assert fitted.score > 0.95
+    assert abs(fitted.pose.center[0] - (-0.742)) < 0.04
+
+
+def test_img_0661_partial_card_reports_competing_orientations() -> None:
+    path = Path(__file__).parent / "fixtures/card-scene-img-0661-003-occlusion.json"
+    fixture = json.loads(path.read_text())
+    calibration = TablePlaneCalibration.create(
+        calibration_revision_id="fixture-0661", recording_id=fixture["source_recording"],
+        source_revision=fixture["detector_revision_id"], frame_width=fixture["width"],
+        frame_height=fixture["height"], image_to_table=fixture["image_to_table"],
+        table_to_image=fixture["table_to_image"], card_short_size=fixture["card_short_size"],
+        card_long_size=fixture["card_long_size"], candidate_receipt_digests=(), diagnostics={},
+    )
+    suggestion = fixture["suggestion"]
+    polygons = tuple(np.asarray(poly) for poly in suggestion["polygons"])
+    mask = np.zeros((fixture["height"], fixture["width"]), dtype=np.uint8)
+    for polygon in polygons:
+        cv2.fillPoly(mask, [np.rint(polygon).astype(np.int32)], 255)
+    candidate = _Candidate(
+        suggestion["source_suggestion_id"], fixture["source_frame_id"], polygons, mask,
+        suggestion["confidence"], {},
+        apply_homography(calibration.image_to_table, np.concatenate(polygons)),
+    )
+    initial = _fit_candidate(
+        candidate, calibration, PoseFitRecipe(), fixture["width"], fixture["height"]
+    )
+    assert initial is not None
+    front = fixture["front_pose"]
+    occluder = rasterize_polygon(
+        project_fixed_card(calibration.table_to_image, front["center"], front["rotation_degrees"],
+                           calibration.card_short_size, calibration.card_long_size),
+        fixture["width"], fixture["height"],
+    )
+    refit = _fit_candidate(
+        candidate, calibration, PoseFitRecipe(), fixture["width"], fixture["height"],
+        occluder_mask=occluder,
+        initial_pose=(np.asarray(initial.pose.center), initial.pose.rotation_degrees),
+        try_quarter_turn=True,
+    )
+    assert refit is not None
+    assert refit.search_evidence["pose_ambiguous"] is True
+    assert len(refit.search_evidence["orientation_hypotheses"]) == 2
 
 
 def test_all_failed_candidates_return_actionable_failure_without_a_scene() -> None:

@@ -159,6 +159,14 @@ def test_revision_identity_includes_geometry_algorithm_version(monkeypatch) -> N
     assert current.calibration.algorithm_version == "card-plane-geometry/v6"
     assert older.calibration.calibration_revision_id != current.calibration.calibration_revision_id
 
+    monkeypatch.setattr(card_plane_calibration, "CALIBRATION_TRANSFORM_SERIALIZATION", "other")
+    changed_serialization = calibrate_recording(result)
+    assert changed_serialization.calibration is not None
+    assert (
+        changed_serialization.calibration.calibration_revision_id
+        != current.calibration.calibration_revision_id
+    )
+
 
 def test_detector_only_fit_publishes_without_independent_size_reference(tmp_path: Path) -> None:
     result = _recording_result(

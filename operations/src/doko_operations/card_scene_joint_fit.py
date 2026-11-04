@@ -66,7 +66,11 @@ def _edge_score(
 
 
 def search_joint_scene(
-    calibration: Any, candidates: list[Any], order: tuple[str, ...]
+    calibration: Any,
+    candidates: list[Any],
+    order: tuple[str, ...],
+    *,
+    movable_card_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Search overlapping cards with a width-three beam and refine selected visible edges.
 
@@ -104,6 +108,8 @@ def search_joint_scene(
     connected = {
         i for i in full if any(i != j and cv2.countNonZero(full[i] & full[j]) >= 4 for j in full)
     }
+    if movable_card_ids is not None:
+        connected &= {indices[card_id] for card_id in movable_card_ids if card_id in indices}
     variants: dict[int, list[tuple[dict[str, Any], np.ndarray, tuple[float, float, float]]]] = {}
     for i in connected:
         pose = original[i]
@@ -135,7 +141,7 @@ def search_joint_scene(
                 for pose, card_mask, variant in variants[i]:
                     trial = {**current_full, i: card_mask}
                     orders = [current_order]
-                    for j in range(len(current_order) - 1):
+                    for j in range(len(current_order) - 1) if movable_card_ids is None else ():
                         if (
                             cv2.countNonZero(trial[current_order[j]] & trial[current_order[j + 1]])
                             >= 4

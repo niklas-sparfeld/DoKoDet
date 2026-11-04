@@ -11,7 +11,8 @@ import hashlib
 import json
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from dataclasses import field as dataclass_field
 from typing import Any
 
 import cv2
@@ -34,7 +35,12 @@ from .pipeline_data import canonical_json_bytes
 
 INITIALIZATION_PROCESSOR_SCHEMA_VERSION = "card-plane-initialization-processor/v1"
 INITIALIZATION_RUN_SCHEMA_VERSION = "card-plane-initialization-run/v1"
-POSE_FIT_RECIPE_VERSION = "fixed-card-pose-joint-search/v6"
+POSE_FIT_RECIPE_VERSION = "fixed-card-pose-joint-search/v8"
+FRAGMENT_MIN_CONTAINMENT = 0.97
+FRAGMENT_MAX_AREA_RATIO = 0.45
+FRAGMENT_MIN_EDGE_FRACTION = 0.6
+FRAGMENT_MIN_INTERIOR_FRACTION = 0.7
+POSE_AMBIGUITY_SCORE_MARGIN = 0.06
 
 
 class CardPlaneInitializationError(ValueError):
@@ -229,8 +235,8 @@ class PoseFitRecipe:
     center_steps: int = 7
     angle_steps: int = 9
     refinement_stages: int = 2
-    minimum_score: float = 0.18
     low_confidence_score: float = 0.48
+    weak_detector_score: float = 0.7
     weak_order_margin: float = 0.12
     minimum_order_support: float = 0.08
     minimum_overlap_pixels: int = 4
@@ -253,8 +259,10 @@ class PoseFitRecipe:
             raise CardPlaneInitializationError("angle_steps must be an odd integer of at least 3")
         if self.refinement_stages < 0:
             raise CardPlaneInitializationError("refinement_stages must be non-negative")
-        if not 0.0 <= self.minimum_score <= self.low_confidence_score <= 1.0:
-            raise CardPlaneInitializationError("fit score thresholds must be ordered in [0, 1]")
+        if not 0.0 <= self.low_confidence_score <= 1.0:
+            raise CardPlaneInitializationError("low_confidence_score must be in [0, 1]")
+        if not 0.0 <= self.weak_detector_score <= 1.0:
+            raise CardPlaneInitializationError("weak_detector_score must be in [0, 1]")
         if not 0.0 <= self.weak_order_margin <= 1.0:
             raise CardPlaneInitializationError("weak_order_margin must be in [0, 1]")
         if not 0.0 <= self.minimum_order_support <= 1.0:
@@ -291,6 +299,21 @@ class PoseFitRecipe:
     def to_mapping(self) -> dict[str, Any]:
         return {
             "recipe_version": POSE_FIT_RECIPE_VERSION,
+            "fragment_evidence": {
+                "minimum_containment": FRAGMENT_MIN_CONTAINMENT,
+                "maximum_area_ratio": FRAGMENT_MAX_AREA_RATIO,
+                "minimum_edge_fraction": FRAGMENT_MIN_EDGE_FRACTION,
+                "minimum_interior_fraction": FRAGMENT_MIN_INTERIOR_FRACTION,
+                "axis_tolerance_fraction": 0.03,
+                "target_mask_dimension": 1000,
+            },
+            "pose_ambiguity_score_margin": POSE_AMBIGUITY_SCORE_MARGIN,
+            "boundary_search_retry": {
+                "minimum_fraction_of_limit": 0.98,
+                "maximum_score": 0.94,
+                "expanded_radius_factor": 1.5,
+                "alternate_seed": "mask_area_centroid",
+            },
             "joint_search": {
                 "beam_width": 3,
                 "maximum_cards": 8,
@@ -306,8 +329,8 @@ class PoseFitRecipe:
             "center_steps": self.center_steps,
             "angle_steps": self.angle_steps,
             "refinement_stages": self.refinement_stages,
-            "minimum_score": _round(self.minimum_score),
             "low_confidence_score": _round(self.low_confidence_score),
+            "weak_detector_score": _round(self.weak_detector_score),
             "weak_order_margin": _round(self.weak_order_margin),
             "minimum_order_support": _round(self.minimum_order_support),
             "minimum_overlap_pixels": self.minimum_overlap_pixels,
@@ -338,6 +361,7 @@ class _Candidate:
     confidence: float
     model_identity: Mapping[str, Any]
     table_points: np.ndarray
+    confidence_available: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,6 +372,7 @@ class _FittedCandidate:
     score: float
     low_confidence: bool
     full_mask: np.ndarray
+    search_evidence: Mapping[str, Any] = dataclass_field(default_factory=dict)
 
 
 def _mask_for_prediction(
@@ -367,18 +392,23 @@ def _mask_for_prediction(
 def _boundary_mask(mask: np.ndarray, width: int = 1) -> np.ndarray:
     """Return a bounded inner boundary band of a binary source mask."""
 
-    values = np.where(np.asarray(mask) > 0, 255, 0).astype(np.uint8)
+    values = np.asarray(mask)
     if values.ndim != 2:
         raise CardPlaneInitializationError("source mask must be two-dimensional")
     if width < 1:
         raise CardPlaneInitializationError("boundary width must be positive")
+    values = (
+        cv2.compare(values, 0, cv2.CMP_GT)
+        if values.dtype == np.uint8
+        else np.where(values > 0, 255, 0).astype(np.uint8)
+    )
     eroded = cv2.erode(
         values,
         np.ones((width * 2 + 1, width * 2 + 1), dtype=np.uint8),
         borderType=cv2.BORDER_CONSTANT,
         borderValue=0,
     )
-    return np.where((values > 0) & (eroded == 0), 255, 0).astype(np.uint8)
+    return cv2.subtract(values, eroded)
 
 
 def _dilate_mask(mask: np.ndarray, radius: int) -> np.ndarray:
@@ -416,6 +446,11 @@ def _fit_evidence_mask(
     """Keep only original source-boundary pixels outside fitted-card occlusion."""
 
     boundary = _boundary_mask(source_mask, edge_width_pixels)
+    # The image border cuts the mask; it is not an observed card boundary.
+    boundary[:edge_width_pixels, :] = 0
+    boundary[-edge_width_pixels:, :] = 0
+    boundary[:, :edge_width_pixels] = 0
+    boundary[:, -edge_width_pixels:] = 0
     if occluder_mask is None:
         return boundary
     if np.asarray(occluder_mask).shape != boundary.shape:
@@ -436,21 +471,50 @@ def _initial_pose(table_points: np.ndarray) -> tuple[np.ndarray, float]:
     return center.astype(np.float64), angle
 
 
+def _mask_area_seed(mask: np.ndarray, image_to_table: np.ndarray) -> np.ndarray:
+    """Map the area centroid to the table without weighting dense contour vertices."""
+    moments = cv2.moments(mask, binaryImage=True)
+    if moments["m00"] == 0:
+        raise CardPlaneInitializationError("prediction has no mask pixels")
+    center = np.asarray([[moments["m10"] / moments["m00"], moments["m01"] / moments["m00"]]])
+    return apply_homography(image_to_table, center)[0]
+
+
 def _normalized_angle(value: float) -> float:
     return float(value % 180.0)
 
 
 def _fit_score(full_mask: np.ndarray, source_mask: np.ndarray, source_area: int) -> float:
-    intersection = int(np.count_nonzero((full_mask > 0) & (source_mask > 0)))
+    # Both masks contain only 0 and 255. OpenCV avoids allocating boolean arrays
+    # for each trial in the pose search.
+    intersection = cv2.countNonZero(cv2.bitwise_and(full_mask, source_mask))
     if intersection == 0:
         return 0.0
-    union = int(np.count_nonzero((full_mask > 0) | (source_mask > 0)))
-    full_area = max(int(np.count_nonzero(full_mask)), 1)
+    full_area = max(cv2.countNonZero(full_mask), 1)
+    union = full_area + source_area - intersection
     target_area = max(source_area, 1)
     iou = intersection / max(union, 1)
     target_coverage = intersection / target_area
     full_coverage = intersection / full_area
     return float(0.55 * iou + 0.30 * target_coverage + 0.15 * full_coverage)
+
+
+def _clipped_distances_to_boundary(
+    boundary: np.ndarray, evidence: np.ndarray, tolerance: float
+) -> np.ndarray:
+    """Calculate distances only near evidence; distances beyond tolerance are clipped."""
+
+    x, y, w, h = cv2.boundingRect(evidence)
+    # OpenCV's 3x3 L2 approximation assigns 0.955 to an axial step.
+    # Include an extra pixel for the approximation and rounding.
+    margin = math.ceil(tolerance / 0.955) + 2
+    x0, y0 = max(0, x - margin), max(0, y - margin)
+    x1 = min(boundary.shape[1], x + w + margin)
+    y1 = min(boundary.shape[0], y + h + margin)
+    distances = cv2.distanceTransform(
+        cv2.bitwise_not(boundary[y0:y1, x0:x1]), cv2.DIST_L2, 3
+    )
+    return np.minimum(distances[evidence[y0:y1, x0:x1] > 0], tolerance)
 
 
 def _fit_score_projected(
@@ -483,17 +547,23 @@ def _fit_score_projected(
     cv2.fillPoly(projected_mask, [rounded - np.asarray([x0, y0], dtype=np.int32)], 255)
     if edge_only:
         projected_boundary = _boundary_mask(projected_mask, edge_width_pixels)
+        if x0 == 0:
+            projected_boundary[:, :edge_width_pixels] = 0
+        if y0 == 0:
+            projected_boundary[:edge_width_pixels, :] = 0
+        if x1 == width:
+            projected_boundary[:, -edge_width_pixels:] = 0
+        if y1 == height:
+            projected_boundary[-edge_width_pixels:, :] = 0
         if occlusion_mask is not None:
             if np.asarray(occlusion_mask).shape != (height, width):
                 raise CardPlaneInitializationError("occlusion mask shape must match the frame")
-            visible = occlusion_mask[y0:y1, x0:x1] == 0
-            projected_mask = np.where((projected_mask > 0) & visible, 255, 0).astype(np.uint8)
-            projected_boundary = np.where(
-                (projected_boundary > 0) & visible, 255, 0
-            ).astype(np.uint8)
-        source_evidence = np.where(source_mask[y0:y1, x0:x1] > 0, 255, 0).astype(np.uint8)
-        source_points = np.count_nonzero(source_evidence)
-        projected_points = np.count_nonzero(projected_boundary)
+            visible = cv2.compare(occlusion_mask[y0:y1, x0:x1], 0, cv2.CMP_EQ)
+            projected_mask = cv2.bitwise_and(projected_mask, visible)
+            projected_boundary = cv2.bitwise_and(projected_boundary, visible)
+        source_evidence = cv2.compare(source_mask[y0:y1, x0:x1], 0, cv2.CMP_GT)
+        source_points = cv2.countNonZero(source_evidence)
+        projected_points = cv2.countNonZero(projected_boundary)
         if source_points == 0 or projected_points == 0:
             return 0.0
 
@@ -501,14 +571,9 @@ def _fit_score_projected(
         # encloses the segment. Clip large gaps so a small amount of missing segmentation does
         # not dominate the score.
         tolerance = max(float(edge_distance_tolerance_pixels), 1e-6)
-        source_distance = cv2.distanceTransform(
-            np.where(projected_boundary > 0, 0, 255).astype(np.uint8),
-            cv2.DIST_L2,
-            3,
-        )
         if source_distance_map is None:
             projected_distance = cv2.distanceTransform(
-                np.where(source_evidence > 0, 0, 255).astype(np.uint8),
+                cv2.bitwise_not(source_evidence),
                 cv2.DIST_L2,
                 3,
             )
@@ -519,7 +584,7 @@ def _fit_score_projected(
                 )
             projected_distance = source_distance_map[y0:y1, x0:x1]
         source_to_projected = float(
-            np.mean(np.minimum(source_distance[source_evidence > 0], tolerance))
+            np.mean(_clipped_distances_to_boundary(projected_boundary, source_evidence, tolerance))
         )
         projected_to_source = float(
             np.mean(np.minimum(projected_distance[projected_boundary > 0], tolerance))
@@ -527,7 +592,7 @@ def _fit_score_projected(
         source_edge_score = 1.0 - source_to_projected / tolerance
         projected_edge_score = 1.0 - projected_to_source / tolerance
         source_coverage = float(
-            np.count_nonzero((projected_mask > 0) & (source_evidence > 0))
+            cv2.countNonZero(cv2.bitwise_and(projected_mask, source_evidence))
             / max(source_area, 1)
         )
         return float(
@@ -549,6 +614,8 @@ def _fit_candidate(
     occluder_mask: np.ndarray | None = None,
     initial_pose: tuple[np.ndarray, float] | None = None,
     try_quarter_turn: bool = False,
+    _allow_expand: bool = True,
+    _seed_override: np.ndarray | None = None,
 ) -> _FittedCandidate | None:
     try:
         table_to_image = np.asarray(calibration.table_to_image, dtype=np.float64)
@@ -584,10 +651,15 @@ def _fit_candidate(
         removed_boundary_fraction = max(0.0, 1.0 - source_area / original_boundary_count)
         raw_seed_center, raw_seed_angle = _initial_pose(candidate.table_points)
         seed_center, seed_angle = raw_seed_center.copy(), raw_seed_angle
+        seed_source = "boundary_vertices"
+        if initial_pose is None and _seed_override is not None:
+            seed_center, seed_source = _seed_override.copy(), "mask_area"
         prefer_quarter_turn = False
         partial_axis_swap = False
         if initial_pose is None:
-            if not try_quarter_turn and not _touches_frame_boundary(candidate.source_mask):
+            if _touches_frame_boundary(candidate.source_mask):
+                try_quarter_turn = True
+            elif not try_quarter_turn:
                 seed_outline = project_fixed_card(
                     table_to_image,
                     raw_seed_center,
@@ -607,6 +679,7 @@ def _fit_candidate(
                     "initial pose center must contain two finite values"
                 )
             seed_angle = _normalized_angle(float(initial_pose[1]))
+            seed_source = "previous_fit"
         if not _touches_frame_boundary(candidate.source_mask):
             seed_outline = project_fixed_card(
                 table_to_image,
@@ -644,6 +717,7 @@ def _fit_candidate(
             )
         best_overall: tuple[float, np.ndarray, float] | None = None
         best_overall_key: tuple[float, ...] | None = None
+        hypotheses: list[dict[str, Any]] = []
         center_offsets = np.linspace(-1.0, 1.0, recipe.center_steps)
         angle_offsets = np.linspace(-1.0, 1.0, recipe.angle_steps)
         for orientation_index, orientation_seed in enumerate(orientation_seeds):
@@ -720,6 +794,8 @@ def _fit_candidate(
                 center_radius /= 3.0
                 angle_radius /= 3.0
             score, center, angle = best
+            hypotheses.append({"score": _round(score), "center": [_round(x) for x in center],
+                               "angle": _round(angle)})
             overall_key = (
                 score,
                 -float(orientation_index),
@@ -735,6 +811,40 @@ def _fit_candidate(
         if best_overall is None:
             raise CardPlaneInitializationError("pose search produced no candidate")
         score, center, angle = best_overall
+        search_limit = recipe.center_search_radius * sum(
+            1 / (3**stage) for stage in range(recipe.refinement_stages + 1)
+        )
+        boundary_hit = bool(np.max(np.abs(center - seed_center)) >= search_limit * 0.98)
+        if _allow_expand and initial_pose is None and boundary_hit and score < 0.94:
+            area_seed = _mask_area_seed(
+                candidate.source_mask, np.asarray(calibration.image_to_table)
+            )
+            area_fit = _fit_candidate(
+                candidate, calibration, recipe, width, height, occluder_mask=occluder_mask,
+                _allow_expand=False, _seed_override=area_seed,
+            )
+            if area_fit is not None and area_fit.score > score:
+                return replace(area_fit, search_evidence={
+                    **area_fit.search_evidence, "initial_boundary_hit": True,
+                })
+            expanded = _fit_candidate(
+                candidate, calibration,
+                replace(recipe, center_search_radius=recipe.center_search_radius * 1.5),
+                width, height, occluder_mask=occluder_mask, _allow_expand=False,
+            )
+            if expanded is not None and expanded.score > score:
+                return replace(expanded, search_evidence={
+                    **expanded.search_evidence, "expanded_search": True,
+                    "initial_boundary_hit": True,
+                })
+        hypotheses.sort(key=lambda value: value["score"], reverse=True)
+        hypothesis_margin = (
+            _round(hypotheses[0]["score"] - hypotheses[1]["score"])
+            if len(hypotheses) > 1 else None
+        )
+        ambiguous = (
+            hypothesis_margin is not None and hypothesis_margin <= POSE_AMBIGUITY_SCORE_MARGIN
+        )
         projected = project_fixed_card(
             np.asarray(calibration.table_to_image, dtype=np.float64),
             center,
@@ -743,8 +853,8 @@ def _fit_candidate(
             calibration.card_long_size,
         )
         full_mask = rasterize_polygon(projected, width, height)
-        accepted = score >= recipe.minimum_score
-        failure_reason = None if accepted else "fit_score_below_threshold"
+        accepted = True
+        failure_reason = None
         card_id = f"pose-{candidate.suggestion_id}"
         diagnostic = PoseFitDiagnostics(
             card_id=card_id,
@@ -767,11 +877,152 @@ def _fit_candidate(
             pose=pose,
             diagnostic=diagnostic,
             score=_round(score),
-            low_confidence=score < recipe.low_confidence_score,
+            low_confidence=(
+                score < recipe.low_confidence_score
+                or (
+                    candidate.confidence_available
+                    and candidate.confidence < recipe.weak_detector_score
+                )
+            ),
             full_mask=full_mask,
+            search_evidence={"seed_source": seed_source, "search_boundary_hit": boundary_hit,
+                             "expanded_search": False, "orientation_hypotheses": hypotheses,
+                             "orientation_score_margin": hypothesis_margin,
+                             "pose_ambiguous": ambiguous},
         )
     except (CardPlaneGeometryError, CardPlaneInitializationError, ValueError):
         return None
+
+
+def _group_duplicate_candidates(
+    candidates: Sequence[_FittedCandidate],
+) -> tuple[list[_FittedCandidate], list[dict[str, Any]]]:
+    """Group near-identical masks without removing their original suggestions."""
+    def is_duplicate(left: _FittedCandidate, right: _FittedCandidate) -> bool:
+        a, b = left.candidate.source_mask, right.candidate.source_mask
+        intersection = cv2.countNonZero(cv2.bitwise_and(a, b))
+        union = cv2.countNonZero(cv2.bitwise_or(a, b))
+        return intersection / max(union, 1) >= 0.85
+
+    ranked = sorted(
+        candidates, key=lambda item: (item.low_confidence, -item.score, item.pose.card_id)
+    )
+    groups: list[list[_FittedCandidate]] = []
+    for item in ranked:
+        for group in groups:
+            if all(is_duplicate(item, peer) for peer in group):
+                group.append(item)
+                break
+        else:
+            groups.append([item])
+    decisions = [
+        {
+            "representative_suggestion_id": group[0].candidate.suggestion_id,
+            "suppressed_suggestion_ids": sorted(item.candidate.suggestion_id for item in group[1:]),
+            "mask_iou_threshold": 0.85,
+        }
+        for group in groups if len(group) > 1
+    ]
+    return sorted((group[0] for group in groups), key=lambda item: item.pose.card_id), decisions
+
+
+def _mark_contained_alternatives(
+    candidates: Sequence[_FittedCandidate],
+) -> tuple[list[_FittedCandidate], list[dict[str, str]]]:
+    """Keep contained alternatives, but do not let them occlude other poses."""
+    weak_ids: set[str] = set()
+    reasons: list[dict[str, str]] = []
+    for index, left in enumerate(candidates):
+        for right in candidates[index + 1 :]:
+            a, b = left.candidate.source_mask, right.candidate.source_mask
+            area_a, area_b = cv2.countNonZero(a), cv2.countNonZero(b)
+            intersection = cv2.countNonZero(cv2.bitwise_and(a, b))
+            if not min(area_a, area_b):
+                continue
+            if intersection / min(area_a, area_b) < 0.95:
+                continue
+            smaller, larger = (left, right) if area_a <= area_b else (right, left)
+            weak_ids.add(smaller.pose.card_id)
+            reasons.append({
+                "suggestion_id": smaller.candidate.suggestion_id,
+                "contained_in_suggestion_id": larger.candidate.suggestion_id,
+            })
+    return [
+        replace(item, low_confidence=True) if item.pose.card_id in weak_ids else item
+        for item in candidates
+    ], reasons
+
+
+def _suppress_contained_fragments(
+    candidates: Sequence[_FittedCandidate],
+) -> tuple[list[_FittedCandidate], list[dict[str, Any]]]:
+    """Suppress only strong fragment matches; keep their suggestions as evidence."""
+    if not candidates:
+        return [], []
+    height, width = candidates[0].candidate.source_mask.shape
+    scale = max(1, round(max(height, width) / 1000))
+    size = ((width + scale - 1) // scale, (height + scale - 1) // scale)
+    masks = {
+        item.pose.card_id: cv2.resize(
+            item.candidate.source_mask, size, interpolation=cv2.INTER_NEAREST
+        )
+        for item in candidates
+    }
+    suppressed: set[str] = set()
+    decisions: list[dict[str, Any]] = []
+    ranked = sorted(
+        candidates, key=lambda item: (item.low_confidence, -item.score, item.pose.card_id)
+    )
+    for child in sorted(
+        candidates,
+        key=lambda item: (-cv2.countNonZero(masks[item.pose.card_id]), item.pose.card_id),
+    ):
+        mask = masks[child.pose.card_id]
+        area = cv2.countNonZero(mask)
+        if not area:
+            continue
+        _, _, w, h = cv2.boundingRect(mask)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for parent in ranked:
+            if parent is child or parent.low_confidence or parent.pose.card_id in suppressed:
+                continue
+            outer = masks[parent.pose.card_id]
+            parent_area = cv2.countNonZero(outer)
+            if parent_area == 0 or area / parent_area > FRAGMENT_MAX_AREA_RATIO:
+                continue
+            overlap = cv2.countNonZero(cv2.bitwise_and(mask, outer)) / area
+            if overlap < FRAGMENT_MIN_CONTAINMENT:
+                continue
+            interior = cv2.erode(outer, np.ones((5, 5), dtype=np.uint8))
+            best_edge = 0.0
+            for contour in contours:
+                epsilon = max(1.0, 0.001 * cv2.arcLength(contour, True))
+                points = cv2.approxPolyDP(contour, epsilon, True).reshape(-1, 2)
+                for start, end in zip(points, np.roll(points, -1, axis=0), strict=True):
+                    dx, dy = abs(int(start[0] - end[0])), abs(int(start[1] - end[1]))
+                    length = max(dx, dy)
+                    if (
+                        length < FRAGMENT_MIN_EDGE_FRACTION * max(w, h)
+                        or min(dx, dy) > max(1, length * 0.03)
+                    ):
+                        continue
+                    line = np.zeros_like(mask)
+                    cv2.line(line, tuple(start), tuple(end), 255, 1)
+                    inside = cv2.countNonZero(cv2.bitwise_and(line, interior))
+                    if inside / max(cv2.countNonZero(line), 1) >= FRAGMENT_MIN_INTERIOR_FRACTION:
+                        best_edge = max(best_edge, length / max(w, h))
+            if best_edge:
+                suppressed.add(child.pose.card_id)
+                decisions.append({
+                    "suggestion_id": child.candidate.suggestion_id,
+                    "contained_in_suggestion_id": parent.candidate.suggestion_id,
+                    "containment": _round(overlap),
+                    "area_ratio": _round(area / parent_area),
+                    "internal_straight_edge_fraction": _round(best_edge),
+                    "reason": "contained_fragment",
+                })
+                break
+    return [item for item in candidates if item.pose.card_id not in suppressed], decisions
 
 
 def _order_candidates(
@@ -804,7 +1055,9 @@ def _order_candidates(
             )
             difference = left_support - right_support
             weak = (
-                abs(difference) < recipe.weak_order_margin
+                left.low_confidence
+                or right.low_confidence
+                or abs(difference) < recipe.weak_order_margin
                 or max(left_support, right_support) < recipe.minimum_order_support
             )
             record = {
@@ -828,7 +1081,10 @@ def _order_candidates(
     result: list[str] = []
     contradictions: list[str] = []
     while remaining:
-        available = sorted(card_id for card_id in remaining if indegree[card_id] == 0)
+        available = sorted(
+            (card_id for card_id in remaining if indegree[card_id] == 0),
+            key=lambda card_id: (by_id[card_id].low_confidence, card_id),
+        )
         if not available:
             cycle = tuple(sorted(remaining))
             contradictions.append("cycle:" + ",".join(cycle))
@@ -955,6 +1211,7 @@ def initialize_card_scene(
                 confidence=prediction_confidence,
                 model_identity=base_suggestion["model_identity"],
                 table_points=table_points,
+                confidence_available=bool(prediction.get("confidence_available", True)),
             )
             base_suggestion["polygons"] = [
                 [[_round(float(point[0])), _round(float(point[1]))] for point in polygon]
@@ -987,7 +1244,10 @@ def initialize_card_scene(
             )
             if not any(item.source_suggestion_id == suggestion_id for item in fit_diagnostics):
                 fit_diagnostics.append(diagnostic)
-    fitted.sort(key=lambda item: item.pose.card_id)
+    fitted, duplicate_groups = _group_duplicate_candidates(fitted)
+    fitted, suppressed_fragments = _suppress_contained_fragments(fitted)
+    fitted, contained_alternatives = _mark_contained_alternatives(fitted)
+    initial_fit_scores = {item.candidate.suggestion_id: item.score for item in fitted}
     provisional_order, _provisional_uncertain, _provisional_contradictions, _ = (
         _order_candidates(fitted, selected_recipe) if fitted else ((), (), (), [])
     )
@@ -1027,9 +1287,8 @@ def initialize_card_scene(
                     np.asarray(provisional.pose.center, dtype=np.float64),
                     provisional.pose.rotation_degrees,
                 ),
-                # A partial card can make the observed min-area rectangle swap its axes.
-                # Do not use this extra hypothesis for cards clipped by the image boundary.
-                try_quarter_turn=not _touches_frame_boundary(provisional.candidate.source_mask),
+                # Partial or clipped cards can swap the observed rectangle axes.
+                try_quarter_turn=True,
             )
             if should_refit
             else None
@@ -1039,16 +1298,25 @@ def initialize_card_scene(
             if refined is not None and refined.diagnostic.accepted
             else provisional
         )
+        if provisional.low_confidence and selected is refined:
+            selected = replace(selected, low_confidence=True)
         if refined is not None and refined.diagnostic.accepted:
             occlusion_refit_count += 1
             occlusion_refitted_ids.append(suggestion_id)
         refitted.append(selected)
-        occluder = np.maximum(occluder, selected.full_mask)
+        if not selected.low_confidence:
+            occluder = np.maximum(occluder, selected.full_mask)
     fitted = sorted(refitted, key=lambda item: item.pose.card_id)
     initial_order, _, _, _ = (
         _order_candidates(fitted, selected_recipe) if fitted else ((), (), (), [])
     )
-    joint = search_joint_scene(selected_calibration, fitted, initial_order)
+    strong = [item for item in fitted if not item.low_confidence]
+    strong_ids = {item.pose.card_id for item in strong}
+    joint = search_joint_scene(
+        selected_calibration,
+        strong,
+        tuple(card_id for card_id in initial_order if card_id in strong_ids),
+    )
     if joint["poses"]:
         updated = []
         for item in fitted:
@@ -1056,16 +1324,7 @@ def initialize_card_scene(
             if replacement is None:
                 updated.append(item)
                 continue
-            diagnostic = PoseFitDiagnostics.from_mapping(
-                PoseFitDiagnostics(
-                    card_id=item.pose.card_id,
-                    source_suggestion_id=item.candidate.suggestion_id,
-                    residual=_round(1.0 - joint["score"]),
-                    accepted=True,
-                    failure_reason=None,
-                    diagnostics_digest="",
-                ).to_mapping()
-            )
+            diagnostic = item.diagnostic
             pose = CardPose(
                 card_id=item.pose.card_id,
                 center=tuple(_round(float(x)) for x in replacement["center"]),
@@ -1082,11 +1341,54 @@ def initialize_card_scene(
             )
             updated.append(_FittedCandidate(
                 candidate=item.candidate, pose=pose, diagnostic=diagnostic,
-                score=_round(joint["score"]),
-                low_confidence=joint["score"] < selected_recipe.low_confidence_score,
+                score=item.score,
+                low_confidence=item.low_confidence,
                 full_mask=mask,
+                search_evidence=item.search_evidence,
             ))
         fitted = updated
+    weak_refinements: dict[str, Any] = {}
+    strong_by_id = {item.pose.card_id: item for item in fitted if not item.low_confidence}
+    strong_order = tuple(joint["order"]) if joint["order"] else tuple(
+        card_id for card_id in initial_order if card_id in strong_by_id
+    )
+    refined_fitted = []
+    for item in fitted:
+        if not item.low_confidence or not strong_order:
+            refined_fitted.append(item)
+            continue
+        # A weak card may use stronger cards as occluders, but may not move them or
+        # appear in front of them during this search.
+        trial = search_joint_scene(
+            selected_calibration,
+            [strong_by_id[card_id] for card_id in strong_order] + [item],
+            strong_order + (item.pose.card_id,),
+            movable_card_ids={item.pose.card_id},
+        )
+        weak_refinements[item.candidate.suggestion_id] = {
+            "status": trial.get("status"),
+            "changed": item.pose.card_id in trial["poses"],
+            "score": trial["score"],
+        }
+        replacement = trial["poses"].get(item.pose.card_id)
+        if replacement is not None:
+            pose = CardPose(
+                card_id=item.pose.card_id,
+                center=tuple(_round(float(x)) for x in replacement["center"]),
+                rotation_degrees=_round(replacement["angle"] % 180.0),
+                source_suggestion_id=item.candidate.suggestion_id,
+                fit_diagnostics_digest=item.diagnostic.diagnostics_digest,
+            )
+            mask = rasterize_polygon(
+                project_fixed_card(
+                    np.asarray(selected_calibration.table_to_image), pose.center,
+                    pose.rotation_degrees, selected_calibration.card_short_size,
+                    selected_calibration.card_long_size,
+                ), width, height,
+            )
+            item = replace(item, pose=pose, full_mask=mask)
+        refined_fitted.append(item)
+    fitted = refined_fitted
     fit_diagnostics.extend(item.diagnostic for item in fitted)
     fit_diagnostics.sort(key=lambda item: item.source_suggestion_id)
     low_confidence = [
@@ -1096,7 +1398,9 @@ def initialize_card_scene(
         _order_candidates(fitted, selected_recipe) if fitted else ((), (), (), [])
     )
     if joint["order"]:
-        order = tuple(joint["order"])
+        order = tuple(joint["order"]) + tuple(
+            card_id for card_id in order if card_id not in strong_ids
+        )
     by_id = {item.pose.card_id: item for item in fitted}
     ordered_fitted = [by_id[card_id] for card_id in order]
     scene = None
@@ -1135,6 +1439,31 @@ def initialize_card_scene(
         "failed_suggestion_ids": sorted(failures),
         "failure_reasons": {key: failures[key] for key in sorted(failures)},
         "low_confidence_suggestion_ids": sorted(low_confidence),
+        "duplicate_groups": duplicate_groups,
+        "suppressed_fragments": suppressed_fragments,
+        "contained_alternatives": contained_alternatives,
+        "weak_card_refinements": weak_refinements,
+        "candidate_evidence_scores": {
+            item.candidate.suggestion_id: {
+                "fit_score": item.score,
+                "initial_fit_score": initial_fit_scores[item.candidate.suggestion_id],
+                "fit_score_basis": (
+                    "occlusion_boundary" if item.candidate.suggestion_id in occlusion_refitted_ids
+                    else "mask_overlap"
+                ),
+                "search": dict(item.search_evidence),
+                "detector_score": (
+                    item.candidate.confidence if item.candidate.confidence_available else None
+                ),
+                "combined_score": _round(min(
+                    item.score,
+                    item.candidate.confidence,
+                    selected_recipe.low_confidence_score if item.low_confidence else 1.0,
+                )),
+                "low_confidence": item.low_confidence,
+            }
+            for item in fitted
+        },
         "occlusion_refit": {
             "margin_pixels": selected_recipe.occlusion_margin_pixels,
             "minimum_boundary_fraction": selected_recipe.occlusion_refit_min_boundary_fraction,
@@ -1147,7 +1476,7 @@ def initialize_card_scene(
             },
         },
         "joint_scene_search": {**joint, "changed_card_ids": sorted(joint["poses"]),
-                               "residual_basis": "joint_scene_mask_iou"},
+                               "residual_basis": "individual_pre_joint_fit"},
         "order": {
             "edges": edge_diagnostics,
             "uncertain_edges": [list(edge) for edge in uncertain_edges],

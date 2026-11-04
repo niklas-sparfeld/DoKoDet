@@ -164,6 +164,59 @@ def test_calibration_seed_version_changes_and_legacy_calibration_stays_readable(
     assert restored == legacy
 
 
+def test_calibration_preserves_transform_precision_for_recording_005() -> None:
+    image_to_table = np.array(
+        [
+            [0.0017983407096798774, -0.0000641516629948216, -2.060987013924816],
+            [0.00005219750248845733, 0.0021483987086868476, -5.902532201252704],
+            [0.000008661182240019163, 0.00029536993912151615, 0.18665199424045278],
+        ]
+    )
+    table_to_image = np.array(
+        [
+            [554.5611977600383, -154.33017523530157, 1242.979476339335],
+            [-15.740167248556396, 91.42060424197011, 2717.2106152081496],
+            [-0.0008249756757275539, -0.1375083970626728, 1.0],
+        ]
+    )
+    calibration = TablePlaneCalibration.create(
+        calibration_revision_id="calibration-005",
+        recording_id="recording-005",
+        source_revision="detector-005",
+        frame_width=2160,
+        frame_height=3840,
+        image_to_table=image_to_table,
+        table_to_image=table_to_image,
+        card_short_size=1.0,
+        card_long_size=CARD_ASPECT_RATIO,
+        candidate_receipt_digests=(),
+        diagnostics={},
+    )
+    restored = TablePlaneCalibration.from_mapping(calibration.to_mapping())
+    assert restored == calibration
+    assert np.allclose(
+        np.asarray(restored.image_to_table) @ restored.table_to_image, np.eye(3), atol=1e-10
+    )
+    points = np.array([[0, 0], [2160, 0], [0, 3840], [2160, 3840], [1080, 1920]])
+    table_points = apply_homography(restored.image_to_table, points)
+    assert np.allclose(apply_homography(restored.table_to_image, table_points), points, atol=1e-7)
+
+    with pytest.raises(CardPlaneGeometryError, match="reciprocal"):
+        TablePlaneCalibration.create(
+            calibration_revision_id="bad",
+            recording_id="recording-005",
+            source_revision="detector-005",
+            frame_width=2160,
+            frame_height=3840,
+            image_to_table=image_to_table,
+            table_to_image=np.eye(3),
+            card_short_size=1.0,
+            card_long_size=CARD_ASPECT_RATIO,
+            candidate_receipt_digests=(),
+            diagnostics={},
+        )
+
+
 def test_derived_regions_reject_a_different_scene_or_calibration() -> None:
     receipt = DerivedRegionReceipt.create(
         source_frame_id="frame-1",
