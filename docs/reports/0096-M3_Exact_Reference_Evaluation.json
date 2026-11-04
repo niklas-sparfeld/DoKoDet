@@ -14,7 +14,7 @@
     "pairing": "M0 paired exact decoded images only; check full M1 and reference frame receipts agree",
     "eligibility": "M0 evaluation_eligibility must be true; exclude training-only recordings",
     "association": "reuse the pipeline-comparison geometry IoU and greedy one-to-one matcher at threshold 0.5; this rasterizes normalized polygon unions with the maintained pixel-center even-odd rule, supports concave contours, and neutralizes predictions inside reviewed ignore regions",
-    "unscored_frames": "exclude reference outcomes with ignore regions or status other than detected/empty; report separate counts",
+    "unscored_frames": "report frames with ignore regions; neutralize predictions that overlap ignored geometry; exclude reference outcomes with status other than detected/empty",
     "duplicate_proposal": "unmatched predicted card with IoU >= 0.5 to any reviewed card in the same frame",
     "zero_card": "score only explicit reviewed empty outcomes; missing candidates are not empty labels"
   },
