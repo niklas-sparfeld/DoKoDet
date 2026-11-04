@@ -36,6 +36,10 @@ failures. The [M0 inventory](../reports/0100-M0_Compatibility_Inventory.md) and
 [M5 result](../reports/0100-M5_Review_Access.md) retain the repair evidence. The 0096 review queue
 still awaits human review.
 
+The [2026-11-03 local detector review](../reports/2026-11-03_Local_Detector_Review_Findings.md)
+records crop-refinement, duplicate, missed-card, and pile-conflict examples for later detector and
+virtual-card work. These are development observations, not a new campaign or a change to 0096.
+
 The earlier autonomous work has these handoffs:
 
 0098 closed after the autonomous identity proposal and review handoff. Its 114-item queue covers all
@@ -101,7 +105,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| *No ready epics* | | |
+| [0105 — One-click recording pipeline](2-ready/0105-One_Click_Recording_Pipeline.md) | Existing recording pipeline | M0–M4 not started. Start a fresh complete run from one workspace action and retain results for review. |
 
 ### In Progress
 
