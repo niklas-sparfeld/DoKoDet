@@ -11,7 +11,7 @@ revision.
 - The synthetic twelve-card case publishes a finite transform and preserves the visible-card
   revision identifier and frame dimensions.
 - Empty input does not publish. Changed frame geometry throws an explicit input error.
-- All Swift package tests pass: 134 passed, one optional RF-DETR parity test skipped in the
+- All Swift package tests pass: 135 passed, one optional RF-DETR parity test skipped in the
   full-suite invocation because the reference root was not set.
 - The optional RF-DETR parity test was then run with
   `DEVICE_VISIBLE_CARD_REFERENCE_ROOT=/Users/niklas.sparfeld/Developer/doko_detector` and passed
