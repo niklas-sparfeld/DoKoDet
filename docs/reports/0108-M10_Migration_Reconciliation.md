@@ -4,9 +4,9 @@ Date: 2026-11-05
 
 ## Result
 
-The local source snapshot is consistent, but it is not ready for activation. The inventory found
-1,903 resources and 147 blocking conflicts. No active store was changed, and no runtime pointer or
-reader was switched.
+The local source snapshot is consistent, but it is not ready for activation. The refreshed
+inventory found 1,903 resources and three blocking conflicts. No active store was changed, and no
+runtime pointer or reader was switched.
 
 The inventory snapshot digest is
 `d85acd8ca675e3c6fade359359416bda1e3d49a436397d2e895a75c0052c4909`. The full recovery snapshot
@@ -19,25 +19,32 @@ read-only snapshot. Four source references whose recorded `.m4v` names were abse
 
 | Finding | Count | Evidence |
 | --- | ---: | --- |
-| Old proposed-scene revisions use `proposed-card-scene-data/v1`, which the current revision reader does not accept | 78 | These revisions have references from processor runs and other revisions. |
-| Calibration revisions use unsupported historical formats | 47 | 44 use an unsupported card aspect ratio; 3 use an unsupported calibration-run schema. |
-| Calibration drafts record digests that do not match their mapped calibration | 20 | The exact base calibration cannot be verified from the current draft reference. |
-| Calibration references have no matching calibration revision in the snapshot | 2 | These references cannot be resolved to an exact input. |
+| Calibration revisions refer to missing detector revisions | 3 | Exact input revision IDs are absent from the operation snapshot. |
 
-The 125 invalid resources are referenced by 137 stored records: 77 processor runs, 29 pipeline
-revisions, 20 calibration drafts, and 11 maintained drafts. Excluding these resources would break
-recorded inputs or lineage. The two dangling calibration references are also unresolved. The plan
-therefore reports `activation_ready: false`.
+The missing inputs are `visible-cards-visible_cards-run-2c989303-99c-attempt-1` for IMG_0096,
+`visible-cards-visible_cards-run-09ec3415-0ff-attempt-1` for IMG_0648, and
+`visible-cards-visible_cards-run-a839023f-e3f-attempt-1` for IMG_0654. They are detector inputs to
+the corresponding calibration revisions. No exact copies occur in the declared operation snapshot.
+The IMG_0096 draft's missing calibration revision was recovered from an embedded scene copy. Its
+calibration ID and digest match, so the inventory records that scene as evidence.
+
+Migration-only readers now validate and retain known v1 proposal and visual-identity records and
+historical calibration digests without changing their bytes or geometry. This cleared the prior
+78 proposal-schema, 47 calibration-format, 20 draft-digest, and two dangling-calibration findings.
+The plan still reports `activation_ready: false` because of the three missing detector inputs.
+The isolated stage contains 1,903 resources and 32,219 file records. It verifies 2,064,827,899
+staged bytes and keeps 51 referenced video files as digest-checked external references. It is not an
+active store.
 
 Other uncertainty records describe history fields that the old stores did not record and two
 evidence-package references that need validation. They do not clear the blocking conflicts.
 
 ## Changes and verification
 
-The inventory now groups observation and analysis artifacts by their stored identity, parses
-processor runs with the owning store, and checks observation IDs against each resource's own path.
-The migration staging tool can verify declared read-only media roots by digest without copying the
-media into the staged package.
+The inventory groups observation and analysis artifacts by their stored identity, parses processor
+runs with the owning store, and checks observation IDs against each resource's own path. It retains
+the source content schema and bytes for historical revision formats. Staging verified every copied
+file against its declared digest and verified the external media references without copying them.
 
 Focused checks passed:
 
@@ -47,7 +54,7 @@ Focused checks passed:
 
 ## Required next work
 
-Add migration readers and exact conversions for the referenced historical proposal and calibration
-formats, or define an explicit archive representation that retains every original byte and exact
-reference while keeping dependent results inspectable. Rebuild the plan from the same immutable
-snapshot after those mappings exist. Do not activate while any blocking conflict remains.
+Recover the three exact detector revisions from a backup, or document why they cannot be recovered
+and choose an explicit archive representation for their unresolved input references. Rebuild the
+plan from the same immutable snapshot after resolution. Do not activate while any blocking conflict
+remains.

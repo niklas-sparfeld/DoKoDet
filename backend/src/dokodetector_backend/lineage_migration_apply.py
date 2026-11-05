@@ -94,6 +94,7 @@ def _verify_package(root: Path, manifest: dict[str, Any]) -> None:
         if (size, digest) != (item["byte_length"], item["sha256"]):
             raise ValueError(f"staged source bytes do not match: {item['staged_path']}")
     ids = {item["new_id"] for item in resources}
+    by_id = {item["new_id"]: item for item in resources}
     for resource in resources:
         resource_path = root / "resources" / f"{resource['new_id']}.json"
         if not resource_path.is_file() or json.loads(resource_path.read_bytes()) != resource:
@@ -102,6 +103,12 @@ def _verify_package(root: Path, manifest: dict[str, Any]) -> None:
             target = reference.get("target_id")
             if target is not None and target not in ids:
                 raise ValueError("reference points to an unmapped resource")
+            embedded_evidence = reference.get("embedded_evidence_id")
+            if embedded_evidence is not None and (
+                embedded_evidence not in by_id
+                or by_id[embedded_evidence].get("kind") != "pipeline_revision"
+            ):
+                raise ValueError("embedded calibration evidence points to an invalid revision")
             target_revision = reference.get("target_revision_id")
             if target_revision is not None and not any(
                 candidate.get("new_revision_id") == target_revision for candidate in resources
@@ -222,6 +229,7 @@ def apply_plan(
                 "new_id": item["new_id"],
                 "new_revision_id": item.get("new_revision_id"),
                 "content_type": item.get("content_type"),
+                "content_schema": item.get("content_schema"),
                 "recording_id": item.get("recording_id"),
                 "content_sha256": item.get("content_sha256"),
                 "unknown_history": item.get("unknown_history", "not_recorded"),

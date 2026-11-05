@@ -288,11 +288,12 @@ Acceptance: migrated processor results, drafts, independent reviews, scenes, and
 correct content, coverage, and exact inputs. Restart does not restore an old default or adapter.
 If source data has drifted, regenerate the plan; do not use an outdated inventory.
 
-Progress: the stopped stores have a consistent recovery snapshot and a scoped inventory. The first
-dry run found 147 blocking conflicts, including referenced legacy proposal and calibration formats.
-No live store or runtime pointer has changed. See the
-[M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md). Add exact
-historical-format mappings and rebuild the plan before staging or cutover.
+Progress: the stopped stores have a consistent recovery snapshot and a scoped inventory. The
+refreshed plan validates historical formats and has three blocking references to missing detector
+revisions for IMG_0096, IMG_0648, and IMG_0654. The IMG_0096 calibration is preserved in an exact
+embedded scene copy. No live store or runtime pointer has changed. See the
+[M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md). Recover the
+three missing detector revisions or resolve their references before activation.
 
 ### M11 — Delete replaced architecture — Not started
 

@@ -15,6 +15,7 @@ from uuid import UUID, uuid5
 from doko_operations.card_plane_calibration import CalibrationRun
 from doko_operations.pipeline_data import (
     RecordingVideoSource,
+    canonical_json_bytes,
     parse_pipeline_selection_bytes,
 )
 from doko_operations.pipeline_reference import (
@@ -167,6 +168,107 @@ def _parse_json(raw: bytes) -> dict[str, Any]:
     if not isinstance(result, dict):
         raise ValueError("expected JSON object")
     return result
+
+
+def _legacy_pipeline_manifest(manifest_raw: bytes, content_raw: bytes):
+    """Read known v1 revision envelopes for migration without rewriting their content."""
+    from doko_operations.pipeline_data import DataRevision
+
+    manifest = _parse_json(manifest_raw)
+    content = _parse_json(content_raw)
+    if canonical_json_bytes(manifest) != manifest_raw:
+        raise ValueError("legacy pipeline manifest is not canonical JSON")
+    legacy_schemas = {
+        ("card_scene_proposals", "proposed-card-scene-data/v1"): "proposed-card-scene-data/v2",
+        ("visual_identities", "visual-identity-data/v1"): "visual-identity-data/v2",
+    }
+    old_schema = (manifest.get("content_type"), manifest.get("content_schema"))
+    current_schema = legacy_schemas.get(old_schema)
+    if current_schema is None or content.get("schema_version") != old_schema[1]:
+        raise ValueError("legacy pipeline revision schema is unsupported")
+    if hashlib.sha256(content_raw).hexdigest() != manifest.get("content_sha256"):
+        raise ValueError("pipeline content digest does not match its manifest")
+    if canonical_json_bytes(content) != content_raw:
+        raise ValueError("legacy pipeline content is not canonical JSON")
+    if "data_digest" in content:
+        core = {key: value for key, value in content.items() if key != "data_digest"}
+        if hashlib.sha256(canonical_json_bytes(core)).hexdigest() != content["data_digest"]:
+            raise ValueError("legacy pipeline content digest does not match its contents")
+
+    normalized_manifest = dict(manifest)
+    normalized_manifest["content_schema"] = current_schema
+    parsed = DataRevision.from_mapping(normalized_manifest)
+    return parsed
+
+
+def _legacy_calibration_summary(raw: Mapping[str, Any]) -> tuple[str, str, str]:
+    """Validate historical calibration hashes and return its stable identities."""
+    schema = raw.get("schema_version")
+    expected = {
+        "card-plane-calibration-run/v1": {
+            "schema_version",
+            "recording_id",
+            "source_revision",
+            "status",
+            "candidate_receipts",
+            "diagnostics",
+            "calibration",
+            "failure",
+            "run_digest",
+        },
+        "card-plane-calibration-run/v2": {
+            "schema_version",
+            "recording_id",
+            "source_revision",
+            "status",
+            "candidate_receipts",
+            "diagnostics",
+            "calibration",
+            "failure",
+            "run_digest",
+        },
+        "card-plane-calibration-run/v3": {
+            "schema_version",
+            "recording_id",
+            "source_revision",
+            "status",
+            "candidate_receipts",
+            "diagnostics",
+            "calibration",
+            "failure",
+            "calibration_fit_candidate",
+            "run_digest",
+        },
+    }.get(schema)
+    if expected is None or set(raw) != expected:
+        raise ValueError("calibration run schema is unsupported")
+    if raw.get("status") != "published":
+        raise ValueError("calibration revision is not a published run")
+    core = {key: value for key, value in raw.items() if key != "run_digest"}
+    if hashlib.sha256(canonical_json_bytes(core)).hexdigest() != raw["run_digest"]:
+        raise ValueError("calibration run digest does not match its contents")
+    calibration = raw["calibration"]
+    if not isinstance(calibration, dict):
+        raise ValueError("published calibration run has no calibration")
+    if calibration.get("recording_id") != raw.get("recording_id"):
+        raise ValueError("calibration recording identity differs from its run")
+    if calibration.get("schema_version") not in {
+        "table-plane-calibration/v1",
+        "table-plane-calibration/v2",
+    }:
+        raise ValueError("table-plane calibration schema is unsupported")
+    calibration_core = {
+        key: value for key, value in calibration.items() if key != "calibration_digest"
+    }
+    if hashlib.sha256(canonical_json_bytes(calibration_core)).hexdigest() != calibration.get(
+        "calibration_digest"
+    ):
+        raise ValueError("table-plane calibration digest does not match its contents")
+    return (
+        raw["recording_id"],
+        raw["source_revision"],
+        calibration["calibration_digest"],
+    )
 
 
 def inventory(
@@ -329,6 +431,41 @@ def inventory(
         assert raw is not None
         return raw
 
+    embedded_calibrations: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for candidate in resources:
+        if candidate["kind"] != "pipeline_revision":
+            continue
+        try:
+            raw_manifest = get(candidate, "manifest.json")
+            raw_content = get(candidate, "content.json")
+            revision_manifest = _parse_json(raw_manifest)
+            content = _parse_json(raw_content)
+            calibration = content.get("calibration")
+            if (
+                revision_manifest.get("content_type") != "card_scene_proposals"
+                or not isinstance(calibration, dict)
+                or not isinstance(content.get("calibration_revision_id"), str)
+                or not isinstance(content.get("calibration_digest"), str)
+                or hashlib.sha256(raw_content).hexdigest()
+                != revision_manifest.get("content_sha256")
+            ):
+                continue
+            core = {key: value for key, value in calibration.items() if key != "calibration_digest"}
+            digest = hashlib.sha256(canonical_json_bytes(core)).hexdigest()
+            if (
+                calibration.get("calibration_digest") != digest
+                or content["calibration_digest"] != digest
+                or calibration.get("calibration_revision_id") != content["calibration_revision_id"]
+            ):
+                continue
+            embedded_calibrations[
+                (revision_manifest.get("recording_id"), content["calibration_revision_id"], digest)
+            ].append(candidate)
+        except (KeyError, OSError, TypeError, ValueError):
+            continue
+    for evidence in embedded_calibrations.values():
+        evidence.sort(key=lambda item: (item["root_id"], item["relative_identity"]))
+
     def source_reference(item: dict[str, Any], source: Any) -> None:
         if not isinstance(source, RecordingVideoSource):
             uncertainties.append(
@@ -434,14 +571,19 @@ def inventory(
         item: dict[str, Any], recording: str, role: str, old_id: str, digest: str
     ) -> None:
         matches = calibration_ids.get(f"{recording}/{old_id}", [])
-        item["references"].append(
-            {
-                "role": role,
-                "old_calibration_id": old_id,
-                "sha256": digest,
-                "target_id": matches[0]["new_id"] if len(matches) == 1 else None,
-            }
-        )
+        ref = {
+            "role": role,
+            "old_calibration_id": old_id,
+            "sha256": digest,
+            "target_id": matches[0]["new_id"] if len(matches) == 1 else None,
+        }
+        if not matches:
+            evidence = embedded_calibrations.get((recording, old_id, digest), [])
+            if evidence:
+                ref["embedded_evidence_id"] = evidence[0]["new_id"]
+                item["references"].append(ref)
+                return
+        item["references"].append(ref)
         if len(matches) != 1:
             conflicts.append(
                 {
@@ -455,14 +597,23 @@ def inventory(
         try:
             kind = item["kind"]
             if kind == "pipeline_revision":
-                stored = revision_stores[root_id]._read_path(
-                    normalized[root_id] / item["relative_identity"], validate_lineage=False
-                )
-                parsed = stored.manifest
+                raw_manifest = _parse_json(get(item, "manifest.json"))
+                try:
+                    stored = revision_stores[root_id]._read_path(
+                        normalized[root_id] / item["relative_identity"], validate_lineage=False
+                    )
+                    parsed = stored.manifest
+                except ValueError as error:
+                    if str(error) != "content_type and content_schema do not match":
+                        raise
+                    parsed = _legacy_pipeline_manifest(
+                        canonical_json_bytes(raw_manifest), get(item, "content.json")
+                    )
                 if parsed.revision_id != item["old_id"]:
                     raise ValueError("revision identity differs from path")
                 item["content_sha256"] = parsed.content_sha256
                 item["content_type"] = parsed.content_type
+                item["content_schema"] = raw_manifest["content_schema"]
                 item["recording_id"] = parsed.recording_id
                 source_reference(item, parsed.source)
                 for old in parsed.input_revision_ids:
@@ -621,15 +772,27 @@ def inventory(
                         }
                     )
             elif kind == "calibration_revision":
-                run = CalibrationRun.from_mapping(_parse_json(get(item, "manifest.json")))
-                if (
-                    run.calibration is None
-                    or f"{run.recording_id}/{run.calibration.calibration_revision_id}"
-                    != item["old_id"]
-                ):
+                raw_run = _parse_json(get(item, "manifest.json"))
+                try:
+                    run = CalibrationRun.from_mapping(raw_run)
+                    recording_id = run.recording_id
+                    source_revision = run.source_revision
+                    calibration = run.calibration
+                    if calibration is None:
+                        raise ValueError("published calibration run has no calibration")
+                    calibration_id = calibration.calibration_revision_id
+                    calibration_digest = calibration.calibration_digest
+                except ValueError:
+                    recording_id, source_revision, calibration_digest = _legacy_calibration_summary(
+                        raw_run
+                    )
+                    calibration = raw_run["calibration"]
+                    calibration_id = calibration["calibration_revision_id"]
+                if f"{recording_id}/{calibration_id}" != item["old_id"]:
                     raise ValueError("calibration revision identity differs from path")
-                item["calibration_digest"] = run.calibration.calibration_digest
-                reference(item, "detector", run.source_revision)
+                item["calibration_digest"] = calibration_digest
+                item["source_revision"] = source_revision
+                reference(item, "detector", source_revision)
             elif kind == "calibration_draft":
                 initial_raw, current_raw = get(item, "initial.json"), get(item, "draft.json")
                 initial = CalibrationDraft.from_mapping(_parse_json(initial_raw))
