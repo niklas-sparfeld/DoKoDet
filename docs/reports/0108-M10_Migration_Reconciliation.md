@@ -19,6 +19,12 @@ nodes, 594 processor runs, and five analysis runs. The imported analysis records
 observation revisions, evidence-package digests, and input/result artifact digests. The processor
 writer loads the imported legacy-revision map, so new runs reuse migrated nodes.
 
+The importer also writes all 136 migrated selections to
+`data/operations/pipeline-nodes/.migrated-selections`. Each non-empty selection points to the exact
+imported node and revision. An audit matched every selection pointer to the legacy map and checked
+that each target node has the expected recording and content type. The workspace still reads its
+selection state from the legacy store; runtime reader cutover remains open.
+
 The existing operations stores remain in place. Workspace summaries, selections, maintained
 drafts, calibration drafts, and independent review records still use their existing readers. M10
 is not complete until the draft and review readers use the migrated records and restart checks
@@ -84,6 +90,10 @@ Focused checks passed:
 - The local import reported 835 nodes, 594 processor runs, and five analysis runs. The active
   writer loaded all 835 legacy revision mappings and resolved a migrated event revision to its
   imported node.
+- `mise exec -- uv run --project backend pytest backend/tests/test_lineage_migration_import.py -q` — 1 passed
+- Ruff check, Ruff format check, and `git diff --check` passed for the selection importer and test.
+- The local importer reported 136 selections. An audit verified every non-empty pointer against
+  the imported legacy map and its target node manifest.
 
 ## Remaining M10 work
 

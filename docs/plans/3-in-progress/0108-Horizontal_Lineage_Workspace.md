@@ -293,9 +293,10 @@ resources and 34,414 files with no blocking conflicts. The user declared three d
 inputs lost. Their IDs remain on the calibration references with explicit lost status. The IMG_0096
 calibration is preserved in an exact embedded scene copy. The verified package is active at
 `data/operations/pipeline-nodes`. It contains 835 processor data nodes, 594 processor runs, and
-five analysis runs. The processor writer resolves imported revision IDs to these nodes. Legacy
-workspace summaries, selections, drafts, and independent reviews still use their existing stores.
-M10 remains open until those readers and review decisions pass the cutover checks. See the
+five analysis runs. The processor writer resolves imported revision IDs to these nodes. The importer
+also writes 136 selections with exact node and revision pointers. The workspace still reads
+selections and summaries from the legacy stores. Drafts and independent reviews also need reader
+cutover. M10 remains open until those readers and review decisions pass the cutover checks. See the
 [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
 ### M11 — Delete replaced architecture — Not started

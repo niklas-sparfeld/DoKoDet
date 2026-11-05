@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from doko_operations.pipeline_data import canonical_json_bytes
+from doko_operations.pipeline_data import canonical_json_bytes, parse_pipeline_selection_bytes
 from table_evidence_analyzer.pipeline_data import (
     ProposedCardSceneData,
     ProposedCardSceneFrame,
@@ -518,6 +518,65 @@ def _import_analyses(
     return imported
 
 
+def _import_selections(
+    package: Path,
+    resources: list[dict[str, Any]],
+    mapping: dict[str, tuple[str, str]],
+    store: PipelineNodeStore,
+) -> int:
+    """Store migrated selection pointers as exact node and revision identities."""
+    root = store.root / ".migrated-selections"
+    imported = 0
+    for item in resources:
+        if item["kind"] != "selection":
+            continue
+        source = _resource_file(package, item, ".json")
+        selection = parse_pipeline_selection_bytes(source.read_bytes())
+        references = {
+            reference["role"]: reference
+            for reference in item["references"]
+            if reference.get("role") in {"generated", "completed_reference"}
+        }
+        mapped: dict[str, dict[str, str] | None] = {}
+        for role, legacy_id in (
+            ("generated", selection.selected_generated_revision_id),
+            ("completed_reference", selection.selected_completed_reference_revision_id),
+        ):
+            if legacy_id is None:
+                mapped[role] = None
+                continue
+            reference = references.get(role)
+            target = mapping.get(legacy_id)
+            if reference is None or target is None:
+                raise ValueError(f"selection revision is not mapped: {legacy_id}")
+            expected = (reference.get("target_id"), reference.get("target_revision_id"))
+            if target != expected:
+                raise ValueError(f"selection mapping differs from migration plan: {legacy_id}")
+            mapped[role] = {"node_id": target[0], "revision_id": target[1]}
+        record = {
+            "schema_version": "pipeline-node-selection/v1",
+            "recording_id": selection.recording_id,
+            "content_type": selection.content_type,
+            "revision": selection.revision,
+            "selected_generated": mapped["generated"],
+            "selected_completed_reference": mapped["completed_reference"],
+            "updated_at": selection.updated_at,
+            "legacy_selection_id": item["old_id"],
+        }
+        path = contained_path(
+            root / selection.recording_id,
+            f"{selection.content_type}.json",
+        )
+        if path.exists():
+            existing = _object(path)
+            if existing != record:
+                raise ValueError(f"migration target has conflicting selection: {item['old_id']}")
+        else:
+            atomic_write_json(path, record)
+        imported += 1
+    return imported
+
+
 def import_package(package_root: Path | str, store_root: Path | str) -> dict[str, int]:
     """Load retained processor revisions and runs into an isolated node-store root."""
     package = Path(package_root).expanduser().resolve()
@@ -532,6 +591,7 @@ def import_package(package_root: Path | str, store_root: Path | str) -> dict[str
     )
     run_count = _import_runs(package, manifest["resources"], mapping, store)
     analysis_count = _import_analyses(package, manifest["resources"], mapping, store)
+    selection_count = _import_selections(package, manifest["resources"], mapping, store)
     nodes = store.list_nodes()
     if len(nodes) != len(mapping):
         raise ValueError("imported node count does not match the migration plan")
@@ -551,6 +611,7 @@ def import_package(package_root: Path | str, store_root: Path | str) -> dict[str
         "pipeline_revisions": len(mapping),
         "processor_runs": run_count,
         "analysis_runs": analysis_count,
+        "selections": selection_count,
         "terminal_runs": terminal_count,
     }
     atomic_write_json(
@@ -569,6 +630,7 @@ def import_package(package_root: Path | str, store_root: Path | str) -> dict[str
         "pipeline_revisions": len(mapping),
         "processor_runs": run_count,
         "analysis_runs": analysis_count,
+        "selections": selection_count,
         "nodes": len(nodes),
         "lineage_runs": terminal_count,
     }

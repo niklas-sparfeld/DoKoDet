@@ -72,6 +72,17 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
     state_path = package / "evidence/operations/pipeline/runs/legacy-run-01/state.json"
     request_size, request_digest = _write_json(request_path, request)
     state_size, state_digest = _write_json(state_path, state)
+    selection = {
+        "schema_version": "pipeline-selection/v1",
+        "revision": 2,
+        "recording_id": "recording-01",
+        "content_type": "events",
+        "selected_generated_revision_id": old_revision_id,
+        "selected_completed_reference_revision_id": None,
+        "updated_at": "2026-09-05T11:00:00Z",
+    }
+    selection_path = package / "evidence/operations/pipeline/selections/recording-01/events.json"
+    selection_size, selection_digest = _write_json(selection_path, selection)
     resources = [
         {
             "schema_version": "lineage-migration-resource/v1",
@@ -124,6 +135,28 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
                 }
             ],
         },
+        {
+            "schema_version": "lineage-migration-resource/v1",
+            "kind": "selection",
+            "old_id": "recording-01/events",
+            "new_id": "recording-01/events",
+            "old_root_id": "operations",
+            "files": [
+                {
+                    "path": "pipeline/selections/recording-01/events.json",
+                    "byte_length": selection_size,
+                    "sha256": selection_digest,
+                }
+            ],
+            "references": [
+                {
+                    "role": "generated",
+                    "old_revision_id": old_revision_id,
+                    "target_id": node_id,
+                    "target_revision_id": node_revision_id,
+                }
+            ],
+        },
     ]
     _write_json(
         package / "migration.json",
@@ -146,6 +179,7 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
             "pipeline_revisions": 1,
             "processor_runs": 1,
             "analysis_runs": 0,
+            "selections": 1,
             "nodes": 1,
             "lineage_runs": 1,
         }
@@ -156,3 +190,8 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
     assert run["result"] == "empty"
     assert run["outputs"][0]["node_id"] == node_id
     assert run["outputs"][0]["revision_id"] == node_revision_id
+    migrated_selection = (store_root / ".migrated-selections/recording-01/events.json").read_bytes()
+    assert (
+        b'"selected_generated":{"node_id":"migrated-node-01",'
+        b'"revision_id":"migrated-revision-01"}' in migrated_selection
+    )
