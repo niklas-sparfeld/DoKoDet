@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0–M9 are complete; M10 is in progress; M11–M12 are not started. The workspace
+- **Outcome:** M0–M10 are complete; M11–M12 are not started. The workspace
   exposes exact graph data,
   preserves validated lineage URLs, and has aligned step and data rows. The horizontal drawer
   selects exact revisions and shows copy and processor sources with collapsed revision history.
@@ -279,7 +279,7 @@ Fixture checks cover empty event output, accepted-input protection, retry accept
 observation inputs, and analysis artifacts. Existing processor execution and selection controls stay
 in place.
 
-### M10 — Execute the verified local migration and cutover — In progress
+### M10 — Execute the verified local migration and cutover — Complete
 
 Run the inventory/dry run against current local stores. Resolve blocking mappings, stop writers for
 a consistent snapshot, stage and verify migration, then switch runtime readers and writers. Use
@@ -296,16 +296,11 @@ calibration is preserved in an exact embedded scene copy. The verified package i
 `data/operations/pipeline-nodes`. It contains 835 processor data nodes, 594 processor runs, and
 five analysis runs. The processor writer resolves imported revision IDs to these nodes. The importer
 also writes 136 selections with exact node and revision pointers. It preserves 126 maintained
-drafts, 13 calibration drafts, and 11 independent review packages in the graph store. The runtime
-composition reads maintained drafts, independent reviews, and calibration drafts from graph-store
-reader paths. Calibration drafts keep their normal store format and exact staged bytes. Workspace
-revision options, compact statuses, and compatible input sets now use node revisions and exact graph
-inputs. Processor run progress and analysis summaries still use their existing stores. Existing
-processor callers receive legacy revision IDs through the selection bridge, while stored selections
-retain exact node and revision pointers. Active-store checks matched revision content digests,
-coverage, exact inputs, and all five analysis summaries across a runtime rebuild. M10 remains open
-for scene, review, and draft workspace checks. Terminal run inputs and outputs now come from graph
-records; live progress and failure details remain in the run store. See the
+drafts, 13 calibration drafts, and 11 independent review packages in the graph store. Workspace
+revision options, compatible inputs, and terminal run lineage now use exact graph revisions.
+Processor progress and failure details and analysis summaries retain their live store readers.
+Active-store checks opened scene, review, draft, calibration, and analysis data and confirmed their
+content and coverage after rebuilding the runtime. See the
 [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
 ### M11 — Delete replaced architecture — Not started

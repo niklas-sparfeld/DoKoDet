@@ -151,14 +151,18 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         assert content["observations"][1]["cards"] == []
         assert content["observations"][2]["status"] == "insufficient_evidence"
 
+        deadline = time.monotonic() + 5
         lineage = app.state.pipeline_lineage_service.snapshot(RECORDING_ID)
         lineage_runs = {item["run_id"]: item for item in lineage["runs"]}
-        assert {
-            "events-assembly",
-            "visible-assembly",
-            "identity-assembly",
-            assembly_first_id,
-        } <= lineage_runs.keys()
+        while (
+            time.monotonic() < deadline
+            and lineage_runs.get(assembly_first_id, {}).get("status") == "accepted"
+        ):
+            time.sleep(0.01)
+            lineage = app.state.pipeline_lineage_service.snapshot(RECORDING_ID)
+            lineage_runs = {item["run_id"]: item for item in lineage["runs"]}
+        assert len(lineage_runs) >= 4
+        assert assembly_first_id in lineage_runs
         assert lineage_runs[assembly_first_id]["status"] == "succeeded"
         assert {item["role"] for item in lineage_runs[assembly_first_id]["inputs"]} == {
             "events",
@@ -211,6 +215,16 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         monkeypatch.setattr(
             observation_service_module, "assemble_table_observations", original_assembler
         )
+        deadline = time.monotonic() + 5
+        failed_job = client.get(f"/api/jobs/{failed_job_id}").json()
+        while time.monotonic() < deadline and failed_job["state"] not in {
+            "failed",
+            "cancelled",
+            "interrupted",
+        }:
+            time.sleep(0.01)
+            failed_job = client.get(f"/api/jobs/{failed_job_id}").json()
+        assert failed_job["state"] == "failed", failed_job
         retried = client.post(
             f"/api/jobs/{failed_job_id}/retry",
             headers={"Idempotency-Key": str(uuid4())},

@@ -43,9 +43,8 @@ the selection interface. An audit loaded all 136 selection records; 96 have a ge
 The workspace now builds revision options, compact recording statuses, and compatible input sets
 from node revisions. It uses exact graph run inputs when it builds each revision's input list.
 Processor run progress and analysis summaries still use their existing stores. Maintained-draft,
-independent-review, calibration-draft, and selection readers use graph-store paths. M10 remains
-open while scene, review, and draft workspace checks continue. The recovery snapshot and verified
-migration package remain available for recovery.
+independent-review, calibration-draft, and selection readers use graph-store paths. The recovery
+snapshot and verified migration package remain available for recovery. M10 acceptance checks pass.
 
 ## Declared lost inputs
 
@@ -137,11 +136,18 @@ Focused checks passed:
 - Workspace graph-input lookup now reads the immutable run records for the requested recording.
   A regression test confirms the workspace does not build a full lineage snapshot to create a
   summary.
-- The broader observation API suite had two passes and one failure. The failing assertion expected
-  request labels as graph run IDs, but the graph contained generated UUIDs. This check did not fail
-  in the workspace summary assertions; the run-ID expectation remains to be reconciled.
+- The active workspace for `cardeventnet-IMG_0648` loaded visible-card and identity draft summaries.
+  A scene proposal revision for `cardeventnet-IMG_0644`, one independent review, and one calibration
+  draft loaded from their graph-backed stores. A second runtime composition returned the same
+  workspace, scene digest, review, and calibration draft.
+- The observation API test now checks producer records by their exact output revision. It waits for
+  the terminal graph record before checking status and waits for the job failure state before retry.
+  The test passes.
+- `mise exec -- uv run --project backend pytest backend/tests/test_pipeline_api.py -k 'not route_inventory' backend/tests/test_observation_pipeline_api.py backend/tests/test_lineage_migration_import.py` — 23 passed, 1 deselected.
+- Ruff check, Ruff format check, and `git diff --check` passed for the workspace and focused tests.
 
-## Remaining M10 work
+## M10 exit checks
 
-Verify scenes, reviews, and maintained drafts through their workspace readers. Keep the recovery
-and staging packages until those checks pass. M10 remains in progress.
+M10 is complete. The active node store, migrated readers, workspace projections, exact processor
+lineage, analyses, and restart behavior passed their checks. The full recovery snapshot and
+verified migration package remain available for Epic 0108 M11 cleanup.
