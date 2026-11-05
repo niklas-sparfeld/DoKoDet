@@ -590,6 +590,11 @@ def _import_retained_records(
     """Preserve editable drafts and independent reviews with mapped lineage references."""
     counts = {kind: 0 for kind in kinds}
     root = store.root / ".migrated-records"
+    reader_root = store.root / ".migrated-readers"
+    reader_prefixes = {
+        "maintained_draft": "pipeline-references/",
+        "independent_review": "pipeline-reviews/",
+    }
     for item in resources:
         kind = item["kind"]
         if kind not in kinds:
@@ -607,6 +612,14 @@ def _import_retained_records(
                 "byte_length": len(payload),
                 "base64": base64.b64encode(payload).decode("ascii"),
             }
+            prefix = reader_prefixes.get(kind)
+            if prefix is not None and relative_path.startswith(prefix):
+                reader_path = contained_path(reader_root, relative_path)
+                if reader_path.exists():
+                    if reader_path.read_bytes() != payload:
+                        raise ValueError(f"migration reader target differs: {relative_path}")
+                else:
+                    atomic_write_json(reader_path, payload)
         references = []
         for reference in item["references"]:
             copied = dict(reference)

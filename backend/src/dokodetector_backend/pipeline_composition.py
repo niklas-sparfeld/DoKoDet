@@ -94,12 +94,13 @@ def build_pipeline_composition(
         revision_store=revision_store,
         run_store=run_store,
     )
-    reference_store = PipelineReferenceStore(settings.operations_root / "pipeline-references")
+    node_store = PipelineNodeStore(settings.operations_root / "pipeline-nodes")
+    migrated_reader_root = node_store.root / ".migrated-readers"
+    reference_store = PipelineReferenceStore(migrated_reader_root / "pipeline-references")
     visible_card_review_store = VisibleCardReviewStore(
-        settings.operations_root / "pipeline-reviews",
+        migrated_reader_root / "pipeline-reviews",
         legacy_reference_store=reference_store,
     )
-    node_store = PipelineNodeStore(settings.operations_root / "pipeline-nodes")
     lineage_service = PipelineLineage(node_store)
     lineage_writer = PipelineLineageWriter(
         node_store, lineage_service, PipelineNodeUses(node_store), revision_store

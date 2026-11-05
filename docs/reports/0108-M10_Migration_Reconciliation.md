@@ -29,13 +29,19 @@ The graph store also preserves the 126 maintained drafts, 13 calibration drafts,
 independent review packages under `.migrated-records`. Each record contains the original staged file
 bytes as Base64 with its SHA-256 digest and the mapped node revision for each retained revision
 reference. An audit compared every stored file byte for byte with the verified stage and checked the
-mapped references. Workspace readers still use the legacy stores.
+mapped references.
 
-The existing operations stores remain in place. Workspace summaries, selections, maintained
-drafts, calibration drafts, and independent review records still use their existing readers. M10
-is not complete until the draft and review readers use the migrated records and restart checks
-confirm the intended content and decisions. The recovery snapshot and verified migration package
-remain available for recovery.
+The runtime composition now reads maintained drafts and independent reviews from the graph-store
+reader paths under `.migrated-readers`. The reader audit loaded all 126 maintained drafts and 11
+independent reviews through their normal store APIs. The loaded maintained-draft objects matched
+their staged JSON. Workspace summaries and selections still use legacy stores. Calibration-draft
+readers still need cutover.
+
+The existing operations stores remain in place. Workspace summaries and selections, and calibration
+drafts still use their legacy readers. Maintained-draft and independent-review readers now use the
+graph-store paths. M10 is not complete until the remaining readers and restart checks confirm the
+intended content and decisions. The recovery snapshot and verified migration package remain
+available for recovery.
 
 ## Declared lost inputs
 
@@ -106,7 +112,6 @@ Focused checks passed:
 
 ## Remaining M10 work
 
-Switch workspace summaries, selections, maintained drafts, calibration drafts, and independent
-reviews to the imported nodes and review records. Verify results, coverage, exact inputs, and
-restart behavior through the workspace. Keep the recovery and staging packages until those checks
-pass. M10 remains in progress.
+Switch workspace summaries, selections, and calibration drafts to the graph store. Verify results,
+coverage, exact inputs, and restart behavior through the workspace. Keep the recovery and staging
+packages until those checks pass. M10 remains in progress.

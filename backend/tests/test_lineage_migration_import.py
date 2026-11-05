@@ -232,6 +232,9 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
     )
     migrated_draft = migrated_record["files"]["pipeline-references/recording-01/events/draft.json"]
     assert base64.b64decode(migrated_draft["base64"]) == draft_content
+    assert (
+        store_root / ".migrated-readers/pipeline-references/recording-01/events/draft.json"
+    ).read_bytes() == draft_content
     assert migrated_record["references"][0]["mapped_revision"] == {
         "node_id": node_id,
         "revision_id": node_revision_id,

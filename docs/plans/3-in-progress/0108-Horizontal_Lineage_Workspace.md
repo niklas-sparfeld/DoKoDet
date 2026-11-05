@@ -296,9 +296,10 @@ calibration is preserved in an exact embedded scene copy. The verified package i
 five analysis runs. The processor writer resolves imported revision IDs to these nodes. The importer
 also writes 136 selections with exact node and revision pointers. The workspace still reads
 selections and summaries from the legacy stores. It also preserves 126 maintained drafts, 13
-calibration drafts, and 11 independent review packages in the graph store. The workspace still reads
-these records from the legacy stores. M10 remains open until the readers and review decisions pass
-the cutover checks. See the
+calibration drafts, and 11 independent review packages in the graph store. The runtime composition
+now reads maintained drafts and independent reviews from the graph-store reader paths. Workspace
+summaries and selections still use their legacy stores. Calibration-draft readers also need cutover.
+M10 remains open until the remaining readers and review decisions pass the cutover checks. See the
 [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
 ### M11 — Delete replaced architecture — Not started
