@@ -90,6 +90,9 @@ export function RecordingPipelineWorkspace({
   const [lineageGraph, setLineageGraph] = useState<PipelineLineageGraph | null>(
     null,
   );
+  const [lineageGraphError, setLineageGraphError] = useState<string | null>(
+    null,
+  );
   const [urlState, setUrlState] = useState(() =>
     readPipelineUrlState(window.location.search),
   );
@@ -163,13 +166,10 @@ export function RecordingPipelineWorkspace({
   }, []);
 
   useEffect(() => {
-    if (urlState.lineage === null) {
-      return;
-    }
-    const selection = decodeLineageSelection(urlState.lineage);
-    if (selection === null) {
-      return;
-    }
+    const selection =
+      urlState.lineage === null
+        ? null
+        : decodeLineageSelection(urlState.lineage);
     const controller = new AbortController();
     void fetch(
       `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/lineage`,
@@ -188,6 +188,11 @@ export function RecordingPipelineWorkspace({
       .then((graph) => {
         if (controller.signal.aborted) return;
         setLineageGraph(graph);
+        setLineageGraphError(null);
+        if (selection === null || urlState.lineage === null) {
+          setLineageValidation(null);
+          return;
+        }
         const missing = validateLineageSelection(selection, graph);
         setLineageValidation({
           lineage: urlState.lineage as string,
@@ -200,11 +205,14 @@ export function RecordingPipelineWorkspace({
       .catch(() => {
         if (!controller.signal.aborted) {
           setLineageGraph(null);
-          setLineageValidation({
-            lineage: urlState.lineage as string,
-            notice:
-              "Lineage data could not be loaded. The saved selection was not changed.",
-          });
+          setLineageGraphError("Lineage data could not be loaded.");
+          if (urlState.lineage !== null) {
+            setLineageValidation({
+              lineage: urlState.lineage,
+              notice:
+                "Lineage data could not be loaded. The saved selection was not changed.",
+            });
+          }
         }
       });
     return () => controller.abort();
@@ -513,6 +521,7 @@ export function RecordingPipelineWorkspace({
         notice={currentLineageNotice ?? notice}
         error={error}
         lineageGraph={lineageGraph}
+        lineageGraphError={lineageGraphError}
         onNavigate={navigateTo}
       />
       {urlState.frameReviewQueue === "0096-M4" &&

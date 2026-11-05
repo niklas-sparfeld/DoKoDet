@@ -28,7 +28,11 @@ export type PipelineLineageGraph = {
     content_sha256: string;
     created_at: string;
   }>;
-  runs: Array<{ run_id: string }>;
+  runs: Array<{
+    run_id: string;
+    run_kind?: string;
+    status?: string;
+  }>;
   artifacts: Array<{ artifact_id: string; sha256: string }>;
   edges: Array<{
     kind: string;

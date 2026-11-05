@@ -167,16 +167,46 @@ describe("recording pipeline workspace", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>((input) =>
-        Promise.resolve(
+      vi.fn<typeof fetch>((input) => {
+        if (String(input).endsWith("/pipeline/lineage")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                schema_version: "pipeline-lineage-graph/v1",
+                nodes: [
+                  {
+                    node_id: "events-lineage-node",
+                    name: "First pass",
+                    content_type: "events",
+                    source: { recording_id: RECORDING_ID },
+                    head_revision_id: "events-lineage-r1",
+                  },
+                ],
+                revisions: [
+                  {
+                    node_id: "events-lineage-node",
+                    revision_id: "events-lineage-r1",
+                    content_sha256: "d".repeat(64),
+                    created_at: "2026-09-06T00:00:00Z",
+                  },
+                ],
+                runs: [],
+                artifacts: [],
+                edges: [],
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return Promise.resolve(
           String(input).endsWith("/video")
             ? new Response(new Blob(["video"]), { status: 200 })
             : new Response(JSON.stringify(body), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
               }),
-        ),
-      ),
+        );
+      }),
     );
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:workspace-test");
 
@@ -268,6 +298,25 @@ describe("recording pipeline workspace", () => {
       screen.getByRole("combobox", { name: "Default generated revision" }),
     ).toHaveValue(generated.revision_id);
     expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Show lineage" }));
+    const lineage = await screen.findByRole("region", {
+      name: "Pipeline lineage",
+    });
+    await userEvent
+      .setup()
+      .click(
+        within(lineage).getByRole("button", { name: "r events-lineage-r1" }),
+      );
+    const savedSelection = JSON.parse(
+      readPipelineUrlState(window.location.search).lineage ?? "null",
+    );
+    expect(savedSelection.selected.events).toEqual({
+      node_id: "events-lineage-node",
+      revision_id: "events-lineage-r1",
+    });
   });
 
   it("opens Virtual scenes as a separate empty step without run controls", async () => {
@@ -1562,6 +1611,21 @@ describe("recording pipeline workspace", () => {
     const fetchMock = vi.fn<typeof fetch>((_input, init): Promise<Response> => {
       if (init?.method === "PUT") {
         return Promise.resolve(new Response("{}", { status: 409 }));
+      }
+      if (String(_input).endsWith("/pipeline/lineage")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              schema_version: "pipeline-lineage-graph/v1",
+              nodes: [],
+              revisions: [],
+              runs: [],
+              artifacts: [],
+              edges: [],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
       }
       workspaceCalls += 1;
       const response = workspaceCalls > 1 ? winner : first;

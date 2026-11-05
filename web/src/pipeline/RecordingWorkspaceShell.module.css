@@ -161,6 +161,183 @@
   white-space: nowrap;
 }
 
+.lineageToggle {
+  min-height: 2rem;
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--panel);
+  color: var(--accent-bright);
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.lineageToggle:focus-visible,
+.lineageRevision:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+.lineageDrawer {
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+}
+
+.lineageHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.lineageHeading h2,
+.lineageColumn h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.lineageHeading p,
+.lineageHint {
+  margin: 0.2rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.7rem;
+}
+
+.lineageHeading [role="status"] {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+.lineageColumns {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(10rem, 1fr));
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.lineageColumn {
+  display: grid;
+  align-content: start;
+  gap: 0.4rem;
+  min-width: 0;
+  padding-left: 0.45rem;
+  border-left: 1px solid var(--line);
+}
+
+.lineageNode {
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: var(--panel);
+}
+
+.lineageNodeSelected {
+  border-color: var(--accent-bright);
+  box-shadow: inset 0 0 0 1px var(--accent-bright);
+}
+
+.lineageNode > strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 0.72rem;
+}
+
+.lineageNode > small,
+.lineageHistory small {
+  color: var(--muted-ink);
+  font-size: 0.62rem;
+  overflow-wrap: anywhere;
+}
+
+.lineageRevision {
+  justify-self: start;
+  min-height: 1.65rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  color: var(--accent-bright);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.66rem;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.lineageRevision[aria-pressed="true"] {
+  border-color: var(--accent-bright);
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel));
+  color: var(--ink);
+}
+
+.lineageHistory {
+  margin-top: 0.15rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted-ink);
+  font-size: 0.66rem;
+}
+
+.lineageHistory summary {
+  padding: 0.3rem 0;
+  cursor: pointer;
+}
+
+.lineageHistory > div {
+  display: grid;
+  justify-items: start;
+  gap: 0.2rem;
+  padding: 0.25rem 0;
+  border-top: 1px dotted var(--line);
+}
+
+.lineageSources {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lineageSources li {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  padding-left: 0.4rem;
+  border-left: 2px solid var(--accent);
+}
+
+.lineageSources span,
+.lineageSources small {
+  color: var(--muted-ink);
+  font-size: 0.62rem;
+}
+
+.lineageSources code {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 0.6rem;
+}
+
+.lineageEmpty {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+}
+
+.lineageHint {
+  margin-top: 0.55rem;
+}
+
 .taskSurface {
   display: flex;
   min-height: 0;
@@ -200,6 +377,10 @@
     grid-column: 1 / -1;
     grid-row: 2;
   }
+
+  .lineageColumns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 600px) {
@@ -229,5 +410,15 @@
   .taskSurfaceContent {
     overflow: visible;
     padding: 0.75rem;
+  }
+
+  .lineageColumns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .lineageColumns {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

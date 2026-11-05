@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type {
   PipelineComparisonResponse,
   PipelineWorkspace,
@@ -37,6 +39,7 @@ import type {
 import { STAGE_LABELS } from "./recordingWorkspacePresentation";
 import shellStyles from "./RecordingWorkspaceShell.module.css";
 import { ProfileControl } from "../profile/ProfileControl";
+import { PipelineLineageDrawer } from "./PipelineLineageDrawer";
 
 export type RecordingWorkspaceShellProps = {
   recordingId: string;
@@ -46,6 +49,7 @@ export type RecordingWorkspaceShellProps = {
   notice: string | null;
   error: string | null;
   lineageGraph: PipelineLineageGraph | null;
+  lineageGraphError: string | null;
   onNavigate: (path: string) => void;
 };
 
@@ -81,8 +85,10 @@ export function RecordingWorkspaceShell({
   notice,
   error,
   lineageGraph,
+  lineageGraphError,
   onNavigate,
 }: RecordingWorkspaceShellProps) {
+  const [lineageOpen, setLineageOpen] = useState(false);
   const lineageSelection =
     urlState.lineage === null ? null : decodeLineageSelection(urlState.lineage);
   const steps: Array<{ key: PipelineNavigationStepKey; label: string }> = [
@@ -211,9 +217,41 @@ export function RecordingWorkspaceShell({
                 );
               })}
             </ol>
+            <button
+              aria-controls="pipeline-lineage-drawer"
+              aria-expanded={lineageOpen}
+              className={shellStyles.lineageToggle}
+              onClick={() => setLineageOpen((open) => !open)}
+              type="button"
+            >
+              {lineageOpen ? "Hide lineage" : "Show lineage"}
+            </button>
           </nav>
           <ProfileControl />
         </header>
+
+        {lineageOpen ? (
+          <PipelineLineageDrawer
+            id="pipeline-lineage-drawer"
+            graph={lineageGraph}
+            graphError={lineageGraphError}
+            selection={lineageSelection}
+            onSelect={(nextSelection) => {
+              const path = recordingPipelineNavigationPath(
+                recordingId,
+                navigationStep,
+                {
+                  ...urlState,
+                  lineage: JSON.stringify(nextSelection),
+                  left: null,
+                  right: null,
+                  reference: null,
+                },
+              );
+              onNavigate(path);
+            }}
+          />
+        ) : null}
 
         {notice !== null ? <Toast message={notice} /> : null}
         {error !== null ? (

@@ -7,9 +7,10 @@
 - **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0–M1 are complete; M2–M12 are not started. The workspace exposes exact graph data,
-  preserves validated lineage URLs, and has aligned step and data rows. Processor input and trigger
-  UX remains later work.
+- **Outcome:** M0–M2 are complete; M3–M12 are not started. The workspace exposes exact graph data,
+  preserves validated lineage URLs, and has aligned step and data rows. The horizontal drawer
+  selects exact revisions and shows copy and processor sources with collapsed revision history.
+  Processor input and trigger UX remains later work.
 
 ## Agreed layout
 
@@ -143,13 +144,20 @@ the exact selected node name and revision from the lineage URL, or a clear empty
 scenes has its own route and empty state. The Generated/Reviewed top-bar switch is removed. Stage
 navigation preserves lineage and does not add processor controls.
 
-### M2 — Build the horizontal lineage drawer — Not started
+### M2 — Build the horizontal lineage drawer — Complete
 
 Render step-aligned nodes, typed copy/process connections, selected path, compact metadata, and
 all-source details. Support collapsed branches, history inspection, and accessible navigation.
 
 Acceptance: select alternatives and copies without ambiguity; show all inputs of observations and
 analyses. Verify desktop layout and narrow-screen reflow. No separate display dropdown remains.
+
+Result: the two-row navigation can expand a keyboard-accessible drawer with six aligned step
+columns. It lists data sets and their current revisions, labels copy and processor input sources,
+and shows every exact source and role for multi-input results and analysis runs. Revision history
+stays collapsed until opened. Selecting a revision updates the exact lineage URL and preserves
+selections in other steps. The layout reflows to three, two, then one column on narrower screens.
+Processor input controls remain separate from lineage browsing.
 
 ### M3 — Integrate shared editing and copy UX — Not started
 
