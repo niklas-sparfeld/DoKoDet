@@ -34,6 +34,76 @@ describe("PipelineNodeEventEditor", () => {
     });
   });
 
+  it("shows retained rejected events without adding them to the event content", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...revision,
+          metadata: {
+            legacy_review: {
+              items: [{ item_id: "event-rejected", review_state: "rejected" }],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse([]));
+    render(
+      <PipelineNodeEventEditor
+        recordingId="recording-1"
+        nodeId="events"
+        revisionId="r1"
+        durationUs={1_000_000}
+        selectionItemId="event-1"
+        selectionTimeUs={null}
+        onRevisionChange={vi.fn()}
+        onPositionChange={vi.fn()}
+      />,
+    );
+    expect(
+      await screen.findByText("Retained rejected events (1)"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("event-rejected · rejected in the retained draft"),
+    ).toBeInTheDocument();
+  });
+
+  it("does not label partial retained coverage as a full recording review", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(revision))
+      .mockResolvedValueOnce(
+        jsonResponse([
+          {
+            kind: "coverage",
+            review_id: "coverage-1",
+            decision: null,
+            coverage: {
+              kind: "full_recording",
+              intervals: [{ start_us: 0, end_us: 500_000 }],
+            },
+          },
+        ]),
+      );
+    render(
+      <PipelineNodeEventEditor
+        recordingId="recording-1"
+        nodeId="events"
+        revisionId="r1"
+        durationUs={1_000_000}
+        selectionItemId="event-1"
+        selectionTimeUs={null}
+        onRevisionChange={vi.fn()}
+        onPositionChange={vi.fn()}
+      />,
+    );
+    await screen.findByLabelText("Start (µs)");
+    expect(
+      screen.queryByRole("button", { name: "Full recording reviewed" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Record overall acceptance" }),
+    ).toBeDisabled();
+  });
+
   it("loads one exact node revision and saves an edit with item provenance", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock

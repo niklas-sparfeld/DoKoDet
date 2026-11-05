@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from dokodetector_backend.filesystem import atomic_write_json, contained_path
@@ -49,6 +49,44 @@ class PipelineNodeReviews:
             reviewer,
             evidence,
             {"item_id": item_id, "item_sha256": items[item_id]["sha256"]},
+        )
+
+    def items(
+        self,
+        node_id: str,
+        revision_id: str,
+        decisions: Sequence[Mapping[str, str]],
+        question: str,
+        reviewer: Mapping[str, Any],
+        evidence: Mapping[str, Any],
+    ) -> tuple[dict[str, Any], ...]:
+        """Record multiple item decisions after validating the revision once.
+
+        Each ID remains individually replay-safe if publication is interrupted.
+        """
+        revision = self.store.read_revision(node_id, revision_id)
+        items = self._revision_items(revision)
+        prepared = []
+        for decision in decisions:
+            if set(decision) != {"review_id", "item_id", "decision"}:
+                raise ValueError("invalid item review decision")
+            _safe_id(decision["review_id"], "review_id")
+            item_id = _safe_id(decision["item_id"], "item_id")
+            if item_id not in items:
+                raise ValueError("reviewed item is not present in the revision")
+            prepared.append((decision, items[item_id]["sha256"]))
+        return tuple(
+            self._record(
+                decision["review_id"],
+                "item",
+                revision,
+                question,
+                decision["decision"],
+                reviewer,
+                evidence,
+                {"item_id": decision["item_id"], "item_sha256": digest},
+            )
+            for decision, digest in prepared
         )
 
     def coverage(
@@ -141,11 +179,18 @@ class PipelineNodeReviews:
         self.store.read_revision(node_id, revision_id)
         if not self.root.exists():
             return ()
-        return tuple(
+        records = [
             record
             for path in sorted(self.root.glob("*.json"))
             if (record := self.get(path.stem))["node_id"] == node_id
             and record["revision_id"] == revision_id
+        ]
+        return tuple(
+            sorted(
+                records,
+                key=lambda record: (record["reviewed_at"], record["review_id"]),
+                reverse=True,
+            )
         )
 
     def applicability(

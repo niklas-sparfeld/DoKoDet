@@ -349,6 +349,11 @@ class RecordingPipelineWorkspaceService:
                 inherited.update(revision.metadata)
             for node_revision in history:
                 metadata = {**inherited, **node_revision.metadata}
+                migration = metadata.get("migration")
+                if isinstance(migration, dict) and migration.get("legacy_key"):
+                    # These nodes are browsable in lineage. Processor inputs still use the
+                    # revision-store contract until its node-backed cutover is complete.
+                    continue
                 revision_metadata = node_revision.metadata
                 legacy_id = revision_metadata.get("legacy_revision_id")
                 revision_id = legacy_id if isinstance(legacy_id, str) else node_revision.revision_id

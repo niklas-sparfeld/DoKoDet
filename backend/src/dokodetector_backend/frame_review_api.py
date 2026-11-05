@@ -7,7 +7,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import Field
@@ -94,15 +94,35 @@ def _load_queue(request: Request) -> tuple[dict[str, Any], tuple[FrameReviewItem
         ) from error
 
 
-def _editor_target(item: FrameReviewItem) -> FrameReviewTarget | None:
+def _editor_target(request: Request, item: FrameReviewItem) -> FrameReviewTarget | None:
     if item.source_revision_id is None:
         return None
+    writer = request.app.state.pipeline_lineage_writer
+    target = writer.migrated_revisions.get(item.source_revision_id)
+    if target is None:
+        target = {
+            "node_id": writer._node_id(item.source_revision_id),
+            "revision_id": item.source_revision_id,
+        }
+    try:
+        node = writer.node_store.get(target["node_id"])
+        if (
+            node.content_type != "visible_cards"
+            or node.source.get("recording_id") != item.recording_id
+            or not writer.node_store.has_revision(target["node_id"], target["revision_id"])
+        ):
+            return None
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+    selection = {
+        "schema_version": "pipeline-lineage-selection/v1",
+        "selected": {"visible_cards": target},
+    }
+    query = urlencode(
+        {"lineage": json.dumps(selection, separators=(",", ":")), "item": item.item_id}
+    )
     return FrameReviewTarget(
-        path=(
-            f"/recordings/{quote(item.recording_id, safe='')}/pipeline/visible_cards"
-            f"?view=generated&revision={quote(item.source_revision_id, safe='')}"
-            f"&item={quote(item.item_id, safe='')}"
-        ),
+        path=(f"/recordings/{quote(item.recording_id, safe='')}/pipeline/visible_cards?{query}"),
         revision_id=item.source_revision_id,
         item_id=item.item_id,
         scene_run_id=item.scene_run_id,
@@ -142,6 +162,9 @@ def _project(
 ) -> FrameReviewItemResponse:
     result = by_id.get(item.source_revision_id or "")
     unavailable_reason = _revision_problem(item, result)
+    editor_target = _editor_target(request, item)
+    if unavailable_reason is None and editor_target is None:
+        unavailable_reason = "The pinned detector revision is missing from lineage."
 
     item_key = _item_key(item.recording_id, item.item_id)
     receipt_raw = request.app.state.frame_review_workflow_store.read_receipt(QUEUE_ID, item_key)
@@ -185,7 +208,7 @@ def _project(
         eligible=item.eligible,
         comparison_eligible=item.comparison_eligible,
         unavailable_reason=unavailable_reason,
-        editor_target=_editor_target(item),
+        editor_target=editor_target,
     )
 
 

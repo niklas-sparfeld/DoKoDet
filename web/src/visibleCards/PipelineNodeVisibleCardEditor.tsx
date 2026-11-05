@@ -96,6 +96,14 @@ export function PipelineNodeVisibleCardEditor({
     selectedId === null ? undefined : outcomeById.get(selectedId);
   const readOnly =
     revision !== null && revision.head_revision_id !== revision.revision_id;
+  const legacyReview = revision?.metadata.legacy_review;
+  const sceneOnlyItems =
+    legacyReview !== null && typeof legacyReview === "object"
+      ? (legacyReview as Record<string, unknown>).scene_only_items
+      : null;
+  const sceneOnlyCount = Array.isArray(sceneOnlyItems)
+    ? sceneOnlyItems.length
+    : 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -321,6 +329,13 @@ export function PipelineNodeVisibleCardEditor({
         </small>
       </header>
       {error ? <p role="alert">{error}</p> : null}
+      {sceneOnlyCount > 0 ? (
+        <p>
+          Open Virtual scenes to inspect {sceneOnlyCount} frame
+          {sceneOnlyCount === 1 ? "" : "s"} with scene data but no
+          visible-region data.
+        </p>
+      ) : null}
       {outcomes.length === 0 ? (
         <p>This revision has no visible-card outcomes.</p>
       ) : selected === undefined ? (

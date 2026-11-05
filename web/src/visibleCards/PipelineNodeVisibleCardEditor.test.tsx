@@ -50,6 +50,32 @@ describe("PipelineNodeVisibleCardEditor", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(revision)));
   });
 
+  it("explains frames that have scene data but no visible regions", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...revision,
+          metadata: { legacy_review: { scene_only_items: ["event-1"] } },
+          content: { schema_version: "visible-card-data/v2", outcomes: [] },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse([]));
+    render(
+      <PipelineNodeVisibleCardEditor
+        recordingId="recording-1"
+        nodeId="visible-cards"
+        revisionId="r1"
+        selectionItemId={null}
+        selectionTimeUs={null}
+        onPositionChange={vi.fn()}
+        onRevisionChange={vi.fn()}
+      />,
+    );
+    expect(
+      await screen.findByText(/Open Virtual scenes to inspect 1 frame/),
+    ).toBeInTheDocument();
+  });
+
   it("loads the selected revision, edits one outcome, and selects the returned copy", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock

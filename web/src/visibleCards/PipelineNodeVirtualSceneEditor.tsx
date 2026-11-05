@@ -90,6 +90,37 @@ export function PipelineNodeVirtualSceneEditor({
       : frames.find((frame) => frame.frame_id === selectedId);
   const readOnly =
     revision !== null && revision.head_revision_id !== revision.revision_id;
+  const legacyScenes = revision?.metadata.legacy_scenes;
+  const legacyFrame =
+    selectedId !== null &&
+    legacyScenes !== null &&
+    typeof legacyScenes === "object"
+      ? (legacyScenes as Record<string, unknown>)[selectedId]
+      : null;
+  const geometryUnavailable =
+    selected?.scene === null &&
+    legacyFrame !== null &&
+    typeof legacyFrame === "object" &&
+    (legacyFrame as Record<string, unknown>).geometry_unavailable === true;
+  const retainedReview =
+    legacyFrame !== null && typeof legacyFrame === "object"
+      ? (legacyFrame as Record<string, unknown>).review
+      : null;
+  const retainedFacts =
+    retainedReview !== null && typeof retainedReview === "object"
+      ? (retainedReview as Record<string, unknown>)
+      : null;
+  const retainedStates =
+    retainedFacts?.card_states ?? retainedFacts?.card_review_states;
+  const retainedCompletion = retainedFacts?.completion;
+  const completionFacts =
+    retainedCompletion !== null && typeof retainedCompletion === "object"
+      ? (retainedCompletion as Record<string, unknown>)
+      : null;
+  const completionState =
+    completionFacts?.state ?? retainedFacts?.completion_state;
+  const completionReason =
+    completionFacts?.reason ?? retainedFacts?.completion_reason;
 
   useEffect(() => {
     let cancelled = false;
@@ -368,6 +399,41 @@ export function PipelineNodeVirtualSceneEditor({
                 Calibration revision {selected.calibration.revision_id} · digest{" "}
                 {selected.calibration.digest}
               </p>
+              {geometryUnavailable ? (
+                <p role="status">
+                  Geometry was not available in the retained draft. The recorded
+                  review facts remain in this revision.
+                </p>
+              ) : null}
+              {retainedFacts !== null ? (
+                <details>
+                  <summary>Retained frame review</summary>
+                  {typeof completionState === "string" ? (
+                    <p>Frame decision: {completionState}</p>
+                  ) : null}
+                  {typeof completionReason === "string" ? (
+                    <p>{completionReason}</p>
+                  ) : null}
+                  <p>Reviewer was not recorded.</p>
+                  {Array.isArray(retainedStates) ? (
+                    <ul>
+                      {retainedStates
+                        .filter(
+                          (state) =>
+                            state !== null &&
+                            typeof state === "object" &&
+                            typeof state.card_id === "string" &&
+                            typeof state.state === "string",
+                        )
+                        .map((state) => (
+                          <li key={state.card_id}>
+                            {state.card_id} · {state.state}
+                          </li>
+                        ))}
+                    </ul>
+                  ) : null}
+                </details>
+              ) : null}
               <label>
                 Scene poses and stacking order
                 <textarea

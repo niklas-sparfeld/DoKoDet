@@ -43,7 +43,7 @@ def test_frame_review_api_pages_queue_and_persists_queue_only_workflow(tmp_path:
         assert len(page["items"]) == 2
         assert page["items"][0]["state"] == "unavailable"
         assert "pinned detector result" in page["items"][0]["unavailable_reason"]
-        assert page["items"][0]["editor_target"]["revision_id"]
+        assert page["items"][0]["editor_target"] is None
 
         item = page["items"][0]
         route = (
@@ -106,9 +106,7 @@ def test_save_review_receipt_requires_and_tracks_the_current_explicit_draft(
     app = create_test_app(_settings(tmp_path))
     with TestClient(app) as client:
         page = client.get("/api/frame-reviews/0096-M4?limit=100").json()
-        item = next(
-            candidate for candidate in page["items"] if candidate["editor_target"] is not None
-        )
+        item = page["items"][0]
         route = (
             f"/api/frame-reviews/0096-M4/items/{item['recording_id']}/{item['item_id']}/workflow"
         )
@@ -120,6 +118,22 @@ def test_save_review_receipt_requires_and_tracks_the_current_explicit_draft(
             for frame in recording["review_frames"]
             if recording["recording_id"] == item["recording_id"]
             and frame["item_id"] == item["item_id"]
+        )
+        item["editor_target"] = {"revision_id": raw_frame["m1_revision_id"]}
+        writer = app.state.pipeline_lineage_writer
+        writer.migrated_revisions[raw_frame["m1_revision_id"]] = {
+            "node_id": "fixture-node",
+            "revision_id": "fixture-revision",
+        }
+        writer.node_store.get = lambda node_id: (
+            SimpleNamespace(
+                content_type="visible_cards", source={"recording_id": item["recording_id"]}
+            )
+            if node_id == "fixture-node"
+            else (_ for _ in ()).throw(FileNotFoundError())
+        )
+        writer.node_store.has_revision = lambda node_id, revision_id: (
+            node_id == "fixture-node" and revision_id == "fixture-revision"
         )
         app.state.pipeline_revision_store.get = lambda revision_id, **_kwargs: (
             SimpleNamespace(
@@ -210,7 +224,7 @@ def test_queue_rejects_a_revision_without_the_pinned_frame(tmp_path: Path) -> No
             if recording["recording_id"] == item["recording_id"]
             and frame["item_id"] == item["item_id"]
         )
-        target = item["editor_target"]["revision_id"]
+        target = frame["m1_revision_id"]
         app.state.pipeline_revision_store.get = lambda revision_id, **_kwargs: (
             SimpleNamespace(
                 manifest=SimpleNamespace(

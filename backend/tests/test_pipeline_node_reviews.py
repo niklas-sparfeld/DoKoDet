@@ -55,6 +55,24 @@ def test_review_coverage_and_overall_are_independent(tmp_path: Path) -> None:
     assert store.get("n").head_revision_id == rev.revision_id
 
 
+def test_latest_review_precedes_older_decision(tmp_path: Path, monkeypatch) -> None:
+    store = PipelineNodeStore(tmp_path)
+    rev = ItemProvenanceService(store).create(
+        "n", "Events", "events", SOURCE, content(200), {"e": "/events/0"}, HUMAN
+    )
+    reviews = PipelineNodeReviews(store)
+    times = iter(["2026-11-05T10:00:00Z", "2026-11-05T11:00:00Z"])
+    monkeypatch.setattr(
+        "dokodetector_backend.pipeline_node_reviews._canonical_timestamp", lambda _: next(times)
+    )
+    reviews.item("a-old", "n", rev.revision_id, "e", "correct?", "accepted", HUMAN, EVIDENCE)
+    reviews.item("z-new", "n", rev.revision_id, "e", "correct?", "rejected", HUMAN, EVIDENCE)
+    assert [record["review_id"] for record in reviews.list_for_revision("n", rev.revision_id)] == [
+        "z-new",
+        "a-old",
+    ]
+
+
 def test_applicability_on_copy_and_change(tmp_path: Path) -> None:
     store = PipelineNodeStore(tmp_path)
     rev = ItemProvenanceService(store).create(

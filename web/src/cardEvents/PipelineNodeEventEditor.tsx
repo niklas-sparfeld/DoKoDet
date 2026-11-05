@@ -29,6 +29,7 @@ type NodeRevision = {
   head_revision_id: string;
   revision_id: string;
   content: EventData;
+  metadata?: Record<string, unknown>;
 };
 
 type Review = {
@@ -36,6 +37,7 @@ type Review = {
   item_id?: string;
   decision: string | null;
   review_id: string;
+  coverage?: unknown;
 };
 
 const REVIEW_QUESTION = "Is this event annotation correct?";
@@ -101,6 +103,20 @@ export function PipelineNodeEventEditor({
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [retryAvailable, setRetryAvailable] = useState(false);
+  const retainedReview = node?.metadata?.legacy_review;
+  const retainedItems =
+    retainedReview !== null && typeof retainedReview === "object"
+      ? (retainedReview as Record<string, unknown>).items
+      : null;
+  const rejectedItems = Array.isArray(retainedItems)
+    ? retainedItems.filter(
+        (item): item is { item_id: string; review_state: "rejected" } =>
+          item !== null &&
+          typeof item === "object" &&
+          item.review_state === "rejected" &&
+          typeof item.item_id === "string",
+      )
+    : [];
   const savePendingRef = useRef<() => Promise<void>>(async () => undefined);
 
   const load = useCallback(
@@ -433,7 +449,11 @@ export function PipelineNodeEventEditor({
     }
   }, [savePending]);
 
-  const currentCoverage = reviews.some((review) => review.kind === "coverage");
+  const currentCoverage = reviews.some(
+    (review) =>
+      review.kind === "coverage" &&
+      coversRecording(review.coverage, durationUs),
+  );
 
   return (
     <section
@@ -464,6 +484,20 @@ export function PipelineNodeEventEditor({
       ) : null}
       {node !== null ? (
         <div>
+          {rejectedItems.length > 0 ? (
+            <details>
+              <summary>
+                Retained rejected events ({rejectedItems.length})
+              </summary>
+              <ul>
+                {rejectedItems.map((item) => (
+                  <li key={item.item_id}>
+                    {item.item_id} · rejected in the retained draft
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           <video
             aria-label="Recording video"
             className={eventStyles.sourceVideo}
@@ -696,6 +730,30 @@ function reviewState(
   return review?.decision === "accepted" || review?.decision === "rejected"
     ? review.decision
     : "pending";
+}
+
+function coversRecording(value: unknown, durationUs: number): boolean {
+  if (
+    !isRecord(value) ||
+    value.kind !== "full_recording" ||
+    !Array.isArray(value.intervals) ||
+    durationUs <= 0
+  )
+    return false;
+  const intervals = value.intervals
+    .filter(isRecord)
+    .filter(
+      (interval) =>
+        typeof interval.start_us === "number" &&
+        typeof interval.end_us === "number",
+    )
+    .sort((a, b) => Number(a.start_us) - Number(b.start_us));
+  let end = 0;
+  for (const interval of intervals) {
+    if (Number(interval.start_us) > end) return false;
+    end = Math.max(end, Number(interval.end_us));
+  }
+  return end >= durationUs;
 }
 
 function isNodeRevision(value: unknown): value is NodeRevision {

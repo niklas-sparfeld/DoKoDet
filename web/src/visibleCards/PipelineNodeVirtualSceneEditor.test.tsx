@@ -6,6 +6,75 @@ describe("PipelineNodeVirtualSceneEditor", () => {
     vi.restoreAllMocks();
   });
 
+  it("explains when an imported frame has no recorded geometry", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) =>
+        String(input).endsWith("/reviews")
+          ? new Response("[]", { status: 200 })
+          : new Response(
+              JSON.stringify({
+                node_id: "scene-node",
+                name: "Imported scenes",
+                content_type: "virtual_scenes",
+                head_revision_id: "revision-1",
+                revision_id: "revision-1",
+                parent_revision_id: null,
+                content: {
+                  schema_version: "virtual-scene-data/v1",
+                  frames: [
+                    {
+                      frame_id: "frame-1",
+                      frame_identity: {},
+                      calibration: {
+                        revision_id: "cal-1",
+                        digest: "a".repeat(64),
+                      },
+                      scene: null,
+                      pile_regions: [],
+                      ignore_regions: [],
+                    },
+                  ],
+                },
+                metadata: {
+                  legacy_scenes: {
+                    "frame-1": {
+                      geometry_unavailable: true,
+                      review: {
+                        card_states: [{ card_id: "card-1", state: "rejected" }],
+                        completion: {
+                          state: "unusable",
+                          reason: "Frame unusable",
+                        },
+                      },
+                    },
+                  },
+                },
+                created_at: "2026-11-05T00:00:00Z",
+              }),
+              { status: 200 },
+            ),
+      ),
+    );
+    render(
+      <PipelineNodeVirtualSceneEditor
+        recordingId="recording-1"
+        nodeId="scene-node"
+        revisionId="revision-1"
+        selectionItemId="frame-1"
+        onPositionChange={vi.fn()}
+        onRevisionChange={vi.fn()}
+      />,
+    );
+    expect(
+      await screen.findByText(
+        /Geometry was not available in the retained draft/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("card-1 · rejected")).toBeInTheDocument();
+    expect(screen.getByText("Frame unusable")).toBeInTheDocument();
+  });
+
   it("edits the selected scene revision and selects the protected copy", async () => {
     const content = {
       schema_version: "virtual-scene-data/v1",
