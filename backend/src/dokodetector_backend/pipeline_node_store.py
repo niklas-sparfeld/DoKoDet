@@ -35,6 +35,7 @@ from dokodetector_backend.filesystem import (
     staging_directory,
 )
 from dokodetector_backend.pipeline_store import _canonical_timestamp, _process_lock, _safe_id
+from dokodetector_backend.virtual_scene_data import validate_virtual_scenes
 
 
 class NodeConflict(ValueError):
@@ -81,6 +82,15 @@ def _object(value: Mapping[str, Any], field: str) -> dict[str, Any]:
 def _content(content_type: str, source: dict[str, Any], value: Mapping[str, Any]) -> dict[str, Any]:
     data = _object(value, "content")
     raw = canonical_json_bytes(data)
+    if content_type == "virtual_scenes":
+        result = validate_virtual_scenes(data)
+        parsed_source = parse_source(source)
+        if isinstance(parsed_source, RecordingVideoSource) and any(
+            frame["frame_identity"]["source_video_sha256"] != parsed_source.video_sha256
+            for frame in result["frames"]
+        ):
+            raise ValueError("virtual scene frame does not match its source video")
+        return result
     if content_type == "events":
         parsed_source = parse_source(source)
         duration = (

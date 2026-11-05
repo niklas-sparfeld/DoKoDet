@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0–M5 are complete; M6–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0–M6 are complete; M7–M10 are not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -188,13 +188,16 @@ changed crop policy, deleted cards, duplicate identities, and unchanged crops af
 The [M5 result](../../reports/0107-M5_Identity_Review.md) resolves human decisions against exact
 crop evidence and explicit correspondence. It exposes corrections as overlays for later integration.
 
-### M6 — Unify virtual-scene content — Not started
+### M6 — Unify virtual-scene content — Complete
 
 Define and store first-class virtual-scene revisions. Map proposed and human-edited scenes into the
 same content contract. Keep exact calibration and frame dependencies and derived-region authority.
 
 Acceptance: mixed origin/review within scenes, stacking changes, fully hidden cards, calibration
 changes, and separate pile/ignore regions round-trip without invented geometry or authority.
+
+The [M6 result](../../reports/0107-M6_Virtual_Scene_Content.md) defines the shared content and
+explicit mappings. Mixed legacy scenes need an explicit complete order when it is not recorded.
 
 ### M7 — Validate and query the lineage graph — Not started
 
