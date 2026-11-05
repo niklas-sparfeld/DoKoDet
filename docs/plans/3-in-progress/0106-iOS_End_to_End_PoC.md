@@ -8,13 +8,13 @@
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M13.
-- **Outcome:** M0–M10 complete. M11–M13 remain. The iOS package now derives deterministic
+- **Outcome:** M0–M11 complete. M12–M13 remain. The iOS package now derives deterministic
   table-plane fit candidates from robust boundary evidence, calculates immutable calibration
   refinement previews, and initializes calibration-backed per-frame scene proposals. Live capture
   retains event proposals and frame timing; the visible-card stage retains event-frame provenance,
   model lineage, and proposal outcomes. M10 runs the frozen DINOv3 package on predicted visible
-  regions and assembles revision-bound table observations. No device result or model-quality claim
-  exists.
+  regions and assembles revision-bound table observations. M11 adds bounded local round
+  reconstruction and durable per-run results. No device result or model-quality claim exists.
 
 ## Purpose and scope
 
@@ -219,12 +219,14 @@ observation fixtures, the two-crop DINOv3 comparison, and simulator build verifi
 
 ### M11 — Reconstruct and retain the round analysis
 
-Run the remaining reconstruction and analysis on device from the saved observations and explicit
-round facts. Retain intermediate state, terminal output, stage timings, and errors; preserve partial
-results when a stage fails.
+**Complete.** The local stage reads M10's saved observations, applies bounded Doko V1 reconstruction,
+and retains the request, hypotheses, trick results, timing, and log in a unique run directory. It
+uses the recording session and the automatic game, round, and generic player defaults defined by
+0105. Validation failures retain a failure record. See the
+[M11 result](../../reports/0106-M11_Round_Reconstruction.md).
 
-Acceptance: deterministic fixtures cover a complete path, valid empty inputs where applicable,
-missing facts, and a reconstruction failure. The saved output can be inspected after app restart.
+Acceptance: deterministic fixtures cover a complete path, empty observations, missing session
+context, and impossible card evidence. The saved output can be inspected after app restart.
 
 ### M12 — Add minimal controls and diagnostic export
 

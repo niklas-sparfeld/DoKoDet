@@ -52,6 +52,7 @@ let package = Package(
                 "Core/DeviceProposedCardSceneInitialization.swift",
                 "Core/DeviceCardSceneJointFit.swift",
                 "Core/DeviceVisualIdentity.swift",
+                "Core/DeviceRoundReconstruction.swift",
                 "Core/DeviceVisibleRegionCropper.swift",
                 "Inference/RfdetrCoreMLRunner.swift",
                 "Inference/DinoV3CoreMLRunner.swift",
