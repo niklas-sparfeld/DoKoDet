@@ -295,8 +295,10 @@ calibration is preserved in an exact embedded scene copy. The verified package i
 `data/operations/pipeline-nodes`. It contains 835 processor data nodes, 594 processor runs, and
 five analysis runs. The processor writer resolves imported revision IDs to these nodes. The importer
 also writes 136 selections with exact node and revision pointers. The workspace still reads
-selections and summaries from the legacy stores. Drafts and independent reviews also need reader
-cutover. M10 remains open until those readers and review decisions pass the cutover checks. See the
+selections and summaries from the legacy stores. It also preserves 126 maintained drafts, 13
+calibration drafts, and 11 independent review packages in the graph store. The workspace still reads
+these records from the legacy stores. M10 remains open until the readers and review decisions pass
+the cutover checks. See the
 [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
 ### M11 — Delete replaced architecture — Not started

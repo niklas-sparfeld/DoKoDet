@@ -25,6 +25,12 @@ imported node and revision. An audit matched every selection pointer to the lega
 that each target node has the expected recording and content type. The workspace still reads its
 selection state from the legacy store; runtime reader cutover remains open.
 
+The graph store also preserves the 126 maintained drafts, 13 calibration drafts, and 11
+independent review packages under `.migrated-records`. Each record contains the original staged file
+bytes as Base64 with its SHA-256 digest and the mapped node revision for each retained revision
+reference. An audit compared every stored file byte for byte with the verified stage and checked the
+mapped references. Workspace readers still use the legacy stores.
+
 The existing operations stores remain in place. Workspace summaries, selections, maintained
 drafts, calibration drafts, and independent review records still use their existing readers. M10
 is not complete until the draft and review readers use the migrated records and restart checks
@@ -94,6 +100,9 @@ Focused checks passed:
 - Ruff check, Ruff format check, and `git diff --check` passed for the selection importer and test.
 - The local importer reported 136 selections. An audit verified every non-empty pointer against
   the imported legacy map and its target node manifest.
+- The local importer reported 126 maintained drafts, 13 calibration drafts, and 11 independent
+  review packages. An audit verified all 441 stored files byte for byte and checked retained
+  revision references against the legacy map.
 
 ## Remaining M10 work
 

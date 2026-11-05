@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -577,6 +578,65 @@ def _import_selections(
     return imported
 
 
+def _import_retained_records(
+    package: Path,
+    resources: list[dict[str, Any]],
+    mapping: dict[str, tuple[str, str]],
+    store: PipelineNodeStore,
+    *,
+    kinds: set[str],
+    snapshot_sha256: str,
+) -> dict[str, int]:
+    """Preserve editable drafts and independent reviews with mapped lineage references."""
+    counts = {kind: 0 for kind in kinds}
+    root = store.root / ".migrated-records"
+    for item in resources:
+        kind = item["kind"]
+        if kind not in kinds:
+            continue
+        files: dict[str, dict[str, Any]] = {}
+        for file_record in item["files"]:
+            relative_path = file_record["path"]
+            source = contained_path(package / "evidence" / item["old_root_id"], relative_path)
+            payload = source.read_bytes()
+            digest = hashlib.sha256(payload).hexdigest()
+            if digest != file_record["sha256"] or len(payload) != file_record["byte_length"]:
+                raise ValueError(f"resource file digest changed: {relative_path}")
+            files[relative_path] = {
+                "sha256": digest,
+                "byte_length": len(payload),
+                "base64": base64.b64encode(payload).decode("ascii"),
+            }
+        references = []
+        for reference in item["references"]:
+            copied = dict(reference)
+            old_revision_id = reference.get("old_revision_id")
+            if old_revision_id is not None and reference.get("availability") != "lost":
+                target = mapping.get(old_revision_id)
+                expected = (reference.get("target_id"), reference.get("target_revision_id"))
+                if target is None or target != expected:
+                    raise ValueError(f"retained record reference is not mapped: {old_revision_id}")
+                copied["mapped_revision"] = {"node_id": target[0], "revision_id": target[1]}
+            references.append(copied)
+        record = {
+            "schema_version": "pipeline-migrated-record/v1",
+            "kind": kind,
+            "old_id": item["old_id"],
+            "snapshot_sha256": snapshot_sha256,
+            "files": files,
+            "references": references,
+        }
+        key = hashlib.sha256(f"{kind}/{item['old_id']}".encode("utf-8")).hexdigest()
+        path = contained_path(root / kind, f"{key}.json")
+        if path.exists():
+            if _object(path) != record:
+                raise ValueError(f"migration target has conflicting record: {item['old_id']}")
+        else:
+            atomic_write_json(path, record)
+        counts[kind] += 1
+    return counts
+
+
 def import_package(package_root: Path | str, store_root: Path | str) -> dict[str, int]:
     """Load retained processor revisions and runs into an isolated node-store root."""
     package = Path(package_root).expanduser().resolve()
@@ -592,6 +652,14 @@ def import_package(package_root: Path | str, store_root: Path | str) -> dict[str
     run_count = _import_runs(package, manifest["resources"], mapping, store)
     analysis_count = _import_analyses(package, manifest["resources"], mapping, store)
     selection_count = _import_selections(package, manifest["resources"], mapping, store)
+    retained_counts = _import_retained_records(
+        package,
+        manifest["resources"],
+        mapping,
+        store,
+        kinds={"maintained_draft", "independent_review", "calibration_draft"},
+        snapshot_sha256=manifest["snapshot_sha256"],
+    )
     nodes = store.list_nodes()
     if len(nodes) != len(mapping):
         raise ValueError("imported node count does not match the migration plan")
@@ -612,6 +680,7 @@ def import_package(package_root: Path | str, store_root: Path | str) -> dict[str
         "processor_runs": run_count,
         "analysis_runs": analysis_count,
         "selections": selection_count,
+        **retained_counts,
         "terminal_runs": terminal_count,
     }
     atomic_write_json(
@@ -631,6 +700,7 @@ def import_package(package_root: Path | str, store_root: Path | str) -> dict[str
         "processor_runs": run_count,
         "analysis_runs": analysis_count,
         "selections": selection_count,
+        **retained_counts,
         "nodes": len(nodes),
         "lineage_runs": terminal_count,
     }

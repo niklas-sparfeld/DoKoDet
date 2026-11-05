@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -83,6 +85,10 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
     }
     selection_path = package / "evidence/operations/pipeline/selections/recording-01/events.json"
     selection_size, selection_digest = _write_json(selection_path, selection)
+    draft_content = b'{"draft_revision":1,"recording_id":"recording-01"}'
+    draft_path = package / "evidence/operations/pipeline-references/recording-01/events/draft.json"
+    draft_path.parent.mkdir(parents=True, exist_ok=True)
+    draft_path.write_bytes(draft_content)
     resources = [
         {
             "schema_version": "lineage-migration-resource/v1",
@@ -157,6 +163,28 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
                 }
             ],
         },
+        {
+            "schema_version": "lineage-migration-resource/v1",
+            "kind": "maintained_draft",
+            "old_id": "recording-01/events",
+            "new_id": "recording-01/events",
+            "old_root_id": "operations",
+            "files": [
+                {
+                    "path": "pipeline-references/recording-01/events/draft.json",
+                    "byte_length": len(draft_content),
+                    "sha256": hashlib.sha256(draft_content).hexdigest(),
+                }
+            ],
+            "references": [
+                {
+                    "role": "base",
+                    "old_revision_id": old_revision_id,
+                    "target_id": node_id,
+                    "target_revision_id": node_revision_id,
+                }
+            ],
+        },
     ]
     _write_json(
         package / "migration.json",
@@ -180,6 +208,9 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
             "processor_runs": 1,
             "analysis_runs": 0,
             "selections": 1,
+            "maintained_draft": 1,
+            "independent_review": 0,
+            "calibration_draft": 0,
             "nodes": 1,
             "lineage_runs": 1,
         }
@@ -195,3 +226,13 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
         b'"selected_generated":{"node_id":"migrated-node-01",'
         b'"revision_id":"migrated-revision-01"}' in migrated_selection
     )
+    record_key = hashlib.sha256(b"maintained_draft/recording-01/events").hexdigest()
+    migrated_record = json.loads(
+        (store_root / f".migrated-records/maintained_draft/{record_key}.json").read_bytes()
+    )
+    migrated_draft = migrated_record["files"]["pipeline-references/recording-01/events/draft.json"]
+    assert base64.b64decode(migrated_draft["base64"]) == draft_content
+    assert migrated_record["references"][0]["mapped_revision"] == {
+        "node_id": node_id,
+        "revision_id": node_revision_id,
+    }
