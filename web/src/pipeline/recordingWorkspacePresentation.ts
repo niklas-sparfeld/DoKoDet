@@ -3,7 +3,7 @@ import type {
   PipelineWorkspace,
   PipelineWorkspaceStage,
 } from "../api/client";
-import { CARD_STATE_CHANGED_EVENT_TYPE } from "../cardEvents/PipelineCardEventTypes";
+import { CARD_STATE_CHANGED_EVENT_TYPE } from "../cardEvents/PipelineEventData";
 import type { PipelineUrlState } from "./recordingPipelineUrl";
 import {
   decodeLineageSelection,

@@ -315,7 +315,8 @@ selector remains. Domain uses of "reviewed" that express actual authority remain
 
 Progress: the active task surface no longer opens the legacy Generated/Reviewed editors when no
 lineage node is selected. It shows an explicit empty state. The shared event-rail type no longer
-depends on the legacy event editor module. The workspace URL no longer carries
+depends on the legacy event editor module. The unmounted Generated/Reviewed event editor and its
+view-specific inspector, presentation, and tests are removed. The workspace URL no longer carries
 view, review, or displayed-revision fields. The lineage selection supplies the exact revision.
 The processor input selector remains because it controls execution defaults. The review-start
 action is removed. Focused URL, presentation, workspace, and event-rail tests pass. The remaining

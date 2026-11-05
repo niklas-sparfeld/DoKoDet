@@ -1,4 +1,4 @@
-import type { EventState } from "./PipelineCardEventTypes";
+import type { EventState } from "./PipelineEventData";
 
 export type PipelineCardEventRailItem = {
   itemId: string;
