@@ -131,6 +131,52 @@ def test_deterministic_groups_distinct_reviews_and_dangling_selection(tmp_path: 
     )
 
 
+def test_declared_lost_revision_is_retained_without_a_target(tmp_path: Path):
+    fixture(tmp_path)
+    path = tmp_path / "pipeline/revisions/visible-base/manifest.json"
+    manifest = DataRevision.from_mapping(json.loads(path.read_bytes()))
+    lost_id = "visible-cards-lost-run-attempt-1"
+    path.write_bytes(
+        canonical_data_revision_bytes(replace(manifest, input_revision_ids=(lost_id,)))
+    )
+
+    result = inventory(
+        {"snapshot": tmp_path},
+        snapshot_is_immutable=True,
+        lost_revision_ids=(lost_id,),
+    )
+
+    visible = next(
+        resource for resource in result["resources"] if resource["old_id"] == "visible-base"
+    )
+    assert {
+        "role": "input",
+        "old_revision_id": lost_id,
+        "target_id": None,
+        "target_revision_id": None,
+        "availability": "lost",
+    } in visible["references"]
+    assert any(
+        issue["kind"] == "declared_lost_input" and issue["revision_id"] == lost_id
+        for issue in result["uncertainties"]
+    )
+    assert not any(
+        conflict.get("revision_id") == lost_id and conflict["kind"] == "dangling_revision"
+        for conflict in result["conflicts"]
+    )
+
+
+def test_filesystem_metadata_is_recorded_without_blocking_inventory(tmp_path: Path):
+    fixture(tmp_path)
+    metadata = tmp_path / ".DS_Store"
+    metadata.write_bytes(b"local finder metadata")
+
+    result = inventory({"snapshot": tmp_path}, snapshot_is_immutable=True)
+
+    assert any(item["path"] == ".DS_Store" for item in result["ignored_artifacts"])
+    assert not any(item["path"] == ".DS_Store" for item in result["unclassified_files"])
+
+
 def test_sealed_content_is_not_read_and_symlinks_are_rejected(tmp_path: Path):
     (tmp_path / "sealed").mkdir()
     (tmp_path / "sealed" / "sample").write_bytes(b"do not read")

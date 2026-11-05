@@ -129,6 +129,30 @@ def test_reference_only_root_is_verified_without_copying_its_bytes(tmp_path: Pat
         apply_plan(plan, tmp_path / "retry", {"snapshot": source, "media": media})
 
 
+def test_lost_revision_policy_is_staged_and_checked(tmp_path: Path):
+    source = tmp_path / "source"
+    source.mkdir()
+    plan = _plan(source)
+    lost_id = "visible-cards-lost-run-attempt-1"
+    plan["lost_revision_ids"] = [lost_id]
+    plan["resources"][1]["references"].append(
+        {
+            "role": "input",
+            "old_revision_id": lost_id,
+            "target_id": None,
+            "target_revision_id": None,
+            "availability": "lost",
+        }
+    )
+
+    manifest = apply_plan(plan, tmp_path / "staged", {"snapshot": source})
+
+    assert manifest["lost_revision_ids"] == [lost_id]
+    selection = json.loads((tmp_path / "staged/resources/selection-1.json").read_text())
+    assert selection["references"][1]["availability"] == "lost"
+    assert len(manifest["plan_sha256"]) == 64
+
+
 def test_apply_plan_refuses_changed_source_and_preserves_no_destination(tmp_path: Path):
     source = tmp_path / "source"
     source.mkdir()

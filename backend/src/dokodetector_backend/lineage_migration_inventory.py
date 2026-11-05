@@ -25,6 +25,8 @@ from doko_operations.pipeline_reference import (
 from table_evidence_analyzer.card_scene_contract import CalibrationDraft, CalibrationReflowReceipt
 from table_evidence_analyzer.pipeline_data import parse_observation_bytes
 
+from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
+from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.pipeline_lineage import _acyclic
 from dokodetector_backend.pipeline_store import PipelineRevisionStore, ProcessorRunStore
 from dokodetector_backend.round_analysis_contract import parse_round_analysis_create_request_bytes
@@ -105,8 +107,16 @@ def _files(root: Path, sealed: set[str]) -> dict[str, tuple[int, str]]:
     return result
 
 
-def _resource(path: str) -> tuple[str, str, str] | None:
+def _resource(path: str, *, root_id: str) -> tuple[str, str, str] | None:
     p = path.split("/")
+    if root_id == "evidence_packages" and len(p) >= 2:
+        try:
+            package_id = str(UUID(p[0]))
+        except ValueError:
+            pass
+        else:
+            if package_id == p[0]:
+                return ("evidence_package", p[0], p[0])
     if len(p) >= 4 and p[:2] == ["pipeline", "revisions"]:
         return ("pipeline_revision", "/".join(p[:3]), p[2])
     if len(p) >= 4 and p[:2] == ["pipeline", "runs"]:
@@ -271,6 +281,77 @@ def _legacy_calibration_summary(raw: Mapping[str, Any]) -> tuple[str, str, str]:
     )
 
 
+def _validate_automated_record(data: Mapping[str, Any], expected_id: str, *, coordinator: bool):
+    """Validate immutable automated-run identity, state, stage rows, and request digests."""
+    from dokodetector_backend.automated_pipeline_run import PIPELINE_STAGE_NAMES
+
+    if coordinator:
+        expected = {
+            "coordinator_id",
+            "failure",
+            "recording_id",
+            "schema_version",
+            "stages",
+            "status",
+        }
+        identity_field = "coordinator_id"
+        supported_schema = "pipeline-coordinator-run/v1"
+        statuses = {"running", "complete", "failed", "cancelled"}
+    else:
+        expected = {
+            "client_request_sha256",
+            "created_at",
+            "failure",
+            "recording_id",
+            "request",
+            "request_sha256",
+            "resolved_providers",
+            "run_id",
+            "schema_version",
+            "source",
+            "stages",
+            "status",
+            "updated_at",
+        }
+        identity_field = "run_id"
+        supported_schema = "automated-pipeline-run/v1"
+        statuses = {"accepted", "queued", "running", "complete", "failed", "cancelled"}
+    if (
+        set(data) != expected
+        or data.get("schema_version") != supported_schema
+        or data.get(identity_field) != expected_id
+        or data.get("status") not in statuses
+        or not isinstance(data.get("recording_id"), str)
+        or not isinstance(data.get("stages"), list)
+    ):
+        raise ValueError("automated run record has an unsupported contract")
+    stages = data["stages"]
+    if len(stages) != len(PIPELINE_STAGE_NAMES) or [
+        stage.get("name") if isinstance(stage, dict) else None for stage in stages
+    ] != list(PIPELINE_STAGE_NAMES):
+        raise ValueError("automated run stages do not match the declared order")
+    if coordinator:
+        for stage in stages:
+            if (
+                not isinstance(stage, dict)
+                or not {"name", "status", "run_id", "request", "request_sha256"} <= stage.keys()
+                or not isinstance(stage["request"], dict)
+                or hashlib.sha256(canonical_json_bytes(stage["request"])).hexdigest()
+                != stage["request_sha256"]
+            ):
+                raise ValueError("coordinator stage request or digest is invalid")
+    else:
+        request = data.get("request")
+        if (
+            not isinstance(request, dict)
+            or hashlib.sha256(canonical_json_bytes(request)).hexdigest()
+            != data.get("request_sha256")
+            or request.get("source") != data.get("source")
+        ):
+            raise ValueError("automated run request or digest is invalid")
+    return data["recording_id"]
+
+
 def inventory(
     roots: Mapping[str, Path | str],
     *,
@@ -280,6 +361,7 @@ def inventory(
     scope_complete: bool = False,
     consumer_root_ids: Sequence[str] = (),
     reference_only_root_ids: Sequence[str] = (),
+    lost_revision_ids: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Inventory explicitly declared roots without changing them or reading sealed artifacts.
 
@@ -308,6 +390,22 @@ def inventory(
         root_id not in normalized for root_id in reference_only_root_ids
     ):
         raise ValueError("reference-only roots must identify declared roots")
+    safe_revision_characters = frozenset(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-"
+    )
+    if (
+        not isinstance(lost_revision_ids, Sequence)
+        or isinstance(lost_revision_ids, (str, bytes))
+        or any(
+            not isinstance(revision_id, str)
+            or not revision_id
+            or any(character not in safe_revision_characters for character in revision_id)
+            for revision_id in lost_revision_ids
+        )
+        or len(set(lost_revision_ids)) != len(lost_revision_ids)
+    ):
+        raise ValueError("lost revision IDs must be unique safe IDs")
+    lost_revisions = set(lost_revision_ids)
     values = list(normalized.values())
     if any(
         a == b or a in b.parents or b in a.parents
@@ -360,7 +458,7 @@ def inventory(
     groups: dict[tuple[str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
     unmapped = []
     for file in manifest:
-        classified = _resource(file["path"])
+        classified = _resource(file["path"], root_id=file["root_id"])
         if classified is None:
             unmapped.append(file)
             continue
@@ -551,6 +649,18 @@ def inventory(
             "target_id": matches[0]["new_id"] if len(matches) == 1 else None,
             "target_revision_id": matches[0]["new_revision_id"] if len(matches) == 1 else None,
         }
+        if not matches and old_id in lost_revisions:
+            ref["availability"] = "lost"
+            item["references"].append(ref)
+            uncertainties.append(
+                {
+                    "kind": "declared_lost_input",
+                    "resource": item["new_id"],
+                    "revision_id": old_id,
+                    "resolution": "user_declared_lost",
+                }
+            )
+            return
         item["references"].append(ref)
         if len(matches) != 1:
             conflicts.append(
@@ -563,9 +673,21 @@ def inventory(
             )
 
     calibration_ids: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    evidence_package_ids: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    automated_run_ids: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for item in resources:
         if item["kind"] == "calibration_revision":
             calibration_ids[item["old_id"]].append(item)
+        elif item["kind"] == "evidence_package":
+            evidence_package_ids[item["old_id"]].append(item)
+        elif item["kind"] == "automated_run":
+            automated_record = _parse_json(get(item, ""))
+            is_coordinator = "/coordinator-runs/" in f"/{item['relative_identity']}"
+            record_id = automated_record.get("coordinator_id" if is_coordinator else "run_id")
+            if isinstance(record_id, str):
+                if is_coordinator:
+                    continue
+                automated_run_ids[record_id].append(item)
 
     def calibration_reference(
         item: dict[str, Any], recording: str, role: str, old_id: str, digest: str
@@ -643,6 +765,89 @@ def inventory(
                 reference(
                     item, "completed_reference", selected.selected_completed_reference_revision_id
                 )
+            elif kind == "automated_run":
+                coordinator = "/coordinator-runs/" in f"/{item['relative_identity']}"
+                record = _parse_json(get(item, ""))
+                record_id = record.get("coordinator_id" if coordinator else "run_id")
+                if not isinstance(record_id, str):
+                    raise ValueError("automated run identity is invalid")
+                item["old_id"] = record_id
+                item["recording_id"] = _validate_automated_record(
+                    record, record_id, coordinator=coordinator
+                )
+                if coordinator:
+                    for stage in record["stages"]:
+                        processor_run_id = stage.get("processor_run_id")
+                        if processor_run_id is not None:
+                            run_matches = [
+                                candidate
+                                for candidate in resources
+                                if candidate["kind"] == "processor_run"
+                                and candidate["old_id"] == processor_run_id
+                            ]
+                            stage_reference = {
+                                "role": "processor_stage_run",
+                                "old_run_id": processor_run_id,
+                                "target_id": run_matches[0]["new_id"]
+                                if len(run_matches) == 1
+                                else None,
+                            }
+                            if not run_matches:
+                                # The coordinator record contains the full stage row. Keep its
+                                # opaque run ID and stage data when no separate processor record
+                                # exists in the snapshot.
+                                stage_reference["availability"] = "embedded_in_coordinator"
+                                uncertainties.append(
+                                    {
+                                        "kind": "processor_run_record_not_separate",
+                                        "resource": item["new_id"],
+                                        "run_id": processor_run_id,
+                                    }
+                                )
+                            elif len(run_matches) > 1:
+                                conflicts.append(
+                                    {
+                                        "kind": "ambiguous_processor_run",
+                                        "resource": item["new_id"],
+                                        "run_id": processor_run_id,
+                                    }
+                                )
+                            item["references"].append(stage_reference)
+                else:
+                    for stage in record["stages"]:
+                        stage_run_id = stage.get("run_id")
+                        if stage_run_id is None:
+                            continue
+                        # The stage execution ID belongs to this immutable automated-run row.
+                        # Keep it as an embedded reference; it is not a coordinator record ID.
+                        item["references"].append(
+                            {
+                                "role": "embedded_stage_run",
+                                "old_run_id": stage_run_id,
+                                "target_id": None,
+                                "availability": "embedded_in_automated_run",
+                            }
+                        )
+            elif kind == "automated_run_receipt":
+                receipt = _parse_json(get(item, ""))
+                if set(receipt) != {"run_id"} or not isinstance(receipt["run_id"], str):
+                    raise ValueError("automated run receipt is invalid")
+                run_matches = automated_run_ids.get(receipt["run_id"], [])
+                item["references"].append(
+                    {
+                        "role": "idempotent_run",
+                        "old_run_id": receipt["run_id"],
+                        "target_id": run_matches[0]["new_id"] if len(run_matches) == 1 else None,
+                    }
+                )
+                if len(run_matches) != 1:
+                    conflicts.append(
+                        {
+                            "kind": "missing_or_ambiguous_idempotent_run",
+                            "resource": item["new_id"],
+                            "run_id": receipt["run_id"],
+                        }
+                    )
             elif kind == "processor_run":
                 stored = run_stores[root_id]._read_path(
                     normalized[root_id] / item["relative_identity"],
@@ -763,14 +968,25 @@ def inventory(
                 if analysis is None:
                     raise ValueError("round analysis state or artifact bytes are invalid")
                 item["analysis_status"] = analysis.state
-                if request.evidence_package_ids:
-                    uncertainties.append(
+                for package_id in request.evidence_package_ids:
+                    package_matches = evidence_package_ids.get(str(package_id), [])
+                    item["references"].append(
                         {
-                            "kind": "evidence_package_reference_validation_required",
-                            "resource": item["new_id"],
-                            "ids": [str(i) for i in request.evidence_package_ids],
+                            "role": "evidence_package",
+                            "old_package_id": str(package_id),
+                            "target_id": (
+                                package_matches[0]["new_id"] if len(package_matches) == 1 else None
+                            ),
                         }
                     )
+                    if len(package_matches) != 1:
+                        conflicts.append(
+                            {
+                                "kind": "missing_or_ambiguous_evidence_package",
+                                "resource": item["new_id"],
+                                "package_id": str(package_id),
+                            }
+                        )
             elif kind == "calibration_revision":
                 raw_run = _parse_json(get(item, "manifest.json"))
                 try:
@@ -793,6 +1009,15 @@ def inventory(
                 item["calibration_digest"] = calibration_digest
                 item["source_revision"] = source_revision
                 reference(item, "detector", source_revision)
+            elif kind == "evidence_package":
+                package = EvidencePackageStore(
+                    EvidencePackageStorage(normalized[item["root_id"]])
+                ).get(item["old_id"])
+                if package is None or str(package.package_id) != item["old_id"]:
+                    raise ValueError("evidence package is invalid or differs from its path")
+                item["session_id"] = str(package.session_id)
+                item["event_sequence"] = package.event_sequence
+                item["content_sha256"] = package.manifest_sha256
             elif kind == "calibration_draft":
                 initial_raw, current_raw = get(item, "initial.json"), get(item, "draft.json")
                 initial = CalibrationDraft.from_mapping(_parse_json(initial_raw))
@@ -940,14 +1165,26 @@ def inventory(
         uncertainties.append(
             {"kind": "consumer_references_need_classification", "count": len(consumers)}
         )
+    referenced_lost_ids = {
+        ref.get("old_revision_id")
+        for item in resources
+        for ref in item["references"]
+        if ref.get("availability") == "lost"
+    }
+    for revision_id in sorted(lost_revisions - referenced_lost_ids):
+        conflicts.append({"kind": "unused_lost_revision_declaration", "revision_id": revision_id})
     referenced_sources = {
         (ref["root_id"], ref["path"])
         for item in resources
         for ref in item["references"]
         if ref.get("role") == "source_video"
     }
+    ignored_artifacts = [file for file in unmapped if Path(file["path"]).name == ".DS_Store"]
     unmapped = [
-        file for file in unmapped if (file["root_id"], file["path"]) not in referenced_sources
+        file
+        for file in unmapped
+        if (file["root_id"], file["path"]) not in referenced_sources
+        and Path(file["path"]).name != ".DS_Store"
     ]
     for file in unmapped:
         uncertainties.append(
@@ -973,8 +1210,10 @@ def inventory(
         "files": manifest,
         "resources": resources,
         "unclassified_files": unmapped,
+        "ignored_artifacts": ignored_artifacts,
         "source_locations": locations,
         "reference_only_root_ids": sorted(reference_only_root_ids),
+        "lost_revision_ids": sorted(lost_revisions),
         "scope_complete": scope_complete,
         "consumer_references": consumers,
         "sealed_artifacts": sorted(sealed_values, key=lambda x: (x["root_id"], x["relative_path"])),
@@ -987,6 +1226,8 @@ def inventory(
                 "item_history_not_recorded",
                 "intermediate_draft_history_not_recorded",
                 "sealed_artifact_unverified",
+                "declared_lost_input",
+                "processor_run_record_not_separate",
             }
             for u in uncertainties
         ),
@@ -1012,6 +1253,7 @@ def main() -> None:
         "scope_complete",
         "consumer_root_ids",
         "reference_only_root_ids",
+        "lost_revision_ids",
     } or not isinstance(config.get("roots"), dict):
         parser.error("config needs roots and optional sealed and source_locations")
     output = args.output.absolute().resolve()
@@ -1027,6 +1269,7 @@ def main() -> None:
         scope_complete=config.get("scope_complete", False),
         consumer_root_ids=config.get("consumer_root_ids", ()),
         reference_only_root_ids=config.get("reference_only_root_ids", ()),
+        lost_revision_ids=config.get("lost_revision_ids", ()),
     )
     atomic_write_json(output, plan)
 

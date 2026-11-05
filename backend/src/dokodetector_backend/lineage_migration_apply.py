@@ -56,6 +56,11 @@ def _validate_plan(plan: dict[str, Any]) -> None:
         raise ValueError("invalid sealed-artifact declarations")
     if not isinstance(plan.get("reference_only_root_ids", []), list):
         raise ValueError("invalid reference-only roots")
+    if not isinstance(plan.get("lost_revision_ids", []), list) or any(
+        not isinstance(revision_id, str) or not revision_id
+        for revision_id in plan.get("lost_revision_ids", [])
+    ):
+        raise ValueError("invalid lost revision declarations")
     if any(
         not isinstance(root_id, str) or not root_id
         for root_id in plan.get("reference_only_root_ids", [])
@@ -95,6 +100,7 @@ def _verify_package(root: Path, manifest: dict[str, Any]) -> None:
             raise ValueError(f"staged source bytes do not match: {item['staged_path']}")
     ids = {item["new_id"] for item in resources}
     by_id = {item["new_id"]: item for item in resources}
+    lost_revision_ids = set(manifest.get("lost_revision_ids", []))
     for resource in resources:
         resource_path = root / "resources" / f"{resource['new_id']}.json"
         if not resource_path.is_file() or json.loads(resource_path.read_bytes()) != resource:
@@ -103,6 +109,12 @@ def _verify_package(root: Path, manifest: dict[str, Any]) -> None:
             target = reference.get("target_id")
             if target is not None and target not in ids:
                 raise ValueError("reference points to an unmapped resource")
+            if reference.get("availability") == "lost" and (
+                reference.get("old_revision_id") not in lost_revision_ids
+                or target is not None
+                or reference.get("target_revision_id") is not None
+            ):
+                raise ValueError("lost reference does not match its declaration")
             embedded_evidence = reference.get("embedded_evidence_id")
             if embedded_evidence is not None and (
                 embedded_evidence not in by_id
@@ -139,6 +151,8 @@ def apply_plan(
     if {item["root_id"] for item in plan["files"]} - set(normalized_roots):
         raise ValueError("apply roots do not match the inventory")
     reference_only = set(plan.get("reference_only_root_ids", []))
+    lost_revision_ids = sorted(plan.get("lost_revision_ids", []))
+    plan_digest = hashlib.sha256(_json_bytes(plan)).hexdigest()
     if reference_only - set(normalized_roots):
         raise ValueError("reference-only root is not declared")
     from dokodetector_backend.lineage_migration_inventory import _files
@@ -170,6 +184,10 @@ def apply_plan(
             raise ValueError("destination contains a different snapshot")
         if existing.get("reference_only_root_ids", []) != sorted(reference_only):
             raise ValueError("destination uses a different external-reference policy")
+        if existing.get("lost_revision_ids", []) != lost_revision_ids:
+            raise ValueError("destination uses a different lost-input policy")
+        if existing.get("plan_sha256") != plan_digest:
+            raise ValueError("destination contains a different migration plan")
         _verify_package(target, existing)
         return existing
 
@@ -253,11 +271,13 @@ def apply_plan(
         manifest = {
             "schema_version": "lineage-migration-stage/v1",
             "snapshot_sha256": plan["snapshot_sha256"],
+            "plan_sha256": plan_digest,
             "activation_ready": plan["activation_ready"],
             "conflicts": plan["conflicts"],
             "uncertainties": plan["uncertainties"],
             "sealed_artifacts": plan["sealed_artifacts"],
             "reference_only_root_ids": sorted(reference_only),
+            "lost_revision_ids": lost_revision_ids,
             "file_count": len(files),
             "resource_count": len(resources),
             "files": files,
