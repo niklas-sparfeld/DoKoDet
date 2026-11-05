@@ -9,7 +9,7 @@
   [0107](../3-in-progress/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M2 complete; M3–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M3 complete; M4–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -307,13 +307,15 @@ budget limits, conflict handling, and stable order after restart. No real model 
 
 Result: [M2 scheduler and resource admission](../../reports/0110-M2_Scheduler.md).
 
-### M3 — Add cancellation, retry, and recovery — Not started
+### M3 — Add cancellation, retry, and recovery — Complete
 
 Implement cooperative cancellation tokens, publication arbitration, new linked retry attempts,
 checkpoint declarations, restart reconciliation, and bounded graceful shutdown.
 
 Acceptance: fixtures cover enqueue/cancel races, cancel during a library call, late cancel,
 result-publication crash, interruption, and retry without duplicate outputs or leaked claims.
+
+Result: [M3 cancellation, retry, and recovery](../../reports/0110-M3_Cancellation_Recovery.md).
 
 ### M4 — Expose the unified HTTP API — Not started
 

@@ -5,9 +5,18 @@ from __future__ import annotations
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
+from time import monotonic
 from typing import Callable
 
-from dokodetector_backend.job_store import Job, JobManager, JobStateError, Queue, _now
+from dokodetector_backend.job_store import (
+    CancellationToken,
+    Job,
+    JobCancelled,
+    JobManager,
+    JobStateError,
+    Queue,
+    _now,
+)
 
 
 @dataclass(frozen=True)
@@ -52,18 +61,22 @@ class JobScheduler:
     def __init__(
         self,
         manager: JobManager,
-        handler: Callable[[Job, Claims], None],
+        handler: Callable[[Job, Claims, CancellationToken], None],
         claims_for: Callable[[Job], Claims],
         *,
         budget: Budget | None = None,
         ready: Callable[[Job], str | None] = lambda _: None,
+        shutdown_timeout: float = 5.0,
     ) -> None:
         self.manager = manager
         self.handler = handler
         self.claims_for = claims_for
         self.budget = budget or Budget()
         self.ready = ready
-        self._active: dict[str, tuple[Future[None], Claims]] = {}
+        if shutdown_timeout <= 0:
+            raise ValueError("shutdown timeout must be positive")
+        self.shutdown_timeout = shutdown_timeout
+        self._active: dict[str, tuple[Future[None], Claims, CancellationToken]] = {}
         self._event = threading.Event()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -94,11 +107,33 @@ class JobScheduler:
         self._event.set()
         if self._thread is not None:
             self._thread.join()
+        with self.manager._lock:
+            for job_id, (_, _, token) in self._active.items():
+                token.request()
+                job = self.manager.get(job_id)
+                if job.state == "running":
+                    self.manager.transition(job_id, "cancelling")
+        deadline = monotonic() + self.shutdown_timeout
+        while self._active and monotonic() < deadline:
+            with self.manager._lock:
+                self._reap()
+            if self._active:
+                threading.Event().wait(min(0.02, max(0.0, deadline - monotonic())))
         if self._pool is not None:
-            self._pool.shutdown(wait=True)
+            self._pool.shutdown(wait=not self._active, cancel_futures=False)
         with self.manager._lock:
             self._reap()
-            self.manager._scheduler = None
+            if not self._active:
+                self.manager._scheduler = None
+        if self._active:
+            raise JobStateError("graceful shutdown timed out; active handler claims remain held")
+
+    def request_cancel(self, job_id: str) -> None:
+        """Signal an active handler after its durable state enters cancelling."""
+        active = self._active.get(job_id)
+        if active is not None:
+            active[2].request()
+            self._event.set()
 
     def _loop(self) -> None:
         try:
@@ -114,19 +149,29 @@ class JobScheduler:
             self._stop.set()
 
     def _reap(self) -> None:
-        for job_id, (future, _) in list(self._active.items()):
+        for job_id, (future, _, _) in list(self._active.items()):
             if not future.done():
                 continue
             del self._active[job_id]
             try:
                 future.result()
+            except JobCancelled:
+                job = self.manager.get(job_id)
+                if job.state in {"cancelling", "running"}:
+                    self.manager.transition(job_id, "cancelled")
             except Exception as error:
                 job = self.manager.get(job_id)
+                if job.state in {"cancelling", "cancelled", "succeeded"}:
+                    continue
                 job.failure = {"code": "handler_failed", "message": str(error)}
                 self.manager._write_job(job)
                 self.manager.transition(job_id, "failed")
             else:
-                self.manager.transition(job_id, "succeeded")
+                job = self.manager.get(job_id)
+                if job.state == "running":
+                    self.manager.transition(job_id, "succeeded")
+                elif job.state == "cancelling":
+                    self.manager.transition(job_id, "cancelled")
 
     def _waiting(self, job: Job, reason: str | None) -> None:
         if job.waiting_reason != reason:
@@ -138,7 +183,7 @@ class JobScheduler:
     def _admit(self) -> None:
         if self._pool is None:
             return
-        active = [claims for _, claims in self._active.values()]
+        active = [claims for _, claims, _ in self._active.values()]
         available = {
             "slots": self.budget.slots - len(active),
             "cpu": self.budget.cpu - sum(c.cpu for c in active),
@@ -187,8 +232,9 @@ class JobScheduler:
             for name, amount in required.items():
                 available[name] -= amount
             held_locks.update(claim.locks)
-            future = self._pool.submit(self.handler, job, claim)
-            self._active[job_id] = (future, claim)
+            token = CancellationToken()
+            future = self._pool.submit(self.handler, job, claim, token)
+            self._active[job_id] = (future, claim, token)
             future.add_done_callback(lambda _: self._event.set())
 
     def move(self, group_id: str, before_group_id: str | None, expected_revision: int) -> Queue:

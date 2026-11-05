@@ -13,7 +13,7 @@ from dokodetector_backend.job_scheduler import (
     JobScheduler,
     QueueRevisionConflict,
 )
-from dokodetector_backend.job_store import FakeParticipant, JobManager
+from dokodetector_backend.job_store import FakeParticipant, JobManager, Step
 
 
 def enqueue(manager: JobManager, name: str) -> str:
@@ -39,7 +39,7 @@ def test_single_slot_and_actual_claim(tmp_path: Path) -> None:
     with JobManager(tmp_path, participant) as manager:
         first, second = enqueue(manager, "first"), enqueue(manager, "second")
 
-        def handler(job: object, budget: Claims) -> None:
+        def handler(job: object, budget: Claims, token: object) -> None:
             assert budget.cpu == 1
             entered.set()
             assert release.wait(3)
@@ -65,7 +65,7 @@ def test_blocked_head_and_resource_reservation(tmp_path: Path) -> None:
         bypass = enqueue(manager, "cpu")
         later = enqueue(manager, "gpu-later")
 
-        def handler(job: object, budget: Claims) -> None:
+        def handler(job: object, budget: Claims, token: object) -> None:
             starts.append(job.id)  # type: ignore[attr-defined]
             assert release.wait(3)
 
@@ -93,7 +93,7 @@ def test_queue_moves_revision_and_restart(tmp_path: Path) -> None:
     participant = FakeParticipant(tmp_path / "domain")
     with JobManager(tmp_path, participant) as manager:
         first, second, third = [enqueue(manager, str(i)) for i in range(3)]
-        scheduler = JobScheduler(manager, lambda job, budget: None, lambda job: Claims())
+        scheduler = JobScheduler(manager, lambda job, budget, token: None, lambda job: Claims())
         initial = manager.queue()
         moved = scheduler.move(third, first, initial.revision)
         assert moved.job_ids == [third, first, second]
@@ -108,8 +108,8 @@ def test_second_scheduler_cannot_claim_same_manager(tmp_path: Path) -> None:
     from dokodetector_backend.job_store import JobStateError
 
     with JobManager(tmp_path, FakeParticipant(tmp_path / "domain")) as manager:
-        first = JobScheduler(manager, lambda job, budget: None, lambda job: Claims())
-        second = JobScheduler(manager, lambda job, budget: None, lambda job: Claims())
+        first = JobScheduler(manager, lambda job, budget, token: None, lambda job: Claims())
+        second = JobScheduler(manager, lambda job, budget, token: None, lambda job: Claims())
         with first, pytest.raises(JobStateError), second:
             pass
 
@@ -141,7 +141,7 @@ def test_waiting_parent_group_keeps_children_and_order_after_restart(tmp_path: P
                 },
             )
             children.append(child.id)
-        scheduler = JobScheduler(manager, lambda job, budget: None, lambda job: Claims())
+        scheduler = JobScheduler(manager, lambda job, budget, token: None, lambda job: Claims())
         queue = scheduler.move(parent, first, manager.queue().revision)
         assert queue.job_ids == [parent, first]
         assert queue.groups[0].child_job_ids == children
@@ -179,7 +179,7 @@ def test_failed_child_blocks_later_child(tmp_path: Path) -> None:
             for name in ("one", "two")
         ]
 
-        def handler(job: object, budget: Claims) -> None:
+        def handler(job: object, budget: Claims, token: object) -> None:
             raise RuntimeError("failed")
 
         with JobScheduler(manager, handler, lambda job: Claims()):
@@ -194,7 +194,7 @@ def test_domain_locks_and_cpu_budget(tmp_path: Path) -> None:
     with JobManager(tmp_path, FakeParticipant(tmp_path / "domain")) as manager:
         first, same_lock, independent = [enqueue(manager, name) for name in ("a", "b", "c")]
 
-        def handler(job: object, allocation: Claims) -> None:
+        def handler(job: object, allocation: Claims, token: object) -> None:
             started.append(job.id)  # type: ignore[attr-defined]
             assert allocation.cpu == 2
             assert release.wait(3)
@@ -217,12 +217,177 @@ def test_unattainable_claim_does_not_block_independent_work(tmp_path: Path) -> N
         too_large, fits = enqueue(manager, "large"), enqueue(manager, "fits")
         with JobScheduler(
             manager,
-            lambda job, budget: None,
+            lambda job, budget, token: None,
             lambda job: Claims(cpu=2 if job.id == too_large else 1),
         ):
             until(lambda: manager.get(fits).state == "succeeded")
             assert manager.get(too_large).state == "queued"
             assert "exceeds" in (manager.get(too_large).waiting_reason or "")
+
+
+def test_cancel_signals_handler_and_holds_slot_until_it_stops(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    entered = threading.Event()
+    release = threading.Event()
+    with JobManager(tmp_path, participant) as manager:
+        job_id = enqueue(manager, "cancel-me")
+        next_id = enqueue(manager, "after-cancel")
+
+        def handler(job: object, budget: Claims, token: object) -> None:
+            entered.set()
+            assert release.wait(3)
+            token.check()  # type: ignore[attr-defined]
+
+        with JobScheduler(manager, handler, lambda job: Claims()):
+            assert entered.wait(2)
+            assert manager.cancel(job_id).state == "cancelling"
+            assert manager.cancel(job_id).state == "cancelling"
+            assert manager.get(next_id).state == "queued"
+            until(lambda: manager.get(job_id).state == "cancelling")
+            release.set()
+            until(lambda: manager.get(job_id).state == "cancelled")
+            until(lambda: manager.get(next_id).state == "succeeded")
+
+
+def test_graceful_shutdown_requests_cooperative_stop(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    entered = threading.Event()
+    stopped = threading.Event()
+    with JobManager(tmp_path, participant) as manager:
+        job_id = enqueue(manager, "shutdown-me")
+
+        def handler(job: object, budget: Claims, token: object) -> None:
+            entered.set()
+            while not token.cancelled:  # type: ignore[attr-defined]
+                time.sleep(0.005)
+            try:
+                token.check()  # type: ignore[attr-defined]
+            finally:
+                stopped.set()
+
+        with JobScheduler(manager, handler, lambda job: Claims(), shutdown_timeout=1):
+            assert entered.wait(2)
+        assert stopped.is_set()
+        assert manager.get(job_id).state == "cancelled"
+
+
+def test_queued_cancel_and_explicit_retry_keep_history(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        first = enqueue(manager, "retry-me")
+        assert manager.cancel(first).state == "cancelled"
+        retried_cancelled = manager.retry(first, str(uuid4()))
+        assert retried_cancelled.retry_of == first
+        assert retried_cancelled.state == "queued"
+        # Failed jobs also keep their history when an explicit attempt is created.
+        failed = enqueue(manager, "failed")
+        manager.transition(failed, "running")
+        manager.transition(failed, "failed")
+        retried = manager.retry(failed, str(uuid4()))
+        assert retried.id != failed
+        assert retried.retry_of == failed
+        assert retried.request == manager.get(failed).request
+        assert manager.get(failed).state == "failed"
+
+
+def test_concurrent_cancel_requests_are_idempotent(tmp_path: Path) -> None:
+    with JobManager(tmp_path, FakeParticipant(tmp_path / "domain")) as manager:
+        job_id = enqueue(manager, "cancel-race")
+        barrier = threading.Barrier(3)
+        states: list[str] = []
+
+        def cancel() -> None:
+            barrier.wait()
+            states.append(manager.cancel(job_id).state)
+
+        threads = [threading.Thread(target=cancel) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        for thread in threads:
+            thread.join()
+        assert states == ["cancelled", "cancelled"]
+        assert manager.get(job_id).state == "cancelled"
+
+
+def test_restart_marks_active_attempt_interrupted_and_preserves_progress(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        job_id = enqueue(manager, "restart-me")
+        job = manager.transition(job_id, "running")
+        job.steps = [
+            Step(
+                id="work",
+                label="Work",
+                state="running",
+                completed=2,
+                total=5,
+                unit="items",
+            )
+        ]
+        manager._write_job(job)
+    with JobManager(tmp_path, participant) as manager:
+        recovered = manager.get(job_id)
+        assert recovered.state == "interrupted"
+        assert recovered.steps[0].completed == 2
+        assert "interrupted" in (recovered.steps[0].message or "")
+        assert recovered.id not in manager.queue().job_ids
+
+
+def test_publication_wins_cancel_race_and_is_recovered_after_crash(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    artifact_root = tmp_path / "published"
+    artifact_root.mkdir()
+    crashed = False
+
+    def after_write(point: str) -> None:
+        nonlocal crashed
+        if point == "publication_domain_commit" and not crashed:
+            crashed = True
+            raise RuntimeError("simulated process loss")
+
+    def verify(job: object, results: list[dict[str, object]]) -> bool:
+        return (artifact_root / f"{job.id}.json").exists()  # type: ignore[attr-defined]
+
+    with (
+        pytest.raises(RuntimeError, match="simulated process loss"),
+        JobManager(
+            tmp_path,
+            participant,
+            after_write=after_write,
+            verify_publication=verify,
+        ) as manager,
+    ):
+        job_id = enqueue(manager, "publish-me")
+        manager.transition(job_id, "running")
+        manager.publish(
+            job_id,
+            [{"kind": "fake_result", "id": "result-1", "digest": "abc"}],
+            lambda: (artifact_root / f"{job_id}.json").write_text("committed"),
+        )
+
+    with JobManager(tmp_path, participant, verify_publication=verify) as manager:
+        recovered = manager.get(job_id)
+        assert recovered.state == "succeeded"
+        assert recovered.results[0]["id"] == "result-1"
+        assert manager.cancel(job_id).state == "succeeded"
+
+
+def test_cancel_before_publication_prevents_output_commit(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        job_id = enqueue(manager, "cancel-before-publish")
+        manager.transition(job_id, "running")
+        assert manager.cancel(job_id).state == "cancelling"
+        committed = False
+
+        def commit() -> None:
+            nonlocal committed
+            committed = True
+
+        assert not manager.publish(job_id, [], commit)
+        assert not committed
+        assert manager.get(job_id).state == "cancelling"
 
 
 def test_late_child_joins_moved_group(tmp_path: Path) -> None:
@@ -238,7 +403,7 @@ def test_late_child_joins_moved_group(tmp_path: Path) -> None:
         ).id
         manager.transition(parent, "running")
         manager.transition(parent, "waiting")
-        scheduler = JobScheduler(manager, lambda job, budget: None, lambda job: Claims())
+        scheduler = JobScheduler(manager, lambda job, budget, token: None, lambda job: Claims())
         scheduler.move(parent, first, manager.queue().revision)
         child = manager.accept(
             str(uuid4()),

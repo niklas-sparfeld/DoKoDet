@@ -11,7 +11,7 @@ import json
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import RLock
+from threading import Event, RLock
 from typing import Any, Literal, Protocol
 from uuid import UUID, uuid4
 
@@ -38,6 +38,28 @@ class JobOwnershipError(JobError):
 
 class JobStorageError(JobError):
     """A durable record cannot be safely used."""
+
+
+class CancellationToken:
+    """Cooperative stop signal for one running handler."""
+
+    def __init__(self) -> None:
+        self._event = Event()
+
+    @property
+    def cancelled(self) -> bool:
+        return self._event.is_set()
+
+    def request(self) -> None:
+        self._event.set()
+
+    def check(self) -> None:
+        if self.cancelled:
+            raise JobCancelled("job cancellation requested")
+
+
+class JobCancelled(JobError):
+    """A cooperative handler stopped after a cancellation request."""
 
 
 class Model(BaseModel):
@@ -136,6 +158,13 @@ class Intent(Model):
     sequence: int = Field(ge=1)
     job: Job
     committed: bool = False
+
+
+class Publication(Model):
+    schema_version: Literal["backend-job-publication/v1"] = "backend-job-publication/v1"
+    job_id: str
+    results: list[dict[str, Any]]
+    state: Literal["prepared", "committed"]
 
 
 class QueueGroup(Model):
@@ -250,10 +279,12 @@ class JobManager:
         participant: Participant,
         *,
         after_write: Callable[[str], None] | None = None,
+        verify_publication: Callable[[Job, list[dict[str, Any]]], bool] | None = None,
     ) -> None:
         self.root = Path(operations_root).resolve() / "jobs"
         self.participant = participant
         self.after_write = after_write or (lambda _: None)
+        self.verify_publication = verify_publication or (lambda _job, _results: False)
         self.diagnostics: list[str] = []
         self._lock = RLock()
         self._owner: Any = None
@@ -412,6 +443,48 @@ class JobManager:
                 self._finish_intent(intent)
             except (OSError, ValueError, JobStorageError) as error:
                 self.diagnostics.append(f"intent {intent.job.id}: {error}")
+        for intent in intents:
+            if not intent.committed:
+                continue
+            try:
+                job = self.get(intent.job.id)
+            except JobStorageError as error:
+                self.diagnostics.append(str(error))
+                continue
+            if job.state in {"running", "cancelling"}:
+                publication_path = self.root / job.id / "publication.json"
+                publication: Publication | None = None
+                if publication_path.exists():
+                    try:
+                        publication = Publication.model_validate_json(publication_path.read_bytes())
+                        if publication.job_id != job.id:
+                            raise ValueError("publication job ID mismatch")
+                    except (OSError, ValueError) as error:
+                        self.diagnostics.append(f"invalid publication for {job.id}: {error}")
+                if publication is not None and self.verify_publication(job, publication.results):
+                    job.results = publication.results
+                    job.state = "succeeded"
+                    job.finished_at = _now()
+                    job.updated_at = job.finished_at
+                    job.revision += 1
+                    job.worker_owner = None
+                    self._write_job(job)
+                    if publication.state != "committed":
+                        publication.state = "committed"
+                        atomic_replace_json(publication_path, publication.model_dump())
+                    continue
+                job.state = "interrupted"
+                job.finished_at = _now()
+                job.updated_at = job.finished_at
+                job.revision += 1
+                job.worker_owner = None
+                job.waiting_reason = "worker stopped before completion was recorded"
+                for step in job.steps:
+                    if step.state == "running":
+                        step.state = "cancelled"
+                        step.finished_at = job.finished_at
+                        step.message = "interrupted during restart; recorded progress is retained"
+                self._write_job(job)
         self._reconcile(intents)
 
     def _reconcile(self, intents: list[Intent]) -> None:
@@ -470,7 +543,13 @@ class JobManager:
         if groups != queue.groups:
             self._set_queue(Queue(revision=queue.revision + 1, groups=groups))
 
-    def accept(self, key: str, raw_request: Mapping[str, Any]) -> Job:
+    def accept(
+        self,
+        key: str,
+        raw_request: Mapping[str, Any],
+        *,
+        retry_of: str | None = None,
+    ) -> Job:
         with self._lock:
             self._owned()
             key = _uuid(key)
@@ -485,7 +564,7 @@ class JobManager:
             intents = self._intents()
             for intent in intents:
                 if intent.job.idempotency_key == key:
-                    if intent.job.request_hash != digest:
+                    if intent.job.request_hash != digest or intent.job.retry_of != retry_of:
                         raise JobConflict("idempotency key has a different request")
                     self._finish_intent(intent)
                     return self.get(intent.job.id)
@@ -507,6 +586,7 @@ class JobManager:
                 created_at=now,
                 updated_at=now,
                 label=request.type,
+                retry_of=retry_of,
                 **request.model_dump(),
             )
             intent = Intent(sequence=max((i.sequence for i in intents), default=0) + 1, job=job)
@@ -514,6 +594,71 @@ class JobManager:
             self.after_write("intent")
             self._finish_intent(intent)
             return self.get(job.id)
+
+    def cancel(self, job_id: str) -> Job:
+        """Request cancellation; an active handler keeps its claims until it stops."""
+        with self._lock:
+            self._owned()
+            job = self.get(job_id)
+            if job.state in _TERMINAL or job.state == "cancelling":
+                return job
+            target = "cancelled" if job.state == "queued" else "cancelling"
+            updated = self.transition(job.id, target)
+            if target == "cancelling" and self._scheduler is not None:
+                request_cancel = getattr(self._scheduler, "request_cancel", None)
+                if request_cancel is not None:
+                    request_cancel(job.id)
+            return updated
+
+    def retry(self, job_id: str, key: str) -> Job:
+        """Create a new attempt with the source job's immutable request."""
+        with self._lock:
+            self._owned()
+            source = self.get(job_id)
+            if source.state not in {"failed", "cancelled", "interrupted"}:
+                raise JobStateError("only failed, cancelled, or interrupted jobs can be retried")
+            if source.parent_id is not None:
+                raise JobStateError("retry the parent attempt to create a new child attempt")
+            return self.accept(
+                key,
+                {
+                    "type": source.type,
+                    "context": source.context,
+                    "request": source.request,
+                    "parent_id": source.parent_id,
+                    "parent_step_id": source.parent_step_id,
+                },
+                retry_of=source.id,
+            )
+
+    def publish(
+        self,
+        job_id: str,
+        results: list[dict[str, Any]],
+        commit: Callable[[], None],
+    ) -> bool:
+        """Arbitrate cancellation and record a verifiable domain publication."""
+        with self._lock:
+            self._owned()
+            job = self.get(job_id)
+            if job.state == "cancelling":
+                return False
+            if job.state != "running":
+                raise JobStateError("only a running job can publish results")
+            publication = Publication(job_id=job.id, results=results, state="prepared")
+            path = self.root / job.id / "publication.json"
+            atomic_replace_json(path, publication.model_dump())
+            self.after_write("publication_prepared")
+            commit()
+            self.after_write("publication_domain_commit")
+            publication.state = "committed"
+            atomic_replace_json(path, publication.model_dump())
+            self.after_write("publication_committed")
+            job.results = results
+            self._write_job(job)
+            self.after_write("publication_job")
+            self.transition(job.id, "succeeded")
+            return True
 
     def dispatchable(self) -> list[str]:
         with self._lock:
