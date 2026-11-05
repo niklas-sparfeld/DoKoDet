@@ -15,6 +15,8 @@ export type RecordingListResponse = JsonResponse<
 export type RecordingDetail = JsonResponse<
   paths["/v1/recordings/{recording_id}"]["get"]["responses"][200]
 >;
+export type JobDetail = components["schemas"]["JobDetail"];
+export type EnqueueJobBody = components["schemas"]["EnqueueBody"];
 export type PipelineWorkspace = JsonResponse<
   paths["/api/recordings/{recording_id}/pipeline"]["get"]["responses"][200]
 >;
@@ -380,6 +382,17 @@ export class ApiError extends Error {
 const PIPELINE_REFERENCE_DRAFT_UPDATE_TIMEOUT_MS = 60_000;
 
 export interface DokoDetectorClient {
+  enqueueJob(
+    payload: EnqueueJobBody,
+    idempotencyKey: string,
+    init?: RequestInit,
+  ): Promise<JobDetail>;
+  getJob(jobId: string, init?: RequestInit): Promise<JobDetail>;
+  retryJob(
+    jobId: string,
+    idempotencyKey: string,
+    init?: RequestInit,
+  ): Promise<JobDetail>;
   startAutomatedPipelineRun(
     recordingId: string,
     payload: AutomatedPipelineStartRequest,
@@ -427,17 +440,7 @@ export interface DokoDetectorClient {
     payload: PipelineComparisonRequest,
     init?: RequestInit,
   ): Promise<PipelineComparisonResponse>;
-  startEventRun(
-    recordingId: string,
-    payload: PipelineRunStartRequest,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
   getEventRun(
-    recordingId: string,
-    runId: string,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
-  retryEventRun(
     recordingId: string,
     runId: string,
     init?: RequestInit,
@@ -678,6 +681,31 @@ export function createDokoDetectorClient(
   fetchImplementation: typeof fetch = fetch,
 ): DokoDetectorClient {
   return {
+    enqueueJob: (payload, idempotencyKey, init) => {
+      const headers = jsonHeaders(init?.headers);
+      headers.set("Idempotency-Key", idempotencyKey);
+      return requestJson<JobDetail>(fetchImplementation, "/api/jobs", {
+        ...init,
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+    },
+    getJob: (jobId, init) =>
+      requestJson<JobDetail>(
+        fetchImplementation,
+        `/api/jobs/${encodeURIComponent(jobId)}`,
+        init,
+      ),
+    retryJob: (jobId, idempotencyKey, init) => {
+      const headers = jsonHeaders(init?.headers);
+      headers.set("Idempotency-Key", idempotencyKey);
+      return requestJson<JobDetail>(
+        fetchImplementation,
+        `/api/jobs/${encodeURIComponent(jobId)}/retry`,
+        { ...init, method: "POST", headers, body: JSON.stringify({}) },
+      );
+    },
     startAutomatedPipelineRun: (recordingId, payload, init) =>
       requestJson<AutomatedPipelineRun>(
         fetchImplementation,
@@ -760,29 +788,48 @@ export function createDokoDetectorClient(
           body: JSON.stringify(payload),
         },
       ),
-    startEventRun: (recordingId, payload, init) =>
-      requestJson<PipelineRunResponse>(
+    getEventRun: async (recordingId, runId, init) => {
+      const job = await requestJson<JobDetail>(
         fetchImplementation,
-        pipelineEventRunsPath(recordingId),
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
-    getEventRun: (recordingId, runId, init) =>
-      requestJson<PipelineRunResponse>(
-        fetchImplementation,
-        pipelineEventRunPath(recordingId, runId),
+        `/api/jobs/${encodeURIComponent(runId)}`,
         init,
-      ),
-    retryEventRun: (recordingId, runId, init) =>
-      requestJson<PipelineRunResponse>(
-        fetchImplementation,
-        pipelineEventRunRetryPath(recordingId, runId),
-        { ...init, method: "POST" },
-      ),
+      );
+      if (["succeeded", "failed", "cancelled", "interrupted"].includes(job.state)) {
+        return requestJson<PipelineRunResponse>(
+          fetchImplementation,
+          pipelineEventResultPath(recordingId, runId),
+          init,
+        );
+      }
+      const processorRequest =
+        (job.request.processor_request as Record<string, unknown> | undefined) ??
+        job.request;
+      const step = job.steps[0];
+      const status =
+        job.state === "waiting" || job.state === "cancelling"
+          ? "running"
+          : job.state;
+      return {
+        run_id: job.id,
+        recording_id: recordingId,
+        processor_type: String(processorRequest.processor_type ?? "event-detection"),
+        status,
+        attempt: 1,
+        request: processorRequest,
+        state: {
+          run_id: job.id,
+          status,
+          progress: {
+            completed: step?.completed ?? 0,
+            total: step?.total ?? 0,
+          },
+          terminal_failure: job.failure,
+          output_revision_ids: [],
+          items: [],
+          metrics: {},
+        },
+      };
+    },
     startVisibleCardRun: (recordingId, payload, init) =>
       requestJson<PipelineRunResponse>(
         fetchImplementation,
@@ -1209,24 +1256,6 @@ export function pipelineEventResultPath(
   runId: string,
 ): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/events/${encodeURIComponent(runId)}/result`;
-}
-
-export function pipelineEventRunsPath(recordingId: string): string {
-  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/events`;
-}
-
-export function pipelineEventRunPath(
-  recordingId: string,
-  runId: string,
-): string {
-  return `${pipelineEventRunsPath(recordingId)}/${encodeURIComponent(runId)}`;
-}
-
-export function pipelineEventRunRetryPath(
-  recordingId: string,
-  runId: string,
-): string {
-  return `${pipelineEventRunPath(recordingId, runId)}/retry`;
 }
 
 export function pipelineVisibleCardRunsPath(recordingId: string): string {

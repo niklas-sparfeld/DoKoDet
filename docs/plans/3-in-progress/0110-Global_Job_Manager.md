@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M4 complete; M5–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M5 complete; M6–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -327,13 +327,15 @@ unknown types, disconnect after acceptance, and unavailable results.
 
 Result: [M4 unified job HTTP API](../../reports/0110-M4_Job_HTTP_API.md).
 
-### M5 — Connect event processing as the first leaf — Not started
+### M5 — Connect event processing as the first leaf — Complete
 
 Adapt the event processor to manager ownership, accepted-use recording, progress, cancellation,
 and domain output publication. Switch its callers and remove its private background executor.
 
 Acceptance: recorded/fake-provider runs succeed, fail, cancel, retry, and restart through jobs;
 exact inputs and completed output references remain valid. No second event queue remains.
+
+Result: [M5 event processing](../../reports/0110-M5_Event_Processing.md).
 
 ### M6 — Connect visible-card processing — Not started
 

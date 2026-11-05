@@ -370,31 +370,7 @@ export interface paths {
          */
         get: operations["list_event_runs_api_recordings__recording_id__pipeline_events_get"];
         put?: never;
-        /**
-         * Start Event Run
-         * @description Freeze and queue one event processor request.
-         */
-        post: operations["start_event_run_api_recordings__recording_id__pipeline_events_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recordings/{recording_id}/pipeline/events/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Import Event Predictions
-         * @description Validate and import one recording-bundle event prediction artifact.
-         */
-        post: operations["import_event_predictions_api_recordings__recording_id__pipeline_events_import_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -425,26 +401,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/recordings/{recording_id}/pipeline/events/{run_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Event Run
-         * @description Return one event processor run and its immutable request.
-         */
-        get: operations["get_event_run_api_recordings__recording_id__pipeline_events__run_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/recordings/{recording_id}/pipeline/events/{run_id}/result": {
         parameters: {
             query?: never;
@@ -459,26 +415,6 @@ export interface paths {
         get: operations["get_event_result_api_recordings__recording_id__pipeline_events__run_id__result_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recordings/{recording_id}/pipeline/events/{run_id}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry Event Run
-         * @description Retry one failed or partial event processor run.
-         */
-        post: operations["retry_event_run_api_recordings__recording_id__pipeline_events__run_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5048,84 +4984,6 @@ export interface operations {
             };
         };
     };
-    start_event_run_api_recordings__recording_id__pipeline_events_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    import_event_predictions_api_recordings__recording_id__pipeline_events_import_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_generated_selection_api_recordings__recording_id__pipeline_events_selection_get: {
         parameters: {
             query?: never;
@@ -5198,40 +5056,6 @@ export interface operations {
             };
         };
     };
-    get_event_run_api_recordings__recording_id__pipeline_events__run_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_event_result_api_recordings__recording_id__pipeline_events__run_id__result_get: {
         parameters: {
             query?: never;
@@ -5246,40 +5070,6 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    retry_event_run_api_recordings__recording_id__pipeline_events__run_id__retry_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
                 headers: {
                     [name: string]: unknown;
                 };

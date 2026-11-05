@@ -23,6 +23,7 @@ from dokodetector_backend.automated_pipeline_run import (
 from dokodetector_backend.automated_pipeline_worker import AutomatedPipelineWorker
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
+from dokodetector_backend.event_jobs import EventJobParticipant
 from dokodetector_backend.event_pipeline_service import EventProcessorProvider
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
@@ -34,6 +35,7 @@ from dokodetector_backend.gemini_analyzer import (
     create_lazy_configured_analyzer,
     validate_configured_processor_settings,
 )
+from dokodetector_backend.job_scheduler import Claims
 from dokodetector_backend.jobs_api import JobManagerService, JobTypeRegistry
 from dokodetector_backend.jobs_api import router as jobs_router
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
@@ -211,6 +213,20 @@ def create_app(
         event_provider=event_provider,
     )
     install_pipeline_composition(app.state, pipeline_composition)
+    event_job_participant = EventJobParticipant(app.state.event_pipeline_service)
+    for event_job_type in ("event_processing", "event_import"):
+        app.state.job_type_registry.register(
+            event_job_type,
+            lambda _request: None,
+            event_job_participant,
+            lambda job, claims, token, participant=event_job_participant: participant.handle(
+                job,
+                claims,
+                token,
+                app.state.job_manager_service.get_manager(),
+            ),
+            Claims(cpu=1, locks=()),
+        )
     recovered_event_count = app.state.event_pipeline_service.recover_interrupted_runs()
     log_event(
         LOGGER,

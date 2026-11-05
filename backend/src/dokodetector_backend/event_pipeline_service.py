@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
 import re
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
-from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from math import isfinite
@@ -32,10 +32,13 @@ from doko_operations.pipeline_data import (
     RunItemOutcome,
     RunProgress,
     canonical_event_data_bytes,
+    canonical_processor_run_request_bytes,
     sha256_bytes,
 )
 
+from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.intake_contract import parse_proposal_generator_run
+from dokodetector_backend.job_store import Job, JobCancelled, JobManager
 from dokodetector_backend.pipeline_service_errors import (
     PipelineInputError,
     PipelineProviderError,
@@ -316,8 +319,6 @@ class EventPipelineService:
             settings.repository_root,
         )
         self.card_event_checkpoint_path = getattr(settings, "card_event_checkpoint_path", None)
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="event-pipeline")
-        self._futures: dict[str, Future[None]] = {}
         self._workspace_sources: dict[str, tuple[tuple[int, int, str], RecordingVideoSource]] = {}
         self._lock = RLock()
 
@@ -367,9 +368,7 @@ class EventPipelineService:
         """Keep the lifecycle symmetrical with the other backend services."""
 
     async def stop(self) -> None:
-        self._executor.shutdown(wait=True, cancel_futures=False)
-        with self._lock:
-            self._futures.clear()
+        """Event work is owned and stopped by the shared job scheduler."""
 
     def recover_interrupted_runs(self) -> int:
         """Convert work interrupted by a backend restart into terminal failures."""
@@ -378,56 +377,23 @@ class EventPipelineService:
             code="backend_restarted",
             message="The event processor did not finish before the backend restarted.",
         )
-        count = self.run_store.fail_non_terminal(failure=failure)
+        count = 0
+        for run in self.run_store.list():
+            if run.state.status not in {"queued", "running"}:
+                continue
+            # New runs are linked to a durable job input-use record. Only settle old
+            # execution-only runs here; the manager reconciles linked work itself.
+            if self._event_use_path(run.run_id).exists():
+                continue
+            self.run_store.fail(run.run_id, failure)
+            count += 1
         if count:
             LOGGER.warning("event_pipeline_recovery_failed", extra={"run_count": count})
         return count
 
-    def start_inference(self, recording_id: str, payload: Mapping[str, Any]) -> StoredProcessorRun:
-        request = self._build_request(recording_id, payload)
-        request = self._freeze_provider_defaults(request)
-        run, created = self.run_store.create(request)
-        if not created:
-            return run
-        try:
-            running = self.run_store.start(run.run_id)
-        except Exception:
-            raise
-        with self._lock:
-            self._futures[run.run_id] = self._executor.submit(self._execute, running.run_id)
-        return running
-
-    def import_predictions(
-        self,
-        recording_id: str,
-        payload: Mapping[str, Any],
-    ) -> StoredProcessorRun:
-        request = self._build_request(recording_id, payload)
-        run, created = self.run_store.create(request)
-        if not created:
-            return run
-        try:
-            self.run_store.start(run.run_id)
-            self._execute_import(run.run_id, payload)
-        except PipelineServiceError as error:
-            self._fail_safely(run.run_id, "import_failed", str(error))
-        except Exception:
-            LOGGER.exception("event_pipeline_import_failed")
-            self._fail_safely(
-                run.run_id,
-                "import_failed",
-                "The recording-bundle event prediction import failed.",
-            )
-        return self.run_store.require(run.run_id)
-
     def get_run(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         run = self.run_store.require(run_id)
         self._require_recording(run.request, recording_id)
-        with self._lock:
-            future = self._futures.get(run_id)
-        if run.state.status == "complete" and future is not None and not future.done():
-            future.result()
-            run = self.run_store.require(run_id)
         return run
 
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
@@ -443,13 +409,6 @@ class EventPipelineService:
             self.revision_store.require(item) for item in run.state.output_revision_ids
         )
         return run, revisions
-
-    def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
-        self.get_run(recording_id, run_id)
-        retried = self.run_store.retry(run_id)
-        with self._lock:
-            self._futures[run_id] = self._executor.submit(self._execute, retried.run_id)
-        return retried
 
     def select_generated(
         self,
@@ -552,6 +511,358 @@ class EventPipelineService:
             configuration["checkpoint_sha256"] = _sha256_file(checkpoint)
         return replace(request, configuration=configuration)
 
+    def freeze_job_request(
+        self,
+        recording_id: str,
+        mode: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Resolve and freeze all inputs before durable job acceptance."""
+        if mode not in {"inference", "import"}:
+            raise PipelineInputError("The event job mode is invalid.")
+        values = dict(payload)
+        raw_request = values.pop("request", values)
+        if not isinstance(raw_request, Mapping):
+            raise PipelineInputError("request must be an object.")
+        values = {**dict(raw_request), **values}
+        values["run_id"] = values.get("run_id") or "pending-event-run"
+        processor_request = self._build_request(recording_id, values)
+        if mode == "inference":
+            processor_request = self._freeze_provider_defaults(processor_request)
+        frozen: dict[str, Any] = {
+            "schema": "event-job-request/v1",
+            "mode": mode,
+            "processor_request": processor_request.to_mapping(),
+        }
+        if mode == "import":
+            _, artifact_id, artifact_digest, model_id, raw = self._load_import_artifact(
+                recording_id,
+                values,
+            )
+            frozen["artifact"] = {
+                "id": artifact_id,
+                "sha256": artifact_digest,
+                "model_id": model_id,
+                "bytes_base64": base64.b64encode(raw).decode("ascii"),
+            }
+        return frozen
+
+    def validate_frozen_job_request(self, recording_id: str, frozen: Mapping[str, Any]) -> None:
+        """Validate the frozen request and exact source identity without changing it."""
+        try:
+            processor_request = ProcessorRunRequest.from_mapping(frozen["processor_request"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise PipelineInputError("The frozen event request is invalid.") from error
+        if processor_request.source.recording_id != recording_id:
+            raise PipelineInputError("The frozen event request has a different recording.")
+        video_path = self._video_path(recording_id)
+        try:
+            video_path.resolve().relative_to(self.settings.repository_root.resolve())
+            relative_path = (
+                video_path.resolve().relative_to(self.settings.repository_root.resolve()).as_posix()
+            )
+            byte_length, digest = _file_identity(video_path)
+        except (OSError, ValueError) as error:
+            raise PipelineInputError("The frozen recording video is unavailable.") from error
+        if (
+            processor_request.source.relative_path != relative_path
+            or processor_request.source.byte_length != byte_length
+            or processor_request.source.video_sha256 != digest
+        ):
+            raise PipelineInputError("The frozen recording video changed after acceptance.")
+        if frozen.get("mode") == "import":
+            artifact = frozen.get("artifact")
+            if not isinstance(artifact, Mapping):
+                raise PipelineInputError("The frozen import artifact is missing.")
+            try:
+                raw = base64.b64decode(artifact["bytes_base64"], validate=True)
+            except (KeyError, TypeError, ValueError) as error:
+                raise PipelineInputError("The frozen import artifact is invalid.") from error
+            if sha256_bytes(raw) != artifact.get("sha256"):
+                raise PipelineInputError("The frozen import artifact digest does not match.")
+            try:
+                parse_proposal_generator_run(raw)
+            except (TypeError, ValueError) as error:
+                raise PipelineInputError("The frozen import artifact failed validation.") from error
+        elif frozen.get("mode") != "inference" or "artifact" in frozen:
+            raise PipelineInputError("The frozen event request mode is invalid.")
+
+    def prepare_job(
+        self,
+        job_id: str,
+        envelope: Mapping[str, Any],
+        after_write: Any,
+    ) -> None:
+        recording_id = envelope["context"]["recording_id"]
+        frozen = envelope["request"]
+        self.validate_frozen_job_request(recording_id, frozen)
+        request_values = dict(frozen["processor_request"])
+        request_values["run_id"] = job_id
+        domain_run_id = job_id
+        processor_request = ProcessorRunRequest.from_mapping(request_values)
+        stored, _ = self.run_store.create(processor_request)
+        if canonical_processor_run_request_bytes(
+            stored.request
+        ) != canonical_processor_run_request_bytes(processor_request):
+            raise PipelineInputError("The accepted event run does not match its frozen request.")
+        use_path = self._event_use_path(job_id)
+        use_record = {
+            "schema_version": "event-job-accepted-use/v1",
+            "job_id": job_id,
+            "run_id": domain_run_id,
+            "recording_id": recording_id,
+            "video_sha256": processor_request.source.video_sha256,
+            "import_sha256": frozen.get("artifact", {}).get("sha256"),
+        }
+        if use_path.exists():
+            if json.loads(use_path.read_text(encoding="utf-8")) != use_record:
+                raise PipelineInputError("The event job input protection identity conflicts.")
+        else:
+            atomic_replace_json(use_path, use_record)
+            after_write("event_accepted_use")
+
+    def verify_job(self, job_id: str, envelope: Mapping[str, Any]) -> bool:
+        try:
+            recording_id = envelope["context"]["recording_id"]
+            frozen = envelope["request"]
+            self.validate_frozen_job_request(recording_id, frozen)
+            use = json.loads(self._event_use_path(job_id).read_text(encoding="utf-8"))
+            expected = dict(frozen["processor_request"])
+            expected["run_id"] = use["run_id"]
+            run = self.run_store.require(use["run_id"])
+            return (
+                run.request.to_mapping() == ProcessorRunRequest.from_mapping(expected).to_mapping()
+                and use.get("job_id") == job_id
+                and use.get("run_id") == run.run_id
+                and use.get("video_sha256") == run.request.source.video_sha256
+                and use.get("import_sha256") == frozen.get("artifact", {}).get("sha256")
+            )
+        except (OSError, KeyError, TypeError, ValueError, PipelineServiceError):
+            return False
+
+    def verify_job_publication(self, job: Job, results: list[dict[str, Any]]) -> bool:
+        try:
+            if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
+                return False
+            revision = self.revision_store.require(results[0]["id"])
+            use = json.loads(self._event_use_path(job.id).read_text(encoding="utf-8"))
+            run = self.run_store.require(use["run_id"])
+            return (
+                run.state.status == "complete"
+                and run.state.output_revision_ids == (revision.manifest.revision_id,)
+                and results[0].get("digest") == revision.manifest.content_sha256
+            )
+        except (KeyError, TypeError, ValueError, PipelineServiceError):
+            return False
+
+    def reconcile_job_states(self, jobs: Sequence[Job]) -> int:
+        """Settle linked domain run records after job restart recovery."""
+        count = 0
+        for job in jobs:
+            if job.type not in {"event_processing", "event_import"}:
+                continue
+            try:
+                use = json.loads(self._event_use_path(job.id).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            run = self.run_store.get(use.get("run_id", job.id))
+            if run is None or run.state.status != "running":
+                continue
+            if job.state == "interrupted":
+                failure = RunFailure(
+                    code="backend_restarted",
+                    message="The event processor did not finish before the backend restarted.",
+                )
+            elif job.state == "cancelled":
+                failure = RunFailure(code="cancelled", message="Event processing was cancelled.")
+            elif job.state == "failed":
+                failure = RunFailure(
+                    code="job_failed",
+                    message="The event processor job failed before it recorded a result.",
+                )
+            else:
+                continue
+            self.run_store.fail(run.run_id, failure)
+            count += 1
+        return count
+
+    def execute_job(self, job: Job, token: Any, manager: JobManager) -> None:
+        """Run inference or import under Job Manager ownership."""
+        job_id = job.id
+        accepted_use = json.loads(self._event_use_path(job_id).read_text(encoding="utf-8"))
+        run_id = accepted_use["run_id"]
+        run = self.run_store.start(run_id)
+        try:
+            token.check()
+            frozen = job.request
+            if frozen["mode"] == "inference":
+                result, metrics = self._run_job_inference(run, token, manager, job_id)
+            else:
+                result, metrics = self._run_job_import(
+                    run, frozen["artifact"], token, manager, job_id
+                )
+            token.check()
+            content = _event_data_from_provider(result, run.request)
+            items = _event_run_items(content)
+            progress = RunProgress(completed=len(items), total=len(items))
+            self.run_store.update_progress(run_id, progress=progress, items=items)
+            manager.report_progress(
+                job_id,
+                phase="Publish event revision",
+                completed=0,
+                total=1,
+                unit="revisions",
+            )
+
+            def publish_domain_result() -> None:
+                if job.request["mode"] == "inference":
+                    revision = self._publish_processor_revision(run, content)
+                else:
+                    artifact = job.request["artifact"]
+                    producer = ImportProducer(
+                        run_id=run_id,
+                        artifact_id=artifact["id"],
+                        artifact_sha256=artifact["sha256"],
+                        source_schema="proposal-generator-run/v1",
+                        model_id=artifact["model_id"],
+                    )
+                    revision = _build_revision(
+                        run.request,
+                        content,
+                        _revision_id(run, suffix="import"),
+                        producer,
+                    )
+                    revision, _ = self.revision_store.publish(revision)
+                self.run_store.complete(
+                    run_id,
+                    [revision.manifest.revision_id],
+                    metrics=metrics,
+                    progress=progress,
+                    items=items,
+                )
+                self._advance_generated_selection(
+                    run.request.source.recording_id,
+                    revision.manifest.revision_id,
+                )
+
+            expected_revision = _revision_id(
+                run, suffix="import" if job.request["mode"] == "import" else None
+            )
+            output = {
+                "kind": "pipeline_revision",
+                "id": expected_revision,
+                "digest": self._expected_event_content_digest(result, run.request),
+                "available": True,
+            }
+            if not manager.publish(job_id, [output], publish_domain_result):
+                raise JobCancelled("job cancellation requested before event publication")
+            manager.report_progress(
+                job_id,
+                phase="Publish event revision",
+                completed=1,
+                total=1,
+                unit="revisions",
+            )
+        except JobCancelled:
+            self._fail_safely(run_id, "cancelled", "Event processing was cancelled.")
+            raise
+        except PipelineServiceError as error:
+            self._fail_safely(run_id, "provider_failed", str(error))
+            raise
+        except Exception:
+            LOGGER.exception("event_job_handler_failed")
+            self._fail_safely(run_id, "provider_failed", "The event processor failed.")
+            raise RuntimeError("The event processor failed.") from None
+
+    def _run_job_inference(
+        self,
+        run: StoredProcessorRun,
+        token: Any,
+        manager: JobManager,
+        job_id: str,
+    ):
+        last_reported = [-1, -1]
+
+        def on_progress(completed: int, total: int) -> None:
+            token.check()
+            completed = max(0, int(completed))
+            total = max(completed, int(total))
+            if completed == last_reported[0] and total == last_reported[1]:
+                return
+            step = max(1, total // 100) if total > 0 else 1
+            if completed not in {0, total} and completed - last_reported[0] < step:
+                return
+            last_reported[:] = [completed, total]
+            progress = RunProgress(completed=completed, total=total)
+            self.run_store.update_progress(run.run_id, progress=progress)
+            manager.report_progress(
+                job_id,
+                phase="Detect card events",
+                completed=completed,
+                total=total,
+                unit="frames",
+            )
+
+        result = self.event_provider.infer(
+            self._video_path(run.request.source.recording_id),
+            request=run.request,
+            progress_callback=on_progress,
+        )
+        token.check()
+        return result, _card_event_metrics_from_provider(result, run.request)
+
+    def _run_job_import(
+        self,
+        run: StoredProcessorRun,
+        artifact: Mapping[str, Any],
+        token: Any,
+        manager: JobManager,
+        job_id: str,
+    ):
+        token.check()
+        raw = base64.b64decode(artifact["bytes_base64"], validate=True)
+        parsed = parse_proposal_generator_run(raw)
+        events = [
+            {
+                "event_id": f"import-{parsed.proposal_generator_run_id}-{index}",
+                "time_s": event.time_s,
+                "probability": event.probability,
+            }
+            for index, event in enumerate(parsed.event_proposals)
+        ]
+        result = {
+            "events": events,
+            "event_type": CARD_STATE_CHANGED_EVENT_TYPE,
+            "producer_id": parsed.model_bundle_id,
+        }
+        manager.report_progress(
+            job_id,
+            phase="Import event predictions",
+            completed=len(events),
+            total=len(events),
+            unit="events",
+        )
+        return result, {}
+
+    def _expected_event_content_digest(
+        self,
+        result: Any,
+        request: ProcessorRunRequest,
+    ) -> str:
+        content = _event_data_from_provider(result, request)
+        return sha256_bytes(canonical_event_data_bytes(content))
+
+    def _event_use_path(self, job_id: str) -> Path:
+        return (
+            Path(self.settings.operations_root).resolve()
+            / "jobs"
+            / "event-accepted-uses"
+            / f"{job_id}.json"
+        )
+
+    def event_run_id_for_job(self, job_id: str) -> str:
+        return json.loads(self._event_use_path(job_id).read_text(encoding="utf-8"))["run_id"]
+
     def _accepted_source(
         self, recording_id: str
     ) -> tuple[StoredRecordingBundle, RecordingVideoSource]:
@@ -594,100 +905,11 @@ class EventPipelineService:
         except (OSError, KeyError, TypeError, ValueError) as error:
             raise PipelineInputError("The accepted recording manifest is invalid.") from error
 
-    def _execute(self, run_id: str) -> None:
-        try:
-            run = self.run_store.require(run_id)
-            last_reported = [-1, -1]
-
-            def on_progress(completed: int, total: int) -> None:
-                completed = max(0, int(completed))
-                total = max(completed, int(total))
-                if completed == last_reported[0] and total == last_reported[1]:
-                    return
-                step = max(1, total // 100) if total > 0 else 1
-                if (
-                    completed != total
-                    and completed != 0
-                    and completed - last_reported[0] < step
-                    and total == last_reported[1]
-                ):
-                    return
-                last_reported[0] = completed
-                last_reported[1] = total
-                self.run_store.update_progress(
-                    run_id,
-                    progress=RunProgress(completed=completed, total=total),
-                )
-
-            result = self.event_provider.infer(
-                self._video_path(run.request.source.recording_id),
-                request=run.request,
-                progress_callback=on_progress,
-            )
-            metrics = _card_event_metrics_from_provider(result, run.request)
-            content = _event_data_from_provider(result, run.request)
-            items = _event_run_items(content)
-            progress = RunProgress(completed=len(items), total=len(items))
-            self.run_store.update_progress(run_id, progress=progress, items=items)
-            revision = self._publish_processor_revision(run, content)
-            self.run_store.complete(
-                run_id,
-                [revision.manifest.revision_id],
-                metrics=metrics,
-                progress=progress,
-                items=items,
-            )
-            self._advance_generated_selection(
-                run.request.source.recording_id, revision.manifest.revision_id
-            )
-        except PipelineServiceError as error:
-            self._fail_safely(run_id, "provider_failed", str(error))
-        except Exception:
-            LOGGER.exception("event_pipeline_worker_failed")
-            self._fail_safely(run_id, "provider_failed", "The event processor failed.")
-
-    def _execute_import(self, run_id: str, payload: Mapping[str, Any]) -> None:
-        run = self.run_store.require(run_id)
-        artifact, artifact_id, artifact_digest, model_id = self._load_import_artifact(
-            run.request.source.recording_id,
-            payload,
-        )
-        content = _event_data_from_provider(
-            {
-                "events": artifact,
-                "event_type": CARD_STATE_CHANGED_EVENT_TYPE,
-                "producer_id": model_id,
-            },
-            run.request,
-        )
-        items = _event_run_items(content)
-        progress = RunProgress(completed=len(items), total=len(items))
-        self.run_store.update_progress(run_id, progress=progress, items=items)
-        revision_id = _revision_id(run, suffix="import")
-        producer = ImportProducer(
-            run_id=run_id,
-            artifact_id=artifact_id,
-            artifact_sha256=artifact_digest,
-            source_schema="proposal-generator-run/v1",
-            model_id=model_id,
-        )
-        revision = _build_revision(run.request, content, revision_id, producer)
-        stored, _ = self.revision_store.publish(revision)
-        self.run_store.complete(
-            run_id,
-            [stored.manifest.revision_id],
-            progress=progress,
-            items=items,
-        )
-        self._advance_generated_selection(
-            run.request.source.recording_id, stored.manifest.revision_id
-        )
-
     def _load_import_artifact(
         self,
         recording_id: str,
         payload: Mapping[str, Any],
-    ) -> tuple[list[Mapping[str, Any]], str, str, str]:
+    ) -> tuple[list[Mapping[str, Any]], str, str, str, bytes]:
         bundle_path = self.repository_storage.bundle_path(recording_id)
         try:
             manifest = json.loads((bundle_path / "manifest.json").read_text(encoding="utf-8"))
@@ -754,6 +976,7 @@ class EventPipelineService:
             parsed.proposal_generator_run_id,
             str(descriptor["sha256"]),
             parsed.model_bundle_id,
+            raw,
         )
 
     def _publish_processor_revision(

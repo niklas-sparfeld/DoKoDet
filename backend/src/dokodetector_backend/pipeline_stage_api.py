@@ -254,23 +254,6 @@ def _proposed_card_scene_service(request: Request) -> Any:
     return request.app.state.proposed_card_scene_pipeline_service
 
 
-@router.post(BASE, status_code=202)
-@router.post(BASE + "/runs", status_code=202, include_in_schema=False)
-def start_event_run(recording_id: str, payload: dict[str, Any], request: Request) -> dict[str, Any]:
-    """Freeze and queue one event processor request."""
-
-    service = _event_service(request)
-    validate_recording_id(recording_id)
-    try:
-        return run_response(service.start_inference(recording_id, payload))
-    except (PipelineInputError, PipelineConflict) as error:
-        raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
-    except PipelineNotFound as error:
-        raise ContractError("recording_not_found", str(error), status_code=404) from error
-    except PipelineServiceError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
-
-
 @router.get(BASE)
 @router.get(BASE + "/runs", include_in_schema=False)
 def list_event_runs(recording_id: str, request: Request) -> dict[str, Any]:
@@ -282,29 +265,6 @@ def list_event_runs(recording_id: str, request: Request) -> dict[str, Any]:
     except PipelineServiceError as error:
         raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
     return {"recording_id": recording_id, "runs": [run_response(run) for run in runs]}
-
-
-@router.post(BASE + "/import", status_code=201)
-@router.post(BASE + "/imports", status_code=201, include_in_schema=False)
-def import_event_predictions(
-    recording_id: str,
-    payload: dict[str, Any],
-    request: Request,
-) -> dict[str, Any]:
-    """Validate and import one recording-bundle event prediction artifact."""
-
-    validate_recording_id(recording_id)
-    try:
-        run = _event_service(request).import_predictions(recording_id, payload)
-        return run_response(run)
-    except PipelineInputError as error:
-        raise ContractError("invalid_event_import", str(error), status_code=422) from error
-    except PipelineNotFound as error:
-        raise ContractError("recording_not_found", str(error), status_code=404) from error
-    except PipelineConflict as error:
-        raise ContractError("pipeline_conflict", str(error), status_code=409) from error
-    except PipelineServiceError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
 @router.get(BASE + "/selection")
@@ -337,34 +297,6 @@ def update_generated_selection(
     except (PipelineInputError, PipelineConflict) as error:
         raise ContractError("invalid_selection", str(error), status_code=422) from error
     return {"recording_id": recording_id, "selection": selection.to_mapping()}
-
-
-@router.get(BASE + "/{run_id}")
-@router.get(BASE + "/runs/{run_id}", include_in_schema=False)
-def get_event_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
-    """Return one event processor run and its immutable request."""
-
-    try:
-        return run_response(_event_service(request).get_run(recording_id, run_id))
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except PipelineServiceError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
-
-
-@router.post(BASE + "/{run_id}/retry", status_code=202)
-@router.post(BASE + "/runs/{run_id}/retry", status_code=202, include_in_schema=False)
-def retry_event_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
-    """Retry one failed or partial event processor run."""
-
-    try:
-        return run_response(_event_service(request).retry(recording_id, run_id))
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except (PipelineInputError, PipelineConflict) as error:
-        raise ContractError("invalid_pipeline_retry", str(error), status_code=422) from error
-    except PipelineServiceError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
 @router.get(BASE + "/{run_id}/result")

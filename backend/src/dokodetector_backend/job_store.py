@@ -161,6 +161,8 @@ class Intent(Model):
     schema_version: Literal["backend-job-intent/v1"] = "backend-job-intent/v1"
     sequence: int = Field(ge=1)
     job: Job
+    submitted_request: dict[str, Any]
+    submitted_hash: str
     committed: bool = False
 
 
@@ -275,6 +277,11 @@ def _digest(request: JobRequest) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+def _mapping_digest(value: Mapping[str, Any]) -> str:
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
 def _uuid(value: str) -> str:
     try:
         return str(UUID(value))
@@ -346,6 +353,8 @@ class JobManager:
                 )
                 if _digest(parsed) != intent.job.request_hash:
                     raise ValueError("intent request hash mismatch")
+                if _mapping_digest(intent.submitted_request) != intent.submitted_hash:
+                    raise ValueError("submitted request hash mismatch")
                 result.append(intent)
             except (OSError, ValueError) as error:
                 self.diagnostics.append(f"invalid intent {item.name}: {error}")
@@ -434,6 +443,38 @@ class JobManager:
             "next_after": next_after,
             "truncated_before": truncated_before,
         }
+
+    def report_progress(
+        self,
+        job_id: str,
+        *,
+        phase: str,
+        completed: int | None,
+        total: int | None,
+        unit: str | None = None,
+    ) -> Job:
+        """Persist bounded handler progress on its stable first step."""
+        with self._lock:
+            self._owned()
+            job = self.get(job_id)
+            if job.state != "running":
+                return job
+            now = _now()
+            job.phase = phase
+            if not job.steps:
+                job.steps.append(Step(id="process", label=phase))
+            step = job.steps[0]
+            if step.state == "pending":
+                step.state = "running"
+                step.started_at = now
+            step.label = phase
+            step.completed = completed
+            step.total = total
+            step.unit = unit
+            job.revision += 1
+            job.updated_at = now
+            self._write_job(job)
+            return job
 
     def queue(self) -> Queue:
         self._owned()
@@ -575,13 +616,12 @@ class JobManager:
         seen: set[str] = set()
         for group in queue.groups:
             job = jobs.get(group.group_id)
-            if (
-                job is None
-                or job.parent_id is not None
-                or (job.type == "automated_pipeline" and job.state in _TERMINAL)
-                or (job.type != "automated_pipeline" and job.state != "queued")
-            ):
+            if job is None or job.parent_id is not None:
                 self.diagnostics.append(f"invalid queue group {group.group_id}")
+                continue
+            if (job.type == "automated_pipeline" and job.state in _TERMINAL) or (
+                job.type != "automated_pipeline" and job.state != "queued"
+            ):
                 continue
             children = []
             for child_id in group.child_job_ids:
@@ -628,7 +668,19 @@ class JobManager:
         with self._lock:
             self._owned()
             key = _uuid(key)
-            request = JobRequest.model_validate(raw_request)
+            submitted_request = dict(raw_request)
+            submitted_hash = _mapping_digest(submitted_request)
+            for intent in self._intents():
+                if intent.job.idempotency_key == key:
+                    if intent.submitted_hash != submitted_hash or intent.job.retry_of != retry_of:
+                        raise JobConflict("idempotency key has a different request")
+                    self._finish_intent(intent)
+                    return self.get(intent.job.id)
+            normalizer = getattr(self.participant, "normalize", None)
+            normalized_request = (
+                normalizer(submitted_request) if normalizer is not None else submitted_request
+            )
+            request = JobRequest.model_validate(normalized_request)
             participant_request = {
                 "type": request.type,
                 "context": request.context,
@@ -637,12 +689,6 @@ class JobManager:
             self.participant.validate(participant_request)
             digest = _digest(request)
             intents = self._intents()
-            for intent in intents:
-                if intent.job.idempotency_key == key:
-                    if intent.job.request_hash != digest or intent.job.retry_of != retry_of:
-                        raise JobConflict("idempotency key has a different request")
-                    self._finish_intent(intent)
-                    return self.get(intent.job.id)
             if request.parent_id is not None:
                 parent = self.get(request.parent_id)
                 if parent.type != "automated_pipeline" or parent.state in _TERMINAL:
@@ -654,21 +700,45 @@ class JobManager:
                 ):
                     raise JobConflict("parent step already has a child")
             now = _now()
+            participant_fields = self._participant_job_fields(
+                {
+                    "type": request.type,
+                    "context": request.context,
+                    "request": request.request,
+                }
+            )
+            label = participant_fields.pop("label", request.type)
             job = Job(
                 id=str(uuid4()),
                 idempotency_key=key,
                 request_hash=digest,
                 created_at=now,
                 updated_at=now,
-                label=request.type,
+                label=label,
                 retry_of=retry_of,
+                **participant_fields,
                 **request.model_dump(),
             )
-            intent = Intent(sequence=max((i.sequence for i in intents), default=0) + 1, job=job)
+            intent = Intent(
+                sequence=max((i.sequence for i in intents), default=0) + 1,
+                job=job,
+                submitted_request=submitted_request,
+                submitted_hash=submitted_hash,
+            )
             self._write_intent(intent)
             self.after_write("intent")
             self._finish_intent(intent)
             return self.get(job.id)
+
+    def _participant_job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
+        describe = getattr(self.participant, "job_fields", None)
+        if describe is None:
+            return {}
+        fields = describe(request)
+        allowed = {"inputs", "implementation", "label"}
+        if not isinstance(fields, Mapping) or set(fields) - allowed:
+            raise JobStorageError("participant returned invalid job metadata")
+        return dict(fields)
 
     def cancel(self, job_id: str) -> Job:
         """Request cancellation; an active handler keeps its claims until it stops."""
@@ -824,6 +894,17 @@ class JobManager:
                 job.started_at = now
             if state in _TERMINAL:
                 job.finished_at = now
+                for step in job.steps:
+                    if step.state in {"pending", "running"}:
+                        step.state = {
+                            "succeeded": "succeeded",
+                            "failed": "failed",
+                            "cancelled": "cancelled",
+                            "interrupted": "cancelled",
+                        }[state]
+                        step.finished_at = now
+                        if state == "interrupted":
+                            step.message = "interrupted during restart"
             self._write_job(job)
             self._reconcile(self._intents())
             self.append_log(job.id, f"job_{state}", f"Job state changed to {state}.")

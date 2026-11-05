@@ -791,7 +791,15 @@ async function startProcessorRun(
   payload: PipelineRunStartRequest,
 ): Promise<PipelineRunResponse> {
   if (stage === "events") {
-    return client.startEventRun(recordingId, payload);
+    const job = await client.enqueueJob(
+      {
+        type: "event_processing",
+        context: { recording_id: recordingId },
+        request: payload as unknown as Record<string, unknown>,
+      },
+      crypto.randomUUID(),
+    );
+    return client.getEventRun(recordingId, job.id);
   }
   if (stage === "visible_cards") {
     return client.startVisibleCardRun(recordingId, payload);
@@ -806,7 +814,8 @@ async function retryProcessorRun(
   runId: string,
 ): Promise<PipelineRunResponse> {
   if (stage === "events") {
-    return client.retryEventRun(recordingId, runId);
+    const job = await client.retryJob(runId, crypto.randomUUID());
+    return client.getEventRun(recordingId, job.id);
   }
   if (stage === "visible_cards") {
     return client.retryVisibleCardRun(recordingId, runId);

@@ -79,6 +79,19 @@ function runResponse(
   };
 }
 
+function jobResponse(
+  id: string,
+  state: "queued" | "running" | "succeeded" | "failed" = "queued",
+) {
+  return {
+    id,
+    state,
+    request: { processor_request: { run_id: id } },
+    steps: [],
+    failure: null,
+  };
+}
+
 describe("RunControls", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -88,14 +101,14 @@ describe("RunControls", () => {
     const fetchMock = vi.fn<typeof fetch>((input, init) => {
       if (init?.method === "POST") {
         return Promise.resolve(
-          new Response(JSON.stringify(runResponse("events-run-1")), {
+          new Response(JSON.stringify({ id: "events-job-1" }), {
             status: 202,
             headers: { "Content-Type": "application/json" },
           }),
         );
       }
       return Promise.resolve(
-        new Response(JSON.stringify(runResponse("events-run-1")), {
+        new Response(JSON.stringify(jobResponse("events-job-1")), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -118,20 +131,30 @@ describe("RunControls", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/recordings/recording-run-controls/pipeline/events",
-        expect.objectContaining({ method: "POST" }),
+        "/api/jobs",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.any(Headers),
+        }),
       ),
     );
     const postCall = fetchMock.mock.calls.find(
       ([, init]) => init?.method === "POST",
     );
+    expect(new Headers(postCall?.[1]?.headers).get("Idempotency-Key")).toMatch(
+      /^[0-9a-f-]{36}$/i,
+    );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      type: "event_processing",
+      context: { recording_id: "recording-run-controls" },
       request: {
+        request: {
         input_revision_ids: [],
         implementation: { name: "cardeventnet", version: "file-v1" },
         configuration: {},
         extraction_policy: { policy_id: "exact-event/v1" },
         crop_policy: null,
+        },
       },
     });
     expect(
@@ -313,14 +336,26 @@ describe("RunControls", () => {
         },
       },
     );
-    const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(
-        new Response(JSON.stringify(response), {
+    const fetchMock = vi.fn<typeof fetch>((input, init) => {
+      const path = String(input);
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({ id: "events-job-1" }), {
+            status: 202,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      const body = path === "/api/jobs/events-job-1"
+        ? jobResponse("events-job-1", "succeeded")
+        : response;
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
-      ),
-    );
+      );
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(
@@ -999,14 +1034,14 @@ describe("RunControls", () => {
     const fetchMock = vi.fn<typeof fetch>((input, init) => {
       if (init?.method === "POST") {
         return Promise.resolve(
-          new Response(JSON.stringify(runResponse("failed-run")), {
+          new Response(JSON.stringify({ id: "retried-job" }), {
             status: 202,
             headers: { "Content-Type": "application/json" },
           }),
         );
       }
       return Promise.resolve(
-        new Response(JSON.stringify(runResponse("failed-run", "partial")), {
+        new Response(JSON.stringify(jobResponse("retried-job")), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -1033,13 +1068,13 @@ describe("RunControls", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/recordings/recording-run-controls/pipeline/events/failed-run/retry",
-        expect.objectContaining({ method: "POST" }),
+        "/api/jobs/failed-run/retry",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.any(Headers),
+        }),
       ),
     );
-    expect(await screen.findByText(/partial result/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/retry the same frozen request/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("The processor request is queued.")).toBeInTheDocument();
   });
 });

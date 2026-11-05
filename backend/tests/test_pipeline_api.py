@@ -10,6 +10,7 @@ from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from uuid import uuid4
 
 from app_factory import create_test_app
 from doko_operations.pipeline_data import CARD_STATE_CHANGED_EVENT_TYPE
@@ -51,7 +52,7 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
     assert modules == {
         "dokodetector_backend.pipeline_workspace_api": 2,
         "dokodetector_backend.pipeline_run_api": 2,
-        "dokodetector_backend.pipeline_stage_api": 39,
+        "dokodetector_backend.pipeline_stage_api": 35,
         "dokodetector_backend.pipeline_comparison_api": 1,
         "dokodetector_backend.pipeline_reference_api": 6,
     }
@@ -190,12 +191,53 @@ def _request(run_id: str) -> dict[str, Any]:
 def _wait_for_status(client: TestClient, run_id: str, expected: str) -> dict[str, Any]:
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/{run_id}")
-        body = response.json()
-        if body["state"]["status"] == expected:
+        response = client.get(f"/api/jobs/{run_id}")
+        job = response.json()
+        if job["state"] in {"succeeded", "failed", "cancelled", "interrupted"}:
+            result = client.get(
+                f"/api/recordings/{RECORDING_ID}/pipeline/events/{run_id}/result"
+            ).json()
+            if result.get("state", {}).get("status") == expected:
+                return result
+        state = {
+            "succeeded": "complete",
+            "cancelled": "failed",
+            "interrupted": "failed",
+        }.get(job["state"], job["state"])
+        step = job["steps"][0] if job["steps"] else {}
+        body = {
+            "state": {
+                "status": state,
+                "progress": {
+                    "completed": step.get("completed", 0),
+                    "total": step.get("total", 0),
+                },
+                "terminal_failure": job["failure"],
+                "output_revision_ids": [result["id"] for result in job["results"]],
+            }
+        }
+        if state == expected:
             return body
         time.sleep(0.01)
     return body
+
+
+def _enqueue_event_job(
+    client: TestClient,
+    recording_id: str,
+    payload: dict[str, Any],
+    *,
+    import_predictions: bool = False,
+):
+    return client.post(
+        "/api/jobs",
+        headers={"Idempotency-Key": str(uuid4())},
+        json={
+            "type": "event_import" if import_predictions else "event_processing",
+            "context": {"recording_id": recording_id},
+            "request": payload,
+        },
+    )
 
 
 def test_event_pipeline_exposes_provider_progress_while_running(tmp_path: Path) -> None:
@@ -222,27 +264,24 @@ def test_event_pipeline_exposes_provider_progress_while_running(tmp_path: Path) 
 
     app = create_test_app(_settings(tmp_path), event_provider=ProgressEventProvider())
     with TestClient(app) as client:
-        created = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json=_request("run-progress"),
-        )
+        created = _enqueue_event_job(client, RECORDING_ID, _request("run-progress"))
         assert created.status_code == 202
+        run_id = created.json()["id"]
         assert started.wait(timeout=5.0)
 
         deadline = time.monotonic() + 5
         progress = None
         while time.monotonic() < deadline:
-            status = client.get(
-                f"/api/recordings/{RECORDING_ID}/pipeline/events/run-progress"
-            ).json()
-            progress = status["state"]["progress"]
+            status = client.get(f"/api/jobs/{run_id}").json()
+            step = status["steps"][0] if status["steps"] else {}
+            progress = {"completed": step.get("completed"), "total": step.get("total")}
             if progress == {"completed": 3, "total": 10}:
                 break
             time.sleep(0.01)
         assert progress == {"completed": 3, "total": 10}
 
         release.set()
-        status = _wait_for_status(client, "run-progress", "complete")
+        status = _wait_for_status(client, run_id, "complete")
         assert status["state"]["progress"] == {"completed": 1, "total": 1}
 
 
@@ -256,13 +295,12 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
     assert direct_body["video"]["recording_id"] == RECORDING_ID
 
     with TestClient(app) as client:
-        created = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events", json=_request("run-generated")
-        )
+        created = _enqueue_event_job(client, RECORDING_ID, _request("run-generated"))
         assert created.status_code == 202
+        run_id = created.json()["id"]
 
-        status = _wait_for_status(client, "run-generated", "complete")
-        result = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/run-generated/result")
+        status = _wait_for_status(client, run_id, "complete")
+        result = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/{run_id}/result")
         assert result.status_code == 200
         body = result.json()
         assert status["state"]["status"] == "complete"
@@ -316,11 +354,10 @@ def test_cardeventnet_probability_metrics_are_stored_with_the_run(tmp_path: Path
     app = create_test_app(_settings(tmp_path), event_provider=provider)
 
     with TestClient(app) as client:
-        created = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events", json=_request("run-metrics")
-        )
+        created = _enqueue_event_job(client, RECORDING_ID, _request("run-metrics"))
         assert created.status_code == 202
-        status = _wait_for_status(client, "run-metrics", "complete")
+        run_id = created.json()["id"]
+        status = _wait_for_status(client, run_id, "complete")
 
         metrics = status["state"]["metrics"]
         assert metrics == {
@@ -332,7 +369,7 @@ def test_cardeventnet_probability_metrics_are_stored_with_the_run(tmp_path: Path
             "threshold": 0.5,
             "events": [{"time_s": 0.5, "probability": 0.95}],
         }
-        result = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/run-metrics/result")
+        result = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/{run_id}/result")
         assert result.status_code == 200
         assert result.json()["state"]["metrics"] == metrics
 
@@ -356,10 +393,7 @@ def test_default_card_event_provider_does_not_discover_legacy_checkpoint(
     app = create_test_app(_settings(tmp_path))
 
     with TestClient(app) as client:
-        created = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json=_request("run-default-cardevent"),
-        )
+        created = _enqueue_event_job(client, RECORDING_ID, _request("run-default-cardevent"))
 
         assert created.status_code == 422
         assert "model-campaign integration contract" in created.json()["error"]["message"]
@@ -419,17 +453,17 @@ def test_default_card_event_provider_uses_0063_integration_checkpoint(
     with TestClient(app) as client:
         request = _request("run-0063-integration-cardevent")
         request["configuration"] = {}
-        created = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json=request,
-        )
+        created = _enqueue_event_job(client, RECORDING_ID, request)
 
         assert created.status_code == 202
-        assert created.json()["request"]["configuration"]["checkpoint_path"] == (
+        run_id = created.json()["id"]
+        assert created.json()["request"]["processor_request"]["configuration"][
+            "checkpoint_path"
+        ] == (
             "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/"
             "runs/candidate-hard-negative-v1/best.pt"
         )
-        assert created.json()["request"]["configuration"] == {
+        assert created.json()["request"]["processor_request"]["configuration"] == {
             "checkpoint_path": (
                 "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/"
                 "runs/candidate-hard-negative-v1/best.pt"
@@ -438,12 +472,7 @@ def test_default_card_event_provider_uses_0063_integration_checkpoint(
             "merge_window_s": 0.625,
             "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
         }
-        assert (
-            _wait_for_status(client, "run-0063-integration-cardevent", "complete")["state"][
-                "status"
-            ]
-            == "complete"
-        )
+        assert _wait_for_status(client, run_id, "complete")["state"]["status"] == "complete"
     assert calls["checkpoint_path"] == checkpoint
 
 
@@ -472,12 +501,9 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         assert initial_body["stages"][0]["selection_revision"] is None
         assert initial_body["stages"][1]["state"] == "empty"
 
-        created = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json=_request("workspace-run"),
-        )
+        created = _enqueue_event_job(client, RECORDING_ID, _request("workspace-run"))
         assert created.status_code == 202
-        _wait_for_status(client, "workspace-run", "complete")
+        _wait_for_status(client, created.json()["id"], "complete")
 
         workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert workspace.status_code == 200
@@ -487,8 +513,8 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         assert events["state"] == "generated-only"
         assert revision_id is not None
         assert events["selection_revision"] == 1
-        assert events["comparable_run_ids"] == ["workspace-run"]
-        assert events["runs"][0]["run_id"] == "workspace-run"
+        assert events["comparable_run_ids"] == [created.json()["id"]]
+        assert events["runs"][0]["run_id"] == created.json()["id"]
         assert events["runs"][0]["input_revision_ids"] == []
         assert events["runs"][0]["implementation"] == {
             "name": "fake-event-provider",
@@ -602,12 +628,9 @@ def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
 
     with TestClient(app) as client:
-        created = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json=_request("invalid-selection-run"),
-        )
+        created = _enqueue_event_job(client, RECORDING_ID, _request("invalid-selection-run"))
         assert created.status_code == 202
-        _wait_for_status(client, "invalid-selection-run", "complete")
+        _wait_for_status(client, created.json()["id"], "complete")
 
         selection_path = app.state.pipeline_selection_store.selection_path(RECORDING_ID, "events")
         selection = json.loads(selection_path.read_text(encoding="utf-8"))
@@ -667,13 +690,14 @@ def test_import_validates_bundle_prediction_and_preserves_absent_model_fields(
     app = create_test_app(_settings(tmp_path))
 
     with TestClient(app) as client:
-        imported = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/import",
-            json={"run_id": "run-imported"},
+        imported = _enqueue_event_job(
+            client, RECORDING_ID, {"run_id": "run-imported"}, import_predictions=True
         )
-        assert imported.status_code == 201
+        assert imported.status_code == 202
+        run_id = imported.json()["id"]
+        _wait_for_status(client, run_id, "complete")
         result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/run-imported/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{run_id}/result"
         ).json()
         revision = result["revisions"][0]
         assert result["state"]["status"] == "complete"
@@ -700,16 +724,127 @@ def test_provider_failure_cannot_change_existing_generated_selection(tmp_path: P
 
     app = create_test_app(_settings(tmp_path), event_provider=FailingProvider())
     with TestClient(app) as client:
-        first = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json=_request("run-failed"),
-        )
+        first = _enqueue_event_job(client, RECORDING_ID, _request("run-failed"))
         assert first.status_code == 202
-        status = _wait_for_status(client, "run-failed", "failed")
+        status = _wait_for_status(client, first.json()["id"], "failed")
         assert status["state"]["status"] == "failed"
         assert "provider secret" not in json.dumps(status)
         selection = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/selection").json()
         assert selection["selection"] is None
+
+
+def test_event_job_cancel_does_not_publish_and_retry_creates_new_attempt(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    started = threading.Event()
+    release = threading.Event()
+    calls = 0
+
+    class CancelThenSucceedProvider:
+        def infer(
+            self,
+            video_path: Path,
+            *,
+            request: object,
+            progress_callback: object | None = None,
+        ) -> dict[str, object]:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                started.set()
+                assert release.wait(timeout=5)
+            return {"events": [{"time_s": 0.5, "probability": 0.95}]}
+
+    app = create_test_app(_settings(tmp_path), event_provider=CancelThenSucceedProvider())
+    with TestClient(app) as client:
+        accepted = _enqueue_event_job(client, RECORDING_ID, _request("run-cancel-retry"))
+        assert accepted.status_code == 202
+        assert started.wait(timeout=5)
+        run_id = accepted.json()["id"]
+        manager = app.state.job_manager_service.get_manager()
+        job = manager.get(run_id)
+
+        cancelled = client.post(f"/api/jobs/{job.id}/cancel", json={})
+        assert cancelled.status_code == 200
+        assert cancelled.json()["state"] == "cancelling"
+        release.set()
+
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            current = client.get(f"/api/jobs/{job.id}").json()
+            if current["state"] == "cancelled":
+                break
+            time.sleep(0.01)
+        assert current["state"] == "cancelled"
+        cancelled_run = app.state.pipeline_run_store.require(run_id)
+        assert cancelled_run.state.status == "failed"
+        assert cancelled_run.state.output_revision_ids == ()
+
+        retried = client.post(
+            f"/api/jobs/{job.id}/retry",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={},
+        )
+        assert retried.status_code == 202
+        retry_run_id = retried.json()["id"]
+        assert retry_run_id != run_id
+        completed = _wait_for_status(client, retry_run_id, "complete")
+        assert completed["state"]["output_revision_ids"]
+        assert calls == 2
+
+
+def test_event_import_freezes_artifact_bytes_before_dispatch(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    started = threading.Event()
+    release = threading.Event()
+
+    class BlockingProvider:
+        def infer(
+            self,
+            video_path: Path,
+            *,
+            request: object,
+            progress_callback: object | None = None,
+        ) -> dict[str, object]:
+            started.set()
+            assert release.wait(timeout=5)
+            return {"events": [{"time_s": 0.5, "probability": 0.95}]}
+
+    app = create_test_app(_settings(tmp_path), event_provider=BlockingProvider())
+    artifact_path = tmp_path / "recordings" / RECORDING_ID / "predictions" / "proposal-both.json"
+    original = artifact_path.read_bytes()
+    with TestClient(app) as client:
+        inference = _enqueue_event_job(client, RECORDING_ID, _request("run-blocking-before-import"))
+        assert inference.status_code == 202
+        assert started.wait(timeout=5)
+
+        imported = _enqueue_event_job(
+            client, RECORDING_ID, {"run_id": "run-frozen-import"}, import_predictions=True
+        )
+        assert imported.status_code == 202
+        import_run_id = imported.json()["id"]
+        manager = app.state.job_manager_service.get_manager()
+        import_job = next(
+            candidate
+            for candidate in manager.list_jobs()
+            if candidate.type == "event_import" and candidate.id == import_run_id
+        )
+        expected_digest = hashlib.sha256(original).hexdigest()
+        assert import_job.inputs[-1]["digest"] == expected_digest
+
+        artifact_path.write_bytes(b"changed after acceptance")
+        release.set()
+        assert (
+            _wait_for_status(client, inference.json()["id"], "complete")["state"]["status"]
+            == "complete"
+        )
+        imported_status = _wait_for_status(client, import_run_id, "complete")
+        assert imported_status["state"]["status"] == "complete"
+        result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{import_run_id}/result"
+        ).json()
+        assert result["revisions"][0]["manifest"]["producer"]["artifact_sha256"] == (
+            expected_digest
+        )
 
 
 def test_restart_marks_running_event_run_failed(tmp_path: Path) -> None:
@@ -718,16 +853,28 @@ def test_restart_marks_running_event_run_failed(tmp_path: Path) -> None:
 
     app = create_test_app(settings, event_provider=FakeEventProvider())
     service = app.state.event_pipeline_service
-    source = service.get_recording_source(RECORDING_ID)
-    request = {
-        **_request("run-interrupted"),
-        "source": source.to_mapping(),
-    }
-    service.start_inference(RECORDING_ID, request)
-    service._executor.shutdown(wait=False, cancel_futures=True)  # noqa: SLF001
+    from dokodetector_backend.job_store import JobManager
+
+    manager = JobManager(
+        settings.operations_root,
+        app.state.job_type_registry,
+        verify_publication=app.state.job_type_registry.verify_publication,
+    ).__enter__()
+    job = manager.accept(
+        "e161cde7-7fc9-5e9a-aa68-8f9ee0b0e912",
+        {
+            "type": "event_processing",
+            "context": {"recording_id": RECORDING_ID},
+            "request": _request("run-interrupted"),
+        },
+    )
+    manager.transition(job.id, "running")
+    service.run_store.start(service.event_run_id_for_job(job.id))
+    manager.__exit__(None, None, None)
 
     restarted = create_test_app(settings, event_provider=FakeEventProvider())
-    run = restarted.state.pipeline_run_store.require("run-interrupted")
-    assert run.state.status == "failed"
-    assert run.state.terminal_failure is not None
-    assert run.state.terminal_failure.code == "backend_restarted"
+    with TestClient(restarted):
+        run = restarted.state.pipeline_run_store.require(job.id)
+        assert run.state.status == "failed"
+        assert run.state.terminal_failure is not None
+        assert run.state.terminal_failure.code == "backend_restarted"

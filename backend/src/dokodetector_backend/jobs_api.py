@@ -128,15 +128,35 @@ class JobLogPage(APIModel):
 
 
 class JobTypeRegistry:
-    """Closed request registry used by job acceptance."""
+    """Closed request and handler registry used by job acceptance and execution."""
 
     def __init__(self, root: Path) -> None:
-        self._participant = FakeParticipant(root / "job-domain")
+        self._fake_participant = FakeParticipant(root / "job-domain")
         self._validators: dict[str, Callable[[dict[str, Any]], None]] = {}
+        self._participants: dict[str, Any] = {}
+        self._handlers: dict[str, Callable[[Job, Claims, Any], None]] = {}
+        self._claims: dict[str, Claims] = {}
 
     def register_fake(self, name: Literal["fake", "automated_pipeline"] = "fake") -> None:
         """Register one closed fake request type for API fixtures."""
         self._validators[name] = self._validate_fake
+        self._participants[name] = self._fake_participant
+
+    def register(
+        self,
+        name: str,
+        validator: Callable[[dict[str, Any]], None],
+        participant: Any,
+        handler: Callable[[Job, Claims, Any], None],
+        claims: Claims,
+    ) -> None:
+        """Register one domain job type and its durable acceptance participant."""
+        if not name or name in self._validators:
+            raise ValueError("job type is empty or already registered")
+        self._validators[name] = validator
+        self._participants[name] = participant
+        self._handlers[name] = handler
+        self._claims[name] = claims
 
     @staticmethod
     def _validate_fake(request: dict[str, Any]) -> None:
@@ -157,7 +177,19 @@ class JobTypeRegistry:
         if not isinstance(job_type, str) or job_type not in self._validators:
             raise ValueError("unknown job type")
         self._validators[job_type](request)
-        self._participant.validate(request)
+        self._participants[job_type].validate(request)
+
+    def normalize(self, request: dict[str, Any]) -> dict[str, Any]:
+        job_type = request.get("type")
+        if not isinstance(job_type, str) or job_type not in self._validators:
+            raise ValueError("unknown job type")
+        normalizer = getattr(self._participants[job_type], "normalize", None)
+        return request if normalizer is None else normalizer(request)
+
+    def job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
+        participant = self._participants[request["type"]]
+        describe = getattr(participant, "job_fields", None)
+        return {} if describe is None else describe(request)
 
     def prepare(
         self,
@@ -165,10 +197,33 @@ class JobTypeRegistry:
         request: dict[str, Any],
         after_write: Callable[[str], None],
     ) -> None:
-        self._participant.prepare(job_id, request, after_write)
+        self._participants[request["type"]].prepare(job_id, request, after_write)
 
     def verify(self, job_id: str, request: dict[str, Any]) -> bool:
-        return self._participant.verify(job_id, request)
+        return self._participants[request["type"]].verify(job_id, request)
+
+    def handle(self, job: Job, claims: Claims, token: Any) -> None:
+        handler = self._handlers.get(job.type)
+        if handler is None:
+            raise ValueError(f"no handler is registered for {job.type}")
+        handler(job, claims, token)
+
+    def claims_for(self, job: Job) -> Claims:
+        participant = self._participants.get(job.type)
+        resolver = None if participant is None else getattr(participant, "claims_for", None)
+        return resolver(job) if resolver is not None else self._claims.get(job.type, Claims())
+
+    def verify_publication(self, job: Job, results: list[dict[str, Any]]) -> bool:
+        participant = self._participants.get(job.type)
+        verifier = None if participant is None else getattr(participant, "verify_publication", None)
+        return bool(verifier is not None and verifier(job, results))
+
+    def reconcile(self, manager: JobManager) -> None:
+        jobs = manager.list_jobs()
+        for participant in set(self._participants.values()):
+            reconciler = getattr(participant, "reconcile", None)
+            if reconciler is not None:
+                reconciler(jobs)
 
 
 class JobManagerService:
@@ -178,11 +233,30 @@ class JobManagerService:
         self.operations_root = operations_root
         self.registry = registry
         self.manager: JobManager | None = None
+        self.scheduler: JobScheduler | None = None
 
     async def start(self) -> None:
-        self.manager = JobManager(self.operations_root, self.registry).__enter__()
+        self.manager = JobManager(
+            self.operations_root,
+            self.registry,
+            verify_publication=self.registry.verify_publication,
+        ).__enter__()
+        try:
+            self.registry.reconcile(self.manager)
+            self.scheduler = JobScheduler(
+                self.manager,
+                self.registry.handle,
+                self.registry.claims_for,
+            ).__enter__()
+        except BaseException:
+            self.manager.__exit__(None, None, None)
+            self.manager = None
+            raise
 
     async def stop(self) -> None:
+        if self.scheduler is not None:
+            self.scheduler.__exit__(None, None, None)
+            self.scheduler = None
         if self.manager is not None:
             self.manager.__exit__(None, None, None)
             self.manager = None
