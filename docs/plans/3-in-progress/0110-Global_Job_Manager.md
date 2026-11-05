@@ -6,8 +6,8 @@
   Jobs drawer. Keep processor results and data lineage in their owning stores.
 - **Status:** In Progress
 - **Depends on:** Existing backend execution and filesystem storage. No completion gate from
-  [0107](../3-in-progress/0107-Unified_Pipeline_Data_Lineage.md),
-  [0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md), or
+  [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
+  [0108](../2-ready/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
 - **Outcome:** M0–M3 complete; M4–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.

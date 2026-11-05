@@ -4,12 +4,16 @@
 
 - **Summary:** Define named pipeline data nodes, revision-bound provenance and review, automatic
   copies after downstream use, first-class virtual scenes, and a verified data migration.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0–M9 are complete; M10 is not started. This epic supplies contracts, services, and migration
-  tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
+- **Outcome:** M0–M10 are complete. This epic supplies tested contracts, services, and fixture
+  migration tools. [Epic 0108](../2-ready/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
+- **Closure reason:** Complete
+- **Closure note:** M0–M10 are complete. The [M10 handoff](../../reports/0107-M10_Verification_and_Handoff.md)
+  records focused verification and the remaining 0108 integration work. The local application still
+  uses legacy runtime stores; this epic did not migrate or switch live data.
 
 ## Problem
 
@@ -235,13 +239,14 @@ verified staging package. It preserves source bytes and mapped resource facts, r
 changes, and supports verified idempotent reapplication. It does not activate the package; 0108 owns
 local cutover.
 
-### M10 — Verify foundation and hand off — Not started
+### M10 — Verify foundation and hand off — Complete
 
 Run contract/store/service/migration checks and applicable lint, type, and format checks. Document
 the exact integration points for Epic 0108, verification commands, and remaining old runtime paths.
 
 Acceptance: fixtures demonstrate the complete correction/copy/review/migration contract locally.
-Mark this epic Closed only when all milestones pass; unblock 0108 and repair moved links together.
+The [M10 handoff](../../reports/0107-M10_Verification_and_Handoff.md) records the exact 0108
+integration points, remaining legacy paths, focused verification, and broader-check limits.
 
 ## Source ownership
 

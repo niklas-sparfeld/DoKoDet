@@ -4,11 +4,11 @@
 
 - **Summary:** Replace competing data selectors with a horizontal lineage drawer beneath the
   processing steps. Integrate unified data nodes, migrate local data, and delete replaced flows.
-- **Status:** Blocked
-- **Depends on:** [Epic 0107](../3-in-progress/0107-Unified_Pipeline_Data_Lineage.md), including tested
+- **Status:** Ready
+- **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** Planned. M0–M12 are not started. The agreed layout is recorded below. The foundation
-  dependency prevents implementation; processor input and trigger UX remains later work.
+- **Outcome:** Ready. M0–M12 are not started. The agreed layout is recorded below. Processor input
+  and trigger UX remains later work.
 
 ## Agreed layout
 
@@ -41,7 +41,7 @@ Use restrained condensed nodes: meaningful name, revision, saved date, human/too
 and relevant review/use status. Reveal exact IDs, sources, coverage, history, and actor details on
 selection. Never label mixed content as wholly human-authored or wholly reviewed.
 
-[Epic 0109 — Working area interface unification](0109-Working_Area_Interface_Unification.md)
+[Epic 0109 — Working area interface unification](../4-blocked/0109-Working_Area_Interface_Unification.md)
 owns the subsequent shared still-frame surface, crop placement, and removal of central controls
 and descriptions. This epic can complete with integrated existing renderers. It retains ownership
 of lineage navigation, separate Virtual scenes, and the runtime cutover.
