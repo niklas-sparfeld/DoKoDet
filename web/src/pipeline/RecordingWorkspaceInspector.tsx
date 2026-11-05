@@ -23,6 +23,7 @@ import type { RecordingWorkspacePresentation } from "./recordingWorkspacePresent
 import { RecordingWorkspaceStatusBadge } from "./RecordingWorkspaceStatusBadge";
 import inspectorStyles from "./RecordingWorkspaceInspector.module.css";
 import { AutomatedPipelineControls } from "./AutomatedPipelineControls";
+import { decodeLineageSelection } from "./pipelineLineageSelection";
 
 export type RecordingWorkspaceInspectorProps = {
   recordingId: string;
@@ -65,6 +66,10 @@ export function RecordingWorkspaceInspector({
 }: RecordingWorkspaceInspectorProps) {
   const recording = presentation.recording;
   const selection = presentation.inspector.selection;
+  const selectedEventNode =
+    stage.key === "events" && urlState.lineage !== null
+      ? decodeLineageSelection(urlState.lineage)?.selected.events
+      : undefined;
   const progress = presentation.inspector.progress;
   const executionControls = compare ? null : (
     <>
@@ -257,11 +262,17 @@ export function RecordingWorkspaceInspector({
       >
         <p className={styles.statusLabel}>Current selection</p>
         <h2 id="pipeline-inspector-selection">
-          {compare ? "Comparison inputs" : formatIdentifier(activeView)}
+          {compare
+            ? "Comparison inputs"
+            : selectedEventNode
+              ? "Event data set"
+              : formatIdentifier(activeView)}
         </h2>
         <div className={inspectorStyles.selectionFacts}>
           <span>Displayed revision</span>
-          <strong>{displayedRevision ?? "None"}</strong>
+          <strong>
+            {selectedEventNode?.revision_id ?? displayedRevision ?? "None"}
+          </strong>
           <span>Item</span>
           <strong>{selection?.itemId ?? "None"}</strong>
           <span>Position</span>
@@ -286,6 +297,14 @@ export function RecordingWorkspaceInspector({
             onNavigate={onNavigate}
             comparison={comparison}
           />
+        ) : selectedEventNode !== undefined ? (
+          <div className={inspectorStyles.selectionFacts}>
+            <span>Data set</span>
+            <strong>{selectedEventNode.node_id}</strong>
+            <span>Exact revision</span>
+            <strong>{selectedEventNode.revision_id}</strong>
+            <p>Editing and review apply to this exact data set.</p>
+          </div>
         ) : (
           <div className={inspectorStyles.fields}>
             {stage.key !== "round_analyses" ? (

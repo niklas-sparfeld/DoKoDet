@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid5
@@ -11,7 +12,11 @@ from uuid import UUID, uuid5
 from doko_operations.pipeline_data import canonical_json_bytes, sha256_bytes
 
 from dokodetector_backend.filesystem import atomic_write_json, contained_path
-from dokodetector_backend.pipeline_item_provenance import ItemProvenanceService, _actor
+from dokodetector_backend.pipeline_item_provenance import (
+    ItemProvenanceService,
+    _actor,
+    _items,
+)
 from dokodetector_backend.pipeline_node_store import (
     NodeConflict,
     PipelineNodeStore,
@@ -39,6 +44,7 @@ class PipelineNodeEdits:
         actor: Mapping[str, Any],
         *,
         pointers: Mapping[str, str] | None = None,
+        base_pointers: Mapping[str, str] | None = None,
         operations: Sequence[Mapping[str, Any]] = (),
         evidence: Any = None,
     ) -> dict[str, Any]:
@@ -50,6 +56,7 @@ class PipelineNodeEdits:
             actor,
             content=content,
             pointers=pointers,
+            base_pointers=base_pointers,
             operations=operations,
             evidence=evidence,
         )
@@ -77,6 +84,7 @@ class PipelineNodeEdits:
         actor: Mapping[str, Any],
         *,
         pointers: Mapping[str, str] | None = None,
+        base_pointers: Mapping[str, str] | None = None,
         operations: Sequence[Mapping[str, Any]] = (),
         evidence: Any = None,
     ) -> dict[str, Any]:
@@ -88,6 +96,7 @@ class PipelineNodeEdits:
             actor,
             historical_revision_id=historical_revision_id,
             pointers=pointers,
+            base_pointers=base_pointers,
             operations=operations,
             evidence=evidence,
         )
@@ -103,6 +112,7 @@ class PipelineNodeEdits:
         content: Mapping[str, Any] | None = None,
         historical_revision_id: str | None = None,
         pointers: Mapping[str, str] | None = None,
+        base_pointers: Mapping[str, str] | None = None,
         operations: Sequence[Mapping[str, Any]] = (),
         evidence: Any = None,
         reason: str | None = None,
@@ -122,6 +132,7 @@ class PipelineNodeEdits:
                 "content": content,
                 "historical_revision_id": historical_revision_id,
                 "pointers": pointers,
+                "base_pointers": base_pointers,
                 "operations": list(operations),
                 "actor": who,
                 "evidence": evidence,
@@ -176,6 +187,27 @@ class PipelineNodeEdits:
             if target_content != current.content and "item_provenance" in metadata:
                 if pointers is None:
                     raise ValueError("item provenance requires pointers and operations")
+                metadata.update(
+                    ItemProvenanceService(self.store).prepare_change(
+                        current,
+                        destination,
+                        output_revision_id,
+                        target_content,
+                        pointers,
+                        operations,
+                        who,
+                        evidence=evidence,
+                    )
+                )
+            elif target_content != current.content and pointers is not None:
+                if base_pointers is None:
+                    raise ValueError("initial item provenance requires base pointers")
+                metadata["item_provenance"] = {
+                    "version": 1,
+                    "items": _items(current.content, base_pointers),
+                    "changes": [],
+                }
+                current = replace(current, metadata=metadata)
                 metadata.update(
                     ItemProvenanceService(self.store).prepare_change(
                         current,

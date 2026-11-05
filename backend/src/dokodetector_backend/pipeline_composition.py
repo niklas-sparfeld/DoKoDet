@@ -11,6 +11,7 @@ from dokodetector_backend.observation_pipeline_service import ObservationPipelin
 from dokodetector_backend.pipeline_comparison_service import PipelineComparisonService
 from dokodetector_backend.pipeline_lineage import PipelineLineage
 from dokodetector_backend.pipeline_node_edits import PipelineNodeEdits
+from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_reference_service import PipelineReferenceService
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
@@ -54,6 +55,7 @@ class PipelineComposition:
     workspace_service: RecordingPipelineWorkspaceService
     lineage_service: PipelineLineage
     node_edits: PipelineNodeEdits
+    node_reviews: PipelineNodeReviews
 
     @property
     def lifecycle_services(self) -> tuple[Any, ...]:
@@ -62,7 +64,6 @@ class PipelineComposition:
         return (
             self.event_service,
             self.visible_card_service,
-            self.proposed_card_scene_service,
             self.visual_identity_service,
             self.observation_service,
         )
@@ -99,6 +100,7 @@ def build_pipeline_composition(
     node_store = PipelineNodeStore(settings.operations_root / "pipeline-nodes")
     lineage_service = PipelineLineage(node_store)
     node_edits = PipelineNodeEdits(node_store)
+    node_reviews = PipelineNodeReviews(node_store)
     reference_service = PipelineReferenceService(
         settings,
         recording_store,
@@ -196,6 +198,7 @@ def build_pipeline_composition(
         workspace_service=workspace_service,
         lineage_service=lineage_service,
         node_edits=node_edits,
+        node_reviews=node_reviews,
     )
 
 
@@ -219,6 +222,7 @@ def install_pipeline_composition(state: Any, composition: PipelineComposition) -
     state.pipeline_workspace_service = composition.workspace_service
     state.pipeline_lineage_service = composition.lineage_service
     state.pipeline_node_edits = composition.node_edits
+    state.pipeline_node_reviews = composition.node_reviews
 
 
 __all__ = [

@@ -88,6 +88,26 @@ def test_concurrent_retry_and_invalid_edit_leaves_no_copy(tmp_path: Path) -> Non
     assert len(store.list_nodes()) == 2
 
 
+def test_first_human_event_edit_seeds_and_records_item_provenance(tmp_path: Path) -> None:
+    store = PipelineNodeStore(tmp_path)
+    initial = store.create("n", "Events", "events", SOURCE, content(200), {})
+    result = PipelineNodeEdits(store).edit(
+        "n",
+        initial.revision_id,
+        content(300),
+        "human-edit",
+        ACTOR,
+        pointers={"e": "/events/0"},
+        base_pointers={"e": "/events/0"},
+        operations=[{"kind": "replace", "before": ["e"], "after": ["e"]}],
+    )
+    revision = store.read_revision(result["node_id"], result["revision_id"])
+    provenance = revision.metadata["item_provenance"]
+    assert provenance["items"]["e"]["pointer"] == "/events/0"
+    assert provenance["changes"][-1]["actor"] == ACTOR
+    assert provenance["changes"][-1]["kind"] == "replace"
+
+
 def test_copy_historical_restore_and_recovery(tmp_path: Path, monkeypatch) -> None:
     store = PipelineNodeStore(tmp_path)
     first = store.create("n", "Events", "events", SOURCE, content(200), {})

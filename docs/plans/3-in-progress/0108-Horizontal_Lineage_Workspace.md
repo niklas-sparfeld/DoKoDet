@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0–M3 are complete; M4–M12 are not started. The workspace exposes exact graph data,
+- **Outcome:** M0–M4 are complete; M5–M12 are not started. The workspace exposes exact graph data,
   preserves validated lineage URLs, and has aligned step and data rows. The horizontal drawer
   selects exact revisions and shows copy and processor sources with collapsed revision history.
   Shared node edit, copy, and restore transactions are available through the workspace API.
@@ -175,13 +175,21 @@ exact displayed revision, selects the returned copy, and reports its source whil
 original available in lineage. Editor-specific save adapters will connect during M4–M7 as each
 legacy editor moves to node content.
 
-### M4 — Move event editing to data nodes — Not started
+### M4 — Move event editing to data nodes — Complete
 
 Unify generated and maintained event loading, editing, item review, and overall review. Remove
 event-specific review seeding and old view branches once replaced.
 
 Acceptance: tool events, human additions/corrections/deletions, negative coverage, autosave, and
 automatic copy work through one content contract with retained provenance.
+
+Result: selecting an event node opens one editor for generated and human content. It loads one exact
+revision, keeps historical revisions read-only, and saves event additions, corrections, and
+deletions through the atomic node edit service with item provenance. Autosave retries reuse the same
+idempotency key. A protected edit selects its new copy and preserves the inspected event and time.
+Item decisions, full-recording coverage, and overall decisions use separate revision-bound reviews.
+Event lineage selection hides the legacy generated/reference selectors. Records that do not yet have
+an event node keep the old workspace path until M10 migrates them; M11 owns its removal.
 
 ### M5 — Move visible-card editing to data nodes — Not started
 
