@@ -110,6 +110,27 @@ are events, visible-card detections, visual card identities, and table observati
 processor versions use the same content contract. Origin and review state are separate metadata.
 A pipeline data set is not a training or evaluation dataset.
 
+### Pipeline data node
+
+The durable identity of one named pipeline data set in the lineage browser. A node has one content
+type, saved data revisions, and at most one current working state. Copies have separate node
+identities and record their exact source revision. Processor and human content use the same node
+contract. A node is not a processor run or a training or evaluation dataset.
+
+### Data working state
+
+The editable state of one pipeline data node. Autosave records new immutable data revisions within
+the same node. An accepted downstream use protects the source node from further content changes:
+the first later change creates a copy. Opening an editor does not create a copy. This term defines
+the replacement model planned in Epics 0107 and 0108; it does not redefine a legacy review draft.
+
+### Lineage selection
+
+The exact data revisions and copy relationships that define the branch currently inspected in a
+recording workspace. It is separate from processor input selection and maintained references.
+Switching processing steps preserves the lineage selection. Missing results remain missing; the
+workspace does not substitute a result from another branch.
+
 ### Data revision
 
 One immutable saved version of a pipeline data set. It records content, source references, coverage,
@@ -287,6 +308,15 @@ A processor-generated initial set of card poses and card stacking order for one 
 under one table-plane calibration. A proposed card scene is an editor prefill. It is not a reviewed
 card scene or training authority until an operator accepts or corrects it through the maintained
 reference.
+
+### Virtual scene
+
+One exact source frame's card poses and card stacking order under one exact table-plane calibration.
+A virtual-scene pipeline data set contains these scenes with their frame and calibration references.
+It is separate from visible-card detections. Processor creation, human edits, and review decisions
+are metadata; proposed card scenes and reviewed card scenes retain their existing authority rules.
+The workspace step is named **Virtual scenes**. Visible regions calculated from a virtual scene
+remain derived views; a scene does not assert card identities, card plays, or temporal associations.
 
 ### Card pose
 

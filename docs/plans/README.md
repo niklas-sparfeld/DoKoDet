@@ -105,6 +105,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0107 — Unified pipeline data lineage](2-ready/0107-Unified_Pipeline_Data_Lineage.md) | Existing completed revision, run, review, and automated-pipeline foundations; no new 0106 gate | Planned. M0–M10 not started. Named editable nodes, immutable autosaves, automatic copies after downstream use, item provenance, independent review, first-class virtual scenes, and verified migration tools. 0108 owns application cutover and runtime removal. |
 
 
 ### In Progress
@@ -119,7 +120,7 @@ The shared target architecture is
 
 | Epic                                                                                                              | Depends on                                                                                                                   | Outcome                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| *No blocked epics* |  |  |
+| [0108 — Horizontal lineage workspace](4-blocked/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified migration tools | Planned. M0–M12 not started. Two persistent navigation rows and a horizontal lineage drawer; branch-preserving empty states, selected automatic copies, editor integration, local migration/cutover, and deletion of replaced selectors, lifecycles, and adapters. Processor input/trigger UX remains later work. |
 
 ### Closed
 
