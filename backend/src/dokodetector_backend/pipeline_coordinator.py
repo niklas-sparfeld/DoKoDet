@@ -310,7 +310,11 @@ class RetainedPipelineStageExecutor:
             status=run.state.status,
             input_revision_ids=tuple(run.request.input_revision_ids),
             output_revision_ids=tuple(run.state.output_revision_ids),
-            failure=(None if run.state.failure is None else run.state.failure.to_mapping()),
+            failure=(
+                None
+                if run.state.terminal_failure is None
+                else run.state.terminal_failure.to_mapping()
+            ),
             processor_run_id=run.run_id,
         )
 
