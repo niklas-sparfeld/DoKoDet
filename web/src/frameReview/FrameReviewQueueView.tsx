@@ -410,28 +410,6 @@ export function FrameReviewEditorNavigation({
   );
 }
 
-export function FrameReviewDraftConflict({
-  pinnedRevision,
-  draftRevision,
-}: {
-  pinnedRevision: string | null;
-  draftRevision: string | null | undefined;
-}) {
-  if (
-    pinnedRevision === null ||
-    draftRevision == null ||
-    draftRevision === pinnedRevision
-  )
-    return null;
-  return (
-    <p role="status" className={styles.editorNote}>
-      The maintained draft targets {draftRevision}. This frame review is pinned
-      to {pinnedRevision}. The draft stays unchanged until you choose an
-      existing review action.
-    </p>
-  );
-}
-
 export function FrameReviewPinnedRevisionNotice({
   pinnedRevision,
   selectedRevision,

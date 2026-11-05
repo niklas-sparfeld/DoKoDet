@@ -325,6 +325,9 @@ data. The unmounted visible-card and visual-identity editors, their isolated hel
 the obsolete editor boundary check are removed. The workspace still reads the legacy reference
 store and translates migrated revision IDs at runtime. These dependencies must move to canonical
 nodes before the old storage and mapping can be removed.
+The inspector no longer repeats legacy generated and reference facts. The frame review no longer
+compares its node revision ID with the unrelated legacy maintained-draft revision ID. The migrated
+draft and review records still need conversion to editable nodes before their old routes can close.
 
 ### M12 — Verify the complete workflow and close — Not started
 

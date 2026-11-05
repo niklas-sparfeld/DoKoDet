@@ -378,24 +378,6 @@ export function RecordingWorkspaceInspector({
               <dt>Processor</dt>
               <dd>{stage.processor_type}</dd>
             </div>
-            <div>
-              <dt>Generated revision</dt>
-              <dd>{stage.selected_generated_revision_id ?? "None"}</dd>
-            </div>
-            <div>
-              <dt>Reference revision</dt>
-              <dd>
-                {stage.selected_completed_reference_revision_id ?? "None"}
-              </dd>
-            </div>
-            <div>
-              <dt>Reference source</dt>
-              <dd>{stage.reference?.source_revision_id ?? "None"}</dd>
-            </div>
-            <div>
-              <dt>Selection revision</dt>
-              <dd>{stage.selection_revision ?? "None"}</dd>
-            </div>
           </dl>
           {presentation.diagnostics.length > 0 ? (
             <ul

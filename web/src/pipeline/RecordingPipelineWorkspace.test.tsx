@@ -241,6 +241,12 @@ describe("recording pipeline workspace", () => {
       within(inspector).getByText("Lineage, diagnostics, and history"),
     ).toBeInTheDocument();
     expect(
+      within(inspector).queryByText("Reference source"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(inspector).queryByText("Reference revision"),
+    ).not.toBeInTheDocument();
+    expect(
       within(inspector).getByRole("combobox", {
         name: "Default generated revision",
       }),

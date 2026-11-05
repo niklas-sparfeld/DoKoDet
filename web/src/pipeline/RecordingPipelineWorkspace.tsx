@@ -41,7 +41,6 @@ import {
 import { actionStateForStage } from "./recordingWorkspaceNavigation";
 import { PipelineNodeVirtualSceneEditor } from "../visibleCards/PipelineNodeVirtualSceneEditor";
 import {
-  FrameReviewDraftConflict,
   FrameReviewEditorNavigation,
   FrameReviewPinnedRevisionNotice,
 } from "../frameReview/FrameReviewQueueView";
@@ -492,11 +491,6 @@ export function RecordingPipelineWorkspace({
       ? null
       : (decodeLineageSelection(urlState.lineage)?.selected.visible_cards
           ?.revision_id ?? null);
-  const frameReviewDraftConflict =
-    urlState.frameReviewQueue === "0096-M4" &&
-    stage?.key === "visible_cards" &&
-    stage.reference?.source_revision_id != null &&
-    stage.reference.source_revision_id !== pinnedVisibleCardRevision;
   const workspaceRail = useRecordingWorkspaceRail({
     recordingId,
     stage,
@@ -607,12 +601,6 @@ export function RecordingPipelineWorkspace({
         <FrameReviewEditorNavigation
           recordingId={recordingId}
           itemId={urlState.item}
-        />
-      ) : null}
-      {frameReviewDraftConflict ? (
-        <FrameReviewDraftConflict
-          draftRevision={stage.reference?.source_revision_id}
-          pinnedRevision={pinnedVisibleCardRevision}
         />
       ) : null}
       {urlState.frameReviewQueue === "0096-M4" &&

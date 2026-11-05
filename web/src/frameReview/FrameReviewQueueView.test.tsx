@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  FrameReviewDraftConflict,
   FrameReviewEditorNavigation,
   FrameReviewPinnedRevisionNotice,
   FrameReviewQueueView,
@@ -195,23 +194,6 @@ describe("frame review queue", () => {
       "/api/frame-reviews/0096-M4/items/recording-one/event-1/workflow",
       expect.objectContaining({ method: "PUT" }),
     );
-  });
-
-  it("warns about a draft on another revision without offering a rebase", () => {
-    render(
-      <FrameReviewDraftConflict
-        pinnedRevision="queue-revision"
-        draftRevision="draft-revision"
-      />,
-    );
-
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "The maintained draft targets draft-revision",
-    );
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "pinned to queue-revision",
-    );
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("identifies the frozen result when the current selection has moved", () => {
