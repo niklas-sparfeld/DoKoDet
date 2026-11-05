@@ -58,6 +58,7 @@ public struct DeviceProposedCardSceneFrame: Equatable, Sendable {
   public let orderEvidence: [DeviceStackingOrderEvidence]
   public let uncertainOrderPairs: [[String]]
   public let failureReasons: [String: String]
+  public let jointFit: DeviceCardSceneJointFit?
 }
 
 public struct DeviceProposedCardSceneRevision: Equatable, Sendable {
@@ -122,7 +123,7 @@ public enum DeviceProposedCardSceneInitializer {
       return DeviceProposedCardSceneFrame(
         frameID: frame.frameID, sourceFrameDigest: frame.sourceFrameDigest, status: "failed",
         poses: [], orderEvidence: [], uncertainOrderPairs: [],
-        failureReasons: ["frame": "detector_outcome_\(frame.status)"])
+        failureReasons: ["frame": "detector_outcome_\(frame.status)"], jointFit: nil)
     }
     guard frame.status != "empty" || frame.candidates.isEmpty,
       frame.candidates.allSatisfy({
@@ -135,7 +136,7 @@ public enum DeviceProposedCardSceneInitializer {
       return DeviceProposedCardSceneFrame(
         frameID: frame.frameID, sourceFrameDigest: frame.sourceFrameDigest,
         status: "no_cards_detected", poses: [], orderEvidence: [], uncertainOrderPairs: [],
-        failureReasons: [:])
+        failureReasons: [:], jointFit: nil)
     }
 
     var poses: [DeviceProposedCardPose] = []
@@ -150,10 +151,18 @@ public enum DeviceProposedCardSceneInitializer {
     let order = try stackingEvidence(
       poses: poses, candidates: frame.candidates, calibration: calibration)
     let status = poses.isEmpty ? "failed" : (failureReasons.isEmpty ? "supported" : "partial")
-    return DeviceProposedCardSceneFrame(
+    let initial = DeviceProposedCardSceneFrame(
       frameID: frame.frameID, sourceFrameDigest: frame.sourceFrameDigest, status: status,
       poses: poses, orderEvidence: order.evidence, uncertainOrderPairs: order.uncertain,
-      failureReasons: failureReasons)
+      failureReasons: failureReasons, jointFit: nil)
+    let fit = DeviceCardSceneJointFitter.fit(
+      frame: frame, scene: initial,
+      calibration: calibration)
+    let updatedPoses = poses.map { fit.poses[$0.cardID] ?? $0 }
+    return DeviceProposedCardSceneFrame(
+      frameID: frame.frameID, sourceFrameDigest: frame.sourceFrameDigest, status: status,
+      poses: updatedPoses, orderEvidence: order.evidence, uncertainOrderPairs: order.uncertain,
+      failureReasons: failureReasons, jointFit: fit)
   }
 
   private static func fit(

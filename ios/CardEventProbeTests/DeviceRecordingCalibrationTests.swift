@@ -243,7 +243,17 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
     XCTAssertEqual(revision.frames[2].orderEvidence.count, 1)
     XCTAssertEqual(revision.frames[2].orderEvidence[0].decision, "uncertain")
     XCTAssertEqual(revision.frames[2].uncertainOrderPairs, [["pose-card-a", "pose-card-b"]])
+    XCTAssertEqual(revision.frames[2].jointFit?.status, "complete_ambiguous")
+    XCTAssertEqual(revision.frames[2].jointFit?.order, ["pose-card-a", "pose-card-b"])
+    XCTAssertEqual(revision.frames[2].jointFit?.score ?? -1, 0.44654, accuracy: 0.02)
+    XCTAssertEqual(revision.frames[2].jointFit?.baselineScore ?? -1, 0.44654, accuracy: 0.02)
+    XCTAssertEqual(revision.frames[2].jointFit?.margin ?? -1, 0, accuracy: 0.005)
+    XCTAssertTrue(revision.frames[2].jointFit?.poses.isEmpty ?? false)
+    XCTAssertGreaterThan(revision.frames[2].jointFit?.elapsedMilliseconds ?? 0, 0)
+    XCTAssertGreaterThan(revision.frames[2].jointFit?.estimatedPeakBytes ?? 0, 0)
     XCTAssertEqual(revision.frames[3].status, "partial")
+    XCTAssertEqual(revision.frames[3].jointFit?.status, "complete")
+    XCTAssertEqual(revision.frames[3].jointFit?.poses, [:])
     XCTAssertEqual(revision.frames[3].poses.map(\.sourceCandidateID), ["card-good"])
     XCTAssertEqual(
       revision.frames[3].failureReasons["card-bad"], "card_geometry_not_supported")
@@ -264,6 +274,38 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
     ) {
       XCTAssertEqual($0 as? DeviceProposedCardSceneError, .staleDetectorRevision)
     }
+  }
+
+  func testJointFitRetainsOriginalSceneAboveCardLimit() throws {
+    let result = try DeviceRecordingCalibrationSelector.calibrate(
+      recordingID: "recording-1", visibleCardRevisionID: "visible-cards-1",
+      observations: syntheticObservations())
+    let calibration = try XCTUnwrap(result.calibration)
+    let quad = try DeviceCardPlaneGeometry.projectFixedCard(
+      tableToImage: calibration.tableToImage,
+      center: DevicePoint2D(x: 4, y: 3), rotationDegrees: 8,
+      shortSize: calibration.cardShortSize, longSize: calibration.cardLongSize)
+    let candidates = (0..<9).map { index in
+      DeviceSceneCandidate(candidateID: "card-\(index)", polygons: [quad], confidence: 0.9)
+    }
+    let frame = DeviceSceneFrameInput(
+      frameID: "over-limit", sourceFrameDigest: String(repeating: "a", count: 64),
+      width: calibration.frameWidth, height: calibration.frameHeight,
+      status: "detected", candidates: candidates)
+    let poses = try candidates.map { candidate in
+      DeviceProposedCardPose(
+        cardID: "pose-\(candidate.candidateID)", sourceCandidateID: candidate.candidateID,
+        center: try DevicePoint2D(x: 4, y: 3), rotationDegrees: 8, fitResidual: 0)
+    }
+    let scene = DeviceProposedCardSceneFrame(
+      frameID: frame.frameID, sourceFrameDigest: frame.sourceFrameDigest, status: "supported",
+      poses: poses, orderEvidence: [], uncertainOrderPairs: [], failureReasons: [:], jointFit: nil)
+
+    let fit = DeviceCardSceneJointFitter.fit(frame: frame, scene: scene, calibration: calibration)
+
+    XCTAssertEqual(fit.status, "skipped_card_limit")
+    XCTAssertEqual(fit.order.count, 9)
+    XCTAssertTrue(fit.poses.isEmpty)
   }
 
   func testCalibrationRefinementBlocksInsufficientAnchorsWithoutChangingBase() throws {

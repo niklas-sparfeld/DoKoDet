@@ -50,6 +50,7 @@ let package = Package(
                 "Core/DeviceRecordingCalibration.swift",
                 "Core/DeviceCalibrationRefinement.swift",
                 "Core/DeviceProposedCardSceneInitialization.swift",
+                "Core/DeviceCardSceneJointFit.swift",
                 "Inference/RfdetrCoreMLRunner.swift",
                 "Core/CausalEventDecoder.swift",
                 "Core/EvidenceCaptureConfiguration.swift",
