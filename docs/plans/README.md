@@ -105,6 +105,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0110 — Global Job Manager](2-ready/0110-Global_Job_Manager.md) | Existing backend execution and filesystem storage; no completion gate from 0107–0109 | Planned. M0–M16 not started. One durable job API and global ordered queue with resource constraints; shared lifecycle, progress, cancel/retry/reorder, parent jobs, exact result links, and an app-wide Jobs drawer. |
 
 
 ### In Progress

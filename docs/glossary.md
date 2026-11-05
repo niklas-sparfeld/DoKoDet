@@ -148,6 +148,19 @@ One execution of a processor against exact source and input revisions with a rec
 model, configuration, and extraction policies. A completed run references its output data revisions.
 A run can consume unreviewed inputs. Review and dataset eligibility are separate decisions.
 
+### Backend job
+
+One durable request for backend work managed by the global Job Manager. It records scheduling,
+execution state, progress, cancellation, and links to domain records and results. A backend job
+can execute a processor run or coordinate other backend jobs. It is not a pipeline data node,
+data revision, review queue, or data task. Retrying work creates a new backend job.
+
+### Job step
+
+One named unit of progress within a backend job. A job step can reference a child backend job
+when it needs independent scheduling. A job step is not a processing-step navigation tab and
+does not establish data lineage.
+
 ### Maintained reference
 
 The downstream reference for one recording and review stage. It identifies the completed data
