@@ -167,6 +167,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/nodes/{node_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Pipeline Node
+         * @description Create an explicitly requested copy of an exact saved revision.
+         */
+        post: operations["copy_pipeline_node_api_pipeline_nodes__node_id__copy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/nodes/{node_id}/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Edit Pipeline Node
+         * @description Save the first changed content, copying automatically when accepted use protects it.
+         */
+        post: operations["edit_pipeline_node_api_pipeline_nodes__node_id__edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/nodes/{node_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Pipeline Node
+         * @description Restore a historical revision through the same protected edit transaction.
+         */
+        post: operations["restore_pipeline_node_api_pipeline_nodes__node_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/nodes/{node_id}/reviews/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Pipeline Node Coverage */
+        post: operations["review_pipeline_node_coverage_api_pipeline_nodes__node_id__reviews_coverage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/nodes/{node_id}/reviews/item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Pipeline Node Item */
+        post: operations["review_pipeline_node_item_api_pipeline_nodes__node_id__reviews_item_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/nodes/{node_id}/reviews/overall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Pipeline Node Overall */
+        post: operations["review_pipeline_node_overall_api_pipeline_nodes__node_id__reviews_overall_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/nodes/{node_id}/revisions/{revision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pipeline Node Revision
+         * @description Return the immutable content and metadata for one exact node revision.
+         */
+        get: operations["get_pipeline_node_revision_api_pipeline_nodes__node_id__revisions__revision_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/nodes/{node_id}/revisions/{revision_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Pipeline Node Reviews */
+        get: operations["list_pipeline_node_reviews_api_pipeline_nodes__node_id__revisions__revision_id__reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/processors/visible-cards/local-rfdetr-segmentation/availability": {
         parameters: {
             query?: never;
@@ -1728,12 +1876,12 @@ export interface components {
          * @description Persisted state for one stage in the overall run.
          */
         AutomatedPipelineRunStageResponse: {
+            /** Child Job Id */
+            child_job_id?: string | null;
             /** Failure */
             failure?: {
                 [key: string]: unknown;
             } | null;
-            /** Child Job Id */
-            child_job_id?: string | null;
             /** Input Revision Ids */
             input_revision_ids?: string[];
             /**
@@ -2601,6 +2749,132 @@ export interface components {
              * @enum {string}
              */
             status: "complete" | "partial";
+        };
+        /** PipelineNodeCopyRequest */
+        PipelineNodeCopyRequest: {
+            /** Actor */
+            actor: {
+                [key: string]: unknown;
+            };
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Reason */
+            reason: string;
+            /** Revision Id */
+            revision_id: string;
+        };
+        /** PipelineNodeCoverageReviewRequest */
+        PipelineNodeCoverageReviewRequest: {
+            /** Coverage */
+            coverage: {
+                [key: string]: unknown;
+            };
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            };
+            /** Question */
+            question: string;
+            /** Review Id */
+            review_id: string;
+            /** Reviewer */
+            reviewer: {
+                [key: string]: unknown;
+            };
+            /** Revision Id */
+            revision_id: string;
+        };
+        /** PipelineNodeEditRequest */
+        PipelineNodeEditRequest: {
+            /** Actor */
+            actor: {
+                [key: string]: unknown;
+            };
+            /** Base Pointers */
+            base_pointers?: {
+                [key: string]: string;
+            } | null;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Evidence */
+            evidence?: unknown;
+            /** Expected Revision Id */
+            expected_revision_id: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Operations */
+            operations?: {
+                [key: string]: unknown;
+            }[];
+            /** Pointers */
+            pointers?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** PipelineNodeItemReviewRequest */
+        PipelineNodeItemReviewRequest: {
+            /** Decision */
+            decision: string;
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            };
+            /** Item Id */
+            item_id: string;
+            /** Question */
+            question: string;
+            /** Review Id */
+            review_id: string;
+            /** Reviewer */
+            reviewer: {
+                [key: string]: unknown;
+            };
+            /** Revision Id */
+            revision_id: string;
+        };
+        /** PipelineNodeOverallReviewRequest */
+        PipelineNodeOverallReviewRequest: {
+            /** Decision */
+            decision: string;
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            };
+            /** Question */
+            question: string;
+            /** Review Id */
+            review_id: string;
+            /** Reviewer */
+            reviewer: {
+                [key: string]: unknown;
+            };
+            /** Revision Id */
+            revision_id: string;
+        };
+        /** PipelineNodeRestoreRequest */
+        PipelineNodeRestoreRequest: {
+            /** Actor */
+            actor: {
+                [key: string]: unknown;
+            };
+            /** Evidence */
+            evidence?: unknown;
+            /** Expected Revision Id */
+            expected_revision_id: string;
+            /** Historical Revision Id */
+            historical_revision_id: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Operations */
+            operations?: {
+                [key: string]: unknown;
+            }[];
+            /** Pointers */
+            pointers?: {
+                [key: string]: string;
+            } | null;
         };
         /**
          * PipelineVisibleCardCandidateResponse
@@ -4347,6 +4621,39 @@ export interface operations {
             };
         };
     };
+    get_calibration_preview_api_jobs__job_id__calibration_preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_job_api_jobs__job_id__cancel_post: {
         parameters: {
             query?: never;
@@ -4440,6 +4747,296 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copy_pipeline_node_api_pipeline_nodes__node_id__copy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PipelineNodeCopyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_pipeline_node_api_pipeline_nodes__node_id__edit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PipelineNodeEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_pipeline_node_api_pipeline_nodes__node_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PipelineNodeRestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_pipeline_node_coverage_api_pipeline_nodes__node_id__reviews_coverage_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PipelineNodeCoverageReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_pipeline_node_item_api_pipeline_nodes__node_id__reviews_item_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PipelineNodeItemReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_pipeline_node_overall_api_pipeline_nodes__node_id__reviews_overall_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PipelineNodeOverallReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pipeline_node_revision_api_pipeline_nodes__node_id__revisions__revision_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pipeline_node_reviews_api_pipeline_nodes__node_id__revisions__revision_id__reviews_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
                 };
             };
             /** @description Validation Error */
@@ -4621,39 +5218,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
-    get_calibration_preview_api_jobs__job_id__calibration_preview_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
             };
         };
     };
