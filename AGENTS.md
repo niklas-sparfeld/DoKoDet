@@ -94,6 +94,45 @@ After each completed milestone:
 
 After the summary, compact the working context before the next milestone.
 
+### Optional persistent milestone execution
+
+Use this mode only when the user says `run epic 1234 for N milestones` or
+`continue epic 1234 for N milestones`, where `N` is a positive integer. Both commands start at
+the next incomplete milestone. The count includes that milestone. These commands authorize one
+agent in the current chat to complete at most `N` milestones in sequence. The existing
+`start epic 1234` and `next phase` commands keep their single-milestone behavior.
+
+Keep each milestone as a separate work package. For each milestone:
+
+1. Read the current epic, dependencies, and Git state. Implement only that milestone.
+2. Run its required tests and checks. Resolve failures before marking it complete.
+3. Update the epic and board. Add or update an `Execution handoff` section in the active epic.
+   Record the completed milestone, changes, checks and results, decisions, known limits, next
+   milestone, and the requested count with the completed and remaining counts for this run.
+   Keep information needed to continue in this section rather than only in chat history.
+4. Commit the milestone's implementation, plan updates, and handoff together directly to `main`.
+   Preserve unrelated changes. Do not combine several milestones into one commit.
+5. Give a concise progress summary in commentary. Include the commit ID and one status line for
+   each milestone. Then continue to the next milestone without waiting for another prompt.
+
+In this mode, the commentary summary and committed handoff replace the end-of-turn handoff
+between milestones. Use native context compaction when available. If no explicit compaction
+operation is available, continue in the same chat and let the harness manage the context. Do not
+claim that compaction occurred without evidence. After compaction, read the handoff and verify
+the actual epic and Git state before continuing. Do not create a supervising agent, a new chat,
+or an external continuation loop for this mode.
+
+Stop when the count is reached, the epic is complete, the user asks to stop, or the next milestone
+cannot proceed safely. A blocked dependency, required user decision or approval, unresolved check
+failure, or ambiguous overlapping Git change ends the run early. Record the reason and remaining
+count in the handoff when possible. Do not skip a blocked milestone, expand the epic, or repeat a
+commit or action whose outcome is unknown. An interruption does not authorize an automatic restart;
+on an explicit resume, reconcile saved progress before doing more work.
+
+At the end of the run, give a final summary with completed milestones, commit IDs, verification,
+all milestone statuses, and any blocker. The count limit ends this authorization; another run
+requires a new user instruction.
+
 When you add or edit an epic:
 
 * use the next unused four-digit epic number for a new file,
