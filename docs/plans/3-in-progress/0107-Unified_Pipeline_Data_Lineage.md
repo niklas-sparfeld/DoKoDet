@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0 is complete; M1–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0–M1 are complete; M2–M10 are not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -131,12 +131,17 @@ unambiguous when a source has several descendants. Confirm no dependency on unfi
 Acceptance: each old resource has a destination or an explicit exclusion with preserved references.
 Every later milestone has concrete contract fixtures. The contract does not reopen agreed UX.
 
-### M1 — Store nodes and immutable revisions — Not started
+### M1 — Store nodes and immutable revisions — Complete
 
 Implement node manifests, working heads, revision history, source references, and common metadata.
 Keep content-type validation. Add listing and exact revision reads. Use optimistic concurrency.
 
 Acceptance: fixtures cover autosave, no-op, restart, immutable historical reads, and write conflicts.
+
+The separate node store validates the existing content contracts, retains exact source references, and
+uses immutable revisions with an optimistic working head. It is not connected to processor execution;
+M3 must add downstream-use protection before that integration. See the
+[M1 result](../../reports/0107-M1_Node_Storage.md).
 
 ### M2 — Record item origin and content changes — Not started
 
