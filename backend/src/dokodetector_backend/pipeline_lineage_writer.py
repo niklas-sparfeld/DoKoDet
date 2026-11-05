@@ -89,6 +89,12 @@ class PipelineLineageWriter:
                     {
                         "origin": manifest.origin,
                         "legacy_revision_id": manifest.revision_id,
+                        "legacy_created_at": manifest.created_at,
+                        "legacy_content_schema": manifest.content_schema,
+                        "legacy_content_sha256": manifest.content_sha256,
+                        "input_revision_ids": list(manifest.input_revision_ids),
+                        "producer": manifest.producer.to_mapping(),
+                        "coverage": manifest.coverage,
                     },
                     revision_id=manifest.revision_id,
                 )

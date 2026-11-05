@@ -185,6 +185,8 @@ def build_pipeline_composition(
         selection_store=selection_store,
         reference_store=reference_store,
         round_analysis_store=round_analysis_store,
+        node_store=node_store,
+        lineage_service=lineage_service,
     )
     return PipelineComposition(
         revision_store=revision_store,

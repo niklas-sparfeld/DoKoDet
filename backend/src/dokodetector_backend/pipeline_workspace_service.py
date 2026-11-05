@@ -9,11 +9,26 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from doko_operations.pipeline_data import EventData, RecordingVideoSource
+from doko_operations.pipeline_data import (
+    DATA_REVISION_SCHEMA_VERSION,
+    DataRevision,
+    EventData,
+    RecordingVideoSource,
+    canonical_json_bytes,
+    parse_event_data_bytes,
+    parse_source,
+)
 from table_evidence_analyzer import ObservationAssemblyError, assemble_table_observations
-from table_evidence_analyzer.pipeline_data import VisibleCardData, VisualIdentityData
+from table_evidence_analyzer.pipeline_data import (
+    VisibleCardData,
+    VisualIdentityData,
+    parse_table_observation_data_bytes,
+    parse_visible_card_data_bytes,
+    parse_visual_identity_data_bytes,
+)
 
 from dokodetector_backend.filesystem import enumerate_resource_directories
+from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineSelectionStore,
@@ -84,6 +99,14 @@ class _WorkspaceReference:
     draft: Any | None
 
 
+@dataclass(frozen=True, slots=True)
+class _WorkspaceNodeRevision:
+    """Node revision fields used by the established workspace projection."""
+
+    manifest: DataRevision
+    content: Any | None
+
+
 class RecordingPipelineWorkspaceService:
     """Aggregate persisted recording-pipeline state for the recording workspace."""
 
@@ -96,6 +119,8 @@ class RecordingPipelineWorkspaceService:
         selection_store: PipelineSelectionStore,
         reference_store: Any,
         round_analysis_store: Any,
+        node_store: PipelineNodeStore,
+        lineage_service: Any,
     ) -> None:
         self.recording_source_provider = recording_source_provider
         self.revision_store = revision_store
@@ -103,6 +128,20 @@ class RecordingPipelineWorkspaceService:
         self.selection_store = selection_store
         self.reference_store = reference_store
         self.round_analysis_store = round_analysis_store
+        self.node_store = node_store
+        self.lineage_service = lineage_service
+        mapping_path = node_store.root / ".legacy-revision-map.json"
+        mapping = json.loads(mapping_path.read_bytes()) if mapping_path.is_file() else {}
+        if mapping and (
+            mapping.get("schema_version") != "legacy-revision-map/v1"
+            or not isinstance(mapping.get("revisions"), dict)
+        ):
+            raise ValueError("invalid legacy revision map")
+        self._legacy_revisions = mapping.get("revisions", {})
+        self._node_revision_legacy_ids = {
+            (target["node_id"], target["revision_id"]): legacy_id
+            for legacy_id, target in self._legacy_revisions.items()
+        }
 
     def get_workspace(
         self,
@@ -114,7 +153,7 @@ class RecordingPipelineWorkspaceService:
 
         source = self.recording_source_provider(recording_id)
         revision_cache: dict[str, Any] = {}
-        revisions = self.revision_store.list_manifests_for_recording(recording_id)
+        revisions = self._node_revisions_for_recording(recording_id, include_content=False)
         runs = self.run_store.list_for_recording(
             recording_id,
             revision_cache=revision_cache,
@@ -123,7 +162,7 @@ class RecordingPipelineWorkspaceService:
             include_items_for_processor_types={"observation-assembly"},
         )
         diagnostics: list[dict[str, Any]] = []
-        revision_by_id = {revision.revision_id: revision for revision in revisions}
+        revision_by_id = {self._manifest(revision).revision_id: revision for revision in revisions}
         selections = {
             content_type: self._selection(
                 recording_id,
@@ -161,10 +200,7 @@ class RecordingPipelineWorkspaceService:
             for content_type in ("events", "visible_cards", "visual_identities")
         }
         full_revisions = (
-            self.revision_store.list_for_recording(
-                recording_id,
-                revision_cache=revision_cache,
-            )
+            self._node_revisions_for_recording(recording_id, include_content=True)
             if stage_key in {None, "table_observations"}
             else ()
         )
@@ -205,7 +241,8 @@ class RecordingPipelineWorkspaceService:
             return {}
 
         revisions_by_recording: dict[str, set[str]] = {}
-        for manifest in self.revision_store.list_manifests():
+        for revision in self._node_revisions_for_recordings(requested_ids):
+            manifest = self._manifest(revision)
             if manifest.recording_id in requested_ids:
                 revisions_by_recording.setdefault(manifest.recording_id, set()).add(
                     manifest.content_type
@@ -254,6 +291,98 @@ class RecordingPipelineWorkspaceService:
                 "stages": stages,
             }
         return statuses
+
+    def _node_revisions_for_recordings(
+        self, recording_ids: Collection[str], *, include_content: bool = False
+    ) -> tuple[Any, ...]:
+        """Build workspace revision records from immutable node revisions."""
+        requested = set(recording_ids)
+        revisions = []
+        parsers = {
+            "events": parse_event_data_bytes,
+            "visible_cards": parse_visible_card_data_bytes,
+            "visual_identities": parse_visual_identity_data_bytes,
+            "table_observations": parse_table_observation_data_bytes,
+        }
+        graph = self.lineage_service.snapshot()
+        graph_inputs: dict[tuple[str, str], list[str]] = {}
+        role_order = {"events": 0, "visible_cards": 1, "visual_identities": 2}
+        for run in graph["runs"]:
+            inputs = [ref for ref in run.get("inputs", []) if ref.get("kind") == "revision"]
+            inputs.sort(key=lambda ref: (role_order.get(ref["role"], 10), ref["role"]))
+            input_ids = [
+                self._node_revision_legacy_ids.get(
+                    (ref["node_id"], ref["revision_id"]), ref["revision_id"]
+                )
+                for ref in inputs
+            ]
+            for output in run.get("outputs", []):
+                if output.get("kind") == "revision":
+                    graph_inputs[(output["node_id"], output["revision_id"])] = input_ids
+        for node in self.node_store.list_nodes():
+            source = parse_source(node.source)
+            recording_id = getattr(source, "recording_id", None)
+            if recording_id not in requested:
+                continue
+            parser = parsers.get(node.content_type)
+            if parser is None:
+                continue
+            history = self.node_store.history(node.node_id)
+            inherited: dict[str, Any] = {}
+            for revision in reversed(history):
+                inherited.update(revision.metadata)
+            for node_revision in history:
+                metadata = {**inherited, **node_revision.metadata}
+                revision_metadata = node_revision.metadata
+                legacy_id = revision_metadata.get("legacy_revision_id")
+                revision_id = legacy_id if isinstance(legacy_id, str) else node_revision.revision_id
+                manifest = DataRevision.from_mapping(
+                    {
+                        "schema_version": DATA_REVISION_SCHEMA_VERSION,
+                        "revision_id": revision_id,
+                        "content_type": node.content_type,
+                        "content_schema": metadata.get("legacy_content_schema", "node-content/v1"),
+                        "recording_id": recording_id,
+                        "source": node.source,
+                        "content_sha256": metadata.get(
+                            "legacy_content_sha256"
+                            if isinstance(legacy_id, str)
+                            else "content_sha256",
+                            node_revision.content_sha256,
+                        ),
+                        "input_revision_ids": metadata.get(
+                            "input_revision_ids",
+                            graph_inputs.get((node.node_id, node_revision.revision_id), []),
+                        ),
+                        "origin": metadata.get("origin", "processor"),
+                        "producer": metadata.get(
+                            "producer",
+                            {
+                                "kind": "processor",
+                                "run_id": metadata.get("legacy_revision_id", revision_id),
+                                "processor_type": metadata.get("processor_type", "pipeline-import"),
+                                "implementation_id": metadata.get(
+                                    "implementation_id", "doko_detector.node_store"
+                                ),
+                            },
+                        ),
+                        "coverage": metadata.get("coverage", {"kind": "unknown"}),
+                        "created_at": metadata.get(
+                            "legacy_created_at" if isinstance(legacy_id, str) else "created_at",
+                            node_revision.created_at,
+                        ),
+                    }
+                )
+                content = (
+                    parser(canonical_json_bytes(node_revision.content)) if include_content else None
+                )
+                revisions.append(_WorkspaceNodeRevision(manifest=manifest, content=content))
+        return tuple(revisions)
+
+    def _node_revisions_for_recording(
+        self, recording_id: str, *, include_content: bool = False
+    ) -> tuple[Any, ...]:
+        return self._node_revisions_for_recordings((recording_id,), include_content=include_content)
 
     def _list_statuses_for_recordings(self, recording_ids: Collection[str]) -> tuple[Any, ...]:
         """Read run status only for the requested recordings."""
@@ -317,9 +446,7 @@ class RecordingPipelineWorkspaceService:
         analyses: Collection[Any],
     ) -> str:
         stage_runs = [
-            status
-            for processor_type, status in runs
-            if processor_type == definition.processor_type
+            status for processor_type, status in runs if processor_type == definition.processor_type
         ]
         if any(status in {"queued", "running"} for status in stage_runs):
             return "active-run"
@@ -539,13 +666,9 @@ class RecordingPipelineWorkspaceService:
             }
         selected_completion = reference.state.selected_completed_revision_id
         selected_revision = (
-            None
-            if selected_completion is None
-            else revision_by_id.get(selected_completion)
+            None if selected_completion is None else revision_by_id.get(selected_completion)
         )
-        selected_manifest = (
-            None if selected_revision is None else self._manifest(selected_revision)
-        )
+        selected_manifest = None if selected_revision is None else self._manifest(selected_revision)
         if selected_manifest is not None and (
             selected_manifest.recording_id != reference.state.recording_id
             or selected_manifest.content_type != content_type

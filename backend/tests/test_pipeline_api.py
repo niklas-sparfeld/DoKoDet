@@ -540,6 +540,9 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         assert events["input_options"][0]["revision_id"] == revision_id
         assert events["input_options"][0]["origin"] == "processor"
 
+        # Workspace summaries now load revision options from the graph node.
+        shutil.rmtree(app.state.pipeline_revision_store.revision_path(revision_id))
+
         catalog = client.get("/v1/recordings")
         assert catalog.status_code == 200
         assert catalog.json()["recordings"][0]["pipeline_status"]["stages"] == [

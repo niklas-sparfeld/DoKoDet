@@ -40,11 +40,12 @@ bytes. Runtime selections now read and write exact node and revision pointers un
 the selection interface. An audit loaded all 136 selection records; 96 have a generated pointer and
 91 have a completed-reference pointer.
 
-The existing operations stores remain in place. Workspace summaries still use their legacy reader.
-Maintained-draft, independent-review, calibration-draft, and selection readers now use graph-store
-paths. M10 is not complete until workspace summaries and restart checks confirm the intended
-content and decisions. The recovery snapshot and verified migration package remain available for
-recovery.
+The workspace now builds revision options, compact recording statuses, and compatible input sets
+from node revisions. It uses exact graph run inputs when it builds each revision's input list.
+Processor run progress and analysis summaries still use their existing stores. Maintained-draft,
+independent-review, calibration-draft, and selection readers use graph-store paths. M10 remains
+open until the active migration data passes workspace content, coverage, exact-input, and restart
+checks. The recovery snapshot and verified migration package remain available for recovery.
 
 ## Declared lost inputs
 
@@ -117,9 +118,16 @@ Focused checks passed:
 - The local importer reported 126 maintained drafts, 13 calibration drafts, and 11 independent
   review packages. An audit verified all 441 stored files byte for byte and checked retained
   revision references against the legacy map.
+- Workspace summary and migration importer checks passed: four focused tests. The workspace test
+  removed the legacy revision directory before the catalog and workspace reload checks; the node
+  revision remained available in both summaries.
+- Ruff check, Ruff format check, and `git diff --check` passed for the node-backed workspace reader.
+- The broader observation API suite had two passes and one failure. The failing assertion expected
+  request labels as graph run IDs, but the graph contained generated UUIDs. This check did not fail
+  in the workspace summary assertions; the run-ID expectation remains to be reconciled.
 
 ## Remaining M10 work
 
-Switch workspace summaries to the graph store. Verify results, coverage, exact inputs, and restart
-behavior through the workspace. Keep the recovery and staging packages until those checks pass.
-M10 remains in progress.
+Use the active migrated dataset to verify results, coverage, exact inputs, and restart behavior
+through the workspace. Confirm migrated analyses from the workspace. Keep the recovery and staging
+packages until those checks pass. M10 remains in progress.
