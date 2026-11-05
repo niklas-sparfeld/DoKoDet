@@ -96,3 +96,40 @@ def test_node_enforces_content_type_and_source_duration(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         store.create("n", "Events", "events", SOURCE, events(10_000_000), {})
     assert store.list_nodes() == ()
+
+
+def test_visible_card_node_rejects_frame_from_a_different_source_video(tmp_path: Path) -> None:
+    frame_identity = {
+        "schema_version": "exact-event/v1",
+        "source_video_sha256": "b" * 64,
+        "requested_time_us": 100,
+        "frame_index": 1,
+        "presentation_timestamp_us": 100,
+        "width": 100,
+        "height": 100,
+        "decoder_version": "decoder.v1",
+        "transform_version": "transform.v1",
+        "output_encoding": "png",
+        "content_type": "image/png",
+        "image_sha256": "c" * 64,
+        "policy": "exact-event/v1",
+    }
+    content = {
+        "schema_version": "visible-card-data/v2",
+        "outcomes": [
+            {
+                "event_id": "event-1",
+                "frame_identity": frame_identity,
+                "status": "empty",
+                "candidates": [],
+                "ignored_regions": [],
+                "pile_regions": [],
+                "pile_detection_status": "unsupported",
+                "error": None,
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="does not match its source video"):
+        PipelineNodeStore(tmp_path).create(
+            "visible-cards", "Detector output", "visible_cards", SOURCE, content, {}
+        )

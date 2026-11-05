@@ -12,6 +12,7 @@ import {
 import { PipelineNodeEventEditor } from "../cardEvents/PipelineNodeEventEditor";
 import { PipelineVisibleCardEditor } from "../visibleCards/PipelineVisibleCardEditor";
 import type { PipelineVisibleCardRailItem } from "../visibleCards/PipelineVisibleCardEditor";
+import { PipelineNodeVisibleCardEditor } from "../visibleCards/PipelineNodeVisibleCardEditor";
 import {
   PipelineVisualIdentityEditor,
   type PipelineVisualIdentityRailItem,
@@ -308,6 +309,10 @@ export function RecordingWorkspaceTaskSurface({
     urlState.lineage === null
       ? undefined
       : decodeLineageSelection(urlState.lineage)?.selected.events;
+  const selectedVisibleCardNode =
+    urlState.lineage === null
+      ? undefined
+      : decodeLineageSelection(urlState.lineage)?.selected.visible_cards;
 
   return (
     <section
@@ -427,7 +432,71 @@ export function RecordingWorkspaceTaskSurface({
             }
           />
         ) : null}
-        {stage.key === "visible_cards" && !compare ? (
+        {stage.key === "visible_cards" &&
+        !compare &&
+        selectedVisibleCardNode !== undefined ? (
+          <PipelineNodeVisibleCardEditor
+            key={`${selectedVisibleCardNode.node_id}:${selectedVisibleCardNode.revision_id}`}
+            recordingId={recordingId}
+            nodeId={selectedVisibleCardNode.node_id}
+            revisionId={selectedVisibleCardNode.revision_id}
+            selectionItemId={presentation.surface.selectedItemId ?? null}
+            selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
+            onPositionChange={(itemId, timeUs) =>
+              onNavigate(
+                recordingPipelineNavigationPath(recordingId, stage.key, {
+                  ...urlState,
+                  item: itemId,
+                  ...(timeUs === null ? {} : { t_us: timeUs }),
+                }),
+              )
+            }
+            onRevisionChange={(
+              sourceNodeId,
+              sourceRevisionId,
+              nodeId,
+              revisionId,
+              itemId,
+              timeUs,
+            ) => {
+              const currentUrlState = readPipelineUrlState(
+                window.location.search,
+              );
+              const currentLineage =
+                currentUrlState.lineage === null
+                  ? null
+                  : decodeLineageSelection(currentUrlState.lineage);
+              const selected = currentLineage?.selected.visible_cards;
+              if (
+                selected?.node_id !== sourceNodeId ||
+                selected.revision_id !== sourceRevisionId
+              )
+                return;
+              const lineage = decodeLineageSelection(urlState.lineage ?? "");
+              if (lineage === null) return;
+              onNavigate(
+                recordingPipelineNavigationPath(recordingId, stage.key, {
+                  ...urlState,
+                  lineage: JSON.stringify({
+                    ...lineage,
+                    selected: {
+                      ...lineage.selected,
+                      visible_cards: {
+                        node_id: nodeId,
+                        revision_id: revisionId,
+                      },
+                    },
+                  }),
+                  item: itemId,
+                  ...(timeUs === null ? {} : { t_us: timeUs }),
+                }),
+              );
+            }}
+          />
+        ) : null}
+        {stage.key === "visible_cards" &&
+        !compare &&
+        selectedVisibleCardNode === undefined ? (
           <PipelineVisibleCardEditor
             key={urlState.review ?? "maintained-reference"}
             recordingId={recordingId}

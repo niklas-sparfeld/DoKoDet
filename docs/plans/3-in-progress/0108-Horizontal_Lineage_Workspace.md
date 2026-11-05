@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0–M4 are complete; M5–M12 are not started. The workspace exposes exact graph data,
+- **Outcome:** M0–M5 are complete; M6–M12 are not started. The workspace exposes exact graph data,
   preserves validated lineage URLs, and has aligned step and data rows. The horizontal drawer
   selects exact revisions and shows copy and processor sources with collapsed revision history.
   Shared node edit, copy, and restore transactions are available through the workspace API.
@@ -191,13 +191,23 @@ Item decisions, full-recording coverage, and overall decisions use separate revi
 Event lineage selection hides the legacy generated/reference selectors. Records that do not yet have
 an event node keep the old workspace path until M10 migrates them; M11 owns its removal.
 
-### M5 — Move visible-card editing to data nodes — Not started
+### M5 — Move visible-card editing to data nodes — Complete
 
 Integrate visible regions, pile regions, ignore regions, and independent copies. Replace the review
 dropdown and separate maintained-reference path. Preserve exact source-frame validation.
 
 Acceptance: independent migrated reviews remain separate; region and pile edits retain semantics,
 coverage, provenance, and copy behavior. No scene editor is implicitly selected as visible cards.
+
+Result: selecting a visible-card lineage node opens its exact revision in a node-backed editor. The
+editor shows the source video at each outcome's requested frame time and exposes visible, pile, and
+ignore region data for editing while keeping frame identity fixed. Saves use atomic node edits with
+outcome-level provenance and select protected copies in the lineage URL while preserving the frame
+selection. Item, full-recording coverage, and overall decisions use separate revision-bound reviews;
+existing decisions load with the selected revision. Full coverage requires an explicit inspection
+mark for every outcome. Node validation rejects a frame identity from a different source video.
+Recordings without a visible-card node retain the legacy editor until M10 migrates them; M11 owns
+legacy-path removal.
 
 ### M6 — Expose first-class virtual-scene editing — Not started
 

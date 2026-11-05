@@ -109,6 +109,14 @@ def _content(content_type: str, source: dict[str, Any], value: Mapping[str, Any]
         if content_type not in parsers:
             raise ValueError("unsupported content type")
         parsed = parsers[content_type](raw)
+        if content_type == "visible_cards":
+            parsed_source = parse_source(source)
+            if isinstance(parsed_source, RecordingVideoSource) and any(
+                outcome.frame_identity is not None
+                and outcome.frame_identity.source_video_sha256 != parsed_source.video_sha256
+                for outcome in parsed.outcomes
+            ):
+                raise ValueError("visible-card frame does not match its source video")
     return parsed.to_mapping()
 
 
