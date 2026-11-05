@@ -5,7 +5,7 @@
 - **Summary:** Replace competing data selectors with a horizontal lineage drawer beneath the
   processing steps. Integrate unified data nodes, migrate local data, and delete replaced flows.
 - **Status:** Blocked
-- **Depends on:** [Epic 0107](../2-ready/0107-Unified_Pipeline_Data_Lineage.md), including tested
+- **Depends on:** [Epic 0107](../3-in-progress/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
 - **Outcome:** Planned. M0–M12 are not started. The agreed layout is recorded below. The foundation
   dependency prevents implementation; processor input and trigger UX remains later work.

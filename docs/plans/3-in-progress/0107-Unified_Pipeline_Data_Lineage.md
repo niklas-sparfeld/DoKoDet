@@ -4,10 +4,10 @@
 
 - **Summary:** Define named pipeline data nodes, revision-bound provenance and review, automatic
   copies after downstream use, first-class virtual scenes, and a verified data migration.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** Planned. M0–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0 is complete; M1–M10 are not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -119,7 +119,9 @@ Do not run the real migration as part of planning or foundation development.
 Each milestone is one implementation phase. Commit each completed milestone to main, update this
 file and the board, and report every milestone's state. Do not start the next milestone implicitly.
 
-### M0 — Specify storage and migration mappings — Not started
+### M0 — Specify storage and migration mappings — Complete
+
+Contract: [M0 inventory](../../reports/0107-M0_Lineage_Inventory.md).
 
 Inventory owners and consumers. Define node/revision identifiers, item correspondence, audit events,
 review applicability, downstream-use locking, and migration mappings. Record a contract report with
