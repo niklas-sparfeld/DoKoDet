@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0–M3 are complete; M4–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0–M4 are complete; M5–M10 are not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -165,13 +165,16 @@ concurrent copies preserve exact inputs without duplicate or orphan copies.
 The [M3 result](../../reports/0107-M3_Accepted_Use_and_Copies.md) records accepted uses,
 protected edits, explicit copies, restores, idempotency, and interruption recovery.
 
-### M4 — Record item and overall review decisions — Not started
+### M4 — Record item and overall review decisions — Complete
 
 Implement revision-bound item decisions, negative coverage, and independent overall review records.
 Saving does not imply review. Compute applicability when copied content changes.
 
 Acceptance: all items reviewed without overall review, partial coverage, empty inspected coverage,
 changed reviewed content, and copied unchanged content have distinct, durable results.
+
+The [M4 result](../../reports/0107-M4_Review_Decisions.md) records decisions and coverage
+independently of content saves and calculates applicability along explicit copy and revision lineage.
 
 ### M5 — Preserve applicable identity review — Not started
 
