@@ -740,6 +740,7 @@ export function RecordingPipelineWorkspace({
             }
             onComparisonChange={workspaceRail.handleComparisonChange}
             onTimeChange={workspaceRail.handleRailTimeChange}
+            lineageGraph={lineageGraph}
           />
           <RecordingWorkspaceInspector
             recordingId={recordingId}

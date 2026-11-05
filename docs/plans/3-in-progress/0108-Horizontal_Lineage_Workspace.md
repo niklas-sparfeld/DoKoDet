@@ -227,13 +227,20 @@ virtual-scene nodes; proposal nodes remain visibly read-only. The editor changes
 so node validation checks the saved scene against its fixed frame and calibration context. Visible
 region derivation remains separate.
 
-### M7 — Move visual identity review to data nodes — Not started
+### M7 — Move visual identity review to data nodes — Complete
 
 Unify prediction and annotation viewing while preserving human classifications, item/overall review,
 and exact crop sources. Remove the old generated/reference view split and review-start gate.
 
 Acceptance: history retains original predictions and corrections. Fixture results passed through the
 0107 applicability service keep unaffected review and expose affected review without a blanket reset.
+
+Result: selecting a `visual_identities` node in lineage opens its exact revision in the identity
+workspace. The editor shows each outcome's exact frame and crop digest, allows classification edits
+while keeping card, frame, geometry, and crop source fields fixed, and saves through the atomic node
+edit contract. Protected edits select the returned copy. Item and overall decisions use revision-bound
+node reviews and load with the selected revision. The node editor has no generated/reference split or
+review-start gate. The existing editor remains the fallback until the M10 reader cutover.
 
 ### M8 — Integrate observation, analysis, and comparison views — Not started
 

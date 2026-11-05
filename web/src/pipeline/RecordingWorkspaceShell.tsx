@@ -13,6 +13,7 @@ import { PipelineNodeEventEditor } from "../cardEvents/PipelineNodeEventEditor";
 import { PipelineVisibleCardEditor } from "../visibleCards/PipelineVisibleCardEditor";
 import type { PipelineVisibleCardRailItem } from "../visibleCards/PipelineVisibleCardEditor";
 import { PipelineNodeVisibleCardEditor } from "../visibleCards/PipelineNodeVisibleCardEditor";
+import { PipelineNodeVisualIdentityEditor } from "../visualIdentities/PipelineNodeVisualIdentityEditor";
 import {
   PipelineVisualIdentityEditor,
   type PipelineVisualIdentityRailItem,
@@ -82,6 +83,7 @@ export type RecordingWorkspaceTaskSurfaceProps = {
   onComparisonRailItemsChange: (items: RecordingTimelineRailItem[]) => void;
   onComparisonChange: (comparison: PipelineComparisonResponse) => void;
   onTimeChange: (timeUs: number) => void;
+  lineageGraph?: PipelineLineageGraph | null;
 };
 
 export function RecordingWorkspaceShell({
@@ -297,6 +299,7 @@ export function RecordingWorkspaceTaskSurface({
   onComparisonRailItemsChange,
   onComparisonChange,
   onTimeChange,
+  lineageGraph = null,
 }: RecordingWorkspaceTaskSurfaceProps) {
   const visibleCardStage = workspace.stages.find(
     (candidate) => candidate.key === "visible_cards",
@@ -317,6 +320,18 @@ export function RecordingWorkspaceTaskSurface({
     urlState.lineage === null
       ? undefined
       : decodeLineageSelection(urlState.lineage)?.selected.visible_cards;
+  const selectedVisualIdentity =
+    urlState.lineage === null
+      ? undefined
+      : decodeLineageSelection(urlState.lineage)?.selected.visual_identities;
+  const selectedVisualIdentityNode =
+    selectedVisualIdentity === undefined
+      ? undefined
+      : lineageGraph?.nodes.find(
+          (node) =>
+            node.node_id === selectedVisualIdentity.node_id &&
+            node.content_type === "visual_identities",
+        );
 
   return (
     <section
@@ -522,7 +537,63 @@ export function RecordingWorkspaceTaskSurface({
             }
           />
         ) : null}
-        {stage.key === "visual_identities" && !compare ? (
+        {stage.key === "visual_identities" &&
+        !compare &&
+        selectedVisualIdentityNode !== undefined &&
+        selectedVisualIdentity !== undefined ? (
+          <PipelineNodeVisualIdentityEditor
+            key={`${selectedVisualIdentity.node_id}:${selectedVisualIdentity.revision_id}`}
+            recordingId={recordingId}
+            nodeId={selectedVisualIdentity.node_id}
+            revisionId={selectedVisualIdentity.revision_id}
+            selectionItemId={presentation.surface.selectedItemId ?? null}
+            onPositionChange={(itemId, timeUs) =>
+              onNavigate(
+                recordingPipelineNavigationPath(recordingId, stage.key, {
+                  ...urlState,
+                  item: itemId,
+                  tUs: timeUs,
+                }),
+              )
+            }
+            onRevisionChange={(
+              sourceNodeId,
+              sourceRevisionId,
+              nodeId,
+              revisionId,
+              itemId,
+              timeUs,
+            ) => {
+              const lineage = decodeLineageSelection(urlState.lineage ?? "");
+              if (
+                lineage?.selected.visual_identities?.node_id !== sourceNodeId ||
+                lineage.selected.visual_identities.revision_id !==
+                  sourceRevisionId
+              )
+                return;
+              onNavigate(
+                recordingPipelineNavigationPath(recordingId, stage.key, {
+                  ...urlState,
+                  lineage: JSON.stringify({
+                    ...lineage,
+                    selected: {
+                      ...lineage.selected,
+                      visual_identities: {
+                        node_id: nodeId,
+                        revision_id: revisionId,
+                      },
+                    },
+                  }),
+                  item: itemId,
+                  tUs: timeUs,
+                }),
+              );
+            }}
+          />
+        ) : null}
+        {stage.key === "visual_identities" &&
+        !compare &&
+        selectedVisualIdentityNode === undefined ? (
           <PipelineVisualIdentityEditor
             recordingId={recordingId}
             durationUs={workspace.video.duration_us}
