@@ -242,13 +242,22 @@ edit contract. Protected edits select the returned copy. Item and overall decisi
 node reviews and load with the selected revision. The node editor has no generated/reference split or
 review-start gate. The existing editor remains the fallback until the M10 reader cutover.
 
-### M8 — Integrate observation, analysis, and comparison views — Not started
+### M8 — Integrate observation, analysis, and comparison views — Complete
 
 Use drawer selection for existing observation/analysis inspection. Show multi-input provenance,
 round context, failed attempts, and empty content. Keep comparison and processor input controls.
 
 Acceptance: exact analysis and observation selection survives tab switches and deep links. The
 comparison pair remains explicit. Browsing never starts work or changes input defaults.
+
+Result: selecting an observation node in lineage opens that exact revision. Its observation list,
+full selected observation, and exact processor-input edges are visible. Empty content and invalid
+deep-linked item IDs remain explicit; the editor does not select a substitute. Failed and partial
+assembly attempts remain visible. The lineage drawer selects exact analysis IDs, and analysis
+selection remains in the URL when operators move between steps. The analysis view shows exact input
+revisions, session and round context, status, and attempt history. These browsing paths do not call
+processor controls or change their input selection. Comparison continues to use its explicit left,
+right, and reference URL fields.
 
 ### M9 — Connect processor writers and accepted input use — Not started
 

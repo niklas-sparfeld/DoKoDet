@@ -83,6 +83,7 @@ export type RecordingWorkspaceTaskSurfaceProps = {
   onComparisonRailItemsChange: (items: RecordingTimelineRailItem[]) => void;
   onComparisonChange: (comparison: PipelineComparisonResponse) => void;
   onTimeChange: (timeUs: number) => void;
+  onAnalysisChange?: (analysisId: string) => void;
   lineageGraph?: PipelineLineageGraph | null;
 };
 
@@ -176,7 +177,6 @@ export function RecordingWorkspaceShell({
                     left: null,
                     right: null,
                     reference: null,
-                    analysis: null,
                   },
                 );
                 const isActive = step.key === navigationStep;
@@ -257,6 +257,10 @@ export function RecordingWorkspaceShell({
                 {
                   ...urlState,
                   lineage: JSON.stringify(nextSelection),
+                  ...(nextSelection.selected.table_observations !==
+                  lineageSelection?.selected.table_observations
+                    ? { item: null, tUs: null }
+                    : {}),
                   left: null,
                   right: null,
                   reference: null,
@@ -265,6 +269,21 @@ export function RecordingWorkspaceShell({
               onNavigate(path);
             }}
             onCopy={onCopyNode}
+            selectedAnalysisId={urlState.analysis}
+            onSelectAnalysis={(analysisId) => {
+              const path = recordingPipelineNavigationPath(
+                recordingId,
+                "round_analyses",
+                {
+                  ...urlState,
+                  analysis: analysisId,
+                  left: null,
+                  right: null,
+                  reference: null,
+                },
+              );
+              onNavigate(path);
+            }}
           />
         ) : null}
 
@@ -299,6 +318,7 @@ export function RecordingWorkspaceTaskSurface({
   onComparisonRailItemsChange,
   onComparisonChange,
   onTimeChange,
+  onAnalysisChange,
   lineageGraph = null,
 }: RecordingWorkspaceTaskSurfaceProps) {
   const visibleCardStage = workspace.stages.find(
@@ -332,6 +352,18 @@ export function RecordingWorkspaceTaskSurface({
             node.node_id === selectedVisualIdentity.node_id &&
             node.content_type === "visual_identities",
         );
+  const selectedObservationNode =
+    urlState.lineage === null
+      ? undefined
+      : decodeLineageSelection(urlState.lineage)?.selected.table_observations;
+  const selectedObservationDataNode =
+    selectedObservationNode === undefined
+      ? undefined
+      : lineageGraph?.nodes.find(
+          (node) =>
+            node.node_id === selectedObservationNode.node_id &&
+            node.content_type === "table_observations",
+        );
 
   return (
     <section
@@ -363,6 +395,7 @@ export function RecordingWorkspaceTaskSurface({
             }
             selectedTimeUs={presentation.inspector.selection?.timeUs ?? null}
             onTimeChange={onTimeChange}
+            onAnalysisChange={onAnalysisChange}
           />
         ) : null}
         {stage.key === "events" &&
@@ -621,6 +654,25 @@ export function RecordingWorkspaceTaskSurface({
             recordingId={recordingId}
             stage={stage}
             selectedItemId={presentation.surface.selectedItemId}
+            selectedNode={
+              selectedObservationDataNode === undefined ||
+              selectedObservationNode === undefined
+                ? null
+                : {
+                    nodeId: selectedObservationNode.node_id,
+                    revisionId: selectedObservationNode.revision_id,
+                  }
+            }
+            lineageGraph={lineageGraph}
+            onSelectNodeObservation={(itemId, timeUs) =>
+              onNavigate(
+                recordingPipelineNavigationPath(recordingId, stage.key, {
+                  ...urlState,
+                  item: itemId,
+                  tUs: timeUs,
+                }),
+              )
+            }
           />
         ) : null}
       </div>

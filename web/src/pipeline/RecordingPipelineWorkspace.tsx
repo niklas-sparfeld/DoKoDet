@@ -740,6 +740,14 @@ export function RecordingPipelineWorkspace({
             }
             onComparisonChange={workspaceRail.handleComparisonChange}
             onTimeChange={workspaceRail.handleRailTimeChange}
+            onAnalysisChange={(analysisId) =>
+              navigateTo(
+                recordingPipelineNavigationPath(recordingId, "round_analyses", {
+                  ...urlState,
+                  analysis: analysisId,
+                }),
+              )
+            }
             lineageGraph={lineageGraph}
           />
           <RecordingWorkspaceInspector
@@ -823,7 +831,10 @@ function sanitizeUrlState(
           ? null
           : null,
     item:
-      state.item !== null && isKnownItem(stage, state.item) ? state.item : null,
+      state.item !== null &&
+      (stage.key === "table_observations" || isKnownItem(stage, state.item))
+        ? state.item
+        : null,
     tUs:
       state.tUs === null
         ? null
@@ -844,7 +855,7 @@ function sanitizeUrlState(
         ? state.reference
         : null,
     analysis:
-      !compare && stage.key === "round_analyses" && state.analysis !== null
+      !compare && state.analysis !== null
         ? stage.analyses.some(
             (analysis) => analysis.analysis_id === state.analysis,
           )

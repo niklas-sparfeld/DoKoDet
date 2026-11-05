@@ -165,6 +165,25 @@ describe("PipelineLineageDrawer", () => {
     fireEvent.click(screen.getByText("History (2)"));
     expect(history).toHaveAttribute("open");
   });
+
+  it("selects an exact analysis from the lineage drawer", () => {
+    const onSelectAnalysis = vi.fn();
+    render(
+      <PipelineLineageDrawer
+        id="lineage"
+        graph={graph}
+        graphError={null}
+        selection={null}
+        onSelect={vi.fn()}
+        onCopy={vi.fn().mockResolvedValue(undefined)}
+        onSelectAnalysis={onSelectAnalysis}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Analysis analysis-run" }),
+    );
+    expect(onSelectAnalysis).toHaveBeenCalledWith("analysis-run");
+  });
 });
 
 function revision(nodeId: string, revisionId: string, createdAt: string) {

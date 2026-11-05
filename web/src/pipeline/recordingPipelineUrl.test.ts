@@ -189,4 +189,13 @@ describe("recording pipeline URL helpers", () => {
       "/recordings/recording%2Fone/pipeline/events/compare?view=reviewed&revision=revision%2F1&item=item%2F1&t_us=42&left=run%2F1&right=run%2F2&reference=reference%2F1",
     );
   });
+
+  it("keeps an exact analysis deep link when opening another pipeline step", () => {
+    const state = readPipelineUrlState("?analysis=analysis-1&lineage=%7B%7D");
+    expect(
+      recordingPipelineNavigationPath("recording-1", "events", state),
+    ).toBe(
+      "/recordings/recording-1/pipeline/events?lineage=%7B%7D&analysis=analysis-1",
+    );
+  });
 });

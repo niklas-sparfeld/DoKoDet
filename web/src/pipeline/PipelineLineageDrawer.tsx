@@ -46,6 +46,8 @@ type Props = {
     nodeId: string,
     revisionId: string,
   ) => Promise<void>;
+  selectedAnalysisId?: string | null;
+  onSelectAnalysis?: (analysisId: string) => void;
 };
 
 export function PipelineLineageDrawer({
@@ -55,6 +57,8 @@ export function PipelineLineageDrawer({
   selection,
   onSelect,
   onCopy,
+  selectedAnalysisId = null,
+  onSelectAnalysis,
 }: Props) {
   const revisionsByNode = new Map<string, PipelineLineageGraph["revisions"]>();
   for (const revision of graph?.revisions ?? []) {
@@ -116,6 +120,8 @@ export function PipelineLineageDrawer({
                         graph={graph}
                         runId={run.run_id}
                         status={run.status ?? "Status unavailable"}
+                        selected={selectedAnalysisId === run.run_id}
+                        onSelect={onSelectAnalysis}
                       />
                     ))
                   )
@@ -235,10 +241,14 @@ function AnalysisRunCard({
   graph,
   runId,
   status,
+  selected,
+  onSelect,
 }: {
   graph: PipelineLineageGraph;
   runId: string;
   status: string;
+  selected: boolean;
+  onSelect?: (analysisId: string) => void;
 }) {
   const inputs = graph.edges.filter(
     (edge) =>
@@ -247,7 +257,17 @@ function AnalysisRunCard({
   );
   return (
     <article className={styles.lineageNode}>
-      <strong>Analysis {runId}</strong>
+      {onSelect === undefined ? (
+        <strong>Analysis {runId}</strong>
+      ) : (
+        <button
+          type="button"
+          aria-pressed={selected}
+          onClick={() => onSelect(runId)}
+        >
+          Analysis {runId}
+        </button>
+      )}
       <small>Status: {status}</small>
       {inputs.length === 0 ? (
         <small>No recorded inputs</small>

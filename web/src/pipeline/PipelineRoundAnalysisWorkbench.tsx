@@ -13,12 +13,14 @@ export function PipelineRoundAnalysisWorkbench({
   selectedAnalysisId,
   selectedTimeUs,
   onTimeChange,
+  onAnalysisChange,
 }: {
   recordingId: string;
   stage: PipelineWorkspaceStage;
   selectedAnalysisId: string | null;
   selectedTimeUs: number | null;
   onTimeChange: (timeUs: number) => void;
+  onAnalysisChange?: (analysisId: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -110,7 +112,31 @@ export function PipelineRoundAnalysisWorkbench({
                   <dt>Rules version</dt>
                   <dd>{rulesVersion(analysis.request)}</dd>
                 </div>
+                <div>
+                  <dt>Session</dt>
+                  <dd>{analysis.session_id}</dd>
+                </div>
               </dl>
+              <section aria-label="Round context">
+                <h3>Round context</h3>
+                <pre>
+                  {JSON.stringify(
+                    analysis.request.round_context ?? {},
+                    null,
+                    2,
+                  )}
+                </pre>
+              </section>
+              {analysis.input_revision_ids.length > 1 ? (
+                <section aria-label="Analysis input provenance">
+                  <h3>Exact analysis inputs</h3>
+                  <ul>
+                    {analysis.input_revision_ids.map((input) => (
+                      <li key={input}>{input}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               {analysis.failure !== null ? (
                 <p className={styles.detailBlocker}>{analysis.failure}</p>
               ) : null}
@@ -125,6 +151,37 @@ export function PipelineRoundAnalysisWorkbench({
               ) : null}
             </section>
           )}
+          {stage.analyses.length > 1 ? (
+            <section aria-label="Analysis attempts">
+              <h3>Analysis attempts</h3>
+              <ul>
+                {stage.analyses.map((candidate) => (
+                  <li key={candidate.analysis_id}>
+                    {onAnalysisChange ? (
+                      <button
+                        type="button"
+                        aria-current={
+                          candidate.analysis_id === analysis?.analysis_id
+                            ? "true"
+                            : undefined
+                        }
+                        onClick={() => onAnalysisChange(candidate.analysis_id)}
+                      >
+                        {candidate.analysis_id}
+                      </button>
+                    ) : (
+                      candidate.analysis_id
+                    )}
+                    {" · "}
+                    {candidate.state}
+                    {candidate.failure ? ` · ${candidate.failure}` : ""}
+                    {" · inputs "}
+                    {candidate.input_revision_ids.join(", ") || "none"}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </>
       )}
     </div>
