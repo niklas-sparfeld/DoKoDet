@@ -1,0 +1,165 @@
+{
+  "coordinator_id": "ab4acb6c-a553-48cc-87e7-b311036cc468",
+  "failure": null,
+  "recording_id": "game-2026-08-20-01-003",
+  "schema_version": "pipeline-coordinator-run/v1",
+  "stages": [
+    {
+      "failure": null,
+      "input_revision_ids": [],
+      "name": "event_proposals",
+      "output_revision_ids": [
+        "events-coord-5ed3cbac4b08508a8c34-attempt-1"
+      ],
+      "processor_run_id": "coord-5ed3cbac4b08508a8c34",
+      "request": {
+        "configuration": {
+          "checkpoint_path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt",
+          "checkpoint_sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4",
+          "merge_window_s": 0.625,
+          "threshold": 0.4271905720233917
+        }
+      },
+      "request_sha256": "a50cbb31e05b0c354d9b27b3ebb5776ac9abbdbd0b9f53cd743e3ed01cc10de2",
+      "run_id": "coord-5ed3cbac4b08508a8c34",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "events-coord-5ed3cbac4b08508a8c34-attempt-1"
+      ],
+      "name": "visible_card_and_pile_proposals",
+      "output_revision_ids": [
+        "visible-cards-coord-42b177425108f232f382-attempt-1"
+      ],
+      "processor_run_id": "coord-42b177425108f232f382",
+      "request": {
+        "configuration": {
+          "bundle_identity": {
+            "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+            "checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+            "class_map": {
+              "1": "visible_card",
+              "2": "card_pile"
+            },
+            "mask_policy": {
+              "derived_box": "tight_floor_min_ceil_max_v1",
+              "normalization": "full-frame-0-1000/v1",
+              "pile_box": "tight_occupied_pixel_bbox_v1",
+              "pile_geometry": "coarse-footprint-pixel-center-even-odd-v1",
+              "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+              "pixel_ownership": "reviewed-card-pixels-priority-v1",
+              "pixel_point_rounding": "six_decimal_places"
+            },
+            "run_id": "rfdetr-segmentation-m3-training-1792096060",
+            "schema_version": "rfdetr-segmentation-bundle/v1"
+          },
+          "provider": "local-rfdetr-segmentation",
+          "version": "local-visible-card-segmentation-v1"
+        }
+      },
+      "request_sha256": "51737f6f26c7b0206d82b54f84677866bc002a8c4ab2cb63ae46bca2c90e7726",
+      "run_id": "coord-42b177425108f232f382",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "visible-cards-coord-42b177425108f232f382-attempt-1"
+      ],
+      "name": "card_scene_and_calibration",
+      "output_revision_ids": [
+        "card-scene-proposals-coord-4fb0a66cac84a7166a9b-attempt-1"
+      ],
+      "processor_run_id": "coord-4fb0a66cac84a7166a9b",
+      "request": {
+        "configuration": {}
+      },
+      "request_sha256": "481779cbe1306473961dd35c8dd5c327d7ae5f7b6a5b4b6374ec47cdf347ccae",
+      "run_id": "coord-4fb0a66cac84a7166a9b",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "visible-cards-coord-42b177425108f232f382-attempt-1"
+      ],
+      "name": "visual_identity_proposals",
+      "output_revision_ids": [
+        "visual-identities-coord-c32b3a0b501b38ec4d45-attempt-1"
+      ],
+      "processor_run_id": "coord-c32b3a0b501b38ec4d45",
+      "request": {
+        "configuration": {
+          "crop_policy": "predicted_visible_region",
+          "provider": "local-dinov3",
+          "version": "dinov3-local-identity-v2"
+        },
+        "crop_policy": {
+          "output_encoding": "ppm",
+          "policy_id": "predicted_visible_region"
+        }
+      },
+      "request_sha256": "216636dc0f4b0cab0348a2c4d0270235d473b8929a8bc97592e2bd481686cba1",
+      "run_id": "coord-c32b3a0b501b38ec4d45",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "events-coord-5ed3cbac4b08508a8c34-attempt-1",
+        "visible-cards-coord-42b177425108f232f382-attempt-1",
+        "visual-identities-coord-c32b3a0b501b38ec4d45-attempt-1"
+      ],
+      "name": "table_observations",
+      "output_revision_ids": [
+        "table-observations-coord-690f69f206374b1111cb-attempt-1"
+      ],
+      "processor_run_id": "coord-690f69f206374b1111cb",
+      "request": {
+        "configuration": {}
+      },
+      "request_sha256": "481779cbe1306473961dd35c8dd5c327d7ae5f7b6a5b4b6374ec47cdf347ccae",
+      "run_id": "coord-690f69f206374b1111cb",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "table-observations-coord-690f69f206374b1111cb-attempt-1"
+      ],
+      "name": "reconstruction",
+      "output_revision_ids": [
+        "bf3ec73a-452c-54b6-b70e-11f2a4301291"
+      ],
+      "processor_run_id": "bf3ec73a-452c-54b6-b70e-11f2a4301291",
+      "request": {
+        "round_context": {
+          "active_players": [
+            "player-1",
+            "player-2",
+            "player-3",
+            "player-4"
+          ],
+          "dealer": "dealer-unspecified",
+          "first_trick_leader": "player-1",
+          "game_id": "game-ecc3dcea8f6f37b5",
+          "round_id": "round-ecc3dcea8f6f37b5"
+        },
+        "round_id": "round-ecc3dcea8f6f37b5",
+        "rules_version": "v1",
+        "search": {
+          "max_hypotheses": 256,
+          "max_missing_plays": 1,
+          "max_search_nodes": 250000
+        },
+        "session_id": "session-2026-08-20"
+      },
+      "request_sha256": "78ded42c7f9e1eb2bc3fd6949cebfc07edf82ec24ca6699ec50139b326ac9f5c",
+      "run_id": "coord-4554f5934e95225a4b3e",
+      "status": "complete"
+    }
+  ],
+  "status": "complete"
+}

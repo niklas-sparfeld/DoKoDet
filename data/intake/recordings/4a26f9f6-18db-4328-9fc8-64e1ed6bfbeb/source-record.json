@@ -1,0 +1,25 @@
+{
+  "acquisition_method" : "self_recorded",
+  "allowed_uses" : [
+    "train",
+    "validation",
+    "test",
+    "evaluation"
+  ],
+  "byte_length" : 158918571,
+  "content_type" : "staged_scenario",
+  "game_id" : null,
+  "media_type" : "video\/quicktime",
+  "notes" : null,
+  "original_filename" : "video-4a26f9f6-18db-4328-9fc8-64e1ed6bfbeb.mov",
+  "recording_id" : "4a26f9f6-18db-4328-9fc8-64e1ed6bfbeb",
+  "retention_state" : "active",
+  "round_id" : null,
+  "schema_version" : "source-record\/v1",
+  "session_id" : "4f04152a-3efb-41c3-8b12-57bf5fa00c21",
+  "sha256" : "c49c88d598a6a49e2faba4e7f931ea1cbb990837ee5e8f9e71cce61636c998b2",
+  "source_asset_id" : "source-4a26f9f6-18db-4328-9fc8-64e1ed6bfbeb",
+  "source_permission" : "project_use",
+  "table_setup" : "default_table_setup",
+  "video_id" : "video-4a26f9f6-18db-4328-9fc8-64e1ed6bfbeb"
+}

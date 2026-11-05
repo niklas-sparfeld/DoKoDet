@@ -1,0 +1,1 @@
+{"failure":null,"item_id":"event-000006","result":{"end_us":44500000,"event_id":"event-000006","event_type":"card_state_changed","model_scores":[{"producer_id":"cardeventnet.file-v1","score":0.9920071363449097}],"start_us":44500000},"status":"succeeded"}

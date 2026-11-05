@@ -1,0 +1,305 @@
+{
+  "client_request_sha256": "36b8c090e242c0ea23474e861bc47751a9cdeb151ab980bdf1b34ef3903f39f2",
+  "created_at": "2026-11-05T08:19:48.892823Z",
+  "failure": null,
+  "recording_id": "game-2026-08-20-01-003",
+  "request": {
+    "idempotency_key": "62af9446-3498-40e2-ace1-9af9b4d72340",
+    "resolved_providers": {
+      "card_scene_and_calibration": {
+        "name": "automatic-card-scene",
+        "version": "configured-backend"
+      },
+      "event_proposals": {
+        "checkpoint_sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4",
+        "name": "cardeventnet",
+        "version": "file-v1"
+      },
+      "table_observations": {
+        "name": "observation-assembly",
+        "version": "configured-backend"
+      },
+      "visible_card_and_pile_proposals": {
+        "bundle_identity": {
+          "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+          "checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+          "class_map": {
+            "1": "visible_card",
+            "2": "card_pile"
+          },
+          "mask_policy": {
+            "derived_box": "tight_floor_min_ceil_max_v1",
+            "normalization": "full-frame-0-1000/v1",
+            "pile_box": "tight_occupied_pixel_bbox_v1",
+            "pile_geometry": "coarse-footprint-pixel-center-even-odd-v1",
+            "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+            "pixel_ownership": "reviewed-card-pixels-priority-v1",
+            "pixel_point_rounding": "six_decimal_places"
+          },
+          "run_id": "rfdetr-segmentation-m3-training-1792096060",
+          "schema_version": "rfdetr-segmentation-bundle/v1"
+        },
+        "provider": "local-rfdetr-segmentation",
+        "version": "local-visible-card-segmentation-v1"
+      },
+      "visual_identity_proposals": {
+        "bundle_identity": {
+          "bundle_digest": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+          "calibration_sha256": "04f684c0e5cb0c5154b3103459870b697c35e3db9f4cd4f8fda94d6702f507b7",
+          "head_sha256": "baeae9d97b971cdfa60fa3f8c92e62c47cb5d7eb7074478322abda6ffca19979",
+          "model_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
+          "model_revision": "master",
+          "schema_version": "dinov3-identity-bundle/v5",
+          "score_schema_version": "dinov3-visual-score/v1"
+        },
+        "crop_input_kind": "proposed_virtual_cards",
+        "crop_policy": "predicted_visible_region",
+        "model": "local-dinov3",
+        "provider": "local-dinov3",
+        "version": "dinov3-local-identity-v2"
+      }
+    },
+    "round_context": {
+      "active_players": [
+        "player-1",
+        "player-2",
+        "player-3",
+        "player-4"
+      ],
+      "dealer": "dealer-unspecified",
+      "first_trick_leader": "player-1",
+      "game_id": "game-ecc3dcea8f6f37b5",
+      "round_id": "round-ecc3dcea8f6f37b5"
+    },
+    "round_id": "round-ecc3dcea8f6f37b5",
+    "rules_version": "v1",
+    "search": {
+      "max_hypotheses": 256,
+      "max_missing_plays": 1,
+      "max_search_nodes": 250000
+    },
+    "session_id": "session-2026-08-20",
+    "source": {
+      "byte_length": 459868428,
+      "duration_us": 67828000,
+      "recording_id": "game-2026-08-20-01-003",
+      "relative_path": "data/intake/recordings/game-2026-08-20-01-003/videos/game-2026-08-20-01-003-video.mov",
+      "schema_version": "recording-video/v1",
+      "video_sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8"
+    },
+    "stage_requests": {
+      "card_scene_and_calibration": {
+        "configuration": {}
+      },
+      "event_proposals": {
+        "configuration": {
+          "checkpoint_path": "data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt",
+          "checkpoint_sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4",
+          "merge_window_s": 0.625,
+          "threshold": 0.4271905720233917
+        }
+      },
+      "table_observations": {
+        "configuration": {}
+      },
+      "visible_card_and_pile_proposals": {
+        "configuration": {
+          "bundle_identity": {
+            "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+            "checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+            "class_map": {
+              "1": "visible_card",
+              "2": "card_pile"
+            },
+            "mask_policy": {
+              "derived_box": "tight_floor_min_ceil_max_v1",
+              "normalization": "full-frame-0-1000/v1",
+              "pile_box": "tight_occupied_pixel_bbox_v1",
+              "pile_geometry": "coarse-footprint-pixel-center-even-odd-v1",
+              "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+              "pixel_ownership": "reviewed-card-pixels-priority-v1",
+              "pixel_point_rounding": "six_decimal_places"
+            },
+            "run_id": "rfdetr-segmentation-m3-training-1792096060",
+            "schema_version": "rfdetr-segmentation-bundle/v1"
+          },
+          "detector": {
+            "name": "local-rfdetr-segmentation",
+            "version": "local-visible-card-segmentation-v1"
+          },
+          "device": "mps",
+          "provider": "local-rfdetr-segmentation",
+          "version": "local-visible-card-segmentation-v1"
+        }
+      },
+      "visual_identity_proposals": {
+        "configuration": {
+          "bundle_identity": {
+            "bundle_digest": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+            "calibration_sha256": "04f684c0e5cb0c5154b3103459870b697c35e3db9f4cd4f8fda94d6702f507b7",
+            "head_sha256": "baeae9d97b971cdfa60fa3f8c92e62c47cb5d7eb7074478322abda6ffca19979",
+            "model_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
+            "model_revision": "master",
+            "schema_version": "dinov3-identity-bundle/v5",
+            "score_schema_version": "dinov3-visual-score/v1"
+          },
+          "classifier": {
+            "name": "local-dinov3",
+            "version": "dinov3-local-identity-v2"
+          },
+          "crop_input_kind": "proposed_virtual_cards",
+          "crop_policy": "predicted_visible_region",
+          "device": "mps",
+          "provider": "local-dinov3",
+          "version": "dinov3-local-identity-v2"
+        },
+        "crop_input_kind": "proposed_virtual_cards",
+        "crop_policy": {
+          "output_encoding": "ppm",
+          "policy_id": "predicted_visible_region"
+        }
+      }
+    }
+  },
+  "request_sha256": "f9c3d833112e325377ad3e10ba6cfc00a5e21573c2bd41b08b3511e915f79bb5",
+  "resolved_providers": {
+    "card_scene_and_calibration": {
+      "name": "automatic-card-scene",
+      "version": "configured-backend"
+    },
+    "event_proposals": {
+      "checkpoint_sha256": "258f4541142afc68df1c300476112a6bc1d0afffd2e44323706b8559e64971e4",
+      "name": "cardeventnet",
+      "version": "file-v1"
+    },
+    "table_observations": {
+      "name": "observation-assembly",
+      "version": "configured-backend"
+    },
+    "visible_card_and_pile_proposals": {
+      "bundle_identity": {
+        "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+        "checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+        "class_map": {
+          "1": "visible_card",
+          "2": "card_pile"
+        },
+        "mask_policy": {
+          "derived_box": "tight_floor_min_ceil_max_v1",
+          "normalization": "full-frame-0-1000/v1",
+          "pile_box": "tight_occupied_pixel_bbox_v1",
+          "pile_geometry": "coarse-footprint-pixel-center-even-odd-v1",
+          "pile_mask_encoding": "coco-uncompressed-rle-column-major-v1",
+          "pixel_ownership": "reviewed-card-pixels-priority-v1",
+          "pixel_point_rounding": "six_decimal_places"
+        },
+        "run_id": "rfdetr-segmentation-m3-training-1792096060",
+        "schema_version": "rfdetr-segmentation-bundle/v1"
+      },
+      "provider": "local-rfdetr-segmentation",
+      "version": "local-visible-card-segmentation-v1"
+    },
+    "visual_identity_proposals": {
+      "bundle_identity": {
+        "bundle_digest": "a6c1aa2a8911aef7371b8123e39a2e7534f4a88ed9303cb047d2515da604ed79",
+        "calibration_sha256": "04f684c0e5cb0c5154b3103459870b697c35e3db9f4cd4f8fda94d6702f507b7",
+        "head_sha256": "baeae9d97b971cdfa60fa3f8c92e62c47cb5d7eb7074478322abda6ffca19979",
+        "model_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
+        "model_revision": "master",
+        "schema_version": "dinov3-identity-bundle/v5",
+        "score_schema_version": "dinov3-visual-score/v1"
+      },
+      "crop_input_kind": "proposed_virtual_cards",
+      "crop_policy": "predicted_visible_region",
+      "model": "local-dinov3",
+      "provider": "local-dinov3",
+      "version": "dinov3-local-identity-v2"
+    }
+  },
+  "run_id": "1dc9a9ac-202c-4baf-8863-c6856983bf2e",
+  "schema_version": "automated-pipeline-run/v1",
+  "source": {
+    "byte_length": 459868428,
+    "duration_us": 67828000,
+    "recording_id": "game-2026-08-20-01-003",
+    "relative_path": "data/intake/recordings/game-2026-08-20-01-003/videos/game-2026-08-20-01-003-video.mov",
+    "schema_version": "recording-video/v1",
+    "video_sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8"
+  },
+  "stages": [
+    {
+      "failure": null,
+      "input_revision_ids": [],
+      "name": "event_proposals",
+      "output_revision_ids": [
+        "events-coord-fb15f672b5926f05fab9-attempt-1"
+      ],
+      "run_id": "coord-fb15f672b5926f05fab9",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "events-coord-fb15f672b5926f05fab9-attempt-1"
+      ],
+      "name": "visible_card_and_pile_proposals",
+      "output_revision_ids": [
+        "visible-cards-coord-14e4af10199bb9605381-attempt-1"
+      ],
+      "run_id": "coord-14e4af10199bb9605381",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "visible-cards-coord-14e4af10199bb9605381-attempt-1"
+      ],
+      "name": "card_scene_and_calibration",
+      "output_revision_ids": [
+        "card-scene-proposals-coord-900a7b54a7a3ee962beb-attempt-1"
+      ],
+      "run_id": "coord-900a7b54a7a3ee962beb",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "card-scene-proposals-coord-900a7b54a7a3ee962beb-attempt-1"
+      ],
+      "name": "visual_identity_proposals",
+      "output_revision_ids": [
+        "visual-identities-coord-c3e67b00eb906a118470-attempt-1"
+      ],
+      "run_id": "coord-c3e67b00eb906a118470",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "events-coord-fb15f672b5926f05fab9-attempt-1",
+        "visible-cards-coord-14e4af10199bb9605381-attempt-1",
+        "visual-identities-coord-c3e67b00eb906a118470-attempt-1"
+      ],
+      "name": "table_observations",
+      "output_revision_ids": [
+        "table-observations-coord-4107d8ef23ea9c956ff6-attempt-1"
+      ],
+      "run_id": "coord-4107d8ef23ea9c956ff6",
+      "status": "complete"
+    },
+    {
+      "failure": null,
+      "input_revision_ids": [
+        "table-observations-coord-4107d8ef23ea9c956ff6-attempt-1"
+      ],
+      "name": "reconstruction",
+      "output_revision_ids": [
+        "afc53aee-be0a-51a4-8f4a-7bdcf5a7c0a2"
+      ],
+      "run_id": "afc53aee-be0a-51a4-8f4a-7bdcf5a7c0a2",
+      "status": "complete"
+    }
+  ],
+  "status": "complete",
+  "updated_at": "2026-11-05T08:23:01.493723Z"
+}

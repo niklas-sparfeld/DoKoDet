@@ -1,0 +1,38 @@
+{
+  "files" : {
+    "proposal_generator_runs" : [
+      {
+        "byte_length" : 28837,
+        "proposal_generator_run_id" : "proposal-6afd91fd-42a5-423c-acd9-eae8059aea0f-device",
+        "relative_path" : "predictions\/proposal-6afd91fd-42a5-423c-acd9-eae8059aea0f-device.json",
+        "sha256" : "82cd1c35bc7c4d365b80a433eacc41965de9c172ef80061e3f0c00d5e6e4d57a",
+        "type" : "application\/json"
+      }
+    ],
+    "source_record" : {
+      "byte_length" : 847,
+      "relative_path" : "source-record.json",
+      "sha256" : "d396a10f2ba39bde6a170c2c7bf24089a69ec5a3e1832c0a7f0412cc017c6b9e",
+      "type" : "application\/json"
+    },
+    "task_enrollment" : {
+      "byte_length" : 787,
+      "relative_path" : "initial-task-enrollment.json",
+      "sha256" : "e40064322759c24b672e0ae9e2a482ca3e83bc4f4f46b645969785d625f26950",
+      "type" : "application\/json"
+    },
+    "video" : {
+      "byte_length" : 75653516,
+      "relative_path" : "videos\/video-6afd91fd-42a5-423c-acd9-eae8059aea0f.mov",
+      "sha256" : "143980518cf0aae5837d83ef2c08f83eea8d39b3bdbda806ed4b42935d220451",
+      "type" : "video\/quicktime"
+    }
+  },
+  "recording_id" : "6afd91fd-42a5-423c-acd9-eae8059aea0f",
+  "schema_version" : "repository-bundle\/v1",
+  "session_id" : "ca3c7c55-4682-43c0-876a-80fee261dae2",
+  "source_asset_id" : "source-6afd91fd-42a5-423c-acd9-eae8059aea0f",
+  "source_sha256" : "143980518cf0aae5837d83ef2c08f83eea8d39b3bdbda806ed4b42935d220451",
+  "state" : "complete",
+  "video_id" : "video-6afd91fd-42a5-423c-acd9-eae8059aea0f"
+}

@@ -1,0 +1,38 @@
+{
+  "files" : {
+    "proposal_generator_runs" : [
+      {
+        "byte_length" : 37122,
+        "proposal_generator_run_id" : "proposal-de976d1f-dad0-4ca5-b220-dcc9240be2f4-device",
+        "relative_path" : "predictions\/proposal-de976d1f-dad0-4ca5-b220-dcc9240be2f4-device.json",
+        "sha256" : "619ff79a1e1262a404752a27ab3886b9af1b0153fab1e108b63f0c389d2c0a22",
+        "type" : "application\/json"
+      }
+    ],
+    "source_record" : {
+      "byte_length" : 847,
+      "relative_path" : "source-record.json",
+      "sha256" : "b0c680d21b942dc23482ee797ce14d11ba6fb1369bc34af05d0fc787d4e29010",
+      "type" : "application\/json"
+    },
+    "task_enrollment" : {
+      "byte_length" : 787,
+      "relative_path" : "initial-task-enrollment.json",
+      "sha256" : "52a397b1beac8829541b3527830914b586db5cb58380cb8335a7b0b72e17e7fa",
+      "type" : "application\/json"
+    },
+    "video" : {
+      "byte_length" : 94150530,
+      "relative_path" : "videos\/video-de976d1f-dad0-4ca5-b220-dcc9240be2f4.mov",
+      "sha256" : "e5784ee2fe4728181dcf6c3f27843399089135b13eeee6c43ae07b5c02f1ff66",
+      "type" : "video\/quicktime"
+    }
+  },
+  "recording_id" : "de976d1f-dad0-4ca5-b220-dcc9240be2f4",
+  "schema_version" : "repository-bundle\/v1",
+  "session_id" : "f93c3e65-bfc5-4656-8c61-9f044b9f2888",
+  "source_asset_id" : "source-de976d1f-dad0-4ca5-b220-dcc9240be2f4",
+  "source_sha256" : "e5784ee2fe4728181dcf6c3f27843399089135b13eeee6c43ae07b5c02f1ff66",
+  "state" : "complete",
+  "video_id" : "video-de976d1f-dad0-4ca5-b220-dcc9240be2f4"
+}

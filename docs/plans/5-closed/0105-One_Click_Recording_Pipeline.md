@@ -23,8 +23,9 @@ Execution success does not assert that predictions or reconstruction are correct
 
 - Each new run creates fresh results for every stage. Resume an interrupted run with its existing
   completed results; a new run is not a resume.
-- Require missing round facts and other required information before the run starts. Do not invent
-  gameplay facts or request input after execution begins.
+- Require recording, provider, and stage configuration before the run starts. Derive analysis IDs
+  from the recording and use generic seat labels. Do not ask the operator for player IDs, dealer,
+  trick leader, or game, round, and session IDs.
 
 M0 must define the automatic path when calibration cannot be published or there are no event
 proposals. It must state which outcomes stop the run and which valid empty outputs can continue.
@@ -35,9 +36,10 @@ It must not silently skip a required stage or report a partial result as complet
 - Cover the recording video through event proposals, visible cards and piles, any required
   calibration and proposed card scenes, visual identity proposals, table observations, and round
   analysis. M0 freezes the actual dependencies and the compatible automatic geometry and crop path.
-- Collect and validate all required recording, model, configuration, and round inputs before the
-  single start action. Show actionable missing prerequisites. A running pipeline does not wait for
-  human review or input.
+- Collect and validate all required recording, model, and stage configuration before the single
+  start action. Read the session ID from the recording. Derive game and round IDs from the
+  recording ID and use `player-1` through `player-4` for analysis. A running pipeline does not wait
+  for human review or input.
 - Use the configured providers and explicit policies. Freeze the request and exact input lineage for
   each run. Do not silently change provider or use reviewed results as automatic outputs.
 - Persist ordinary stage requests, run states, output revisions, lineage, and analysis results so
@@ -78,8 +80,9 @@ Acceptance: fixture tests cover valid and invalid starts, status reads, duplicat
 inputs. No work starts for a failed preflight.
 
 Result: [0105 M1 run start and preflight](../../reports/0105-M1_Run_Start_and_Preflight.md). The
-recording-scoped API validates the recording, local providers, session, round facts, search limits,
-and stage settings before it writes an `accepted` run. Same-key retries return that run; another
+recording-scoped API validates the recording, local providers, search limits, and stage settings
+before it writes an `accepted` run. The session ID comes from the recording. Game and round IDs
+and generic seat context are generated internally. Same-key retries return that run; another
 active start for the recording conflicts. M2 owns stage scheduling and restart recovery.
 
 ### M2 — Execute and retain intermediate results
@@ -106,10 +109,19 @@ Acceptance: browser-level fixture tests start once and observe all stages and th
 without intermediate input. They cover missing inputs and a failed stage.
 
 Result: [0105 M3 workspace action](../../reports/0105-M3_Workspace_Action.md). The recording
-inspector now collects explicit round facts, starts one complete run, restores its saved run ID
-after reload, and polls durable status. It shows stage state, failure causes, and links to the
-existing stage and analysis views. Browser fixtures cover preflight, start, reload, and stage
-failure. M4 must verify the full local workflow with the backend fixture.
+inspector starts one complete run without asking for round facts. It restores its saved run ID after
+reload and polls durable status. It shows stage state, failure causes, and links to the existing
+stage and analysis views. Browser fixtures cover preflight, start, reload, and stage failure. M4
+must verify the full local workflow with the backend fixture.
+
+## Operator inputs correction
+
+The original M1/M3 contract required game, round, session, player, dealer, and first-trick-leader
+inputs. The complete pipeline does not ask the operator for these values. It reads the session from
+the recording, derives stable game and round IDs from the recording ID, uses `player-1` through
+`player-4`, and stores `dealer-unspecified`. The current reconstruction contract still requires a
+first-trick leader, so the pipeline uses `player-1` as its deterministic default. This default is
+not an inferred gameplay fact and does not establish reconstruction correctness.
 
 ### M4 — Verify the complete local workflow — Complete
 
