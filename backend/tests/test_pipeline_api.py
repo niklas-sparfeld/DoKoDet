@@ -570,7 +570,11 @@ def test_recording_pipeline_workspace_reads_each_selection_once(
         calls.append((recording_id, content_type))
         return original_get(recording_id, content_type, **kwargs)
 
+    def fail_full_lineage_snapshot(*_args, **_kwargs):
+        raise AssertionError("workspace summaries must not rebuild the full lineage graph")
+
     monkeypatch.setattr(selection_store, "get", traced_get)
+    monkeypatch.setattr(app.state.pipeline_lineage_service, "snapshot", fail_full_lineage_snapshot)
 
     workspace = app.state.pipeline_workspace_service.get_workspace(RECORDING_ID)
 

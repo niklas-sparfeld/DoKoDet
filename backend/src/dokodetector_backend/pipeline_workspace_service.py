@@ -28,7 +28,7 @@ from table_evidence_analyzer.pipeline_data import (
 )
 
 from dokodetector_backend.filesystem import enumerate_resource_directories
-from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+from dokodetector_backend.pipeline_node_store import PipelineNodeStore, _read_json
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineSelectionStore,
@@ -153,7 +153,10 @@ class RecordingPipelineWorkspaceService:
 
         source = self.recording_source_provider(recording_id)
         revision_cache: dict[str, Any] = {}
-        revisions = self._node_revisions_for_recording(recording_id, include_content=False)
+        include_revision_content = stage_key in {None, "table_observations"}
+        revisions = self._node_revisions_for_recording(
+            recording_id, include_content=include_revision_content
+        )
         runs = self.run_store.list_for_recording(
             recording_id,
             revision_cache=revision_cache,
@@ -199,11 +202,7 @@ class RecordingPipelineWorkspaceService:
             )
             for content_type in ("events", "visible_cards", "visual_identities")
         }
-        full_revisions = (
-            self._node_revisions_for_recording(recording_id, include_content=True)
-            if stage_key in {None, "table_observations"}
-            else ()
-        )
+        full_revisions = revisions if include_revision_content else ()
         stages = [
             self._stage(
                 recording_id,
@@ -304,10 +303,18 @@ class RecordingPipelineWorkspaceService:
             "visual_identities": parse_visual_identity_data_bytes,
             "table_observations": parse_table_observation_data_bytes,
         }
-        graph = self.lineage_service.snapshot()
+        nodes = [
+            node
+            for node in self.node_store.list_nodes()
+            if node.source.get("recording_id") in requested
+        ]
+        target_node_ids = {node.node_id for node in nodes}
         graph_inputs: dict[tuple[str, str], list[str]] = {}
         role_order = {"events": 0, "visible_cards": 1, "visual_identities": 2}
-        for run in graph["runs"]:
+        lineage_root = self.lineage_service.root
+        run_paths = sorted(lineage_root.glob("*.json")) if lineage_root.is_dir() else []
+        for path in run_paths:
+            run = _read_json(path)
             inputs = [ref for ref in run.get("inputs", []) if ref.get("kind") == "revision"]
             inputs.sort(key=lambda ref: (role_order.get(ref["role"], 10), ref["role"]))
             input_ids = [
@@ -317,9 +324,9 @@ class RecordingPipelineWorkspaceService:
                 for ref in inputs
             ]
             for output in run.get("outputs", []):
-                if output.get("kind") == "revision":
+                if output.get("kind") == "revision" and output.get("node_id") in target_node_ids:
                     graph_inputs[(output["node_id"], output["revision_id"])] = input_ids
-        for node in self.node_store.list_nodes():
+        for node in nodes:
             source = parse_source(node.source)
             recording_id = getattr(source, "recording_id", None)
             if recording_id not in requested:

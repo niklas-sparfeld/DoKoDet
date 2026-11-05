@@ -302,8 +302,9 @@ reader paths. Calibration drafts keep their normal store format and exact staged
 revision options, compact statuses, and compatible input sets now use node revisions and exact graph
 inputs. Processor run progress and analysis summaries still use their existing stores. Existing
 processor callers receive legacy revision IDs through the selection bridge, while stored selections
-retain exact node and revision pointers. M10 remains open until the active migrated data passes
-content, coverage, exact-input, and restart checks. See the
+retain exact node and revision pointers. Active-store checks matched revision content digests,
+coverage, exact inputs, and all five analysis summaries across a runtime rebuild. M10 remains open
+for scene, review, draft, and terminal-run workspace checks. See the
 [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
 ### M11 — Delete replaced architecture — Not started

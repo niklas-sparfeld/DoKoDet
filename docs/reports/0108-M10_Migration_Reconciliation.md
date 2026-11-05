@@ -122,12 +122,23 @@ Focused checks passed:
   removed the legacy revision directory before the catalog and workspace reload checks; the node
   revision remained available in both summaries.
 - Ruff check, Ruff format check, and `git diff --check` passed for the node-backed workspace reader.
+- A read-only check against the active store found 51 recordings across events, visible cards,
+  identity results, table observations, and scene proposals. For `cardeventnet-IMG_0637`, all 17
+  workspace revision options matched node content digests and coverage. All 15 compatible input
+  sets resolved to listed node revisions, and all 17 option input lists matched exact lineage-run
+  inputs. Rebuilding the runtime composition returned an identical workspace snapshot.
+- The same active-store check found all five migrated analyses in their workspace summaries. Each
+  summary retained its request input, and each non-empty observation input matched a graph revision.
+  All five summaries remained available after a runtime rebuild.
+- Workspace graph-input lookup now reads the immutable run records for the requested recording.
+  A regression test confirms the workspace does not build a full lineage snapshot to create a
+  summary.
 - The broader observation API suite had two passes and one failure. The failing assertion expected
   request labels as graph run IDs, but the graph contained generated UUIDs. This check did not fail
   in the workspace summary assertions; the run-ID expectation remains to be reconciled.
 
 ## Remaining M10 work
 
-Use the active migrated dataset to verify results, coverage, exact inputs, and restart behavior
-through the workspace. Confirm migrated analyses from the workspace. Keep the recovery and staging
+Verify scenes, reviews, and maintained drafts through their workspace readers. Check terminal
+processor and analysis lineage against their live progress records. Keep the recovery and staging
 packages until those checks pass. M10 remains in progress.
