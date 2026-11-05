@@ -65,7 +65,7 @@ class PipelineLineageWriter:
     def _node_id(revision_id: str) -> str:
         return "data-" + hashlib.sha256(revision_id.encode("utf-8")).hexdigest()[:32]
 
-    def _ensure_revision_node(self, revision: StoredPipelineRevision) -> tuple[str, str]:
+    def ensure_revision_node(self, revision: StoredPipelineRevision) -> tuple[str, str]:
         manifest = revision.manifest
         migrated = self.migrated_revisions.get(manifest.revision_id)
         if migrated is not None:
@@ -112,7 +112,7 @@ class PipelineLineageWriter:
         revision_pairs = []
         for index, revision_id in enumerate(request.input_revision_ids):
             revision = self.revision_store.require(revision_id)
-            node_id, node_revision_id = self._ensure_revision_node(revision)
+            node_id, node_revision_id = self.ensure_revision_node(revision)
             revision_pairs.append((node_id, node_revision_id))
             inputs.append(
                 {
@@ -159,7 +159,7 @@ class PipelineLineageWriter:
         outputs = []
         for revision_id in state.output_revision_ids:
             revision = self.revision_store.require(revision_id)
-            node_id, node_revision_id = self._ensure_revision_node(revision)
+            node_id, node_revision_id = self.ensure_revision_node(revision)
             outputs.append(
                 {
                     "kind": "revision",
@@ -212,7 +212,7 @@ class PipelineLineageWriter:
         refs = []
         for index, revision_id in enumerate(request.input_revision_ids):
             revision = self.revision_store.require(revision_id)
-            node_id, node_revision_id = self._ensure_revision_node(revision)
+            node_id, node_revision_id = self.ensure_revision_node(revision)
             refs.append(
                 {
                     "kind": "revision",
@@ -257,7 +257,7 @@ class PipelineLineageWriter:
         pairs = []
         if revision_id is not None:
             revision = self.revision_store.require(revision_id)
-            node_id, node_revision_id = self._ensure_revision_node(revision)
+            node_id, node_revision_id = self.ensure_revision_node(revision)
             pairs.append((node_id, node_revision_id))
             inputs.append(
                 {

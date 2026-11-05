@@ -299,8 +299,9 @@ selections and summaries from the legacy stores. It also preserves 126 maintaine
 calibration drafts, and 11 independent review packages in the graph store. The runtime composition
 reads maintained drafts, independent reviews, and calibration drafts from the graph-store reader
 paths. Calibration drafts keep their normal store format and exact staged bytes. Workspace summaries
-and selections still use their legacy stores. M10 remains open until the remaining readers and review
-decisions pass the cutover checks. See the
+also use the graph store. Existing processor callers receive their legacy revision IDs through the
+selection bridge, while stored selections retain exact node and revision pointers. M10 remains open
+until workspace summaries and restart checks pass. See the
 [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
 ### M11 — Delete replaced architecture — Not started

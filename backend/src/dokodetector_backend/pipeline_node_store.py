@@ -291,6 +291,20 @@ class PipelineNodeStore:
                 return revision
         raise KeyError(revision_id)
 
+    def read_revision_record(self, node_id: str, revision_id: str) -> NodeRevision:
+        """Read one immutable revision record without traversing its full history."""
+        _safe_id(revision_id, "revision_id")
+        node = self.get(node_id)
+        return self._read_revision(node, revision_id)
+
+    def has_revision(self, node_id: str, revision_id: str) -> bool:
+        """Check whether one revision record exists without loading its content."""
+        _safe_id(revision_id, "revision_id")
+        path = contained_path(
+            self._node_path(node_id), Path("revisions") / revision_id / "revision.json"
+        )
+        return path.is_file() and not path.is_symlink()
+
     @staticmethod
     def _new_revision(
         node_id: str,

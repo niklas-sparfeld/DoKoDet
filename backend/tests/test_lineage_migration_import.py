@@ -10,7 +10,9 @@ from doko_operations.pipeline_data import canonical_json_bytes
 
 from dokodetector_backend.lineage_migration_import import import_package
 from dokodetector_backend.pipeline_lineage import PipelineLineage
+from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+from dokodetector_backend.pipeline_store import PipelineRevisionStore, PipelineRuntimeStorage
 
 SOURCE = {
     "schema_version": "recording-video/v1",
@@ -46,7 +48,12 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
         "content_sha256": hashlib.sha256(canonical_json_bytes(content)).hexdigest(),
         "input_revision_ids": [],
         "origin": "processor",
-        "producer": {"kind": "processor", "processor_type": "event-detection"},
+        "producer": {
+            "kind": "processor",
+            "processor_type": "event-detection",
+            "implementation_id": "fixture",
+            "run_id": "legacy-run-01",
+        },
         "coverage": {"kind": "processed", "intervals": []},
         "created_at": "2026-09-05T10:00:00Z",
     }
@@ -266,6 +273,32 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
         assert (
             store_root / ".migrated-readers/calibration-drafts" / relative_path
         ).read_bytes() == file["payload"]
+    selection_store = PipelineNodeSelectionStore(
+        PipelineNodeStore(store_root),
+        PipelineRevisionStore(
+            PipelineRuntimeStorage(tmp_path / "runtime", package / "evidence/operations")
+        ),
+    )
+    selected = selection_store.get("recording-01", "events")
+    assert selected is not None
+    assert selected.revision == 2
+    assert selected.selected_generated_revision_id == old_revision_id
+    updated = selection_store.update_pointers(
+        "recording-01",
+        "events",
+        expected_revision=2,
+        selected_generated_revision_id=old_revision_id,
+        selected_completed_reference_revision_id=None,
+    )
+    assert updated.revision == 3
+    assert updated.selected_generated_revision_id == old_revision_id
+    stored_graph_selection = json.loads(
+        (store_root / ".migrated-selections/recording-01/events.json").read_bytes()
+    )
+    assert stored_graph_selection["selected_generated"] == {
+        "node_id": node_id,
+        "revision_id": node_revision_id,
+    }
     assert migrated_record["references"][0]["mapped_revision"] == {
         "node_id": node_id,
         "revision_id": node_revision_id,

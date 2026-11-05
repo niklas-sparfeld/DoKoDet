@@ -35,13 +35,16 @@ The runtime composition now reads maintained drafts, independent reviews, and ca
 from graph-store reader paths under `.migrated-readers`. The reader audit loaded all 126 maintained
 drafts and 11 independent reviews through their normal store APIs. It also loaded all 13 calibration
 drafts through `CalibrationDraftStore`. The imported calibration draft files match their staged
-bytes. Workspace summaries and selections still use legacy stores.
+bytes. Runtime selections now read and write exact node and revision pointers under
+`.migrated-selections`. Existing processor callers receive the matching legacy revision ID through
+the selection interface. An audit loaded all 136 selection records; 96 have a generated pointer and
+91 have a completed-reference pointer.
 
-The existing operations stores remain in place. Workspace summaries and selections still use their
-legacy readers. Maintained-draft, independent-review, and calibration-draft readers now use the
-graph-store paths. M10 is not complete until the remaining readers and restart checks confirm the
-intended content and decisions. The recovery snapshot and verified migration package remain
-available for recovery.
+The existing operations stores remain in place. Workspace summaries still use their legacy reader.
+Maintained-draft, independent-review, calibration-draft, and selection readers now use graph-store
+paths. M10 is not complete until workspace summaries and restart checks confirm the intended
+content and decisions. The recovery snapshot and verified migration package remain available for
+recovery.
 
 ## Declared lost inputs
 
@@ -107,6 +110,8 @@ Focused checks passed:
 - `mise exec -- uv run --project backend pytest backend/tests/test_lineage_migration_import.py backend/tests/test_calibration_refinement_service.py` — 6 passed.
 - Ruff check, Ruff format check, and `git diff --check` passed for the calibration-draft reader cutover.
 - Reimporting the verified stage reported 835 nodes, 594 processor runs, five analysis runs, 136 selections, 126 maintained drafts, 13 calibration drafts, and 11 independent reviews. `CalibrationDraftStore` loaded all 13 migrated drafts.
+- The graph-backed selection reader loaded 136 selections. It found 96 generated pointers and 91 completed-reference pointers.
+- Focused selection and reference API checks passed, including completed-reference selection and optimistic revision updates.
 - The local importer reported 136 selections. An audit verified every non-empty pointer against
   the imported legacy map and its target node manifest.
 - The local importer reported 126 maintained drafts, 13 calibration drafts, and 11 independent
@@ -115,6 +120,6 @@ Focused checks passed:
 
 ## Remaining M10 work
 
-Switch workspace summaries and selections to the graph store. Verify results, coverage, exact
-inputs, and restart behavior through the workspace. Keep the recovery and staging packages until
-those checks pass. M10 remains in progress.
+Switch workspace summaries to the graph store. Verify results, coverage, exact inputs, and restart
+behavior through the workspace. Keep the recovery and staging packages until those checks pass.
+M10 remains in progress.
