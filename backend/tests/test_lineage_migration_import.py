@@ -89,6 +89,21 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
     draft_path = package / "evidence/operations/pipeline-references/recording-01/events/draft.json"
     draft_path.parent.mkdir(parents=True, exist_ok=True)
     draft_path.write_bytes(draft_content)
+    calibration_draft_files = {}
+    for name, payload in (
+        ("draft.json", b'{"draft_id":"draft-01","recording_id":"recording-01"}'),
+        ("initial.json", b'{"draft_id":"draft-01","recording_id":"recording-01"}'),
+    ):
+        relative_path = f"recording-01/table-plane-calibration-drafts/draft-01/{name}"
+        calibration_path = package / "evidence/operations" / relative_path
+        calibration_path.parent.mkdir(parents=True, exist_ok=True)
+        calibration_path.write_bytes(payload)
+        calibration_draft_files[relative_path] = {
+            "path": relative_path,
+            "byte_length": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "payload": payload,
+        }
     resources = [
         {
             "schema_version": "lineage-migration-resource/v1",
@@ -185,6 +200,18 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
                 }
             ],
         },
+        {
+            "schema_version": "lineage-migration-resource/v1",
+            "kind": "calibration_draft",
+            "old_id": "recording-01/draft-01",
+            "new_id": "recording-01/draft-01",
+            "old_root_id": "operations",
+            "files": [
+                {key: value for key, value in file.items() if key != "payload"}
+                for file in calibration_draft_files.values()
+            ],
+            "references": [],
+        },
     ]
     _write_json(
         package / "migration.json",
@@ -210,7 +237,7 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
             "selections": 1,
             "maintained_draft": 1,
             "independent_review": 0,
-            "calibration_draft": 0,
+            "calibration_draft": 1,
             "nodes": 1,
             "lineage_runs": 1,
         }
@@ -235,6 +262,10 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
     assert (
         store_root / ".migrated-readers/pipeline-references/recording-01/events/draft.json"
     ).read_bytes() == draft_content
+    for relative_path, file in calibration_draft_files.items():
+        assert (
+            store_root / ".migrated-readers/calibration-drafts" / relative_path
+        ).read_bytes() == file["payload"]
     assert migrated_record["references"][0]["mapped_revision"] == {
         "node_id": node_id,
         "revision_id": node_revision_id,

@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from doko_operations.card_plane_calibration_refinement import CalibrationDraftStore
+
 from dokodetector_backend.calibration_refinement_service import CalibrationRefinementService
 from dokodetector_backend.event_pipeline_service import EventPipelineService, EventProcessorProvider
 from dokodetector_backend.observation_pipeline_service import ObservationPipelineService
@@ -155,6 +157,7 @@ def build_pipeline_composition(
         revision_store=revision_store,
         proposal_service=proposed_card_scene_service,
         reference_service=reference_service,
+        draft_store=CalibrationDraftStore(migrated_reader_root / "calibration-drafts"),
     )
     visual_identity_service = VisualIdentityPipelineService(
         settings,

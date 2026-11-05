@@ -31,14 +31,14 @@ bytes as Base64 with its SHA-256 digest and the mapped node revision for each re
 reference. An audit compared every stored file byte for byte with the verified stage and checked the
 mapped references.
 
-The runtime composition now reads maintained drafts and independent reviews from the graph-store
-reader paths under `.migrated-readers`. The reader audit loaded all 126 maintained drafts and 11
-independent reviews through their normal store APIs. The loaded maintained-draft objects matched
-their staged JSON. Workspace summaries and selections still use legacy stores. Calibration-draft
-readers still need cutover.
+The runtime composition now reads maintained drafts, independent reviews, and calibration drafts
+from graph-store reader paths under `.migrated-readers`. The reader audit loaded all 126 maintained
+drafts and 11 independent reviews through their normal store APIs. It also loaded all 13 calibration
+drafts through `CalibrationDraftStore`. The imported calibration draft files match their staged
+bytes. Workspace summaries and selections still use legacy stores.
 
-The existing operations stores remain in place. Workspace summaries and selections, and calibration
-drafts still use their legacy readers. Maintained-draft and independent-review readers now use the
+The existing operations stores remain in place. Workspace summaries and selections still use their
+legacy readers. Maintained-draft, independent-review, and calibration-draft readers now use the
 graph-store paths. M10 is not complete until the remaining readers and restart checks confirm the
 intended content and decisions. The recovery snapshot and verified migration package remain
 available for recovery.
@@ -104,6 +104,9 @@ Focused checks passed:
   imported node.
 - `mise exec -- uv run --project backend pytest backend/tests/test_lineage_migration_import.py -q` — 1 passed
 - Ruff check, Ruff format check, and `git diff --check` passed for the selection importer and test.
+- `mise exec -- uv run --project backend pytest backend/tests/test_lineage_migration_import.py backend/tests/test_calibration_refinement_service.py` — 6 passed.
+- Ruff check, Ruff format check, and `git diff --check` passed for the calibration-draft reader cutover.
+- Reimporting the verified stage reported 835 nodes, 594 processor runs, five analysis runs, 136 selections, 126 maintained drafts, 13 calibration drafts, and 11 independent reviews. `CalibrationDraftStore` loaded all 13 migrated drafts.
 - The local importer reported 136 selections. An audit verified every non-empty pointer against
   the imported legacy map and its target node manifest.
 - The local importer reported 126 maintained drafts, 13 calibration drafts, and 11 independent
@@ -112,6 +115,6 @@ Focused checks passed:
 
 ## Remaining M10 work
 
-Switch workspace summaries, selections, and calibration drafts to the graph store. Verify results,
-coverage, exact inputs, and restart behavior through the workspace. Keep the recovery and staging
-packages until those checks pass. M10 remains in progress.
+Switch workspace summaries and selections to the graph store. Verify results, coverage, exact
+inputs, and restart behavior through the workspace. Keep the recovery and staging packages until
+those checks pass. M10 remains in progress.

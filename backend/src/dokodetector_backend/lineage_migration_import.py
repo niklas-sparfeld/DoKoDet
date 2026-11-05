@@ -620,6 +620,13 @@ def _import_retained_records(
                         raise ValueError(f"migration reader target differs: {relative_path}")
                 else:
                     atomic_write_json(reader_path, payload)
+            elif kind == "calibration_draft":
+                reader_path = contained_path(reader_root / "calibration-drafts", relative_path)
+                if reader_path.exists():
+                    if reader_path.read_bytes() != payload:
+                        raise ValueError(f"migration reader target differs: {relative_path}")
+                else:
+                    atomic_write_json(reader_path, payload)
         references = []
         for reference in item["references"]:
             copied = dict(reference)

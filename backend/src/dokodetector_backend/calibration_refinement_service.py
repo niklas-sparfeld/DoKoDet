@@ -81,11 +81,12 @@ class CalibrationRefinementService:
         revision_store: PipelineRevisionStore,
         proposal_service: ProposedCardScenePipelineService,
         reference_service: Any,
+        draft_store: CalibrationDraftStore | None = None,
     ) -> None:
         self.revision_store = revision_store
         self.proposal_service = proposal_service
         self.reference_service = reference_service
-        self.store = CalibrationDraftStore(settings.operations_root)
+        self.store = draft_store or CalibrationDraftStore(settings.operations_root)
         self.calibration_store = CalibrationRevisionStore(settings.operations_root)
         self.receipt_store = CalibrationReflowReceiptStore(settings.operations_root)
 
