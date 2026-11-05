@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0–M7 are complete; M8–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0–M8 are complete; M9–M10 are not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -210,13 +210,16 @@ outputs, and failures retain all sources. Duplicate display appearances share on
 The [M7 result](../../reports/0107-M7_Lineage_Graph.md) records frozen run context, exact typed
 inputs and outputs, and deterministic graph summaries. It rejects cycles and duplicate producers.
 
-### M8 — Build migration inventory and dry run — Not started
+### M8 — Build migration inventory and dry run — Complete
 
 Implement read-only discovery, deterministic node grouping, ID mapping, uncertainty reporting, and
 validation. Inventory active stores and retained consumer references; do not load sealed samples.
 
 Acceptance: mixed old-format fixtures produce reproducible plans, preserve unknown history, and
 report dangling or ambiguous references without inventing lineage.
+
+The [M8 result](../../reports/0107-M8_Migration_Inventory.md) adds a read-only snapshot inventory
+and dry-run plan. It blocks readiness for resources that still need semantic validation.
 
 ### M9 — Apply migration to fixture stores — Not started
 
