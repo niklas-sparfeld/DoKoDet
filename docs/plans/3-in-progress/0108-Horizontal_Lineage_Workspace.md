@@ -320,8 +320,11 @@ view-specific inspector, presentation, and tests are removed. The workspace URL 
 view, review, or displayed-revision fields. The lineage selection supplies the exact revision.
 The processor input selector remains because it controls execution defaults. The review-start
 action is removed. Focused URL, presentation, workspace, and event-rail tests pass. The remaining
-work is to remove unused legacy editor modules and backend adapters/storage, then verify selection
-consumers and the migrated active data.
+work is to remove backend adapters/storage, then verify selection consumers and the migrated active
+data. The unmounted visible-card and visual-identity editors, their isolated helpers and tests, and
+the obsolete editor boundary check are removed. The workspace still reads the legacy reference
+store and translates migrated revision IDs at runtime. These dependencies must move to canonical
+nodes before the old storage and mapping can be removed.
 
 ### M12 — Verify the complete workflow and close — Not started
 
@@ -338,9 +341,9 @@ are complete before closure. Update the board and repair links when moving this 
 
 - `web/src/pipeline/RecordingWorkspaceShell.tsx` and `RecordingWorkspaceInspector.tsx`.
 - `web/src/pipeline/recordingPipelineUrl.ts` and `recordingWorkspacePresentation.ts`.
-- `web/src/visibleCards/PipelineVisibleCardEditorView.tsx` and its controller/inspector.
-- `web/src/cardEvents/PipelineCardEventEditor.tsx`.
-- `web/src/visualIdentities/PipelineVisualIdentityEditor.tsx` and its inspector.
+- `web/src/visibleCards/PipelineNodeVisibleCardEditor.tsx` and `PipelineNodeVirtualSceneEditor.tsx`.
+- `web/src/cardEvents/PipelineNodeEventEditor.tsx`.
+- `web/src/visualIdentities/PipelineNodeVisualIdentityEditor.tsx`.
 - `backend/src/dokodetector_backend/pipeline_workspace_service.py` and workspace API.
 
 This plan records the accepted concept. Exact spacing, line routing, and branch collapsing remain
