@@ -10,6 +10,7 @@ import {
   RecordingPipelineWorkspace,
   type PipelineStageKey,
 } from "./pipeline/RecordingPipelineWorkspace";
+import type { PipelineNavigationStepKey } from "./pipeline/recordingPipelineUrl";
 import { ProfileControl } from "./profile/ProfileControl";
 import { formatPipelineStageState } from "./pipeline/recordingWorkspaceFormatting";
 import { usePageVisibility } from "./pipeline/usePageVisibility";
@@ -265,7 +266,7 @@ export function RecordingDetailView({
   pipelineCompare = false,
 }: {
   recordingId: string;
-  pipelineStage?: PipelineStageKey | null;
+  pipelineStage?: PipelineNavigationStepKey | null;
   pipelineCompare?: boolean;
 }) {
   return (

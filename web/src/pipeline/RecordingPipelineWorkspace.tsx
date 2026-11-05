@@ -22,7 +22,9 @@ import {
 import {
   readPipelineUrlState,
   recordingPipelineComparePath,
+  recordingPipelineNavigationPath,
   recordingPipelinePath,
+  type PipelineNavigationStepKey,
   type PipelineUrlState,
 } from "./recordingPipelineUrl";
 import {
@@ -71,18 +73,23 @@ export function RecordingPipelineWorkspace({
   compare,
 }: {
   recordingId: string;
-  stageKey: PipelineStageKey | null;
+  stageKey: PipelineNavigationStepKey | null;
   compare: boolean;
 }) {
   const client = useMemo(() => createDokoDetectorClient(), []);
   const [workspace, setWorkspace] = useState<PipelineWorkspace | null>(null);
-  const [loadedStageKey, setLoadedStageKey] = useState<PipelineStageKey | null>(
-    null,
-  );
+  const [loadedStageKey, setLoadedStageKey] =
+    useState<PipelineNavigationStepKey | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [lineageNotice, setLineageNotice] = useState<string | null>(null);
+  const [lineageValidation, setLineageValidation] = useState<{
+    lineage: string;
+    notice: string | null;
+  } | null>(null);
+  const [lineageGraph, setLineageGraph] = useState<PipelineLineageGraph | null>(
+    null,
+  );
   const [urlState, setUrlState] = useState(() =>
     readPipelineUrlState(window.location.search),
   );
@@ -92,12 +99,13 @@ export function RecordingPipelineWorkspace({
   const loadWorkspace = useCallback(
     async (signal?: AbortSignal) => {
       try {
+        const backendStageKey = stageKey === "virtual_scenes" ? null : stageKey;
         const response = await client.getRecordingPipeline(
           recordingId,
           {
             signal,
           },
-          stageKey ?? "events",
+          backendStageKey ?? "events",
         );
         if (!signal?.aborted) {
           if (isPipelineWorkspace(response)) {
@@ -156,14 +164,10 @@ export function RecordingPipelineWorkspace({
 
   useEffect(() => {
     if (urlState.lineage === null) {
-      setLineageNotice(null);
       return;
     }
     const selection = decodeLineageSelection(urlState.lineage);
     if (selection === null) {
-      setLineageNotice(
-        "The saved lineage selection is invalid. No other revision was selected.",
-      );
       return;
     }
     const controller = new AbortController();
@@ -183,18 +187,24 @@ export function RecordingPipelineWorkspace({
       })
       .then((graph) => {
         if (controller.signal.aborted) return;
+        setLineageGraph(graph);
         const missing = validateLineageSelection(selection, graph);
-        setLineageNotice(
-          missing.length === 0
-            ? null
-            : "The saved lineage selection is unavailable. No other revision was selected.",
-        );
+        setLineageValidation({
+          lineage: urlState.lineage as string,
+          notice:
+            missing.length === 0
+              ? null
+              : "The saved lineage selection is unavailable. No other revision was selected.",
+        });
       })
       .catch(() => {
         if (!controller.signal.aborted) {
-          setLineageNotice(
-            "Lineage data could not be loaded. The saved selection was not changed.",
-          );
+          setLineageGraph(null);
+          setLineageValidation({
+            lineage: urlState.lineage as string,
+            notice:
+              "Lineage data could not be loaded. The saved selection was not changed.",
+          });
         }
       });
     return () => controller.abort();
@@ -261,12 +271,20 @@ export function RecordingPipelineWorkspace({
   const workspaceReadyForStage =
     workspace !== null && loadedStageKey === (stageKey ?? "events");
   const activeWorkspace = workspaceReadyForStage ? workspace : null;
+  const backendStageKey = stageKey === "virtual_scenes" ? null : stageKey;
   const stage = activeWorkspace?.stages.find(
-    (candidate) => candidate.key === stageKey,
+    (candidate) =>
+      candidate.key ===
+      (stageKey === "virtual_scenes" ? "visible_cards" : backendStageKey),
   );
 
   useEffect(() => {
-    if (activeWorkspace === null || stage === undefined || stageKey === null) {
+    if (
+      activeWorkspace === null ||
+      stage === undefined ||
+      stageKey === null ||
+      stageKey === "virtual_scenes"
+    ) {
       return;
     }
     const sanitized = sanitizeUrlState(
@@ -361,19 +379,23 @@ export function RecordingPipelineWorkspace({
       const nextPath = compare
         ? recordingPipelineComparePath(
             recordingId,
-            stageKey ?? "events",
+            backendStageKey ?? "events",
             nextState,
           )
-        : recordingPipelinePath(recordingId, stageKey ?? "events", nextState);
+        : recordingPipelineNavigationPath(
+            recordingId,
+            stageKey ?? "events",
+            nextState,
+          );
       window.history.replaceState({}, "", nextPath);
       setUrlState(nextState);
     },
-    [compare, recordingId, stageKey],
+    [backendStageKey, compare, recordingId, stageKey],
   );
 
   const presentation = buildRecordingWorkspacePresentation({
     workspace: activeWorkspace,
-    stageKey,
+    stageKey: backendStageKey,
     compare,
     urlState,
     error,
@@ -396,7 +418,7 @@ export function RecordingPipelineWorkspace({
   const workspaceRail = useRecordingWorkspaceRail({
     recordingId,
     stage,
-    stageKey,
+    stageKey: backendStageKey,
     activeView,
     compare,
     urlState,
@@ -444,12 +466,40 @@ export function RecordingPipelineWorkspace({
   }
 
   const usesReviewCardRail =
+    stageKey !== "virtual_scenes" &&
     (stage.key === "visible_cards" || stage.key === "visual_identities") &&
     !compare;
   const cardRailLabel =
     stage.key === "visual_identities"
       ? "Visual identity cards"
       : "Visible-card proposals";
+  const selectedVirtualScene = (() => {
+    if (stageKey !== "virtual_scenes" || urlState.lineage === null) return null;
+    const selection = decodeLineageSelection(urlState.lineage);
+    const reference = selection?.selected.virtual_scenes;
+    if (reference === undefined || lineageGraph === null) return null;
+    const node = lineageGraph.nodes.find(
+      (candidate) =>
+        candidate.node_id === reference.node_id &&
+        (candidate.content_type === "card_scene_proposals" ||
+          candidate.content_type === "virtual_scenes"),
+    );
+    const revisionExists = lineageGraph.revisions.some(
+      (revision) =>
+        revision.node_id === reference.node_id &&
+        revision.revision_id === reference.revision_id,
+    );
+    return node !== undefined && revisionExists
+      ? { name: node.name, revisionId: reference.revision_id }
+      : null;
+  })();
+  const currentLineageNotice =
+    urlState.lineage !== null &&
+    decodeLineageSelection(urlState.lineage) === null
+      ? "The saved lineage selection is invalid. No other revision was selected."
+      : lineageValidation?.lineage === urlState.lineage
+        ? lineageValidation.notice
+        : null;
 
   return (
     <main
@@ -458,12 +508,11 @@ export function RecordingPipelineWorkspace({
       <RecordingWorkspaceShell
         recordingId={recordingId}
         workspace={activeWorkspace}
-        stage={stage}
-        compare={compare}
+        navigationStep={stageKey}
         urlState={urlState}
-        activeView={activeView}
-        notice={lineageNotice ?? notice}
+        notice={currentLineageNotice ?? notice}
         error={error}
+        lineageGraph={lineageGraph}
         onNavigate={navigateTo}
       />
       {urlState.frameReviewQueue === "0096-M4" &&
@@ -487,81 +536,102 @@ export function RecordingPipelineWorkspace({
         />
       ) : null}
 
-      <div
-        className={`${styles.pipelineWorkspaceGrid} ${usesReviewCardRail ? styles.pipelineVisibleCardWorkspaceGrid : ""}`}
-        data-slot="workspace"
-      >
-        {usesReviewCardRail ? (
-          <aside
-            className={styles.pipelineProposalSlot}
-            aria-label={cardRailLabel}
-            data-slot="proposals"
-          >
-            {stage.key === "visual_identities" ? (
-              <div data-identity-card-list-slot="cards" />
-            ) : (
-              <div data-visible-card-proposal-slot="proposals" />
-            )}
-          </aside>
-        ) : null}
-        <RecordingWorkspaceTaskSurface
-          recordingId={recordingId}
-          workspace={activeWorkspace}
-          stage={stage}
-          compare={compare}
-          urlState={urlState}
-          activeView={activeView}
-          displayedRevision={displayedRevision}
-          action={action}
-          presentation={presentation}
-          selectedEventRunId={workspaceRail.selectedEventRunId}
-          selectedVisibleCardRunId={workspaceRail.selectedVisibleCardRunId}
-          selectedVisualIdentityRunId={
-            workspaceRail.selectedVisualIdentityRunId
-          }
-          onNavigate={navigateTo}
-          onEventRailItemsChange={workspaceRail.handleEventRailItemsChange}
-          onVisibleCardRailItemsChange={
-            workspaceRail.handleVisibleCardRailItemsChange
-          }
-          onVisualIdentityRailItemsChange={
-            workspaceRail.handleVisualIdentityRailItemsChange
-          }
-          onComparisonRailItemsChange={
-            workspaceRail.handleComparisonRailItemsChange
-          }
-          onComparisonChange={workspaceRail.handleComparisonChange}
-          onTimeChange={workspaceRail.handleRailTimeChange}
-        />
-        <RecordingWorkspaceInspector
-          recordingId={recordingId}
-          workspace={activeWorkspace}
-          stage={stage}
-          compare={compare}
-          urlState={urlState}
-          activeView={activeView}
-          displayedRevision={displayedRevision}
-          action={action}
-          actionState={actionState}
-          presentation={presentation}
-          comparison={workspaceRail.comparison}
-          selectionBusy={selectionBusy}
-          onNavigate={navigateTo}
-          onReplaceUrlState={replaceUrlState}
-          onSelectGeneratedRevision={selectGeneratedRevision}
-          onRefresh={() => loadWorkspace()}
-        />
-      </div>
+      {stageKey === "virtual_scenes" ? (
+        <section
+          className={styles.pipelineWorkspaceGrid}
+          aria-label="Virtual scenes"
+          data-slot="center"
+        >
+          <h2>Virtual scenes</h2>
+          {selectedVirtualScene === null ? (
+            <p>No virtual scene is selected for this lineage.</p>
+          ) : (
+            <p>
+              {selectedVirtualScene.name} · revision{" "}
+              {selectedVirtualScene.revisionId} is selected. Scene inspection is
+              not available yet.
+            </p>
+          )}
+        </section>
+      ) : (
+        <div
+          className={`${styles.pipelineWorkspaceGrid} ${usesReviewCardRail ? styles.pipelineVisibleCardWorkspaceGrid : ""}`}
+          data-slot="workspace"
+        >
+          {usesReviewCardRail ? (
+            <aside
+              className={styles.pipelineProposalSlot}
+              aria-label={cardRailLabel}
+              data-slot="proposals"
+            >
+              {stage.key === "visual_identities" ? (
+                <div data-identity-card-list-slot="cards" />
+              ) : (
+                <div data-visible-card-proposal-slot="proposals" />
+              )}
+            </aside>
+          ) : null}
+          <RecordingWorkspaceTaskSurface
+            recordingId={recordingId}
+            workspace={activeWorkspace}
+            stage={stage}
+            compare={compare}
+            urlState={urlState}
+            activeView={activeView}
+            displayedRevision={displayedRevision}
+            action={action}
+            presentation={presentation}
+            selectedEventRunId={workspaceRail.selectedEventRunId}
+            selectedVisibleCardRunId={workspaceRail.selectedVisibleCardRunId}
+            selectedVisualIdentityRunId={
+              workspaceRail.selectedVisualIdentityRunId
+            }
+            onNavigate={navigateTo}
+            onEventRailItemsChange={workspaceRail.handleEventRailItemsChange}
+            onVisibleCardRailItemsChange={
+              workspaceRail.handleVisibleCardRailItemsChange
+            }
+            onVisualIdentityRailItemsChange={
+              workspaceRail.handleVisualIdentityRailItemsChange
+            }
+            onComparisonRailItemsChange={
+              workspaceRail.handleComparisonRailItemsChange
+            }
+            onComparisonChange={workspaceRail.handleComparisonChange}
+            onTimeChange={workspaceRail.handleRailTimeChange}
+          />
+          <RecordingWorkspaceInspector
+            recordingId={recordingId}
+            workspace={activeWorkspace}
+            stage={stage}
+            compare={compare}
+            urlState={urlState}
+            activeView={activeView}
+            displayedRevision={displayedRevision}
+            action={action}
+            actionState={actionState}
+            presentation={presentation}
+            comparison={workspaceRail.comparison}
+            selectionBusy={selectionBusy}
+            onNavigate={navigateTo}
+            onReplaceUrlState={replaceUrlState}
+            onSelectGeneratedRevision={selectGeneratedRevision}
+            onRefresh={() => loadWorkspace()}
+          />
+        </div>
+      )}
 
-      <RecordingWorkspaceTimelineRail
-        recordingId={recordingId}
-        stage={stage}
-        activeView={activeView}
-        compare={compare}
-        rail={workspaceRail.visibleRail}
-        onTimeChange={workspaceRail.handleRailTimeChange}
-        onItemSelect={workspaceRail.handleRailItemSelect}
-      />
+      {stageKey === "virtual_scenes" ? null : (
+        <RecordingWorkspaceTimelineRail
+          recordingId={recordingId}
+          stage={stage}
+          activeView={activeView}
+          compare={compare}
+          rail={workspaceRail.visibleRail}
+          onTimeChange={workspaceRail.handleRailTimeChange}
+          onItemSelect={workspaceRail.handleRailItemSelect}
+        />
+      )}
     </main>
   );
 }

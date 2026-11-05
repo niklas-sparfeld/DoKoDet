@@ -8,6 +8,18 @@ export const PIPELINE_STAGE_KEYS: readonly PipelineStageKey[] = [
   "round_analyses",
 ];
 
+export type PipelineNavigationStepKey = PipelineStageKey | "virtual_scenes";
+
+export const PIPELINE_NAVIGATION_STEP_KEYS: readonly PipelineNavigationStepKey[] =
+  [
+    "events",
+    "visible_cards",
+    "virtual_scenes",
+    "visual_identities",
+    "table_observations",
+    "round_analyses",
+  ];
+
 export type PipelineView = "generated" | "reviewed";
 
 export type PipelineUrlState = {
@@ -27,12 +39,20 @@ export type PipelineUrlState = {
 
 export type RecordingPipelineRoute = {
   recordingId: string;
-  stage: PipelineStageKey | null;
+  stage: PipelineNavigationStepKey | null;
   compare: boolean;
 };
 
 export function isPipelineStageKey(value: string): value is PipelineStageKey {
   return PIPELINE_STAGE_KEYS.includes(value as PipelineStageKey);
+}
+
+export function isPipelineNavigationStepKey(
+  value: string,
+): value is PipelineNavigationStepKey {
+  return PIPELINE_NAVIGATION_STEP_KEYS.includes(
+    value as PipelineNavigationStepKey,
+  );
 }
 
 export function readRecordingPipelineRoute(
@@ -55,7 +75,7 @@ export function readRecordingPipelineRoute(
   const stage = decodePathPart(rawStage);
   return {
     recordingId,
-    stage: stage !== null && isPipelineStageKey(stage) ? stage : null,
+    stage: stage !== null && isPipelineNavigationStepKey(stage) ? stage : null,
     compare:
       match[3] === "compare" && stage !== null && isPipelineStageKey(stage),
   };
@@ -87,6 +107,17 @@ export function recordingPipelinePath(
   state: PipelineUrlState | Partial<PipelineUrlState> = {},
 ): string {
   return `${recordingPipelineBasePath(recordingId, stage)}${pipelineSearch(state, false)}`;
+}
+
+export function recordingPipelineNavigationPath(
+  recordingId: string,
+  step: PipelineNavigationStepKey,
+  state: PipelineUrlState | Partial<PipelineUrlState> = {},
+): string {
+  if (step !== "virtual_scenes") {
+    return recordingPipelinePath(recordingId, step, state);
+  }
+  return `${recordingPagePath(recordingId)}/pipeline/virtual_scenes${pipelineSearch(state, false)}`;
 }
 
 export function recordingPipelineComparePath(

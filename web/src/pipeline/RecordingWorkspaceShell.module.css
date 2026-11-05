@@ -6,7 +6,7 @@
 
 .topBar {
   display: grid;
-  grid-template-columns: auto minmax(8rem, 14rem) minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(8rem, 14rem) minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
   min-height: 4.25rem;
@@ -66,6 +66,11 @@
   min-width: 0;
 }
 
+.stepNavigation {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
 .viewSwitch {
   min-width: 0;
   margin: 0;
@@ -74,8 +79,9 @@
 }
 
 .stageNavigation {
-  display: flex;
-  gap: 0.25rem;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(7.5rem, 1fr));
+  gap: 0.35rem;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -85,15 +91,17 @@
 }
 
 .stageNavigation li {
-  min-width: max-content;
+  display: grid;
+  grid-template-rows: auto 3.1rem;
+  min-width: 0;
 }
 
 .stageLink,
 .stageLinkActive {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 0.35rem;
-  min-height: 2.75rem;
+  min-height: 2.3rem;
   padding: 0.45rem 0.55rem;
   border: 1px solid transparent;
   border-radius: 0.45rem;
@@ -117,6 +125,40 @@
 .stageLink :global(.status),
 .stageLinkActive :global(.status) {
   flex: 0 0 auto;
+}
+
+.dataRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  align-items: baseline;
+  gap: 0.1rem 0.35rem;
+  min-width: 0;
+  padding: 0.25rem 0.45rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+}
+
+.dataRow strong {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataRow span {
+  overflow: hidden;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataRow small {
+  color: var(--muted-ink);
+  white-space: nowrap;
 }
 
 .taskSurface {
@@ -151,7 +193,7 @@
 
 @media (max-width: 900px) {
   .topBar {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .topBar nav {
@@ -161,6 +203,10 @@
 }
 
 @media (max-width: 600px) {
+  .stageNavigation {
+    grid-template-columns: repeat(6, minmax(7.5rem, 1fr));
+  }
+
   .topBar {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
@@ -168,7 +214,6 @@
 
   .backLink,
   .recordingContext,
-  .viewSwitch,
   .topBar nav {
     grid-column: 1;
   }

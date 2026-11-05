@@ -141,7 +141,7 @@ describe("recording pipeline workspace", () => {
     expect(getPrimaryAction(stage("events", overrides))).toEqual(action);
   });
 
-  it("renders the compact workspace shell and generated/reviewed selectors", async () => {
+  it("renders the compact workspace shell and two-row navigation", async () => {
     const generated = {
       revision_id: "events-2",
       content_type: "events",
@@ -167,15 +167,18 @@ describe("recording pipeline workspace", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>(() =>
+      vi.fn<typeof fetch>((input) =>
         Promise.resolve(
-          new Response(JSON.stringify(body), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }),
+          String(input).endsWith("/video")
+            ? new Response(new Blob(["video"]), { status: 200 })
+            : new Response(JSON.stringify(body), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              }),
         ),
       ),
     );
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:workspace-test");
 
     render(
       <RecordingPipelineWorkspace
@@ -241,25 +244,66 @@ describe("recording pipeline workspace", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Next action")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("navigation", { name: "Recording pipeline stages" }),
+      screen.getByRole("navigation", { name: "Recording pipeline steps" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", {
-        name: /Visible cards.*No processor output/i,
+        name: "Visible cards",
       }),
     ).toBeInTheDocument();
     expect(
       screen.getAllByRole("link", { name: /Events/ }).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Generated" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByRole("button", { name: "Reviewed" })).toBeEnabled();
+    expect(
+      screen.getByRole("link", { name: "Virtual scenes" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Generated" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Reviewed" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText("No data set selected")).toHaveLength(6);
     expect(
       screen.getByRole("combobox", { name: "Default generated revision" }),
     ).toHaveValue(generated.revision_id);
     expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
+  });
+
+  it("opens Virtual scenes as a separate empty step without run controls", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(workspace()), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="virtual_scenes"
+        compare={false}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Virtual scenes" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No virtual scene is selected for this lineage."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Virtual scenes" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("button", { name: "Run processor" })).toBeNull();
+    expect(
+      screen.queryByRole("complementary", { name: "Workspace inspector" }),
+    ).toBeNull();
   });
 
   it("keeps a stale explicit lineage link and does not select a substitute", async () => {

@@ -19,36 +19,33 @@ import { ComparisonView } from "./ComparisonView";
 import { PipelineObservationWorkbench } from "./PipelineObservationWorkbench";
 import { PipelineRoundAnalysisWorkbench } from "./PipelineRoundAnalysisWorkbench";
 import {
-  readPipelineUrlState,
-  recordingPipelinePath,
+  recordingPipelineNavigationPath,
   type PipelineUrlState,
   type PipelineView,
+  type PipelineNavigationStepKey,
 } from "./recordingPipelineUrl";
+import { readPipelineUrlState } from "./recordingPipelineUrl";
+import type { PipelineLineageGraph } from "./pipelineLineageSelection";
+import { decodeLineageSelection } from "./pipelineLineageSelection";
 import { actionHref, isModifiedClick } from "./recordingWorkspaceNavigation";
-import {
-  formatDuration,
-  formatIdentifier,
-  formatPipelineStageState,
-} from "./recordingWorkspaceFormatting";
+import { formatDuration } from "./recordingWorkspaceFormatting";
 import type {
   PipelinePrimaryAction,
   RecordingTimelineRailItem,
   RecordingWorkspacePresentation,
 } from "./recordingWorkspacePresentation";
 import { STAGE_LABELS } from "./recordingWorkspacePresentation";
-import { RecordingWorkspaceStatusBadge } from "./RecordingWorkspaceStatusBadge";
 import shellStyles from "./RecordingWorkspaceShell.module.css";
 import { ProfileControl } from "../profile/ProfileControl";
 
 export type RecordingWorkspaceShellProps = {
   recordingId: string;
   workspace: PipelineWorkspace;
-  stage: PipelineWorkspaceStage;
-  compare: boolean;
+  navigationStep: PipelineNavigationStepKey;
   urlState: PipelineUrlState;
-  activeView: PipelineView;
   notice: string | null;
   error: string | null;
+  lineageGraph: PipelineLineageGraph | null;
   onNavigate: (path: string) => void;
 };
 
@@ -79,14 +76,37 @@ export type RecordingWorkspaceTaskSurfaceProps = {
 export function RecordingWorkspaceShell({
   recordingId,
   workspace,
-  stage,
-  compare,
+  navigationStep,
   urlState,
-  activeView,
   notice,
   error,
+  lineageGraph,
   onNavigate,
 }: RecordingWorkspaceShellProps) {
+  const lineageSelection =
+    urlState.lineage === null ? null : decodeLineageSelection(urlState.lineage);
+  const steps: Array<{ key: PipelineNavigationStepKey; label: string }> = [
+    { key: "events", label: "Events" },
+    { key: "visible_cards", label: "Visible cards" },
+    { key: "virtual_scenes", label: "Virtual scenes" },
+    { key: "visual_identities", label: "Visual identities" },
+    { key: "table_observations", label: "Table observations" },
+    { key: "round_analyses", label: "Round analysis" },
+  ];
+  const revisionByKey = new Map(
+    (lineageGraph?.revisions ?? []).map((revision) => [
+      JSON.stringify([revision.node_id, revision.revision_id]),
+      revision,
+    ]),
+  );
+  const contentTypeByStep: Partial<Record<PipelineNavigationStepKey, string>> =
+    {
+      events: "events",
+      visible_cards: "visible_cards",
+      virtual_scenes: "card_scene_proposals",
+      visual_identities: "visual_identities",
+      table_observations: "table_observations",
+    };
   return (
     <>
       <div className={shellStyles.topSlot} data-slot="top">
@@ -100,91 +120,98 @@ export function RecordingWorkspaceShell({
             <strong title={recordingId}>{recordingId}</strong>
             <span>{formatDuration(workspace.video.duration_us)}</span>
           </div>
-          <nav aria-label="Recording pipeline stages">
+          <nav
+            className={shellStyles.stepNavigation}
+            aria-label="Recording pipeline steps"
+          >
             <ol className={shellStyles.stageNavigation}>
-              {workspace.stages.map((candidate) => (
-                <li key={candidate.key}>
-                  <a
-                    aria-current={
-                      candidate.key === stage.key ? "page" : undefined
-                    }
-                    className={
-                      candidate.key === stage.key
-                        ? shellStyles.stageLinkActive
-                        : shellStyles.stageLink
-                    }
-                    href={recordingPipelinePath(recordingId, candidate.key, {
-                      ...urlState,
-                      left: null,
-                      right: null,
-                      reference: null,
-                      analysis: null,
-                    })}
-                    onClick={(event) => {
-                      if (isModifiedClick(event)) {
-                        return;
-                      }
-                      event.preventDefault();
-                      onNavigate(
-                        recordingPipelinePath(recordingId, candidate.key, {
-                          ...urlState,
-                          left: null,
-                          right: null,
-                          reference: null,
-                          analysis: null,
-                        }),
+              {steps.map((step) => {
+                const reference =
+                  step.key === "round_analyses"
+                    ? undefined
+                    : lineageSelection?.selected[step.key];
+                const node =
+                  reference === undefined
+                    ? undefined
+                    : lineageGraph?.nodes.find(
+                        (item) =>
+                          item.node_id === reference.node_id &&
+                          item.content_type === contentTypeByStep[step.key],
                       );
-                    }}
-                  >
-                    <span>{STAGE_LABELS[candidate.key]}</span>
-                    <RecordingWorkspaceStatusBadge
-                      value={candidate.state}
-                      label={formatPipelineStageState(
-                        candidate.key,
-                        candidate.state,
+                const revision =
+                  reference === undefined
+                    ? undefined
+                    : revisionByKey.get(
+                        JSON.stringify([
+                          reference.node_id,
+                          reference.revision_id,
+                        ]),
+                      );
+                const selectedNode = node;
+                const path = recordingPipelineNavigationPath(
+                  recordingId,
+                  step.key,
+                  {
+                    ...urlState,
+                    left: null,
+                    right: null,
+                    reference: null,
+                    analysis: null,
+                  },
+                );
+                const isActive = step.key === navigationStep;
+                return (
+                  <li key={step.key}>
+                    <a
+                      aria-current={isActive ? "page" : undefined}
+                      className={
+                        isActive
+                          ? shellStyles.stageLinkActive
+                          : shellStyles.stageLink
+                      }
+                      href={path}
+                      onClick={(event) => {
+                        if (isModifiedClick(event)) {
+                          return;
+                        }
+                        event.preventDefault();
+                        onNavigate(path);
+                      }}
+                    >
+                      <span>{step.label}</span>
+                    </a>
+                    <div
+                      className={shellStyles.dataRow}
+                      aria-label={`${step.label} data`}
+                    >
+                      {selectedNode !== undefined && revision !== undefined ? (
+                        <>
+                          <strong title={selectedNode.name}>
+                            {selectedNode.name}
+                          </strong>
+                          <span>r {reference?.revision_id}</span>
+                          <small>Selected</small>
+                        </>
+                      ) : step.key === "round_analyses" &&
+                        urlState.analysis !== null ? (
+                        <>
+                          <strong>Analysis {urlState.analysis}</strong>
+                          <span>Exact analysis</span>
+                          <small>Selected</small>
+                        </>
+                      ) : (
+                        <>
+                          <strong>No data set selected</strong>
+                          <span>—</span>
+                          <small>Empty</small>
+                        </>
                       )}
-                    />
-                  </a>
-                </li>
-              ))}
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           </nav>
-          {stage.has_maintained_reference ? (
-            <fieldset className={shellStyles.viewSwitch}>
-              <legend className={styles.visuallyHidden}>Pipeline view</legend>
-              <div className={styles.pipelineToggleGroup}>
-                {(["generated", "reviewed"] as const).map((view) => (
-                  <button
-                    key={view}
-                    className={
-                      activeView === view
-                        ? styles.pipelineToggleActive
-                        : styles.pipelineToggle
-                    }
-                    type="button"
-                    aria-pressed={activeView === view}
-                    disabled={
-                      view === "reviewed" && !stage.has_maintained_reference
-                    }
-                    onClick={() =>
-                      onNavigate(
-                        recordingPipelinePath(recordingId, stage.key, {
-                          ...urlState,
-                          view,
-                          revision: null,
-                          left: compare ? urlState.left : null,
-                          right: compare ? urlState.right : null,
-                          reference: compare ? urlState.reference : null,
-                        }),
-                      )
-                    }
-                  >
-                    {formatIdentifier(view)}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          ) : null}
           <ProfileControl />
         </header>
 

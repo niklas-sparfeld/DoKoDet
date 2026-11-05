@@ -6,6 +6,7 @@ import {
   readPipelineUrlState,
   readRecordingPipelineRoute,
   recordingPipelineComparePath,
+  recordingPipelineNavigationPath,
   recordingPipelinePath,
 } from "./recordingPipelineUrl";
 
@@ -151,6 +152,25 @@ describe("recording pipeline URL helpers", () => {
         ).search,
       ).lineage,
     ).toBe(state.lineage);
+  });
+
+  it("keeps virtual scenes as a distinct step and preserves lineage", () => {
+    const path = recordingPipelineNavigationPath(
+      "recording-1",
+      "virtual_scenes",
+      {
+        lineage: "selection-json",
+      },
+    );
+    expect(path).toBe(
+      "/recordings/recording-1/pipeline/virtual_scenes?lineage=selection-json",
+    );
+    expect(
+      readRecordingPipelineRoute(new URL(path, "http://localhost").pathname),
+    ).toMatchObject({
+      stage: "virtual_scenes",
+      compare: false,
+    });
   });
 
   it("constructs comparison paths with run and reference selection", () => {

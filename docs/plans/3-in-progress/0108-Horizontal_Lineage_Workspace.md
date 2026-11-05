@@ -7,9 +7,9 @@
 - **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0 is complete; M1–M12 are not started. The workspace exposes exact graph data and
-  preserves validated lineage URLs. The agreed layout is recorded below. Processor input
-  and trigger UX remains later work.
+- **Outcome:** M0–M1 are complete; M2–M12 are not started. The workspace exposes exact graph data,
+  preserves validated lineage URLs, and has aligned step and data rows. Processor input and trigger
+  UX remains later work.
 
 ## Agreed layout
 
@@ -131,12 +131,17 @@ IDs. The workspace validates those IDs and keeps stale selections visible withou
 resolver reports unique, empty, or ambiguous ancestors and descendants. Local legacy data has no
 node graph until the later migration milestone.
 
-### M1 — Build the two-row processing navigation — Not started
+### M1 — Build the two-row processing navigation — Complete
 
 Replace the split top bar with aligned step and data rows. Add Virtual scenes and meaningful empty
 states. The drawer toggle belongs to this component. Remove the Generated/Reviewed switch.
 
 Acceptance: stage switches retain exact lineage; missing results stay empty. No new run buttons.
+
+Result: the top navigation has six aligned step columns and a data row under each step. It shows
+the exact selected node name and revision from the lineage URL, or a clear empty state. Virtual
+scenes has its own route and empty state. The Generated/Reviewed top-bar switch is removed. Stage
+navigation preserves lineage and does not add processor controls.
 
 ### M2 — Build the horizontal lineage drawer — Not started
 

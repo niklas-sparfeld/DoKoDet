@@ -105,7 +105,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0108 — Horizontal lineage workspace](3-in-progress/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | In progress. M0 complete; M1–M12 not started. Integrate node services, add the horizontal lineage drawer, migrate local data, cut over readers and writers, and remove replaced selectors and lifecycles. Processor input/trigger UX remains later work. |
+| [0108 — Horizontal lineage workspace](3-in-progress/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | In progress. M0–M1 complete; M2–M12 not started. Integrate node services, add the horizontal lineage drawer, migrate local data, cut over readers and writers, and remove replaced selectors and lifecycles. Processor input/trigger UX remains later work. |
 
 
 ### In Progress
