@@ -1165,6 +1165,10 @@ class VisualIdentityPipelineService:
                     or detector_revision.manifest.content_sha256 != data.detector_revision_digest
                 ):
                     raise VisualIdentityCropInputError("the detector lineage is stale")
+                detector_card_ids_by_event = {
+                    outcome.event_id: {candidate.card_id for candidate in outcome.candidates}
+                    for outcome in detector_revision.content.outcomes
+                }
                 calibration_run = self.calibration_store.load(
                     recording_id, data.calibration_revision_id
                 )
@@ -1208,16 +1212,28 @@ class VisualIdentityPipelineService:
                             "proposal scene and exact frame identity differ"
                         )
                     derivation = derive_pose_scene_visible_regions(scene, projection)
+                    source_card_ids = {
+                        pose.card_id: pose.source_suggestion_id for pose in scene.poses
+                    }
                     hidden_cards.extend(
                         f"{frame.frame_id}:{card_id}" for card_id in derivation.hidden_card_ids
                     )
                     for region in derivation.regions:
+                        source_card_id = source_card_ids.get(region["card_id"])
+                        if (
+                            source_card_id is None
+                            or source_card_id
+                            not in detector_card_ids_by_event.get(frame.frame_id, set())
+                        ):
+                            raise VisualIdentityCropInputError(
+                                "a visible proposal pose has no source detector card in its frame"
+                            )
                         raw_geometry = dict(region["geometry"])
                         raw_geometry["kind"] = "visible-region/v1"
                         geometry = PredictedVisibleRegionGeometry.from_mapping(raw_geometry)
                         items.append(
                             VisualIdentityCropInputItem(
-                                card_id=region["card_id"],
+                                card_id=source_card_id,
                                 frame_identity=identity,
                                 geometry=geometry,
                                 side="unknown",

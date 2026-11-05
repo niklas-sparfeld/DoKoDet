@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Any, Literal
 
@@ -98,7 +99,14 @@ def assemble_table_observations(
             raise ObservationAssemblyError(
                 f"identity frame does not match visible-card frame: {identity.card_id}"
             )
-        if identity.geometry.to_mapping() != visible_candidate.geometry.to_mapping():
+        is_pose_derived_identity = (
+            identity.crop_input_provenance is not None
+            and identity.crop_input_provenance.input_kind == "proposed_virtual_cards"
+        )
+        if (
+            not is_pose_derived_identity
+            and identity.geometry.to_mapping() != visible_candidate.geometry.to_mapping()
+        ):
             raise ObservationAssemblyError(
                 f"identity geometry does not match visible-card geometry: {identity.card_id}"
             )
@@ -271,9 +279,13 @@ def _identity_candidates(candidates: Sequence[Any]) -> list[IdentityCandidate]:
     ):
         return []
     try:
+        probabilities = [float(candidate.score) for candidate in candidates]
+        total = sum(probabilities)
+        if not math.isfinite(total) or total <= 0:
+            return []
         return [
-            IdentityCandidate(card=candidate.identity, probability=float(candidate.score))
-            for candidate in candidates
+            IdentityCandidate(card=candidate.identity, probability=probability / total)
+            for candidate, probability in zip(candidates, probabilities, strict=True)
         ]
     except (TypeError, ValueError):
         return []

@@ -1618,7 +1618,13 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
             calibration_revision_id=calibration.calibration_revision_id,
             calibration_digest=calibration.calibration_digest,
             poses=(
-                CardPose("proposal-card-01", (32.0, 32.0), 0.0, "suggestion-01", None),
+                CardPose(
+                    "proposal-card-01",
+                    (32.0, 32.0),
+                    0.0,
+                    frame_outcome.candidates[0].card_id,
+                    None,
+                ),
                 CardPose("proposal-hidden-01", (32.0, 32.0), 0.0, "suggestion-02", None),
             ),
             stacking_order=CardStackingOrder(
@@ -1695,6 +1701,7 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
             requested_kind="proposed_virtual_cards",
         )
         assert frozen.proposed_virtual_card_lineage is not None
+        assert [item.card_id for item in frozen.items] == [frame_outcome.candidates[0].card_id]
         stale_lineage = replace(
             frozen.proposed_virtual_card_lineage,
             calibration_digest="0" * 64,
@@ -1772,7 +1779,7 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
         outcomes = reopened.json()["revisions"][0]["content"]["outcomes"]
         assert len(outcomes) == 1
         outcome = outcomes[0]
-        assert outcome["card_id"] == "proposal-card-01"
+        assert outcome["card_id"] == frame_outcome.candidates[0].card_id
         assert outcome["geometry"]["kind"] == "visible-region/v1"
         assert outcome["crop_input_provenance"]["input_kind"] == "proposed_virtual_cards"
         revision_id = reopened.json()["state"]["output_revision_ids"][0]

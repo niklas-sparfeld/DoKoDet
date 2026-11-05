@@ -13,6 +13,7 @@ from table_evidence_analyzer import (
     VisualIdentityCandidate,
     VisualIdentityClassifierIdentity,
     VisualIdentityCropIdentity,
+    VisualIdentityCropInputProvenance,
     VisualIdentityData,
     VisualIdentityOutcome,
     assemble_table_observations,
@@ -155,6 +156,70 @@ def test_assembler_preserves_order_lineage_and_detected_empty_evidence() -> None
 
     parsed = parse_table_observation_data_bytes(canonical_table_observation_data_bytes(result))
     assert parsed == result
+
+
+def test_assembler_accepts_pose_derived_identity_geometry_for_source_detector_card() -> None:
+    events, visible, identities = _inputs()
+    outcome = identities.outcomes[0]
+    identities = VisualIdentityData(
+        outcomes=(
+            replace(
+                outcome,
+                geometry=DetectorBoxGeometry(120, 120, 880, 880),
+                crop_input_provenance=VisualIdentityCropInputProvenance(
+                    input_kind="proposed_virtual_cards",
+                    manifest_digest=DIGEST,
+                    source_revision_id="scene-proposals-01",
+                    source_revision_digest=DIGEST,
+                    source_view_digest=DIGEST,
+                ),
+            ),
+        )
+    )
+
+    result = assemble_table_observations(
+        events,
+        visible,
+        identities,
+        recording_id="recording-01",
+        video_sha256=DIGEST,
+        assembly_run_id="assembly-01",
+        input_revision_ids=("events-01", "visible-01", "identity-01"),
+    )
+
+    assert result.observations[0].cards[0].identity_candidates[0].card == "HEARTS_TEN"
+
+
+def test_assembler_normalizes_identity_scores_after_non_card_mass_is_removed() -> None:
+    events, visible, identities = _inputs()
+    outcome = identities.outcomes[0]
+    identities = VisualIdentityData(
+        outcomes=(
+            replace(
+                outcome,
+                candidates=(
+                    replace(outcome.candidates[0], score=0.72),
+                    replace(outcome.candidates[1], score=0.18),
+                ),
+            ),
+        )
+    )
+
+    result = assemble_table_observations(
+        events,
+        visible,
+        identities,
+        recording_id="recording-01",
+        video_sha256=DIGEST,
+        assembly_run_id="assembly-normalized-identities",
+        input_revision_ids=("events-01", "visible-01", "identity-01"),
+    )
+
+    candidates = result.observations[0].cards[0].identity_candidates
+    assert [candidate.probability for candidate in candidates] == pytest.approx([0.8, 0.2])
+    assert sum(candidate.probability for candidate in candidates) == pytest.approx(1.0)
+    detail = result.observations[0].diagnostics["assembly"]["identity_details"]["card-01"]
+    assert detail["visual_identity_outcome"]["candidates"][0]["score"] == 0.72
 
 
 def test_assembler_preserves_piles_separately_for_mixed_and_pile_only_frames() -> None:
