@@ -78,11 +78,10 @@ final class DeviceRoundReconstructionTests: XCTestCase {
 
     let result = try DeviceRoundAnalysisPipeline().run(
       recordingBundleURL: bundle, recordingID: "recording-fixture", sessionID: "session-fixture")
-    let reloaded = try XCTUnwrap(
-      DeviceRoundAnalysisStore(
-        directoryURL: bundle.appendingPathComponent(
-          ".device/stages/round-analysis/\(result.analysisID)", isDirectory: true)
-      ).load())
+    let store = DeviceRoundAnalysisStore(
+      directoryURL: bundle.appendingPathComponent(
+        ".device/stages/round-analysis/\(result.analysisID)", isDirectory: true))
+    let reloaded = try XCTUnwrap(store.load())
 
     XCTAssertEqual(result.status, .resolved)
     XCTAssertEqual(reloaded.0.context.gameID, "game-recording-fixture")
@@ -96,6 +95,11 @@ final class DeviceRoundReconstructionTests: XCTestCase {
       contentsOf: bundle.appendingPathComponent(
         ".device/stages/round-analysis/\(result.analysisID)/run.log"), encoding: .utf8)
     XCTAssertTrue(log.contains("stage=round-analysis"))
+    let archive = try Data(contentsOf: store.makeDiagnosticArchive())
+    XCTAssertEqual(Array(archive.prefix(4)), [0x50, 0x4b, 0x03, 0x04])
+    let archiveText = String(decoding: archive, as: UTF8.self)
+    XCTAssertTrue(archiveText.contains("table-observations.json"))
+    XCTAssertTrue(archiveText.contains("run.log"))
   }
 
   func testPipelineRetainsMissingSessionFailure() throws {
@@ -119,6 +123,29 @@ final class DeviceRoundReconstructionTests: XCTestCase {
       from: Data(contentsOf: run.appendingPathComponent("failure.json")))
     XCTAssertEqual(failure.stage, "round-analysis")
     XCTAssertTrue(failure.error.contains("session"))
+    XCTAssertTrue(
+      FileManager.default.fileExists(atPath: run.appendingPathComponent("diagnostics.zip").path))
+  }
+
+  func testPipelineRetainsMissingObservationInputAndExportableFailure() throws {
+    let bundle = FileManager.default.temporaryDirectory
+      .appendingPathComponent(
+        "device-round-analysis-no-input-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: bundle) }
+
+    XCTAssertThrowsError(
+      try DeviceRoundAnalysisPipeline().run(
+        recordingBundleURL: bundle, recordingID: "recording-fixture", sessionID: "session-fixture"))
+    let root = bundle.appendingPathComponent(".device/stages/round-analysis", isDirectory: true)
+    let run = try XCTUnwrap(
+      FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).first)
+    let failure = try JSONDecoder().decode(
+      DeviceRoundAnalysisFailure.self,
+      from: Data(contentsOf: run.appendingPathComponent("failure.json")))
+    XCTAssertEqual(failure.stage, "round-analysis")
+    XCTAssertTrue(failure.error.contains("table-observations"))
+    XCTAssertTrue(
+      FileManager.default.fileExists(atPath: run.appendingPathComponent("diagnostics.zip").path))
   }
 
   private func observations(_ cards: [String]) -> [DeviceTableObservation] {

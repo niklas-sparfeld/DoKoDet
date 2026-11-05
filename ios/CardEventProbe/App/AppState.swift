@@ -88,6 +88,11 @@ final class AppState: ObservableObject {
     @Published private(set) var roundRecordingState: RoundRecordingState?
     @Published private(set) var roundAnalysisState: RoundAnalysisDisplayState = .idle
     @Published private(set) var roundAnalysisSubmissionState: RoundAnalysisSubmissionState?
+    @Published private(set) var deviceRoundAnalysisRunning = false
+    @Published private(set) var deviceRoundAnalysisStatus: String?
+    @Published private(set) var deviceRoundAnalysisError: String?
+    @Published private(set) var deviceRoundAnalysisDirectory: URL?
+    @Published private(set) var deviceRoundAnalysisStorageError: String?
     @Published private(set) var recordingProfiles: [RecordingProfile] = []
     @Published private(set) var selectedRecordingProfileID: String?
     @Published private(set) var recordingProfileError: String?
@@ -297,6 +302,7 @@ final class AppState: ObservableObject {
         }
         evidenceAnalysisWorkflow.recover()
         recordingWorkflow.recover()
+        restoreDeviceRoundAnalysis()
         loadModel()
     }
 
@@ -409,6 +415,7 @@ final class AppState: ObservableObject {
     }
 
     func uploadQueuedTrainingRecordings() {
+        guard !deviceRoundAnalysisRunning else { return }
         recordingWorkflow.uploadQueuedTrainingRecordings(using: currentBackendConfiguration())
     }
 
@@ -505,6 +512,168 @@ final class AppState: ObservableObject {
     func stopRecording() {
         liveCoordinator?.flushDeviceRecording()
         recordingWorkflow.stopRecording()
+    }
+
+    func runDeviceRoundAnalysis() {
+        guard !trainingRecordingUploadRunning else {
+            deviceRoundAnalysisStatus = "Waiting for upload"
+            deviceRoundAnalysisError = "Wait for the recording upload to finish, then start local analysis."
+            return
+        }
+        guard deviceRoundAnalysisDiagnosticUsageBytes < 100 * 1024 * 1024 else {
+            deviceRoundAnalysisStatus = "Storage limit reached"
+            deviceRoundAnalysisError = "Delete a saved analysis before starting another run."
+            return
+        }
+        guard !deviceRoundAnalysisRunning,
+              let recordingID = roundRecordingState?.recordingID,
+              let bundleURL = localRecordingBundleURL(for: recordingID) else {
+            deviceRoundAnalysisError = "No finalized local recording is available for round analysis."
+            deviceRoundAnalysisStatus = "Not started"
+            return
+        }
+        let priorStages = bundleURL.appendingPathComponent(".device/stages", isDirectory: true)
+        if FileManager.default.fileExists(atPath: priorStages.path) {
+            deviceRoundAnalysisStatus = "Saved run exists"
+            deviceRoundAnalysisError = "This recording already has local stage results. Reopen or export them, or start a fresh recording for another run."
+            restoreDeviceRoundAnalysis()
+            return
+        }
+        deviceRoundAnalysisError = nil
+        deviceRoundAnalysisStatus = "Preparing on-device processing"
+        deviceRoundAnalysisDirectory = nil
+        deviceRoundAnalysisRunning = true
+        Task {
+            let outcome = await Task.detached(priority: .userInitiated) { () -> (URL?, String?) in
+                do {
+                    let manifestURL = bundleURL.appendingPathComponent("manifest.json")
+                    let manifest = try JSONDecoder().decode(
+                        RepositoryBundle.self, from: Data(contentsOf: manifestURL))
+                    guard manifest.recordingID == recordingID else {
+                        throw DeviceRoundAnalysisError.invalidContext
+                    }
+                    let result = try DevicePostCapturePipeline().run(
+                        recordingBundleURL: bundleURL,
+                        onProgress: { stage in
+                            Task { @MainActor [weak self] in
+                                self?.deviceRoundAnalysisStatus = stage
+                            }
+                        }
+                    )
+                    return (result.diagnosticDirectory, nil)
+                } catch {
+                    let root = bundleURL.appendingPathComponent(
+                        ".device/stages/round-analysis", isDirectory: true)
+                    let directory = (try? FileManager.default.contentsOfDirectory(
+                        at: root, includingPropertiesForKeys: [.contentModificationDateKey]
+                    ))?.max {
+                        let left = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                        let right = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                        return left < right
+                    }
+                    guard let directory else { return (nil, error.localizedDescription) }
+                    return (directory, nil)
+                }
+            }.value
+
+            deviceRoundAnalysisRunning = false
+            if let directory = outcome.0 {
+                deviceRoundAnalysisDirectory = directory
+                if FileManager.default.fileExists(atPath: directory.appendingPathComponent("failure.json").path) {
+                    deviceRoundAnalysisStatus = "Failed"
+                    deviceRoundAnalysisError = readRoundAnalysisFailure(at: directory)
+                } else if let (_, result) = try? DeviceRoundAnalysisStore(directoryURL: directory).load() {
+                    deviceRoundAnalysisStatus = result.status.rawValue.capitalized
+                } else {
+                    deviceRoundAnalysisStatus = "Saved"
+                }
+            } else {
+                deviceRoundAnalysisStatus = "Failed"
+                deviceRoundAnalysisError = outcome.1 ?? "Round analysis failed."
+            }
+            uploadQueuedTrainingRecordings()
+        }
+    }
+
+    var deviceRoundAnalysisDiagnosticURLs: [URL] {
+        guard let directory = deviceRoundAnalysisDirectory else { return [] }
+        return ["diagnostics.zip"]
+            .map { directory.appendingPathComponent($0) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    var deviceRoundAnalysisDiagnosticUsageBytes: Int64 {
+        var total: Int64 = 0
+        for state in TrainingRecordingQueueState.allCases {
+            guard let bundles = try? trainingRecordingStore.recordingURLs(in: state) else { continue }
+            for bundle in bundles {
+                let root = bundle.appendingPathComponent(".device/stages/round-analysis", isDirectory: true)
+                guard let files = FileManager.default.enumerator(
+                    at: root, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey]
+                ) else { continue }
+                for case let file as URL in files {
+                    guard let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+                          values.isRegularFile == true else { continue }
+                    total += Int64(values.fileSize ?? 0)
+                }
+            }
+        }
+        return total
+    }
+
+    func deleteAllDeviceRoundAnalysis() {
+        do {
+            for state in TrainingRecordingQueueState.allCases {
+                guard let bundles = try? trainingRecordingStore.recordingURLs(in: state) else { continue }
+                for bundle in bundles {
+                    let root = bundle.appendingPathComponent(
+                        ".device/stages/round-analysis", isDirectory: true)
+                    if FileManager.default.fileExists(atPath: root.path) {
+                        try FileManager.default.removeItem(at: root)
+                    }
+                }
+            }
+            deviceRoundAnalysisDirectory = nil
+            deviceRoundAnalysisStatus = nil
+            deviceRoundAnalysisError = nil
+            deviceRoundAnalysisStorageError = nil
+        } catch {
+            deviceRoundAnalysisStorageError = "Saved diagnostics could not be deleted: \(error.localizedDescription)"
+        }
+    }
+
+    private func localRecordingBundleURL(for recordingID: String) -> URL? {
+        TrainingRecordingQueueState.allCases
+            .map { trainingRecordingStore.recordingURL(for: recordingID, in: $0) }
+            .first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("manifest.json").path) }
+    }
+
+    private func restoreDeviceRoundAnalysis() {
+        guard let recordingID = roundRecordingState?.recordingID,
+              let bundleURL = localRecordingBundleURL(for: recordingID) else { return }
+        let root = bundleURL.appendingPathComponent(".device/stages/round-analysis", isDirectory: true)
+        guard let directories = try? FileManager.default.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.contentModificationDateKey]
+        ), let directory = directories.max(by: {
+            let left = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let right = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return left < right
+        }) else { return }
+        deviceRoundAnalysisDirectory = directory
+        if FileManager.default.fileExists(atPath: directory.appendingPathComponent("failure.json").path) {
+            deviceRoundAnalysisStatus = "Failed"
+            deviceRoundAnalysisError = readRoundAnalysisFailure(at: directory)
+        } else if let (_, result) = try? DeviceRoundAnalysisStore(directoryURL: directory).load() {
+            deviceRoundAnalysisStatus = result.status.rawValue.capitalized
+        }
+    }
+
+    private func readRoundAnalysisFailure(at directory: URL) -> String {
+        guard let data = try? Data(contentsOf: directory.appendingPathComponent("failure.json")),
+              let failure = try? JSONDecoder().decode(DeviceRoundAnalysisFailure.self, from: data) else {
+            return "Round analysis failed. See the saved run log."
+        }
+        return "\(failure.stage): \(failure.error)"
     }
 
     func interruptRecording() {

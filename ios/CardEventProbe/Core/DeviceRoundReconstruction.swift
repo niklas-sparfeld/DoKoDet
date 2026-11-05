@@ -528,20 +528,130 @@ public struct DeviceRoundAnalysisStore: Sendable {
     try Data(log.utf8).write(to: directoryURL.appendingPathComponent("run.log"), options: .atomic)
   }
 
-  public func saveFailure(analysisID: String, recordingID: String, error: Error) throws {
+  public func saveInputObservations(_ data: Data) throws {
+    try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+    try data.write(
+      to: directoryURL.appendingPathComponent("table-observations.json"), options: .atomic)
+  }
+
+  /// Build one uncompressed ZIP with the frozen analysis input and its saved diagnostics.
+  public func makeDiagnosticArchive() throws -> URL {
+    var sources = [
+      ("round-analysis/request.json", directoryURL.appendingPathComponent("request.json")),
+      ("round-analysis/result.json", directoryURL.appendingPathComponent("result.json")),
+      ("round-analysis/failure.json", directoryURL.appendingPathComponent("failure.json")),
+      (
+        "round-analysis/table-observations.json",
+        directoryURL.appendingPathComponent("table-observations.json")
+      ),
+      ("round-analysis/run.log", directoryURL.appendingPathComponent("run.log")),
+    ]
+    let deviceRoot = directoryURL.deletingLastPathComponent()
+      .deletingLastPathComponent().deletingLastPathComponent()
+    sources.append(("run.log", deviceRoot.appendingPathComponent("run.log")))
+    for relativePath in [
+      "stages/visible-cards/revision.json",
+      "stages/calibration/result.json",
+      "stages/proposed-card-scenes/result.json",
+      "stages/visual-identities/revision.json",
+      "stages/visual-identities/table-observations.json",
+    ] {
+      sources.append((relativePath, deviceRoot.appendingPathComponent(relativePath)))
+    }
+    var files: [(String, Data)] = []
+    for (name, url) in sources {
+      guard FileManager.default.fileExists(atPath: url.path) else { continue }
+      files.append((name, try Data(contentsOf: url)))
+    }
+    guard !files.isEmpty else {
+      throw DeviceRoundAnalysisError.invalidObservations(
+        "No saved round-analysis diagnostics are available to export.")
+    }
+    var archive = Data()
+    var centralDirectory = Data()
+    for (name, contents) in files {
+      guard contents.count <= Int(UInt32.max) else {
+        throw DeviceRoundAnalysisError.invalidObservations(
+          "A diagnostic file is too large to export.")
+      }
+      let filename = Data(name.utf8)
+      let checksum = Self.crc32(contents)
+      let offset = UInt32(archive.count)
+      archive.appendLE(UInt32(0x0403_4b50))
+      archive.appendLE(UInt16(20))
+      archive.appendLE(UInt16(0x0800))
+      archive.appendLE(UInt16(0))
+      archive.appendLE(UInt16(0))
+      archive.appendLE(UInt16(0x0021))
+      archive.appendLE(checksum)
+      archive.appendLE(UInt32(contents.count))
+      archive.appendLE(UInt32(contents.count))
+      archive.appendLE(UInt16(filename.count))
+      archive.appendLE(UInt16(0))
+      archive.append(filename)
+      archive.append(contents)
+
+      centralDirectory.appendLE(UInt32(0x0201_4b50))
+      centralDirectory.appendLE(UInt16(20))
+      centralDirectory.appendLE(UInt16(20))
+      centralDirectory.appendLE(UInt16(0x0800))
+      centralDirectory.appendLE(UInt16(0))
+      centralDirectory.appendLE(UInt16(0))
+      centralDirectory.appendLE(UInt16(0x0021))
+      centralDirectory.appendLE(checksum)
+      centralDirectory.appendLE(UInt32(contents.count))
+      centralDirectory.appendLE(UInt32(contents.count))
+      centralDirectory.appendLE(UInt16(filename.count))
+      centralDirectory.appendLE(UInt16(0))
+      centralDirectory.appendLE(UInt16(0))
+      centralDirectory.appendLE(UInt16(0))
+      centralDirectory.appendLE(UInt16(0))
+      centralDirectory.appendLE(UInt32(0))
+      centralDirectory.appendLE(offset)
+      centralDirectory.append(filename)
+    }
+    let centralOffset = UInt32(archive.count)
+    archive.append(centralDirectory)
+    archive.appendLE(UInt32(0x0605_4b50))
+    archive.appendLE(UInt16(0))
+    archive.appendLE(UInt16(0))
+    archive.appendLE(UInt16(files.count))
+    archive.appendLE(UInt16(files.count))
+    archive.appendLE(UInt32(centralDirectory.count))
+    archive.appendLE(centralOffset)
+    archive.appendLE(UInt16(0))
+    let archiveURL = directoryURL.appendingPathComponent("diagnostics.zip")
+    try archive.write(to: archiveURL, options: .atomic)
+    return archiveURL
+  }
+
+  private static func crc32(_ data: Data) -> UInt32 {
+    var crc = UInt32.max
+    for byte in data {
+      crc ^= UInt32(byte)
+      for _ in 0..<8 {
+        crc = (crc & 1) == 1 ? (crc >> 1) ^ 0xedb8_8320 : crc >> 1
+      }
+    }
+    return crc ^ UInt32.max
+  }
+
+  public func saveFailure(
+    analysisID: String, recordingID: String, error: Error, stage: String = "round-analysis"
+  ) throws {
     try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
     let formatter = ISO8601DateFormatter()
     let timestamp = formatter.string(from: Date())
     let detail = error.localizedDescription.replacingOccurrences(of: "\n", with: " ")
     let record = DeviceRoundAnalysisFailure(
       schemaVersion: "doko-device-round-analysis-failure/v1", analysisID: analysisID,
-      recordingID: recordingID, stage: "round-analysis", error: detail, failedAtUTC: timestamp)
+      recordingID: recordingID, stage: stage, error: detail, failedAtUTC: timestamp)
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     try encoder.encode(record).write(
       to: directoryURL.appendingPathComponent("failure.json"), options: .atomic)
     let log =
-      "\(timestamp) error run=\(analysisID) stage=round-analysis message=failed error=\(detail)\n"
+      "\(timestamp) error run=\(analysisID) stage=\(stage) message=failed error=\(detail)\n"
     try Data(log.utf8).write(to: directoryURL.appendingPathComponent("run.log"), options: .atomic)
   }
 
@@ -564,6 +674,13 @@ public struct DeviceRoundAnalysisStore: Sendable {
   }
 }
 
+extension Data {
+  fileprivate mutating func appendLE<T: FixedWidthInteger>(_ value: T) {
+    var littleEndian = value.littleEndian
+    Swift.withUnsafeBytes(of: &littleEndian) { append(contentsOf: $0) }
+  }
+}
+
 /// Runs analysis from the observation revision retained by M10 and stores a reloadable result.
 public struct DeviceRoundAnalysisPipeline: Sendable {
   public init() {}
@@ -581,15 +698,19 @@ public struct DeviceRoundAnalysisPipeline: Sendable {
       let observationsURL =
         recordingBundleURL
         .appendingPathComponent(".device/stages/visual-identities/table-observations.json")
+      let observationsData = try Data(contentsOf: observationsURL)
       let observations = try JSONDecoder().decode(
-        [DeviceTableObservation].self, from: Data(contentsOf: observationsURL))
+        [DeviceTableObservation].self, from: observationsData)
       let context = try DeviceRoundAnalysisContext(recordingID: recordingID, sessionID: sessionID)
       let (request, result) = try DeviceRoundReconstructor.run(
         observations: observations, context: context, search: search, analysisID: analysisID)
       try store.save(request: request, result: result)
+      try store.saveInputObservations(observationsData)
+      _ = try store.makeDiagnosticArchive()
       return result
     } catch {
       try store.saveFailure(analysisID: analysisID, recordingID: recordingID, error: error)
+      _ = try? store.makeDiagnosticArchive()
       throw error
     }
   }

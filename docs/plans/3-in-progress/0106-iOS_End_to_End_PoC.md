@@ -8,13 +8,15 @@
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M13.
-- **Outcome:** M0–M11 complete. M12–M13 remain. The iOS package now derives deterministic
+- **Outcome:** M0–M12 complete. M13 remains. The iOS package now derives deterministic
   table-plane fit candidates from robust boundary evidence, calculates immutable calibration
   refinement previews, and initializes calibration-backed per-frame scene proposals. Live capture
   retains event proposals and frame timing; the visible-card stage retains event-frame provenance,
   model lineage, and proposal outcomes. M10 runs the frozen DINOv3 package on predicted visible
   regions and assembles revision-bound table observations. M11 adds bounded local round
-  reconstruction and durable per-run results. No device result or model-quality claim exists.
+  reconstruction and durable per-run results. The app runs the ordered local post-capture stages
+  and exposes progress, errors, diagnostic export, and explicit cleanup. No device result or
+  model-quality claim exists.
 
 ## Purpose and scope
 
@@ -228,13 +230,12 @@ uses the recording session and the automatic game, round, and generic player def
 Acceptance: deterministic fixtures cover a complete path, empty observations, missing session
 context, and impossible card evidence. The saved output can be inspected after app restart.
 
-### M12 — Add minimal controls and diagnostic export
+### M12 — Add minimal controls and diagnostic export — Complete
 
-Provide the required input, recording and processing controls, progress, final status, error detail,
-and access to the saved diagnostic bundle and log. Make the run lifecycle and storage limits clear.
-
-Acceptance: automated app or component tests cover a complete fixture run, missing input, failure,
-and reopening or exporting diagnostics. Log lines identify the run and failing stage.
+The recording details view starts the local post-capture stages in order. It shows progress and
+failure detail, restores the latest saved result after app restart, and exports one diagnostic ZIP.
+It shows diagnostic storage use and provides explicit cleanup. See the
+[M12 result](../../reports/0106-M12_Minimal_Controls_and_Diagnostics.md).
 
 ### M13 — Verify the end-to-end iPhone trial
 

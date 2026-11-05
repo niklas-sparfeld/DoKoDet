@@ -79,6 +79,7 @@
 		A0000000000000000000005C /* DeviceIdentityObservationPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000005C /* DeviceIdentityObservationPipeline.swift */; };
 		A0000000000000000000005D /* DeviceVisualIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000005D /* DeviceVisualIdentity.swift */; };
 		A0000000000000000000005F /* DeviceRoundReconstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000005F /* DeviceRoundReconstruction.swift */; };
+		A00000000000000000000060 /* DevicePostCapturePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000060 /* DevicePostCapturePipeline.swift */; };
 		A0000000000000000000005E /* DeviceVisibleRegionCropper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000005E /* DeviceVisibleRegionCropper.swift */; };
 		A00000000000000000000039 /* RecordingProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000039 /* RecordingProfile.swift */; };
 		A0000000000000000000003A /* RecordingWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003A /* RecordingWorkspace.swift */; };
@@ -130,6 +131,7 @@
 		B0000000000000000000005D /* DeviceVisualIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceVisualIdentity.swift; sourceTree = "<group>"; };
 		B0000000000000000000005E /* DeviceVisibleRegionCropper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceVisibleRegionCropper.swift; sourceTree = "<group>"; };
 		B0000000000000000000005F /* DeviceRoundReconstruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRoundReconstruction.swift; sourceTree = "<group>"; };
+		B00000000000000000000060 /* DevicePostCapturePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePostCapturePipeline.swift; sourceTree = "<group>"; };
 		B00000000000000000000011 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		B00000000000000000000012 /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		B00000000000000000000013 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
@@ -271,6 +273,7 @@
 				B0000000000000000000003E /* RecordingWorkflow.swift */,
 				B0000000000000000000003F /* EvidenceAnalysisWorkflow.swift */,
 				B0000000000000000000005C /* DeviceIdentityObservationPipeline.swift */,
+				B00000000000000000000060 /* DevicePostCapturePipeline.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -558,6 +561,7 @@
 				A0000000000000000000003E /* RecordingWorkflow.swift in Sources */,
 				A0000000000000000000003F /* EvidenceAnalysisWorkflow.swift in Sources */,
 				A0000000000000000000005C /* DeviceIdentityObservationPipeline.swift in Sources */,
+				A00000000000000000000060 /* DevicePostCapturePipeline.swift in Sources */,
 				A00000000000000000000003 /* CameraSession.swift in Sources */,
 				A00000000000000000000004 /* CameraPreview.swift in Sources */,
 				A00000000000000000000005 /* ModelContract.swift in Sources */,

@@ -445,9 +445,60 @@ private struct OperatorSettingsView: View {
 private struct RecordingWorkspaceDetailsView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmingAnalysisDelete = false
 
     var body: some View {
         List {
+            Section("On-device processing") {
+                if appState.deviceRoundAnalysisRunning {
+                    ProgressView(appState.deviceRoundAnalysisStatus ?? "Processing")
+                } else {
+                    Button("Process recording on device") {
+                        appState.runDeviceRoundAnalysis()
+                    }
+                    .disabled(appState.roundRecordingState == nil || appState.trainingRecordingUploadRunning)
+                }
+                if let status = appState.deviceRoundAnalysisStatus {
+                    LabeledContent("Status", value: status)
+                }
+                if let error = appState.deviceRoundAnalysisError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
+                }
+                if !appState.deviceRoundAnalysisDiagnosticURLs.isEmpty {
+                    ShareLink(
+                        items: appState.deviceRoundAnalysisDiagnosticURLs,
+                        subject: Text("DokoDetector round analysis diagnostics"),
+                        preview: { url in SharePreview(url.lastPathComponent) }
+                    ) {
+                        Label("Export diagnostic archive", systemImage: "square.and.arrow.up")
+                    }
+                    Text("Exports one archive with the saved input, result or failure, and run log.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if appState.roundRecordingState == nil {
+                    Text("Record and finalize a recording before running analysis.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                LabeledContent(
+                    "Saved analysis diagnostics",
+                    value: String(format: "%.1f MB / 100 MB", Double(appState.deviceRoundAnalysisDiagnosticUsageBytes) / 1_048_576)
+                )
+                if appState.deviceRoundAnalysisDiagnosticUsageBytes > 0 {
+                    Button("Delete all saved analyses", role: .destructive) {
+                        confirmingAnalysisDelete = true
+                    }
+                }
+                if let error = appState.deviceRoundAnalysisStorageError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
             Section("Upload and analysis") {
                 LabeledContent("Recording upload", value: appState.trainingRecordingState.title)
                 if let progress = appState.trainingRecordingUploadProgress {
@@ -478,6 +529,17 @@ private struct RecordingWorkspaceDetailsView: View {
             Section("Diagnostics") {
                 DiagnosticsPanel(cameraSourceRate: appState.cameraSession.sourceRateStatus)
             }
+        }
+        .confirmationDialog(
+            "Delete all saved analyses and diagnostics?",
+            isPresented: $confirmingAnalysisDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete all analyses", role: .destructive) {
+                appState.deleteAllDeviceRoundAnalysis()
+            }
+        } message: {
+            Text("This does not delete any recording video or other stage data.")
         }
         .navigationTitle("More details")
         .toolbar {
