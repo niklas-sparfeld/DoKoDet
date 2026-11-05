@@ -23,10 +23,19 @@ a new analysis.
 - Six focused tests pass. They cover the 40-play `unambiguous.json` card sequence, ten trick outputs,
   empty observations, impossible duplicate-deck evidence, missing session context, lineage mismatch,
   failure retention, and reload of a saved result.
-- The complete Release Swift package suite passed 161 tests with 2 existing reference tests skipped
-  because their frozen external model inputs were not set.
+- The complete Release Swift package suite passed 161 tests with no failures or skips when
+  `DEVICE_VISIBLE_CARD_REFERENCE_ROOT` was set to the primary checkout. This ran the frozen
+  RF-DETR six-frame and DINOv3 two-crop comparisons.
 - The iPhone 18 Pro Simulator build on iOS 27.2 passed.
 - `swift-format` lint and `git diff --check` pass for the new Swift sources.
+
+To run the frozen reference checks, use:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  DEVICE_VISIBLE_CARD_REFERENCE_ROOT=/path/to/doko_detector \
+  xcrun swift test -c release
+```
 
 ## Limits
 
