@@ -126,6 +126,146 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
     XCTAssertEqual(preview.gates.count, 5)
   }
 
+  func testProposedScenePoseMatchesPythonCompleteCardFixture() throws {
+    let url = try XCTUnwrap(
+      Bundle.module.url(
+        forResource: "proposed_card_scene_python_v1", withExtension: "json",
+        subdirectory: "Fixtures"))
+    let root = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    let calibration = try calibration(root["calibration"])
+    let rawFrame = try XCTUnwrap(root["frame"] as? [String: Any])
+    let rawCandidates = try XCTUnwrap(rawFrame["candidates"] as? [[String: Any]])
+    let candidates = try rawCandidates.map { rawCandidate in
+      DeviceSceneCandidate(
+        candidateID: try XCTUnwrap(rawCandidate["candidate_id"] as? String),
+        polygons: try XCTUnwrap(rawCandidate["polygons"] as? [[[Double]]]).map(points),
+        confidence: try XCTUnwrap(rawCandidate["confidence"] as? Double))
+    }
+    let frame = DeviceSceneFrameInput(
+      frameID: try XCTUnwrap(rawFrame["frame_id"] as? String),
+      sourceFrameDigest: try XCTUnwrap(rawFrame["source_frame_digest"] as? String),
+      width: try XCTUnwrap(rawFrame["width"] as? Int),
+      height: try XCTUnwrap(rawFrame["height"] as? Int),
+      status: try XCTUnwrap(rawFrame["status"] as? String),
+      candidates: candidates)
+
+    let revision = try DeviceProposedCardSceneInitializer.initialize(
+      frames: [frame], detectorRevisionID: calibration.visibleCardRevisionID,
+      detectorRevisionDigest: String(repeating: "b", count: 64), calibration: calibration)
+
+    let expected = try XCTUnwrap(root["expected"] as? [String: Any])
+    XCTAssertEqual(revision.status, "complete")
+    XCTAssertEqual(revision.calibrationDigest, calibration.calibrationDigest)
+    XCTAssertEqual(revision.frames[0].status, expected["frame_status"] as? String)
+    let expectedPoses = try XCTUnwrap(expected["poses"] as? [[String: Any]])
+    XCTAssertEqual(revision.frames[0].poses.count, expectedPoses.count)
+    for expectedPose in expectedPoses {
+      let pose = try XCTUnwrap(
+        revision.frames[0].poses.first {
+          $0.sourceCandidateID == expectedPose["source_candidate_id"] as? String
+        })
+      XCTAssertEqual(pose.cardID, expectedPose["card_id"] as? String)
+      let expectedCenter = try XCTUnwrap(expectedPose["center"] as? [Double])
+      XCTAssertEqual(pose.center.x, expectedCenter[0], accuracy: 0.03)
+      XCTAssertEqual(pose.center.y, expectedCenter[1], accuracy: 0.03)
+      XCTAssertEqual(
+        pose.rotationDegrees, try XCTUnwrap(expectedPose["rotation_degrees"] as? Double),
+        accuracy: 0.7)
+      XCTAssertEqual(
+        pose.fitResidual, try XCTUnwrap(expectedPose["fit_residual"] as? Double), accuracy: 0.02)
+    }
+    let expectedOrder = try XCTUnwrap(expected["order_evidence"] as? [[String: Any]])
+    XCTAssertEqual(revision.frames[0].orderEvidence.count, expectedOrder.count)
+    let order = try XCTUnwrap(revision.frames[0].orderEvidence.first)
+    XCTAssertEqual(order.decision, expectedOrder[0]["decision"] as? String)
+    XCTAssertEqual(
+      order.leftSupport, try XCTUnwrap(expectedOrder[0]["left_support"] as? Double), accuracy: 0.02)
+    XCTAssertEqual(
+      order.rightSupport, try XCTUnwrap(expectedOrder[0]["right_support"] as? Double),
+      accuracy: 0.02)
+    XCTAssertEqual(
+      revision.frames[0].uncertainOrderPairs, expected["uncertain_order_pairs"] as? [[String]])
+  }
+
+  func testProposedSceneRetainsEmptyFailedAndAmbiguousFrames() throws {
+    let result = try DeviceRecordingCalibrationSelector.calibrate(
+      recordingID: "recording-1", visibleCardRevisionID: "visible-cards-1",
+      observations: syntheticObservations())
+    let base = try XCTUnwrap(result.calibration)
+    let tableToImage = try DeviceHomography(rows: [
+      [120, 20, 420], [15, 100, 240], [0.0002, 0.0004, 1],
+    ])
+    let tableQuad = try DeviceCardPlaneGeometry.cardQuadrilateral(
+      center: DevicePoint2D(x: 4, y: 3), rotationDegrees: 8,
+      shortSize: 1, longSize: DeviceCardPlaneGeometry.cardAspectRatio)
+    let polygon = try tableToImage.apply(to: tableQuad)
+    let digest = String(repeating: "a", count: 64)
+    let frames = [
+      DeviceSceneFrameInput(
+        frameID: "empty", sourceFrameDigest: digest, width: 1920, height: 1080,
+        status: "empty", candidates: []),
+      DeviceSceneFrameInput(
+        frameID: "failed", sourceFrameDigest: digest, width: 1920, height: 1080,
+        status: "failed", candidates: []),
+      DeviceSceneFrameInput(
+        frameID: "overlap", sourceFrameDigest: digest, width: 1920, height: 1080,
+        status: "detected",
+        candidates: [
+          DeviceSceneCandidate(candidateID: "card-a", polygons: [polygon], confidence: 0.9),
+          DeviceSceneCandidate(candidateID: "card-b", polygons: [polygon], confidence: 0.9),
+        ]),
+      DeviceSceneFrameInput(
+        frameID: "partial", sourceFrameDigest: digest, width: 1920, height: 1080,
+        status: "detected",
+        candidates: [
+          DeviceSceneCandidate(candidateID: "card-good", polygons: [polygon], confidence: 0.9),
+          DeviceSceneCandidate(
+            candidateID: "card-bad",
+            polygons: [
+              [
+                try DevicePoint2D(x: 100, y: 100), try DevicePoint2D(x: 400, y: 100),
+                try DevicePoint2D(x: 400, y: 120), try DevicePoint2D(x: 100, y: 120),
+              ]
+            ], confidence: 0.9),
+        ]),
+    ]
+
+    let revision = try DeviceProposedCardSceneInitializer.initialize(
+      frames: frames, detectorRevisionID: base.visibleCardRevisionID,
+      detectorRevisionDigest: String(repeating: "b", count: 64), calibration: base)
+
+    XCTAssertEqual(revision.status, "partial")
+    XCTAssertEqual(revision.frames.map(\.frameID), ["empty", "failed", "overlap", "partial"])
+    XCTAssertEqual(revision.frames[0].status, "no_cards_detected")
+    XCTAssertEqual(revision.frames[1].status, "failed")
+    XCTAssertEqual(revision.frames[2].status, "supported")
+    XCTAssertEqual(revision.frames[2].orderEvidence.count, 1)
+    XCTAssertEqual(revision.frames[2].orderEvidence[0].decision, "uncertain")
+    XCTAssertEqual(revision.frames[2].uncertainOrderPairs, [["pose-card-a", "pose-card-b"]])
+    XCTAssertEqual(revision.frames[3].status, "partial")
+    XCTAssertEqual(revision.frames[3].poses.map(\.sourceCandidateID), ["card-good"])
+    XCTAssertEqual(
+      revision.frames[3].failureReasons["card-bad"], "card_geometry_not_supported")
+  }
+
+  func testProposedSceneBlocksStaleDetectorRevision() throws {
+    let result = try DeviceRecordingCalibrationSelector.calibrate(
+      recordingID: "recording-1", visibleCardRevisionID: "visible-cards-1",
+      observations: syntheticObservations())
+    let base = try XCTUnwrap(result.calibration)
+    let frame = DeviceSceneFrameInput(
+      frameID: "empty", sourceFrameDigest: String(repeating: "a", count: 64),
+      width: 1920, height: 1080, status: "empty", candidates: [])
+    XCTAssertThrowsError(
+      try DeviceProposedCardSceneInitializer.initialize(
+        frames: [frame], detectorRevisionID: "stale-visible-cards",
+        detectorRevisionDigest: String(repeating: "b", count: 64), calibration: base)
+    ) {
+      XCTAssertEqual($0 as? DeviceProposedCardSceneError, .staleDetectorRevision)
+    }
+  }
+
   func testCalibrationRefinementBlocksInsufficientAnchorsWithoutChangingBase() throws {
     let result = try DeviceRecordingCalibrationSelector.calibrate(
       recordingID: "recording-1", visibleCardRevisionID: "visible-cards-r1",
@@ -424,7 +564,7 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
   private func calibration(_ raw: Any?) throws -> DeviceRecordingCalibration {
     let value = try XCTUnwrap(raw as? [String: Any])
     let diagnostics = try XCTUnwrap(value["diagnostics"] as? [String: Any])
-    let evidence = try XCTUnwrap(diagnostics["candidate_evidence"] as? [[String: Any]])
+    let evidence = diagnostics["candidate_evidence"] as? [[String: Any]] ?? []
     let accepted = evidence.filter { $0["accepted"] as? Bool == true }.compactMap {
       $0["candidate_id"] as? String
     }

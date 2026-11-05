@@ -8,9 +8,10 @@
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M13.
-- **Outcome:** M0–M7 complete. M8–M13 remain. The iOS package now derives a deterministic
-  table-plane fit candidate from robust boundary evidence and calculates immutable calibration
-  refinement previews. Live capture retains event proposals and frame timing;
+- **Outcome:** M0–M8 complete. M9–M13 remain. The iOS package now derives deterministic
+  table-plane fit candidates from robust boundary evidence, calculates immutable calibration
+  refinement previews, and initializes calibration-backed per-frame scene proposals. Live capture
+  retains event proposals and frame timing;
   the visible-card stage retains event-frame provenance, model lineage, and proposal outcomes. No
   device result or model-quality claim exists.
 
@@ -167,14 +168,20 @@ and an unchanged base calibration.
 The [M7 result](../../reports/0106-M7_Calibration_Refinement.md) records the immutable preview,
 lineage checks, fit and gate comparisons, and numeric limits.
 
-### M8 — Initialize proposed card scenes
+### M8 — Initialize proposed card scenes — Complete
 
-Port `proposed_card_scene_processor.py` for calibration-backed per-frame scene initialization. Save
-an outcome for every input frame, including valid empty and failed frames, with calibration and
-visible-card lineage.
+Add calibration-backed per-frame scene initialization. Save an outcome for every input frame,
+including valid empty and failed frames, with calibration and visible-card lineage. Fit fixed-size
+card poses from detector polygons. Keep weak stacking-order evidence unresolved. Preserve partial
+frame results when one candidate fails.
 
-Acceptance: fixed visible-card and calibration fixtures compare poses, stacking-order evidence,
-and frame outcomes with Python. Cover empty scenes, partial scenes, and failure.
+Acceptance: fixed visible-card and calibration fixtures compare full-card poses, stacking-order
+evidence, and frame outcomes with Python. Cover empty scenes, partial frames, and failure. The
+initializer records partial-card candidates that its geometry gate cannot fit; joint fitting stays
+in M9.
+
+The [M8 result](../../reports/0106-M8_Proposed_Card_Scene_Initialization.md) records per-frame
+outcomes, calibration and detector lineage checks, Python fixture comparisons, and known limits.
 
 ### M9 — Fit overlapping card scenes
 

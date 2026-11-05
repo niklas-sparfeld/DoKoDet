@@ -1,0 +1,170 @@
+{
+  "calibration": {
+    "algorithm_version": "card-plane-geometry/v6",
+    "angle_convention": "positive-toward-positive-y-degrees/v1",
+    "calibration_digest": "a0df5285fc25aa838dae6a63c2ec5532012737b0584ee0c79cf2baa37a513bad",
+    "calibration_revision_id": "calibration-d5293bb43f6c732007b10896",
+    "candidate_receipt_digests": [
+      "f6c4ae397f655cec81fe6daa6cdccbc32b1dbca8ee65a2572a9ebe09a5899601",
+      "b76409300db8e887c51da56b90ad5f091c2455f683f33168820767e43725ab4b",
+      "11111aea9600e29e0b77b09fe4549d389162aa7c88d241fb15c63531eca9bd6a",
+      "e696dcb554c3d6bbd360dda858d2e81394cc58bbb360889d0f34b26103086534",
+      "d5a323e3940523e876997b0eb80e8398b06c781466ada92a38803b9b879c1f61",
+      "b61e5a64628ea972c7f6bb925dc06e3a8d640e6fc5d20b9248b935a985ace5f1",
+      "92e543028b1c5708ac5606d6aa3211a6a43ed9d51ebbb658a8fded68aa5da931",
+      "a10465aecaa6ae0b27121ad2ba16d720dc675325d57dcf6fb2a948cf1be7e1a9",
+      "818f593edffd498bdcae2a9d125d2d44483086da2eadbfa732aaf5ec11390a6f",
+      "b07a8facf92c1624d60edbea2a0e78356ec8fce8292b05f2be83bbfa055de1d9",
+      "6fd28a2671f78b2d6ca2846d5efe6825e5cc620c57b422d2e83c6e5ecb7d3024"
+    ],
+    "card_aspect_ratio": 1.5423728813559323,
+    "card_long_size": 1.542373,
+    "card_short_size": 1.0,
+    "coordinate_system": "source-pixel-boundary/table-short-side-unit/v1",
+    "corner_order": "cyclic-short-edge-first/v1",
+    "diagnostics": {
+      "recipe_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "frame_height": 1080,
+    "frame_width": 1920,
+    "image_to_table": [
+      [
+        0.007889971449879959,
+        0.0012244133076018823,
+        -12.95884427456669
+      ],
+      [
+        -0.0036391044930439835,
+        0.010359265015495214,
+        -4.4690303767653585
+      ],
+      [
+        -2.186294313601535e-06,
+        -5.268890828432421e-06,
+        1.008304797922093
+      ]
+    ],
+    "recording_id": "recording-1",
+    "schema_version": "table-plane-calibration/v1",
+    "source_revision": "visible-cards-1",
+    "table_to_image": [
+      [
+        120.91589437190082,
+        -13.531756429449972,
+        1494.048642886268
+      ],
+      [
+        42.685856970595104,
+        91.97305360212111,
+        956.2482947488813
+      ],
+      [
+        0.0004852350733565393,
+        0.0004512639207807762,
+        1.0
+      ]
+    ]
+  },
+  "expected": {
+    "frame_status": "supported",
+    "order_evidence": [
+      {
+        "decision": "uncertain",
+        "difference": 0.001928,
+        "front_candidate_ids": [
+          "pose-card-a",
+          "pose-card-b"
+        ],
+        "left_support": 0.998072,
+        "overlap_pixels": 9853,
+        "right_support": 0.996143
+      }
+    ],
+    "poses": [
+      {
+        "card_id": "pose-card-a",
+        "center": [
+          -4.652208,
+          -1.746975
+        ],
+        "fit_residual": 0.008046,
+        "rotation_degrees": 172.0833,
+        "source_candidate_id": "card-a"
+      },
+      {
+        "card_id": "pose-card-b",
+        "center": [
+          -4.221496,
+          -1.873441
+        ],
+        "fit_residual": 0.023692,
+        "rotation_degrees": 171.524023,
+        "source_candidate_id": "card-b"
+      }
+    ],
+    "uncertain_order_pairs": [
+      [
+        "pose-card-a",
+        "pose-card-b"
+      ]
+    ]
+  },
+  "frame": {
+    "candidates": [
+      {
+        "candidate_id": "card-a",
+        "confidence": 0.98,
+        "polygons": [
+          [
+            [
+              895.3750987438145,
+              510.04560018908387
+            ],
+            [
+              1016.5402621094795,
+              538.6348352877889
+            ],
+            [
+              1020.7411598026825,
+              687.4864309417986
+            ],
+            [
+              899.6457353344558,
+              658.9510857231842
+            ]
+          ]
+        ]
+      },
+      {
+        "candidate_id": "card-b",
+        "confidence": 0.98,
+        "polygons": [
+          [
+            [
+              949.2041289522177,
+              516.7384578953165
+            ],
+            [
+              1070.3447771821927,
+              545.3234300715126
+            ],
+            [
+              1074.514812277157,
+              694.1578727658524
+            ],
+            [
+              953.4438749754908,
+              665.6267788722228
+            ]
+          ]
+        ]
+      }
+    ],
+    "frame_id": "pose-frame",
+    "height": 1080,
+    "source_frame_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": "detected",
+    "width": 1920
+  },
+  "schema_version": "device-proposed-card-scene-python/v1"
+}
