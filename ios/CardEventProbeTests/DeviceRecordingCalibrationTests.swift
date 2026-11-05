@@ -308,6 +308,76 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
     XCTAssertTrue(fit.poses.isEmpty)
   }
 
+  func testJointFitRefinesVisibleEdgesForClearOverlappingScene() throws {
+    let result = try DeviceRecordingCalibrationSelector.calibrate(
+      recordingID: "recording-1", visibleCardRevisionID: "visible-cards-1",
+      observations: syntheticObservations())
+    let calibration = try XCTUnwrap(result.calibration)
+    let angle = 8.0
+    let radians = angle * .pi / 180
+    let short = try DevicePoint2D(x: cos(radians), y: sin(radians))
+    let poseA = try DevicePoint2D(x: 4, y: 3)
+    let sourceA = try DevicePoint2D(x: poseA.x + short.x * 0.25, y: poseA.y + short.y * 0.25)
+    let poseB = try DevicePoint2D(x: 4.5, y: 3.3)
+    let polygonA = try DeviceCardPlaneGeometry.projectFixedCard(
+      tableToImage: calibration.tableToImage, center: sourceA,
+      rotationDegrees: angle, shortSize: calibration.cardShortSize,
+      longSize: calibration.cardLongSize)
+    let polygonB = try DeviceCardPlaneGeometry.projectFixedCard(
+      tableToImage: calibration.tableToImage, center: poseB,
+      rotationDegrees: angle, shortSize: calibration.cardShortSize,
+      longSize: calibration.cardLongSize)
+    let visiblePolygonA = try clipPolygonLeft(polygonA)
+    let digest = String(repeating: "a", count: 64)
+    let frame = DeviceSceneFrameInput(
+      frameID: "edge-refine", sourceFrameDigest: digest,
+      width: calibration.frameWidth, height: calibration.frameHeight,
+      status: "detected",
+      candidates: [
+        DeviceSceneCandidate(candidateID: "a", polygons: [visiblePolygonA], confidence: 0.9),
+        DeviceSceneCandidate(candidateID: "b", polygons: [polygonB], confidence: 0.9),
+      ])
+    let poses = [
+      DeviceProposedCardPose(
+        cardID: "pose-a", sourceCandidateID: "a", center: poseA,
+        rotationDegrees: angle, fitResidual: 0),
+      DeviceProposedCardPose(
+        cardID: "pose-b", sourceCandidateID: "b", center: poseB,
+        rotationDegrees: angle, fitResidual: 0),
+    ]
+    let scene = DeviceProposedCardSceneFrame(
+      frameID: frame.frameID, sourceFrameDigest: digest, status: "supported",
+      poses: poses, orderEvidence: [], uncertainOrderPairs: [], failureReasons: [:], jointFit: nil)
+
+    var fit: DeviceCardSceneJointFit?
+    let options = XCTMeasureOptions()
+    options.iterationCount = 1
+    measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
+      fit = DeviceCardSceneJointFitter.fit(
+        frame: frame, scene: scene, calibration: calibration,
+        savedOrder: ["pose-b", "pose-a"], movableCardIDs: ["pose-a"])
+    }
+    let measuredFit = try XCTUnwrap(fit)
+
+    XCTAssertEqual(measuredFit.status, "complete")
+    XCTAssertEqual(measuredFit.order, ["pose-b", "pose-a"])
+    XCTAssertEqual(measuredFit.marginStage, "beam_before_edge_refinement")
+    XCTAssertNotNil(measuredFit.beamScoreBeforeEdgeRefinement)
+    XCTAssertEqual(measuredFit.score ?? -1, 0.680252, accuracy: 0.03)
+    XCTAssertEqual(measuredFit.margin ?? -1, 0.064799, accuracy: 0.03)
+    let refinedPose = try XCTUnwrap(measuredFit.poses["pose-a"])
+    XCTAssertNil(measuredFit.poses["pose-b"])
+    XCTAssertEqual(refinedPose.center.x, 4.247567, accuracy: 0.05)
+    XCTAssertEqual(refinedPose.center.y, 3.034793, accuracy: 0.05)
+    XCTAssertEqual(refinedPose.rotationDegrees, 8, accuracy: 1)
+    XCTAssertEqual(measuredFit.order.count, 2)
+    XCTAssertGreaterThan(measuredFit.elapsedMilliseconds, 0)
+    XCTAssertGreaterThan(measuredFit.estimatedPeakBytes, 0)
+    print(
+      "M9 joint fit: \(measuredFit.elapsedMilliseconds) ms, estimated peak \(measuredFit.estimatedPeakBytes) bytes, score \(measuredFit.score ?? -1), beam \(measuredFit.beamScoreBeforeEdgeRefinement ?? -1), margin \(measuredFit.margin ?? -1), order \(measuredFit.order), poses \(measuredFit.poses)"
+    )
+  }
+
   func testCalibrationRefinementBlocksInsufficientAnchorsWithoutChangingBase() throws {
     let result = try DeviceRecordingCalibrationSelector.calibrate(
       recordingID: "recording-1", visibleCardRevisionID: "visible-cards-r1",
@@ -588,6 +658,26 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
         frameWidth: 1920, frameHeight: 1080, sourceTransformID: "camera-transform-1",
         confidence: 0.98, quadrilateral: quad)
     }
+  }
+
+  private func clipPolygonLeft(_ polygon: [DevicePoint2D]) throws -> [DevicePoint2D] {
+    let limit = polygon.map(\.x).reduce(0, +) / Double(polygon.count)
+    var clipped: [DevicePoint2D] = []
+    for index in polygon.indices {
+      let current = polygon[index]
+      let next = polygon[(index + 1) % polygon.count]
+      let currentInside = current.x <= limit
+      let nextInside = next.x <= limit
+      if currentInside { clipped.append(current) }
+      if currentInside != nextInside {
+        let fraction = (limit - current.x) / (next.x - current.x)
+        clipped.append(
+          try DevicePoint2D(
+            x: current.x + fraction * (next.x - current.x),
+            y: current.y + fraction * (next.y - current.y)))
+      }
+    }
+    return clipped
   }
 
   private func refinementDraft(

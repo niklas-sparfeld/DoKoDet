@@ -8,7 +8,7 @@
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M13.
-- **Outcome:** M0–M8 complete. M9–M13 remain. The iOS package now derives deterministic
+- **Outcome:** M0–M9 complete. M10–M13 remain. The iOS package now derives deterministic
   table-plane fit candidates from robust boundary evidence, calculates immutable calibration
   refinement previews, and initializes calibration-backed per-frame scene proposals. Live capture
   retains event proposals and frame timing;
@@ -185,12 +185,19 @@ outcomes, calibration and detector lineage checks, Python fixture comparisons, a
 
 ### M9 — Fit overlapping card scenes
 
+**Complete.** The iOS fitter now ports the bounded joint pose and order search, including visible
+edge refinement at quarter resolution. It retains the saved pose and order when beam results are
+ambiguous. See the [M9 result](../../reports/0106-M9_Joint_Card_Scene_Fitting.md).
+
 Port `card_scene_joint_fit.py` with its bounded joint pose and order search. Preserve unresolved
 overlap relations and fit diagnostics; do not infer a definite order when evidence is ambiguous.
 Measure geometry runtime and peak memory.
 
 Acceptance: deterministic overlapping-card fixtures compare poses, order, score, and margins with
 Python, including the card-count limit and unchanged non-overlap scenes.
+
+The [M9 result](../../reports/0106-M9_Joint_Card_Scene_Fitting.md) records Python comparisons,
+runtime and memory measurements, card-limit behavior, and the unresolved simulator profiling limit.
 
 ### M10 — Run visual identity and assemble observations
 

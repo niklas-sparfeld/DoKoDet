@@ -4,8 +4,10 @@ public struct DeviceCardSceneJointFit: Equatable, Sendable {
   public let order: [String]
   public let poses: [String: DeviceProposedCardPose]
   public let score: Double?
+  public let beamScoreBeforeEdgeRefinement: Double?
   public let baselineScore: Double?
   public let margin: Double?
+  public let marginStage: String?
   public let status: String
   public let elapsedMilliseconds: Double
   public let estimatedPeakBytes: Int
@@ -25,6 +27,19 @@ public enum DeviceCardSceneJointFitter {
     var changed: [Int: Pose]
     var masks: [[UInt64]]
     var variants: [String]
+  }
+
+  private struct EdgeContext {
+    let x: Int
+    let y: Int
+    let width: Int
+    let height: Int
+    let source: [UInt8]
+    let grownOccluder: [UInt8]
+    let distanceToSource: [Float]
+    let sourceCount: Int
+    let sourceMask: [UInt64]
+    let occluderMask: [UInt64]
   }
 
   private struct Grid {
@@ -67,9 +82,17 @@ public enum DeviceCardSceneJointFitter {
     }
   }
 
+  private static let distanceOffsets: [(Int, Int, Float)] = [
+    (-1, 0, 0.955), (1, 0, 0.955), (0, -1, 0.955), (0, 1, 0.955),
+    (-1, -1, 1.3693), (1, -1, 1.3693), (-1, 1, 1.3693), (1, 1, 1.3693),
+    (-2, -1, 2.3243), (2, -1, 2.3243), (-2, 1, 2.3243), (2, 1, 2.3243),
+    (-1, -2, 2.3243), (1, -2, 2.3243), (-1, 2, 2.3243), (1, 2, 2.3243),
+  ]
+
   public static func fit(
     frame: DeviceSceneFrameInput, scene: DeviceProposedCardSceneFrame,
-    calibration: DeviceRecordingCalibration, savedOrder: [String]? = nil
+    calibration: DeviceRecordingCalibration, savedOrder: [String]? = nil,
+    movableCardIDs: Set<String>? = nil
   ) -> DeviceCardSceneJointFit {
     let start = ProcessInfo.processInfo.systemUptime
     guard scene.status == "supported" || scene.status == "partial" else {
@@ -128,6 +151,9 @@ public enum DeviceCardSceneJointFitter {
         }
       }
     }
+    if let movableCardIDs {
+      connected = connected.filter { movableCardIDs.contains(ids[$0]) }
+    }
     var variants: [[(Pose, [UInt64], String)]] = Array(repeating: [], count: count)
     for i in connected.sorted() {
       guard let seed = poseByCard[ids[i]] else { continue }
@@ -164,7 +190,7 @@ public enum DeviceCardSceneJointFitter {
             var trialMasks = entry.masks
             trialMasks[i] = mask
             var trialOrders = [entry.order]
-            if count > 1 {
+            if count > 1 && movableCardIDs == nil {
               for j in 0..<(count - 1)
               where overlap(
                 trialMasks[entry.order[j]],
@@ -191,7 +217,12 @@ public enum DeviceCardSceneJointFitter {
           }
         }
       }
-      pool.sort { $0.score > $1.score }
+      pool = pool.enumerated().sorted { left, right in
+        if left.element.score != right.element.score {
+          return left.element.score > right.element.score
+        }
+        return left.offset < right.offset
+      }.map(\.element)
       var seen: Set<String> = []
       beam = []
       for entry in pool {
@@ -207,7 +238,87 @@ public enum DeviceCardSceneJointFitter {
     }
     let margin = beam.count > 1 ? winner.score - beam[1].score : nil
     let ambiguous = margin != nil && margin! < 0.005
-    let refined = winner.score >= baseline && !ambiguous ? winner.changed : [:]
+    var refined = winner.score >= baseline && !ambiguous ? winner.changed : [:]
+    var refinedOrder = winner.score >= baseline && !ambiguous ? winner.order : order
+    var edgeWorkingBytes = 0
+    if !ambiguous && !refined.isEmpty {
+      let quarterWidth = (frame.width + 3) / 4
+      let quarterHeight = (frame.height + 3) / 4
+      if quarterWidth * quarterHeight <= 8_000_000 {
+        var posesForRefinement = poses.map {
+          Pose(center: $0.center, angle: $0.rotationDegrees)
+        }
+        for (index, pose) in refined { posesForRefinement[index] = pose }
+        var quarterFull = posesForRefinement.map {
+          raster(
+            $0, calibration: calibration, width: quarterWidth,
+            height: quarterHeight, scale: 4)
+        }
+        for index in refinedOrder {
+          guard let seed = refined[index] else { continue }
+          var occluder = [UInt64](repeating: 0, count: quarterFull[index].count)
+          for front in refinedOrder {
+            if front == index { break }
+            for word in occluder.indices { occluder[word] |= quarterFull[front][word] }
+          }
+          guard overlap(occluder, occluder) > 0 else { continue }
+          let source = sourceMask(
+            byCandidate[poses[index].sourceCandidateID], width: quarterWidth,
+            height: quarterHeight, scale: 4)
+          guard
+            let context = edgeContext(
+              source: source, occluder: occluder,
+              width: quarterWidth, height: quarterHeight)
+          else { continue }
+          let quarterMaskBytes = quarterFull[index].count * MemoryLayout<UInt64>.size
+          edgeWorkingBytes = max(
+            edgeWorkingBytes,
+            (quarterFull.count + 2) * quarterMaskBytes
+              + context.width * context.height * 24)
+          let angle = seed.angle * .pi / 180
+          let short = scaled(point(cos(angle), sin(angle)), calibration.cardShortSize)
+          let long = scaled(point(-sin(angle), cos(angle)), calibration.cardLongSize)
+          var best: (score: Double, pose: Pose, mask: [UInt64])?
+          for angleDelta in -2...9 {
+            for step in 0...16 {
+              let sx = -0.2 + Double(step) * 0.025
+              for longStep in 0...16 {
+                let ly = -0.2 + Double(longStep) * 0.025
+                let pose = Pose(
+                  center: add(add(seed.center, scaled(short, sx)), scaled(long, ly)),
+                  angle: seed.angle + Double(angleDelta))
+                let mask = raster(
+                  pose, calibration: calibration, width: quarterWidth,
+                  height: quarterHeight, scale: 4)
+                guard
+                  let metrics = edgeScore(
+                    predicted: mask, context: context, frameWidth: quarterWidth)
+                else { continue }
+                let value = (metrics.edge + metrics.overlap) / 2
+                if best == nil || value > best!.score {
+                  best = (value, pose, mask)
+                }
+              }
+            }
+          }
+          if let best {
+            refined[index] = best.pose
+            posesForRefinement[index] = best.pose
+            quarterFull[index] = best.mask
+          }
+        }
+      }
+    }
+    var finalMasks = full
+    for (index, pose) in refined {
+      finalMasks[index] = raster(
+        pose, calibration: calibration, width: width, height: height, scale: 8)
+    }
+    let finalScore = score(source: baseMasks, full: finalMasks, order: refinedOrder)
+    if finalScore < baseline {
+      refined = [:]
+      refinedOrder = order
+    }
     let replacements = Dictionary(
       uniqueKeysWithValues: refined.map { index, pose in
         (
@@ -220,41 +331,45 @@ public enum DeviceCardSceneJointFitter {
         )
       })
     let status = ambiguous ? "complete_ambiguous" : "complete"
-    let retainedOrder = winner.score >= baseline && !ambiguous ? winner.order : order
     let maskBytes = ((width * height + 63) / 64) * MemoryLayout<UInt64>.size
     let bytes =
       (baseMasks.count + full.count) * maskBytes
       + variants.reduce(0) {
         $0 + $1.reduce(0) { $0 + $1.1.count * MemoryLayout<UInt64>.size }
       }
+      + edgeWorkingBytes
     return result(
-      status: status, order: retainedOrder.map { ids[$0] }, poses: replacements,
-      score: max(baseline, winner.score), baseline: baseline, margin: margin,
-      start: start, bytes: bytes)
+      status: status, order: refinedOrder.map { ids[$0] }, poses: replacements,
+      score: max(baseline, finalScore), baseline: baseline, margin: margin,
+      start: start, bytes: bytes, beamScore: winner.score,
+      marginStage: "beam_before_edge_refinement")
   }
 
   private static func result(
     status: String, order: [String], poses: [String: DeviceProposedCardPose],
     score: Double?, baseline: Double?, margin: Double?, start: Double,
-    bytes: Int
+    bytes: Int, beamScore: Double? = nil, marginStage: String? = nil
   ) -> DeviceCardSceneJointFit {
     DeviceCardSceneJointFit(
-      order: order, poses: poses, score: score, baselineScore: baseline,
-      margin: margin, status: status,
+      order: order, poses: poses, score: score,
+      beamScoreBeforeEdgeRefinement: beamScore, baselineScore: baseline,
+      margin: margin, marginStage: marginStage, status: status,
       elapsedMilliseconds: (ProcessInfo.processInfo.systemUptime - start) * 1000,
       estimatedPeakBytes: bytes)
   }
 
-  private static func sourceMask(_ candidate: DeviceSceneCandidate?, width: Int, height: Int)
+  private static func sourceMask(
+    _ candidate: DeviceSceneCandidate?, width: Int, height: Int, scale: Int = 8
+  )
     -> [UInt64]
   {
     var pixels = [UInt8](repeating: 0, count: width * height)
     for polygon in candidate?.polygons ?? [] where polygon.count >= 3 {
       let points = polygon.map { (x: $0.x.rounded(), y: $0.y.rounded()) }
       for y in 0..<height {
-        let py = Double(y * 8 + 4)
+        let py = Double(y * scale + scale / 2)
         for x in 0..<width {
-          let px = Double(x * 8 + 4)
+          let px = Double(x * scale + scale / 2)
           var inside = false
           for i in points.indices {
             let a = points[i]
@@ -278,6 +393,183 @@ public enum DeviceCardSceneJointFitter {
       }
     }
     return bitmask(pixels)
+  }
+
+  private static func edgeContext(
+    source: [UInt64], occluder: [UInt64], width: Int, height: Int
+  ) -> EdgeContext? {
+    guard let sourceBounds = bounds(source, width: width, height: height) else { return nil }
+    let x0 = max(0, sourceBounds.minX - 28)
+    let y0 = max(0, sourceBounds.minY - 28)
+    let x1 = min(width, sourceBounds.maxX + 28)
+    let y1 = min(height, sourceBounds.maxY + 28)
+    let localWidth = x1 - x0
+    let localHeight = y1 - y0
+    guard localWidth > 0, localHeight > 0 else { return nil }
+    var sourcePixels = crop(source, width: width, x: x0, y: y0, w: localWidth, h: localHeight)
+    let occluderPixels = crop(
+      occluder, width: width, x: x0, y: y0, w: localWidth, h: localHeight)
+    let localCount = localWidth * localHeight
+    var horizontal = [UInt8](repeating: 0, count: localCount)
+    for y in 0..<localHeight {
+      var prefix = [Int](repeating: 0, count: localWidth + 1)
+      for x in 0..<localWidth {
+        prefix[x + 1] = prefix[x] + Int(occluderPixels[y * localWidth + x])
+      }
+      for x in 0..<localWidth {
+        let left = max(0, x - 8)
+        let right = min(localWidth, x + 9)
+        if prefix[right] > prefix[left] { horizontal[y * localWidth + x] = 1 }
+      }
+    }
+    var grown = [UInt8](repeating: 0, count: localCount)
+    for x in 0..<localWidth {
+      var prefix = [Int](repeating: 0, count: localHeight + 1)
+      for y in 0..<localHeight {
+        prefix[y + 1] = prefix[y] + Int(horizontal[y * localWidth + x])
+      }
+      for y in 0..<localHeight {
+        let top = max(0, y - 8)
+        let bottom = min(localHeight, y + 9)
+        if prefix[bottom] > prefix[top] { grown[y * localWidth + x] = 1 }
+      }
+    }
+    sourcePixels = edgePixels(sourcePixels, width: localWidth, height: localHeight)
+    for index in grown.indices where grown[index] != 0 {
+      sourcePixels[index] = 0
+    }
+    let sourceCount = sourcePixels.reduce(0) { $0 + Int($1) }
+    let distanceToSource = distanceTransform(sourcePixels, width: localWidth, height: localHeight)
+    return EdgeContext(
+      x: x0, y: y0, width: localWidth, height: localHeight,
+      source: sourcePixels, grownOccluder: grown,
+      distanceToSource: distanceToSource, sourceCount: sourceCount,
+      sourceMask: source, occluderMask: occluder)
+  }
+
+  private static func edgeScore(
+    predicted: [UInt64], context: EdgeContext, frameWidth: Int
+  ) -> (edge: Double, overlap: Double)? {
+    var predictedPixels = crop(
+      predicted, width: frameWidth, x: context.x, y: context.y,
+      w: context.width, h: context.height)
+    predictedPixels = edgePixels(predictedPixels, width: context.width, height: context.height)
+    for index in context.grownOccluder.indices where context.grownOccluder[index] != 0 {
+      predictedPixels[index] = 0
+    }
+    let predictedCount = predictedPixels.reduce(0) { $0 + Int($1) }
+    guard context.sourceCount >= 8, predictedCount >= 8 else { return nil }
+    let distanceToPredicted = distanceTransform(
+      predictedPixels, width: context.width, height: context.height)
+    var sourceDistance = 0.0
+    var predictedDistance = 0.0
+    for index in context.source.indices where context.source[index] != 0 {
+      sourceDistance += Double(min(distanceToPredicted[index], 12))
+    }
+    for index in predictedPixels.indices where predictedPixels[index] != 0 {
+      predictedDistance += Double(min(context.distanceToSource[index], 12))
+    }
+    let edge =
+      1
+      - (sourceDistance / Double(context.sourceCount) + predictedDistance / Double(predictedCount))
+      / 24
+    var intersection = 0
+    var union = 0
+    for index in predicted.indices {
+      let visible = predicted[index] & ~context.occluderMask[index]
+      intersection += (visible & context.sourceMask[index]).nonzeroBitCount
+      union += (visible | context.sourceMask[index]).nonzeroBitCount
+    }
+    return (edge, Double(intersection) / Double(max(union, 1)))
+  }
+
+  private static func bounds(_ words: [UInt64], width: Int, height: Int)
+    -> (minX: Int, minY: Int, maxX: Int, maxY: Int)?
+  {
+    var minX = width
+    var minY = height
+    var maxX = -1
+    var maxY = -1
+    for wordIndex in words.indices {
+      var word = words[wordIndex]
+      while word != 0 {
+        let bit = word.trailingZeroBitCount
+        let index = wordIndex * 64 + bit
+        if index < width * height {
+          let x = index % width
+          let y = index / width
+          minX = min(minX, x)
+          maxX = max(maxX, x)
+          minY = min(minY, y)
+          maxY = max(maxY, y)
+        }
+        word &= word - 1
+      }
+    }
+    return maxX >= 0 ? (minX, minY, maxX + 1, maxY + 1) : nil
+  }
+
+  private static func crop(
+    _ words: [UInt64], width: Int, x: Int, y: Int, w: Int, h: Int
+  ) -> [UInt8] {
+    var result = [UInt8](repeating: 0, count: w * h)
+    for row in 0..<h {
+      for column in 0..<w {
+        let index = (y + row) * width + x + column
+        if words[index >> 6] & (UInt64(1) << (index & 63)) != 0 {
+          result[row * w + column] = 1
+        }
+      }
+    }
+    return result
+  }
+
+  private static func edgePixels(_ pixels: [UInt8], width: Int, height: Int) -> [UInt8] {
+    var edge = [UInt8](repeating: 0, count: pixels.count)
+    guard width >= 3, height >= 3 else { return edge }
+    for y in 1..<(height - 1) {
+      for x in 1..<(width - 1) {
+        let index = y * width + x
+        guard pixels[index] != 0 else { continue }
+        var interior = true
+        for dy in -1...1 where interior {
+          for dx in -1...1 where pixels[(y + dy) * width + x + dx] == 0 {
+            interior = false
+            break
+          }
+        }
+        if !interior { edge[index] = 1 }
+      }
+    }
+    return edge
+  }
+
+  private static func distanceTransform(
+    _ edge: [UInt8], width: Int, height: Int
+  ) -> [Float] {
+    let infinity: Float = 12
+    var distance = edge.map { $0 == 0 ? infinity : 0 }
+    let forward = distanceOffsets.filter { $0.1 < 0 || ($0.1 == 0 && $0.0 < 0) }
+    let backward = distanceOffsets.filter { $0.1 > 0 || ($0.1 == 0 && $0.0 > 0) }
+    for y in 0..<height {
+      for x in 0..<width {
+        let index = y * width + x
+        for (dx, dy, weight) in forward where x + dx >= 0 && y + dy >= 0 {
+          let neighbor = (y + dy) * width + x + dx
+          distance[index] = min(distance[index], distance[neighbor] + weight)
+        }
+      }
+    }
+    for y in (0..<height).reversed() {
+      for x in (0..<width).reversed() {
+        let index = y * width + x
+        for (dx, dy, weight) in backward where x + dx < width && y + dy < height {
+          let neighbor = (y + dy) * width + x + dx
+          distance[index] = min(distance[index], distance[neighbor] + weight)
+        }
+      }
+    }
+    return distance
   }
 
   private static func raster(
