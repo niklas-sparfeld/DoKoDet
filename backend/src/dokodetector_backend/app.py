@@ -21,6 +21,7 @@ from dokodetector_backend.automated_pipeline_run import (
     AutomatedPipelineRunService,
     AutomatedPipelineRunStore,
 )
+from dokodetector_backend.calculation_jobs import CalculationJobs
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.event_jobs import EventJobParticipant
@@ -240,6 +241,22 @@ def create_app(
         pipeline_selection_store=app.state.pipeline_selection_store,
         pipeline_lineage_writer=app.state.pipeline_lineage_writer,
     )
+    calculation_jobs = CalculationJobs(
+        app_settings.operations_root,
+        app.state.calibration_refinement_service,
+        app.state.round_analysis_service,
+    )
+    app.state.calculation_jobs = calculation_jobs
+    for calculation_type in ("calibration_preview", "counterfactual"):
+        app.state.job_type_registry.register(
+            calculation_type,
+            lambda _request: None,
+            calculation_jobs,
+            lambda job, claims, token: calculation_jobs.handle(
+                job, claims, token, app.state.job_manager_service.get_manager()
+            ),
+            Claims(cpu=1),
+        )
     event_job_participant = EventJobParticipant(app.state.event_pipeline_service)
     for event_job_type in ("event_processing", "event_import"):
         app.state.job_type_registry.register(

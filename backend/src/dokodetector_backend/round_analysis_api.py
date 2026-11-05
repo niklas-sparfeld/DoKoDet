@@ -6,7 +6,6 @@ import logging
 import re
 from uuid import UUID
 
-from doko_operations.round_reconstruction_contract import RoundReconstructionContractError
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
@@ -25,7 +24,6 @@ from dokodetector_backend.round_analysis_contract import (
 from dokodetector_backend.round_analysis_service import (
     RoundAnalysisService,
     RoundAnalysisValidationError,
-    RoundCounterfactualConflict,
     RoundCounterfactualIntegrityError,
     RoundCounterfactualNotFound,
 )
@@ -43,73 +41,6 @@ from dokodetector_backend.round_analysis_timeline import (
 
 router = APIRouter()
 LOGGER = logging.getLogger(__name__)
-
-
-@router.post(
-    "/v1/round-analyses/{analysis_id}/counterfactuals",
-    response_model=RoundCounterfactualResponse,
-    status_code=201,
-)
-def create_round_counterfactual(
-    analysis_id: str,
-    payload: RoundCounterfactualCreateRequest,
-    request: Request,
-) -> RoundCounterfactualResponse:
-    """Synchronously create or reuse one immutable counterfactual."""
-
-    parsed_analysis_id = _parse_analysis_id(analysis_id)
-    try:
-        shared_request = payload.to_shared()
-    except (RoundReconstructionContractError, TypeError, ValueError) as error:
-        raise ContractError(
-            "invalid_counterfactual_request",
-            "The counterfactual request is invalid.",
-        ) from error
-    service: RoundAnalysisService = request.app.state.round_analysis_service
-    try:
-        stored = service.create_counterfactual(parsed_analysis_id, shared_request)
-    except RoundAnalysisNotFound as error:
-        raise ContractError(
-            "analysis_not_found",
-            "The round analysis was not found.",
-            status_code=404,
-        ) from error
-    except RoundAnalysisNotCompleteError as error:
-        raise ContractError(
-            "analysis_not_complete",
-            "The round analysis is not complete.",
-            status_code=409,
-        ) from error
-    except RoundCounterfactualConflict as error:
-        raise ContractError(
-            "counterfactual_conflict",
-            str(error),
-            status_code=409,
-        ) from error
-    except RoundCounterfactualIntegrityError as error:
-        raise ContractError(
-            "counterfactual_integrity_error",
-            "The stored counterfactual failed integrity validation.",
-            status_code=500,
-        ) from error
-    except RoundAnalysisTimelineError as error:
-        raise ContractError(
-            "analysis_integrity_error",
-            "The stored round analysis failed integrity validation.",
-            status_code=500,
-        ) from error
-    except (RoundReconstructionContractError, TypeError, ValueError) as error:
-        raise ContractError(
-            "invalid_counterfactual_request",
-            "The counterfactual request is invalid.",
-        ) from error
-    except OSError as error:
-        raise ContractError(
-            "internal_error",
-            "The counterfactual could not be published.",
-            status_code=500,
-        ) from error
-    return _counterfactual_response(stored)
 
 
 @router.get(

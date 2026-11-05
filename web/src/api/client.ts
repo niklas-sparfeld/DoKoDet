@@ -357,7 +357,7 @@ export type RoundAnalysisTimeline = JsonResponse<
 export type RoundCounterfactualCreateRequest =
   components["schemas"]["RoundCounterfactualCreateRequest"];
 export type RoundCounterfactualResponse = JsonResponse<
-  paths["/v1/round-analyses/{analysis_id}/counterfactuals"]["post"]["responses"][201]
+  paths["/v1/round-analyses/{analysis_id}/counterfactuals/{counterfactual_id}"]["get"]["responses"][200]
 >;
 
 export class ApiError extends Error {
@@ -381,6 +381,10 @@ export interface DokoDetectorClient {
     init?: RequestInit,
   ): Promise<JobDetail>;
   getJob(jobId: string, init?: RequestInit): Promise<JobDetail>;
+  getCalibrationPreview(
+    jobId: string,
+    init?: RequestInit,
+  ): Promise<CalibrationRefinementResponse>;
   retryJob(
     jobId: string,
     idempotencyKey: string,
@@ -658,11 +662,6 @@ export interface DokoDetectorClient {
     partName: string,
     init?: RequestInit,
   ): Promise<Blob>;
-  createRoundCounterfactual(
-    analysisId: string,
-    payload: RoundCounterfactualCreateRequest,
-    init?: RequestInit,
-  ): Promise<RoundCounterfactualResponse>;
   getRoundCounterfactual(
     analysisId: string,
     counterfactualId: string,
@@ -688,6 +687,12 @@ export function createDokoDetectorClient(
       requestJson<JobDetail>(
         fetchImplementation,
         `/api/jobs/${encodeURIComponent(jobId)}`,
+        init,
+      ),
+    getCalibrationPreview: (jobId, init) =>
+      requestJson<CalibrationRefinementResponse>(
+        fetchImplementation,
+        `/api/jobs/${encodeURIComponent(jobId)}/calibration-preview`,
         init,
       ),
     retryJob: (jobId, idempotencyKey, init) => {
@@ -787,7 +792,9 @@ export function createDokoDetectorClient(
         `/api/jobs/${encodeURIComponent(runId)}`,
         init,
       );
-      if (["succeeded", "failed", "cancelled", "interrupted"].includes(job.state)) {
+      if (
+        ["succeeded", "failed", "cancelled", "interrupted"].includes(job.state)
+      ) {
         return requestJson<PipelineRunResponse>(
           fetchImplementation,
           pipelineEventResultPath(recordingId, runId),
@@ -795,8 +802,8 @@ export function createDokoDetectorClient(
         );
       }
       const processorRequest =
-        (job.request.processor_request as Record<string, unknown> | undefined) ??
-        job.request;
+        (job.request.processor_request as
+          Record<string, unknown> | undefined) ?? job.request;
       const step = job.steps[0];
       const status =
         job.state === "waiting" || job.state === "cancelling"
@@ -805,7 +812,9 @@ export function createDokoDetectorClient(
       return {
         run_id: job.id,
         recording_id: recordingId,
-        processor_type: String(processorRequest.processor_type ?? "event-detection"),
+        processor_type: String(
+          processorRequest.processor_type ?? "event-detection",
+        ),
         status,
         attempt: 1,
         request: processorRequest,
@@ -840,7 +849,9 @@ export function createDokoDetectorClient(
         `/api/jobs/${encodeURIComponent(runId)}`,
         init,
       );
-      if (["succeeded", "failed", "cancelled", "interrupted"].includes(job.state)) {
+      if (
+        ["succeeded", "failed", "cancelled", "interrupted"].includes(job.state)
+      ) {
         return requestJson<PipelineRunResponse>(
           fetchImplementation,
           pipelineVisibleCardResultPath(recordingId, runId),
@@ -848,22 +859,29 @@ export function createDokoDetectorClient(
         );
       }
       const processorRequest =
-        (job.request.processor_request as Record<string, unknown> | undefined) ??
-        job.request;
+        (job.request.processor_request as
+          Record<string, unknown> | undefined) ?? job.request;
       const step = job.steps[0];
       const status =
-        job.state === "waiting" || job.state === "cancelling" ? "running" : job.state;
+        job.state === "waiting" || job.state === "cancelling"
+          ? "running"
+          : job.state;
       return {
         run_id: job.id,
         recording_id: recordingId,
-        processor_type: String(processorRequest.processor_type ?? "visible-card-detection"),
+        processor_type: String(
+          processorRequest.processor_type ?? "visible-card-detection",
+        ),
         status,
         attempt: 1,
         request: processorRequest,
         state: {
           run_id: job.id,
           status,
-          progress: { completed: step?.completed ?? 0, total: step?.total ?? 0 },
+          progress: {
+            completed: step?.completed ?? 0,
+            total: step?.total ?? 0,
+          },
           terminal_failure: job.failure,
           output_revision_ids: [],
           items: [],
@@ -1202,17 +1220,6 @@ export function createDokoDetectorClient(
       }
       return response.blob();
     },
-    createRoundCounterfactual: (analysisId, payload, init) =>
-      requestJson<RoundCounterfactualResponse>(
-        fetchImplementation,
-        roundCounterfactualPath(analysisId),
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
     getRoundCounterfactual: (analysisId, counterfactualId, init) =>
       requestJson<RoundCounterfactualResponse>(
         fetchImplementation,

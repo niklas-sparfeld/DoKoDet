@@ -39,6 +39,29 @@ import { updatePipelineUrl } from "./PipelineVisibleCardUrl";
 const CONTENT_TYPE = "visible_cards" as const;
 const RETRY_LIMIT = 3;
 
+async function calculateCalibrationPreview(
+  client: ReturnType<typeof createDokoDetectorClient>,
+  recordingId: string,
+  proposalRevisionId: string,
+  draftId: string,
+): Promise<CalibrationRefinementResponse> {
+  let job = await client.enqueueJob(
+    {
+      type: "calibration_preview",
+      context: { recording_id: recordingId },
+      request: { proposal_revision_id: proposalRevisionId, draft_id: draftId },
+    },
+    crypto.randomUUID(),
+  );
+  while (["queued", "running", "waiting", "cancelling"].includes(job.state)) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    job = await client.getJob(job.id);
+  }
+  if (job.state !== "succeeded")
+    throw new Error((job.failure?.message as string) || `Preview ${job.state}`);
+  return client.getCalibrationPreview(job.id);
+}
+
 function reviewReference(
   review: VisibleCardReviewDetail,
 ): PipelineReferenceResource {
@@ -262,22 +285,18 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     current.setCalibrationLoading(true);
     current.setCalibrationError(null);
     try {
-      const payload = {
-        proposal_revision_id: proposalRevisionId,
-        draft_id: draftId,
-      };
-      const refreshed =
-        current.reviewId === null
-          ? await current.client.startCalibrationRefinement(
-              current.recordingId,
-              payload,
-            )
-          : await current.client.startCalibrationRefinement(
-              current.recordingId,
-              payload,
-              undefined,
-              current.reviewId,
-            );
+      const refreshed = await calculateCalibrationPreview(
+        current.client,
+        current.recordingId,
+        proposalRevisionId,
+        draftId,
+      );
+      const latest = current.calibrationRefinementRef.current;
+      if (
+        latest?.draft.draft_id !== draftId ||
+        latest.draft.revision !== refreshed.draft.revision
+      )
+        return;
       current.calibrationRefinementRef.current = refreshed;
       current.setCalibrationRefinement(refreshed);
     } catch (reason: unknown) {

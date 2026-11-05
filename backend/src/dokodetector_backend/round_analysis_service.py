@@ -8,7 +8,6 @@ import logging
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from threading import Lock
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -17,7 +16,6 @@ from doko_operations.counterfactual import (
     canonical_counterfactual_bytes,
     derive_counterfactual_input,
     parse_round_counterfactual_request_bytes,
-    recompute_counterfactual,
 )
 from doko_operations.pipeline_data import RecordingVideoSource
 from doko_operations.round_reconstruction_contract import (
@@ -97,10 +95,6 @@ class RoundAnalysisValidationError(ValueError):
     """The selected recording and evidence do not form a valid analysis input."""
 
 
-class RoundCounterfactualConflict(ValueError):
-    """A counterfactual ID is already stored with different request content."""
-
-
 class RoundCounterfactualNotFound(LookupError):
     """The requested counterfactual artifact directory does not exist."""
 
@@ -176,7 +170,6 @@ class RoundAnalysisService:
             observation_store,
             artifact_storage,
         )
-        self._counterfactual_lock = Lock()
 
     def validate_request(self, request: RoundAnalysisCreateRequest) -> ValidatedRoundAnalysisInput:
         """Validate stored recording and the immutable input selected by the request."""
@@ -1009,69 +1002,6 @@ class RoundAnalysisService:
         if analysis is None:
             raise RoundAnalysisNotFound("The round analysis was not found.")
         return self.timeline_projector.frame(analysis, package_id, part_name)
-
-    def create_counterfactual(
-        self,
-        analysis_id: UUID,
-        request: RoundCounterfactualRequest,
-    ) -> StoredRoundCounterfactual:
-        """Synchronously derive and atomically publish one counterfactual."""
-
-        if request.source_analysis_id != analysis_id:
-            raise RoundCounterfactualConflict(
-                "source_analysis_id must match the analysis ID in the request path."
-            )
-        with self._counterfactual_lock:
-            analysis, verified = self._load_verified_source(analysis_id)
-            request_bytes = canonical_counterfactual_bytes(request)
-            existing = self._read_existing_counterfactual(
-                analysis_id,
-                request.counterfactual_id,
-                analysis,
-                verified.input,
-                verified.result,
-            )
-            if existing is not None:
-                if existing.request_bytes != request_bytes:
-                    raise RoundCounterfactualConflict(
-                        "The counterfactual ID is already stored with different request content."
-                    )
-                return self._counterfactual_from_contents(existing)
-
-            if (
-                request.source_input_sha256 != analysis.input_artifact_sha256
-                or request.source_result_sha256 != analysis.result_artifact_sha256
-            ):
-                raise ValueError("counterfactual source artifact hashes do not match the analysis.")
-            try:
-                run = recompute_counterfactual(request, verified.input, verified.result)
-                published = self.artifact_storage.publish_counterfactual(
-                    analysis_id,
-                    request.counterfactual_id,
-                    request_bytes,
-                    run.input_bytes,
-                    run.result_bytes,
-                )
-            except FileExistsError as error:
-                existing = self._read_existing_counterfactual(
-                    analysis_id,
-                    request.counterfactual_id,
-                    analysis,
-                    verified.input,
-                    verified.result,
-                )
-                if existing is None:
-                    raise
-                if existing.request_bytes != request_bytes:
-                    raise RoundCounterfactualConflict(
-                        "The counterfactual ID is already stored with different request content."
-                    ) from error
-                return self._counterfactual_from_contents(existing)
-            return StoredRoundCounterfactual(
-                request=request,
-                artifacts=published,
-                result=run.result,
-            )
 
     def get_counterfactual(
         self,

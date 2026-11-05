@@ -28,7 +28,6 @@ import {
   repositoryBundleThumbnailPath,
   repositoryBundleVideoPath,
   roundAnalysisFramePath,
-  roundCounterfactualPath,
   roundCounterfactualReadPath,
   type PipelineComparisonRequest,
   type RoundAnalysisCreateRequest,
@@ -323,20 +322,8 @@ describe("DokoDetector API client", () => {
       Promise.resolve(jsonResponse({})),
     );
     const client = createDokoDetectorClient(fetchImplementation);
-    await client.createRoundCounterfactual("analysis-1", {
-      schema_version: "round-analysis-counterfactual/v1",
-      counterfactual_id: "counterfactual-1",
-      source_analysis_id: "analysis-1",
-      source_input_sha256: "a".repeat(64),
-      source_result_sha256: "b".repeat(64),
-      excluded_observation_ids: [],
-      excluded_observed_cards: [],
-      card_identity_overrides: [],
-      candidate_probability_overrides: [],
-    });
     await client.getRoundCounterfactual("analysis-1", "counterfactual-1");
     expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
-      roundCounterfactualPath("analysis-1"),
       roundCounterfactualReadPath("analysis-1", "counterfactual-1"),
     ]);
   });

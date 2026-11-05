@@ -165,7 +165,7 @@ describe("usePipelineVisibleCardEditorController", () => {
     expect(getCalibrationRefinement).not.toHaveBeenCalled();
   });
 
-  it("uses the explicit start action to refresh calibration", async () => {
+  it("uses a managed job to refresh calibration", async () => {
     const update = vi.fn().mockResolvedValue(reference);
     const getCalibrationRefinement = vi.fn().mockResolvedValue({});
     const startCalibrationRefinement = vi.fn().mockResolvedValue({
@@ -178,16 +178,30 @@ describe("usePipelineVisibleCardEditorController", () => {
       getCalibrationRefinement,
       startCalibrationRefinement,
     );
+    const enqueueJob = vi
+      .fn()
+      .mockResolvedValue({ id: "job-1", state: "succeeded" });
+    const getCalibrationPreview = vi.fn().mockResolvedValue({
+      draft: { draft_id: "draft-1", revision: 1 },
+      preview: { status: "pass" },
+    });
+    Object.assign(input.client, { enqueueJob, getCalibrationPreview });
     input.calibrationRefinementRef.current = {
-      draft: { draft_id: "draft-1" },
+      draft: { draft_id: "draft-1", revision: 1 },
     } as never;
 
     await act(async () => result.current.refreshCalibrationPreview());
 
-    expect(startCalibrationRefinement).toHaveBeenCalledWith("recording-1", {
-      proposal_revision_id: "proposal-1",
-      draft_id: "draft-1",
-    });
+    expect(enqueueJob).toHaveBeenCalledWith(
+      {
+        type: "calibration_preview",
+        context: { recording_id: "recording-1" },
+        request: { proposal_revision_id: "proposal-1", draft_id: "draft-1" },
+      },
+      expect.any(String),
+    );
+    expect(getCalibrationPreview).toHaveBeenCalledWith("job-1");
+    expect(input.setCalibrationRefinement).toHaveBeenCalled();
     expect(getCalibrationRefinement).not.toHaveBeenCalled();
   });
 

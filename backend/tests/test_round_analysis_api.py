@@ -835,22 +835,19 @@ def test_counterfactual_create_read_is_idempotent_and_restart_safe(
         excluded_observation_ids=[f"{package_ids[0]}-observation"],
     )
 
-    first = client.post(
-        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
-        json=payload,
-    )
-    replay = client.post(
-        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
-        json=payload,
-    )
+    envelope = {
+        "type": "counterfactual",
+        "context": {"analysis_id": ANALYSIS_ID},
+        "request": payload,
+    }
+    key = "550e8400-e29b-41d4-a716-446655440090"
+    first = app.state.job_manager_service.run_inline(key, envelope)
+    replay = app.state.job_manager_service.run_inline(key, envelope)
     read = client.get(f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals/{counterfactual_id}")
-
-    assert first.status_code == 201
-    assert replay.status_code == 201
+    assert first.state == "succeeded"
+    assert replay.id == first.id
     assert read.status_code == 200
-    assert replay.json() == first.json()
-    assert read.json() == first.json()
-    body = first.json()
+    body = read.json()
     assert body["counterfactual_id"] == counterfactual_id
     assert body["result"]["run_id"] == counterfactual_id
     assert body["result"]["search"] == {
@@ -887,12 +884,10 @@ def test_counterfactual_create_read_is_idempotent_and_restart_safe(
 
     changed = dict(payload)
     changed["excluded_observation_ids"] = [f"{package_ids[1]}-observation"]
-    conflict = client.post(
-        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
-        json=changed,
-    )
-    assert conflict.status_code == 409
-    assert conflict.json()["error"]["code"] == "counterfactual_conflict"
+    from dokodetector_backend.job_store import JobConflict
+
+    with pytest.raises(JobConflict):
+        app.state.job_manager_service.run_inline(key, {**envelope, "request": changed})
 
     restarted_app = create_test_app(
         Settings(
@@ -909,7 +904,7 @@ def test_counterfactual_create_read_is_idempotent_and_restart_safe(
     )
     source_timeline = restarted_client.get(f"/v1/round-analyses/{ANALYSIS_ID}/timeline")
     assert restarted.status_code == 200
-    assert restarted.json() == first.json()
+    assert restarted.json() == read.json()
     assert source_timeline.status_code == 200
     assert len(source_timeline.json()["rows"]) == 2
 
@@ -948,15 +943,16 @@ def test_counterfactual_can_replace_a_one_candidate_card_identity(
         ],
     )
 
-    response = client.post(
-        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
-        json=payload,
+    job = app.state.job_manager_service.run_inline(
+        "550e8400-e29b-41d4-a716-446655440090",
+        {"type": "counterfactual", "context": {"analysis_id": ANALYSIS_ID}, "request": payload},
     )
-
-    assert response.status_code == 201
-    assert response.json()["request"]["card_identity_overrides"] == [
-        payload["card_identity_overrides"][0]
-    ]
+    assert job.state == "succeeded", job.failure
+    response = client.get(f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals/{counterfactual_id}")
+    assert response.status_code == 200
+    assert (
+        response.json()["request"]["card_identity_overrides"] == payload["card_identity_overrides"]
+    )
     derived_input = json.loads(
         (
             app.state.round_analysis_storage.counterfactual_path(ANALYSIS_ID, counterfactual_id)
@@ -1001,12 +997,11 @@ def test_counterfactual_failed_publication_can_be_retried(
         raise OSError("simulated counterfactual publication failure")
 
     monkeypatch.setattr(storage, "_rename", fail_once)
-    failed = client.post(
-        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
-        json=payload,
+    failed = app.state.job_manager_service.run_inline(
+        "550e8400-e29b-41d4-a716-446655440090",
+        {"type": "counterfactual", "context": {"analysis_id": ANALYSIS_ID}, "request": payload},
     )
-    assert failed.status_code == 500
-    assert failed.json()["error"]["code"] == "internal_error"
+    assert failed.state == "failed"
     assert not storage.counterfactual_path(ANALYSIS_ID, counterfactual_id).exists()
     assert (
         list(
@@ -1017,13 +1012,54 @@ def test_counterfactual_failed_publication_can_be_retried(
         == []
     )
 
-    retried = client.post(
-        f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals",
-        json=payload,
-    )
-    assert retried.status_code == 201
+    from dokodetector_backend.job_store import CancellationToken, JobManager
+
+    registry = app.state.job_type_registry
+    with JobManager(
+        app.state.job_manager_service.operations_root,
+        registry,
+        verify_publication=registry.verify_publication,
+    ) as manager:
+        retry = manager.retry(failed.id, "550e8400-e29b-41d4-a716-446655440091")
+        assert retry.retry_of == failed.id
+        assert retry.request == payload
+        manager.transition(retry.id, "running")
+        app.state.calculation_jobs.handle(
+            retry, registry.claims_for(retry), CancellationToken(), manager
+        )
+        assert manager.get(retry.id).state == "succeeded"
 
 
 @pytest.fixture()
 def backend_tmp_path(tmp_path: Path) -> Path:
     return tmp_path
+
+
+def test_managed_counterfactual_preserves_request_and_result(backend_tmp_path: Path) -> None:
+    client, app = _backend(backend_tmp_path)
+    package_ids = [
+        _upload_linked_package(client, event_sequence=1),
+        _upload_linked_package(
+            client, package_id="550e8400-e29b-41d4-a716-446655440098", event_sequence=2
+        ),
+    ]
+    _install_two_observation_analyzer(app, package_ids)
+    source = client.post("/v1/round-analyses", json=_analysis_payload(package_ids=package_ids))
+    assert source.status_code == 202
+    counterfactual_id = "550e8400-e29b-41d4-a716-446655440097"
+    payload = _counterfactual_payload(
+        source.json(),
+        counterfactual_id=counterfactual_id,
+        excluded_observation_ids=[f"{package_ids[0]}-observation"],
+    )
+    job = app.state.job_manager_service.run_inline(
+        "550e8400-e29b-41d4-a716-446655440090",
+        {"type": "counterfactual", "context": {"analysis_id": ANALYSIS_ID}, "request": payload},
+    )
+    assert job.state == "succeeded", job.failure
+    assert job.request == payload
+    assert job.results[0]["id"] == counterfactual_id
+    assert app.state.job_type_registry.verify_publication(job, job.results)
+    read = client.get(f"/v1/round-analyses/{ANALYSIS_ID}/counterfactuals/{counterfactual_id}")
+    assert read.status_code == 200
+    assert read.json()["request"] == payload

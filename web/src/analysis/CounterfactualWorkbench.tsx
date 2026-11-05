@@ -544,9 +544,28 @@ export function CounterfactualWorkbench({
     setSubmitting(true);
     setError(null);
     try {
-      const nextResponse = await client.createRoundCounterfactual(
+      let job = await client.enqueueJob(
+        {
+          type: "counterfactual",
+          context: { analysis_id: timeline.analysis_id },
+          request: payload as unknown as Record<string, unknown>,
+        },
+        crypto.randomUUID(),
+      );
+      while (
+        ["queued", "running", "waiting", "cancelling"].includes(job.state)
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        job = await client.getJob(job.id);
+      }
+      if (job.state !== "succeeded") {
+        throw new Error(
+          (job.failure?.message as string) || `Counterfactual ${job.state}`,
+        );
+      }
+      const nextResponse = await client.getRoundCounterfactual(
         timeline.analysis_id,
-        payload,
+        payload.counterfactual_id,
       );
       setResponse(nextResponse);
     } catch (reason: unknown) {

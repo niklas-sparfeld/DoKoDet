@@ -353,6 +353,13 @@ def enqueue_job(
     manager = _manager(request)
     registry: JobTypeRegistry = request.app.state.job_type_registry
     registry.require(body.type)
+    if body.type == "calibration_preview" and set(body.request) != {
+        "proposal_revision_id",
+        "draft_id",
+    }:
+        raise ContractError(
+            "invalid_request", "A calibration preview requires a draft and proposal."
+        )
     try:
         job = manager.accept(
             idempotency_key,
@@ -409,6 +416,22 @@ def get_job(job_id: str, request: Request) -> JobDetail:
     manager = _manager(request)
     try:
         return _detail(manager.get(job_id), manager.queue())
+    except Exception as error:
+        _raise_job_error(error)
+
+
+@router.get("/{job_id}/calibration-preview")
+def get_calibration_preview(job_id: str, request: Request) -> dict[str, Any]:
+    """Read a completed preview only while its exact source snapshot is current."""
+    try:
+        job = _manager(request).get(job_id)
+        if job.type != "calibration_preview":
+            raise ValueError("job is not a calibration preview")
+        return request.app.state.calculation_jobs.current_preview(job)
+    except ValueError as error:
+        raise ContractError(
+            "calibration_preview_unavailable", str(error), status_code=409
+        ) from error
     except Exception as error:
         _raise_job_error(error)
 

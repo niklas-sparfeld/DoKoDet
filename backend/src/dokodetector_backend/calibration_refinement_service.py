@@ -139,7 +139,9 @@ class CalibrationRefinementService:
             self.store.publish_initial(draft)
             self.store.publish(draft)
         self._require_current_source(draft, source)
-        return self._response(recording_id, proposal_revision_id, draft, data)
+        return self._response(
+            recording_id, proposal_revision_id, draft, data, include_frame_scenes=False
+        )
 
     def get(
         self, recording_id: str, proposal_revision_id: str, draft_id: str | None

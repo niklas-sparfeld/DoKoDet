@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M11 complete; M12–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M12 complete; M13–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -403,7 +403,7 @@ stages. Fixture checks cover a six-stage run with one slot, interleaved independ
 cancellation, and failed-stage retry. The old worker module remains unused; final source cleanup is
 part of M15.
 
-### M12 — Connect calibration and counterfactual calculations — Not started
+### M12 — Connect calibration and counterfactual calculations — Complete
 
 Move expensive preview and counterfactual calculations behind registered jobs. Keep reads free of
 expensive calculation and retain explicit apply/commit commands. Switch their existing callers.
@@ -411,6 +411,11 @@ expensive calculation and retain explicit apply/commit commands. Switch their ex
 Acceptance: a preview for an old draft cannot replace current evidence or be applied as current.
 Counterfactual retries preserve exact constraints and immutable results. Both support job details,
 failure, cancellation limits, and exact result navigation with local fixtures.
+
+Result: [M12](../../reports/0110-M12_Calculation_Jobs.md) connects both calculations to the
+shared queue. Preview results are bound to a draft and evidence snapshot. Counterfactual retries
+retain the exact correction request and immutable result. Cancellation stops before publication;
+in-process calculations finish their current calculation before they stop.
 
 ### M13 — Add the shared browser job client and details — Not started
 
