@@ -4,13 +4,13 @@
 
 - **Summary:** Unify backend work under one durable job contract, HTTP API, scheduler, and global
   Jobs drawer. Keep processor results and data lineage in their owning stores.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Existing backend execution and filesystem storage. No completion gate from
   [0107](../3-in-progress/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** Planned. M0–M16 are not started. This document recommends one global ordered queue
-  with resource constraints. M0 freezes the detailed execution contract before implementation.
+- **Outcome:** M0 complete; M1–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+  freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
 
@@ -277,7 +277,7 @@ Current workspace
 Each milestone is one bounded implementation phase. Use local fixtures and fake handlers. Commit
 each completed milestone to main, update the epic and board, and report all milestone states.
 
-### M0 — Freeze inventory and execution contract — Not started
+### M0 — Freeze inventory and execution contract — Complete
 
 Verify every in-scope producer and caller. Record lifecycle mappings, domain write boundaries,
 checkpoint policies, cancellation limits, resource claims, old-history treatment, API schemas,
