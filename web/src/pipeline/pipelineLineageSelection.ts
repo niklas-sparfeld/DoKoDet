@@ -47,12 +47,12 @@ export type LineageResolution =
   | { state: "unique"; candidates: [PipelineRevisionReference] }
   | { state: "ambiguous"; candidates: PipelineRevisionReference[] };
 
-const CONTENT_TYPE_BY_STAGE: Record<LineageStageKey, string> = {
-  events: "events",
-  visible_cards: "visible_cards",
-  virtual_scenes: "card_scene_proposals",
-  visual_identities: "visual_identities",
-  table_observations: "table_observations",
+const CONTENT_TYPE_BY_STAGE: Record<LineageStageKey, readonly string[]> = {
+  events: ["events"],
+  visible_cards: ["visible_cards"],
+  virtual_scenes: ["card_scene_proposals", "virtual_scenes"],
+  visual_identities: ["visual_identities"],
+  table_observations: ["table_observations"],
 };
 
 export function encodeLineageSelection(
@@ -89,8 +89,9 @@ export function validateLineageSelection(
   for (const [stage, reference] of Object.entries(selection.selected)) {
     if (reference === undefined) continue;
     if (
-      nodeContentTypes.get(reference.node_id) !==
-        CONTENT_TYPE_BY_STAGE[stage as LineageStageKey] ||
+      !CONTENT_TYPE_BY_STAGE[stage as LineageStageKey].includes(
+        nodeContentTypes.get(reference.node_id) ?? "",
+      ) ||
       !revisions.has(revisionKey(reference.node_id, reference.revision_id))
     ) {
       missing.push(`${stage}:${reference.node_id}:${reference.revision_id}`);
@@ -134,7 +135,7 @@ export function resolveLineageCandidates(
     }
   }
 
-  const wantedType = CONTENT_TYPE_BY_STAGE[targetStage];
+  const wantedTypes = CONTENT_TYPE_BY_STAGE[targetStage];
   const candidates = graph.revisions
     .filter(
       (revision) =>
@@ -142,7 +143,7 @@ export function resolveLineageCandidates(
         graph.nodes.some(
           (node) =>
             node.node_id === revision.node_id &&
-            node.content_type === wantedType,
+            wantedTypes.includes(node.content_type),
         ),
     )
     .map(({ node_id, revision_id }) => ({ node_id, revision_id }))

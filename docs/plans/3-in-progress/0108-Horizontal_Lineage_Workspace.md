@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0–M5 are complete; M6–M12 are not started. The workspace exposes exact graph data,
+- **Outcome:** M0–M6 are complete; M7–M12 are not started. The workspace exposes exact graph data,
   preserves validated lineage URLs, and has aligned step and data rows. The horizontal drawer
   selects exact revisions and shows copy and processor sources with collapsed revision history.
   Shared node edit, copy, and restore transactions are available through the workspace API.
@@ -209,13 +209,23 @@ mark for every outcome. Node validation rejects a frame identity from a differen
 Recordings without a visible-card node retain the legacy editor until M10 migrates them; M11 owns
 legacy-path removal.
 
-### M6 — Expose first-class virtual-scene editing — Not started
+### M6 — Expose first-class virtual-scene editing — Complete
 
 Move scene inspection, pose/stacking edits, and scene review into Virtual scenes. Retain exact
 calibration context and validation; keep visible-region derivation explicit.
 
 Acceptance: processor and human scene content use one editor. Editing a used scene creates a copy,
 keeps the old identity branch intact, and leaves the copy's missing downstream steps empty.
+
+Result: the Virtual scenes step opens an exact selected `virtual_scenes` node revision. It shows the
+source video frame, frame identity, and exact calibration revision and digest. Operators can edit
+the scene pose and stacking data, save through the atomic node edit contract, and record separate
+frame and data-set review decisions bound to the selected revision. A protected edit selects the
+copy in the Virtual scenes lineage field and keeps the source node available. Historical revisions
+are read-only. The drawer and lineage resolver accept both processor proposal nodes and unified
+virtual-scene nodes; proposal nodes remain visibly read-only. The editor changes only scene content,
+so node validation checks the saved scene against its fixed frame and calibration context. Visible
+region derivation remains separate.
 
 ### M7 — Move visual identity review to data nodes — Not started
 

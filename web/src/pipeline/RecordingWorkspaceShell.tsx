@@ -113,14 +113,15 @@ export function RecordingWorkspaceShell({
       revision,
     ]),
   );
-  const contentTypeByStep: Partial<Record<PipelineNavigationStepKey, string>> =
-    {
-      events: "events",
-      visible_cards: "visible_cards",
-      virtual_scenes: "card_scene_proposals",
-      visual_identities: "visual_identities",
-      table_observations: "table_observations",
-    };
+  const contentTypeByStep: Partial<
+    Record<PipelineNavigationStepKey, readonly string[]>
+  > = {
+    events: ["events"],
+    visible_cards: ["visible_cards"],
+    virtual_scenes: ["card_scene_proposals", "virtual_scenes"],
+    visual_identities: ["visual_identities"],
+    table_observations: ["table_observations"],
+  };
   return (
     <>
       <div className={shellStyles.topSlot} data-slot="top">
@@ -149,8 +150,11 @@ export function RecordingWorkspaceShell({
                     ? undefined
                     : lineageGraph?.nodes.find(
                         (item) =>
-                          item.node_id === reference.node_id &&
-                          item.content_type === contentTypeByStep[step.key],
+                          (item.node_id === reference.node_id &&
+                            contentTypeByStep[step.key]?.includes(
+                              item.content_type,
+                            )) ??
+                          false,
                       );
                 const revision =
                   reference === undefined
@@ -363,7 +367,7 @@ export function RecordingWorkspaceTaskSurface({
                 recordingPipelineNavigationPath(recordingId, stage.key, {
                   ...urlState,
                   item: itemId,
-                  t_us: timeUs,
+                  tUs: timeUs,
                 }),
               )
             }
@@ -401,7 +405,7 @@ export function RecordingWorkspaceTaskSurface({
                     },
                   }),
                   item: itemId,
-                  t_us: timeUs,
+                  tUs: timeUs,
                 }),
               );
             }}

@@ -342,7 +342,7 @@ export function PipelineNodeVisibleCardEditor({
                     }
                     onClick={() => choose(outcome)}
                   >
-                    {outcome.event_id} · {outcome.status}
+                    {outcome.event_id} · {String(outcome.status)}
                   </button>
                 </li>
               ))}

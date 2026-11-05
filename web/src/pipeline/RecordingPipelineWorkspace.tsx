@@ -39,6 +39,7 @@ import {
   buildRecordingWorkspacePresentation,
 } from "./recordingWorkspacePresentation";
 import { actionStateForStage } from "./recordingWorkspaceNavigation";
+import { PipelineNodeVirtualSceneEditor } from "../visibleCards/PipelineNodeVirtualSceneEditor";
 import {
   FrameReviewDraftConflict,
   FrameReviewEditorNavigation,
@@ -571,7 +572,12 @@ export function RecordingPipelineWorkspace({
         revision.revision_id === reference.revision_id,
     );
     return node !== undefined && revisionExists
-      ? { name: node.name, revisionId: reference.revision_id }
+      ? {
+          name: node.name,
+          nodeId: reference.node_id,
+          contentType: node.content_type,
+          revisionId: reference.revision_id,
+        }
       : null;
   })();
   const currentLineageNotice =
@@ -628,12 +634,64 @@ export function RecordingPipelineWorkspace({
           <h2>Virtual scenes</h2>
           {selectedVirtualScene === null ? (
             <p>No virtual scene is selected for this lineage.</p>
-          ) : (
+          ) : selectedVirtualScene.contentType !== "virtual_scenes" ? (
             <p>
               {selectedVirtualScene.name} · revision{" "}
-              {selectedVirtualScene.revisionId} is selected. Scene inspection is
-              not available yet.
+              {selectedVirtualScene.revisionId} is a processor proposal. It is
+              read-only here. Select a virtual-scene data set to edit poses or
+              stacking order.
             </p>
+          ) : (
+            <PipelineNodeVirtualSceneEditor
+              key={`${selectedVirtualScene.nodeId}:${selectedVirtualScene.revisionId}`}
+              recordingId={recordingId}
+              nodeId={selectedVirtualScene.nodeId}
+              revisionId={selectedVirtualScene.revisionId}
+              selectionItemId={urlState.item}
+              onPositionChange={(itemId, timeUs) =>
+                navigateTo(
+                  recordingPipelineNavigationPath(recordingId, stageKey, {
+                    ...urlState,
+                    item: itemId,
+                    ...(timeUs === null ? {} : { t_us: timeUs }),
+                  }),
+                )
+              }
+              onRevisionChange={(
+                sourceNodeId,
+                sourceRevisionId,
+                nodeId,
+                revisionId,
+                frameId,
+                timeUs,
+              ) => {
+                const lineage = decodeLineageSelection(urlState.lineage ?? "");
+                const selected = lineage?.selected.virtual_scenes;
+                if (
+                  lineage === null ||
+                  selected?.node_id !== sourceNodeId ||
+                  selected.revision_id !== sourceRevisionId
+                )
+                  return;
+                navigateTo(
+                  recordingPipelineNavigationPath(recordingId, stageKey, {
+                    ...urlState,
+                    lineage: JSON.stringify({
+                      ...lineage,
+                      selected: {
+                        ...lineage.selected,
+                        virtual_scenes: {
+                          node_id: nodeId,
+                          revision_id: revisionId,
+                        },
+                      },
+                    }),
+                    item: frameId,
+                    ...(timeUs === null ? {} : { t_us: timeUs }),
+                  }),
+                );
+              }}
+            />
           )}
         </section>
       ) : (

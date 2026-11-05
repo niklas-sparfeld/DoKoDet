@@ -161,6 +161,38 @@ describe("pipeline lineage selection", () => {
     ]);
   });
 
+  it("accepts unified virtual-scene nodes in the virtual-scenes step", () => {
+    const extended: PipelineLineageGraph = {
+      ...graph,
+      nodes: [
+        ...graph.nodes,
+        {
+          node_id: "scene-data",
+          name: "Scene data",
+          content_type: "virtual_scenes",
+          source: {},
+          head_revision_id: "scene-r1",
+        },
+      ],
+      revisions: [
+        ...graph.revisions,
+        {
+          node_id: "scene-data",
+          revision_id: "scene-r1",
+          content_sha256: "e",
+          created_at: "now",
+        },
+      ],
+    };
+    const selection: PipelineLineageSelection = {
+      schema_version: "pipeline-lineage-selection/v1",
+      selected: {
+        virtual_scenes: { node_id: "scene-data", revision_id: "scene-r1" },
+      },
+    };
+    expect(validateLineageSelection(selection, extended)).toEqual([]);
+  });
+
   it("reports a unique descendant and supports ancestor navigation", () => {
     expect(
       resolveLineageCandidates(

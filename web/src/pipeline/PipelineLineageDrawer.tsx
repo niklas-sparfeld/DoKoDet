@@ -9,7 +9,7 @@ import styles from "./RecordingWorkspaceShell.module.css";
 const COLUMNS: Array<{
   key: LineageStageKey | "round_analyses";
   label: string;
-  contentType: string | null;
+  contentType: string | string[] | null;
 }> = [
   { key: "events", label: "Events", contentType: "events" },
   {
@@ -20,7 +20,7 @@ const COLUMNS: Array<{
   {
     key: "virtual_scenes",
     label: "Virtual scenes",
-    contentType: "card_scene_proposals",
+    contentType: ["card_scene_proposals", "virtual_scenes"],
   },
   {
     key: "visual_identities",
@@ -90,8 +90,10 @@ export function PipelineLineageDrawer({
             const nodes =
               column.contentType === null
                 ? []
-                : graph.nodes.filter(
-                    (node) => node.content_type === column.contentType,
+                : graph.nodes.filter((node) =>
+                    Array.isArray(column.contentType)
+                      ? column.contentType.includes(node.content_type)
+                      : node.content_type === column.contentType,
                   );
             const analysisRuns =
               column.key === "round_analyses"
