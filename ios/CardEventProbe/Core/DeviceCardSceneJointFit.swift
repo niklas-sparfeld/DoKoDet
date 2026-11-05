@@ -205,7 +205,9 @@ public enum DeviceCardSceneJointFitter {
         status: "failed_search", order: ids, poses: [:], score: nil,
         baseline: baseline, margin: nil, start: start, bytes: 0)
     }
-    let refined = winner.score >= baseline ? winner.changed : [:]
+    let margin = beam.count > 1 ? winner.score - beam[1].score : nil
+    let ambiguous = margin != nil && margin! < 0.005
+    let refined = winner.score >= baseline && !ambiguous ? winner.changed : [:]
     let replacements = Dictionary(
       uniqueKeysWithValues: refined.map { index, pose in
         (
@@ -217,8 +219,6 @@ public enum DeviceCardSceneJointFitter {
             fitResidual: poses[index].fitResidual)
         )
       })
-    let margin = beam.count > 1 ? winner.score - beam[1].score : nil
-    let ambiguous = margin != nil && margin! < 0.005
     let status = ambiguous ? "complete_ambiguous" : "complete"
     let retainedOrder = winner.score >= baseline && !ambiguous ? winner.order : order
     let maskBytes = ((width * height + 63) / 64) * MemoryLayout<UInt64>.size
