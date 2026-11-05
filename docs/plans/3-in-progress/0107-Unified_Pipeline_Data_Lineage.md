@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0–M1 are complete; M2–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0–M2 are complete; M3–M10 are not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -143,13 +143,16 @@ uses immutable revisions with an optimistic working head. It is not connected to
 M3 must add downstream-use protection before that integration. See the
 [M1 result](../../reports/0107-M1_Node_Storage.md).
 
-### M2 — Record item origin and content changes — Not started
+### M2 — Record item origin and content changes — Complete
 
 Implement item provenance and retained change records with shared human/processor attribution.
 Represent deletion and replacement without losing earlier evidence. Include unknown historical data.
 
 Acceptance: tool creation, human correction, tool correction, split/merge, deletion, and unchanged
 copy fixtures retain original creation and the available change chain.
+
+The [M2 result](../../reports/0107-M2_Item_Provenance.md) records explicit item operations with
+revision-bound evidence and retains creation attribution across copies.
 
 ### M3 — Protect downstream uses and create copies — Not started
 

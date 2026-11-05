@@ -127,6 +127,8 @@ class PipelineNodeStore:
         source: Mapping[str, Any],
         content: Mapping[str, Any],
         metadata: Mapping[str, Any],
+        *,
+        revision_id: str | None = None,
     ) -> NodeRevision:
         node_path = self._node_path(node_id)
         if not isinstance(name, str) or not name.strip():
@@ -135,7 +137,7 @@ class PipelineNodeStore:
         content_data = _content(content_type, source_data, content)
         metadata_data = _object(metadata, "metadata")
         now = _canonical_timestamp(None)
-        revision = self._new_revision(node_id, None, content_data, metadata_data, now)
+        revision = self._new_revision(node_id, None, content_data, metadata_data, now, revision_id)
         manifest = {
             "schema_version": "pipeline-node/v1",
             "node_id": node_id,
@@ -200,6 +202,8 @@ class PipelineNodeStore:
         expected_revision_id: str,
         content: Mapping[str, Any],
         metadata: Mapping[str, Any],
+        *,
+        revision_id: str | None = None,
     ) -> NodeRevision:
         _safe_id(expected_revision_id, "expected_revision_id")
         with _process_lock(self._lock_path(node_id), self._lock):
@@ -217,6 +221,7 @@ class PipelineNodeStore:
                 content_data,
                 metadata_data,
                 _canonical_timestamp(None),
+                revision_id,
             )
             self._publish_revision(self._node_path(node_id), revision)
             atomic_replace_json(
@@ -252,10 +257,13 @@ class PipelineNodeStore:
         content: dict[str, Any],
         metadata: dict[str, Any],
         now: str,
+        revision_id: str | None = None,
     ) -> NodeRevision:
+        if revision_id is not None:
+            _safe_id(revision_id, "revision_id")
         return NodeRevision(
             node_id,
-            str(uuid4()),
+            revision_id or str(uuid4()),
             parent,
             content,
             sha256_bytes(canonical_json_bytes(content)),
