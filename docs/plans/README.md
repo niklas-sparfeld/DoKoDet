@@ -105,7 +105,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0108 — Horizontal lineage workspace](3-in-progress/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | In progress. M0–M8 complete; M9–M12 not started. The workspace supports node-backed event, visible-card, virtual-scene, and identity editing with exact revision selection, protected copies, and revision-bound review. Observation and analysis inspection uses exact lineage selections; migration, writer integration, and cleanup remain. The legacy identity editor remains until M10 reader cutover. Processor input/trigger UX remains later work. |
+| [0108 — Horizontal lineage workspace](3-in-progress/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | In progress. M0–M9 complete; M10–M12 not started. Processor and analysis runs now register exact inputs and publish node, revision, and artifact lineage. Empty output, retries, analysis context, and accepted-input protection are covered. Local migration, reader cutover, and cleanup remain. The legacy identity editor remains until M10 reader cutover. Processor input/trigger UX remains later work. |
 
 
 ### In Progress

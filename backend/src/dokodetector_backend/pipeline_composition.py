@@ -10,9 +10,11 @@ from dokodetector_backend.event_pipeline_service import EventPipelineService, Ev
 from dokodetector_backend.observation_pipeline_service import ObservationPipelineService
 from dokodetector_backend.pipeline_comparison_service import PipelineComparisonService
 from dokodetector_backend.pipeline_lineage import PipelineLineage
+from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
 from dokodetector_backend.pipeline_node_edits import PipelineNodeEdits
 from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.pipeline_reference_service import PipelineReferenceService
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
 from dokodetector_backend.pipeline_store import (
@@ -54,6 +56,7 @@ class PipelineComposition:
     observation_service: ObservationPipelineService
     workspace_service: RecordingPipelineWorkspaceService
     lineage_service: PipelineLineage
+    lineage_writer: PipelineLineageWriter
     node_edits: PipelineNodeEdits
     node_reviews: PipelineNodeReviews
 
@@ -98,6 +101,10 @@ def build_pipeline_composition(
     )
     node_store = PipelineNodeStore(settings.operations_root / "pipeline-nodes")
     lineage_service = PipelineLineage(node_store)
+    lineage_writer = PipelineLineageWriter(
+        node_store, lineage_service, PipelineNodeUses(node_store), revision_store
+    )
+    run_store.lineage_writer = lineage_writer
     node_edits = PipelineNodeEdits(node_store)
     node_reviews = PipelineNodeReviews(node_store)
     reference_service = PipelineReferenceService(
@@ -196,6 +203,7 @@ def build_pipeline_composition(
         observation_service=observation_service,
         workspace_service=workspace_service,
         lineage_service=lineage_service,
+        lineage_writer=lineage_writer,
         node_edits=node_edits,
         node_reviews=node_reviews,
     )
@@ -220,6 +228,7 @@ def install_pipeline_composition(state: Any, composition: PipelineComposition) -
     state.observation_pipeline_service = composition.observation_service
     state.pipeline_workspace_service = composition.workspace_service
     state.pipeline_lineage_service = composition.lineage_service
+    state.pipeline_lineage_writer = composition.lineage_writer
     state.pipeline_node_edits = composition.node_edits
     state.pipeline_node_reviews = composition.node_reviews
 

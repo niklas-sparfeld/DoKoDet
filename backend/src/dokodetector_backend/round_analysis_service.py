@@ -153,6 +153,7 @@ class RoundAnalysisService:
         analyzer: TableEvidenceAnalyzer,
         pipeline_revision_store: PipelineRevisionStore | None = None,
         pipeline_selection_store: PipelineSelectionStore | None = None,
+        pipeline_lineage_writer: Any | None = None,
     ) -> None:
         self.store = store
         self.package_store = package_store
@@ -164,6 +165,7 @@ class RoundAnalysisService:
         self.repository_bundle_storage = repository_bundle_storage
         self.pipeline_revision_store = pipeline_revision_store
         self.pipeline_selection_store = pipeline_selection_store
+        self.pipeline_lineage_writer = pipeline_lineage_writer
         self.analyzer_runner = AnalyzerRunner(
             package_store,
             analyzer,
@@ -471,10 +473,96 @@ class RoundAnalysisService:
     def prepare_job(self, job_id: str, raw_request: dict[str, Any], after_write: Any) -> None:
         """Create the immutable domain record for one accepted job attempt."""
         request = self._request_for_job(job_id, raw_request)
-        self.validate_request(request)
+        selected = self.validate_request(request)
         self.store.create(request)
         self.prepare_inputs(request)
+        self._write_analysis_lineage(request, selected=selected)
         after_write("round_analysis")
+
+    def _write_analysis_lineage(
+        self,
+        request: RoundAnalysisCreateRequest,
+        *,
+        selected: ValidatedRoundAnalysisInput | None = None,
+        status: str | None = None,
+        analysis: StoredRoundAnalysis | None = None,
+        failure: str | None = None,
+    ) -> None:
+        """Record accepted analysis inputs or its terminal artifact result."""
+        writer = self.pipeline_lineage_writer
+        if writer is None:
+            return
+        selected = selected or self.validate_request(request)
+        if request.round_context is not None:
+            context = request.round_context.model_dump(mode="json", exclude_none=True)
+        else:
+            setup = request.resolved_round_setup()
+            context = {
+                "game_id": setup.game_id,
+                "round_id": setup.round_id,
+                "active_players": list(setup.active_players),
+                "dealer": setup.dealer,
+                "first_trick_leader": setup.first_trick_leader,
+            }
+        rules = {
+            "name": (
+                request.round_setup.ruleset.name
+                if request.round_setup is not None
+                else "doko-normal"
+            ),
+            "version": request.rules_version
+            or (request.round_setup.ruleset.version if request.round_setup is not None else "v1"),
+        }
+        packages = [(str(item.package_id), item.manifest_sha256) for item in selected.packages]
+        inputs = writer.accept_analysis(
+            str(request.analysis_id),
+            recording_id=request.recording_id,
+            revision_id=(
+                None
+                if selected.pipeline_revision is None
+                else selected.pipeline_revision.manifest.revision_id
+            ),
+            package_inputs=packages,
+            round_context=context,
+            rules=rules,
+            search_settings=request.search.model_dump(mode="json", exclude_none=True),
+        )
+        if status is None:
+            return
+        outputs = []
+        if status == "complete" and analysis is not None:
+            if (
+                analysis.input_artifact_id is None
+                or analysis.input_artifact_sha256 is None
+                or analysis.result_artifact_id is None
+                or analysis.result_artifact_sha256 is None
+            ):
+                raise RuntimeError("The completed analysis has no exact lineage artifacts.")
+            outputs = [
+                {
+                    "kind": "artifact",
+                    "artifact_id": analysis.input_artifact_id,
+                    "sha256": analysis.input_artifact_sha256,
+                    "role": "analysis_input",
+                },
+                {
+                    "kind": "artifact",
+                    "artifact_id": analysis.result_artifact_id,
+                    "sha256": analysis.result_artifact_sha256,
+                    "role": "analysis_result",
+                },
+            ]
+        writer.finish_analysis(
+            str(request.analysis_id),
+            status=status,
+            inputs=inputs,
+            recording_id=request.recording_id,
+            round_context=context,
+            rules=rules,
+            search_settings=request.search.model_dump(mode="json", exclude_none=True),
+            outputs=outputs,
+            failure=None if failure is None else {"message": failure},
+        )
 
     def verify_job(self, job_id: str, raw_request: dict[str, Any]) -> bool:
         """Verify that accepted inputs are stored under this attempt ID."""
@@ -577,7 +665,13 @@ class RoundAnalysisService:
             analysis = self.store.get(request.analysis_id)
             if analysis is not None and analysis.state not in {"complete", "failed"}:
                 try:
-                    self.store.mark_failed(request.analysis_id, ANALYSIS_WORKER_FAILURE)
+                    failed = self.store.mark_failed(request.analysis_id, ANALYSIS_WORKER_FAILURE)
+                    self._write_analysis_lineage(
+                        request,
+                        status="failed",
+                        analysis=failed,
+                        failure=ANALYSIS_WORKER_FAILURE,
+                    )
                 except (RoundAnalysisNotFound, ValueError):
                     continue
 
@@ -708,6 +802,7 @@ class RoundAnalysisService:
                     result_artifact_id=published.result.relative_path,
                     result_artifact_sha256=published.result.sha256,
                 )
+                self._write_analysis_lineage(request, status="complete", analysis=completed)
                 log_event(
                     LOGGER,
                     logging.DEBUG,
@@ -761,7 +856,19 @@ class RoundAnalysisService:
     def _fail_analysis(self, analysis_id: str) -> None:
         analysis = self.store.get(analysis_id)
         if analysis is not None and analysis.state not in {"complete", "failed"}:
-            self.store.mark_failed(analysis_id, ANALYSIS_WORKER_FAILURE)
+            analysis = self.store.mark_failed(analysis_id, ANALYSIS_WORKER_FAILURE)
+            try:
+                request = parse_round_analysis_create_request_bytes(
+                    analysis.request_json.encode("utf-8")
+                )
+                self._write_analysis_lineage(
+                    request,
+                    status="failed",
+                    analysis=analysis,
+                    failure=ANALYSIS_WORKER_FAILURE,
+                )
+            except (TypeError, UnicodeError, ValueError, RoundAnalysisValidationError):
+                LOGGER.exception("round_analysis_lineage_failure")
 
     def _run_reconstruction(
         self,

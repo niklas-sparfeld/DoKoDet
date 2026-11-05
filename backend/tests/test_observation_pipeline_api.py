@@ -151,6 +151,25 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         assert content["observations"][1]["cards"] == []
         assert content["observations"][2]["status"] == "insufficient_evidence"
 
+        lineage = app.state.pipeline_lineage_service.snapshot(RECORDING_ID)
+        lineage_runs = {item["run_id"]: item for item in lineage["runs"]}
+        assert {
+            "events-assembly",
+            "visible-assembly",
+            "identity-assembly",
+            assembly_first_id,
+        } <= lineage_runs.keys()
+        assert lineage_runs[assembly_first_id]["status"] == "succeeded"
+        assert {item["role"] for item in lineage_runs[assembly_first_id]["inputs"]} == {
+            "events",
+            "visible_cards",
+            "visual_identities",
+        }
+        assert (
+            lineage_runs[assembly_first_id]["outputs"][0]["revision_id"]
+            == first_body["revisions"][0]["manifest"]["revision_id"]
+        )
+
         accepted_job = client.get(f"/api/jobs/{assembly_first_id}").json()
         assert [item["id"] for item in accepted_job["inputs"]] == [
             event_revision_id,

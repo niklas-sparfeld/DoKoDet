@@ -519,9 +519,7 @@ class PipelineRevisionStore:
 
         manifests: list[DataRevision] = []
         recording_marker = (
-            None
-            if recording_id is None
-            else f'"recording_id":"{recording_id}"'.encode("ascii")
+            None if recording_id is None else f'"recording_id":"{recording_id}"'.encode("ascii")
         )
         for path in enumeration.paths:
             try:
@@ -964,10 +962,12 @@ class ProcessorRunStore:
         storage: PipelineRuntimeStorage | Path | str,
         *,
         revision_store: PipelineRevisionStore | None = None,
+        lineage_writer: Any | None = None,
     ) -> None:
         self.storage = _storage(storage)
         self.root = self.storage.runs_root
         self.revision_store = revision_store or PipelineRevisionStore(self.storage)
+        self.lineage_writer = lineage_writer
         self._lock = RLock()
 
     def run_path(self, run_id: str) -> Path:
@@ -1176,6 +1176,8 @@ class ProcessorRunStore:
             if destination.exists() or destination.is_symlink():
                 existing = self._existing_or_error(destination)
                 if canonical_processor_run_request_bytes(existing.request) == request_bytes:
+                    if self.lineage_writer is not None:
+                        self.lineage_writer.accept_processor(existing.request, existing.state)
                     return existing, False
                 raise PipelineConflict(
                     "The run ID is already stored with different request content."
@@ -1212,6 +1214,8 @@ class ProcessorRunStore:
             stored = self.get(parsed_request.run_id)
             if stored is None:
                 raise PipelineStoreError("The created processor run failed validation.")
+            if self.lineage_writer is not None:
+                self.lineage_writer.accept_processor(stored.request, stored.state)
             return stored, True
 
     def update_state(
@@ -1258,7 +1262,16 @@ class ProcessorRunStore:
                     payload,
                     validate=lambda raw: self._validate_state_bytes(raw, run_id),
                 )
-            return StoredProcessorRun(request=current.request, state=parsed_state)
+            stored = StoredProcessorRun(request=current.request, state=parsed_state)
+            if self.lineage_writer is not None:
+                if parsed_state.status in {"complete", "partial", "failed"}:
+                    self.lineage_writer.update_processor(current.request, parsed_state)
+                elif (
+                    parsed_state.status == "running"
+                    and parsed_state.attempt > current.state.attempt
+                ):
+                    self.lineage_writer.accept_processor(current.request, parsed_state)
+            return stored
 
     def start(self, run_id: str, *, started_at: datetime | str | None = None) -> StoredProcessorRun:
         current = self.require(run_id)

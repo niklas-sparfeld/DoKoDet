@@ -18,8 +18,6 @@ class PipelineNodeUses:
 
     def accept(self, run_id: str, inputs: Sequence[tuple[str, str]]) -> dict[str, Any]:
         _safe_id(run_id, "run_id")
-        if not inputs:
-            raise ValueError("accepted use must identify inputs")
         refs = []
         for node_id, revision_id in inputs:
             refs.append(

@@ -238,6 +238,7 @@ def create_app(
         app.state.analyzer,
         pipeline_revision_store=app.state.pipeline_revision_store,
         pipeline_selection_store=app.state.pipeline_selection_store,
+        pipeline_lineage_writer=app.state.pipeline_lineage_writer,
     )
     event_job_participant = EventJobParticipant(app.state.event_pipeline_service)
     for event_job_type in ("event_processing", "event_import"):

@@ -232,6 +232,17 @@ def test_create_runs_worker_and_publishes_compact_result(backend_tmp_path: Path)
     assert body["result"]["result_artifact_id"] == (f"round-analyses/{ANALYSIS_ID}/result.json")
     assert app.state.round_analysis_storage.analysis_path(ANALYSIS_ID).is_dir()
     assert client.get(f"/v1/round-analyses/{ANALYSIS_ID}").json() == body
+    lineage = app.state.pipeline_lineage_service.snapshot(RECORDING_ID)
+    analysis_run = next(
+        item for item in lineage["runs"] if item["run_id"] == f"analysis-{ANALYSIS_ID}"
+    )
+    assert analysis_run["status"] == "succeeded"
+    assert analysis_run["context"]["round_context"]["round_id"] == "round-round-analysis"
+    assert {item["role"] for item in analysis_run["inputs"]} == {"evidence_package"}
+    assert {item["role"] for item in analysis_run["outputs"]} == {
+        "analysis_input",
+        "analysis_result",
+    }
 
 
 def test_recording_catalog_starts_and_lists_analysis(backend_tmp_path: Path) -> None:

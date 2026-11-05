@@ -161,14 +161,22 @@ class PipelineLineage:
         context: Mapping[str, Any],
         failure: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Commit a completed run after accepted-use registration and cycle validation."""
+        """Commit a terminal run after accepted-use registration and cycle validation."""
         _safe_id(run_id, "run_id")
-        if status not in {"succeeded", "failed", "cancelled"}:
+        if status not in {"succeeded", "partial", "failed", "cancelled"}:
             raise ValueError("invalid run status")
-        if status == "succeeded":
-            if result not in {"empty", "nonempty"} or not outputs or failure is not None:
+        if status in {"succeeded", "partial"}:
+            if status == "succeeded" and (result not in {"empty", "nonempty"} or not outputs):
                 raise ValueError("successful runs need outputs and an explicit result")
-        elif result is not None or outputs or (status == "failed" and not failure):
+            if status == "partial" and (
+                result not in {None, "empty", "nonempty"} or (result is not None and not outputs)
+            ):
+                raise ValueError("partial runs need outputs when they claim a result")
+            if status == "succeeded" and failure is not None:
+                raise ValueError("successful runs cannot include failure details")
+        if status in {"failed", "cancelled"} and (
+            result is not None or outputs or (status == "failed" and not failure)
+        ):
             raise ValueError("failed or cancelled runs cannot claim a result or output")
         processor_data = _object(processor, "processor")
         if (
@@ -272,7 +280,11 @@ class PipelineLineage:
         runs = [
             run
             for run in graph["runs"]
-            if any(
+            if (
+                isinstance(run.get("context"), Mapping)
+                and run["context"].get("recording_id") == recording_id
+            )
+            or any(
                 ref.get("kind") == "revision" and ref.get("node_id") in node_ids
                 for ref in run.get("inputs", []) + run.get("outputs", [])
             )

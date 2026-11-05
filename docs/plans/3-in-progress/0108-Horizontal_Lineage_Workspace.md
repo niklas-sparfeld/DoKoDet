@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0–M6 are complete; M7–M12 are not started. The workspace exposes exact graph data,
+- **Outcome:** M0–M9 are complete; M10–M12 are not started. The workspace exposes exact graph data,
   preserves validated lineage URLs, and has aligned step and data rows. The horizontal drawer
   selects exact revisions and shows copy and processor sources with collapsed revision history.
   Shared node edit, copy, and restore transactions are available through the workspace API.
@@ -259,7 +259,7 @@ revisions, session and round context, status, and attempt history. These browsin
 processor controls or change their input selection. Comparison continues to use its explicit left,
 right, and reference URL fields.
 
-### M9 — Connect processor writers and accepted input use — Not started
+### M9 — Connect processor writers and accepted input use — Complete
 
 Adapt event, detector, scene, identity, observation, and analysis outputs to nodes/revisions. Register
 accepted inputs before execution, including automated runs. Keep existing execution semantics and
@@ -267,6 +267,16 @@ input controls. Do not silently append to human-edited nodes or overwrite their 
 
 Acceptance: fixture processors produce a complete graph, stop on existing failure gates, retain
 valid empty outputs and analysis context, and protect inputs during concurrent first edits.
+
+Result: processor run creation now registers exact input revisions before a worker starts. Terminal
+processor outputs, empty results, partial results, failures, and retries publish immutable lineage
+records. Retained revision content appears as its own node revision, so a later processor result
+does not overwrite a human edit. Round analysis records exact observation and package inputs,
+round context, search settings, and input/result artifact digests. Managed automated runs use the
+same job acceptance path for analysis. Recording graph queries retain artifact-only analysis runs.
+Fixture checks cover empty event output, accepted-input protection, retry acceptance, multi-stage
+observation inputs, and analysis artifacts. Existing processor execution and selection controls stay
+in place.
 
 ### M10 — Execute the verified local migration and cutover — Not started
 
