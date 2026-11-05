@@ -841,12 +841,43 @@ export function createDokoDetectorClient(
           body: JSON.stringify(payload),
         },
       ),
-    getVisibleCardRun: (recordingId, runId, init) =>
-      requestJson<PipelineRunResponse>(
+    getVisibleCardRun: async (recordingId, runId, init) => {
+      const job = await requestJson<JobDetail>(
         fetchImplementation,
-        pipelineVisibleCardRunPath(recordingId, runId),
+        `/api/jobs/${encodeURIComponent(runId)}`,
         init,
-      ),
+      );
+      if (["succeeded", "failed", "cancelled", "interrupted"].includes(job.state)) {
+        return requestJson<PipelineRunResponse>(
+          fetchImplementation,
+          pipelineVisibleCardResultPath(recordingId, runId),
+          init,
+        );
+      }
+      const processorRequest =
+        (job.request.processor_request as Record<string, unknown> | undefined) ??
+        job.request;
+      const step = job.steps[0];
+      const status =
+        job.state === "waiting" || job.state === "cancelling" ? "running" : job.state;
+      return {
+        run_id: job.id,
+        recording_id: recordingId,
+        processor_type: String(processorRequest.processor_type ?? "visible-card-detection"),
+        status,
+        attempt: 1,
+        request: processorRequest,
+        state: {
+          run_id: job.id,
+          status,
+          progress: { completed: step?.completed ?? 0, total: step?.total ?? 0 },
+          terminal_failure: job.failure,
+          output_revision_ids: [],
+          items: [],
+          metrics: {},
+        },
+      };
+    },
     retryVisibleCardRun: (recordingId, runId, init) =>
       requestJson<PipelineRunResponse>(
         fetchImplementation,

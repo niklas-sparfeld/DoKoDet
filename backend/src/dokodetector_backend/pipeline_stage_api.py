@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from doko_operations.derived_view import (
     SAMPLED_FRAME_INTERVAL_US,
@@ -325,7 +326,22 @@ def start_visible_card_run(
 
     validate_recording_id(recording_id)
     try:
-        return run_response(_visible_service(request).start_detection(recording_id, payload))
+        service = _visible_service(request)
+        run_key = payload.get("run_id")
+        idempotency_key = (
+            uuid5(NAMESPACE_URL, f"visible-card-run:{run_key}")
+            if isinstance(run_key, str) and run_key
+            else uuid4()
+        )
+        job = request.app.state.job_manager_service.get_manager().accept(
+            str(idempotency_key),
+            {
+                "type": "visible_card_detection",
+                "context": {"recording_id": recording_id},
+                "request": payload,
+            },
+        )
+        return run_response(service.get_run(recording_id, job.id))
     except (VisibleCardPipelineInputError, PipelineConflict) as error:
         raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
     except PipelineNotFound as error:
@@ -400,7 +416,10 @@ def retry_visible_card_run(recording_id: str, run_id: str, request: Request) -> 
     """Retry one failed visible-card detector run."""
 
     try:
-        return run_response(_visible_service(request).retry(recording_id, run_id))
+        service = _visible_service(request)
+        service.get_run(recording_id, run_id)
+        job = request.app.state.job_manager_service.get_manager().retry(run_id, str(uuid4()))
+        return run_response(service.get_run(recording_id, job.id))
     except PipelineNotFound as error:
         raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
     except (VisibleCardPipelineInputError, PipelineConflict, PipelineStateError) as error:

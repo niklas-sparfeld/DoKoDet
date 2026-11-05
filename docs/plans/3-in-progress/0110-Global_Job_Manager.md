@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M5 complete; M6–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M6 complete; M7–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -337,13 +337,15 @@ exact inputs and completed output references remain valid. No second event queue
 
 Result: [M5 event processing](../../reports/0110-M5_Event_Processing.md).
 
-### M6 — Connect visible-card processing — Not started
+### M6 — Connect visible-card processing — Complete
 
 Adapt visible-card processing and its frame workers. Enforce the allocated worker budget and add
 safe cancellation checks. Preserve valid empty detections, piles, coverage, and failure details.
 
 Acceptance: fixture runs verify bounded inner concurrency, partial/empty outcomes, cancellation,
 and exact domain outputs. Existing focused processor tests pass.
+
+Result: [M6 visible-card processing](../../reports/0110-M6_Visible_Card_Processing.md).
 
 ### M7 — Connect proposed card scenes — Not started
 

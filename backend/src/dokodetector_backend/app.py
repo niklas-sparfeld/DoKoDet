@@ -59,6 +59,7 @@ from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactSto
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.storage import EvidenceStorage
 from dokodetector_backend.table_observation_store import TableObservationStore
+from dokodetector_backend.visible_card_jobs import VisibleCardJobParticipant
 
 if TYPE_CHECKING:
     from table_evidence_analyzer import TableEvidenceAnalyzer
@@ -117,6 +118,7 @@ def create_app(
     app.state.job_manager_service = JobManagerService(
         app_settings.operations_root,
         app.state.job_type_registry,
+        cpu_budget=app_settings.gemini_max_concurrent_requests,
     )
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
     app.state.operations_storage = EvidenceStorage(app_settings.operations_root)
@@ -227,6 +229,21 @@ def create_app(
             ),
             Claims(cpu=1, locks=()),
         )
+    visible_card_job_participant = VisibleCardJobParticipant(
+        app.state.visible_card_pipeline_service
+    )
+    app.state.job_type_registry.register(
+        "visible_card_detection",
+        lambda _request: None,
+        visible_card_job_participant,
+        lambda job, claims, token, participant=visible_card_job_participant: participant.handle(
+            job,
+            claims,
+            token,
+            app.state.job_manager_service.get_manager(),
+        ),
+        Claims(cpu=1, locks=()),
+    )
     recovered_event_count = app.state.event_pipeline_service.recover_interrupted_runs()
     log_event(
         LOGGER,

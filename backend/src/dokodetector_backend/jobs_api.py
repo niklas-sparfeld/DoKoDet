@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from dokodetector_backend.errors import APIErrorDetail, ContractError
-from dokodetector_backend.job_scheduler import Claims, JobScheduler, QueueRevisionConflict
+from dokodetector_backend.job_scheduler import Budget, Claims, JobScheduler, QueueRevisionConflict
 from dokodetector_backend.job_store import (
     FakeParticipant,
     Job,
@@ -229,9 +229,12 @@ class JobTypeRegistry:
 class JobManagerService:
     """Keep one manager owner for the application lifetime."""
 
-    def __init__(self, operations_root: Path, registry: JobTypeRegistry) -> None:
+    def __init__(
+        self, operations_root: Path, registry: JobTypeRegistry, *, cpu_budget: int = 1
+    ) -> None:
         self.operations_root = operations_root
         self.registry = registry
+        self.cpu_budget = cpu_budget
         self.manager: JobManager | None = None
         self.scheduler: JobScheduler | None = None
 
@@ -247,6 +250,7 @@ class JobManagerService:
                 self.manager,
                 self.registry.handle,
                 self.registry.claims_for,
+                budget=Budget(slots=1, cpu=self.cpu_budget),
             ).__enter__()
         except BaseException:
             self.manager.__exit__(None, None, None)

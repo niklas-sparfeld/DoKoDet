@@ -447,21 +447,35 @@ describe("RunControls", () => {
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
-        input_revision_ids: ["events-old"],
-        event_revision_id: "events-old",
+        request: {
+          input_revision_ids: ["events-old"],
+          event_revision_id: "events-old",
+        },
       },
     });
   });
 
   it("starts a visible-card run with the selectable fine-frame refinement provider", async () => {
-    const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(
-        new Response(JSON.stringify(runResponse("visible-run-fine-frame")), {
+    const fetchMock = vi.fn<typeof fetch>((input) => {
+      const url = String(input);
+      const body = url.endsWith("/api/jobs")
+        ? { id: "visible-run-fine-frame" }
+        : url.includes("/api/jobs/")
+          ? {
+              id: "visible-run-fine-frame",
+              state: "running",
+              request: { processor_request: { processor_type: "visible-card-detection" } },
+              steps: [],
+              failure: null,
+            }
+          : runResponse("visible-run-fine-frame");
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
           status: 202,
           headers: { "Content-Type": "application/json" },
         }),
-      ),
-    );
+      );
+    });
     vi.stubGlobal("fetch", fetchMock);
     const events = stage("events", {
       selected_generated_revision_id: "events-generated",
@@ -499,9 +513,13 @@ describe("RunControls", () => {
       ([, init]) => init?.method === "POST",
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      type: "visible_card_detection",
+      context: { recording_id: "recording-run-controls" },
       request: {
-        input_revision_ids: ["events-generated"],
-        configuration: { provider: "local-rfdetr-fine-frame" },
+        request: {
+          input_revision_ids: ["events-generated"],
+          configuration: { provider: "local-rfdetr-fine-frame" },
+        },
       },
     });
   });
@@ -544,7 +562,7 @@ describe("RunControls", () => {
       ([, init]) => init?.method === "POST",
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
-      request: { configuration: { provider: "local-rfdetr-crop-review" } },
+      request: { request: { configuration: { provider: "local-rfdetr-crop-review" } } },
     });
   });
 

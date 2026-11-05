@@ -6,6 +6,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
+from uuid import uuid4
 
 from app_factory import create_test_app
 from doko_operations.derived_view import (
@@ -113,6 +114,18 @@ def _json(value: object) -> str:
     import json
 
     return json.dumps(value, separators=(",", ":"))
+
+
+def _enqueue_event(client: TestClient, payload: dict[str, object]):
+    return client.post(
+        "/api/jobs",
+        headers={"Idempotency-Key": str(uuid4())},
+        json={
+            "type": "event_processing",
+            "context": {"recording_id": RECORDING_ID},
+            "request": payload,
+        },
+    )
 
 
 def _read_json(path: Path) -> dict:
@@ -283,20 +296,19 @@ def _run_blocking_visible_detection(
         visible_card_frame_resolver=_FrameResolver(),
     )
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-blocking"},
-        )
+        event_response = _enqueue_event(client, {"run_id": "events-blocking"})
         assert event_response.status_code == 202
-        _wait_event(client, "events-blocking")
+        event_run_id = event_response.json()["id"]
+        _wait_event(client, event_run_id)
         event_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-blocking/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
         visible_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={"run_id": "visible-blocking", "event_revision_id": event_revision_id},
         )
         assert visible_response.status_code == 202
+        visible_run_id = visible_response.json()["run_id"]
         assert started_one.wait(2)
         expected = min(cap, event_limit or cap)
         if expected == 1:
@@ -307,9 +319,9 @@ def _run_blocking_visible_detection(
             assert started_two.wait(2)
             assert maximum == 2
         release.set()
-        assert _wait(client, "visible-blocking")["state"]["status"] == "complete"
+        assert _wait(client, visible_run_id)["state"]["status"] == "complete"
         result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-blocking/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()
         event_ids = [
             outcome["event_id"] for outcome in result["revisions"][0]["content"]["outcomes"]
@@ -346,9 +358,16 @@ def _wait(client: TestClient, run_id: str) -> dict:
     deadline = time.monotonic() + 5
     body: dict = {}
     while time.monotonic() < deadline:
+        job_response = client.get(f"/api/jobs/{run_id}")
+        if job_response.status_code == 200:
+            job = job_response.json()
+            if job["state"] in {"succeeded", "failed", "cancelled", "interrupted"}:
+                return client.get(
+                    f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{run_id}"
+                ).json()
         response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{run_id}")
         body = response.json()
-        if body["state"]["status"] in {"complete", "failed"}:
+        if "state" in body and body["state"]["status"] in {"complete", "failed"}:
             return body
         time.sleep(0.01)
     return body
@@ -366,14 +385,12 @@ def test_visible_card_status_poll_uses_run_metadata_without_item_payloads(
     )
 
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-for-visible-status"},
-        )
+        event_response = _enqueue_event(client, {"run_id": "events-for-visible-status"})
         assert event_response.status_code == 202
-        _wait_event(client, "events-for-visible-status")
+        event_run_id = event_response.json()["id"]
+        _wait_event(client, event_run_id)
         event_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-visible-status/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
         service = app.state.visible_card_pipeline_service
         request = service._build_request(
@@ -465,14 +482,12 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
     )
 
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-generated"},
-        )
+        event_response = _enqueue_event(client, {"run_id": "events-generated"})
         assert event_response.status_code == 202
-        _wait_event(client, "events-generated")
+        event_run_id = event_response.json()["id"]
+        _wait_event(client, event_run_id)
         event_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-generated/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
         ).json()
         generated_event_revision_id = event_result["state"]["output_revision_ids"][0]
         generated_event_revision = app.state.pipeline_revision_store.require(
@@ -489,10 +504,11 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             },
         )
         assert visible_generated.status_code == 202
-        generated_status = _wait(client, "visible-generated")
+        generated_run_id = visible_generated.json()["run_id"]
+        generated_status = _wait(client, generated_run_id)
         assert generated_status["state"]["status"] == "complete"
         generated_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-generated/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{generated_run_id}/result"
         ).json()
         generated_content = generated_result["revisions"][0]["content"]
         assert generated_result["request"]["input_revision_ids"] == [generated_event_revision_id]
@@ -544,9 +560,8 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             app,
             generated_event_revision.manifest.source,
             generated_event_revision,
-            event_types=(
-                CARD_STATE_CHANGED_EVENT_TYPE,
-            ) * len(generated_event_revision.content.events),
+            event_types=(CARD_STATE_CHANGED_EVENT_TYPE,)
+            * len(generated_event_revision.content.events),
             start_offset_us=1,
         )
         visible_reference = client.post(
@@ -562,9 +577,10 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
             },
         )
         assert visible_reference.status_code == 202
-        _wait(client, "visible-reference")
+        reference_run_id = visible_reference.json()["run_id"]
+        _wait(client, reference_run_id)
         reference_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-reference/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{reference_run_id}/result"
         ).json()
         assert reference_result["request"]["input_revision_ids"] == [manual_revision_id]
         assert reference_result["request"]["extraction_policy"]["event_time_anchor"] == "end_us"
@@ -604,7 +620,7 @@ def test_visible_card_pipeline_uses_selected_event_revisions_and_retains_outcome
     )
     with TestClient(restarted) as client:
         persisted = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-generated/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{generated_run_id}/result"
         )
         assert persisted.status_code == 200
         assert [
@@ -624,14 +640,12 @@ def test_visible_card_pipeline_uses_configured_gemini_model_for_provider_placeho
     )
 
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-for-model"},
-        )
+        event_response = _enqueue_event(client, {"run_id": "events-for-model"})
         assert event_response.status_code == 202
-        _wait_event(client, "events-for-model")
+        event_run_id = event_response.json()["id"]
+        _wait_event(client, event_run_id)
         event_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-model/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
         ).json()
         event_revision_id = event_result["state"]["output_revision_ids"][0]
 
@@ -649,59 +663,103 @@ def test_visible_card_pipeline_uses_configured_gemini_model_for_provider_placeho
     assert request.model.version == "gemini-visible-cards-v1"
 
 
-def test_visible_card_pipeline_retry_resumes_retained_items(tmp_path: Path) -> None:
+def test_visible_card_pipeline_retry_creates_a_linked_managed_job(tmp_path: Path) -> None:
     _install_recording(tmp_path)
+
+    class RetryableDetector(_Detector):
+        event_concurrency_limit = False
+
     app = create_test_app(
         _settings(tmp_path),
         event_provider=_EventProvider(),
-        visible_card_provider=_Detector(),
+        visible_card_provider=RetryableDetector(),
         visible_card_frame_resolver=_FrameResolver(),
     )
 
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-for-visible-retry"},
-        )
+        event_response = _enqueue_event(client, {"run_id": "events-for-visible-retry"})
         assert event_response.status_code == 202
-        _wait_event(client, "events-for-visible-retry")
+        event_run_id = event_response.json()["id"]
+        _wait_event(client, event_run_id)
         event_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-visible-retry/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
 
-        baseline_response = client.post(
+        response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={
-                "run_id": "visible-retry-baseline",
-                "event_revision_id": event_revision_id,
-            },
+            json={"run_id": "visible-retry", "event_revision_id": event_revision_id},
         )
-        assert baseline_response.status_code == 202
-        assert _wait(client, "visible-retry-baseline")["state"]["status"] == "complete"
-        baseline = app.state.pipeline_run_store.require("visible-retry-baseline")
-
-        request = app.state.visible_card_pipeline_service._build_request(
-            RECORDING_ID,
-            {"run_id": "visible-retry", "event_revision_id": event_revision_id},
-        )
-        stored, created = app.state.pipeline_run_store.create(request)
-        assert created
-        app.state.pipeline_run_store.start(stored.run_id)
-        app.state.pipeline_run_store.partial(
-            stored.run_id,
-            progress=RunProgress(completed=1, total=5),
-            items=(baseline.state.items[0],),
-        )
+        assert response.status_code == 202
+        source_job_id = response.json()["run_id"]
+        failed_status = _wait(client, source_job_id)
+        assert failed_status["state"]["status"] == "failed"
+        app.state.visible_card_pipeline_service.detector_provider.event_concurrency_limit = 1
 
         retry_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-retry/retry"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{source_job_id}/retry"
         )
         assert retry_response.status_code == 202
-        status = _wait(client, "visible-retry")
+        retried_run_id = retry_response.json()["run_id"]
+        status = _wait(client, retried_run_id)
+        retried_job = client.get(f"/api/jobs/{retried_run_id}").json()
 
     assert status["state"]["status"] == "complete"
     assert status["state"]["progress"] == {"completed": 5, "total": 5}
     assert len(status["state"]["items"]) == 5
+    assert retried_job["retry_of"] == source_job_id
+
+
+def test_visible_card_cancellation_prevents_result_publication(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    started = threading.Event()
+    release = threading.Event()
+
+    class BlockingDetector:
+        name = "blocking-detector"
+        version = "blocking-detector/v1"
+
+        def propose(self, request: object) -> ProviderResult:
+            del request
+            started.set()
+            assert release.wait(3)
+            return ProviderResult(status="ok")
+
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=BlockingDetector(),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+    with TestClient(app) as client:
+        event_job = _enqueue_event(client, {"run_id": "events-for-visible-cancel"})
+        assert event_job.status_code == 202
+        event_run_id = event_job.json()["id"]
+        _wait_event(client, event_run_id)
+        event_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
+        ).json()["state"]["output_revision_ids"][0]
+
+        response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={"run_id": "visible-cancel", "event_revision_id": event_revision_id},
+        )
+        assert response.status_code == 202
+        job_id = response.json()["run_id"]
+        assert started.wait(2)
+        cancelling = client.post(f"/api/jobs/{job_id}/cancel", json={})
+        assert cancelling.status_code == 200
+        assert cancelling.json()["state"] == "cancelling"
+        release.set()
+        job = _wait(client, job_id)
+        detail = client.get(f"/api/jobs/{job_id}").json()
+        result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{job_id}/result"
+        )
+
+    assert detail["state"] == "cancelled"
+    assert job["state"]["status"] == "failed"
+    assert result.status_code == 200
+    assert result.json()["revisions"] == []
 
 
 def test_visible_card_runs_do_not_starve_each_other_at_zero_progress(
@@ -741,14 +799,12 @@ def test_visible_card_runs_do_not_starve_each_other_at_zero_progress(
     )
 
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-for-visible-queue"},
-        )
+        event_response = _enqueue_event(client, {"run_id": "events-for-visible-queue"})
         assert event_response.status_code == 202
-        _wait_event(client, "events-for-visible-queue")
+        event_run_id = event_response.json()["id"]
+        _wait_event(client, event_run_id)
         event_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-visible-queue/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
 
         first_response = client.post(
@@ -756,6 +812,7 @@ def test_visible_card_runs_do_not_starve_each_other_at_zero_progress(
             json={"run_id": "visible-queue-first", "event_revision_id": event_revision_id},
         )
         assert first_response.status_code == 202
+        first_run_id = first_response.json()["run_id"]
         assert started_two.wait(2)
 
         second_response = client.post(
@@ -763,21 +820,14 @@ def test_visible_card_runs_do_not_starve_each_other_at_zero_progress(
             json={"run_id": "visible-queue-second", "event_revision_id": event_revision_id},
         )
         assert second_response.status_code == 202
+        second_run_id = second_response.json()["run_id"]
 
-        deadline = time.monotonic() + 2
-        second_status: dict = {}
-        while time.monotonic() < deadline:
-            second_status = client.get(
-                f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-queue-second"
-            ).json()
-            if second_status["state"]["progress"]["total"] == 5:
-                break
-            time.sleep(0.01)
-        assert second_status["state"]["progress"] == {"completed": 0, "total": 5}
+        second_status = client.get(f"/api/jobs/{second_run_id}").json()
+        assert second_status["state"] == "queued"
 
         release.set()
-        assert _wait(client, "visible-queue-first")["state"]["status"] == "complete"
-        assert _wait(client, "visible-queue-second")["state"]["status"] == "complete"
+        assert _wait(client, first_run_id)["state"]["status"] == "complete"
+        assert _wait(client, second_run_id)["state"]["status"] == "complete"
 
     assert maximum == 2
 
@@ -839,9 +889,16 @@ def _wait_event(client: TestClient, run_id: str) -> dict:
     deadline = time.monotonic() + 5
     body: dict = {}
     while time.monotonic() < deadline:
-        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/{run_id}")
-        body = response.json()
-        if body["state"]["status"] == "complete":
+        response = client.get(f"/api/jobs/{run_id}")
+        job = response.json()
+        status = job["state"]
+        body = {
+            "state": {
+                "status": "complete" if status == "succeeded" else status,
+                "output_revision_ids": [result["id"] for result in job["results"]],
+            }
+        }
+        if status in {"succeeded", "failed", "cancelled", "interrupted"}:
             return body
         time.sleep(0.01)
     return body

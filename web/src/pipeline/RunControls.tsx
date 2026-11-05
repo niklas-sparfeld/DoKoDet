@@ -802,7 +802,15 @@ async function startProcessorRun(
     return client.getEventRun(recordingId, job.id);
   }
   if (stage === "visible_cards") {
-    return client.startVisibleCardRun(recordingId, payload);
+    const job = await client.enqueueJob(
+      {
+        type: "visible_card_detection",
+        context: { recording_id: recordingId },
+        request: payload as unknown as Record<string, unknown>,
+      },
+      crypto.randomUUID(),
+    );
+    return client.getVisibleCardRun(recordingId, job.id);
   }
   return client.startVisualIdentityRun(recordingId, payload);
 }
@@ -818,7 +826,8 @@ async function retryProcessorRun(
     return client.getEventRun(recordingId, job.id);
   }
   if (stage === "visible_cards") {
-    return client.retryVisibleCardRun(recordingId, runId);
+    const job = await client.retryJob(runId, crypto.randomUUID());
+    return client.getVisibleCardRun(recordingId, job.id);
   }
   return client.retryVisualIdentityRun(recordingId, runId);
 }

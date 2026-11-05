@@ -51,6 +51,7 @@ from table_evidence_analyzer.visible_cards import ProviderResult, VisibleCardReq
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
+from dokodetector_backend.job_store import Job, JobCancelled, JobManager
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
@@ -120,11 +121,6 @@ class VisibleCardPipelineService:
             raise ValueError("gemini_max_concurrent_requests must be a positive integer")
         self._request_slots = BoundedSemaphore(self.max_concurrent_requests)
         self._derived_view_lock = DERIVED_VIEW_CACHE_LOCK
-        self._executor = ThreadPoolExecutor(
-            max_workers=self.max_concurrent_requests,
-            thread_name_prefix="visible-card-pipeline",
-        )
-        self._futures: dict[str, Future[None]] = {}
         self._source_contexts: dict[
             str, tuple[tuple[int, int, int, int, str], RecordingVideoSource]
         ] = {}
@@ -134,30 +130,13 @@ class VisibleCardPipelineService:
         """Keep the service lifecycle symmetrical with the event service."""
 
     async def stop(self) -> None:
-        self._executor.shutdown(wait=True, cancel_futures=False)
-        with self._lock:
-            self._futures.clear()
-
-    def start_detection(self, recording_id: str, payload: Mapping[str, Any]) -> StoredProcessorRun:
-        request = self._build_request(recording_id, payload)
-        run, created = self.run_store.create(request)
-        if not created:
-            return run
-        running = self.run_store.start(run.run_id)
-        with self._lock:
-            self._futures[run.run_id] = self._executor.submit(self._execute, run.run_id)
-        return running
+        """The shared Job Manager owns worker lifecycle."""
 
     def get_run(
         self, recording_id: str, run_id: str, *, include_items: bool = True
     ) -> StoredProcessorRun:
         run = self.run_store.require(run_id, include_items=include_items)
         self._require_recording(run.request, recording_id)
-        with self._lock:
-            future = self._futures.get(run_id)
-        if run.state.status == "complete" and future is not None and not future.done():
-            future.result()
-            run = self.run_store.require(run_id, include_items=include_items)
         return run
 
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
@@ -215,13 +194,6 @@ class VisibleCardPipelineService:
                 output_encoding="jpeg",
                 validate_source=False,
             )
-
-    def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
-        self.get_run(recording_id, run_id)
-        retried = self.run_store.retry(run_id)
-        with self._lock:
-            self._futures[run_id] = self._executor.submit(self._execute, run_id)
-        return retried
 
     def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> PipelineSelection:
         expected_revision = payload.get("expected_revision")
@@ -341,6 +313,126 @@ class VisibleCardPipelineService:
             )
         return request
 
+    def freeze_job_request(self, recording_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        """Resolve and freeze the event revision and detector request before acceptance."""
+        request = self._build_request(recording_id, payload)
+        return {"schema": "visible-card-job-request/v1", "processor_request": request.to_mapping()}
+
+    def validate_frozen_job_request(self, recording_id: str, frozen: Mapping[str, Any]) -> None:
+        try:
+            request = ProcessorRunRequest.from_mapping(frozen["processor_request"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise VisibleCardPipelineInputError(
+                "The frozen visible-card request is invalid."
+            ) from error
+        if frozen.get("schema") != "visible-card-job-request/v1":
+            raise VisibleCardPipelineInputError(
+                "The frozen visible-card request schema is invalid."
+            )
+        _, source = self._accepted_source(recording_id)
+        if request.source != source or request.source.recording_id != recording_id:
+            raise VisibleCardPipelineInputError("The frozen visible-card source changed.")
+        if (
+            request.processor_type != "visible-card-detection"
+            or len(request.input_revision_ids) != 1
+        ):
+            raise VisibleCardPipelineInputError("The frozen visible-card inputs are invalid.")
+        event_revision = self.revision_store.require(request.input_revision_ids[0])
+        if (
+            event_revision.manifest.content_type != "events"
+            or event_revision.manifest.source != source
+            or not isinstance(event_revision.content, EventData)
+        ):
+            raise VisibleCardPipelineInputError("The frozen event revision is unavailable.")
+
+    def prepare_job(self, job_id: str, envelope: Mapping[str, Any], after_write: Any) -> None:
+        recording_id = envelope["context"]["recording_id"]
+        frozen = envelope["request"]
+        self.validate_frozen_job_request(recording_id, frozen)
+        values = dict(frozen["processor_request"])
+        values["run_id"] = job_id
+        processor_request = ProcessorRunRequest.from_mapping(values)
+        stored, _ = self.run_store.create(processor_request)
+        if stored.request.to_mapping() != processor_request.to_mapping():
+            raise VisibleCardPipelineInputError("The accepted visible-card run conflicts.")
+        use = {
+            "schema_version": "visible-card-job-accepted-use/v1",
+            "job_id": job_id,
+            "recording_id": recording_id,
+            "event_revision_id": processor_request.input_revision_ids[0],
+            "video_sha256": processor_request.source.video_sha256,
+        }
+        path = self._job_use_path(job_id)
+        if path.exists():
+            if json.loads(path.read_text(encoding="utf-8")) != use:
+                raise VisibleCardPipelineInputError(
+                    "The visible-card accepted-use identity conflicts."
+                )
+        else:
+            from dokodetector_backend.filesystem import atomic_replace_json
+
+            atomic_replace_json(path, use)
+            after_write("visible_card_accepted_use")
+
+    def verify_job(self, job_id: str, envelope: Mapping[str, Any]) -> bool:
+        try:
+            recording_id = envelope["context"]["recording_id"]
+            frozen = envelope["request"]
+            self.validate_frozen_job_request(recording_id, frozen)
+            use = json.loads(self._job_use_path(job_id).read_text(encoding="utf-8"))
+            expected = dict(frozen["processor_request"])
+            expected["run_id"] = job_id
+            run = self.run_store.require(job_id)
+            return (
+                run.request.to_mapping() == ProcessorRunRequest.from_mapping(expected).to_mapping()
+                and use.get("job_id") == job_id
+                and use.get("event_revision_id") == run.request.input_revision_ids[0]
+                and use.get("video_sha256") == run.request.source.video_sha256
+            )
+        except (OSError, KeyError, TypeError, ValueError, PipelineStateError, PipelineNotFound):
+            return False
+
+    def verify_job_publication(self, job: Job, results: list[dict[str, Any]]) -> bool:
+        try:
+            if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
+                return False
+            revision = self.revision_store.require(results[0]["id"])
+            run = self.run_store.require(job.id)
+            return (
+                run.state.status == "complete"
+                and run.state.output_revision_ids == (revision.manifest.revision_id,)
+                and results[0].get("digest") == revision.manifest.content_sha256
+            )
+        except (KeyError, TypeError, ValueError, PipelineStateError, PipelineNotFound):
+            return False
+
+    def reconcile_job_states(self, jobs: list[Job]) -> None:
+        for job in jobs:
+            if job.type != "visible_card_detection":
+                continue
+            run = self.run_store.get(job.id)
+            if run is None or run.state.status != "running":
+                continue
+            if job.state == "interrupted":
+                failure = RunFailure(
+                    code="backend_restarted",
+                    message=(
+                        "The visible-card detector did not finish before the backend restarted."
+                    ),
+                )
+            elif job.state == "cancelled":
+                failure = RunFailure(
+                    code="cancelled", message="Visible-card processing was cancelled."
+                )
+            elif job.state == "failed":
+                failure = RunFailure(code="job_failed", message="The visible-card job failed.")
+            else:
+                continue
+            self.run_store.fail(job.id, failure)
+
+    def _job_use_path(self, job_id: str) -> Path:
+        return self.storage.operations_root / "visible-card-job-uses" / f"{job_id}.json"
+
     def _event_revision_id(self, recording_id: str, raw: Mapping[str, Any]) -> str:
         explicit = raw.get("event_revision_id")
         input_ids = raw.get("input_revision_ids")
@@ -371,112 +463,154 @@ class VisibleCardPipelineService:
             or _raise_input("No selected event revision is available.")
         )
 
-    def _execute(self, run_id: str) -> None:
+    def execute_job(self, job: Job, claims: Any, token: Any, manager: JobManager) -> None:
+        """Run bounded frame work under Job Manager ownership and publish one exact revision."""
+        run_id = job.id
+        run = self.run_store.start(run_id)
         try:
-            run = self.run_store.require(run_id)
             event_revision = self.revision_store.require(run.request.input_revision_ids[0])
             if not isinstance(event_revision.content, EventData):
                 raise VisibleCardPipelineError("The event input revision is invalid.")
             events = event_revision.content.events
-            outcomes_by_index: list[VisibleCardOutcome | None] = [None] * len(events)
+            outcomes: list[VisibleCardOutcome | None] = [None] * len(events)
             prior_items = {item.item_id: item for item in run.state.items}
-            event_ids = {event.event_id for event in events}
-            if not set(prior_items).issubset(event_ids):
+            if not set(prior_items).issubset({event.event_id for event in events}):
                 raise VisibleCardPipelineError(
-                    "The retry contains an item that is not in the frozen event input."
+                    "The retry has an item outside its frozen event input."
                 )
-            items_by_index: list[RunItemOutcome | None] = [
+            items: list[RunItemOutcome | None] = [
                 prior_items.get(event.event_id) for event in events
             ]
-            pending_events: list[tuple[int, Any]] = []
             completed = 0
+            pending: list[tuple[int, Any]] = []
             for index, event in enumerate(events):
-                item = items_by_index[index]
+                token.check()
+                item = items[index]
                 if item is None or item.status != "succeeded":
-                    pending_events.append((index, event))
+                    pending.append((index, event))
                     continue
                 if item.result is None:
-                    raise VisibleCardPipelineError(
-                        f"The retained outcome for event {event.event_id} is invalid."
-                    )
-                try:
-                    outcome = VisibleCardOutcome.from_mapping(item.result)
-                except ValueError as error:
-                    raise VisibleCardPipelineError(
-                        f"The retained outcome for event {event.event_id} is invalid."
-                    ) from error
+                    raise VisibleCardPipelineError("A retained event outcome is invalid.")
+                outcome = VisibleCardOutcome.from_mapping(item.result)
                 if outcome.event_id != event.event_id:
-                    raise VisibleCardPipelineError(
-                        f"The retained outcome for event {event.event_id} has the wrong ID."
-                    )
-                outcomes_by_index[index] = outcome
+                    raise VisibleCardPipelineError("A retained event outcome has the wrong ID.")
+                outcomes[index] = outcome
                 completed += 1
+            manager.report_progress(
+                job.id,
+                phase="Detect visible cards",
+                completed=completed,
+                total=len(events),
+                unit="event frames",
+            )
             self.run_store.update_progress(
-                run_id,
-                progress=RunProgress(completed=completed, total=len(events)),
+                run_id, progress=RunProgress(completed=completed, total=len(events))
+            )
+
+            def process(item: tuple[int, Any]) -> tuple[int, VisibleCardOutcome]:
+                token.check()
+                index, event = item
+                try:
+                    return index, self._process_event_timed(run, event)
+                except Exception:
+                    LOGGER.exception(
+                        "visible_card_event_failed",
+                        extra={"run_id": run.run_id, "event_id": event.event_id},
+                    )
+                    return index, VisibleCardOutcome(
+                        event_id=event.event_id,
+                        frame_identity=None,
+                        status="failed",
+                        candidates=(),
+                        error="The visible-card detector failed for this event.",
+                    )
+
+            worker_count = min(
+                max(1, int(claims.cpu)),
+                self._event_concurrency_limit(run),
+                max(1, len(pending)),
             )
             with ThreadPoolExecutor(
-                max_workers=self._event_concurrency_limit(run),
-                thread_name_prefix="visible-card-event",
+                max_workers=worker_count, thread_name_prefix="visible-card-event"
             ) as executor:
-                futures: dict[Future[VisibleCardOutcome], int] = {
-                    executor.submit(self._process_event_timed, run, event): index
-                    for index, event in pending_events
+                futures: dict[Future[tuple[int, VisibleCardOutcome]], int] = {
+                    executor.submit(process, item): item[0] for item in pending
                 }
                 for future in as_completed(futures):
-                    index = futures[future]
+                    token.check()
+                    index, outcome = future.result()
                     event = events[index]
-                    try:
-                        outcome = future.result()
-                    except Exception:
-                        LOGGER.exception(
-                            "visible_card_event_failed",
-                            extra={"run_id": run.run_id, "event_id": event.event_id},
-                        )
-                        outcome = VisibleCardOutcome(
-                            event_id=event.event_id,
-                            frame_identity=None,
-                            status="failed",
-                            candidates=(),
-                            error="The visible-card detector failed for this event.",
-                        )
-                    outcomes_by_index[index] = outcome
+                    outcomes[index] = outcome
                     item = RunItemOutcome(
                         item_id=event.event_id,
                         status="succeeded",
                         result=outcome.to_mapping(),
                         failure=None,
                     )
-                    items_by_index[index] = item
+                    items[index] = item
                     completed += 1
-                    self.run_store.record_item_progress(
-                        run_id,
-                        progress=RunProgress(completed=completed, total=len(events)),
-                        item=item,
+                    progress = RunProgress(completed=completed, total=len(events))
+                    self.run_store.record_item_progress(run_id, progress=progress, item=item)
+                    manager.report_progress(
+                        job.id,
+                        phase="Detect visible cards",
+                        completed=completed,
+                        total=len(events),
+                        unit="event frames",
                     )
 
-            outcomes = [outcome for outcome in outcomes_by_index if outcome is not None]
-            items = tuple(item for item in items_by_index if item is not None)
-            if len(outcomes) != len(events) or len(items) != len(events):
-                raise VisibleCardPipelineError(
-                    "The visible-card detector did not process all events."
+            token.check()
+            final_outcomes = tuple(item for item in outcomes if item is not None)
+            final_items = tuple(item for item in items if item is not None)
+            if len(final_outcomes) != len(events) or len(final_items) != len(events):
+                raise VisibleCardPipelineError("The detector did not process every event frame.")
+            content = VisibleCardData(outcomes=final_outcomes)
+            revision_id = f"visible-cards-{_safe(run.run_id)}-attempt-{run.state.attempt}"
+            output = {
+                "kind": "pipeline_revision",
+                "id": revision_id,
+                "digest": sha256_bytes(canonical_visible_card_data_bytes(content)),
+                "available": True,
+            }
+            manager.report_progress(
+                job.id,
+                phase="Publish visible-card revision",
+                completed=0,
+                total=1,
+                unit="revisions",
+            )
+
+            def commit() -> None:
+                revision = self._publish_revision(run, content)
+                self.run_store.complete(
+                    run_id,
+                    [revision.manifest.revision_id],
+                    progress=RunProgress(completed=len(final_items), total=len(events)),
+                    items=final_items,
                 )
-            content = VisibleCardData(outcomes=tuple(outcomes))
-            revision = self._publish_revision(run, content)
-            self.run_store.complete(
-                run_id,
-                [revision.manifest.revision_id],
-                progress=RunProgress(completed=len(items), total=len(events)),
-                items=items,
+                self._advance_generated_selection(
+                    run.request.source.recording_id, revision.manifest.revision_id
+                )
+
+            if not manager.publish(job.id, [output], commit):
+                raise JobCancelled("job cancellation requested before visible-card publication")
+            manager.report_progress(
+                job.id,
+                phase="Publish visible-card revision",
+                completed=1,
+                total=1,
+                unit="revisions",
             )
-            self._advance_generated_selection(
-                run.request.source.recording_id, revision.manifest.revision_id
-            )
+        except JobCancelled:
+            self._fail_safely(run_id, "cancelled", "Visible-card processing was cancelled.")
+            raise
         except VisibleCardPipelineError as error:
             self._fail_safely(run_id, "provider_failed", str(error))
+            raise
         except Exception:
-            LOGGER.exception("visible_card_pipeline_worker_failed")
+            LOGGER.exception("visible_card_job_handler_failed")
             self._fail_safely(run_id, "provider_failed", "The visible-card detector failed.")
+            raise RuntimeError("The visible-card detector failed.") from None
 
     def _process_event(self, run: StoredProcessorRun, event: Any) -> VisibleCardOutcome:
         try:
