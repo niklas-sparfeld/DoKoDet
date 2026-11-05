@@ -6,7 +6,7 @@
   surface. Keep controls, text, crops, and result details outside the central working area.
 - **Status:** Blocked
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
-  and [0108 — Horizontal lineage workspace](../2-ready/0108-Horizontal_Lineage_Workspace.md), including its
+  and [0108 — Horizontal lineage workspace](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
 - **Outcome:** Planned. M0–M10 are not started. This epic owns shared frame rendering and the
   placement of existing inspection and editing functions. The dependencies prevent implementation.

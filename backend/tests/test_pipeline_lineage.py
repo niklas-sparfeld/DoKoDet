@@ -266,3 +266,41 @@ def test_revision_and_restore_edges_and_analysis_context(tmp_path: Path):
             [artifact("result", "f", "result")],
             run_kind="analysis",
         )
+
+
+def test_recording_snapshot_excludes_nodes_from_other_recordings(tmp_path: Path):
+    store = PipelineNodeStore(tmp_path)
+    node(store, "recording-01-events", "events", event(1))
+    other_source = {**SOURCE, "recording_id": "recording-02"}
+    store.create("recording-02-events", "other", "events", other_source, event(2), {})
+
+    graph = PipelineLineage(store).snapshot("recording-01")
+
+    assert [item["node_id"] for item in graph["nodes"]] == ["recording-01-events"]
+    assert len(graph["revisions"]) == 1
+    assert graph["runs"] == []
+
+
+def test_recording_snapshot_retains_all_inputs_of_a_multi_input_run(tmp_path: Path):
+    store = PipelineNodeStore(tmp_path)
+    first = node(store, "first", "events", event(1))
+    second = node(store, "second", "events", event(2))
+    output = node(store, "output", "events", event(3))
+    uses = PipelineNodeUses(store)
+    uses.accept("joined-run", [("first", first.revision_id), ("second", second.revision_id)])
+    lineage = PipelineLineage(store)
+    finish(
+        lineage,
+        "joined-run",
+        [
+            ref("first", first.revision_id, "left_events"),
+            ref("second", second.revision_id, "right_events"),
+        ],
+        [ref("output", output.revision_id, "events")],
+    )
+
+    graph = lineage.snapshot("recording-01")
+
+    assert {item["node_id"] for item in graph["nodes"]} == {"first", "second", "output"}
+    assert [edge["kind"] for edge in graph["edges"]].count("used") == 2
+    assert [edge["kind"] for edge in graph["edges"]].count("produced") == 1

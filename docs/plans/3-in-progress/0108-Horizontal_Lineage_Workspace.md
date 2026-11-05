@@ -4,10 +4,11 @@
 
 - **Summary:** Replace competing data selectors with a horizontal lineage drawer beneath the
   processing steps. Integrate unified data nodes, migrate local data, and delete replaced flows.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** Ready. M0–M12 are not started. The agreed layout is recorded below. Processor input
+- **Outcome:** M0 is complete; M1–M12 are not started. The workspace exposes exact graph data and
+  preserves validated lineage URLs. The agreed layout is recorded below. Processor input
   and trigger UX remains later work.
 
 ## Agreed layout
@@ -117,13 +118,18 @@ Each milestone is one implementation phase. Commit each completed milestone to m
 epic and board, and report every milestone. Foundation services may remain unconnected until the
 coordinated cutover; temporary old paths have a named removal owner in M11, not an indefinite life.
 
-### M0 — Integrate lineage projection and URL selection — Not started
+### M0 — Integrate lineage projection and URL selection — Complete
 
 Expose the exact graph to the workspace. Implement stage-preserving lineage selection, ancestor
 and descendant disambiguation, historical revision URLs, and invalid-selection behavior.
 
 Acceptance: graph fixtures cover branches, multi-input results, empty steps, reload, back/forward,
 and stale/deleted links without selecting another branch or writing processor preferences.
+
+Result: the workspace exposes a recording-scoped graph endpoint. URLs store exact node and revision
+IDs. The workspace validates those IDs and keeps stale selections visible without a fallback. The
+resolver reports unique, empty, or ambiguous ancestors and descendants. Local legacy data has no
+node graph until the later migration milestone.
 
 ### M1 — Build the two-row processing navigation — Not started
 

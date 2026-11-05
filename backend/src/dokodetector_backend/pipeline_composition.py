@@ -9,6 +9,8 @@ from dokodetector_backend.calibration_refinement_service import CalibrationRefin
 from dokodetector_backend.event_pipeline_service import EventPipelineService, EventProcessorProvider
 from dokodetector_backend.observation_pipeline_service import ObservationPipelineService
 from dokodetector_backend.pipeline_comparison_service import PipelineComparisonService
+from dokodetector_backend.pipeline_lineage import PipelineLineage
+from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_reference_service import PipelineReferenceService
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
 from dokodetector_backend.pipeline_store import (
@@ -49,6 +51,7 @@ class PipelineComposition:
     visual_identity_service: VisualIdentityPipelineService
     observation_service: ObservationPipelineService
     workspace_service: RecordingPipelineWorkspaceService
+    lineage_service: PipelineLineage
 
     @property
     def lifecycle_services(self) -> tuple[Any, ...]:
@@ -91,6 +94,8 @@ def build_pipeline_composition(
         settings.operations_root / "pipeline-reviews",
         legacy_reference_store=reference_store,
     )
+    node_store = PipelineNodeStore(settings.operations_root / "pipeline-nodes")
+    lineage_service = PipelineLineage(node_store)
     reference_service = PipelineReferenceService(
         settings,
         recording_store,
@@ -186,6 +191,7 @@ def build_pipeline_composition(
         visual_identity_service=visual_identity_service,
         observation_service=observation_service,
         workspace_service=workspace_service,
+        lineage_service=lineage_service,
     )
 
 
@@ -207,6 +213,7 @@ def install_pipeline_composition(state: Any, composition: PipelineComposition) -
     state.visual_identity_pipeline_service = composition.visual_identity_service
     state.observation_pipeline_service = composition.observation_service
     state.pipeline_workspace_service = composition.workspace_service
+    state.pipeline_lineage_service = composition.lineage_service
 
 
 __all__ = [

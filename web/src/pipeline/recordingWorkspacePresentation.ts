@@ -203,6 +203,7 @@ const EMPTY_URL_STATE: PipelineUrlState = {
   startReview: null,
   review: null,
   revision: null,
+  lineage: null,
   item: null,
   tUs: null,
   left: null,

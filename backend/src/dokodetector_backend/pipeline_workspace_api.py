@@ -217,6 +217,20 @@ def get_recording_pipeline_workspace(
         ) from error
 
 
+@router.get(f"{WORKSPACE_BASE}/lineage")
+def get_recording_pipeline_lineage(recording_id: str, request: Request) -> dict[str, Any]:
+    """Return the exact node, revision, and run graph for one recording."""
+
+    validate_recording_id(recording_id)
+    try:
+        request.app.state.pipeline_workspace_service.recording_source_provider(recording_id)
+        return request.app.state.pipeline_lineage_service.snapshot(recording_id)
+    except PipelineNotFound as error:
+        raise ContractError("recording_not_found", str(error), status_code=404) from error
+    except (PipelineInputError, PipelineServiceError) as error:
+        raise ContractError("pipeline_lineage_unavailable", str(error), status_code=409) from error
+
+
 __all__ = [
     "PipelineWorkspaceAnalysisResponse",
     "PipelineWorkspaceCompatibleInputSetResponse",

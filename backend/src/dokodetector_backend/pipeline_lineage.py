@@ -250,10 +250,62 @@ class PipelineLineage:
             atomic_write_json(path, record)
             return record
 
-    def snapshot(self) -> dict[str, Any]:
-        """Return one node per identity, exact revisions, typed edges and execution records."""
+    def snapshot(self, recording_id: str | None = None) -> dict[str, Any]:
+        """Return exact lineage, optionally limited to one recording."""
         with _process_lock(self.store.root / ".transactions.lock", self.store._lock):
-            return self._snapshot()
+            result = self._snapshot()
+        return result if recording_id is None else self._recording_snapshot(result, recording_id)
+
+    @staticmethod
+    def _recording_snapshot(graph: dict[str, Any], recording_id: str) -> dict[str, Any]:
+        """Keep the selected recording's nodes and their complete run relationships."""
+        node_ids = {
+            node["node_id"]
+            for node in graph["nodes"]
+            if node["source"].get("recording_id") == recording_id
+        }
+        revision_ids = {
+            (revision["node_id"], revision["revision_id"])
+            for revision in graph["revisions"]
+            if revision["node_id"] in node_ids
+        }
+        runs = [
+            run
+            for run in graph["runs"]
+            if any(
+                ref.get("kind") == "revision" and ref.get("node_id") in node_ids
+                for ref in run.get("inputs", []) + run.get("outputs", [])
+            )
+        ]
+        run_ids = {run["run_id"] for run in runs}
+        artifact_keys = {
+            (ref["artifact_id"], ref["sha256"])
+            for run in runs
+            for ref in run.get("inputs", []) + run.get("outputs", [])
+            if ref.get("kind") == "artifact"
+        }
+        keep_keys = {("revision", *revision) for revision in revision_ids}
+        keep_keys.update(("run", run_id) for run_id in run_ids)
+        keep_keys.update(("artifact", *artifact) for artifact in artifact_keys)
+        edges = [
+            edge
+            for edge in graph["edges"]
+            if tuple(edge["from"]) in keep_keys and tuple(edge["to"]) in keep_keys
+        ]
+        return {
+            **graph,
+            "nodes": [node for node in graph["nodes"] if node["node_id"] in node_ids],
+            "revisions": [
+                revision for revision in graph["revisions"] if revision["node_id"] in node_ids
+            ],
+            "runs": runs,
+            "artifacts": [
+                artifact
+                for artifact in graph["artifacts"]
+                if (artifact["artifact_id"], artifact["sha256"]) in artifact_keys
+            ],
+            "edges": edges,
+        }
 
     def _snapshot(self, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         nodes, revisions, edges = [], [], []

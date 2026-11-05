@@ -76,6 +76,7 @@ function workspace(
 
 describe("recording pipeline workspace", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     window.history.pushState({}, "", "/");
   });
@@ -259,6 +260,83 @@ describe("recording pipeline workspace", () => {
       screen.getByRole("combobox", { name: "Default generated revision" }),
     ).toHaveValue(generated.revision_id);
     expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
+  });
+
+  it("keeps a stale explicit lineage link and does not select a substitute", async () => {
+    const selection = JSON.stringify({
+      schema_version: "pipeline-lineage-selection/v1",
+      selected: {
+        events: { node_id: "deleted-node", revision_id: "deleted-revision" },
+      },
+    });
+    const body = workspace();
+    const fetchMock = vi.fn<typeof fetch>((input) => {
+      const path = String(input);
+      if (path.endsWith("/video")) {
+        return Promise.resolve(
+          new Response(new Blob(["video"]), { status: 200 }),
+        );
+      }
+      if (!path.includes("/pipeline")) {
+        return Promise.resolve(new Response("Not found", { status: 404 }));
+      }
+      const value = path.endsWith("/pipeline/lineage")
+        ? {
+            schema_version: "pipeline-lineage-graph/v1",
+            nodes: [],
+            revisions: [],
+            runs: [],
+            artifacts: [],
+            edges: [],
+          }
+        : body;
+      return Promise.resolve(
+        new Response(JSON.stringify(value), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:lineage-test");
+    window.history.pushState(
+      {},
+      "",
+      `/recordings/${RECORDING_ID}/pipeline/events?lineage=${encodeURIComponent(selection)}`,
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="events"
+        compare={false}
+      />,
+    );
+
+    const unavailableNotice =
+      "The saved lineage selection is unavailable. No other revision was selected.";
+    const invalidNotice =
+      "The saved lineage selection is invalid. No other revision was selected.";
+    expect(await screen.findByText(unavailableNotice)).toBeInTheDocument();
+    expect(readPipelineUrlState(window.location.search).lineage).toBe(
+      selection,
+    );
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+
+    window.history.pushState(
+      {},
+      "",
+      `/recordings/${RECORDING_ID}/pipeline/events?lineage=not-json`,
+    );
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(await screen.findByText(invalidNotice)).toBeInTheDocument();
+
+    window.history.back();
+    expect(await screen.findByText(unavailableNotice)).toBeInTheDocument();
+    window.history.forward();
+    expect(await screen.findByText(invalidNotice)).toBeInTheDocument();
   });
 
   it("keeps failed blockers and diagnostics visible in the inspector", async () => {
@@ -976,13 +1054,17 @@ describe("recording pipeline workspace", () => {
       readPipelineUrlState("?view=reviewed&revision=revision-2&t_us=17"),
     ).toEqual({
       view: "reviewed",
+      startReview: null,
+      review: null,
       revision: "revision-2",
+      lineage: null,
       item: null,
       tUs: 17,
       left: null,
       right: null,
       reference: null,
       analysis: null,
+      frameReviewQueue: null,
     });
     expect(
       recordingPipelinePath(RECORDING_ID, "events", { view: "reviewed" }),

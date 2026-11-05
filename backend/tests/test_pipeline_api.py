@@ -49,7 +49,7 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
         modules[route.endpoint.__module__] += 1
 
     assert modules == {
-        "dokodetector_backend.pipeline_workspace_api": 1,
+        "dokodetector_backend.pipeline_workspace_api": 2,
         "dokodetector_backend.pipeline_run_api": 2,
         "dokodetector_backend.pipeline_stage_api": 39,
         "dokodetector_backend.pipeline_comparison_api": 1,
@@ -283,6 +283,26 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
             == (body["state"]["output_revision_ids"][0])
         )
     assert len(provider.calls) == 1
+
+
+def test_recording_lineage_endpoint_returns_an_empty_exact_graph_until_migration(
+    tmp_path: Path,
+) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(_settings(tmp_path))
+
+    with TestClient(app) as client:
+        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/lineage")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "schema_version": "pipeline-lineage-graph/v1",
+        "nodes": [],
+        "revisions": [],
+        "runs": [],
+        "artifacts": [],
+        "edges": [],
+    }
 
 
 def test_cardeventnet_probability_metrics_are_stored_with_the_run(tmp_path: Path) -> None:

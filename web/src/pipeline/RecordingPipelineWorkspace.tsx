@@ -26,6 +26,11 @@ import {
   type PipelineUrlState,
 } from "./recordingPipelineUrl";
 import {
+  decodeLineageSelection,
+  validateLineageSelection,
+  type PipelineLineageGraph,
+} from "./pipelineLineageSelection";
+import {
   PIPELINE_STAGE_KEYS,
   primaryActionForStage,
   buildRecordingWorkspacePresentation,
@@ -77,6 +82,7 @@ export function RecordingPipelineWorkspace({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [lineageNotice, setLineageNotice] = useState<string | null>(null);
   const [urlState, setUrlState] = useState(() =>
     readPipelineUrlState(window.location.search),
   );
@@ -129,14 +135,11 @@ export function RecordingPipelineWorkspace({
       return;
     }
     const controller = new AbortController();
-    const timer = window.setTimeout(
-      () => {
-        if (workspaceLoadIdentityRef.current === loadIdentity) return;
-        workspaceLoadIdentityRef.current = loadIdentity;
-        void loadWorkspace(controller.signal);
-      },
-      0,
-    );
+    const timer = window.setTimeout(() => {
+      if (workspaceLoadIdentityRef.current === loadIdentity) return;
+      workspaceLoadIdentityRef.current = loadIdentity;
+      void loadWorkspace(controller.signal);
+    }, 0);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
@@ -150,6 +153,52 @@ export function RecordingPipelineWorkspace({
     window.addEventListener("popstate", updateUrlState);
     return () => window.removeEventListener("popstate", updateUrlState);
   }, []);
+
+  useEffect(() => {
+    if (urlState.lineage === null) {
+      setLineageNotice(null);
+      return;
+    }
+    const selection = decodeLineageSelection(urlState.lineage);
+    if (selection === null) {
+      setLineageNotice(
+        "The saved lineage selection is invalid. No other revision was selected.",
+      );
+      return;
+    }
+    const controller = new AbortController();
+    void fetch(
+      `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/lineage`,
+      {
+        signal: controller.signal,
+      },
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Lineage data could not be loaded.");
+        const graph: unknown = await response.json();
+        if (!isPipelineLineageGraph(graph)) {
+          throw new Error("The backend returned invalid lineage data.");
+        }
+        return graph;
+      })
+      .then((graph) => {
+        if (controller.signal.aborted) return;
+        const missing = validateLineageSelection(selection, graph);
+        setLineageNotice(
+          missing.length === 0
+            ? null
+            : "The saved lineage selection is unavailable. No other revision was selected.",
+        );
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setLineageNotice(
+            "Lineage data could not be loaded. The saved selection was not changed.",
+          );
+        }
+      });
+    return () => controller.abort();
+  }, [recordingId, urlState.lineage]);
 
   useEffect(() => {
     if (urlState.frameReviewQueue !== "0096-M4" || stageKey !== "visible_cards")
@@ -413,7 +462,7 @@ export function RecordingPipelineWorkspace({
         compare={compare}
         urlState={urlState}
         activeView={activeView}
-        notice={notice}
+        notice={lineageNotice ?? notice}
         error={error}
         onNavigate={navigateTo}
       />
@@ -662,5 +711,24 @@ function isPipelineWorkspace(value: unknown): value is PipelineWorkspace {
     "stages" in value &&
     Array.isArray(value.stages) &&
     value.stages.length === PIPELINE_STAGE_KEYS.length
+  );
+}
+
+function isPipelineLineageGraph(value: unknown): value is PipelineLineageGraph {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "schema_version" in value &&
+    value.schema_version === "pipeline-lineage-graph/v1" &&
+    "nodes" in value &&
+    Array.isArray(value.nodes) &&
+    "revisions" in value &&
+    Array.isArray(value.revisions) &&
+    "runs" in value &&
+    Array.isArray(value.runs) &&
+    "artifacts" in value &&
+    Array.isArray(value.artifacts) &&
+    "edges" in value &&
+    Array.isArray(value.edges)
   );
 }

@@ -64,6 +64,7 @@ describe("recording pipeline URL helpers", () => {
       startReview: null,
       review: "visible-card-review-1",
       revision: "revision/1",
+      lineage: null,
       item: "event/1",
       tUs: -17,
       left: "run/1",
@@ -84,6 +85,7 @@ describe("recording pipeline URL helpers", () => {
       startReview: null,
       review: null,
       revision: null,
+      lineage: null,
       item: null,
       tUs: null,
       left: null,
@@ -131,6 +133,24 @@ describe("recording pipeline URL helpers", () => {
     ).toBe(
       "/recordings/recording%2Fone/pipeline/round_analyses?view=generated&revision=revision%2F1&item=item%2F1&t_us=42&analysis=analysis-1",
     );
+  });
+
+  it("preserves an exact lineage choice when the stage changes", () => {
+    const state = readPipelineUrlState(
+      "?lineage=%7B%22events%22%3A%7B%22node_id%22%3A%22n1%22%2C%22revision_id%22%3A%22r4%22%7D%7D",
+    );
+
+    expect(recordingPipelinePath("recording-1", "visible_cards", state)).toBe(
+      "/recordings/recording-1/pipeline/visible_cards?lineage=%7B%22events%22%3A%7B%22node_id%22%3A%22n1%22%2C%22revision_id%22%3A%22r4%22%7D%7D",
+    );
+    expect(
+      readPipelineUrlState(
+        new URL(
+          recordingPipelinePath("recording-1", "visible_cards", state),
+          "http://localhost",
+        ).search,
+      ).lineage,
+    ).toBe(state.lineage);
   });
 
   it("constructs comparison paths with run and reference selection", () => {

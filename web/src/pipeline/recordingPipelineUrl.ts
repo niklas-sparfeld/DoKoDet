@@ -15,6 +15,7 @@ export type PipelineUrlState = {
   startReview: "proposal" | null;
   review: string | null;
   revision: string | null;
+  lineage: string | null;
   item: string | null;
   tUs: number | null;
   left: string | null;
@@ -68,6 +69,7 @@ export function readPipelineUrlState(search: string): PipelineUrlState {
     startReview: params.get("start_review") === "proposal" ? "proposal" : null,
     review: readOptionalParameter(params.get("review")),
     revision: readOptionalParameter(params.get("revision")),
+    lineage: readOptionalParameter(params.get("lineage")),
     item: readOptionalParameter(params.get("item")),
     tUs: rawTime !== null && /^-?\d+$/.test(rawTime) ? Number(rawTime) : null,
     left: readOptionalParameter(params.get("left")),
@@ -108,6 +110,8 @@ function pipelineSearch(
     params.set("review", state.review);
   if (state.revision !== null && state.revision !== undefined)
     params.set("revision", state.revision);
+  if (state.lineage !== null && state.lineage !== undefined)
+    params.set("lineage", state.lineage);
   if (state.item !== null && state.item !== undefined)
     params.set("item", state.item);
   if (state.tUs !== null && state.tUs !== undefined)
