@@ -16,11 +16,11 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.staticfiles import StaticFiles
 
 from dokodetector_backend.api import router
+from dokodetector_backend.automated_pipeline_jobs import AutomatedPipelineJobParticipant
 from dokodetector_backend.automated_pipeline_run import (
     AutomatedPipelineRunService,
     AutomatedPipelineRunStore,
 )
-from dokodetector_backend.automated_pipeline_worker import AutomatedPipelineWorker
 from dokodetector_backend.config import Settings
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.event_jobs import EventJobParticipant
@@ -349,14 +349,27 @@ def create_app(
         ),
         round_session_provider=_recording_session_id(app.state.recording_bundle_store),
     )
-    app.state.automated_pipeline_worker = AutomatedPipelineWorker(
+    automated_pipeline_job_participant = AutomatedPipelineJobParticipant(
         app.state.automated_pipeline_run_service,
         app.state,
+    )
+    app.state.job_type_registry.register(
+        "automated_pipeline",
+        lambda _request: None,
+        automated_pipeline_job_participant,
+        lambda job, claims, token, participant=automated_pipeline_job_participant: (
+            participant.handle(
+                job,
+                claims,
+                token,
+                app.state.job_manager_service.get_manager(),
+            )
+        ),
+        Claims(cpu=1, locks=()),
     )
     lifecycle_services = (
         app.state.job_manager_service,
         *pipeline_composition.lifecycle_services,
-        app.state.automated_pipeline_worker,
     )
     register_error_handlers(app)
     app.include_router(router)

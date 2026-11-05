@@ -45,6 +45,7 @@ class AutomatedPipelineRunStageResponse(ContractModel):
     ]
     status: Literal["pending", "queued", "running", "complete", "partial", "failed"]
     run_id: str | None = None
+    child_job_id: str | None = None
     input_revision_ids: list[str] = Field(default_factory=list)
     output_revision_ids: list[str] = Field(default_factory=list)
     failure: dict[str, Any] | None = None
@@ -55,6 +56,7 @@ class AutomatedPipelineRunResponse(ContractModel):
 
     schema_version: Literal["automated-pipeline-run/v1"]
     run_id: str
+    job_id: str | None = None
     recording_id: str
     status: Literal["accepted", "queued", "running", "complete", "failed", "cancelled"]
     created_at: str
@@ -100,10 +102,28 @@ def start_automated_pipeline_run(
         if error.active_run_id:
             message = f"{message} Active run: {error.active_run_id}."
         raise ContractError("pipeline_run_conflict", message, status_code=409) from error
+    job_request = {
+        "type": "automated_pipeline",
+        "context": {"recording_id": recording_id},
+        "request": {"run_id": str(document["run_id"])},
+    }
+    try:
+        job = request.app.state.job_manager_service.get_manager().accept(
+            str(document["request"]["idempotency_key"]), job_request
+        )
+    except Exception as error:
+        from dokodetector_backend.job_store import JobOwnershipError
+
+        if not isinstance(error, JobOwnershipError):
+            raise
+        job = request.app.state.job_manager_service.run_inline(
+            str(document["request"]["idempotency_key"]), job_request
+        )
+    if document.get("job_id") != job.id:
+        document = request.app.state.automated_pipeline_run_service.store.update(
+            str(document["run_id"]), lambda current: current.update({"job_id": job.id})
+        )
     response.status_code = 200 if idempotent else 202
-    worker = getattr(request.app.state, "automated_pipeline_worker", None)
-    if not idempotent and worker is not None:
-        worker.enqueue(str(document["run_id"]))
     return AutomatedPipelineRunResponse.model_validate(document)
 
 

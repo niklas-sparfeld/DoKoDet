@@ -397,6 +397,12 @@ class JobManager:
                 self.diagnostics.append(str(error))
         return jobs
 
+    def has_active_children(self, parent_id: str) -> bool:
+        """Return whether an automated parent still owns non-terminal child work."""
+        return any(
+            job.parent_id == parent_id and job.state not in _TERMINAL for job in self.list_jobs()
+        )
+
     def append_log(
         self,
         job_id: str,
@@ -601,6 +607,16 @@ class JobManager:
                         publication.state = "committed"
                         atomic_replace_json(publication_path, publication.model_dump())
                     continue
+                if job.type == "automated_pipeline":
+                    if job.state == "running":
+                        job.state = "queued"
+                        job.finished_at = None
+                    job.updated_at = _now()
+                    job.revision += 1
+                    job.worker_owner = None
+                    job.waiting_reason = None
+                    self._write_job(job)
+                    continue
                 job.state = "interrupted"
                 job.finished_at = _now()
                 job.updated_at = job.finished_at
@@ -613,6 +629,51 @@ class JobManager:
                         step.finished_at = job.finished_at
                         step.message = "interrupted during restart; recorded progress is retained"
                 self._write_job(job)
+        for intent in intents:
+            if not intent.committed:
+                continue
+            try:
+                parent = self.get(intent.job.id)
+            except JobStorageError:
+                continue
+            if parent.type != "automated_pipeline" or parent.state != "cancelling":
+                continue
+            children = [item.job for item in intents if item.job.parent_id == parent.id]
+            for child_intent in children:
+                child = self.get(child_intent.id)
+                if child.state == "queued":
+                    child.state = "cancelled"
+                    child.finished_at = _now()
+                    child.updated_at = child.finished_at
+                    child.revision += 1
+                    self._write_job(child)
+            if all(self.get(child.id).state in _TERMINAL for child in children):
+                parent.state = "cancelled"
+                parent.finished_at = _now()
+                parent.updated_at = parent.finished_at
+                parent.revision += 1
+                self._write_job(parent)
+        self._reconcile(intents)
+        for intent in intents:
+            if not intent.committed:
+                continue
+            try:
+                parent = self.get(intent.job.id)
+            except JobStorageError:
+                continue
+            if (
+                parent.type != "automated_pipeline"
+                or not isinstance(parent.request.get("run_id"), str)
+                or parent.state != "waiting"
+            ):
+                continue
+            children = [item.job for item in intents if item.job.parent_id == parent.id]
+            if not any(self.get(child.id).state not in _TERMINAL for child in children):
+                parent.state = "queued"
+                parent.finished_at = None
+                parent.updated_at = _now()
+                parent.revision += 1
+                self._write_job(parent)
         self._reconcile(intents)
 
     def _reconcile(self, intents: list[Intent]) -> None:
@@ -763,6 +824,28 @@ class JobManager:
                 return job
             target = "cancelled" if job.state == "queued" else "cancelling"
             updated = self.transition(job.id, target)
+            if job.type == "automated_pipeline" and target == "cancelling":
+                group = next(
+                    (item for item in self.queue().groups if item.group_id == job.id), None
+                )
+                child_ids = {
+                    step.child_job_id
+                    for step in self.get(job.id).steps
+                    if step.child_job_id is not None
+                }
+                child_ids.update(
+                    child.id for child in self.list_jobs() if child.parent_id == job.id
+                )
+                if group is not None:
+                    child_ids.update(group.child_job_ids)
+                for child_id in child_ids:
+                    child = self.get(child_id)
+                    if child.state not in _TERMINAL and child.state != "cancelling":
+                        self.cancel(child_id)
+                if job.state == "waiting" and self.get(job.id).state == "cancelling":
+                    children = [child for child in self.list_jobs() if child.parent_id == job.id]
+                    if all(child.state in _TERMINAL for child in children):
+                        updated = self.transition(job.id, "cancelled")
             if target == "cancelling" and self._scheduler is not None:
                 request_cancel = getattr(self._scheduler, "request_cancel", None)
                 if request_cancel is not None:
@@ -928,4 +1011,24 @@ class JobManager:
             self._write_job(job)
             self._reconcile(self._intents())
             self.append_log(job.id, f"job_{state}", f"Job state changed to {state}.")
+            if job.parent_id is not None and state in _TERMINAL:
+                parent = self.get(job.parent_id)
+                if parent.state == "waiting":
+                    parent = self.transition(
+                        parent.id, "cancelled" if state == "cancelled" else "queued"
+                    )
+                    if parent.state == "queued" and isinstance(parent.request.get("run_id"), str):
+                        queue = self.queue()
+                        group = next(
+                            (item for item in queue.groups if item.group_id == parent.id), None
+                        )
+                        if group is not None and queue.groups[-1] is not group:
+                            queue.groups.remove(group)
+                            queue.groups.append(group)
+                            queue.revision += 1
+                            self._set_queue(queue)
+                elif parent.state == "cancelling":
+                    siblings = [child for child in self.list_jobs() if child.parent_id == parent.id]
+                    if all(child.state in _TERMINAL for child in siblings):
+                        self.transition(parent.id, "cancelled")
             return job

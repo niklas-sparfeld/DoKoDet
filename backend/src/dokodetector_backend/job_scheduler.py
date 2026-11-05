@@ -157,7 +157,9 @@ class JobScheduler:
                 future.result()
             except JobCancelled:
                 job = self.manager.get(job_id)
-                if job.state in {"cancelling", "running"}:
+                if job.state in {"cancelling", "running"} and (
+                    job.type != "automated_pipeline" or not self.manager.has_active_children(job.id)
+                ):
                     self.manager.transition(job_id, "cancelled")
             except Exception as error:
                 job = self.manager.get(job_id)
@@ -170,7 +172,9 @@ class JobScheduler:
                 job = self.manager.get(job_id)
                 if job.state == "running":
                     self.manager.transition(job_id, "succeeded")
-                elif job.state == "cancelling":
+                elif job.state == "cancelling" and (
+                    job.type != "automated_pipeline" or not self.manager.has_active_children(job.id)
+                ):
                     self.manager.transition(job_id, "cancelled")
 
     def _waiting(self, job: Job, reason: str | None) -> None:

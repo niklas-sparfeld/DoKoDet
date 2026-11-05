@@ -1688,6 +1688,8 @@ export interface components {
             failure: {
                 [key: string]: unknown;
             } | null;
+            /** Job Id */
+            job_id?: string | null;
             /** Recording Id */
             recording_id: string;
             /** Request */
@@ -1730,6 +1732,8 @@ export interface components {
             failure?: {
                 [key: string]: unknown;
             } | null;
+            /** Child Job Id */
+            child_job_id?: string | null;
             /** Input Revision Ids */
             input_revision_ids?: string[];
             /**

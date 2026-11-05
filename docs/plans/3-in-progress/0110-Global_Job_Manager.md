@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M10 complete; M11–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M11 complete; M12–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -386,7 +386,7 @@ limits, cancellation, interruption, and retry. No private analysis scheduler rem
 
 Result: [M10 round analysis](../../reports/0110-M10_Round_Analysis.md).
 
-### M11 — Connect automated pipelines as parent jobs — Not started
+### M11 — Connect automated pipelines as parent jobs — Complete
 
 Replace the automated worker queue with durable coordination and scheduled child jobs. Preserve
 the pipeline's stage graph, verified completed-stage reuse, and required failure/empty rules.
@@ -394,6 +394,14 @@ the pipeline's stage graph, verified completed-stage reuse, and required failure
 Acceptance: a full fake pipeline completes with one processing slot. Crash/restart cannot create
 duplicate children. Parent cancel waits for owned children; explicit failed-stage retry keeps
 history. Independent jobs remain schedulable between eligible stages.
+
+Result: the automated run API now submits a durable parent job. The parent schedules one managed
+child per stage, releases its slot while the child runs, and resumes from durable stage links. It
+reuses a completed child only when its frozen request, inputs, outputs, and publication verify.
+Parent cancellation waits for owned children. Retries keep earlier jobs and reuse verified completed
+stages. Fixture checks cover a six-stage run with one slot, interleaved independent work, restart,
+cancellation, and failed-stage retry. The old worker module remains unused; final source cleanup is
+part of M15.
 
 ### M12 — Connect calibration and counterfactual calculations — Not started
 

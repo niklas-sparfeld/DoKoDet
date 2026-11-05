@@ -78,6 +78,7 @@ export type PipelineRunResponse = {
 export type AutomatedPipelineRun = {
   schema_version: "automated-pipeline-run/v1";
   run_id: string;
+  job_id?: string | null;
   recording_id: string;
   status:
     "accepted" | "queued" | "running" | "complete" | "failed" | "cancelled";
@@ -88,6 +89,7 @@ export type AutomatedPipelineRun = {
     status:
       "pending" | "queued" | "running" | "complete" | "partial" | "failed";
     run_id: string | null;
+    child_job_id?: string | null;
     input_revision_ids: string[];
     output_revision_ids: string[];
     failure: Record<string, unknown> | null;

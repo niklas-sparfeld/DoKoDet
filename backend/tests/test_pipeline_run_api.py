@@ -34,6 +34,11 @@ def _app(tmp_path: Path) -> FastAPI:
         },
         round_session_provider=lambda _recording_id: "session-1",
     )
+    app.state.job_manager_service = SimpleNamespace(
+        get_manager=lambda: SimpleNamespace(
+            accept=lambda _key, _request: SimpleNamespace(id="managed-parent-job")
+        )
+    )
     return app
 
 
@@ -73,17 +78,14 @@ def test_start_and_status_routes_return_the_durable_run(tmp_path: Path) -> None:
 
 def test_start_retry_returns_existing_run(tmp_path: Path) -> None:
     payload = _payload()
-    worker = SimpleNamespace(enqueued=[])
-    worker.enqueue = worker.enqueued.append
     with TestClient(_app(tmp_path)) as client:
-        client.app.state.automated_pipeline_worker = worker
         first = client.post("/api/recordings/recording-1/pipeline/runs", json=payload)
         retry = client.post("/api/recordings/recording-1/pipeline/runs", json=payload)
 
     assert first.status_code == 202
     assert retry.status_code == 200
     assert retry.json() == first.json()
-    assert worker.enqueued == [first.json()["run_id"]]
+    assert first.json()["job_id"] == "managed-parent-job"
 
 
 def test_start_generates_round_context_from_recording(tmp_path: Path) -> None:
