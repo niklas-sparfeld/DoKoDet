@@ -57,7 +57,7 @@ export type {
   PipelinePrimaryAction,
   PipelinePrimaryActionKind,
 } from "./recordingWorkspacePresentation";
-export type { PipelineUrlState, PipelineView } from "./recordingPipelineUrl";
+export type { PipelineUrlState } from "./recordingPipelineUrl";
 
 const STAGE_CONTENT_TYPES: Record<
   Exclude<PipelineStageKey, "round_analyses">,
@@ -324,9 +324,7 @@ export function RecordingPipelineWorkspace({
   async function selectGeneratedRevision(
     nextRevisionId: string | null,
   ): Promise<void> {
-    if (stage === undefined || stage.key === "round_analyses") {
-      return;
-    }
+    if (stage === undefined || stage.key === "round_analyses") return;
     setSelectionBusy(true);
     setNotice(null);
     const contentType = STAGE_CONTENT_TYPES[stage.key];
@@ -360,13 +358,12 @@ export function RecordingPipelineWorkspace({
               ),
             },
       );
-      replaceUrlState({ ...urlState, revision: null });
-      setNotice("Generated revision selected.");
+      setNotice("Processor input revision selected.");
     } catch (reason: unknown) {
       if (reason instanceof ApiError && reason.status === 409) {
         await loadWorkspace();
         setNotice(
-          "The generated selection changed elsewhere. The winning selection is shown.",
+          "The processor input changed elsewhere. The winning selection is shown.",
         );
       } else {
         setNotice(describePipelineError(reason));
@@ -483,7 +480,6 @@ export function RecordingPipelineWorkspace({
     error,
     loading: loading || !workspaceReadyForStage,
   });
-  const activeView = presentation.topBar.view ?? "generated";
   const action =
     presentation.inspector.primaryAction ??
     (stage === undefined ? null : primaryActionForStage(stage));
@@ -491,20 +487,22 @@ export function RecordingPipelineWorkspace({
     stage === undefined || action === null
       ? urlState
       : actionStateForStage(stage, urlState, action.kind);
-  const displayedRevision = presentation.stage?.displayedRevisionId ?? null;
+  const pinnedVisibleCardRevision =
+    urlState.lineage === null
+      ? null
+      : (decodeLineageSelection(urlState.lineage)?.selected.visible_cards
+          ?.revision_id ?? null);
   const frameReviewDraftConflict =
     urlState.frameReviewQueue === "0096-M4" &&
     stage?.key === "visible_cards" &&
     stage.reference?.source_revision_id != null &&
-    stage.reference.source_revision_id !== urlState.revision;
+    stage.reference.source_revision_id !== pinnedVisibleCardRevision;
   const workspaceRail = useRecordingWorkspaceRail({
     recordingId,
     stage,
     stageKey: backendStageKey,
-    activeView,
     compare,
     urlState,
-    displayedRevision,
     durationUs: activeWorkspace?.video.duration_us ?? 0,
     rail: presentation.rail,
     onReplaceUrlState: replaceUrlState,
@@ -614,14 +612,14 @@ export function RecordingPipelineWorkspace({
       {frameReviewDraftConflict ? (
         <FrameReviewDraftConflict
           draftRevision={stage.reference?.source_revision_id}
-          pinnedRevision={urlState.revision}
+          pinnedRevision={pinnedVisibleCardRevision}
         />
       ) : null}
       {urlState.frameReviewQueue === "0096-M4" &&
       stage.key === "visible_cards" ? (
         <FrameReviewPinnedRevisionNotice
-          pinnedRevision={urlState.revision}
-          selectedRevision={stage.selected_generated_revision_id ?? null}
+          pinnedRevision={pinnedVisibleCardRevision}
+          selectedRevision={pinnedVisibleCardRevision}
         />
       ) : null}
 
@@ -718,23 +716,9 @@ export function RecordingPipelineWorkspace({
             stage={stage}
             compare={compare}
             urlState={urlState}
-            activeView={activeView}
-            displayedRevision={displayedRevision}
-            action={action}
             presentation={presentation}
-            selectedEventRunId={workspaceRail.selectedEventRunId}
-            selectedVisibleCardRunId={workspaceRail.selectedVisibleCardRunId}
-            selectedVisualIdentityRunId={
-              workspaceRail.selectedVisualIdentityRunId
-            }
             onNavigate={navigateTo}
             onEventRailItemsChange={workspaceRail.handleEventRailItemsChange}
-            onVisibleCardRailItemsChange={
-              workspaceRail.handleVisibleCardRailItemsChange
-            }
-            onVisualIdentityRailItemsChange={
-              workspaceRail.handleVisualIdentityRailItemsChange
-            }
             onComparisonRailItemsChange={
               workspaceRail.handleComparisonRailItemsChange
             }
@@ -756,15 +740,13 @@ export function RecordingPipelineWorkspace({
             stage={stage}
             compare={compare}
             urlState={urlState}
-            activeView={activeView}
-            displayedRevision={displayedRevision}
             action={action}
             actionState={actionState}
             presentation={presentation}
             comparison={workspaceRail.comparison}
-            selectionBusy={selectionBusy}
             onNavigate={navigateTo}
             onReplaceUrlState={replaceUrlState}
+            selectionBusy={selectionBusy}
             onSelectGeneratedRevision={selectGeneratedRevision}
             onRefresh={() => loadWorkspace()}
           />
@@ -775,7 +757,6 @@ export function RecordingPipelineWorkspace({
         <RecordingWorkspaceTimelineRail
           recordingId={recordingId}
           stage={stage}
-          activeView={activeView}
           compare={compare}
           rail={workspaceRail.visibleRail}
           onTimeChange={workspaceRail.handleRailTimeChange}
@@ -807,9 +788,6 @@ function sanitizeUrlState(
   durationUs: number,
   compare: boolean,
 ): PipelineUrlState {
-  const validRevisionIds = new Set(
-    stage.input_options.map((option) => option.revision_id),
-  );
   const validRunIds = new Set(stage.runs.map((run) => run.run_id));
   const validReferenceIds = new Set(
     stage.input_options
@@ -824,15 +802,13 @@ function sanitizeUrlState(
     null;
   return {
     ...state,
-    revision:
-      state.revision !== null && validRevisionIds.has(state.revision)
-        ? state.revision
-        : state.revision === null
-          ? null
-          : null,
     item:
       state.item !== null &&
-      (stage.key === "table_observations" || isKnownItem(stage, state.item))
+      (isKnownItem(stage, state.item) ||
+        (stage.key === "table_observations" &&
+          state.lineage !== null &&
+          decodeLineageSelection(state.lineage)?.selected.table_observations !==
+            undefined))
         ? state.item
         : null,
     tUs:

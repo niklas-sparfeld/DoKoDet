@@ -4,13 +4,17 @@ import type {
   PipelineWorkspaceStage,
 } from "../api/client";
 import { CARD_STATE_CHANGED_EVENT_TYPE } from "../cardEvents/PipelineCardEventTypes";
-import type { PipelineUrlState, PipelineView } from "./recordingPipelineUrl";
+import type { PipelineUrlState } from "./recordingPipelineUrl";
+import {
+  decodeLineageSelection,
+  type LineageStageKey,
+} from "./pipelineLineageSelection";
 
 export {
   PIPELINE_STAGE_KEYS,
   isPipelineStageKey,
 } from "./recordingPipelineUrl";
-export type { PipelineUrlState, PipelineView } from "./recordingPipelineUrl";
+export type { PipelineUrlState } from "./recordingPipelineUrl";
 
 export const STAGE_LABELS: Record<PipelineStageKey, string> = {
   events: "Events",
@@ -21,13 +25,7 @@ export const STAGE_LABELS: Record<PipelineStageKey, string> = {
 };
 
 export type PipelinePrimaryActionKind =
-  | "continue_review"
-  | "run"
-  | "review"
-  | "compare"
-  | "open_analysis"
-  | "run_again"
-  | "blocked";
+  "run" | "compare" | "open_analysis" | "run_again" | "blocked";
 
 export type PipelinePrimaryAction = {
   kind: PipelinePrimaryActionKind;
@@ -38,29 +36,6 @@ export type PipelinePrimaryAction = {
 export function primaryActionForStage(
   stage: PipelineWorkspaceStage,
 ): PipelinePrimaryAction {
-  const reference = stage.reference ?? null;
-  if (
-    stage.has_maintained_reference &&
-    (reference?.state === "draft" || (reference?.affected_count ?? 0) > 0)
-  ) {
-    return { kind: "continue_review", label: "Continue review", blocker: null };
-  }
-  if (stage.selected_generated_revision_id === null && stage.can_run) {
-    return { kind: "run", label: "Run", blocker: null };
-  }
-  if (
-    stage.selected_generated_revision_id !== null &&
-    stage.selected_completed_reference_revision_id === null &&
-    stage.can_review
-  ) {
-    return { kind: "review", label: "Review", blocker: null };
-  }
-  if (
-    stage.selected_completed_reference_revision_id !== null &&
-    stage.comparable_run_ids.length >= 2
-  ) {
-    return { kind: "compare", label: "Compare", blocker: null };
-  }
   if (
     stage.key === "round_analyses" &&
     stage.analyses.some((analysis) => analysis.state === "complete")
@@ -68,7 +43,18 @@ export function primaryActionForStage(
     return { kind: "open_analysis", label: "Open analysis", blocker: null };
   }
   if (stage.can_run) {
-    return { kind: "run_again", label: "Run again", blocker: null };
+    return {
+      kind: stage.selected_generated_revision_id === null ? "run" : "run_again",
+      label:
+        stage.selected_generated_revision_id === null ? "Run" : "Run again",
+      blocker: null,
+    };
+  }
+  if (
+    stage.selected_completed_reference_revision_id !== null &&
+    stage.comparable_run_ids.length >= 2
+  ) {
+    return { kind: "compare", label: "Compare", blocker: null };
   }
   return {
     kind: "blocked",
@@ -133,7 +119,6 @@ export type RecordingTimelineRailLane = {
 };
 
 export type WorkspaceSelection = {
-  view: PipelineView;
   revisionId: string | null;
   itemId: string | null;
   timeUs: number | null;
@@ -159,23 +144,15 @@ export type RecordingWorkspacePresentation = {
       state: PipelineWorkspaceStage["state"];
       active: boolean;
     }>;
-    view: PipelineView | null;
   };
   stage: {
     key: PipelineStageKey;
     label: string;
     state: PipelineWorkspaceStage["state"];
-    viewOptions: Array<{
-      value: PipelineView;
-      enabled: boolean;
-      active: boolean;
-    }>;
-    displayedRevisionId: string | null;
   } | null;
   surface: {
     mode: TaskSurfaceMode;
     selectedItemId: string | null;
-    selectedRevisionId: string | null;
   };
   inspector: {
     sections: InspectorSection[];
@@ -199,10 +176,6 @@ type RawItem = Record<string, unknown>;
 type PipelineRun = PipelineWorkspaceStage["runs"][number];
 
 const EMPTY_URL_STATE: PipelineUrlState = {
-  view: null,
-  startReview: null,
-  review: null,
-  revision: null,
   lineage: null,
   item: null,
   tUs: null,
@@ -277,7 +250,7 @@ export function buildRecordingWorkspacePresentation({
     ...EMPTY_URL_STATE,
     ...urlState,
   });
-  const displayedRevisionId = selection.revisionId;
+  const selectedRevisionId = selection.revisionId;
   const action = primaryActionForStage(stage);
   const rail = buildRail(
     stage,
@@ -285,7 +258,7 @@ export function buildRecordingWorkspacePresentation({
     selection,
     compare,
   );
-  const matchedRun = findRunForRevision(stage, displayedRevisionId);
+  const matchedRun = findRunForRevision(stage, selectedRevisionId);
   const selectedAnalysis =
     selection.analysisId === null
       ? null
@@ -315,30 +288,15 @@ export function buildRecordingWorkspacePresentation({
         state: candidate.state,
         active: candidate.key === stage.key,
       })),
-      view: selection.view,
     },
     stage: {
       key: stage.key,
       label: STAGE_LABELS[stage.key],
       state: stage.state,
-      viewOptions: [
-        {
-          value: "generated",
-          enabled: true,
-          active: selection.view === "generated",
-        },
-        {
-          value: "reviewed",
-          enabled: stage.has_maintained_reference,
-          active: selection.view === "reviewed",
-        },
-      ],
-      displayedRevisionId,
     },
     surface: {
       mode: taskSurfaceMode(stage.key, compare),
       selectedItemId: selection.itemId,
-      selectedRevisionId: displayedRevisionId,
     },
     inspector: {
       sections: inspectorSections(),
@@ -365,13 +323,11 @@ function emptyPresentation(
       recordingLabel: "",
       durationUs: 0,
       stageTabs: [],
-      view: null,
     },
     stage: null,
     surface: {
       mode: "video",
       selectedItemId: null,
-      selectedRevisionId: null,
     },
     inspector: {
       sections: [],
@@ -426,24 +382,12 @@ function normalizeSelection(
   durationUs: number,
   urlState: PipelineUrlState,
 ): WorkspaceSelection {
-  const defaultView = defaultViewForStage(stage);
-  const view =
-    urlState.view === "reviewed" && stage.has_maintained_reference
-      ? "reviewed"
-      : urlState.view === "generated"
-        ? "generated"
-        : defaultView;
-  const validRevisionIds = new Set(
-    stage.input_options.map((option) => option.revision_id),
-  );
-  const defaultRevisionId =
-    view === "generated"
-      ? stage.selected_generated_revision_id
-      : stage.selected_completed_reference_revision_id;
+  const lineage =
+    urlState.lineage === null ? null : decodeLineageSelection(urlState.lineage);
   const revisionId =
-    urlState.revision !== null && validRevisionIds.has(urlState.revision)
-      ? urlState.revision
-      : (defaultRevisionId ?? null);
+    stage.key === "round_analyses"
+      ? null
+      : (lineage?.selected[stage.key as LineageStageKey]?.revision_id ?? null);
   const railItemIds = knownRailItemIds(stage);
   const itemId =
     stage.key === "round_analyses"
@@ -469,16 +413,7 @@ function normalizeSelection(
     )
       ? urlState.analysis
       : null;
-  return { view, revisionId, itemId, timeUs, analysisId };
-}
-
-function defaultViewForStage(stage: PipelineWorkspaceStage): PipelineView {
-  return stage.selected_generated_revision_id !== null ||
-    stage.reference == null ||
-    stage.reference.state === "empty" ||
-    !stage.has_maintained_reference
-    ? "generated"
-    : "reviewed";
+  return { revisionId, itemId, timeUs, analysisId };
 }
 
 function buildRail(

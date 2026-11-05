@@ -790,8 +790,7 @@ function comparisonPath(
   state: PipelineUrlState,
 ): string {
   const params = new URLSearchParams();
-  if (state.view !== null) params.set("view", state.view);
-  if (state.revision !== null) params.set("revision", state.revision);
+  if (state.lineage !== null) params.set("lineage", state.lineage);
   if (state.item !== null) params.set("item", state.item);
   if (state.tUs !== null) params.set("t_us", String(state.tUs));
   if (state.left !== null) params.set("left", state.left);

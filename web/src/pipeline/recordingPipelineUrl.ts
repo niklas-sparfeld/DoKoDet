@@ -20,13 +20,7 @@ export const PIPELINE_NAVIGATION_STEP_KEYS: readonly PipelineNavigationStepKey[]
     "round_analyses",
   ];
 
-export type PipelineView = "generated" | "reviewed";
-
 export type PipelineUrlState = {
-  view: PipelineView | null;
-  startReview: "proposal" | null;
-  review: string | null;
-  revision: string | null;
   lineage: string | null;
   item: string | null;
   tUs: number | null;
@@ -85,10 +79,6 @@ export function readPipelineUrlState(search: string): PipelineUrlState {
   const params = new URLSearchParams(search);
   const rawTime = params.get("t_us");
   return {
-    view: readView(params.get("view")),
-    startReview: params.get("start_review") === "proposal" ? "proposal" : null,
-    review: readOptionalParameter(params.get("review")),
-    revision: readOptionalParameter(params.get("revision")),
     lineage: readOptionalParameter(params.get("lineage")),
     item: readOptionalParameter(params.get("item")),
     tUs: rawTime !== null && /^-?\d+$/.test(rawTime) ? Number(rawTime) : null,
@@ -133,14 +123,6 @@ function pipelineSearch(
   includeCompare: boolean,
 ): string {
   const params = new URLSearchParams();
-  if (state.view !== null && state.view !== undefined)
-    params.set("view", state.view);
-  if (state.startReview === "proposal")
-    params.set("start_review", state.startReview);
-  if (state.review !== null && state.review !== undefined)
-    params.set("review", state.review);
-  if (state.revision !== null && state.revision !== undefined)
-    params.set("revision", state.revision);
   if (state.lineage !== null && state.lineage !== undefined)
     params.set("lineage", state.lineage);
   if (state.item !== null && state.item !== undefined)
@@ -177,10 +159,6 @@ function recordingPipelineBasePath(
 
 function recordingPagePath(recordingId: string): string {
   return `/recordings/${encodeURIComponent(recordingId)}`;
-}
-
-function readView(value: string | null): PipelineView | null {
-  return value === "generated" || value === "reviewed" ? value : null;
 }
 
 function readOptionalParameter(value: string | null): string | null {

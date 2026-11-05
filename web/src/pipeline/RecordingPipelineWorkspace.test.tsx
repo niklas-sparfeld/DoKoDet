@@ -1,11 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 
 import {
   getPrimaryAction,
@@ -82,33 +76,15 @@ describe("recording pipeline workspace", () => {
   });
 
   it.each([
-    [
-      "Continue review",
-      {
-        has_maintained_reference: true,
-        reference: {
-          state: "draft",
-          draft_revision: 2,
-          selected_completion: null,
-          source_revision_id: "events-1",
-          coverage: null,
-          coverage_state: "none",
-          affected_count: 0,
-          updated_at: null,
-        },
-        can_run: true,
-      },
-      "continue_review",
-    ],
     ["Run", { can_run: true }, "run"],
     [
-      "Review",
+      "Blocked",
       {
         selected_generated_revision_id: "events-1",
         can_run: false,
         can_review: true,
       },
-      "review",
+      "blocked",
     ],
     [
       "Compare",
@@ -293,11 +269,14 @@ describe("recording pipeline workspace", () => {
     expect(
       screen.queryByRole("button", { name: "Reviewed" }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByText("No data set selected")).toHaveLength(6);
+    expect(screen.getAllByText("No data set selected")).toHaveLength(7);
     expect(
       screen.getByRole("combobox", { name: "Default generated revision" }),
     ).toHaveValue(generated.revision_id);
-    expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Review" })).toBeNull();
+    expect(
+      screen.getByText("Select an Events data set in the lineage drawer."),
+    ).toBeInTheDocument();
 
     await userEvent
       .setup()
@@ -560,13 +539,16 @@ describe("recording pipeline workspace", () => {
       />,
     );
 
-    const item = await screen.findByRole("button", {
-      name: "Card-state change, 0:02–0:03, succeeded",
-    });
-    fireEvent.click(item);
-
-    expect(window.location.search).toContain("item=event-rail-1");
-    expect(window.location.search).toContain("t_us=2000000");
+    expect(
+      await screen.findByText(
+        "Select an Events data set in the lineage drawer.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Card-state change, 0:02–0:03, succeeded",
+      }),
+    ).toBeNull();
   });
 
   it("uses the shared rail and exact-frame surface for generated visible cards", async () => {
@@ -708,17 +690,16 @@ describe("recording pipeline workspace", () => {
 
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(
-      await screen.findByRole("img", { name: "1 visible-card proposal" }),
+      await screen.findByText(
+        "Select a Visible cards data set in the lineage drawer.",
+      ),
     ).toBeInTheDocument();
-    const railItems = await screen.findAllByRole("button", {
-      name: /Frame 1 · 4\.000 s/,
-    });
-    fireEvent.click(railItems[0]);
-    expect(window.location.search).toContain(`item=${itemId}`);
-    expect(window.location.search).toContain("t_us=4000000");
+    expect(
+      screen.queryByRole("img", { name: "1 visible-card proposal" }),
+    ).toBeNull();
   });
 
-  it("keeps generated visible-card proposals when Review opens an empty reference", async () => {
+  it("does not open the legacy visible-card review editor without a selected node", async () => {
     const revisionId = "visible-review-revision";
     const defaultRevisionId = "visible-review-default";
     const runId = "visible-review-run";
@@ -919,27 +900,16 @@ describe("recording pipeline workspace", () => {
     );
 
     expect(
-      await screen.findByRole("img", { name: "1 visible-card proposal" }),
-    ).toBeInTheDocument();
-    const inspector = screen.getByRole("complementary", {
-      name: "Workspace inspector",
-    });
-    await userEvent.click(
-      within(inspector).getByRole("button", { name: "Review" }),
-    );
-
-    expect(
-      await screen.findByRole("heading", { name: "Start visible-card review" }),
+      await screen.findByText(
+        "Select a Visible cards data set in the lineage drawer.",
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "1 visible-card proposal" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("button", { name: /Frame 1 · 4\.000 s/ }),
-    ).not.toHaveLength(0);
+      screen.queryByRole("heading", { name: "Start visible-card review" }),
+    ).toBeNull();
   });
 
-  it("hydrates reviewed event selection into the shared rail", async () => {
+  it("does not hydrate a reviewed event selection from the legacy view URL", async () => {
     window.history.pushState(
       {},
       "",
@@ -1037,44 +1007,16 @@ describe("recording pipeline workspace", () => {
       />,
     );
 
-    await screen.findByRole("complementary", {
-      name: "CardEvent review controls",
-    });
-    const timeline = screen.getByRole("region", { name: "Timeline Rail" });
     expect(
-      await within(timeline).findByRole("group", { name: "Event navigation" }),
+      await screen.findByText(
+        "Select an Events data set in the lineage drawer.",
+      ),
     ).toBeInTheDocument();
-    const previousEvent = within(timeline).getByRole("button", {
-      name: /Previous event/,
-    });
-    expect(previousEvent).toHaveAttribute("aria-keyshortcuts", "ArrowLeft");
-    expect(previousEvent).toHaveAttribute(
-      "title",
-      "There is no previous event. (←)",
-    );
-    expect(previousEvent).toHaveTextContent("⏮");
-    expect(previousEvent).not.toHaveTextContent("Previous event");
     expect(
-      within(timeline).getByRole("button", { name: /Seek right/ }),
-    ).toHaveAttribute("aria-keyshortcuts", "Alt+ArrowRight");
-    expect(
-      within(timeline).getByRole("button", { name: /Seek right/ }),
-    ).toHaveAttribute("title", "Seek right (⌥→)");
-    expect(
-      within(
-        screen.getByRole("complementary", {
-          name: "CardEvent review controls",
-        }),
-      ).queryByRole("button", { name: /Previous event/ }),
-    ).not.toBeInTheDocument();
-    const item = await screen.findByRole("button", {
-      name: "Card-state change, 0:01–0:02, pending",
-    });
-    fireEvent.click(item);
-
-    expect(window.location.search).toContain("item=reviewed-event-1");
-    expect(window.location.search).toContain("t_us=1000000");
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      screen.queryByRole("complementary", {
+        name: "CardEvent review controls",
+      }),
+    ).toBeNull();
   });
 
   it("is composed by App for a recording-owned pipeline path", async () => {
@@ -1146,10 +1088,6 @@ describe("recording pipeline workspace", () => {
     expect(
       readPipelineUrlState("?view=reviewed&revision=revision-2&t_us=17"),
     ).toEqual({
-      view: "reviewed",
-      startReview: null,
-      review: null,
-      revision: "revision-2",
       lineage: null,
       item: null,
       tUs: 17,
@@ -1160,8 +1098,8 @@ describe("recording pipeline workspace", () => {
       frameReviewQueue: null,
     });
     expect(
-      recordingPipelinePath(RECORDING_ID, "events", { view: "reviewed" }),
-    ).toBe("/recordings/recording-shell/pipeline/events?view=reviewed");
+      recordingPipelinePath(RECORDING_ID, "events", { lineage: "choice-1" }),
+    ).toBe("/recordings/recording-shell/pipeline/events?lineage=choice-1");
     expect(
       recordingPipelineComparePath(RECORDING_ID, "events", {
         left: "run/1",
@@ -1650,9 +1588,11 @@ describe("recording pipeline workspace", () => {
     });
     await userEvent.setup().selectOptions(selector, "events-2");
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "The generated selection changed elsewhere. The winning selection is shown.",
-    );
+    expect(
+      await screen.findByText(
+        "The processor input changed elsewhere. The winning selection is shown.",
+      ),
+    ).toBeInTheDocument();
     await waitFor(() => expect(selector).toHaveValue("events-2"));
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/recordings/recording-shell/pipeline/events/selection",
@@ -1665,7 +1605,7 @@ describe("recording pipeline workspace", () => {
       }),
     );
     expect(
-      within(screen.getByRole("main")).getAllByText("Review").length,
-    ).toBeGreaterThan(0);
+      screen.queryByRole("button", { name: "Review" }),
+    ).not.toBeInTheDocument();
   });
 });

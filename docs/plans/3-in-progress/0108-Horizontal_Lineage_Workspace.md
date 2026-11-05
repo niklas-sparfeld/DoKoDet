@@ -303,7 +303,7 @@ Active-store checks opened scene, review, draft, calibration, and analysis data 
 content and coverage after rebuilding the runtime. See the
 [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
-### M11 — Delete replaced architecture — Not started
+### M11 — Delete replaced architecture — In progress
 
 Complete the removal table. Trace selection consumers and keep only required execution semantics.
 Delete old active storage after recovery evidence, legacy readers, view/review-specific runtime
@@ -312,6 +312,14 @@ contracts, obsolete endpoints/URLs, CSS, generated types, and superseded tests. 
 Acceptance: no active workspace path depends on Generated/Reviewed or privileged maintained drafts.
 Migration input parsing is isolated from runtime. No permanent adapter, dual write, or duplicate
 selector remains. Domain uses of "reviewed" that express actual authority remain valid.
+
+Progress: the active task surface no longer opens the legacy Generated/Reviewed editors when no
+lineage node is selected. It shows an explicit empty state. The workspace URL no longer carries
+view, review, or displayed-revision fields. The lineage selection supplies the exact revision.
+The processor input selector remains because it controls execution defaults. The review-start
+action is removed. Focused URL, presentation, workspace, and event-rail tests pass. The remaining
+work is to remove unused legacy editor modules and backend adapters/storage, then verify selection
+consumers and the migrated active data.
 
 ### M12 — Verify the complete workflow and close — Not started
 

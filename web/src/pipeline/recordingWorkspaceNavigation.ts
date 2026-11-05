@@ -19,14 +19,6 @@ export function actionHref(
   }
   return recordingPipelinePath(recordingId, stage, {
     ...state,
-    view:
-      action === "review" || action === "continue_review"
-        ? "reviewed"
-        : state.view,
-    startReview:
-      action === "review" || action === "continue_review"
-        ? null
-        : state.startReview,
   });
 }
 

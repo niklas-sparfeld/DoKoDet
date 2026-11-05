@@ -6,11 +6,9 @@ import type {
   PipelineWorkspaceStage,
 } from "../api/client";
 import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventEditor";
-import type { PipelineVisibleCardRailItem } from "../visibleCards/PipelineVisibleCardEditor";
-import type { PipelineVisualIdentityRailItem } from "../visualIdentities/PipelineVisualIdentityEditor";
 import styles from "../App.module.css";
 import { RecordingTimelineRail } from "./RecordingTimelineRail";
-import type { PipelineUrlState, PipelineView } from "./recordingPipelineUrl";
+import type { PipelineUrlState } from "./recordingPipelineUrl";
 import type {
   RecordingTimelineRailItem,
   RecordingWorkspacePresentation,
@@ -29,16 +27,7 @@ type PresentationRailItem = NonNullable<
 export type RecordingWorkspaceRailController = {
   comparison: PipelineComparisonResponse | null;
   visibleRail: RecordingWorkspacePresentation["rail"];
-  selectedEventRunId: string | null;
-  selectedVisibleCardRunId: string | null;
-  selectedVisualIdentityRunId: string | null;
   handleEventRailItemsChange: (items: PipelineCardEventRailItem[]) => void;
-  handleVisibleCardRailItemsChange: (
-    items: PipelineVisibleCardRailItem[],
-  ) => void;
-  handleVisualIdentityRailItemsChange: (
-    items: PipelineVisualIdentityRailItem[],
-  ) => void;
   handleComparisonRailItemsChange: (items: RecordingTimelineRailItem[]) => void;
   handleComparisonChange: (comparison: PipelineComparisonResponse) => void;
   handleRailTimeChange: (timeUs: number) => void;
@@ -49,10 +38,8 @@ export function useRecordingWorkspaceRail({
   recordingId,
   stage,
   stageKey,
-  activeView,
   compare,
   urlState,
-  displayedRevision,
   durationUs,
   rail,
   onReplaceUrlState,
@@ -60,27 +47,20 @@ export function useRecordingWorkspaceRail({
   recordingId: string;
   stage: PipelineWorkspaceStage | undefined;
   stageKey: PipelineStageKey | null;
-  activeView: PipelineView;
   compare: boolean;
   urlState: PipelineUrlState;
-  displayedRevision: string | null;
   durationUs: number;
   rail: RecordingWorkspacePresentation["rail"];
   onReplaceUrlState: (state: PipelineUrlState) => void;
 }): RecordingWorkspaceRailController {
   const [eventRail, setEventRail] = useState<RailCollection | null>(null);
-  const [visibleCardRail, setVisibleCardRail] = useState<RailCollection | null>(
-    null,
-  );
-  const [visualIdentityRail, setVisualIdentityRail] =
-    useState<RailCollection | null>(null);
   const [comparisonRail, setComparisonRail] = useState<RailCollection | null>(
     null,
   );
   const [comparison, setComparison] =
     useState<PipelineComparisonResponse | null>(null);
   const currentStageKey = stage?.key ?? stageKey ?? "events";
-  const railKey = `${recordingId}:${currentStageKey}:${activeView}:${compare ? "compare" : "task"}`;
+  const railKey = `${recordingId}:${currentStageKey}:${compare ? "compare" : "task"}`;
   const comparisonRailKey = `${recordingId}:${currentStageKey}:comparison`;
 
   const handleComparisonRailItemsChange = useCallback(
@@ -109,49 +89,21 @@ export function useRecordingWorkspaceRail({
     },
     [durationUs, railKey],
   );
-  const handleVisibleCardRailItemsChange = useCallback(
-    (items: PipelineVisibleCardRailItem[]) => {
-      setVisibleCardRail({
-        key: railKey,
-        items: buildVisibleCardRailItems(items, durationUs),
-      });
-    },
-    [durationUs, railKey],
-  );
-  const handleVisualIdentityRailItemsChange = useCallback(
-    (items: PipelineVisualIdentityRailItem[]) => {
-      setVisualIdentityRail({
-        key: railKey,
-        items: buildVisualIdentityRailItems(items, durationUs),
-      });
-    },
-    [durationUs, railKey],
-  );
-
   const visibleRail = useMemo(() => {
     if (rail === null) return null;
     const customRail = compare
       ? comparisonRail?.key === comparisonRailKey
         ? comparisonRail
         : null
-      : stage?.key === "events" && activeView === "reviewed"
+      : stage?.key === "events"
         ? eventRail?.key === railKey
           ? eventRail
           : null
-        : stage?.key === "visible_cards"
-          ? visibleCardRail?.key === railKey
-            ? visibleCardRail
-            : null
-          : stage?.key === "visual_identities"
-            ? visualIdentityRail?.key === railKey
-              ? visualIdentityRail
-              : null
-            : undefined;
+        : undefined;
     return customRail === undefined
       ? rail
       : customRailForRail(rail, customRail?.items ?? [], urlState.item);
   }, [
-    activeView,
     compare,
     comparisonRail,
     comparisonRailKey,
@@ -160,25 +112,7 @@ export function useRecordingWorkspaceRail({
     railKey,
     stage?.key,
     urlState.item,
-    visibleCardRail,
-    visualIdentityRail,
   ]);
-
-  const selectedEventRunId = selectedRunId(
-    stage,
-    displayedRevision ?? stage?.selected_generated_revision_id ?? null,
-    "events",
-  );
-  const selectedVisibleCardRunId = selectedRunId(
-    stage,
-    displayedRevision ?? stage?.selected_generated_revision_id ?? null,
-    "visible_cards",
-  );
-  const selectedVisualIdentityRunId = selectedRunId(
-    stage,
-    displayedRevision ?? stage?.selected_generated_revision_id ?? null,
-    "visual_identities",
-  );
 
   const handleRailTimeChange = useCallback(
     (timeUs: number) => onReplaceUrlState({ ...urlState, tUs: timeUs }),
@@ -205,12 +139,7 @@ export function useRecordingWorkspaceRail({
   return {
     comparison,
     visibleRail,
-    selectedEventRunId,
-    selectedVisibleCardRunId,
-    selectedVisualIdentityRunId,
     handleEventRailItemsChange,
-    handleVisibleCardRailItemsChange,
-    handleVisualIdentityRailItemsChange,
     handleComparisonRailItemsChange,
     handleComparisonChange,
     handleRailTimeChange,
@@ -221,7 +150,6 @@ export function useRecordingWorkspaceRail({
 export function RecordingWorkspaceTimelineRail({
   recordingId,
   stage,
-  activeView,
   compare,
   rail,
   onTimeChange,
@@ -229,7 +157,6 @@ export function RecordingWorkspaceTimelineRail({
 }: {
   recordingId: string;
   stage: PipelineWorkspaceStage;
-  activeView: PipelineView;
   compare: boolean;
   rail: RecordingWorkspacePresentation["rail"];
   onTimeChange: (timeUs: number) => void;
@@ -243,7 +170,7 @@ export function RecordingWorkspaceTimelineRail({
     >
       {rail !== null ? (
         <RecordingTimelineRail
-          key={`${stage.key}:${activeView}:${compare ? "compare" : "task"}`}
+          key={`${stage.key}:${compare ? "compare" : "task"}`}
           recordingId={recordingId}
           durationUs={rail.durationUs}
           currentTimeUs={rail.currentTimeUs}
@@ -302,100 +229,6 @@ export function buildEventRailItems(
     });
 }
 
-export function buildVisibleCardRailItems(
-  items: PipelineVisibleCardRailItem[],
-  durationUs: number,
-): RecordingTimelineRailItem[] {
-  return items.flatMap<RecordingTimelineRailItem>((item) => {
-    const timeRange =
-      item.timeUs === null
-        ? null
-        : {
-            startUs: item.timeUs,
-            endUs: Math.min(Math.max(durationUs, 0), item.timeUs + 1),
-          };
-    const railItems: RecordingTimelineRailItem[] = [
-      {
-        id: `visible-card:${item.itemId}`,
-        itemId: item.itemId,
-        selectionParam: "item" as const,
-        laneId: "resolved-frames",
-        label: item.label,
-        state: item.state,
-        timeRange,
-        runId: null,
-      },
-      {
-        id: `visible-card:${item.itemId}:decision`,
-        itemId: item.itemId,
-        selectionParam: "item" as const,
-        laneId: "frame-decision",
-        label: `${item.label} · ${item.decision ?? "pending decision"}`,
-        state: item.decision ?? item.state,
-        timeRange,
-        runId: null,
-      },
-      {
-        id: `visible-card:${item.itemId}:proposals`,
-        itemId: item.itemId,
-        selectionParam: "item" as const,
-        laneId: "proposals",
-        label: `${item.label} · ${item.proposalCount} proposal${item.proposalCount === 1 ? "" : "s"}`,
-        state: item.state,
-        timeRange,
-        runId: null,
-      },
-    ];
-    if ((item.ignoredRegionCount ?? 0) > 0) {
-      railItems.push({
-        id: `visible-card:${item.itemId}:ignore-regions`,
-        itemId: item.itemId,
-        selectionParam: "item" as const,
-        laneId: "ignore-regions",
-        label: `${item.label} · ${item.ignoredRegionCount} ignore region${item.ignoredRegionCount === 1 ? "" : "s"}`,
-        state: "ignored",
-        timeRange,
-        runId: null,
-      });
-    }
-    return railItems;
-  });
-}
-
-export function buildVisualIdentityRailItems(
-  items: PipelineVisualIdentityRailItem[],
-  durationUs: number,
-): RecordingTimelineRailItem[] {
-  return items.flatMap<RecordingTimelineRailItem>((item) => {
-    const timeRange = {
-      startUs: item.timeUs,
-      endUs: Math.min(Math.max(durationUs, 0), item.timeUs + 1),
-    };
-    return [
-      {
-        id: `identity:${item.itemId}`,
-        itemId: item.itemId,
-        selectionParam: "item" as const,
-        laneId: "identity-cards",
-        label: item.label,
-        state: item.state,
-        timeRange,
-        runId: null,
-      },
-      {
-        id: `identity:${item.itemId}:review`,
-        itemId: item.itemId,
-        selectionParam: "item" as const,
-        laneId: "review-state",
-        label: `${item.label} · ${item.state}`,
-        state: item.state,
-        timeRange,
-        runId: null,
-      },
-    ];
-  });
-}
-
 function customRailForRail(
   rail: NonNullable<RecordingWorkspacePresentation["rail"]>,
   items: RecordingTimelineRailItem[],
@@ -426,18 +259,5 @@ function sameRailItems(
         item.state === next[index].state &&
         item.timeRange?.startUs === next[index].timeRange?.startUs,
     )
-  );
-}
-
-function selectedRunId(
-  stage: PipelineWorkspaceStage | undefined,
-  displayedRevision: string | null,
-  stageKey: PipelineStageKey,
-): string | null {
-  if (stage?.key !== stageKey || displayedRevision === null) return null;
-  return (
-    stage.runs.find((run) =>
-      run.output_revision_ids.includes(displayedRevision),
-    )?.run_id ?? null
   );
 }

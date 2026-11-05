@@ -103,7 +103,7 @@ describe("recording workspace presentation model", () => {
     }
   });
 
-  it("defaults a fresh reviewable stage to generated output", () => {
+  it("does not select a revision when the lineage has no saved choice", () => {
     const presentation = buildRecordingWorkspacePresentation({
       workspace: pipelineWorkspace({
         stageOverrides: {
@@ -124,8 +124,7 @@ describe("recording workspace presentation model", () => {
       stageKey: "visible_cards",
     });
 
-    expect(presentation.topBar.view).toBe("generated");
-    expect(presentation.inspector.selection?.view).toBe("generated");
+    expect(presentation.inspector.selection?.revisionId).toBeNull();
   });
 
   it("uses one comparison surface while retaining the selected stage rail", () => {
@@ -206,15 +205,21 @@ describe("recording workspace presentation model", () => {
       }),
       stageKey: "events",
       urlState: {
-        view: "generated",
-        revision: generated.revision_id,
+        lineage: JSON.stringify({
+          schema_version: "pipeline-lineage-selection/v1",
+          selected: {
+            events: {
+              node_id: "events-node",
+              revision_id: generated.revision_id,
+            },
+          },
+        }),
         item: "event-1",
         tUs: 999_000_000,
       },
     });
 
     expect(presentation.inspector.selection).toMatchObject({
-      view: "generated",
       revisionId: generated.revision_id,
       itemId: "event-1",
       timeUs: 90_000_000,

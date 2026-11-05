@@ -11,7 +11,7 @@ import {
 } from "./ObservationAndAnalysisControls";
 import { ComparisonInspectorControls } from "./ComparisonView";
 import { RunControls } from "./RunControls";
-import type { PipelineUrlState, PipelineView } from "./recordingPipelineUrl";
+import type { PipelineUrlState } from "./recordingPipelineUrl";
 import { actionHref, isModifiedClick } from "./recordingWorkspaceNavigation";
 import {
   formatByteLength,
@@ -23,7 +23,10 @@ import type { RecordingWorkspacePresentation } from "./recordingWorkspacePresent
 import { RecordingWorkspaceStatusBadge } from "./RecordingWorkspaceStatusBadge";
 import inspectorStyles from "./RecordingWorkspaceInspector.module.css";
 import { AutomatedPipelineControls } from "./AutomatedPipelineControls";
-import { decodeLineageSelection } from "./pipelineLineageSelection";
+import {
+  decodeLineageSelection,
+  type LineageStageKey,
+} from "./pipelineLineageSelection";
 
 export type RecordingWorkspaceInspectorProps = {
   recordingId: string;
@@ -31,8 +34,6 @@ export type RecordingWorkspaceInspectorProps = {
   stage: PipelineWorkspaceStage;
   compare: boolean;
   urlState: PipelineUrlState;
-  activeView: PipelineView;
-  displayedRevision: string | null;
   action: NonNullable<
     RecordingWorkspacePresentation["inspector"]["primaryAction"]
   >;
@@ -52,8 +53,6 @@ export function RecordingWorkspaceInspector({
   stage,
   compare,
   urlState,
-  activeView,
-  displayedRevision,
   action,
   actionState,
   presentation,
@@ -67,9 +66,11 @@ export function RecordingWorkspaceInspector({
   const recording = presentation.recording;
   const selection = presentation.inspector.selection;
   const selectedEventNode =
-    stage.key === "events" && urlState.lineage !== null
-      ? decodeLineageSelection(urlState.lineage)?.selected.events
-      : undefined;
+    urlState.lineage === null
+      ? undefined
+      : decodeLineageSelection(urlState.lineage)?.selected[
+          stage.key as LineageStageKey
+        ];
   const progress = presentation.inspector.progress;
   const executionControls = compare ? null : (
     <>
@@ -265,14 +266,18 @@ export function RecordingWorkspaceInspector({
           {compare
             ? "Comparison inputs"
             : selectedEventNode
-              ? "Event data set"
-              : formatIdentifier(activeView)}
+              ? "Selected data set"
+              : "No data set selected"}
         </h2>
         <div className={inspectorStyles.selectionFacts}>
-          <span>Displayed revision</span>
-          <strong>
-            {selectedEventNode?.revision_id ?? displayedRevision ?? "None"}
-          </strong>
+          <span>Exact revision</span>
+          <strong>{selectedEventNode?.revision_id ?? "None"}</strong>
+          {selectedEventNode !== undefined ? (
+            <>
+              <span>Data set</span>
+              <strong>{selectedEventNode.node_id}</strong>
+            </>
+          ) : null}
           <span>Item</span>
           <strong>{selection?.itemId ?? "None"}</strong>
           <span>Position</span>
@@ -297,69 +302,27 @@ export function RecordingWorkspaceInspector({
             onNavigate={onNavigate}
             comparison={comparison}
           />
-        ) : selectedEventNode !== undefined ? (
-          <div className={inspectorStyles.selectionFacts}>
-            <span>Data set</span>
-            <strong>{selectedEventNode.node_id}</strong>
-            <span>Exact revision</span>
-            <strong>{selectedEventNode.revision_id}</strong>
-            <p>Editing and review apply to this exact data set.</p>
-          </div>
-        ) : (
-          <div className={inspectorStyles.fields}>
-            {stage.key !== "round_analyses" ? (
-              <label className={styles.pipelineSelector}>
-                <span>Default generated revision</span>
-                <select
-                  aria-label="Default generated revision"
-                  value={stage.selected_generated_revision_id ?? ""}
-                  disabled={selectionBusy}
-                  onChange={(event) =>
-                    void onSelectGeneratedRevision(event.target.value || null)
-                  }
-                >
-                  <option value="">No generated revision selected</option>
-                  {stage.input_options
-                    .filter((option) => option.origin === "processor")
-                    .map((option) => (
-                      <option
-                        key={option.revision_id}
-                        value={option.revision_id}
-                      >
-                        {option.display_label} · {option.revision_id}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            ) : null}
-            <label className={styles.pipelineSelector}>
-              <span>Displayed revision</span>
-              <select
-                aria-label="Displayed revision"
-                value={displayedRevision ?? ""}
-                disabled={stage.input_options.length === 0}
-                onChange={(event) => {
-                  const nextRevision = event.target.value || null;
-                  const defaultRevision =
-                    activeView === "generated"
-                      ? stage.selected_generated_revision_id
-                      : stage.selected_completed_reference_revision_id;
-                  onReplaceUrlState({
-                    ...urlState,
-                    revision:
-                      nextRevision === defaultRevision ? null : nextRevision,
-                  });
-                }}
-              >
-                <option value="">No revision selected</option>
-                {stage.input_options.map((option) => (
+        ) : stage.key === "round_analyses" ? null : (
+          <label className={styles.pipelineSelector}>
+            <span>Default generated revision</span>
+            <select
+              aria-label="Default generated revision"
+              value={stage.selected_generated_revision_id ?? ""}
+              disabled={selectionBusy}
+              onChange={(event) =>
+                void onSelectGeneratedRevision(event.target.value || null)
+              }
+            >
+              <option value="">No generated revision selected</option>
+              {stage.input_options
+                .filter((option) => option.origin === "processor")
+                .map((option) => (
                   <option key={option.revision_id} value={option.revision_id}>
                     {option.display_label} · {option.revision_id}
                   </option>
                 ))}
-              </select>
-            </label>
-          </div>
+            </select>
+          </label>
         )}
         {usesEditorInspector ? (
           <div

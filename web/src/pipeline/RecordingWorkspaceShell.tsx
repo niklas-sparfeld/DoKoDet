@@ -5,19 +5,10 @@ import type {
   PipelineWorkspace,
   PipelineWorkspaceStage,
 } from "../api/client";
-import {
-  PipelineCardEventEditor,
-  type PipelineCardEventRailItem,
-} from "../cardEvents/PipelineCardEventEditor";
+import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventEditor";
 import { PipelineNodeEventEditor } from "../cardEvents/PipelineNodeEventEditor";
-import { PipelineVisibleCardEditor } from "../visibleCards/PipelineVisibleCardEditor";
-import type { PipelineVisibleCardRailItem } from "../visibleCards/PipelineVisibleCardEditor";
 import { PipelineNodeVisibleCardEditor } from "../visibleCards/PipelineNodeVisibleCardEditor";
 import { PipelineNodeVisualIdentityEditor } from "../visualIdentities/PipelineNodeVisualIdentityEditor";
-import {
-  PipelineVisualIdentityEditor,
-  type PipelineVisualIdentityRailItem,
-} from "../visualIdentities/PipelineVisualIdentityEditor";
 import styles from "../App.module.css";
 import { Toast } from "../Toast";
 import { ComparisonView } from "./ComparisonView";
@@ -26,16 +17,14 @@ import { PipelineRoundAnalysisWorkbench } from "./PipelineRoundAnalysisWorkbench
 import {
   recordingPipelineNavigationPath,
   type PipelineUrlState,
-  type PipelineView,
   type PipelineNavigationStepKey,
 } from "./recordingPipelineUrl";
 import { readPipelineUrlState } from "./recordingPipelineUrl";
 import type { PipelineLineageGraph } from "./pipelineLineageSelection";
 import { decodeLineageSelection } from "./pipelineLineageSelection";
-import { actionHref, isModifiedClick } from "./recordingWorkspaceNavigation";
+import { isModifiedClick } from "./recordingWorkspaceNavigation";
 import { formatDuration } from "./recordingWorkspaceFormatting";
 import type {
-  PipelinePrimaryAction,
   RecordingTimelineRailItem,
   RecordingWorkspacePresentation,
 } from "./recordingWorkspacePresentation";
@@ -67,19 +56,9 @@ export type RecordingWorkspaceTaskSurfaceProps = {
   stage: PipelineWorkspaceStage;
   compare: boolean;
   urlState: PipelineUrlState;
-  activeView: PipelineView;
-  displayedRevision: string | null;
-  action: PipelinePrimaryAction;
   presentation: RecordingWorkspacePresentation;
-  selectedEventRunId: string | null;
-  selectedVisibleCardRunId: string | null;
-  selectedVisualIdentityRunId: string | null;
   onNavigate: (path: string) => void;
   onEventRailItemsChange: (items: PipelineCardEventRailItem[]) => void;
-  onVisibleCardRailItemsChange: (items: PipelineVisibleCardRailItem[]) => void;
-  onVisualIdentityRailItemsChange: (
-    items: PipelineVisualIdentityRailItem[],
-  ) => void;
   onComparisonRailItemsChange: (items: RecordingTimelineRailItem[]) => void;
   onComparisonChange: (comparison: PipelineComparisonResponse) => void;
   onTimeChange: (timeUs: number) => void;
@@ -304,34 +283,15 @@ export function RecordingWorkspaceTaskSurface({
   stage,
   compare,
   urlState,
-  activeView,
-  displayedRevision,
-  action,
   presentation,
-  selectedEventRunId,
-  selectedVisibleCardRunId,
-  selectedVisualIdentityRunId,
   onNavigate,
   onEventRailItemsChange,
-  onVisibleCardRailItemsChange,
-  onVisualIdentityRailItemsChange,
   onComparisonRailItemsChange,
   onComparisonChange,
   onTimeChange,
   onAnalysisChange,
   lineageGraph = null,
 }: RecordingWorkspaceTaskSurfaceProps) {
-  const visibleCardStage = workspace.stages.find(
-    (candidate) => candidate.key === "visible_cards",
-  );
-  const selectedVisibleCardRevisionId =
-    visibleCardStage?.selected_completed_reference_revision_id ?? null;
-  const selectedVisibleCardRevisionDigest =
-    selectedVisibleCardRevisionId === null
-      ? null
-      : (visibleCardStage?.input_options.find(
-          (option) => option.revision_id === selectedVisibleCardRevisionId,
-        )?.content_sha256 ?? null);
   const selectedEventNode =
     urlState.lineage === null
       ? undefined
@@ -462,27 +422,7 @@ export function RecordingWorkspaceTaskSurface({
         {stage.key === "events" &&
         !compare &&
         selectedEventNode === undefined ? (
-          <PipelineCardEventEditor
-            recordingId={recordingId}
-            durationUs={workspace.video.duration_us}
-            selectionItemId={presentation.surface.selectedItemId}
-            selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
-            generatedRevisionId={stage.selected_generated_revision_id ?? null}
-            generatedRunId={selectedEventRunId}
-            view={activeView}
-            inspectorEnabled={action.kind !== "blocked"}
-            onRailItemsChange={onEventRailItemsChange}
-            onReviewRequested={() =>
-              onNavigate(
-                actionHref(
-                  recordingId,
-                  stage.key,
-                  "review",
-                  readPipelineUrlState(window.location.search),
-                ),
-              )
-            }
-          />
+          <p role="status">Select an Events data set in the lineage drawer.</p>
         ) : null}
         {stage.key === "visible_cards" &&
         !compare &&
@@ -549,26 +489,9 @@ export function RecordingWorkspaceTaskSurface({
         {stage.key === "visible_cards" &&
         !compare &&
         selectedVisibleCardNode === undefined ? (
-          <PipelineVisibleCardEditor
-            key={urlState.review ?? "maintained-reference"}
-            recordingId={recordingId}
-            durationUs={workspace.video.duration_us}
-            selectionItemId={presentation.surface.selectedItemId}
-            selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
-            generatedRevisionId={stage.selected_generated_revision_id ?? null}
-            displayedRevisionId={
-              displayedRevision ?? stage.selected_generated_revision_id ?? null
-            }
-            generatedRunId={selectedVisibleCardRunId}
-            startReviewRequested={urlState.startReview === "proposal"}
-            reviewId={urlState.review}
-            view={activeView}
-            inspectorEnabled={action.kind !== "blocked"}
-            onRailItemsChange={onVisibleCardRailItemsChange}
-            onReviewRequested={() =>
-              onNavigate(actionHref(recordingId, stage.key, "review", urlState))
-            }
-          />
+          <p role="status">
+            Select a Visible cards data set in the lineage drawer.
+          </p>
         ) : null}
         {stage.key === "visual_identities" &&
         !compare &&
@@ -627,27 +550,9 @@ export function RecordingWorkspaceTaskSurface({
         {stage.key === "visual_identities" &&
         !compare &&
         selectedVisualIdentityNode === undefined ? (
-          <PipelineVisualIdentityEditor
-            recordingId={recordingId}
-            durationUs={workspace.video.duration_us}
-            selectionItemId={presentation.surface.selectedItemId}
-            selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
-            generatedRevisionId={stage.selected_generated_revision_id ?? null}
-            generatedRevisionIds={stage.input_options
-              .filter((option) => option.origin === "processor")
-              .map((option) => option.revision_id)}
-            displayedRevisionId={
-              displayedRevision ?? stage.selected_generated_revision_id ?? null
-            }
-            generatedRunId={selectedVisualIdentityRunId}
-            selectedVisibleCardRevisionId={selectedVisibleCardRevisionId}
-            selectedVisibleCardRevisionDigest={
-              selectedVisibleCardRevisionDigest
-            }
-            view={activeView}
-            inspectorEnabled={action.kind !== "blocked"}
-            onRailItemsChange={onVisualIdentityRailItemsChange}
-          />
+          <p role="status">
+            Select a Visual identities data set in the lineage drawer.
+          </p>
         ) : null}
         {stage.key === "table_observations" && !compare ? (
           <PipelineObservationWorkbench
