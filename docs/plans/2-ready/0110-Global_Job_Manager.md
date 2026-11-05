@@ -187,6 +187,13 @@ and data APIs remain. Remove old enqueue/status/retry API paths after their call
 than keeping compatibility facades. Embedded processor algorithms do not call HTTP to schedule
 children; orchestration uses the same application service as HTTP.
 
+Job-start workflows are outside this epic. Do not redesign where or how operators launch work,
+choose processors, models, inputs, or exact revisions, configure parameters, or resolve missing
+prerequisites. Keep existing launch forms and choices. Integrating their submission with the shared
+enqueue service is in scope, including validation and exact-input recording. The Jobs drawer has
+no generic New job form or input picker. Explicit retry of a frozen request remains in scope;
+changing its inputs or configuration belongs to a separate job-start workflow.
+
 Start with one shared browser polling client. Poll active work at a bounded interval, back off on
 failure, stop unnecessary polling for hidden pages, and refresh on return. Paginate history and
 detail/log requests. Preserve last-known data and show disconnection/staleness. Late responses
@@ -415,6 +422,10 @@ phones, full training, or sealed evaluation. Record any baseline failures separa
 when every in-scope producer and UI path uses the shared manager.
 
 ## Scope limits
+
+Job-start UX, processor/input/model selection, parameter configuration, new launch controls,
+and automatic selection of prerequisites are out of scope. Existing launch controls only change
+their submission and job-status integration. Plan future launch workflows in a separate epic.
 
 No distributed execution, multi-host scheduling, arbitrary user scripts, recurring schedules,
 automatic retries, pause/resume of arbitrary native calls, model training campaign, new processor
