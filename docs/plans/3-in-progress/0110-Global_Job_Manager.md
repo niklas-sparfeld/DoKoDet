@@ -9,7 +9,7 @@
   [0107](../3-in-progress/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M1 complete; M2–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M2 complete; M3–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -297,13 +297,15 @@ acceptance, invalid terminal transition, or simultaneous scheduler ownership.
 
 Result: [M1 storage and recovery](../../reports/0110-M1_Job_Storage.md).
 
-### M2 — Add the scheduler and resource admission — Not started
+### M2 — Add the scheduler and resource admission — Complete
 
 Implement persistent order, single-slot default, resource claims, bounded handler budgets,
 waiting reasons, queue moves, revision conflicts, and deterministic fairness policy.
 
 Acceptance: fake jobs prove actual dispatch state, blocked-head bypass, resource exclusivity,
 budget limits, conflict handling, and stable order after restart. No real model execution needed.
+
+Result: [M2 scheduler and resource admission](../../reports/0110-M2_Scheduler.md).
 
 ### M3 — Add cancellation, retry, and recovery — Not started
 

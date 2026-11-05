@@ -53,6 +53,18 @@ class JobRequest(Model):
     type: str = Field(min_length=1)
     context: dict[str, Any]
     request: dict[str, Any]
+    parent_id: str | None = None
+    parent_step_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_parent(self) -> JobRequest:
+        if (self.parent_id is None) != (self.parent_step_id is None):
+            raise ValueError("parent ID and step ID must be supplied together")
+        if self.parent_id is not None:
+            _uuid(self.parent_id)
+            if not self.parent_step_id:
+                raise ValueError("parent step ID cannot be empty")
+        return self
 
 
 class Step(Model):
@@ -159,7 +171,7 @@ class FakeParticipant:
 
     def validate(self, request: dict[str, Any]) -> None:
         if (
-            request["type"] != "fake"
+            request["type"] not in {"fake", "automated_pipeline"}
             or set(request["context"]) != {"recording_id"}
             or not isinstance(request["context"]["recording_id"], str)
             or set(request["request"]) != {"input"}
@@ -213,7 +225,12 @@ def _now() -> str:
 
 
 def _digest(request: JobRequest) -> str:
-    raw = json.dumps(request.model_dump(), sort_keys=True, separators=(",", ":"), allow_nan=False)
+    raw = json.dumps(
+        request.model_dump(exclude_none=True),
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -240,6 +257,7 @@ class JobManager:
         self.diagnostics: list[str] = []
         self._lock = RLock()
         self._owner: Any = None
+        self._scheduler: object | None = None
 
     def __enter__(self) -> JobManager:
         self.root.mkdir(parents=True, exist_ok=True)
@@ -277,7 +295,11 @@ class JobManager:
                     raise ValueError("intent ID mismatch")
                 _uuid(intent.job.idempotency_key)
                 parsed = JobRequest(
-                    type=intent.job.type, context=intent.job.context, request=intent.job.request
+                    type=intent.job.type,
+                    context=intent.job.context,
+                    request=intent.job.request,
+                    parent_id=intent.job.parent_id,
+                    parent_step_id=intent.job.parent_step_id,
                 )
                 if _digest(parsed) != intent.job.request_hash:
                     raise ValueError("intent request hash mismatch")
@@ -317,9 +339,12 @@ class JobManager:
             queue = Queue.model_validate_json(path.read_bytes())
             if len(set(queue.job_ids)) != len(queue.job_ids):
                 raise ValueError("duplicate queue member")
-            for group in queue.groups:
-                if group.child_job_ids:
-                    raise ValueError("child queues require scheduler support")
+            members = [member for group in queue.groups for member in group.child_job_ids]
+            if len(set(members + queue.job_ids)) != len(members) + len(queue.job_ids):
+                raise ValueError("duplicate queue member")
+            for member in members:
+                if _uuid(member) != member:
+                    raise ValueError("invalid child queue member")
             for job_id in queue.job_ids:
                 if _uuid(job_id) != job_id:
                     raise ValueError("invalid queue member")
@@ -355,11 +380,21 @@ class JobManager:
             self.after_write("job")
         queue = self.queue()
         current = self.get(job.id)
-        if current.state == "queued" and job.id not in queue.job_ids:
-            queue.groups.append(QueueGroup(group_id=job.id))
-            queue.revision += 1
-            self._set_queue(queue)
-            self.after_write("queue")
+        if current.state == "queued":
+            if job.parent_id is None and job.id not in queue.job_ids:
+                queue.groups.append(QueueGroup(group_id=job.id))
+                queue.revision += 1
+                self._set_queue(queue)
+                self.after_write("queue")
+            elif job.parent_id is not None:
+                group = next((g for g in queue.groups if g.group_id == job.parent_id), None)
+                if group is None:
+                    raise JobStorageError("parent queue group is missing")
+                if job.id not in group.child_job_ids:
+                    group.child_job_ids.append(job.id)
+                    queue.revision += 1
+                    self._set_queue(queue)
+                    self.after_write("queue")
         if not intent.committed:
             intent.committed = True
             self._write_intent(intent)
@@ -371,6 +406,7 @@ class JobManager:
         for path in self.root.iterdir():
             if path.is_dir() and path.name != "intents" and path.name not in known:
                 self.diagnostics.append(f"unknown job directory {path.name}")
+        self._reconcile(intents)
         for intent in intents:
             try:
                 self._finish_intent(intent)
@@ -381,34 +417,70 @@ class JobManager:
     def _reconcile(self, intents: list[Intent]) -> None:
         queue = self.queue()
         valid = {i.job.id: i for i in intents if i.committed}
-        retained = []
-        for job_id in queue.job_ids:
+        jobs: dict[str, Job] = {}
+        for job_id in valid:
             try:
-                if job_id not in valid or self.get(job_id).state != "queued":
-                    raise JobStorageError("not a committed queued job")
-                retained.append(job_id)
+                jobs[job_id] = self.get(job_id)
             except JobStorageError as error:
-                self.diagnostics.append(f"queue member {job_id}: {error}")
+                self.diagnostics.append(str(error))
+        groups: list[QueueGroup] = []
+        seen: set[str] = set()
+        for group in queue.groups:
+            job = jobs.get(group.group_id)
+            if (
+                job is None
+                or job.parent_id is not None
+                or (job.type == "automated_pipeline" and job.state in _TERMINAL)
+                or (job.type != "automated_pipeline" and job.state != "queued")
+            ):
+                self.diagnostics.append(f"invalid queue group {group.group_id}")
+                continue
+            children = []
+            for child_id in group.child_job_ids:
+                child = jobs.get(child_id)
+                if child is None or child.parent_id != job.id:
+                    self.diagnostics.append(f"invalid queue child {child_id}")
+                elif child.state == "queued":
+                    children.append(child_id)
+                    seen.add(child_id)
+            groups.append(QueueGroup(group_id=job.id, child_job_ids=children))
+            seen.add(job.id)
         for intent in intents:
-            if intent.committed and intent.job.id not in retained:
-                try:
-                    if self.get(intent.job.id).state == "queued":
-                        retained.append(intent.job.id)
-                except JobStorageError as error:
-                    self.diagnostics.append(str(error))
-        if retained != queue.job_ids:
-            self._set_queue(
-                Queue(
-                    revision=queue.revision + 1, groups=[QueueGroup(group_id=i) for i in retained]
-                )
-            )
+            job = jobs.get(intent.job.id)
+            if job is None or job.id in seen or job.parent_id is not None:
+                continue
+            if job.state == "queued" or (
+                job.type == "automated_pipeline" and job.state not in _TERMINAL
+            ):
+                groups.append(QueueGroup(group_id=job.id))
+                seen.add(job.id)
+        for intent in intents:
+            job = jobs.get(intent.job.id)
+            if job is None or job.id in seen or job.parent_id is None or job.state != "queued":
+                continue
+            group = next((g for g in groups if g.group_id == job.parent_id), None)
+            if group is None:
+                self.diagnostics.append(f"missing parent queue group for {job.id}")
+            else:
+                group.child_job_ids.append(job.id)
+                seen.add(job.id)
+        sequence = {intent.job.id: intent.sequence for intent in intents}
+        for group in groups:
+            group.child_job_ids.sort(key=lambda child_id: sequence[child_id])
+        if groups != queue.groups:
+            self._set_queue(Queue(revision=queue.revision + 1, groups=groups))
 
     def accept(self, key: str, raw_request: Mapping[str, Any]) -> Job:
         with self._lock:
             self._owned()
             key = _uuid(key)
             request = JobRequest.model_validate(raw_request)
-            self.participant.validate(request.model_dump())
+            participant_request = {
+                "type": request.type,
+                "context": request.context,
+                "request": request.request,
+            }
+            self.participant.validate(participant_request)
             digest = _digest(request)
             intents = self._intents()
             for intent in intents:
@@ -417,6 +489,16 @@ class JobManager:
                         raise JobConflict("idempotency key has a different request")
                     self._finish_intent(intent)
                     return self.get(intent.job.id)
+            if request.parent_id is not None:
+                parent = self.get(request.parent_id)
+                if parent.type != "automated_pipeline" or parent.state in _TERMINAL:
+                    raise JobStateError("parent must be an active pipeline")
+                if any(
+                    i.job.parent_id == request.parent_id
+                    and i.job.parent_step_id == request.parent_step_id
+                    for i in intents
+                ):
+                    raise JobConflict("parent step already has a child")
             now = _now()
             job = Job(
                 id=str(uuid4()),
@@ -438,7 +520,22 @@ class JobManager:
             self._owned()
             intents = {i.job.id: i for i in self._intents() if i.committed}
             result = []
-            for job_id in self.queue().job_ids:
+            candidates: list[str] = []
+            for group in self.queue().groups:
+                try:
+                    parent = self.get(group.group_id)
+                except JobStorageError as error:
+                    self.diagnostics.append(str(error))
+                    continue
+                if parent.state == "queued":
+                    candidates.append(parent.id)
+                if (
+                    parent.type == "automated_pipeline"
+                    and parent.state == "waiting"
+                    and group.child_job_ids
+                ):
+                    candidates.append(group.child_job_ids[0])
+            for job_id in candidates:
                 intent = intents.get(job_id)
                 if intent is None:
                     self.diagnostics.append(f"unknown queue member {job_id}")
@@ -449,7 +546,16 @@ class JobManager:
                     if (
                         job.state == "queued"
                         and job.request_hash == intent.job.request_hash
-                        and _digest(JobRequest.model_validate(request)) == intent.job.request_hash
+                        and _digest(
+                            JobRequest.model_validate(
+                                {
+                                    **request,
+                                    "parent_id": job.parent_id,
+                                    "parent_step_id": job.parent_step_id,
+                                }
+                            )
+                        )
+                        == intent.job.request_hash
                         and job.idempotency_key == intent.job.idempotency_key
                         and self.participant.verify(job_id, request)
                     ):
@@ -460,6 +566,24 @@ class JobManager:
                     self.diagnostics.append(str(error))
             return result
 
+    def dependencies_ready(self, job: Job) -> bool:
+        """Require earlier children of a parent to have succeeded."""
+        if job.parent_id is None:
+            return True
+        intents = self._intents()
+        for intent in intents:
+            if intent.job.id == job.id:
+                return True
+            if intent.job.parent_id == job.parent_id:
+                if not intent.committed:
+                    return False
+                try:
+                    if self.get(intent.job.id).state != "succeeded":
+                        return False
+                except JobStorageError:
+                    return False
+        return False
+
     def transition(self, job_id: str, state: State) -> Job:
         with self._lock:
             self._owned()
@@ -468,7 +592,9 @@ class JobManager:
                 raise JobStateError(f"invalid transition {job.state} -> {state}")
             if state == "waiting" and job.type != "automated_pipeline":
                 raise JobStateError("only parent jobs may wait")
-            if state == "running" and job.id not in self.dispatchable():
+            if state == "running" and (
+                job.id not in self.dispatchable() or not self.dependencies_ready(job)
+            ):
                 raise JobStateError("job is not dispatchable")
             now = _now()
             job.state = state
