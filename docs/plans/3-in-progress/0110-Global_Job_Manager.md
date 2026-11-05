@@ -9,7 +9,7 @@
   [0107](../3-in-progress/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0 complete; M1–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M1 complete; M2–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -287,13 +287,15 @@ Acceptance: no in-scope asynchronous producer is unassigned. Decisions cover par
 preview staleness, parent retries, resource fairness, and crashes between each acceptance write.
 No real jobs, data migration, or runtime changes in this milestone.
 
-### M1 — Add durable job records and lifecycle — Not started
+### M1 — Add durable job records and lifecycle — Complete
 
 Implement typed records, state transitions, root ownership, atomic writes, idempotency, and queue
 index reconciliation. Add the acceptance intent mechanism and fake domain-store participant.
 
 Acceptance: restart/crash fixtures prove no lost accepted job, unprotected execution, duplicate
 acceptance, invalid terminal transition, or simultaneous scheduler ownership.
+
+Result: [M1 storage and recovery](../../reports/0110-M1_Job_Storage.md).
 
 ### M2 — Add the scheduler and resource admission — Not started
 
