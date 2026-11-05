@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M7 complete; M8–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M8 complete; M9–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -357,13 +357,15 @@ frames; cancelled work cannot publish an unvalidated completed result.
 
 Result: [M7 proposed card scenes](../../reports/0110-M7_Proposed_Card_Scenes.md).
 
-### M8 — Connect visual identities — Not started
+### M8 — Connect visual identities — Complete
 
 Adapt identity processing and inner workers. Report bounded progress and unusable/failed crop
 outcomes. Connect auto-approval's processing dependency without changing explicit review authority.
 
 Acceptance: exact crop inputs, partial coverage, and human decisions retain their meanings.
 Cancellation and retry do not duplicate completed outputs or exceed the worker budget.
+
+Result: [M8 visual identities](../../reports/0110-M8_Visual_Identities.md).
 
 ### M9 — Connect table observations — Not started
 

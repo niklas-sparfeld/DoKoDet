@@ -36,6 +36,7 @@ from table_evidence_analyzer.table_observation import IdentityCandidate
 from test_visible_card_pipeline_api import (
     RECORDING_ID,
     _Detector,
+    _enqueue_event,
     _EventProvider,
     _FrameResolver,
     _install_recording,
@@ -152,6 +153,61 @@ def test_visual_identity_run_listing_uses_recording_scoped_storage(
 
     assert service.list_runs(RECORDING_ID) == ()
     assert calls == [RECORDING_ID]
+
+
+def test_visual_identity_classification_runs_as_a_managed_job(tmp_path: Any) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=_IdentityProvider(),
+    )
+
+    with TestClient(app) as client:
+        event_response = _enqueue_event(client, {"run_id": "events-for-managed-identity"})
+        assert event_response.status_code == 202, event_response.text
+        event_job_id = event_response.json()["id"]
+        _wait_event(client, event_job_id)
+        event_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_job_id}/result"
+        ).json()["state"]["output_revision_ids"][0]
+
+        visible_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "visible-for-managed-identity",
+                "event_revision_id": event_revision_id,
+                "input_revision_ids": [event_revision_id],
+                "configuration": {"threshold": 0.5},
+            },
+        )
+        assert visible_response.status_code == 202, visible_response.text
+        visible_run_id = visible_response.json()["run_id"]
+        visible_result = _wait(client, visible_run_id)
+        visible_revision_id = visible_result["state"]["output_revision_ids"][0]
+
+        identity_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-managed",
+                "visible_card_revision_id": visible_revision_id,
+            },
+        )
+        assert identity_response.status_code == 202, identity_response.text
+        identity_job_id = identity_response.json()["run_id"]
+        identity_job = _wait_event(client, identity_job_id)
+        identity_job_record = client.get(f"/api/jobs/{identity_job_id}").json()
+        identity_run = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_job_id}"
+        ).json()
+
+    assert identity_job["state"]["status"] == "complete"
+    assert identity_job_record["state"] == "succeeded"
+    assert identity_job_record["inputs"][0]["id"] == visible_revision_id
+    assert identity_run["state"]["status"] == "complete"
+    assert identity_run["request"]["input_revision_ids"] == [visible_revision_id]
 
 
 def test_auto_approval_plan_reuses_one_local_run_and_reports_matching_results(

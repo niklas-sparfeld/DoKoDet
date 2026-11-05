@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 from typing import Any
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from doko_operations.card_plane_calibration import (
     CalibrationRevisionStore,
@@ -87,6 +88,7 @@ from table_evidence_analyzer.visual_identity_crop_input import (
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
+from dokodetector_backend.job_store import Job, JobCancelled, JobManager
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
@@ -233,10 +235,7 @@ class VisualIdentityPipelineService:
             raise ValueError("identity processor concurrency settings must be positive integers")
         self._derived_view_lock = DERIVED_VIEW_CACHE_LOCK
         self.classifier = self._adapt_classifier(identity_classifier)
-        self._executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="visual-identity-pipeline"
-        )
-        self._futures: dict[str, Future[None]] = {}
+        self.job_manager_provider: Any | None = None
         self._lock = RLock()
         # One cold validation per revision, shared by foreground and prewarm requests.
         self._crop_context_lock = RLock()
@@ -246,21 +245,28 @@ class VisualIdentityPipelineService:
         """Keep the service lifecycle symmetrical with the other pipeline services."""
 
     async def stop(self) -> None:
-        self._executor.shutdown(wait=True, cancel_futures=False)
-        with self._lock:
-            self._futures.clear()
+        """The shared Job Manager owns execution shutdown."""
 
     def start_classification(
         self, recording_id: str, payload: Mapping[str, Any]
     ) -> StoredProcessorRun:
-        request = self._build_request(recording_id, payload)
-        run, created = self.run_store.create(request)
-        if not created:
-            return run
-        running = self.run_store.start(run.run_id)
-        with self._lock:
-            self._futures[run.run_id] = self._executor.submit(self._execute, run.run_id)
-        return running
+        if self.job_manager_provider is None:
+            raise VisualIdentityPipelineError("the shared job manager is not available")
+        values = dict(payload)
+        run_id = values.get("run_id")
+        if not isinstance(run_id, str) or not run_id:
+            run_id = str(uuid4())
+            values["run_id"] = run_id
+        key = str(uuid5(NAMESPACE_URL, f"visual-identity-run:{run_id}"))
+        job = self.job_manager_provider().accept(
+            key,
+            {
+                "type": "visual_identity_classification",
+                "context": {"recording_id": recording_id},
+                "request": values,
+            },
+        )
+        return self.get_run(recording_id, job.id)
 
     def get_run(
         self,
@@ -278,18 +284,6 @@ class VisualIdentityPipelineService:
             validate_output_lineage=validate_output_lineage,
         )
         self._require_recording(run.request, recording_id)
-        with self._lock:
-            future = self._futures.get(run_id)
-        if run.state.status == "complete" and future is not None and not future.done():
-            future.result()
-            if revision_cache is not None:
-                revision_cache.clear()
-            run = self.run_store.require(
-                run_id,
-                revision_cache=revision_cache,
-                include_items=include_items,
-                validate_output_lineage=validate_output_lineage,
-            )
         return run
 
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
@@ -940,10 +934,10 @@ class VisualIdentityPipelineService:
 
     def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         self.get_run(recording_id, run_id)
-        retried = self.run_store.retry(run_id)
-        with self._lock:
-            self._futures[run_id] = self._executor.submit(self._execute, run_id)
-        return retried
+        if self.job_manager_provider is None:
+            raise VisualIdentityPipelineError("the shared job manager is not available")
+        job = self.job_manager_provider().retry(run_id, str(uuid4()))
+        return self.get_run(recording_id, job.id)
 
     def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> PipelineSelection:
         expected_revision = payload.get("expected_revision")
@@ -1659,9 +1653,11 @@ class VisualIdentityPipelineService:
                 return item
         return None
 
-    def _execute(self, run_id: str) -> None:
+    def execute_job(self, job: Job, token: Any, manager: JobManager) -> None:
+        run = self.run_store.start(job.id)
         try:
-            run = self.run_store.require(run_id)
+            token.check()
+            run_id = job.id
             if len(run.request.input_revision_ids) != 1 or run.request.crop_input is None:
                 raise VisualIdentityPipelineError("The frozen crop input is unavailable.")
             visible_revision = self.revision_store.require(run.request.input_revision_ids[0])
@@ -1740,6 +1736,7 @@ class VisualIdentityPipelineService:
             pending_candidates: list[tuple[int, Any, Any, VisualIdentityCropInputItem, str]] = []
             completed = 0
             for index, (visible_outcome, candidate, crop_item, item_id) in enumerate(candidates):
+                token.check()
                 item = items_by_index[index]
                 if item is None or item.status != "succeeded":
                     pending_candidates.append(
@@ -1790,6 +1787,7 @@ class VisualIdentityPipelineService:
                     for index, outcome, candidate, crop_item, item_id in pending_candidates
                 }
                 for future in as_completed(futures):
+                    token.check()
                     index = futures[future]
                     outcome, candidate, crop_item, item_id = candidates[index]
                     try:
@@ -1824,6 +1822,13 @@ class VisualIdentityPipelineService:
                         progress=RunProgress(completed=completed, total=len(candidates)),
                         item=item,
                     )
+                    manager.report_progress(
+                        job.id,
+                        phase="Classify visible cards",
+                        completed=completed,
+                        total=len(candidates),
+                        unit="cards",
+                    )
 
             outcomes = [outcome for outcome in outcomes_by_index if outcome is not None]
             items = tuple(item for item in items_by_index if item is not None)
@@ -1832,22 +1837,48 @@ class VisualIdentityPipelineService:
                     "The visual identity classifier did not process all cards."
                 )
             content = VisualIdentityData(outcomes=tuple(outcomes))
-            revision = self._publish_revision(run, content)
-            self.run_store.complete(
-                run_id,
-                [revision.manifest.revision_id],
-                progress=RunProgress(completed=len(items), total=len(candidates)),
-                items=items,
+            token.check()
+            expected_digest = sha256_bytes(canonical_visual_identity_data_bytes(content))
+            expected_revision_id = (
+                f"visual-identities-{_safe(run.run_id)}-attempt-{run.state.attempt}"
             )
-            if run.request.configuration.get("purpose") != _AUTO_APPROVAL_LOCAL_PURPOSE:
-                self._advance_generated_selection(
-                    run.request.source.recording_id, revision.manifest.revision_id
+            output = {
+                "kind": "pipeline_revision",
+                "id": expected_revision_id,
+                "digest": expected_digest,
+                "available": True,
+            }
+
+            def commit() -> None:
+                revision = self._publish_revision(run, content)
+                if (
+                    revision.manifest.revision_id != expected_revision_id
+                    or revision.manifest.content_sha256 != expected_digest
+                ):
+                    raise VisualIdentityPipelineError(
+                        "The identity result changed during publication."
+                    )
+                self.run_store.complete(
+                    run_id,
+                    [revision.manifest.revision_id],
+                    progress=RunProgress(completed=len(items), total=len(candidates)),
+                    items=items,
                 )
-        except VisualIdentityPipelineError as error:
-            self._fail_safely(run_id, "classifier_failed", str(error))
-        except Exception:
-            LOGGER.exception("visual_identity_pipeline_worker_failed")
-            self._fail_safely(run_id, "classifier_failed", "The visual identity classifier failed.")
+                if run.request.configuration.get("purpose") != _AUTO_APPROVAL_LOCAL_PURPOSE:
+                    self._advance_generated_selection(
+                        run.request.source.recording_id, revision.manifest.revision_id
+                    )
+
+            if not manager.publish(job.id, [output], commit):
+                raise JobCancelled("job cancellation requested before identity publication")
+        except JobCancelled:
+            self._fail_safely(run.id, "cancelled", "Identity processing was cancelled.")
+            raise
+        except Exception as error:
+            self._fail_safely(
+                run.id, "classifier_failed", str(error) or "Identity processing failed."
+            )
+            raise
 
     def _process_card(
         self,

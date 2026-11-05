@@ -61,6 +61,7 @@ from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.storage import EvidenceStorage
 from dokodetector_backend.table_observation_store import TableObservationStore
 from dokodetector_backend.visible_card_jobs import VisibleCardJobParticipant
+from dokodetector_backend.visual_identity_jobs import VisualIdentityJobParticipant
 
 if TYPE_CHECKING:
     from table_evidence_analyzer import TableEvidenceAnalyzer
@@ -219,6 +220,9 @@ def create_app(
     app.state.proposed_card_scene_pipeline_service.job_manager_provider = (
         app.state.job_manager_service.get_manager
     )
+    app.state.visual_identity_pipeline_service.job_manager_provider = (
+        app.state.job_manager_service.get_manager
+    )
     event_job_participant = EventJobParticipant(app.state.event_pipeline_service)
     for event_job_type in ("event_processing", "event_import"):
         app.state.job_type_registry.register(
@@ -262,6 +266,21 @@ def create_app(
                 token,
                 app.state.job_manager_service.get_manager(),
             )
+        ),
+        Claims(cpu=1, locks=()),
+    )
+    visual_identity_job_participant = VisualIdentityJobParticipant(
+        app.state.visual_identity_pipeline_service
+    )
+    app.state.job_type_registry.register(
+        "visual_identity_classification",
+        lambda _request: None,
+        visual_identity_job_participant,
+        lambda job, claims, token, participant=visual_identity_job_participant: participant.execute(
+            job,
+            claims,
+            token,
+            app.state.job_manager_service.get_manager(),
         ),
         Claims(cpu=1, locks=()),
     )
