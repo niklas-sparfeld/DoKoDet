@@ -6,10 +6,24 @@ from dokodetector_backend.pipeline_coordinator import (
     PipelineCoordinator,
     PipelineCoordinatorCancelled,
     PipelineCoordinatorError,
+    RetainedPipelineStageExecutor,
     StageDefinition,
     StageExecution,
     frozen_pilot_stage_plan,
 )
+
+
+def test_identity_stage_uses_proposed_card_scene_crop_input() -> None:
+    payload = RetainedPipelineStageExecutor._request_payload(
+        "visual_identity_proposals",
+        "identity-run",
+        {"configuration": {"provider": "local-dino"}},
+        ("scene-proposal-r1",),
+    )
+
+    assert payload["request"]["card_scene_proposal_revision_id"] == "scene-proposal-r1"
+    assert payload["request"]["crop_input_kind"] == "proposed_virtual_cards"
+    assert "visible_card_revision_id" not in payload["request"]
 
 
 def test_coordinator_persists_exact_lineage_and_reuses_completed_stages(tmp_path: Path) -> None:
@@ -101,6 +115,7 @@ def test_frozen_pilot_plan_connects_generated_revisions_to_downstream_stages() -
         "@stage:visible_card_and_pile_proposals",
         "@stage:visual_identity_proposals",
     )
+    assert plan[3].input_revision_ids == ("@stage:card_scene_and_calibration",)
     assert plan[-1].input_revision_ids == ("@stage:table_observations",)
 
 
@@ -143,12 +158,12 @@ def test_coordinator_runs_zero_card_scene_with_exact_inputs_and_reuses_terminal_
         ("event_proposals", ()),
         ("visible_card_and_pile_proposals", ("events-r1",)),
         ("card_scene_and_calibration", ("visible-no-cards-r1",)),
-        ("visual_identity_proposals", ("visible-no-cards-r1",)),
+        ("visual_identity_proposals", ("scene-no-cards-r1",)),
         ("table_observations", ("events-r1", "visible-no-cards-r1", "identity-empty-r1")),
         ("reconstruction", ("observations-r1",)),
     ]
     assert result["stages"][2]["output_revision_ids"] == ["scene-no-cards-r1"]
-    assert result["stages"][3]["input_revision_ids"] == ["visible-no-cards-r1"]
+    assert result["stages"][3]["input_revision_ids"] == ["scene-no-cards-r1"]
     assert result["stages"][4]["input_revision_ids"] == [
         "events-r1",
         "visible-no-cards-r1",

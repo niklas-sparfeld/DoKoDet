@@ -127,7 +127,7 @@ def test_worker_executes_all_stages_and_persists_exact_lineage(tmp_path: Path) -
         "revision-visible_card_and_pile_proposals"
     ]
     assert stages["visual_identity_proposals"]["input_revision_ids"] == [
-        "revision-visible_card_and_pile_proposals"
+        "revision-card_scene_and_calibration"
     ]
     assert stages["table_observations"]["input_revision_ids"] == [
         "empty-revision-event_proposals",

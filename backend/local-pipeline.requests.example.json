@@ -33,7 +33,7 @@
     "configuration": {
       "provider": "local"
     },
-    "crop_input_kind": "rfdetr_segment",
+    "crop_input_kind": "proposed_virtual_cards",
     "crop_policy": {
       "output_encoding": "ppm",
       "policy_id": "predicted_visible_region"

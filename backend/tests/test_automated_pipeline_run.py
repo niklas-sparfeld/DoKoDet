@@ -236,3 +236,7 @@ def test_provider_preflight_freezes_local_models_and_automatic_crop(tmp_path: Pa
         "policy_id": "predicted_visible_region",
         "output_encoding": "ppm",
     }
+    assert (
+        frozen["stage_requests"]["visual_identity_proposals"]["crop_input_kind"]
+        == "proposed_virtual_cards"
+    )

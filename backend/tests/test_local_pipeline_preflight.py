@@ -78,7 +78,7 @@ def test_local_recipe_records_exact_model_choices(recipe):
     assert set(result["devices"].values()) == {"cpu"}
 
 
-def test_coordinator_example_selects_local_models_and_rfdetr_crops():
+def test_coordinator_example_selects_local_models_and_proposed_virtual_card_crops():
     example = Path(__file__).parents[1] / "local-pipeline.requests.example.json"
     requests = json.loads(example.read_text(encoding="utf-8"))
     plan = frozen_pilot_stage_plan(requests)
@@ -88,7 +88,7 @@ def test_coordinator_example_selects_local_models_and_rfdetr_crops():
     )
     identity = requests["visual_identity_proposals"]
     assert identity["configuration"]["provider"] == "local"
-    assert identity["crop_input_kind"] == "rfdetr_segment"
+    assert identity["crop_input_kind"] == "proposed_virtual_cards"
     assert identity["crop_policy"] == {
         "policy_id": "predicted_visible_region",
         "output_encoding": "ppm",

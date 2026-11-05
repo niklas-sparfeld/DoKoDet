@@ -344,9 +344,10 @@ class RetainedPipelineStageExecutor:
         if stage == "visual_identity_proposals":
             if len(input_revision_ids) != 1:
                 raise PipelineCoordinatorError(
-                    "Identity classification needs one visible-card revision."
+                    "Identity classification needs one proposed card-scene revision."
                 )
-            values["visible_card_revision_id"] = input_revision_ids[0]
+            values["card_scene_proposal_revision_id"] = input_revision_ids[0]
+            values["crop_input_kind"] = "proposed_virtual_cards"
             return {"request": values}
         if stage == "table_observations":
             if len(input_revision_ids) != 3:
@@ -492,7 +493,7 @@ def frozen_pilot_stage_plan(
         ("event_proposals", ()),
         ("visible_card_and_pile_proposals", ("@stage:event_proposals",)),
         ("card_scene_and_calibration", ("@stage:visible_card_and_pile_proposals",)),
-        ("visual_identity_proposals", ("@stage:visible_card_and_pile_proposals",)),
+        ("visual_identity_proposals", ("@stage:card_scene_and_calibration",)),
         (
             "table_observations",
             (

@@ -90,6 +90,7 @@ def validate_local_stage_providers(
         "provider": str(getattr(identity_classifier, "name", identity_name)),
         "version": str(getattr(identity_classifier, "version", "unknown")),
         "crop_policy": "predicted_visible_region",
+        "crop_input_kind": "proposed_virtual_cards",
     }
     identity_config.update(identity_facts)
     frozen["visual_identity_proposals"]["configuration"] = identity_config
@@ -97,6 +98,7 @@ def validate_local_stage_providers(
         "policy_id": "predicted_visible_region",
         "output_encoding": "ppm",
     }
+    frozen["visual_identity_proposals"]["crop_input_kind"] = "proposed_virtual_cards"
     identity_bundle = getattr(classifier, "bundle_identity", None)
     providers["visual_identity_proposals"] = {
         **identity_facts,
