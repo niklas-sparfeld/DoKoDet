@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0–M2 are complete; M3–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0–M3 are complete; M4–M10 are not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -154,13 +154,16 @@ copy fixtures retain original creation and the available change chain.
 The [M2 result](../../reports/0107-M2_Item_Provenance.md) records explicit item operations with
 revision-bound evidence and retains creation attribution across copies.
 
-### M3 — Protect downstream uses and create copies — Not started
+### M3 — Protect downstream uses and create copies — Complete
 
 Implement durable accepted-use records and atomic copy-on-first-change. Provide explicit copy and
 historical restore services. Return selected-copy identity and reason to clients.
 
 Acceptance: edit/start races, retries, failed edits, accepted failed runs, repeated edits, and
 concurrent copies preserve exact inputs without duplicate or orphan copies.
+
+The [M3 result](../../reports/0107-M3_Accepted_Use_and_Copies.md) records accepted uses,
+protected edits, explicit copies, restores, idempotency, and interruption recovery.
 
 ### M4 — Record item and overall review decisions — Not started
 

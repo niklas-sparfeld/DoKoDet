@@ -146,8 +146,8 @@ review automatically reviews a derived prediction.
 ## Atomic publication, migration and cutover
 
 M1–M3 implement a transaction boundary shared by accepted-use registration, head updates and copy
-publication. A per-node interprocess lock protects head comparison and acceptance. Acquire multiple
-node locks in sorted ID order. Persist accepted input references and a durable transaction commit
+publication. A shared interprocess transaction lock protects head comparison and acceptance. A per-node lock
+also protects each write. The shared lock serializes multi-input acceptance. Persist accepted input references and a durable transaction commit
 before a worker can read them. Publish content and manifests into a private temporary directory,
 validate and fsync files, then atomically rename and fsync the parent. Commit the head, copy mapping and
 idempotency receipt together through a journaled transaction with recovery; readers expose only

@@ -145,6 +145,27 @@ class ItemProvenanceService:
         evidence: Any = None,
     ) -> NodeRevision:
         current = self.store.read_revision(node_id, expected_revision_id)
+        revision_id = str(uuid4())
+        metadata = self.prepare_change(
+            current, node_id, revision_id, content, pointers, operations, actor, evidence=evidence
+        )
+        return self.store.save(
+            node_id, expected_revision_id, content, metadata, revision_id=revision_id
+        )
+
+    def prepare_change(
+        self,
+        current: NodeRevision,
+        target_node_id: str,
+        revision_id: str,
+        content: Mapping[str, Any],
+        pointers: Mapping[str, str],
+        operations: Sequence[Mapping[str, Any]],
+        actor: Mapping[str, Any],
+        *,
+        evidence: Any = None,
+    ) -> dict[str, Any]:
+        """Validate explicit changes before a revision or copy is published."""
         provenance = _object(current.metadata.get(_KEY), "item provenance")
         if set(provenance) != {"version", "items", "changes"} or provenance["version"] != 1:
             raise ValueError("invalid item provenance")
@@ -161,9 +182,8 @@ class ItemProvenanceService:
         remaining_new = {k for k in new if k not in old or old[k]["sha256"] != new[k]["sha256"]}
         now = _canonical_timestamp(None)
         changes = list(provenance["changes"])
-        revision_id = str(uuid4())
-        before_revision = {"node_id": node_id, "revision_id": expected_revision_id}
-        after_revision = {"node_id": node_id, "revision_id": revision_id}
+        before_revision = {"node_id": current.node_id, "revision_id": current.revision_id}
+        after_revision = {"node_id": target_node_id, "revision_id": revision_id}
         for operation in operations:
             op = _object(operation, "operation")
             if set(op) != {"kind", "before", "after"}:
@@ -200,13 +220,7 @@ class ItemProvenanceService:
             remaining_new.difference_update(after)
         if remaining_old or remaining_new:
             raise ValueError("operations must account for each changed item")
-        return self.store.save(
-            node_id,
-            expected_revision_id,
-            content_data,
-            {_KEY: {"version": 1, "items": new, "changes": changes}},
-            revision_id=revision_id,
-        )
+        return {_KEY: {"version": 1, "items": new, "changes": changes}}
 
     def copy_unchanged(
         self,

@@ -41,6 +41,10 @@ class NodeConflict(ValueError):
     """A node already exists or its working head has changed."""
 
 
+class NodeUsed(NodeConflict):
+    """An accepted run protects this node from direct content edits."""
+
+
 @dataclass(frozen=True)
 class Node:
     node_id: str
@@ -206,6 +210,19 @@ class PipelineNodeStore:
         revision_id: str | None = None,
     ) -> NodeRevision:
         _safe_id(expected_revision_id, "expected_revision_id")
+        with _process_lock(self.root / ".transactions.lock", self._lock):
+            return self._save_under_transaction(
+                node_id, expected_revision_id, content, metadata, revision_id
+            )
+
+    def _save_under_transaction(
+        self,
+        node_id: str,
+        expected_revision_id: str,
+        content: Mapping[str, Any],
+        metadata: Mapping[str, Any],
+        revision_id: str | None,
+    ) -> NodeRevision:
         with _process_lock(self._lock_path(node_id), self._lock):
             node = self.get(node_id)
             if node.head_revision_id != expected_revision_id:
@@ -215,6 +232,12 @@ class PipelineNodeStore:
             metadata_data = _object(metadata, "metadata")
             if content_data == current.content:
                 return current
+            uses_root = self.root / ".accepted-uses"
+            if uses_root.exists():
+                for path in uses_root.glob("*.json"):
+                    record = _read_json(path)
+                    if any(item["node_id"] == node_id for item in record["inputs"]):
+                        raise NodeUsed("accepted downstream use protects this node")
             revision = self._new_revision(
                 node_id,
                 current.revision_id,
