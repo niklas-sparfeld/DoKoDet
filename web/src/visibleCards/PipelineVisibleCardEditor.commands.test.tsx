@@ -399,6 +399,11 @@ describe("PipelineVisibleCardEditor", () => {
         runReads += 1;
         return Promise.resolve(jsonResponse(completeRun));
       }
+      if (url.endsWith("/api/jobs/proposal-poll-1")) {
+        return Promise.resolve(
+          jsonResponse({ id: "proposal-poll-1", state: "succeeded", failure: null }),
+        );
+      }
       return Promise.resolve(
         jsonResponse(url.includes("/result") ? generatedResult() : reference()),
       );

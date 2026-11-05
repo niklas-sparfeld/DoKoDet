@@ -18,6 +18,7 @@ from pydantic import Field
 from dokodetector_backend.contract import ContractModel
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.event_pipeline_service import EventPipelineService
+from dokodetector_backend.job_store import JobStateError
 from dokodetector_backend.observation_pipeline_service import (
     ObservationPipelineError,
     ObservationPipelineInputError,
@@ -458,9 +459,22 @@ def start_proposed_card_scene_run(
 
     validate_recording_id(recording_id)
     try:
-        return run_response(
-            _proposed_card_scene_service(request).start_proposal(recording_id, payload)
+        service = _proposed_card_scene_service(request)
+        run_key = payload.get("run_id")
+        idempotency_key = (
+            uuid5(NAMESPACE_URL, f"proposed-card-scene-run:{run_key}")
+            if isinstance(run_key, str) and run_key
+            else uuid4()
         )
+        job = request.app.state.job_manager_service.get_manager().accept(
+            str(idempotency_key),
+            {
+                "type": "proposed_card_scene_creation",
+                "context": {"recording_id": recording_id},
+                "request": payload,
+            },
+        )
+        return run_response(service.get_run(recording_id, job.id))
     except (ProposedCardScenePipelineInputError, PipelineConflict) as error:
         raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
     except PipelineNotFound as error:
@@ -507,10 +521,18 @@ def retry_proposed_card_scene_run(
     """Retry one failed or partial proposal run."""
 
     try:
-        return run_response(_proposed_card_scene_service(request).retry(recording_id, run_id))
+        service = _proposed_card_scene_service(request)
+        service.get_run(recording_id, run_id)
+        job = request.app.state.job_manager_service.get_manager().retry(run_id, str(uuid4()))
+        return run_response(service.get_run(recording_id, job.id))
     except PipelineNotFound as error:
         raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except (ProposedCardScenePipelineInputError, PipelineConflict, PipelineStateError) as error:
+    except (
+        JobStateError,
+        ProposedCardScenePipelineInputError,
+        PipelineConflict,
+        PipelineStateError,
+    ) as error:
         raise ContractError("invalid_pipeline_retry", str(error), status_code=422) from error
     except ProposedCardScenePipelineError as error:
         raise ContractError("pipeline_unavailable", str(error), status_code=503) from error

@@ -719,18 +719,55 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     async (runId: string, signal?: AbortSignal) => {
       const current = inputRef.current;
       try {
-        const run = await current.client.getProposedCardSceneRun(
+        const job = await current.client.getJob(runId, { signal });
+        const domainRun = await current.client.getProposedCardSceneRun(
           current.recordingId,
           runId,
           { signal },
         );
         if (signal?.aborted) return null;
+        const status =
+          job.state === "succeeded"
+            ? domainRun.status
+            : job.state === "failed" ||
+                job.state === "cancelled" ||
+                job.state === "interrupted"
+              ? "failed"
+              : job.state === "cancelling"
+                ? "running"
+                : job.state === "waiting"
+                  ? "queued"
+                  : job.state;
+        const run = {
+          ...domainRun,
+          status,
+          state:
+            job.state === "failed" ||
+            job.state === "cancelled" ||
+            job.state === "interrupted"
+              ? { ...domainRun.state, terminal_failure: job.failure }
+              : domainRun.state,
+        };
         current.setProposalRun(run);
         current.setProposalRevisionId(readProposalRevisionId(run));
         return run;
       } catch (reason: unknown) {
-        if (!signal?.aborted) current.setProposalError(describeError(reason));
-        return null;
+        if (signal?.aborted) return null;
+        // Older processor runs have no manager record. Keep their domain history readable.
+        try {
+          const run = await current.client.getProposedCardSceneRun(
+            current.recordingId,
+            runId,
+            { signal },
+          );
+          if (signal?.aborted) return null;
+          current.setProposalRun(run);
+          current.setProposalRevisionId(readProposalRevisionId(run));
+          return run;
+        } catch {
+          current.setProposalError(describeError(reason));
+          return null;
+        }
       }
     },
     [],
@@ -743,12 +780,17 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
     current.setProposalLoading(true);
     current.setProposalError(null);
     try {
-      const run = await current.client.startProposedCardSceneRun(
-        current.recordingId,
+      const accepted = await current.client.enqueueJob(
         {
-          run_id: `card-scene-proposal-${Date.now()}`,
-          visible_card_revision_id: revisionId,
+          type: "proposed_card_scene_creation",
+          context: { recording_id: current.recordingId },
+          request: { visible_card_revision_id: revisionId },
         },
+        `proposal-${crypto.randomUUID()}`,
+      );
+      const run = await current.client.getProposedCardSceneRun(
+        current.recordingId,
+        accepted.id,
       );
       current.setProposalRun(run);
       current.setProposalRevisionId(readProposalRevisionId(run));
@@ -767,14 +809,17 @@ export function usePipelineVisibleCardEditorController(input: ControllerInput) {
   const retryProposal = useCallback(async () => {
     const current = inputRef.current;
     const run = current.proposalRun;
-    if (run === null || (run.status !== "failed" && run.status !== "partial"))
-      return;
+    if (run === null || run.status !== "failed") return;
     current.setProposalLoading(true);
     current.setProposalError(null);
     try {
-      const retried = await current.client.retryProposedCardSceneRun(
-        current.recordingId,
+      const accepted = await current.client.retryJob(
         run.run_id,
+        `proposal-retry-${crypto.randomUUID()}`,
+      );
+      const retried = await current.client.getProposedCardSceneRun(
+        current.recordingId,
+        accepted.id,
       );
       current.setProposalRun(retried);
       current.setProposalRevisionId(readProposalRevisionId(retried));

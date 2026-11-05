@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import logging
 import re
-from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import UTC, datetime
-from threading import RLock
 from typing import Any, Mapping
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from doko_operations.card_plane_calibration import CalibrationRevisionStore
 from doko_operations.pipeline_data import (
@@ -23,7 +22,6 @@ from doko_operations.pipeline_data import (
 )
 from doko_operations.proposed_card_scene_processor import (
     PROPOSED_CARD_SCENE_PROCESSOR_TYPE,
-    ProposedCardSceneProcessorError,
     build_proposed_card_scenes,
     visible_card_data_to_local_result,
 )
@@ -35,8 +33,8 @@ from table_evidence_analyzer.pipeline_data import (
 )
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.job_store import Job, JobCancelled, JobManager
 from dokodetector_backend.pipeline_store import (
-    PipelineConflict,
     PipelineNotFound,
     PipelineRevisionStore,
     PipelineRuntimeStorage,
@@ -82,40 +80,229 @@ class ProposedCardScenePipelineService:
         self.run_store = run_store
         self.selection_store = selection_store
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="card-scene-proposal")
-        self._futures: dict[str, Future[None]] = {}
-        self._lock = RLock()
-
-    async def start(self) -> None:
-        """Make proposal runs interrupted by a restart eligible for retry."""
-
-        for status in self.run_store.list_statuses():
-            if (
-                status.processor_type == PROPOSED_CARD_SCENE_PROCESSOR_TYPE
-                and status.status == "running"
-            ):
-                self.run_store.fail(
-                    status.run_id,
-                    RunFailure(
-                        code="backend_restarted",
-                        message="The proposal processor was interrupted by a backend restart.",
-                    ),
-                )
-
-    async def stop(self) -> None:
-        self._executor.shutdown(wait=True, cancel_futures=False)
-        with self._lock:
-            self._futures.clear()
+        self.job_manager_provider: Any | None = None
 
     def start_proposal(self, recording_id: str, payload: Mapping[str, Any]) -> StoredProcessorRun:
+        """Accept a proposal job through the shared manager and return its domain run."""
+        if self.job_manager_provider is None:
+            raise ProposedCardScenePipelineError("the shared job manager is not available")
+        run_id = payload.get("run_id")
+        key = (
+            str(uuid5(NAMESPACE_URL, f"proposed-card-scene-run:{run_id}"))
+            if isinstance(run_id, str) and run_id
+            else str(uuid4())
+        )
+        job = self.job_manager_provider().accept(
+            key,
+            {
+                "type": "proposed_card_scene_creation",
+                "context": {"recording_id": recording_id},
+                "request": dict(payload),
+            },
+        )
+        return self.get_run(recording_id, job.id)
+
+    def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
+        """Create a linked retry through the shared manager."""
+        self.get_run(recording_id, run_id)
+        if self.job_manager_provider is None:
+            raise ProposedCardScenePipelineError("the shared job manager is not available")
+        job = self.job_manager_provider().retry(run_id, str(uuid4()))
+        return self.get_run(recording_id, job.id)
+
+    def freeze_job_request(self, recording_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         request = self._build_request(recording_id, payload)
-        run, created = self.run_store.create(request)
-        if not created:
-            return run
-        running = self.run_store.start(run.run_id)
-        with self._lock:
-            self._futures[run.run_id] = self._executor.submit(self._execute, run.run_id)
-        return running
+        return {
+            "schema": "proposed-card-scene-job-request/v1",
+            "processor_request": request.to_mapping(),
+        }
+
+    def validate_frozen_job_request(self, recording_id: str, frozen: Mapping[str, Any]) -> None:
+        try:
+            request = ProcessorRunRequest.from_mapping(frozen["processor_request"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ProposedCardScenePipelineInputError(
+                "the frozen proposal request is invalid"
+            ) from error
+        if frozen.get("schema") != "proposed-card-scene-job-request/v1":
+            raise ProposedCardScenePipelineInputError("the frozen proposal schema is invalid")
+        if request.source.recording_id != recording_id or len(request.input_revision_ids) != 1:
+            raise ProposedCardScenePipelineInputError("the frozen proposal inputs are invalid")
+        input_revision = self.revision_store.require(request.input_revision_ids[0])
+        producer = input_revision.manifest.producer
+        if (
+            input_revision.manifest.recording_id != recording_id
+            or input_revision.manifest.content_type != "visible_cards"
+            or not isinstance(input_revision.content, VisibleCardData)
+            or input_revision.manifest.origin != "processor"
+            or request.processor_type != PROPOSED_CARD_SCENE_PROCESSOR_TYPE
+            or not isinstance(producer, ProcessorProducer)
+            or producer.processor_type != "visible-card-detection"
+            or producer.model_id is None
+            or not producer.model_id.startswith("local-rfdetr-")
+        ):
+            raise ProposedCardScenePipelineInputError("the frozen visible-card revision is invalid")
+
+    def prepare_job(self, job_id: str, envelope: Mapping[str, Any], after_write: Any) -> None:
+        recording_id = envelope["context"]["recording_id"]
+        frozen = envelope["request"]
+        self.validate_frozen_job_request(recording_id, frozen)
+        values = dict(frozen["processor_request"])
+        values["run_id"] = job_id
+        processor_request = ProcessorRunRequest.from_mapping(values)
+        run, _ = self.run_store.create(processor_request)
+        if run.request.to_mapping() != processor_request.to_mapping():
+            raise ProposedCardScenePipelineInputError("the accepted proposal run conflicts")
+        del after_write
+
+    def verify_job(self, job_id: str, envelope: Mapping[str, Any]) -> bool:
+        try:
+            self.validate_frozen_job_request(
+                envelope["context"]["recording_id"], envelope["request"]
+            )
+            expected = dict(envelope["request"]["processor_request"])
+            expected["run_id"] = job_id
+            return (
+                self.run_store.require(job_id).request.to_mapping()
+                == ProcessorRunRequest.from_mapping(expected).to_mapping()
+            )
+        except (OSError, KeyError, TypeError, ValueError, PipelineNotFound):
+            return False
+
+    def verify_job_publication(self, job: Job, results: list[dict[str, Any]]) -> bool:
+        try:
+            if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
+                return False
+            revision = self.revision_store.require(results[0]["id"])
+            run = self.run_store.require(job.id)
+            return (
+                run.state.status in {"complete", "partial"}
+                and run.state.output_revision_ids == (revision.manifest.revision_id,)
+                and results[0].get("digest") == revision.manifest.content_sha256
+            )
+        except (KeyError, TypeError, ValueError, PipelineNotFound):
+            return False
+
+    def reconcile_job_states(self, jobs: list[Job]) -> None:
+        for job in jobs:
+            if job.type != "proposed_card_scene_creation":
+                continue
+            run = self.run_store.get(job.id)
+            if run is None or run.state.status != "running":
+                continue
+            if job.state == "interrupted":
+                failure = RunFailure(
+                    "backend_restarted", "Proposal processing was interrupted by a backend restart."
+                )
+            elif job.state == "cancelled":
+                failure = RunFailure("cancelled", "Proposal processing was cancelled.")
+            elif job.state == "failed":
+                failure = RunFailure("job_failed", "The proposal job failed.")
+            else:
+                continue
+            self.run_store.fail(job.id, failure)
+
+    def execute_job(self, job: Job, token: Any, manager: JobManager) -> None:
+        run_id = job.id
+        run = self.run_store.start(run_id)
+        try:
+            token.check()
+            source_revision = self.revision_store.require(run.request.input_revision_ids[0])
+            if not isinstance(source_revision.content, VisibleCardData):
+                raise ProposedCardScenePipelineError("the proposal input content is invalid")
+            local_result = visible_card_data_to_local_result(
+                source_revision.content,
+                recording_id=run.request.source.recording_id,
+                source_revision=source_revision.manifest.revision_id,
+            )
+
+            def report_progress(
+                phase: str, completed: int, total: int, message: str, step: int, steps: int
+            ) -> None:
+                token.check()
+                self._report_progress(
+                    run_id,
+                    phase=phase,
+                    completed=completed,
+                    total=total,
+                    message=message,
+                    step=step,
+                    steps=steps,
+                )
+                manager.report_progress(
+                    job.id, phase=message, completed=completed, total=total, unit="frames"
+                )
+
+            processor_result = build_proposed_card_scenes(
+                local_result,
+                detector_revision_id=source_revision.manifest.revision_id,
+                detector_revision_digest=source_revision.manifest.content_sha256,
+                calibration_store=CalibrationRevisionStore(self.settings.operations_root),
+                progress_callback=report_progress,
+            )
+            token.check()
+            if processor_result.data is None:
+                failure = processor_result.failure or {
+                    "code": "proposal_failed",
+                    "message": "The proposal processor failed.",
+                }
+                self._fail_safely(run_id, str(failure["code"]), str(failure["message"]))
+                raise ProposedCardScenePipelineError(str(failure["message"]))
+            revision = self._publish_revision(run, processor_result.data)
+            items = tuple(
+                RunItemOutcome(
+                    item_id=frame.frame_id,
+                    status="succeeded",
+                    result=frame.to_mapping(),
+                    failure=None,
+                )
+                for frame in processor_result.data.frames
+            )
+            progress = RunProgress(completed=len(items), total=len(items))
+            self._report_progress(
+                run_id,
+                phase="complete",
+                completed=len(items),
+                total=len(items),
+                message="Proposed card scenes are ready",
+                step=3,
+                steps=3,
+            )
+            output = {
+                "kind": "pipeline_revision",
+                "id": revision.manifest.revision_id,
+                "digest": revision.manifest.content_sha256,
+                "available": True,
+            }
+
+            def commit() -> None:
+                if processor_result.status == "partial":
+                    self.run_store.partial(
+                        run_id,
+                        progress=progress,
+                        items=items,
+                        output_revision_ids=[revision.manifest.revision_id],
+                        metrics=self._current_metrics(run_id),
+                    )
+                else:
+                    self.run_store.complete(
+                        run_id,
+                        [revision.manifest.revision_id],
+                        progress=progress,
+                        items=items,
+                        metrics=self._current_metrics(run_id),
+                    )
+
+            if not manager.publish(job.id, [output], commit):
+                raise JobCancelled("job cancellation requested before proposal publication")
+        except JobCancelled:
+            self._fail_safely(run_id, "cancelled", "Proposal processing was cancelled.")
+            raise
+        except Exception:
+            self._fail_safely(
+                run_id, "proposal_failed", "The proposed-card-scene processor failed."
+            )
+            raise
 
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
         return tuple(
@@ -142,13 +329,6 @@ class ProposedCardScenePipelineService:
         return run, tuple(
             self.revision_store.require(item) for item in run.state.output_revision_ids
         )
-
-    def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
-        self.get_run(recording_id, run_id)
-        retried = self.run_store.retry(run_id)
-        with self._lock:
-            self._futures[run_id] = self._executor.submit(self._execute, run_id)
-        return retried
 
     def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
         if not isinstance(payload, Mapping):
@@ -224,109 +404,6 @@ class ProposedCardScenePipelineService:
             extraction_policy={"policy_id": "selected-visible-card-revision/v1"},
             crop_policy=None,
         )
-
-    def _execute(self, run_id: str) -> None:
-        try:
-            run = self.run_store.require(run_id)
-            source_revision = self.revision_store.require(run.request.input_revision_ids[0])
-            if not isinstance(source_revision.content, VisibleCardData):
-                raise ProposedCardScenePipelineError("the proposal input content is invalid")
-            local_result = visible_card_data_to_local_result(
-                source_revision.content,
-                recording_id=run.request.source.recording_id,
-                source_revision=source_revision.manifest.revision_id,
-            )
-
-            def report_progress(
-                phase: str,
-                completed: int,
-                total: int,
-                message: str,
-                step: int,
-                steps: int,
-            ) -> None:
-                self._report_progress(
-                    run_id,
-                    phase=phase,
-                    completed=completed,
-                    total=total,
-                    message=message,
-                    step=step,
-                    steps=steps,
-                )
-
-            processor_result = build_proposed_card_scenes(
-                local_result,
-                detector_revision_id=source_revision.manifest.revision_id,
-                detector_revision_digest=source_revision.manifest.content_sha256,
-                calibration_store=CalibrationRevisionStore(self.settings.operations_root),
-                progress_callback=report_progress,
-            )
-            if processor_result.data is None:
-                failure = processor_result.failure or {
-                    "code": "proposal_failed",
-                    "message": "the proposed-card-scene processor failed",
-                    "action": "inspect the selected generated result and retry",
-                }
-                self.run_store.fail(
-                    run_id,
-                    RunFailure(code=str(failure["code"]), message=str(failure["message"])),
-                    metrics={
-                        **self._current_metrics(run_id),
-                        "schema_version": "proposed-card-scene-failure-diagnostics/v1",
-                        "processor_result_digest": processor_result.result_digest,
-                        "calibration_run": (
-                            None
-                            if processor_result.calibration_run is None
-                            else processor_result.calibration_run.to_mapping()
-                        ),
-                    },
-                )
-                return
-            revision = self._publish_revision(run, processor_result.data)
-            items = tuple(
-                RunItemOutcome(
-                    item_id=frame.frame_id,
-                    status="succeeded",
-                    result=frame.to_mapping(),
-                    failure=None,
-                )
-                for frame in processor_result.data.frames
-            )
-            progress = RunProgress(completed=len(items), total=len(items))
-            self._report_progress(
-                run_id,
-                phase="complete",
-                completed=len(items),
-                total=len(items),
-                message="Proposed card scenes are ready",
-                step=3,
-                steps=3,
-            )
-            metrics = self._current_metrics(run_id)
-            if processor_result.status == "partial":
-                self.run_store.partial(
-                    run_id,
-                    progress=progress,
-                    items=items,
-                    output_revision_ids=[revision.manifest.revision_id],
-                    metrics=metrics,
-                )
-            else:
-                self.run_store.complete(
-                    run_id,
-                    [revision.manifest.revision_id],
-                    progress=progress,
-                    items=items,
-                    metrics=metrics,
-                )
-        except (ProposedCardSceneProcessorError, PipelineNotFound, PipelineConflict) as error:
-            self._fail_safely(run_id, "proposal_failed", str(error))
-        except Exception:
-            LOGGER.exception("proposed_card_scene_pipeline_worker_failed")
-            self._fail_safely(
-                run_id, "proposal_failed", "The proposed-card-scene processor failed."
-            )
 
     def _publish_revision(
         self, run: StoredProcessorRun, data: ProposedCardSceneData

@@ -48,6 +48,7 @@ from dokodetector_backend.pipeline_composition import (
     install_pipeline_composition,
 )
 from dokodetector_backend.pipeline_run_preflight import validate_local_stage_providers
+from dokodetector_backend.proposed_card_scene_jobs import ProposedCardSceneJobParticipant
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.recording_thumbnail import RecordingThumbnailCache
 from dokodetector_backend.recordings_api import router as recordings_router
@@ -215,6 +216,9 @@ def create_app(
         event_provider=event_provider,
     )
     install_pipeline_composition(app.state, pipeline_composition)
+    app.state.proposed_card_scene_pipeline_service.job_manager_provider = (
+        app.state.job_manager_service.get_manager
+    )
     event_job_participant = EventJobParticipant(app.state.event_pipeline_service)
     for event_job_type in ("event_processing", "event_import"):
         app.state.job_type_registry.register(
@@ -241,6 +245,23 @@ def create_app(
             claims,
             token,
             app.state.job_manager_service.get_manager(),
+        ),
+        Claims(cpu=1, locks=()),
+    )
+    proposed_card_scene_job_participant = ProposedCardSceneJobParticipant(
+        app.state.proposed_card_scene_pipeline_service
+    )
+    app.state.job_type_registry.register(
+        "proposed_card_scene_creation",
+        lambda _request: None,
+        proposed_card_scene_job_participant,
+        lambda job, claims, token, participant=proposed_card_scene_job_participant: (
+            participant.handle(
+                job,
+                claims,
+                token,
+                app.state.job_manager_service.get_manager(),
+            )
         ),
         Claims(cpu=1, locks=()),
     )

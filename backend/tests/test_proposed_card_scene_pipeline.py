@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
+from uuid import uuid4
 
 import numpy as np
 import pytest
@@ -20,12 +20,16 @@ from table_evidence_analyzer.pipeline_data import (
     canonical_visible_card_data_bytes,
 )
 
+from dokodetector_backend.job_scheduler import Claims
+from dokodetector_backend.job_store import JobCancelled, JobManager
+from dokodetector_backend.jobs_api import JobTypeRegistry
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineRuntimeStorage,
     PipelineSelectionStore,
     ProcessorRunStore,
 )
+from dokodetector_backend.proposed_card_scene_jobs import ProposedCardSceneJobParticipant
 from dokodetector_backend.proposed_card_scene_pipeline_service import (
     ProposedCardScenePipelineInputError,
     ProposedCardScenePipelineService,
@@ -38,29 +42,28 @@ TABLE_TO_IMAGE = np.asarray(
 )
 
 
-def test_start_fails_only_interrupted_proposal_runs(tmp_path: Path) -> None:
+def test_reconcile_fails_only_interrupted_proposal_runs(tmp_path: Path) -> None:
     runs = Mock()
-    runs.list_statuses.return_value = (
-        SimpleNamespace(
-            run_id="proposal-1", processor_type="visible-card-scene-proposal", status="running"
-        ),
-        SimpleNamespace(
-            run_id="detector-1", processor_type="visible-card-detection", status="running"
-        ),
-        SimpleNamespace(
-            run_id="proposal-2", processor_type="visible-card-scene-proposal", status="complete"
-        ),
-    )
+    runs.get.return_value = SimpleNamespace(state=SimpleNamespace(status="running"))
     service = ProposedCardScenePipelineService(
         _Settings(tmp_path), revision_store=Mock(), run_store=runs, selection_store=Mock()
     )
 
-    asyncio.run(service.start())
+    service.reconcile_job_states(
+        [
+            SimpleNamespace(
+                type="proposed_card_scene_creation", id="proposal-1", state="interrupted"
+            ),
+            SimpleNamespace(type="visible_card_detection", id="detector-1", state="interrupted"),
+            SimpleNamespace(
+                type="proposed_card_scene_creation", id="proposal-2", state="succeeded"
+            ),
+        ]
+    )
 
     assert runs.fail.call_count == 1
     assert runs.fail.call_args.args[0] == "proposal-1"
     assert runs.fail.call_args.args[1].code == "backend_restarted"
-    asyncio.run(service.stop())
 
 
 class _Settings:
@@ -135,6 +138,59 @@ def _visible_data() -> VisibleCardData:
     )
 
 
+class _CancellationToken:
+    def check(self) -> None:
+        return
+
+
+class _CancelDuringProcessor(_CancellationToken):
+    def __init__(self) -> None:
+        self.check_count = 0
+
+    def check(self) -> None:
+        self.check_count += 1
+        if self.check_count == 2:
+            raise JobCancelled("cancel requested")
+
+
+def _run_proposal_job(
+    service: ProposedCardScenePipelineService,
+    recording_id: str,
+    revision_id: str,
+    token: _CancellationToken | None = None,
+):
+    registry = JobTypeRegistry(service.settings.operations_root)
+    participant = ProposedCardSceneJobParticipant(service)
+    registry.register(
+        "proposed_card_scene_creation",
+        lambda _request: None,
+        participant,
+        lambda _job, _claims, _token: None,
+        Claims(cpu=1),
+    )
+    manager = JobManager(
+        service.settings.operations_root,
+        registry,
+        verify_publication=registry.verify_publication,
+    )
+    with manager:
+        job = manager.accept(
+            str(uuid4()),
+            {
+                "type": "proposed_card_scene_creation",
+                "context": {"recording_id": recording_id},
+                "request": {"visible_card_revision_id": revision_id},
+            },
+        )
+        job = manager.transition(job.id, "running")
+        try:
+            service.execute_job(job, token or _CancellationToken(), manager)
+        except JobCancelled:
+            manager.transition(job.id, "cancelling")
+            manager.transition(job.id, "cancelled")
+        return manager.get(job.id)
+
+
 def test_service_publishes_proposal_without_changing_detector_input(
     tmp_path: Path,
 ) -> None:
@@ -174,15 +230,12 @@ def test_service_publishes_proposal_without_changing_detector_input(
     service = ProposedCardScenePipelineService(
         _Settings(tmp_path), revision_store=revisions, run_store=runs, selection_store=selections
     )
-    started = service.start_proposal(
-        source.recording_id,
-        {"run_id": "proposal-run-001", "visible_card_revision_id": input_revision.revision_id},
-    )
-    asyncio.run(service.stop())
-    result = service.get_run(source.recording_id, started.run_id)
+    started = _run_proposal_job(service, source.recording_id, input_revision.revision_id)
+    result = service.get_run(source.recording_id, started.id)
 
     assert result.state.status == "complete"
-    assert [run.run_id for run in service.list_runs(source.recording_id)] == [started.run_id]
+    assert [run.run_id for run in service.list_runs(source.recording_id)] == [started.id]
+    assert started.state == "succeeded"
     assert len(result.state.output_revision_ids) == 1
     assert result.state.terminal_failure is None
     assert result.state.progress.completed == result.state.progress.total == len(content.outcomes)
@@ -271,12 +324,8 @@ def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
         _Settings(tmp_path), revision_store=revisions, run_store=runs, selection_store=selections
     )
 
-    started = service.start_proposal(
-        source.recording_id,
-        {"run_id": "proposal-zero-only", "visible_card_revision_id": input_revision.revision_id},
-    )
-    asyncio.run(service.stop())
-    result = service.get_run(source.recording_id, started.run_id)
+    started = _run_proposal_job(service, source.recording_id, input_revision.revision_id)
+    result = service.get_run(source.recording_id, started.id)
 
     assert result.state.status == "complete"
     assert result.state.terminal_failure is None
@@ -295,6 +344,59 @@ def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
     assert output.frames[0].pile_regions[0].pile_id == "pile-001"
     assert output.frames[0].source_identity is not None
     assert all(frame.status == "no_cards_detected" for frame in output.frames)
+
+
+def test_cancelled_proposal_does_not_publish_a_completed_revision(tmp_path: Path) -> None:
+    runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
+    revisions = PipelineRevisionStore(runtime)
+    runs = ProcessorRunStore(runtime, revision_store=revisions)
+    selections = PipelineSelectionStore(runtime, revision_store=revisions, run_store=runs)
+    source = RecordingVideoSource(
+        recording_id="recording-cancel",
+        relative_path="recordings/recording-cancel/video.mov",
+        video_sha256=DIGEST,
+        byte_length=100,
+        duration_us=20_000_000,
+    )
+    content = _visible_data()
+    input_revision = DataRevision(
+        revision_id="visible-cards-cancel",
+        content_type="visible_cards",
+        content_schema="visible-card-data/v1",
+        recording_id=source.recording_id,
+        source=source,
+        content_sha256=sha256_bytes(canonical_visible_card_data_bytes(content)),
+        input_revision_ids=(),
+        origin="processor",
+        producer=ProcessorProducer(
+            run_id="detector-run-cancel",
+            processor_type="visible-card-detection",
+            implementation_id="local-rfdetr-fine-frame/v1",
+            model_id="local-rfdetr-fine-frame",
+        ),
+        coverage={"kind": "requested-event-frames"},
+        created_at="2026-09-21T10:00:00Z",
+    )
+    revisions.publish(input_revision, content)
+    service = ProposedCardScenePipelineService(
+        _Settings(tmp_path), revision_store=revisions, run_store=runs, selection_store=selections
+    )
+
+    job = _run_proposal_job(
+        service,
+        source.recording_id,
+        input_revision.revision_id,
+        _CancelDuringProcessor(),
+    )
+
+    run = service.get_run(source.recording_id, job.id)
+    assert job.state == "cancelled"
+    assert run.state.status == "failed"
+    assert run.state.output_revision_ids == ()
+    assert not any(
+        item.manifest.content_type == "card_scene_proposals"
+        for item in revisions.list_for_recording(source.recording_id)
+    )
 
 
 def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> None:
@@ -334,11 +436,10 @@ def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> Non
     )
 
     with pytest.raises(ProposedCardScenePipelineInputError, match="generated local RF-DETR"):
-        service.start_proposal(
+        service.freeze_job_request(
             source.recording_id,
             {
                 "run_id": "proposal-run-gemini",
                 "visible_card_revision_id": input_revision.revision_id,
             },
         )
-    asyncio.run(service.stop())
