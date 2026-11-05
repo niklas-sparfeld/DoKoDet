@@ -48,6 +48,7 @@ let package = Package(
                 "Core/DeviceTablePlaneFitSeed.swift",
                 "Core/DeviceTablePlaneBoundaryFit.swift",
                 "Core/DeviceRecordingCalibration.swift",
+                "Core/DeviceCalibrationRefinement.swift",
                 "Inference/RfdetrCoreMLRunner.swift",
                 "Core/CausalEventDecoder.swift",
                 "Core/EvidenceCaptureConfiguration.swift",

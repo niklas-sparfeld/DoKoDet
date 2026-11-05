@@ -8,8 +8,9 @@
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M13.
-- **Outcome:** M0–M6 complete. M7–M13 remain. The iOS package now derives a deterministic
-  table-plane fit candidate from robust boundary evidence. Live capture retains event proposals and frame timing;
+- **Outcome:** M0–M7 complete. M8–M13 remain. The iOS package now derives a deterministic
+  table-plane fit candidate from robust boundary evidence and calculates immutable calibration
+  refinement previews. Live capture retains event proposals and frame timing;
   the visible-card stage retains event-frame provenance, model lineage, and proposal outcomes. No
   device result or model-quality claim exists.
 
@@ -153,14 +154,18 @@ frozen visible-card revision adapter, retained candidate evidence, Python fixtur
 simulator verification. Contour-derived quality values use the normalized M2 polygons. They remain
 diagnostic inputs and do not qualify the detector.
 
-### M7 — Refine calibration from anchors
+### M7 — Refine calibration from anchors — Complete
 
 Port `card_plane_calibration_refinement.py` as an immutable preview calculation. Preserve anchor
 eligibility, deduplication, weighted fitting, displacement gates, and source revision lineage.
 Previews must not mutate a published calibration or a maintained reference.
 
-Acceptance: fixtures compare eligible and rejected anchors, weighted fit results, gate failures,
-and a successful preview with Python. Verify that the base calibration remains unchanged.
+Acceptance: the Python fixture compares eligible and deduplicated anchors, weighted fit results,
+gate values, and a successful preview. Tests cover stale calibration lineage, insufficient anchors,
+and an unchanged base calibration.
+
+The [M7 result](../../reports/0106-M7_Calibration_Refinement.md) records the immutable preview,
+lineage checks, fit and gate comparisons, and numeric limits.
 
 ### M8 — Initialize proposed card scenes
 

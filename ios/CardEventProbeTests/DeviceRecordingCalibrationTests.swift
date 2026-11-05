@@ -92,6 +92,193 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
     XCTAssertTrue(calibration.tableToImage.rows.flatMap { $0 }.allSatisfy(\.isFinite))
   }
 
+  func testCalibrationRefinementReturnsImmutablePreviewAndDeduplicatesAnchors() throws {
+    let observations = try syntheticObservations()
+    let result = try DeviceRecordingCalibrationSelector.calibrate(
+      recordingID: "recording-1", visibleCardRevisionID: "visible-cards-r1",
+      observations: observations)
+    let base = try XCTUnwrap(result.calibration)
+    let anchors = observations.prefix(9).enumerated().map { index, item in
+      DeviceCalibrationAnchor(
+        anchorID: "anchor-\(index)", cardID: "card-\(index)", frameID: item.frameID,
+        frameDigest: String(repeating: "a", count: 64), quadrilateral: item.quadrilateral,
+        confidence: item.confidence, temporalBin: "t-\(index)",
+        tableRegionBin: "r-\(index)", scaleBin: "s", orientationBin: "o-\(index % 2)",
+        eligible: true)
+    }
+    var duplicated = anchors
+    duplicated.append(
+      DeviceCalibrationAnchor(
+        anchorID: "anchor-duplicate", cardID: "card-duplicate", frameID: anchors[1].frameID,
+        frameDigest: anchors[1].frameDigest, quadrilateral: anchors[1].quadrilateral,
+        confidence: 0.5, temporalBin: anchors[1].temporalBin,
+        tableRegionBin: anchors[1].tableRegionBin, scaleBin: anchors[1].scaleBin,
+        orientationBin: anchors[1].orientationBin, eligible: true))
+
+    let draft = refinementDraft(anchors: duplicated, base: base)
+    let preview = try DeviceCalibrationRefinement.preview(draft: draft, base: base)
+
+    XCTAssertEqual(preview.status, "pass")
+    XCTAssertEqual(preview.deduplicatedAnchorIDs, ["anchor-duplicate"])
+    XCTAssertNotNil(preview.fitResult)
+    XCTAssertEqual(base.calibrationDigest, result.calibration?.calibrationDigest)
+    XCTAssertEqual(preview.baseCalibrationDigest, base.calibrationDigest)
+    XCTAssertEqual(preview.gates.count, 5)
+  }
+
+  func testCalibrationRefinementBlocksInsufficientAnchorsWithoutChangingBase() throws {
+    let result = try DeviceRecordingCalibrationSelector.calibrate(
+      recordingID: "recording-1", visibleCardRevisionID: "visible-cards-r1",
+      observations: try syntheticObservations())
+    let base = try XCTUnwrap(result.calibration)
+    let preview = try DeviceCalibrationRefinement.preview(
+      draft: refinementDraft(anchors: [], base: base), base: base)
+
+    XCTAssertEqual(preview.status, "blocked")
+    XCTAssertEqual(preview.failureCode, "insufficient_anchors")
+    XCTAssertNil(preview.fitResult)
+    XCTAssertEqual(preview.baseCalibrationDigest, base.calibrationDigest)
+  }
+
+  func testCalibrationRefinementMatchesPythonPreviewFixture() throws {
+    let url = try XCTUnwrap(
+      Bundle.module.url(
+        forResource: "device_calibration_refinement_python_v1", withExtension: "json",
+        subdirectory: "Fixtures"))
+    let root = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    let base = try calibration(root["base_calibration"])
+    let rawAnchors = try XCTUnwrap(root["anchors"] as? [[String: Any]])
+    let anchors = try rawAnchors.map { raw in
+      DeviceCalibrationAnchor(
+        anchorID: try XCTUnwrap(raw["anchor_id"] as? String),
+        cardID: try XCTUnwrap(raw["card_id"] as? String),
+        frameID: try XCTUnwrap(raw["source_frame_id"] as? String),
+        frameDigest: try XCTUnwrap(raw["source_frame_digest"] as? String),
+        quadrilateral: try points(raw["quadrilateral"]),
+        confidence: try XCTUnwrap(raw["confidence"] as? Double),
+        temporalBin: try XCTUnwrap(raw["temporal_bin"] as? String),
+        tableRegionBin: try XCTUnwrap(raw["table_region_bin"] as? String),
+        scaleBin: try XCTUnwrap(raw["scale_bin"] as? String),
+        orientationBin: try XCTUnwrap(raw["orientation_bin"] as? String),
+        eligible: try XCTUnwrap(raw["eligible"] as? Bool),
+        eligibilityReason: raw["eligibility_reason"] as? String,
+        state: try XCTUnwrap(raw["state"] as? String),
+        weightClass: try XCTUnwrap(raw["weight_class"] as? String))
+    }
+    let sourceDigests = try XCTUnwrap(root["source_frame_digests"] as? [String: String])
+    let draft = DeviceCalibrationRefinementDraft(
+      draftID: try XCTUnwrap(root["draft_id"] as? String),
+      detectorRevisionID: try XCTUnwrap(root["detector_revision_id"] as? String),
+      detectorRevisionDigest: try XCTUnwrap(root["detector_revision_digest"] as? String),
+      baseCalibrationRevisionID: base.calibrationRevisionID,
+      baseCalibrationDigest: base.calibrationDigest,
+      sourceFrameDigests: sourceDigests, anchors: anchors)
+    let preview = try DeviceCalibrationRefinement.preview(draft: draft, base: base)
+    let expected = try XCTUnwrap(root["expected"] as? [String: Any])
+
+    XCTAssertEqual(preview.status, expected["status"] as? String)
+    XCTAssertEqual(preview.failureCode, expected["failure_code"] as? String)
+    XCTAssertEqual(preview.eligibleAnchorIDs, expected["eligible_anchor_ids"] as? [String])
+    XCTAssertEqual(preview.acceptedAnchorCount, expected["accepted_anchor_count"] as? Int)
+    XCTAssertEqual(preview.deduplicatedAnchorIDs.count, 0)
+    XCTAssertEqual(
+      preview.fitResidual, try XCTUnwrap(expected["fit_residual"] as? Double), accuracy: 0.01)
+    XCTAssertEqual(
+      preview.heldOutAlignmentChangePixels,
+      try XCTUnwrap(expected["held_out_alignment_change_px"] as? Double), accuracy: 3.0)
+    let fit = try XCTUnwrap(preview.fitResult)
+    let imagePoints = try [
+      DevicePoint2D(x: 0, y: 0), DevicePoint2D(x: 1920, y: 0),
+      DevicePoint2D(x: 1920, y: 1080), DevicePoint2D(x: 0, y: 1080),
+      DevicePoint2D(x: 960, y: 540),
+    ]
+    let expectedLandmarks = try points(expected["image_landmarks"])
+    let actualLandmarks = try fit.imageToTable.apply(to: imagePoints)
+    XCTAssertLessThan(zip(expectedLandmarks, actualLandmarks).map(distance).max() ?? .infinity, 0.1)
+    let expectedGates = try XCTUnwrap(expected["gates"] as? [[String: Any]])
+    XCTAssertEqual(preview.gates.map(\.id), expectedGates.compactMap { $0["gate_id"] as? String })
+    XCTAssertEqual(
+      preview.gates.map(\.passed), expectedGates.compactMap { $0["passed"] as? Bool })
+
+    let firstAnchor = try XCTUnwrap(anchors.first)
+    let duplicate = DeviceCalibrationAnchor(
+      anchorID: "anchor-duplicate", cardID: "card-duplicate", frameID: firstAnchor.frameID,
+      frameDigest: firstAnchor.frameDigest, quadrilateral: firstAnchor.quadrilateral,
+      confidence: 0.1, temporalBin: firstAnchor.temporalBin,
+      tableRegionBin: firstAnchor.tableRegionBin, scaleBin: firstAnchor.scaleBin,
+      orientationBin: firstAnchor.orientationBin, eligible: true)
+    let duplicateDraft = DeviceCalibrationRefinementDraft(
+      draftID: draft.draftID, detectorRevisionID: draft.detectorRevisionID,
+      detectorRevisionDigest: draft.detectorRevisionDigest,
+      baseCalibrationRevisionID: base.calibrationRevisionID,
+      baseCalibrationDigest: base.calibrationDigest,
+      sourceFrameDigests: sourceDigests, anchors: anchors + [duplicate])
+    let deduplicated = try DeviceCalibrationRefinement.preview(draft: duplicateDraft, base: base)
+    XCTAssertEqual(
+      deduplicated.deduplicatedAnchorIDs,
+      try XCTUnwrap(root["expected_deduplicated_anchor_ids"] as? [String]))
+
+    let emptyDraft = DeviceCalibrationRefinementDraft(
+      draftID: draft.draftID, detectorRevisionID: draft.detectorRevisionID,
+      detectorRevisionDigest: draft.detectorRevisionDigest,
+      baseCalibrationRevisionID: base.calibrationRevisionID,
+      baseCalibrationDigest: base.calibrationDigest,
+      sourceFrameDigests: sourceDigests, anchors: [])
+    let insufficient = try DeviceCalibrationRefinement.preview(draft: emptyDraft, base: base)
+    let expectedInsufficient = try XCTUnwrap(
+      root["expected_insufficient_anchors"] as? [String: Any])
+    XCTAssertEqual(insufficient.status, expectedInsufficient["status"] as? String)
+    XCTAssertEqual(insufficient.failureCode, expectedInsufficient["failure_code"] as? String)
+    XCTAssertNil(insufficient.fitResult)
+  }
+
+  func testCalibrationRefinementRejectsStaleCalibrationLineage() throws {
+    let result = try DeviceRecordingCalibrationSelector.calibrate(
+      recordingID: "recording-1", visibleCardRevisionID: "visible-cards-r1",
+      observations: try syntheticObservations())
+    let base = try XCTUnwrap(result.calibration)
+    let draft = refinementDraft(anchors: [], base: base)
+    let staleDraft = DeviceCalibrationRefinementDraft(
+      draftID: draft.draftID, detectorRevisionID: draft.detectorRevisionID,
+      detectorRevisionDigest: draft.detectorRevisionDigest,
+      baseCalibrationRevisionID: "old-calibration",
+      baseCalibrationDigest: draft.baseCalibrationDigest,
+      sourceFrameDigests: draft.sourceFrameDigests, anchors: draft.anchors)
+
+    let preview = try DeviceCalibrationRefinement.preview(draft: staleDraft, base: base)
+
+    XCTAssertEqual(preview.status, "blocked")
+    XCTAssertEqual(preview.failureCode, "stale_calibration_revision")
+    XCTAssertNil(preview.fitResult)
+    XCTAssertEqual(preview.detectorRevisionDigest, draft.detectorRevisionDigest)
+  }
+
+  func testCalibrationRefinementBlocksConflictingPinnedAnchors() throws {
+    let observations = try syntheticObservations()
+    let result = try DeviceRecordingCalibrationSelector.calibrate(
+      recordingID: "recording-1", visibleCardRevisionID: "visible-cards-r1",
+      observations: observations)
+    let base = try XCTUnwrap(result.calibration)
+    let first = observations[0]
+    let second = observations[1]
+    let pinned = [first, second].enumerated().map { index, item in
+      DeviceCalibrationAnchor(
+        anchorID: "pin-\(index)", cardID: "card-\(index)", frameID: item.frameID,
+        frameDigest: String(repeating: "a", count: 64), quadrilateral: item.quadrilateral,
+        confidence: 0.99, temporalBin: "same-time", tableRegionBin: "same-region",
+        scaleBin: "same-scale", orientationBin: "same-orientation", eligible: true,
+        state: "pinned")
+    }
+    let draft = refinementDraft(anchors: pinned, base: base)
+
+    let preview = try DeviceCalibrationRefinement.preview(draft: draft, base: base)
+
+    XCTAssertEqual(preview.status, "blocked")
+    XCTAssertEqual(preview.failureCode, "conflicting_pinned_anchors")
+    XCTAssertNil(preview.fitResult)
+  }
+
   func testDoesNotPublishInsufficientInput() throws {
     let result = try DeviceRecordingCalibrationSelector.calibrate(
       recordingID: "recording-1", visibleCardRevisionID: "visible-cards-r1",
@@ -219,6 +406,46 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
         frameWidth: 1920, frameHeight: 1080, sourceTransformID: "camera-transform-1",
         confidence: 0.98, quadrilateral: quad)
     }
+  }
+
+  private func refinementDraft(
+    anchors: [DeviceCalibrationAnchor], base: DeviceRecordingCalibration
+  ) -> DeviceCalibrationRefinementDraft {
+    DeviceCalibrationRefinementDraft(
+      draftID: "draft-1", detectorRevisionID: base.visibleCardRevisionID,
+      detectorRevisionDigest: String(repeating: "d", count: 64),
+      baseCalibrationRevisionID: base.calibrationRevisionID,
+      baseCalibrationDigest: base.calibrationDigest,
+      sourceFrameDigests: Dictionary(
+        anchors.map { ($0.frameID, $0.frameDigest) }, uniquingKeysWith: { first, _ in first }),
+      anchors: anchors)
+  }
+
+  private func calibration(_ raw: Any?) throws -> DeviceRecordingCalibration {
+    let value = try XCTUnwrap(raw as? [String: Any])
+    let diagnostics = try XCTUnwrap(value["diagnostics"] as? [String: Any])
+    let evidence = try XCTUnwrap(diagnostics["candidate_evidence"] as? [[String: Any]])
+    let accepted = evidence.filter { $0["accepted"] as? Bool == true }.compactMap {
+      $0["candidate_id"] as? String
+    }
+    return DeviceRecordingCalibration(
+      calibrationRevisionID: try XCTUnwrap(value["calibration_revision_id"] as? String),
+      recordingID: try XCTUnwrap(value["recording_id"] as? String),
+      visibleCardRevisionID: try XCTUnwrap(value["source_revision"] as? String),
+      frameWidth: try XCTUnwrap(value["frame_width"] as? Int),
+      frameHeight: try XCTUnwrap(value["frame_height"] as? Int),
+      imageToTable: try DeviceHomography(rows: matrix(value["image_to_table"])),
+      tableToImage: try DeviceHomography(rows: matrix(value["table_to_image"])),
+      cardShortSize: try XCTUnwrap(value["card_short_size"] as? Double),
+      cardLongSize: try XCTUnwrap(value["card_long_size"] as? Double),
+      acceptedCandidateIDs: accepted,
+      schemaVersion: try XCTUnwrap(value["schema_version"] as? String),
+      geometryAlgorithmVersion: try XCTUnwrap(value["algorithm_version"] as? String),
+      coordinateSystem: try XCTUnwrap(value["coordinate_system"] as? String),
+      cornerOrder: try XCTUnwrap(value["corner_order"] as? String),
+      angleConvention: try XCTUnwrap(value["angle_convention"] as? String),
+      recipeDigest: (diagnostics["recipe_digest"] as? String) ?? String(repeating: "e", count: 64),
+      candidateReceiptDigests: try XCTUnwrap(value["candidate_receipt_digests"] as? [String]))
   }
 
   private func points(_ raw: Any?) throws -> [DevicePoint2D] {

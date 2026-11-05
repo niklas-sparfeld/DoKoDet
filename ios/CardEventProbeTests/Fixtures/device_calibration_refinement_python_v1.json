@@ -1,0 +1,530 @@
+{
+  "anchors": [
+    {
+      "anchor_id": "anchor-000",
+      "card_id": "card-000",
+      "confidence": 0.99,
+      "detector_revision_id": "detector-1",
+      "eligibility_reason": null,
+      "eligible": true,
+      "observation_digest": "7644d19c3bae64affb93ca86d4062fa16e3027555357261396efbdf70995ab20",
+      "orientation_bin": "o-0",
+      "quadrilateral": [
+        [
+          345.138055,
+          157.563025
+        ],
+        [
+          465.093019,
+          172.534507
+        ],
+        [
+          494.802079,
+          322.371052
+        ],
+        [
+          374.925015,
+          307.438512
+        ]
+      ],
+      "scale_bin": "s-1",
+      "schema_version": "calibration-anchor-observation/v1",
+      "source_frame_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+      "source_frame_id": "frame-000",
+      "state": "candidate",
+      "table_region_bin": "r-0",
+      "temporal_bin": "t-0",
+      "weight_class": "candidate"
+    },
+    {
+      "anchor_id": "anchor-001",
+      "card_id": "card-001",
+      "confidence": 0.99,
+      "detector_revision_id": "detector-1",
+      "eligibility_reason": null,
+      "eligible": true,
+      "observation_digest": "af971d568b4d87879fd6148da110b04ff7ebc94a958c72e3d1dedf8f0f2d0039",
+      "orientation_bin": "o-1",
+      "quadrilateral": [
+        [
+          836.531695,
+          212.825449
+        ],
+        [
+          957.856137,
+          241.524108
+        ],
+        [
+          961.978933,
+          386.624938
+        ],
+        [
+          840.722493,
+          357.978897
+        ]
+      ],
+      "scale_bin": "s-1",
+      "schema_version": "calibration-anchor-observation/v1",
+      "source_frame_digest": "0000000000000000000000000000000000000000000000000000000000000002",
+      "source_frame_id": "frame-001",
+      "state": "candidate",
+      "table_region_bin": "r-1",
+      "temporal_bin": "t-1",
+      "weight_class": "candidate"
+    },
+    {
+      "anchor_id": "anchor-002",
+      "card_id": "card-002",
+      "confidence": 0.99,
+      "detector_revision_id": "detector-1",
+      "eligibility_reason": null,
+      "eligible": true,
+      "observation_digest": "97b6897ebedb94fcada8f7e12ee3c3d07815adeb14011ae7aa938476c2d01583",
+      "orientation_bin": "o-2",
+      "quadrilateral": [
+        [
+          1328.360053,
+          269.690871
+        ],
+        [
+          1448.641435,
+          311.529015
+        ],
+        [
+          1427.191701,
+          449.087632
+        ],
+        [
+          1306.963167,
+          407.311666
+        ]
+      ],
+      "scale_bin": "s-1",
+      "schema_version": "calibration-anchor-observation/v1",
+      "source_frame_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+      "source_frame_id": "frame-002",
+      "state": "candidate",
+      "table_region_bin": "r-2",
+      "temporal_bin": "t-2",
+      "weight_class": "candidate"
+    },
+    {
+      "anchor_id": "anchor-003",
+      "card_id": "card-003",
+      "confidence": 0.99,
+      "detector_revision_id": "detector-1",
+      "eligibility_reason": null,
+      "eligible": true,
+      "observation_digest": "20c519e92786227fbeedfe5bd7710c0585a81c40573aac598a95282c3b478597",
+      "orientation_bin": "o-0",
+      "quadrilateral": [
+        [
+          404.676259,
+          457.134293
+        ],
+        [
+          524.475524,
+          472.027972
+        ],
+        [
+          554.113419,
+          621.505591
+        ],
+        [
+          434.391851,
+          606.650689
+        ]
+      ],
+      "scale_bin": "s-1",
+      "schema_version": "calibration-anchor-observation/v1",
+      "source_frame_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+      "source_frame_id": "frame-003",
+      "state": "candidate",
+      "table_region_bin": "r-3",
+      "temporal_bin": "t-3",
+      "weight_class": "candidate"
+    },
+    {
+      "anchor_id": "anchor-004",
+      "card_id": "card-004",
+      "confidence": 0.99,
+      "detector_revision_id": "detector-1",
+      "eligibility_reason": null,
+      "eligible": true,
+      "observation_digest": "0c7e3cc9f222e83b50bfedc7a4b685c83a355cdc7ed7a4a52f112ebbb5e036bc",
+      "orientation_bin": "o-1",
+      "quadrilateral": [
+        [
+          895.433794,
+          512.092149
+        ],
+        [
+          1016.597999,
+          540.680643
+        ],
+        [
+          1020.683487,
+          685.442909
+        ],
+        [
+          899.587106,
+          656.906824
+        ]
+      ],
+      "scale_bin": "s-1",
+      "schema_version": "calibration-anchor-observation/v1",
+      "source_frame_digest": "0000000000000000000000000000000000000000000000000000000000000005",
+      "source_frame_id": "frame-004",
+      "state": "candidate",
+      "table_region_bin": "r-4",
+      "temporal_bin": "t-4",
+      "weight_class": "candidate"
+    },
+    {
+      "anchor_id": "anchor-005",
+      "card_id": "card-005",
+      "confidence": 0.99,
+      "detector_revision_id": "detector-1",
+      "eligibility_reason": null,
+      "eligible": true,
+      "observation_digest": "5d664062e9eb6ddf7ee0393e4fff793905e612b9c09f2d818822aa8226feb25b",
+      "orientation_bin": "o-2",
+      "quadrilateral": [
+        [
+          1386.626083,
+          568.64923
+        ],
+        [
+          1506.745938,
+          610.34711
+        ],
+        [
+          1485.293245,
+          747.594018
+        ],
+        [
+          1365.226095,
+          705.958078
+        ]
+      ],
+      "scale_bin": "s-1",
+      "schema_version": "calibration-anchor-observation/v1",
+      "source_frame_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+      "source_frame_id": "frame-005",
+      "state": "candidate",
+      "table_region_bin": "r-5",
+      "temporal_bin": "t-5",
+      "weight_class": "candidate"
+    },
+    {
+      "anchor_id": "anchor-006",
+      "card_id": "card-006",
+      "confidence": 0.99,
+      "detector_revision_id": "detector-1",
+      "eligibility_reason": null,
+      "eligible": true,
+      "observation_digest": "049b8866953b111b253de4a7d434f1cfcc944f39142891d7335be77cf040ebbe",
+      "orientation_bin": "o-0",
+      "quadrilateral": [
+        [
+          464.071856,
+          755.988024
+        ],
+        [
+          583.715825,
+          770.804231
+        ],
+        [
+          613.282808,
+          919.924212
+        ],
+        [
+          493.716338,
+          905.146619
+        ]
+      ],
+      "scale_bin": "s-1",
+      "schema_version": "calibration-anchor-observation/v1",
+      "source_frame_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+      "source_frame_id": "frame-006",
+      "state": "candidate",
+      "table_region_bin": "r-6",
+      "temporal_bin": "t-6",
+      "weight_class": "candidate"
+    },
+    {
+      "anchor_id": "anchor-007",
+      "card_id": "card-007",
+      "confidence": 0.99,
+      "detector_revision_id": "detector-1",
+      "eligibility_reason": null,
+      "eligible": true,
+      "observation_digest": "c46080e539bf89717b4d64ea33f2f13ac71fd882e666397bb4381435f2039ecd",
+      "orientation_bin": "o-1",
+      "quadrilateral": [
+        [
+          954.194923,
+          810.642613
+        ],
+        [
+          1075.199309,
+          839.121386
+        ],
+        [
+          1079.247657,
+          983.546291
+        ],
+        [
+          958.310915,
+          955.119719
+        ]
+      ],
+      "scale_bin": "s-1",
+      "schema_version": "calibration-anchor-observation/v1",
+      "source_frame_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+      "source_frame_id": "frame-007",
+      "state": "candidate",
+      "table_region_bin": "r-7",
+      "temporal_bin": "t-7",
+      "weight_class": "candidate"
+    },
+    {
+      "anchor_id": "anchor-008",
+      "card_id": "card-008",
+      "confidence": 0.99,
+      "detector_revision_id": "detector-1",
+      "eligibility_reason": null,
+      "eligible": true,
+      "observation_digest": "bb042d119c992527f69c6cea68961535b057229431c93d90488035402f40c248",
+      "orientation_bin": "o-2",
+      "quadrilateral": [
+        [
+          1444.752776,
+          866.892664
+        ],
+        [
+          1564.711533,
+          908.450831
+        ],
+        [
+          1543.255957,
+          1045.387125
+        ],
+        [
+          1423.349762,
+          1003.890662
+        ]
+      ],
+      "scale_bin": "s-1",
+      "schema_version": "calibration-anchor-observation/v1",
+      "source_frame_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+      "source_frame_id": "frame-008",
+      "state": "candidate",
+      "table_region_bin": "r-8",
+      "temporal_bin": "t-8",
+      "weight_class": "candidate"
+    }
+  ],
+  "base_calibration": {
+    "algorithm_version": "card-plane-geometry/v6",
+    "angle_convention": "positive-toward-positive-y-degrees/v1",
+    "calibration_revision_id": "calibration-3b3ef0b62208079085016301",
+    "candidate_receipt_digests": [
+      "563bc0e39b60aa53d2df6ee88e61b640ef174f62bffe87fc065147bc303f39aa",
+      "60167036f05dd118b6c0f408154b1b736de4f6a64a790702a67f0837b17c4f67",
+      "96d8cbc4e30b4da6e1e9485c4682598161673c9934c9f298cd48d35bdf089d1c",
+      "a2e4f0a0154bce1036d393e2fd2543c32ba15cf005affaf735d9de9d5e654c57",
+      "1e36206436b5f75f324b501de785843a88c96d4043bceba98cf042be9026b6ac",
+      "0816719c89e3b9cfda8d3ca3fc2b767fc52789523438fef9f5ec1be4053fdb37",
+      "4fe2360ce26bef23a22f78f56fe941d4bca1671869090b16855684bb6f33d136",
+      "87ed7bad8d1f0261818581dc20b85d8d8de8261bed660ae593aa105ee1f94f2e",
+      "afe68693841f4434e2c590d44d3066f0fbfd765e558e30539cc5e714e3cb7e50"
+    ],
+    "card_long_size": 1.542373,
+    "card_short_size": 1.0,
+    "coordinate_system": "source-pixel-boundary/table-short-side-unit/v1",
+    "corner_order": "cyclic-short-edge-first/v1",
+    "diagnostics": {
+      "candidate_evidence": [
+        {
+          "accepted": true,
+          "candidate_id": "anchor-000"
+        },
+        {
+          "accepted": true,
+          "candidate_id": "anchor-001"
+        },
+        {
+          "accepted": true,
+          "candidate_id": "anchor-002"
+        },
+        {
+          "accepted": true,
+          "candidate_id": "anchor-003"
+        },
+        {
+          "accepted": true,
+          "candidate_id": "anchor-004"
+        },
+        {
+          "accepted": true,
+          "candidate_id": "anchor-005"
+        },
+        {
+          "accepted": true,
+          "candidate_id": "anchor-006"
+        },
+        {
+          "accepted": true,
+          "candidate_id": "anchor-007"
+        },
+        {
+          "accepted": true,
+          "candidate_id": "anchor-008"
+        }
+      ]
+    },
+    "frame_height": 1080,
+    "frame_width": 1920,
+    "image_to_table": [
+      [
+        0.008555460645211599,
+        -0.0017048074874260633,
+        -3.1807885442931654
+      ],
+      [
+        -0.0014375235826965909,
+        0.010548148809854057,
+        -8.064699229247323
+      ],
+      [
+        -1.6457274253976394e-06,
+        -2.475667479471338e-06,
+        1.0029612336137328
+      ]
+    ],
+    "recording_id": "recording-1",
+    "schema_version": "table-plane-calibration/v1",
+    "source_revision": "detector-1",
+    "table_to_image": [
+      [
+        120.27553614825065,
+        19.565560151743245,
+        538.7659934449049
+      ],
+      [
+        16.57356803075059,
+        97.67868590857444,
+        837.9847696234415
+      ],
+      [
+        0.00023826583104821238,
+        0.0002732104850045244,
+        1.0
+      ]
+    ]
+  },
+  "detector_revision_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "detector_revision_id": "detector-1",
+  "draft_base_calibration_digest": "e9d29858f1a1c6322d2c6a8d29b55b7812cf5f43237dd298b89c9151b31f6694",
+  "draft_base_calibration_revision_id": "calibration-3b3ef0b62208079085016301",
+  "draft_id": "draft-1",
+  "expected": {
+    "accepted_anchor_count": 0,
+    "eligible_anchor_ids": [
+      "anchor-000",
+      "anchor-001",
+      "anchor-002",
+      "anchor-003",
+      "anchor-004",
+      "anchor-005",
+      "anchor-006",
+      "anchor-007",
+      "anchor-008"
+    ],
+    "failure_code": null,
+    "fit_residual": 0.03775865197094509,
+    "gates": [
+      {
+        "gate_id": "minimum_eligible_anchors",
+        "message": "eligible anchors are available for a recording-wide fit",
+        "observed": 9.0,
+        "passed": true,
+        "threshold": 3.0
+      },
+      {
+        "gate_id": "fit_residual",
+        "message": "weighted table-plane residual is within the limit",
+        "observed": 0.03775865197094509,
+        "passed": true,
+        "threshold": 0.08
+      },
+      {
+        "gate_id": "held_out_alignment_change",
+        "message": "held-out source alignment change is within the limit",
+        "observed": 1.1698825443186869,
+        "passed": true,
+        "threshold": 8.0
+      },
+      {
+        "gate_id": "reviewed_displacement",
+        "message": "reviewed scene displacement is within the confirmation gate",
+        "observed": 0.0,
+        "passed": true,
+        "threshold": 12.0
+      },
+      {
+        "gate_id": "proposed_displacement",
+        "message": "proposed scene displacement is within the preview gate",
+        "observed": 0.0,
+        "passed": true,
+        "threshold": 24.0
+      }
+    ],
+    "held_out_alignment_change_px": 1.1698825443186869,
+    "image_landmarks": [
+      [
+        -3.1737289538011333,
+        -1.9648959255080427
+      ],
+      [
+        13.276672347180096,
+        -4.535847352927471
+      ],
+      [
+        11.421137443989123,
+        6.871979544449587
+      ],
+      [
+        -5.074405983577609,
+        9.427023896541785
+      ],
+      [
+        4.105314203898316,
+        2.4424070378665452
+      ]
+    ],
+    "rejected_candidate_count": 0,
+    "status": "pass"
+  },
+  "expected_deduplicated_anchor_ids": [
+    "anchor-duplicate"
+  ],
+  "expected_insufficient_anchors": {
+    "candidate_calibration": null,
+    "failure_code": "insufficient_anchors",
+    "status": "blocked"
+  },
+  "schema_version": "device-calibration-refinement-python/v1",
+  "source_frame_digests": {
+    "frame-000": "0000000000000000000000000000000000000000000000000000000000000001",
+    "frame-001": "0000000000000000000000000000000000000000000000000000000000000002",
+    "frame-002": "0000000000000000000000000000000000000000000000000000000000000003",
+    "frame-003": "0000000000000000000000000000000000000000000000000000000000000004",
+    "frame-004": "0000000000000000000000000000000000000000000000000000000000000005",
+    "frame-005": "0000000000000000000000000000000000000000000000000000000000000006",
+    "frame-006": "0000000000000000000000000000000000000000000000000000000000000007",
+    "frame-007": "0000000000000000000000000000000000000000000000000000000000000008",
+    "frame-008": "0000000000000000000000000000000000000000000000000000000000000009"
+  }
+}
