@@ -269,7 +269,18 @@ final class EvidenceAnalysisWorkflow {
            currentSubmission.sessionID == recordingState.sessionID,
            currentSubmission.roundSetup == recordingState.roundSetup,
            currentSubmission.evidencePackageIDs == recordingState.evidencePackageIDs {
-            submission = currentSubmission
+            if currentSubmission.analysisID == nil {
+                do {
+                    submission = try currentSubmission.assigningAnalysisID(UUID())
+                    try roundAnalysisSubmissionStore.save(submission)
+                } catch {
+                    roundAnalysisState = .failed(error.localizedDescription)
+                    publish()
+                    return
+                }
+            } else {
+                submission = currentSubmission
+            }
         } else {
             do {
                 submission = try RoundAnalysisSubmissionState(
@@ -277,6 +288,7 @@ final class EvidenceAnalysisWorkflow {
                     sessionID: recordingState.sessionID,
                     roundSetup: recordingState.roundSetup,
                     evidencePackageIDs: recordingState.evidencePackageIDs,
+                    analysisID: UUID(),
                     phase: .submitting
                 )
                 try roundAnalysisSubmissionStore.save(submission)
@@ -302,14 +314,14 @@ final class EvidenceAnalysisWorkflow {
         roundAnalysisRequestTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
+                guard let request = submission.createRequest else {
+                    throw RoundAnalysisContractError.invalidRequest
+                }
                 let status = try await self.roundAnalysisClient.create(
-                    recordingID: submission.recordingID,
+                    request: request,
                     using: configuration
                 )
-                let identified = submission.analysisID == nil
-                    ? (try? submission.assigningAnalysisID(status.analysisID)) ?? submission
-                    : submission
-                self.applyRoundAnalysisStatus(status, to: identified)
+                self.applyRoundAnalysisStatus(status, to: submission)
             } catch {
                 guard !Task.isCancelled else {
                     self.roundAnalysisRequestGate.cancel()

@@ -245,7 +245,6 @@ final class RecordingWorkflow {
         let recordingCaptureSession: CaptureSession
         do {
             recordingCaptureSession = try captureSessionIdentityStore.startSession(
-                sessionID: appRunContext.sessionID,
                 startedAtUTC: startedAt,
                 clock: evidenceSampler.sessionClock
             )
@@ -260,14 +259,14 @@ final class RecordingWorkflow {
         do {
             savedRoundRecordingState = try RoundRecordingState(
                 recordingID: recordingID,
-                sessionID: appRunContext.sessionID,
+                sessionID: recordingCaptureSession.sessionID,
                 roundSetup: roundSetup,
                 startedAtUTC: startedAt
             )
             try roundRecordingStateStore.save(savedRoundRecordingState)
         } catch {
             try? recordingStartSnapshotStore.remove()
-            try? captureSessionIdentityStore.endSession(sessionID: appRunContext.sessionID)
+            try? captureSessionIdentityStore.endSession(sessionID: recordingCaptureSession.sessionID)
             trainingRecordingError = "The round recording state could not be saved: \(error.localizedDescription)"
             publish()
             return false
@@ -277,7 +276,7 @@ final class RecordingWorkflow {
         } catch {
             try? roundRecordingStateStore.remove()
             try? recordingStartSnapshotStore.remove()
-            try? captureSessionIdentityStore.endSession(sessionID: appRunContext.sessionID)
+            try? captureSessionIdentityStore.endSession(sessionID: recordingCaptureSession.sessionID)
             trainingRecordingError = "The previous round analysis state could not be cleared: \(error.localizedDescription)"
             publish()
             return false
@@ -286,7 +285,7 @@ final class RecordingWorkflow {
         let configuration = TrainingRecordingConfiguration(
             outputRoot: trainingRecordingStore.directoryURL(for: .queued),
             recordingID: recordingID,
-            sessionID: appRunContext.sessionIDString,
+            sessionID: recordingCaptureSession.sessionID.uuidString.lowercased(),
             videoID: "video-\(recordingID)",
             startedAtUTC: startedAt,
             model: model,
@@ -305,13 +304,13 @@ final class RecordingWorkflow {
         } catch {
             try? roundRecordingStateStore.remove()
             try? recordingStartSnapshotStore.remove()
-            try? captureSessionIdentityStore.endSession(sessionID: appRunContext.sessionID)
+            try? captureSessionIdentityStore.endSession(sessionID: recordingCaptureSession.sessionID)
             trainingRecordingError = error.localizedDescription
             publish()
             return false
         }
 
-        captureSessionID = appRunContext.sessionID
+        captureSessionID = recordingCaptureSession.sessionID
         captureSessionIsPersisted = true
         onCaptureSessionStarted(recordingCaptureSession)
         evidencePackageCoordinator = makeEvidencePackageCoordinator(
@@ -339,7 +338,7 @@ final class RecordingWorkflow {
             trainingRecordingCoordinator = nil
             try? roundRecordingStateStore.remove()
             try? recordingStartSnapshotStore.remove()
-            try? captureSessionIdentityStore.endSession(sessionID: appRunContext.sessionID)
+            try? captureSessionIdentityStore.endSession(sessionID: recordingCaptureSession.sessionID)
             trainingRecordingError = "The recording workspace is not ready to start recording."
             publish()
             return false
@@ -613,8 +612,7 @@ final class RecordingWorkflow {
         do {
             guard let snapshot = try recordingStartSnapshotStore.load() else { return }
             guard let roundRecordingState,
-                  roundRecordingState.recordingID == snapshot.recordingID,
-                  roundRecordingState.sessionID == snapshot.appRunContext.sessionID else {
+                  roundRecordingState.recordingID == snapshot.recordingID else {
                 try recordingStartSnapshotStore.remove()
                 return
             }
@@ -663,9 +661,9 @@ final class RecordingWorkflow {
     }
 
     private func finishPersistedCaptureSessionMarker() {
-        guard captureSessionIsPersisted else { return }
+        guard captureSessionIsPersisted, let captureSessionID else { return }
         do {
-            try captureSessionIdentityStore.endSession(sessionID: appRunContext.sessionID)
+            try captureSessionIdentityStore.endSession(sessionID: captureSessionID)
             captureSessionIsPersisted = false
             onCaptureSessionMarkerEnded()
         } catch {

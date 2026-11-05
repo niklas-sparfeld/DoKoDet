@@ -327,7 +327,7 @@ public struct EvidenceVideoCaptureMetadata: Codable, Equatable, Sendable {
         encoderAverageBitRate: Int = 1_200_000,
         maxByteLength: Int = 750_000,
         temporaryByteCapacity: Int = 83_886_080,
-        queuedByteCapacity: Int = 10 * 1024 * 1024,
+        queuedByteCapacity: Int = 64 * 1024 * 1024,
         container: String = "mp4",
         videoCodec: String = "h264",
         contentType: String = "video/mp4"

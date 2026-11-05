@@ -473,7 +473,7 @@ private struct RecordingWorkspaceDetailsView: View {
                         subject: Text("DokoDetector round analysis diagnostics"),
                         preview: { url in SharePreview(url.lastPathComponent) }
                     ) {
-                        Label("Export diagnostic archive", systemImage: "square.and.arrow.up")
+                        Label("Share diagnostics", systemImage: "square.and.arrow.up")
                     }
                     Text("Exports one archive with the saved input, result or failure, and run log.")
                         .font(.caption)

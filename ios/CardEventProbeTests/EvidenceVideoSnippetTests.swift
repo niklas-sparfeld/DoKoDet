@@ -15,7 +15,7 @@ final class EvidenceVideoSnippetTests: XCTestCase {
         XCTAssertEqual(configuration.encoderAverageBitRate, 1_200_000)
         XCTAssertEqual(configuration.maxByteLength, 750_000)
         XCTAssertEqual(configuration.temporaryByteCapacity, 83_886_080)
-        XCTAssertEqual(configuration.queuedByteCapacity, 10 * 1024 * 1024)
+        XCTAssertEqual(configuration.queuedByteCapacity, 64 * 1024 * 1024)
     }
 
     func testLiveCaptureRejectsAProfileThatCannotHoldItsCoverage() {

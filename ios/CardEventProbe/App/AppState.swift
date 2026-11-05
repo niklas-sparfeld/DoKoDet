@@ -596,10 +596,32 @@ final class AppState: ObservableObject {
     }
 
     var deviceRoundAnalysisDiagnosticURLs: [URL] {
-        guard let directory = deviceRoundAnalysisDirectory else { return [] }
-        return ["diagnostics.zip"]
-            .map { directory.appendingPathComponent($0) }
-            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        var archives: [(url: URL, modifiedAt: Date)] = []
+        for state in TrainingRecordingQueueState.allCases {
+            guard let bundles = try? trainingRecordingStore.recordingURLs(in: state) else {
+                continue
+            }
+            for bundle in bundles {
+                let root = bundle.appendingPathComponent(
+                    ".device/stages/round-analysis", isDirectory: true)
+                guard let runs = try? FileManager.default.contentsOfDirectory(
+                    at: root, includingPropertiesForKeys: [.isDirectoryKey]
+                ) else {
+                    continue
+                }
+                for run in runs {
+                    let url = run.appendingPathComponent("diagnostics.zip")
+                    guard let values = try? url.resourceValues(
+                        forKeys: [.isRegularFileKey, .contentModificationDateKey]),
+                        values.isRegularFile == true
+                    else {
+                        continue
+                    }
+                    archives.append((url, values.contentModificationDate ?? .distantPast))
+                }
+            }
+        }
+        return archives.sorted { $0.modifiedAt > $1.modifiedAt }.prefix(1).map(\.url)
     }
 
     var deviceRoundAnalysisDiagnosticUsageBytes: Int64 {

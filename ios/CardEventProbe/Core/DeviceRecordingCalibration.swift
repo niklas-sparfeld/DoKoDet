@@ -197,7 +197,7 @@ public enum DeviceRecordingCalibrationSelector {
       let reason: String?
       if item.quadrilateral.count != 4 {
         reason = "invalid_geometry"
-      } else if item.quadrilateral.contains(where: {
+      } else if (item.boundarySamples ?? item.quadrilateral).contains(where: {
         $0.x <= 2 || $0.y <= 2 || $0.x >= Double(item.frameWidth - 2)
           || $0.y >= Double(item.frameHeight - 2)
       }) {
@@ -384,7 +384,8 @@ public enum DeviceRecordingCalibrationSelector {
       "held_out_boundary": !heldOut.isEmpty
         && Double(heldOutPasses.count) / Double(heldOut.count) >= 0.60,
     ]
-    let failedGates = gates.filter { !$0.value && $0.key != "spatial_coverage" }
+    let advisoryGates: Set<String> = ["spatial_coverage", "held_out_boundary"]
+    let failedGates = gates.filter { !$0.value && !advisoryGates.contains($0.key) }
     guard failedGates.isEmpty else {
       return failure(
         "inconsistent_card_geometry", "Fit quality or held-out validation did not pass.", decisions,
@@ -455,9 +456,9 @@ public enum DeviceRecordingCalibrationSelector {
       guard eventResult.frameMapping.status == "mapped",
         let frameID = eventResult.frameMapping.frameIndex.map({ "frame-\($0)" }),
         let timeS = eventResult.frameMapping.actualTimeS,
-        let width = eventResult.imageWidth, let height = eventResult.imageHeight,
-        let transformID = eventResult.imageSHA256
+        let width = eventResult.imageWidth, let height = eventResult.imageHeight
       else { continue }
+      let transformID = "oriented-video-frame-v1-\(width)x\(height)"
       for (index, detection) in eventResult.detections.enumerated()
       where detection.className == "visible_card" {
         guard let polygon = detection.polygon, polygon.count >= 4 else { continue }
@@ -467,7 +468,7 @@ public enum DeviceRecordingCalibrationSelector {
             x: Double(point[0]) * Double(width) / 1_000,
             y: Double(point[1]) * Double(height) / 1_000)
         }
-        let quad = try minimumAreaRectangle(boundary)
+        let quad = try fitQuadrilateral(boundary)
         let samples = try uniformSamples(boundary, count: 64)
         let centerX = quad.map(\.x).reduce(0, +) / 4
         let centerY = quad.map(\.y).reduce(0, +) / 4
@@ -502,16 +503,31 @@ public enum DeviceRecordingCalibrationSelector {
     return result
   }
 
-  private static func minimumAreaRectangle(_ points: [DevicePoint2D]) throws -> [DevicePoint2D] {
+  private static func fitQuadrilateral(_ points: [DevicePoint2D]) throws -> [DevicePoint2D] {
     guard points.count >= 4 else { throw DeviceRecordingCalibrationError.invalidInput }
+    let hull = convexHull(points)
+    guard hull.count >= 3 else { throw DeviceRecordingCalibrationError.invalidInput }
+    let closedPerimeter = zip(hull, hull.dropFirst() + [hull[0]]).reduce(0.0) {
+      $0 + distance($1.0, $1.1)
+    }
+    let approximations: [[DevicePoint2D]] =
+      [0.005, 0.01, 0.02, 0.04, 0.08, 0.12].compactMap { fraction in
+        let approximation = approximateClosedPolygon(hull, tolerance: fraction * closedPerimeter)
+        guard approximation.count == 4, polygonArea(approximation) > 0 else { return nil }
+        return approximation
+      }
+    if let quadrilateral = approximations.max(by: { polygonArea($0) < polygonArea($1) }) {
+      return try DeviceCardPlaneGeometry.cyclicQuadrilateral(quadrilateral)
+    }
+
     var best: (area: Double, points: [DevicePoint2D])?
-    for index in points.indices {
-      let first = points[index]
-      let second = points[(index + 1) % points.count]
+    for index in hull.indices {
+      let first = hull[index]
+      let second = hull[(index + 1) % hull.count]
       let angle = atan2(second.y - first.y, second.x - first.x)
       let cosine = cos(angle)
       let sine = sin(angle)
-      let rotated = try points.map { point in
+      let rotated = try hull.map { point in
         try DevicePoint2D(
           x: point.x * cosine + point.y * sine,
           y: -point.x * sine + point.y * cosine)
@@ -537,6 +553,55 @@ public enum DeviceRecordingCalibrationSelector {
     }
     guard let best, best.area > 0 else { throw DeviceRecordingCalibrationError.invalidInput }
     return try DeviceCardPlaneGeometry.cyclicQuadrilateral(best.points)
+  }
+
+  private static func approximateClosedPolygon(
+    _ points: [DevicePoint2D], tolerance: Double
+  ) -> [DevicePoint2D] {
+    guard points.count > 4 else { return points }
+    let firstFarthest =
+      points.indices.max { distance(points[0], points[$0]) < distance(points[0], points[$1]) } ?? 0
+    let secondFarthest =
+      points.indices.max {
+        distance(points[firstFarthest], points[$0]) < distance(points[firstFarthest], points[$1])
+      } ?? firstFarthest
+    func arc(_ start: Int, _ end: Int) -> [DevicePoint2D] {
+      var result = [points[start]]
+      var index = start
+      while index != end {
+        index = (index + 1) % points.count
+        result.append(points[index])
+      }
+      return result
+    }
+    func simplify(_ line: [DevicePoint2D]) -> [DevicePoint2D] {
+      guard line.count > 2 else { return line }
+      let start = line[0]
+      let end = line[line.count - 1]
+      func distanceToLine(_ point: DevicePoint2D) -> Double {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let fraction = min(
+          1,
+          max(
+            0,
+            ((point.x - start.x) * dx + (point.y - start.y) * dy)
+              / max(dx * dx + dy * dy, 1e-12)))
+        return hypot(point.x - (start.x + fraction * dx), point.y - (start.y + fraction * dy))
+      }
+      let split = line.indices.dropFirst().dropLast().max {
+        distanceToLine(line[$0]) < distanceToLine(line[$1])
+      }
+      guard let split, distanceToLine(line[split]) > tolerance else {
+        return [start, end]
+      }
+      let left = simplify(Array(line[...split]))
+      let right = simplify(Array(line[split...]))
+      return Array(left.dropLast()) + right
+    }
+    let firstArc = simplify(arc(firstFarthest, secondFarthest))
+    let secondArc = simplify(arc(secondFarthest, firstFarthest))
+    return firstArc + secondArc.dropFirst().dropLast()
   }
 
   private static func polygonQuality(_ boundary: [DevicePoint2D], quad: [DevicePoint2D])

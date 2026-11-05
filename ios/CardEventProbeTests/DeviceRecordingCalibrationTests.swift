@@ -603,27 +603,24 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
   }
 
   func testCalibratesFromExactVisibleCardRevision() throws {
-    let locations: [(Double, Double)] = [
-      (250, 200), (700, 200), (1150, 200), (250, 500), (700, 500), (1150, 500),
-      (250, 800), (700, 800), (1150, 800), (450, 350), (900, 650), (1400, 850),
-    ]
-    let events = try locations.enumerated().map { index, location in
-      let event = try DeviceVisibleCardEvent(index: index, timeS: Double(index), probability: 0.99)
+    let observations = try syntheticObservations()
+    let events = try observations.enumerated().map { index, observation in
+      let event = try DeviceVisibleCardEvent(
+        index: index, timeS: observation.timeS, probability: 0.99)
       let mapping = DeviceVisibleCardFrameMapping(
-        eventID: event.eventID, requestedTimeS: Double(index), frameIndex: index,
-        actualTimeS: Double(index), deltaS: 0, status: "mapped", message: nil)
-      let center = try DevicePoint2D(x: location.0, y: location.1)
-      let quad = try DeviceCardPlaneGeometry.cardQuadrilateral(
-        center: center, rotationDegrees: Double(index % 3) * 20,
-        shortSize: 80, longSize: 120)
-      let polygon = quad.map { [Int($0.x.rounded()), Int($0.y.rounded())] }
+        eventID: event.eventID, requestedTimeS: observation.timeS, frameIndex: index,
+        actualTimeS: observation.timeS, deltaS: 0, status: "mapped", message: nil)
+      let centerX = observation.quadrilateral.map(\.x).reduce(0, +) / 4
+      let centerY = observation.quadrilateral.map(\.y).reduce(0, +) / 4
+      let polygon = staircaseBoundary(observation.quadrilateral)
       let detection = DeviceVisibleCardDetection(
         classID: 0, className: "visible_card", score: 0.98,
-        boxXYXY: [location.0 - 100, location.1 - 100, location.0 + 100, location.1 + 100],
+        boxXYXY: [centerX - 100, centerY - 100, centerX + 100, centerY + 100],
         polygon: polygon, imageWidth: 1920, imageHeight: 1080)
       return DeviceVisibleCardEventResult(
         event: event, frameMapping: mapping, imagePath: nil,
-        imageSHA256: String(repeating: "a", count: 64), imageWidth: 1920, imageHeight: 1080,
+        imageSHA256: String(format: "%064x", index),
+        imageWidth: 1920, imageHeight: 1080,
         detections: [detection], status: "complete", elapsedMs: 1, error: nil)
     }
     let revision = try DeviceVisibleCardRevision(
@@ -632,10 +629,38 @@ final class DeviceRecordingCalibrationTests: XCTestCase {
 
     let result = try DeviceRecordingCalibrationSelector.calibrate(revision: revision)
 
-    XCTAssertEqual(result.candidateEvidence.count, locations.count)
+    XCTAssertEqual(result.candidateEvidence.count, observations.count)
     XCTAssertTrue(result.candidateEvidence.allSatisfy { $0.sourceRevision == revision.stageID })
     XCTAssertEqual(result.status, "published", "\(result.failureCode ?? "") \(result.gates)")
     XCTAssertEqual(result.calibration?.visibleCardRevisionID, revision.stageID)
+  }
+
+  private func staircaseBoundary(_ quad: [DevicePoint2D]) -> [[Int]] {
+    var points: [[Int]] = []
+    for index in quad.indices {
+      let start = quad[index]
+      let end = quad[(index + 1) % quad.count]
+      let steps = Int(ceil(max(abs(end.x - start.x), abs(end.y - start.y))))
+      var current = [Int(start.x.rounded()), Int(start.y.rounded())]
+      if points.isEmpty { points.append(current) }
+      for step in 1...max(steps, 1) {
+        let fraction = Double(step) / Double(max(steps, 1))
+        let target = [
+          Int((start.x + (end.x - start.x) * fraction).rounded()),
+          Int((start.y + (end.y - start.y) * fraction).rounded()),
+        ]
+        while current[0] != target[0] {
+          current[0] += current[0] < target[0] ? 1 : -1
+          points.append(current)
+        }
+        while current[1] != target[1] {
+          current[1] += current[1] < target[1] ? 1 : -1
+          points.append(current)
+        }
+      }
+    }
+    if points.count > 1, points.last == points.first { points.removeLast() }
+    return points
   }
 
   private func syntheticObservations() throws -> [DeviceCalibrationObservation] {
