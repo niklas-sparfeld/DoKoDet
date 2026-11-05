@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0–M6 are complete; M7–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0–M7 are complete; M8–M10 are not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -199,13 +199,16 @@ changes, and separate pile/ignore regions round-trip without invented geometry o
 The [M6 result](../../reports/0107-M6_Virtual_Scene_Content.md) defines the shared content and
 explicit mappings. Mixed legacy scenes need an explicit complete order when it is not recorded.
 
-### M7 — Validate and query the lineage graph — Not started
+### M7 — Validate and query the lineage graph — Complete
 
 Implement typed exact-input and copy edges, cycle checks, source/run context, and compact summaries.
 Expose deterministic lineage data for the horizontal workspace without selecting processor inputs.
 
 Acceptance: multi-input observations, analyses with context, two copies, alternative runs, empty
 outputs, and failures retain all sources. Duplicate display appearances share one node identity.
+
+The [M7 result](../../reports/0107-M7_Lineage_Graph.md) records frozen run context, exact typed
+inputs and outputs, and deterministic graph summaries. It rejects cycles and duplicate producers.
 
 ### M8 — Build migration inventory and dry run — Not started
 
