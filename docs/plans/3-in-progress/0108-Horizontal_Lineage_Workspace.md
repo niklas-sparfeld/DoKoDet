@@ -278,7 +278,7 @@ Fixture checks cover empty event output, accepted-input protection, retry accept
 observation inputs, and analysis artifacts. Existing processor execution and selection controls stay
 in place.
 
-### M10 — Execute the verified local migration and cutover — Not started
+### M10 — Execute the verified local migration and cutover — In progress
 
 Run the inventory/dry run against current local stores. Resolve blocking mappings, stop writers for
 a consistent snapshot, stage and verify migration, then switch runtime readers and writers. Use
@@ -287,6 +287,12 @@ the user's explicit migration authorization. Retain a recovery snapshot and publ
 Acceptance: migrated processor results, drafts, independent reviews, scenes, and analyses open with
 correct content, coverage, and exact inputs. Restart does not restore an old default or adapter.
 If source data has drifted, regenerate the plan; do not use an outdated inventory.
+
+Progress: the stopped stores have a consistent recovery snapshot and a scoped inventory. The first
+dry run found 147 blocking conflicts, including referenced legacy proposal and calibration formats.
+No live store or runtime pointer has changed. See the
+[M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md). Add exact
+historical-format mappings and rebuild the plan before staging or cutover.
 
 ### M11 — Delete replaced architecture — Not started
 
