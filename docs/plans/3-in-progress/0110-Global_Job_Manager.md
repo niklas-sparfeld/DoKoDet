@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../2-ready/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M3 complete; M4–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M4 complete; M5–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -317,13 +317,15 @@ result-publication crash, interruption, and retry without duplicate outputs or l
 
 Result: [M3 cancellation, retry, and recovery](../../reports/0110-M3_Cancellation_Recovery.md).
 
-### M4 — Expose the unified HTTP API — Not started
+### M4 — Expose the unified HTTP API — Complete
 
 Add job list/detail, enqueue, cancel, retry, move, and paginated log routes. Register fake types
 for tests. Generate browser contracts and test validation and error responses.
 
 Acceptance: API tests cover idempotency, filters, pagination, capabilities, concurrent moves,
 unknown types, disconnect after acceptance, and unavailable results.
+
+Result: [M4 unified job HTTP API](../../reports/0110-M4_Job_HTTP_API.md).
 
 ### M5 — Connect event processing as the first leaf — Not started
 

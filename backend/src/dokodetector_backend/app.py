@@ -34,6 +34,8 @@ from dokodetector_backend.gemini_analyzer import (
     create_lazy_configured_analyzer,
     validate_configured_processor_settings,
 )
+from dokodetector_backend.jobs_api import JobManagerService, JobTypeRegistry
+from dokodetector_backend.jobs_api import router as jobs_router
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
@@ -109,6 +111,11 @@ def create_app(
 
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
     app.state.settings = app_settings
+    app.state.job_type_registry = JobTypeRegistry(app_settings.operations_root)
+    app.state.job_manager_service = JobManagerService(
+        app_settings.operations_root,
+        app.state.job_type_registry,
+    )
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
     app.state.operations_storage = EvidenceStorage(app_settings.operations_root)
     app.state.round_analysis_storage = RoundAnalysisArtifactStorage(app_settings.operations_root)
@@ -258,12 +265,14 @@ def create_app(
         app.state,
     )
     lifecycle_services = (
+        app.state.job_manager_service,
         *pipeline_composition.lifecycle_services,
         app.state.round_analysis_service,
         app.state.automated_pipeline_worker,
     )
     register_error_handlers(app)
     app.include_router(router)
+    app.include_router(jobs_router)
     app.include_router(repository_bundle_router)
     app.include_router(pending_video_router)
     app.include_router(round_analysis_router)

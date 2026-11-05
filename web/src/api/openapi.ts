@@ -44,6 +44,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Jobs */
+        get: operations["list_jobs_api_jobs_get"];
+        put?: never;
+        /** Enqueue Job */
+        post: operations["enqueue_job_api_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/queue/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move Job */
+        post: operations["move_job_api_jobs_queue_move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_api_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Job */
+        post: operations["cancel_job_api_jobs__job_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job Logs */
+        get: operations["get_job_logs_api_jobs__job_id__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Job */
+        post: operations["retry_job_api_jobs__job_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/processors/visible-cards/local-rfdetr-segmentation/availability": {
         parameters: {
             query?: never;
@@ -146,6 +249,28 @@ export interface paths {
          * @description Discard all preview commands and restore the clean draft value.
          */
         post: operations["discard_calibration_refinement_api_recordings__recording_id__pipeline_calibration_refinement_discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/pipeline/calibration-refinement/reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review Calibration Refinement */
+        get: operations["get_review_calibration_refinement_api_recordings__recording_id__pipeline_calibration_refinement_reviews__review_id__get"];
+        /** Update Review Calibration Refinement */
+        put: operations["update_review_calibration_refinement_api_recordings__recording_id__pipeline_calibration_refinement_reviews__review_id__put"];
+        /**
+         * Start Review Calibration Refinement
+         * @description Start calibration refinement bound to one card-scene review.
+         */
+        post: operations["start_review_calibration_refinement_api_recordings__recording_id__pipeline_calibration_refinement_reviews__review_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -616,6 +741,132 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/pipeline/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Automated Pipeline Run
+         * @description Validate and freeze a complete pipeline request before accepting it.
+         */
+        post: operations["start_automated_pipeline_run_api_recordings__recording_id__pipeline_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/pipeline/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Automated Pipeline Run
+         * @description Read one durable run record without contacting a stage worker.
+         */
+        get: operations["get_automated_pipeline_run_api_recordings__recording_id__pipeline_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/pipeline/visible-card-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Visible Card Reviews */
+        get: operations["list_visible_card_reviews_api_recordings__recording_id__pipeline_visible_card_reviews_get"];
+        put?: never;
+        /** Create Visible Card Review */
+        post: operations["create_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/pipeline/visible-card-reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Visible Card Review */
+        get: operations["get_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews__review_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/pipeline/visible-card-reviews/{review_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Visible Card Review */
+        post: operations["complete_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews__review_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/pipeline/visible-card-reviews/{review_id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Visible Card Review */
+        put: operations["update_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews__review_id__draft_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/pipeline/visible-card-reviews/{review_id}/select": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Select Completed Visible Card Review */
+        post: operations["select_completed_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews__review_id__select_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/pipeline/visible-cards": {
         parameters: {
             query?: never;
@@ -782,6 +1033,26 @@ export interface paths {
          * @description Compare a visual identity draft with retained local results and queue local work once.
          */
         post: operations["plan_visual_identity_auto_approval_api_recordings__recording_id__pipeline_visual_identities_auto_approval_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/pipeline/visual-identities/proposed-crop-inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Visual Identity Proposed Crop Inputs
+         * @description List applicable exact proposed-scene revisions for visual identity crops.
+         */
+        get: operations["list_visual_identity_proposed_crop_inputs_api_recordings__recording_id__pipeline_visual_identities_proposed_crop_inputs_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1449,6 +1720,107 @@ export interface components {
             result_id: string;
         };
         /**
+         * AutomatedPipelineRunResponse
+         * @description Overall run record returned by start and status routes.
+         */
+        AutomatedPipelineRunResponse: {
+            /** Client Request Sha256 */
+            client_request_sha256: string;
+            /** Created At */
+            created_at: string;
+            /** Failure */
+            failure: {
+                [key: string]: unknown;
+            } | null;
+            /** Recording Id */
+            recording_id: string;
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
+            /** Request Sha256 */
+            request_sha256: string;
+            /** Resolved Providers */
+            resolved_providers: {
+                [key: string]: unknown;
+            };
+            /** Run Id */
+            run_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "automated-pipeline-run/v1";
+            /** Source */
+            source: {
+                [key: string]: unknown;
+            };
+            /** Stages */
+            stages: components["schemas"]["AutomatedPipelineRunStageResponse"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "accepted" | "queued" | "running" | "complete" | "failed" | "cancelled";
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * AutomatedPipelineRunStageResponse
+         * @description Persisted state for one stage in the overall run.
+         */
+        AutomatedPipelineRunStageResponse: {
+            /** Failure */
+            failure?: {
+                [key: string]: unknown;
+            } | null;
+            /** Input Revision Ids */
+            input_revision_ids?: string[];
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "event_proposals" | "visible_card_and_pile_proposals" | "card_scene_and_calibration" | "visual_identity_proposals" | "table_observations" | "reconstruction";
+            /** Output Revision Ids */
+            output_revision_ids?: string[];
+            /** Run Id */
+            run_id?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "queued" | "running" | "complete" | "partial" | "failed";
+        };
+        /**
+         * AutomatedPipelineRunStartRequest
+         * @description Stage settings needed before the six-stage run can be accepted.
+         */
+        AutomatedPipelineRunStartRequest: {
+            /**
+             * Idempotency Key
+             * Format: uuid
+             */
+            idempotency_key: string;
+            /**
+             * Rules Version
+             * @constant
+             */
+            rules_version: "v1";
+            search: components["schemas"]["AnalysisSearchLimits"];
+            /** Stage Requests */
+            stage_requests: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        /** Capabilities */
+        Capabilities: {
+            cancel: components["schemas"]["JobCapabilities"];
+            reorder: components["schemas"]["JobCapabilities"];
+            retry: components["schemas"]["JobCapabilities"];
+        };
+        /**
          * CounterfactualArtifact
          * @description Identity and digest for one counterfactual runtime artifact.
          */
@@ -1495,6 +1867,21 @@ export interface components {
             observed_card_id: string;
             /** Probability */
             probability: number;
+        };
+        /** EmptyBody */
+        EmptyBody: Record<string, never>;
+        /** EnqueueBody */
+        EnqueueBody: {
+            /** Context */
+            context: {
+                [key: string]: unknown;
+            };
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type: string;
         };
         /**
          * EventMetadata
@@ -1615,6 +2002,133 @@ export interface components {
             card: string;
             /** Probability */
             probability: number;
+        };
+        /** JobCapabilities */
+        JobCapabilities: {
+            /** Allowed */
+            allowed: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** JobDetail */
+        JobDetail: {
+            capabilities: components["schemas"]["Capabilities"];
+            /** Context */
+            context: {
+                [key: string]: unknown;
+            };
+            /** Correlation Id */
+            correlation_id: string | null;
+            /** Coverage */
+            coverage: {
+                [key: string]: unknown;
+            } | null;
+            /** Created At */
+            created_at: string;
+            /** Creator */
+            creator: string | null;
+            /** Failure */
+            failure: {
+                [key: string]: unknown;
+            } | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Id */
+            id: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Implementation */
+            implementation: {
+                [key: string]: unknown;
+            };
+            /** Inputs */
+            inputs: {
+                [key: string]: unknown;
+            }[];
+            /** Label */
+            label: string;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Parent Step Id */
+            parent_step_id: string | null;
+            /** Phase */
+            phase: string | null;
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
+            /** Request Hash */
+            request_hash: string;
+            /** Results */
+            results: {
+                [key: string]: unknown;
+            }[];
+            /** Retry Of */
+            retry_of: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "backend-job/v1";
+            /** Started At */
+            started_at: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "queued" | "running" | "waiting" | "cancelling" | "succeeded" | "failed" | "cancelled" | "interrupted";
+            /** Steps */
+            steps: components["schemas"]["Step"][];
+            /** Type */
+            type: string;
+            /** Updated At */
+            updated_at: string;
+            /** Waiting Reason */
+            waiting_reason: string | null;
+            /** Warnings */
+            warnings: {
+                [key: string]: unknown;
+            }[];
+            /** Worker Owner */
+            worker_owner: string | null;
+        };
+        /** JobListResponse */
+        JobListResponse: {
+            /** Groups */
+            groups: components["schemas"]["QueueGroupResponse"][];
+            /** Items */
+            items: components["schemas"]["JobDetail"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Queue Revision */
+            queue_revision: number;
+        };
+        /** JobLogEntry */
+        JobLogEntry: {
+            /** Code */
+            code: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "debug" | "info" | "warning" | "error";
+            /** Message */
+            message: string;
+            /** Sequence */
+            sequence: number;
+            /** Timestamp */
+            timestamp: string;
+        };
+        /** JobLogPage */
+        JobLogPage: {
+            /** Entries */
+            entries: components["schemas"]["JobLogEntry"][];
+            /** Next After */
+            next_after: number;
+            /** Truncated Before */
+            truncated_before: number;
         };
         /**
          * ObservationSession
@@ -2745,6 +3259,29 @@ export interface components {
             /** Video Sha256 */
             video_sha256: string;
         };
+        /** QueueGroupResponse */
+        QueueGroupResponse: {
+            /** Child Job Ids */
+            child_job_ids: string[];
+            /** Group Id */
+            group_id: string;
+        };
+        /** QueueMoveBody */
+        QueueMoveBody: {
+            /** Before Group Id */
+            before_group_id: string | null;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Group Id */
+            group_id: string;
+        };
+        /** QueueMoveResponse */
+        QueueMoveResponse: {
+            /** Groups */
+            groups: components["schemas"]["QueueGroupResponse"][];
+            /** Revision */
+            revision: number;
+        };
         /**
          * RecordingAnalysisSummary
          * @description Small analysis status embedded in the recording catalog.
@@ -3283,6 +3820,37 @@ export interface components {
              */
             session_id: string;
         };
+        /** Step */
+        Step: {
+            /** Child Job Id */
+            child_job_id?: string | null;
+            /** Completed */
+            completed?: number | null;
+            /** Failure */
+            failure?: {
+                [key: string]: unknown;
+            } | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Message */
+            message?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * State
+             * @default pending
+             * @enum {string}
+             */
+            state: "pending" | "running" | "succeeded" | "failed" | "cancelled" | "skipped";
+            /** Total */
+            total?: number | null;
+            /** Unit */
+            unit?: string | null;
+        };
         /**
          * StoredFrameResponse
          * @description One frame returned by the package metadata endpoint.
@@ -3683,6 +4251,248 @@ export interface operations {
             };
         };
     };
+    list_jobs_api_jobs_get: {
+        parameters: {
+            query?: {
+                state?: ("queued" | "running" | "waiting" | "cancelling" | "succeeded" | "failed" | "cancelled" | "interrupted") | null;
+                type?: string | null;
+                recording_id?: string | null;
+                parent_id?: string | null;
+                scope?: "active" | "history" | "all";
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enqueue_job_api_jobs_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnqueueBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_job_api_jobs_queue_move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueMoveBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueMoveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_api_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_job_api_jobs__job_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_logs_api_jobs__job_id__logs_get: {
+        parameters: {
+            query?: {
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobLogPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_job_api_jobs__job_id__retry_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_rfdetr_segmentation_availability_api_processors_visible_cards_local_rfdetr_segmentation_availability_get: {
         parameters: {
             query?: never;
@@ -3914,6 +4724,124 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_calibration_refinement_api_recordings__recording_id__pipeline_calibration_refinement_reviews__review_id__get: {
+        parameters: {
+            query: {
+                proposal_revision_id: string;
+            };
+            header?: never;
+            path: {
+                recording_id: string;
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_review_calibration_refinement_api_recordings__recording_id__pipeline_calibration_refinement_reviews__review_id__put: {
+        parameters: {
+            query: {
+                proposal_revision_id: string;
+            };
+            header?: never;
+            path: {
+                recording_id: string;
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_review_calibration_refinement_api_recordings__recording_id__pipeline_calibration_refinement_reviews__review_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4926,6 +5854,299 @@ export interface operations {
             };
         };
     };
+    start_automated_pipeline_run_api_recordings__recording_id__pipeline_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomatedPipelineRunStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomatedPipelineRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_automated_pipeline_run_api_recordings__recording_id__pipeline_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomatedPipelineRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_visible_card_reviews_api_recordings__recording_id__pipeline_visible_card_reviews_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews__review_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews__review_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews__review_id__draft_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    select_completed_visible_card_review_api_recordings__recording_id__pipeline_visible_card_reviews__review_id__select_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_visible_card_runs_api_recordings__recording_id__pipeline_visible_cards_get: {
         parameters: {
             query?: never;
@@ -5295,6 +6516,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AutoApprovalPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_visual_identity_proposed_crop_inputs_api_recordings__recording_id__pipeline_visual_identities_proposed_crop_inputs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

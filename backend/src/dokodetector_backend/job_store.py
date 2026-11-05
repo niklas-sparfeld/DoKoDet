@@ -40,6 +40,10 @@ class JobStorageError(JobError):
     """A durable record cannot be safely used."""
 
 
+class JobNotFound(JobStorageError):
+    """A job identity is valid but does not exist."""
+
+
 class CancellationToken:
     """Cooperative stop signal for one running handler."""
 
@@ -165,6 +169,14 @@ class Publication(Model):
     job_id: str
     results: list[dict[str, Any]]
     state: Literal["prepared", "committed"]
+
+
+class JobLogEntry(Model):
+    sequence: int = Field(ge=1)
+    timestamp: str
+    level: Literal["debug", "info", "warning", "error"]
+    code: str
+    message: str
 
 
 class QueueGroup(Model):
@@ -358,8 +370,70 @@ class JobManager:
             if job.id != job_id:
                 raise ValueError("job ID mismatch")
             return job
+        except FileNotFoundError as error:
+            raise JobNotFound(f"job {job_id} was not found") from error
         except (OSError, ValueError) as error:
             raise JobStorageError(f"invalid job {job_id}") from error
+
+    def list_jobs(self) -> list[Job]:
+        """Return readable jobs in durable acceptance order."""
+        self._owned()
+        jobs = []
+        for intent in self._intents():
+            if not intent.committed:
+                continue
+            try:
+                jobs.append(self.get(intent.job.id))
+            except JobStorageError as error:
+                self.diagnostics.append(str(error))
+        return jobs
+
+    def append_log(
+        self,
+        job_id: str,
+        code: str,
+        message: str,
+        *,
+        level: Literal["debug", "info", "warning", "error"] = "info",
+    ) -> JobLogEntry:
+        """Append one bounded durable diagnostic entry for a job."""
+        with self._lock:
+            self._owned()
+            self.get(job_id)
+            path = self.root / _uuid(job_id) / "logs.json"
+            entries = self.logs(job_id, after=0, limit=1000)["entries"]
+            sequence = entries[-1].sequence + 1 if entries else 1
+            entry = JobLogEntry(
+                sequence=sequence,
+                timestamp=_now(),
+                level=level,
+                code=code,
+                message=message,
+            )
+            entries.append(entry)
+            atomic_replace_json(path, [item.model_dump() for item in entries[-1000:]])
+            return entry
+
+    def logs(self, job_id: str, *, after: int = 0, limit: int = 100) -> dict[str, Any]:
+        """Read a bounded sequence page and report whether older entries were trimmed."""
+        self._owned()
+        self.get(job_id)
+        path = self.root / _uuid(job_id) / "logs.json"
+        if not path.exists():
+            return {"entries": [], "next_after": after, "truncated_before": 0}
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            entries = [JobLogEntry.model_validate(item) for item in raw]
+        except (OSError, ValueError, TypeError) as error:
+            raise JobStorageError(f"invalid job log for {job_id}") from error
+        truncated_before = max(0, entries[0].sequence - 1) if entries else 0
+        selected = [item for item in entries if item.sequence > after][:limit]
+        next_after = selected[-1].sequence if selected else max(after, truncated_before)
+        return {
+            "entries": selected,
+            "next_after": next_after,
+            "truncated_before": truncated_before,
+        }
 
     def queue(self) -> Queue:
         self._owned()
@@ -409,6 +483,7 @@ class JobManager:
                 raise JobStorageError("committed job record is missing")
             self._write_job(job)
             self.after_write("job")
+            self.append_log(job.id, "job_accepted", "Job accepted and queued.")
         queue = self.queue()
         current = self.get(job.id)
         if current.state == "queued":
@@ -751,4 +826,5 @@ class JobManager:
                 job.finished_at = now
             self._write_job(job)
             self._reconcile(self._intents())
+            self.append_log(job.id, f"job_{state}", f"Job state changed to {state}.")
             return job
