@@ -4,7 +4,7 @@ import styles from "../App.module.css";
 import { repositoryBundleVideoPath } from "../api/client";
 import { useProfileName } from "../profile/profile";
 import { Toast } from "../Toast";
-import type { PipelineCardEventRailItem } from "./PipelineCardEventEditor";
+import type { PipelineCardEventRailItem } from "./PipelineCardEventRailItem";
 import eventStyles from "./PipelineCardEventEditor.module.css";
 
 type EventRecord = {

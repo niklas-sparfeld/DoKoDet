@@ -5,7 +5,7 @@ import type {
   PipelineWorkspace,
   PipelineWorkspaceStage,
 } from "../api/client";
-import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventEditor";
+import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventRailItem";
 import { PipelineNodeEventEditor } from "../cardEvents/PipelineNodeEventEditor";
 import { PipelineNodeVisibleCardEditor } from "../visibleCards/PipelineNodeVisibleCardEditor";
 import { PipelineNodeVisualIdentityEditor } from "../visualIdentities/PipelineNodeVisualIdentityEditor";

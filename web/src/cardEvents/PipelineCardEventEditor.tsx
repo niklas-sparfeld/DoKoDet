@@ -43,16 +43,9 @@ import {
   type PipelineEvent,
   type SaveState,
 } from "./PipelineCardEventTypes";
+import type { PipelineCardEventRailItem } from "./PipelineCardEventRailItem";
 
 export { CARD_STATE_CHANGED_EVENT_TYPE } from "./PipelineCardEventTypes";
-
-export type PipelineCardEventRailItem = {
-  itemId: string;
-  label: string;
-  state: EventState;
-  startUs: number;
-  endUs: number;
-};
 
 const CONTENT_TYPE = "events" as const;
 const RETRY_LIMIT = 3;

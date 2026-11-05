@@ -5,7 +5,7 @@ import type {
   PipelineStageKey,
   PipelineWorkspaceStage,
 } from "../api/client";
-import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventEditor";
+import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventRailItem";
 import styles from "../App.module.css";
 import { RecordingTimelineRail } from "./RecordingTimelineRail";
 import type { PipelineUrlState } from "./recordingPipelineUrl";

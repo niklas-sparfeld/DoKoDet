@@ -1,4 +1,4 @@
-import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventEditor";
+import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventRailItem";
 import { buildEventRailItems } from "./RecordingWorkspaceRail";
 
 describe("recording workspace event rail", () => {
