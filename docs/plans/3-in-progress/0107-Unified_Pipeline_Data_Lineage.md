@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0–M8 are complete; M9–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0–M9 are complete; M10 is not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -221,13 +221,19 @@ report dangling or ambiguous references without inventing lineage.
 The [M8 result](../../reports/0107-M8_Migration_Inventory.md) adds a read-only snapshot inventory
 and dry-run plan. It blocks readiness for resources that still need semantic validation.
 
-### M9 — Apply migration to fixture stores — Not started
+### M9 — Apply migration to fixture stores — Complete
 
 Implement staged conversion, verification, recovery, and safe reapplication. Supply a local command
 for the later cutover. Never mutate the active local data during this milestone.
 
-Acceptance: interruption fixtures cover conversion, verification, and activation boundaries. Counts,
-semantic content, hashes or explicit hash mappings, review coverage, and all references reconcile.
+Acceptance: interruption fixtures cover conversion, verification, and staged publication. The active
+store remains unchanged; 0108 owns the application activation boundary. Counts, semantic content,
+hashes or explicit hash mappings, review coverage, and all references reconcile.
+
+The [M9 result](../../reports/0107-M9_Fixture_Migration.md) applies an inventory to an isolated,
+verified staging package. It preserves source bytes and mapped resource facts, rejects snapshot
+changes, and supports verified idempotent reapplication. It does not activate the package; 0108 owns
+local cutover.
 
 ### M10 — Verify foundation and hand off — Not started
 
