@@ -44,8 +44,8 @@ The workspace now builds revision options, compact recording statuses, and compa
 from node revisions. It uses exact graph run inputs when it builds each revision's input list.
 Processor run progress and analysis summaries still use their existing stores. Maintained-draft,
 independent-review, calibration-draft, and selection readers use graph-store paths. M10 remains
-open until the active migration data passes workspace content, coverage, exact-input, and restart
-checks. The recovery snapshot and verified migration package remain available for recovery.
+open while scene, review, and draft workspace checks continue. The recovery snapshot and verified
+migration package remain available for recovery.
 
 ## Declared lost inputs
 
@@ -130,6 +130,10 @@ Focused checks passed:
 - The same active-store check found all five migrated analyses in their workspace summaries. Each
   summary retained its request input, and each non-empty observation input matched a graph revision.
   All five summaries remained available after a runtime rebuild.
+- For `cardeventnet-IMG_0637`, all eight terminal processor runs shown in workspace summaries matched
+  graph run inputs, outputs, and terminal status. Workspace run summaries now take exact revision
+  inputs and outputs from the graph while keeping live progress and failure details from the run
+  store.
 - Workspace graph-input lookup now reads the immutable run records for the requested recording.
   A regression test confirms the workspace does not build a full lineage snapshot to create a
   summary.
@@ -139,6 +143,5 @@ Focused checks passed:
 
 ## Remaining M10 work
 
-Verify scenes, reviews, and maintained drafts through their workspace readers. Check terminal
-processor and analysis lineage against their live progress records. Keep the recovery and staging
-packages until those checks pass. M10 remains in progress.
+Verify scenes, reviews, and maintained drafts through their workspace readers. Keep the recovery
+and staging packages until those checks pass. M10 remains in progress.

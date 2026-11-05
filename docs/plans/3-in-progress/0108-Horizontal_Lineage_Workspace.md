@@ -304,7 +304,8 @@ inputs. Processor run progress and analysis summaries still use their existing s
 processor callers receive legacy revision IDs through the selection bridge, while stored selections
 retain exact node and revision pointers. Active-store checks matched revision content digests,
 coverage, exact inputs, and all five analysis summaries across a runtime rebuild. M10 remains open
-for scene, review, draft, and terminal-run workspace checks. See the
+for scene, review, and draft workspace checks. Terminal run inputs and outputs now come from graph
+records; live progress and failure details remain in the run store. See the
 [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
 ### M11 — Delete replaced architecture — Not started

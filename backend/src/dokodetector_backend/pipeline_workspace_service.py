@@ -105,6 +105,8 @@ class _WorkspaceNodeRevision:
 
     manifest: DataRevision
     content: Any | None
+    node_id: str
+    node_revision_id: str
 
 
 class RecordingPipelineWorkspaceService:
@@ -164,8 +166,13 @@ class RecordingPipelineWorkspaceService:
             validate_output_revisions=False,
             include_items_for_processor_types={"observation-assembly"},
         )
+        lineage_runs_by_output = self._lineage_runs_by_output(revisions)
         diagnostics: list[dict[str, Any]] = []
         revision_by_id = {self._manifest(revision).revision_id: revision for revision in revisions}
+        revision_targets = {
+            self._manifest(revision).revision_id: (revision.node_id, revision.node_revision_id)
+            for revision in revisions
+        }
         selections = {
             content_type: self._selection(
                 recording_id,
@@ -215,6 +222,8 @@ class RecordingPipelineWorkspaceService:
                 selections=selections,
                 revision_by_id=revision_by_id,
                 full_revisions=full_revisions,
+                lineage_runs_by_output=lineage_runs_by_output,
+                revision_targets=revision_targets,
                 diagnostics=diagnostics,
             )
             for definition in _WORKSPACE_STAGES
@@ -383,13 +392,41 @@ class RecordingPipelineWorkspaceService:
                 content = (
                     parser(canonical_json_bytes(node_revision.content)) if include_content else None
                 )
-                revisions.append(_WorkspaceNodeRevision(manifest=manifest, content=content))
+                revisions.append(
+                    _WorkspaceNodeRevision(
+                        manifest=manifest,
+                        content=content,
+                        node_id=node.node_id,
+                        node_revision_id=node_revision.revision_id,
+                    )
+                )
         return tuple(revisions)
 
     def _node_revisions_for_recording(
         self, recording_id: str, *, include_content: bool = False
     ) -> tuple[Any, ...]:
         return self._node_revisions_for_recordings((recording_id,), include_content=include_content)
+
+    def _lineage_runs_by_output(
+        self, revisions: tuple[_WorkspaceNodeRevision, ...]
+    ) -> dict[tuple[str, str], dict[str, Any]]:
+        """Index terminal lineage records by their exact node output."""
+        node_ids = {revision.node_id for revision in revisions}
+        if not node_ids:
+            return {}
+        result = {}
+        root = self.lineage_service.root
+        paths = sorted(root.glob("*.json")) if root.is_dir() else []
+        for path in paths:
+            record = _read_json(path)
+            for output in record.get("outputs", []):
+                if output.get("kind") != "revision" or output.get("node_id") not in node_ids:
+                    continue
+                key = (output["node_id"], output["revision_id"])
+                previous = result.setdefault(key, record)
+                if previous["run_id"] != record["run_id"]:
+                    raise ValueError("a graph revision has multiple producer runs")
+        return result
 
     def _list_statuses_for_recordings(self, recording_ids: Collection[str]) -> tuple[Any, ...]:
         """Read run status only for the requested recordings."""
@@ -492,6 +529,8 @@ class RecordingPipelineWorkspaceService:
         selections: Mapping[str, Any],
         revision_by_id: Mapping[str, Any],
         full_revisions: tuple[Any, ...],
+        lineage_runs_by_output: Mapping[tuple[str, str], dict[str, Any]],
+        revision_targets: Mapping[str, tuple[str, str]],
         diagnostics: list[dict[str, Any]],
     ) -> dict[str, Any]:
         stage_revisions = tuple(
@@ -567,7 +606,22 @@ class RecordingPipelineWorkspaceService:
             "selection_revision": selection_revision,
             "selected_generated_revision_id": selected_generated,
             "selected_completed_reference_revision_id": selected_completed,
-            "runs": [self._run_summary(run) for run in self._ordered_runs(stage_runs)],
+            "runs": [
+                self._run_summary(
+                    run,
+                    next(
+                        (
+                            lineage_runs_by_output[target]
+                            for revision_id in run.state.output_revision_ids
+                            if (target := revision_targets.get(revision_id))
+                            in lineage_runs_by_output
+                        ),
+                        None,
+                    ),
+                    self._node_revision_legacy_ids,
+                )
+                for run in self._ordered_runs(stage_runs)
+            ],
             "analyses": analyses,
             "reference": reference_summary,
             "can_run": not run_blockers,
@@ -758,7 +812,11 @@ class RecordingPipelineWorkspaceService:
         )
 
     @staticmethod
-    def _run_summary(run: StoredProcessorRun) -> dict[str, Any]:
+    def _run_summary(
+        run: StoredProcessorRun,
+        lineage_run: Mapping[str, Any] | None = None,
+        node_revision_legacy_ids: Mapping[tuple[str, str], str] | None = None,
+    ) -> dict[str, Any]:
         state = run.state
         request = run.request.to_mapping()
         crop_input = request.get("crop_input")
@@ -768,6 +826,22 @@ class RecordingPipelineWorkspaceService:
             if isinstance(items, list):
                 crop_input["item_count"] = len(items)
             request["crop_input"] = crop_input
+        input_revision_ids = list(run.request.input_revision_ids)
+        output_revision_ids = list(state.output_revision_ids)
+        if lineage_run is not None:
+            revision_ids = node_revision_legacy_ids or {}
+            role_order = {"events": 0, "visible_cards": 1, "visual_identities": 2}
+            inputs = [ref for ref in lineage_run.get("inputs", []) if ref.get("kind") == "revision"]
+            inputs.sort(key=lambda ref: (role_order.get(ref["role"], 10), ref["role"]))
+            input_revision_ids = [
+                revision_ids.get((ref["node_id"], ref["revision_id"]), ref["revision_id"])
+                for ref in inputs
+            ]
+            output_revision_ids = [
+                revision_ids.get((ref["node_id"], ref["revision_id"]), ref["revision_id"])
+                for ref in lineage_run.get("outputs", [])
+                if ref.get("kind") == "revision"
+            ]
         return {
             "run_id": run.run_id,
             "status": state.status,
@@ -777,13 +851,13 @@ class RecordingPipelineWorkspaceService:
             # the complete request available when a caller needs its full lineage.
             "request": request,
             "state": state.to_mapping(),
-            "input_revision_ids": list(run.request.input_revision_ids),
+            "input_revision_ids": input_revision_ids,
             "implementation": run.request.implementation.to_mapping(),
             "model": None if run.request.model is None else run.request.model.to_mapping(),
             "configuration": run.request.configuration,
             "extraction_policy": run.request.extraction_policy,
             "crop_policy": run.request.crop_policy,
-            "output_revision_ids": list(state.output_revision_ids),
+            "output_revision_ids": output_revision_ids,
             "created_at": state.created_at,
             "started_at": state.started_at,
             "completed_at": state.completed_at,

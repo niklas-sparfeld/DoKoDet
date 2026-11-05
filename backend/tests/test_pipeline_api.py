@@ -7,6 +7,7 @@ import subprocess
 import threading
 import time
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -622,6 +623,34 @@ def test_workspace_run_summary_omits_frozen_crop_items() -> None:
         "source_revision_id": "rev-1",
     }
     assert request_mapping["crop_input"]["items"] is crop_items
+
+
+def test_workspace_run_summary_uses_exact_graph_inputs(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+    run_store = app.state.pipeline_run_store
+    original_list = run_store.list_for_recording
+
+    def stale_inputs(recording_id: str, **kwargs):
+        stored_runs = original_list(recording_id, **kwargs)
+        return tuple(
+            replace(run, request=replace(run.request, input_revision_ids=("stale-input",)))
+            for run in stored_runs
+        )
+
+    with TestClient(app) as client:
+        created = _enqueue_event_job(client, RECORDING_ID, _request("graph-input-check"))
+        assert created.status_code == 202
+        _wait_for_status(client, created.json()["id"], "complete")
+        run_store.list_for_recording = stale_inputs
+
+        workspace = app.state.pipeline_workspace_service.get_workspace(RECORDING_ID)
+
+    event_run = workspace["stages"][0]["runs"][0]
+    assert event_run["input_revision_ids"] == []
+    assert event_run["output_revision_ids"] == [
+        workspace["stages"][0]["selected_generated_revision_id"]
+    ]
 
 
 def test_stage_workspace_skips_inactive_reference_drafts(tmp_path: Path, monkeypatch) -> None:
