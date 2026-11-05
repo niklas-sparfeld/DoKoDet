@@ -12,7 +12,8 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from dokodetector_backend.errors import ContractError
-from dokodetector_backend.logging_config import get_or_create_request_id, log_event
+from dokodetector_backend.job_store import JobConflict
+from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.round_analysis_contract import (
     CounterfactualArtifact,
     RoundAnalysisCreateRequest,
@@ -20,8 +21,6 @@ from dokodetector_backend.round_analysis_contract import (
     RoundCounterfactualArtifacts,
     RoundCounterfactualCreateRequest,
     RoundCounterfactualResponse,
-    canonical_analysis_request_bytes,
-    canonical_analysis_request_sha256,
 )
 from dokodetector_backend.round_analysis_service import (
     RoundAnalysisService,
@@ -41,7 +40,6 @@ from dokodetector_backend.round_analysis_timeline import (
     RoundAnalysisTimelineError,
     TimelineFrameNotFound,
 )
-from dokodetector_backend.stored_models import StoredRoundAnalysis
 
 router = APIRouter()
 LOGGER = logging.getLogger(__name__)
@@ -184,50 +182,55 @@ async def _queue_round_analysis(
     """Validate and queue one analysis request from any API entry point."""
 
     service: RoundAnalysisService = request.app.state.round_analysis_service
-    existing = service.store.get(payload.analysis_id)
-    if existing is not None:
-        if existing.request_sha256 != canonical_analysis_request_sha256(
-            payload
-        ) or existing.request_json != canonical_analysis_request_bytes(payload).decode("utf-8"):
-            raise ContractError(
-                "analysis_conflict",
-                "The analysis ID is already stored with different request content.",
-                status_code=409,
-            )
-        return service.status(payload.analysis_id)
+    request_id = request.headers.get("X-DokoDetector-Request-ID") or str(payload.analysis_id)
     try:
         service.validate_request(payload)
-        created = service.store.create(payload)
+        raw_request = {
+            "type": "round_analysis",
+            "context": {"recording_id": payload.recording_id},
+            "request": payload.model_dump(mode="json"),
+        }
+        log_event(
+            LOGGER,
+            logging.INFO,
+            "round_analysis_created",
+            request_id=request_id,
+            analysis_id=str(payload.analysis_id),
+            recording_id=payload.recording_id,
+            round_id=payload.round_id,
+            session_id=payload.session_id,
+            state="queued",
+            total_evidence_packages=len(payload.evidence_package_ids),
+        )
+        job_service = request.app.state.job_manager_service
+        if request.app.state.run_round_analysis_synchronously:
+            job = job_service.run_inline(
+                str(payload.analysis_id), raw_request, correlation_id=request_id
+            )
+        else:
+            job = job_service.get_manager().accept(
+                str(payload.analysis_id), raw_request, correlation_id=request_id
+            )
     except RoundAnalysisValidationError as error:
         raise ContractError("invalid_analysis_request", str(error), status_code=422) from error
-    except RoundAnalysisConflict as error:
+    except (RoundAnalysisConflict, JobConflict) as error:
         raise ContractError(
             "analysis_conflict",
             str(error),
             status_code=409,
         ) from error
-
-    request_id = get_or_create_request_id(request)
-    if created.created:
-        try:
-            service.prepare_inputs(payload)
-        except (OSError, TypeError, ValueError) as error:
-            service.store.mark_failed(
-                payload.analysis_id,
-                "The analysis inputs could not be copied.",
-            )
-            raise ContractError(
-                "analysis_input_error",
-                "The analysis inputs could not be prepared.",
-                status_code=500,
-            ) from error
-        _log_round_analysis_created(request_id, created.analysis)
-
-    if created.created and request.app.state.run_round_analysis_synchronously:
-        service.run_synchronously(payload.analysis_id, request_id)
-    elif created.created:
-        service.enqueue(payload.analysis_id, request_id)
-    return service.status(payload.analysis_id)
+    except (OSError, TypeError, ValueError) as error:
+        raise ContractError(
+            "analysis_input_error",
+            "The analysis inputs could not be accepted.",
+            status_code=500,
+        ) from error
+    try:
+        return service.status(UUID(job.request["analysis_id"]))
+    except (RoundAnalysisNotFound, KeyError, TypeError, ValueError) as error:
+        raise ContractError(
+            "analysis_not_found", "The round analysis was not found.", status_code=500
+        ) from error
 
 
 @router.get(
@@ -366,23 +369,6 @@ def _parse_package_id(value: str) -> UUID:
             "invalid_package_id",
             "The package ID is not a valid UUID.",
         ) from error
-
-
-def _log_round_analysis_created(request_id: str, analysis: StoredRoundAnalysis) -> None:
-    """Log the durable queued state without logging the immutable request body."""
-
-    log_event(
-        LOGGER,
-        logging.INFO,
-        "round_analysis_created",
-        request_id=request_id,
-        analysis_id=str(analysis.analysis_id),
-        recording_id=analysis.recording_id,
-        round_id=analysis.round_id,
-        session_id=str(analysis.session_id),
-        state=analysis.state,
-        total_evidence_packages=analysis.total_evidence_packages,
-    )
 
 
 def _parse_counterfactual_id(value: str) -> UUID:

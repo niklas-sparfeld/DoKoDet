@@ -452,8 +452,9 @@ class JobManager:
         completed: int | None,
         total: int | None,
         unit: str | None = None,
+        step_id: str | None = None,
     ) -> Job:
-        """Persist bounded handler progress on its stable first step."""
+        """Persist bounded handler progress on a stable step."""
         with self._lock:
             self._owned()
             job = self.get(job_id)
@@ -461,9 +462,20 @@ class JobManager:
                 return job
             now = _now()
             job.phase = phase
-            if not job.steps:
-                job.steps.append(Step(id="process", label=phase))
-            step = job.steps[0]
+            if step_id is None:
+                if not job.steps:
+                    job.steps.append(Step(id="process", label=phase))
+                step = job.steps[0]
+            else:
+                step = next((item for item in job.steps if item.id == step_id), None)
+                if step is None:
+                    now = _now()
+                    for previous in job.steps:
+                        if previous.state == "running":
+                            previous.state = "succeeded"
+                            previous.finished_at = now
+                    step = Step(id=step_id, label=phase)
+                    job.steps.append(step)
             if step.state == "pending":
                 step.state = "running"
                 step.started_at = now
@@ -664,6 +676,7 @@ class JobManager:
         raw_request: Mapping[str, Any],
         *,
         retry_of: str | None = None,
+        correlation_id: str | None = None,
     ) -> Job:
         with self._lock:
             self._owned()
@@ -716,6 +729,7 @@ class JobManager:
                 updated_at=now,
                 label=label,
                 retry_of=retry_of,
+                correlation_id=correlation_id,
                 **participant_fields,
                 **request.model_dump(),
             )
@@ -764,16 +778,22 @@ class JobManager:
                 raise JobStateError("only failed, cancelled, or interrupted jobs can be retried")
             if source.parent_id is not None:
                 raise JobStateError("retry the parent attempt to create a new child attempt")
+            raw_retry_request = {
+                "type": source.type,
+                "context": source.context,
+                "request": source.request,
+                "parent_id": source.parent_id,
+                "parent_step_id": source.parent_step_id,
+            }
+            prepare_retry = getattr(self.participant, "retry_request", None)
+            retry_request = (
+                raw_retry_request if prepare_retry is None else prepare_retry(raw_retry_request)
+            )
             return self.accept(
                 key,
-                {
-                    "type": source.type,
-                    "context": source.context,
-                    "request": source.request,
-                    "parent_id": source.parent_id,
-                    "parent_step_id": source.parent_step_id,
-                },
+                retry_request,
                 retry_of=source.id,
+                correlation_id=source.correlation_id,
             )
 
     def publish(

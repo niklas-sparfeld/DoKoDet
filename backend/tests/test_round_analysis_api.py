@@ -462,7 +462,11 @@ def test_create_is_idempotent_and_conflicting_input_is_rejected(backend_tmp_path
     payload = _analysis_payload(package_ids=[package_id])
 
     first = client.post("/v1/round-analyses", json=payload)
-    replay = client.post("/v1/round-analyses", json=payload)
+    replay = client.post(
+        "/v1/round-analyses",
+        json=payload,
+        headers={"X-DokoDetector-Request-ID": "request-idempotent-replay"},
+    )
     changed = json.loads(json.dumps(payload))
     changed["search"]["max_hypotheses"] = 9
     conflict = client.post("/v1/round-analyses", json=changed)
@@ -528,16 +532,114 @@ def test_worker_failure_is_a_terminal_safe_error(backend_tmp_path: Path) -> None
     assert "secret" not in response.text
 
 
-def test_lifespan_starts_and_stops_one_worker(backend_tmp_path: Path) -> None:
+def test_failed_round_analysis_retry_keeps_inputs_and_publishes_new_result(
+    backend_tmp_path: Path,
+) -> None:
+    client, app = _backend(backend_tmp_path)
+    package_id = _upload_linked_package(client)
+    original_analyze = app.state.analyzer.analyze
+
+    def fail(_: object) -> object:
+        raise RuntimeError("temporary analyzer failure")
+
+    app.state.analyzer.analyze = fail
+    with client:
+        failed_response = client.post(
+            "/v1/round-analyses",
+            json=_analysis_payload(package_ids=[package_id]),
+        )
+        assert failed_response.status_code == 202
+        assert failed_response.json()["state"] == "failed"
+        manager = app.state.job_manager_service.get_manager()
+        source_job = next(job for job in manager.list_jobs() if job.type == "round_analysis")
+
+        app.state.analyzer.analyze = original_analyze
+        retry_response = client.post(
+            f"/api/jobs/{source_job.id}/retry",
+            json={},
+            headers={"Idempotency-Key": "550e8400-e29b-41d4-a716-446655440099"},
+        )
+        assert retry_response.status_code == 202
+        retry_job_id = retry_response.json()["id"]
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            retry_job = client.get(f"/api/jobs/{retry_job_id}").json()
+            if retry_job["state"] in {"succeeded", "failed", "cancelled"}:
+                break
+            time.sleep(0.01)
+        assert retry_job["state"] == "succeeded"
+        assert [step["id"] for step in retry_job["steps"]] == [
+            "analysis",
+            "reconstruction",
+        ]
+        retry_analysis_id = retry_job["results"][0]["id"]
+        retried = client.get(f"/v1/round-analyses/{retry_analysis_id}").json()
+        assert retried["state"] == "complete"
+
+    original = app.state.round_analysis_store.get(ANALYSIS_ID)
+    retried_state = app.state.round_analysis_store.get(retry_analysis_id)
+    assert original is not None and retried_state is not None
+    original_request = json.loads(original.request_json)
+    retry_request = json.loads(retried_state.request_json)
+    assert retry_request["analysis_id"] != original_request["analysis_id"]
+    retry_request["analysis_id"] = original_request["analysis_id"]
+    assert retry_request == original_request
+
+
+def test_cancellation_waits_for_active_analysis_call_then_stops_before_reconstruction(
+    backend_tmp_path: Path,
+) -> None:
+    client, app = _backend(backend_tmp_path, synchronous=False)
+    package_id = _upload_linked_package(client)
+    original_analyze = app.state.analyzer.analyze
+    started = threading.Event()
+    release = threading.Event()
+
+    class BlockingAnalyzer:
+        name = app.state.analyzer.name
+        version = app.state.analyzer.version
+
+        def analyze(self, evidence: object) -> TableObservation:
+            started.set()
+            assert release.wait(5)
+            return original_analyze(evidence)
+
+    app.state.round_analysis_service.analyzer_runner.analyzer = BlockingAnalyzer()
+    with client:
+        created = client.post(
+            "/v1/round-analyses",
+            json=_analysis_payload(package_ids=[package_id]),
+        )
+        assert created.status_code == 202
+        assert started.wait(3)
+        manager = app.state.job_manager_service.get_manager()
+        job = next(job for job in manager.list_jobs() if job.type == "round_analysis")
+        cancel = client.post(f"/api/jobs/{job.id}/cancel", json={})
+        assert cancel.status_code == 200
+        assert cancel.json()["state"] == "cancelling"
+        assert job.state == "running"
+        release.set()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            current = client.get(f"/api/jobs/{job.id}").json()
+            if current["state"] in {"cancelled", "failed", "succeeded"}:
+                break
+            time.sleep(0.01)
+        assert current["state"] == "cancelled"
+        assert client.get(f"/v1/round-analyses/{ANALYSIS_ID}").json()["state"] == "failed"
+
+
+def test_lifespan_starts_and_stops_the_shared_job_scheduler(backend_tmp_path: Path) -> None:
     client, app = _backend(backend_tmp_path, synchronous=False)
 
     with client:
-        assert app.state.round_analysis_service.worker_task is not None
-        assert not app.state.round_analysis_service.worker_task.done()
-    assert app.state.round_analysis_service.worker_task is None
+        assert app.state.job_manager_service.scheduler is not None
+        assert app.state.job_manager_service.manager is not None
+    assert app.state.job_manager_service.scheduler is None
+    assert app.state.job_manager_service.manager is None
 
 
-def test_lifespan_worker_processes_queued_analysis(backend_tmp_path: Path) -> None:
+def test_lifespan_scheduler_processes_queued_analysis(backend_tmp_path: Path) -> None:
     client, _ = _backend(backend_tmp_path, synchronous=False)
     package_id = _upload_linked_package(client)
 
@@ -556,7 +658,7 @@ def test_lifespan_worker_processes_queued_analysis(backend_tmp_path: Path) -> No
         assert status.json()["state"] == "complete"
 
 
-def test_round_analysis_packages_are_bounded_and_persisted_in_input_order(
+def test_round_analysis_packages_use_one_global_worker_slot_in_input_order(
     backend_tmp_path: Path,
 ) -> None:
     client, app = _backend(
@@ -575,8 +677,9 @@ def test_round_analysis_packages_are_bounded_and_persisted_in_input_order(
     original_analyze = app.state.analyzer.analyze
     active = 0
     maximum = 0
+    calls = 0
     lock = threading.Lock()
-    started_two = threading.Event()
+    started_first = threading.Event()
     release = threading.Event()
 
     class BlockingAnalyzer:
@@ -584,12 +687,12 @@ def test_round_analysis_packages_are_bounded_and_persisted_in_input_order(
         version = app.state.analyzer.version
 
         def analyze(self, evidence: object) -> TableObservation:
-            nonlocal active, maximum
+            nonlocal active, maximum, calls
             with lock:
                 active += 1
+                calls += 1
                 maximum = max(maximum, active)
-                if active == 2:
-                    started_two.set()
+                started_first.set()
             try:
                 assert release.wait(2)
                 return original_analyze(evidence)
@@ -604,8 +707,9 @@ def test_round_analysis_packages_are_bounded_and_persisted_in_input_order(
             json=_analysis_payload(package_ids=package_ids),
         )
         assert created.status_code == 202
-        assert started_two.wait(2)
-        assert maximum == 2
+        assert started_first.wait(2)
+        assert calls == 1
+        assert maximum == 1
         release.set()
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:

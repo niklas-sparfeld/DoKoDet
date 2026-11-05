@@ -1,15 +1,15 @@
-"""Queue and execute one local round-analysis worker."""
+"""Validate round-analysis inputs and execute managed analysis jobs."""
 
 from __future__ import annotations
 
-import asyncio
+import hashlib
 import json
 import logging
 import tempfile
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
+from typing import Any
 from uuid import UUID, uuid4
 
 from doko_operations.counterfactual import (
@@ -45,6 +45,7 @@ from dokodetector_backend.intake_contract import (
     parse_evidence_package_lineage,
     parse_source_record,
 )
+from dokodetector_backend.job_store import Job, JobCancelled, JobManager
 from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
@@ -64,6 +65,7 @@ from dokodetector_backend.round_analysis_contract import (
     RoundAnalysisCreateRequest,
     RoundAnalysisResult,
     RoundAnalysisStatus,
+    canonical_analysis_request_sha256,
     parse_round_analysis_create_request_bytes,
 )
 from dokodetector_backend.round_analysis_storage import (
@@ -138,7 +140,7 @@ class StoredRoundCounterfactual:
 
 
 class RoundAnalysisService:
-    """Own the process-local queue and execute evidence packages with a bounded fan-out."""
+    """Validate immutable analysis inputs and publish round-analysis results."""
 
     def __init__(
         self,
@@ -151,7 +153,6 @@ class RoundAnalysisService:
         analyzer: TableEvidenceAnalyzer,
         pipeline_revision_store: PipelineRevisionStore | None = None,
         pipeline_selection_store: PipelineSelectionStore | None = None,
-        max_concurrent_requests: int = 4,
     ) -> None:
         self.store = store
         self.package_store = package_store
@@ -163,9 +164,6 @@ class RoundAnalysisService:
         self.repository_bundle_storage = repository_bundle_storage
         self.pipeline_revision_store = pipeline_revision_store
         self.pipeline_selection_store = pipeline_selection_store
-        if isinstance(max_concurrent_requests, bool) or max_concurrent_requests < 1:
-            raise ValueError("max_concurrent_requests must be a positive integer")
-        self.max_concurrent_requests = max_concurrent_requests
         self.analyzer_runner = AnalyzerRunner(
             package_store,
             analyzer,
@@ -176,15 +174,7 @@ class RoundAnalysisService:
             observation_store,
             artifact_storage,
         )
-        self._queue: asyncio.Queue[tuple[UUID, str] | None] = asyncio.Queue()
-        self._worker_task: asyncio.Task[None] | None = None
         self._counterfactual_lock = Lock()
-
-    @property
-    def worker_task(self) -> asyncio.Task[None] | None:
-        """Return the lifespan-owned worker task for lifecycle tests."""
-
-        return self._worker_task
 
     def validate_request(self, request: RoundAnalysisCreateRequest) -> ValidatedRoundAnalysisInput:
         """Validate stored recording and the immutable input selected by the request."""
@@ -478,175 +468,209 @@ class RoundAnalysisService:
             source.round_id or f"round-{recording.recording_id}",
         )
 
-    async def start(self) -> None:
-        """Start the one worker task after app resources are ready."""
+    def prepare_job(self, job_id: str, raw_request: dict[str, Any], after_write: Any) -> None:
+        """Create the immutable domain record for one accepted job attempt."""
+        request = self._request_for_job(job_id, raw_request)
+        self.validate_request(request)
+        self.store.create(request)
+        self.prepare_inputs(request)
+        after_write("round_analysis")
 
-        if self._worker_task is not None and not self._worker_task.done():
-            return
-        self._worker_task = asyncio.create_task(self._worker_loop(), name="round-analysis-worker")
-        _log_worker_event("round_analysis_worker_started", queue_depth=self._queue.qsize())
+    def verify_job(self, job_id: str, raw_request: dict[str, Any]) -> bool:
+        """Verify that accepted inputs are stored under this attempt ID."""
+        request = self._request_for_job(job_id, raw_request)
+        stored = self.store.get(request.analysis_id)
+        if stored is None or stored.request_sha256 != canonical_analysis_request_sha256(request):
+            return False
+        if request.is_pipeline_analysis:
+            path = self.artifact_storage.analysis_path(request.analysis_id) / "inputs"
+            return all(
+                (path / name).is_file()
+                for name in ("table-observations.json", "round-context.json", "input-manifest.json")
+            )
+        return True
 
-    async def stop(self) -> None:
-        """Drain queued work and wait for the worker to stop cleanly."""
+    @staticmethod
+    def _request_for_job(job_id: str, raw_request: dict[str, Any]) -> RoundAnalysisCreateRequest:
+        request = parse_round_analysis_create_request_bytes(
+            json.dumps(
+                raw_request,
+                ensure_ascii=True,
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        )
+        del job_id
+        return request
 
-        task = self._worker_task
-        if task is None:
-            return
-        await self._queue.put(None)
-        try:
-            await task
-        finally:
-            self._worker_task = None
-            _log_worker_event("round_analysis_worker_stopped", queue_depth=self._queue.qsize())
+    def job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Describe the exact selected source artifacts in the Jobs view."""
+        parsed = parse_round_analysis_create_request_bytes(
+            json.dumps(
+                request["request"],
+                ensure_ascii=True,
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        )
+        selected = self.validate_request(parsed)
+        inputs = [
+            {"kind": "evidence_package", "id": str(item.package_id), "digest": item.manifest_sha256}
+            for item in selected.packages
+        ]
+        if selected.pipeline_revision is not None:
+            inputs.append(
+                {
+                    "kind": "pipeline_revision",
+                    "id": selected.pipeline_revision.manifest.revision_id,
+                    "digest": selected.pipeline_revision.manifest.content_sha256,
+                }
+            )
+        return {
+            "label": "Analyze round",
+            "inputs": inputs,
+            "implementation": {
+                "round_setup": parsed.resolved_round_setup().model_dump(mode="json"),
+                "search": parsed.search.model_dump(mode="json"),
+                "correction_constraint_revision_ids": list(
+                    parsed.correction_constraint_revision_ids
+                ),
+            },
+        }
 
-    def enqueue(self, analysis_id: UUID, request_id: str) -> None:
-        """Queue one newly created analysis for the lifespan worker."""
-
-        self._queue.put_nowait((analysis_id, request_id))
-        log_event(
-            LOGGER,
-            logging.DEBUG,
-            "round_analysis_queued",
-            request_id=request_id,
-            analysis_id=str(analysis_id),
-            queue_depth=self._queue.qsize(),
+    def verify_job_publication(self, job: Job, results: list[dict[str, Any]]) -> bool:
+        request = parse_round_analysis_create_request_bytes(
+            json.dumps(
+                job.request,
+                ensure_ascii=True,
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        )
+        analysis = self.store.get(request.analysis_id)
+        return bool(
+            analysis is not None
+            and analysis.state == "complete"
+            and len(results) == 1
+            and results[0].get("kind") == "round_analysis"
+            and results[0].get("id") == str(request.analysis_id)
+            and results[0].get("digest") == analysis.result_artifact_sha256
         )
 
-    def run_synchronously(self, analysis_id: UUID, request_id: str) -> None:
-        """Execute one analysis immediately for the test-only API hook."""
+    def reconcile_jobs(self, jobs: list[Job]) -> None:
+        """Keep interrupted analysis records aligned with Job Manager recovery."""
+        for job in jobs:
+            if job.type != "round_analysis" or job.state not in {"interrupted", "cancelled"}:
+                continue
+            request = parse_round_analysis_create_request_bytes(
+                json.dumps(
+                    job.request,
+                    ensure_ascii=True,
+                    allow_nan=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode()
+            )
+            analysis = self.store.get(request.analysis_id)
+            if analysis is not None and analysis.state not in {"complete", "failed"}:
+                try:
+                    self.store.mark_failed(request.analysis_id, ANALYSIS_WORKER_FAILURE)
+                except (RoundAnalysisNotFound, ValueError):
+                    continue
 
-        self._run_one(analysis_id, request_id)
-
-    async def _worker_loop(self) -> None:
-        while True:
-            queued = await self._queue.get()
-            try:
-                if queued is None:
-                    return
-                analysis_id, request_id = queued
-                log_event(
-                    LOGGER,
-                    logging.DEBUG,
-                    "round_analysis_worker_dequeued",
-                    request_id=request_id,
-                    analysis_id=str(analysis_id),
-                    queue_depth=self._queue.qsize(),
-                )
-                await asyncio.to_thread(self._run_one, analysis_id, request_id)
-            finally:
-                self._queue.task_done()
-
-    def _run_one(self, analysis_id: UUID, request_id: str) -> None:
+    def execute_job(self, job: Job, token: Any, manager: JobManager) -> None:
+        """Analyze packages and reconstruct one round as a managed job."""
+        request_from_job = parse_round_analysis_create_request_bytes(
+            json.dumps(
+                job.request,
+                ensure_ascii=True,
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        )
+        analysis_id = request_from_job.analysis_id
         analysis = self.store.get(analysis_id)
         if analysis is None or analysis.state in {"complete", "failed"}:
             return
+        request_id = job.correlation_id or job.id
         try:
             request = parse_round_analysis_create_request_bytes(
                 analysis.request_json.encode("utf-8")
             )
             selected = self.validate_request(request)
-            log_event(
-                LOGGER,
-                logging.DEBUG,
-                "round_analysis_input_validated",
-                request_id=request_id,
-                analysis_id=str(analysis_id),
-                recording_id=selected.request.recording_id,
-                package_count=len(selected.packages),
+            previous = analysis
+            analysis = self.store.update_progress(
+                analysis_id, state="analyzing_evidence", completed=0
             )
-            updated = self.store.update_progress(
-                analysis_id,
-                state="analyzing_evidence",
-                completed=0,
-            )
-            _log_state_change(analysis, updated, request_id)
-            analysis = updated
+            _log_state_change(previous, analysis, request_id)
             observations: list[StoredTableObservation | TableObservation] = []
             if selected.request.is_pipeline_analysis:
-                assert selected.pipeline_revision is not None
-                observations.extend(self._read_prepared_pipeline_observations(request.analysis_id))
-            observations_by_index: list[StoredTableObservation | TableObservation | None] = [
-                None
-            ] * len(selected.packages)
-            package_failures: list[tuple[int, Exception]] = []
-            with ThreadPoolExecutor(
-                max_workers=self.max_concurrent_requests,
-                thread_name_prefix="round-analysis-package",
-            ) as executor:
-                futures: dict[Future[StoredTableObservation | None], int] = {}
-                for index, package in enumerate(selected.packages):
-                    package_index = index + 1
-                    log_event(
-                        LOGGER,
-                        logging.DEBUG,
-                        "round_analysis_package_started",
-                        **_analysis_context(analysis, request_id),
-                        package_id=str(package.package_id),
-                        package_index=package_index,
-                        total_packages=len(selected.packages),
-                    )
-                    futures[executor.submit(self.analyzer_runner.run_once, package.package_id)] = (
-                        index
-                    )
-                for future in as_completed(futures):
-                    index = futures[future]
-                    package = selected.packages[index]
-                    try:
-                        observation = future.result()
-                    except Exception as error:
-                        package_failures.append((index, error))
-                        LOGGER.exception(
-                            "round_analysis_package_failed",
-                            extra={
-                                "analysis_id": str(analysis_id),
-                                "package_id": str(package.package_id),
-                                "package_index": index + 1,
-                                "total_packages": len(selected.packages),
-                            },
-                        )
-                        continue
-                    if observation is None:
-                        package_failures.append(
-                            (
-                                index,
-                                RuntimeError(
-                                    "The selected evidence package could not be analyzed."
-                                ),
-                            )
-                        )
-                        continue
-                    observations_by_index[index] = observation
-                    log_event(
-                        LOGGER,
-                        logging.DEBUG,
-                        "round_analysis_package_completed",
-                        **_analysis_context(analysis, request_id),
-                        package_id=str(package.package_id),
-                        package_index=index + 1,
-                        total_packages=len(selected.packages),
-                        analyzer=observation.analyzer_name,
-                        analyzer_version=observation.analyzer_version,
-                        analysis_status=observation.status,
-                    )
-                    analysis = self.store.update_progress(
-                        analysis_id,
-                        state="analyzing_evidence",
-                        completed=sum(item is not None for item in observations_by_index),
-                    )
-
-            if package_failures:
-                raise package_failures[0][1]
-            observations.extend(
-                observation for observation in observations_by_index if observation is not None
+                observations.extend(self._read_prepared_pipeline_observations(analysis_id))
+            total = len(selected.packages)
+            manager.report_progress(
+                job.id,
+                phase="Analyze evidence",
+                completed=0,
+                total=total,
+                unit="packages",
+                step_id="analysis",
             )
-
-            updated = self.store.update_progress(
-                analysis_id,
-                state="reconstructing",
-                completed=len(selected.packages),
+            for index, package in enumerate(selected.packages, start=1):
+                token.check()
+                log_event(
+                    LOGGER,
+                    logging.DEBUG,
+                    "round_analysis_package_started",
+                    **_analysis_context(analysis, request_id),
+                    package_id=str(package.package_id),
+                    package_index=index,
+                    total_packages=total,
+                )
+                observation = self.analyzer_runner.run_once(package.package_id)
+                if observation is None:
+                    raise RuntimeError("The selected evidence package could not be analyzed.")
+                observations.append(observation)
+                log_event(
+                    LOGGER,
+                    logging.DEBUG,
+                    "round_analysis_package_completed",
+                    **_analysis_context(analysis, request_id),
+                    package_id=str(package.package_id),
+                    package_index=index,
+                    total_packages=total,
+                    analyzer=observation.analyzer_name,
+                    analyzer_version=observation.analyzer_version,
+                    analysis_status=observation.status,
+                )
+                analysis = self.store.update_progress(
+                    analysis_id, state="analyzing_evidence", completed=index
+                )
+                manager.report_progress(
+                    job.id,
+                    phase="Analyze evidence",
+                    completed=index,
+                    total=total,
+                    unit="packages",
+                    step_id="analysis",
+                )
+            token.check()
+            previous = analysis
+            analysis = self.store.update_progress(
+                analysis_id, state="reconstructing", completed=total
             )
-            _log_state_change(analysis, updated, request_id)
-            analysis = updated
+            _log_state_change(previous, analysis, request_id)
+            manager.report_progress(
+                job.id,
+                phase="Reconstruct round",
+                completed=0,
+                total=1,
+                unit="rounds",
+                step_id="reconstruction",
+            )
             log_event(
                 LOGGER,
                 logging.DEBUG,
@@ -664,63 +688,80 @@ class RoundAnalysisService:
                 result_status=result.status,
                 hypothesis_count=len(result.hypotheses),
             )
-            published = self.artifact_storage.publish(
-                analysis_id,
-                artifacts[0],
-                artifacts[1],
-            )
-            log_event(
-                LOGGER,
-                logging.DEBUG,
-                "round_analysis_artifacts_published",
-                **_analysis_context(analysis, request_id),
-                input_artifact_id=published.input.relative_path,
-                input_byte_length=published.input.byte_length,
-                input_sha256=published.input.sha256,
-                result_artifact_id=published.result.relative_path,
-                result_byte_length=published.result.byte_length,
-                result_sha256=published.result.sha256,
-            )
-            completed = self.store.mark_complete(
-                analysis_id,
-                result_status=result.status,
-                result_json=artifacts[1].decode("utf-8"),
-                input_artifact_id=published.input.relative_path,
-                input_artifact_sha256=published.input.sha256,
-                result_artifact_id=published.result.relative_path,
-                result_artifact_sha256=published.result.sha256,
-            )
-            log_event(
-                LOGGER,
-                logging.INFO,
-                "round_analysis_completed",
-                **_analysis_fields(completed, request_id),
-                state="complete",
-                result_status=result.status,
-            )
-        except Exception as error:
-            failure_info = _exception_info(error)
-            try:
-                failed = self.store.mark_failed(analysis_id, ANALYSIS_WORKER_FAILURE)
-            except (RoundAnalysisNotFound, ValueError) as persistence_error:
+            token.check()
+            expected_digest = hashlib.sha256(artifacts[1]).hexdigest()
+            output = {
+                "kind": "round_analysis",
+                "id": str(analysis_id),
+                "digest": expected_digest,
+                "available": True,
+            }
+
+            def commit() -> None:
+                published = self.artifact_storage.publish(analysis_id, artifacts[0], artifacts[1])
+                completed = self.store.mark_complete(
+                    analysis_id,
+                    result_status=result.status,
+                    result_json=artifacts[1].decode("utf-8"),
+                    input_artifact_id=published.input.relative_path,
+                    input_artifact_sha256=published.input.sha256,
+                    result_artifact_id=published.result.relative_path,
+                    result_artifact_sha256=published.result.sha256,
+                )
                 log_event(
                     LOGGER,
-                    logging.ERROR,
-                    "round_analysis_failure_persist_failed",
-                    exc_info=_exception_info(persistence_error),
-                    **_analysis_fields(analysis, request_id),
-                    cause=type(error).__name__,
+                    logging.DEBUG,
+                    "round_analysis_artifacts_published",
+                    **_analysis_context(analysis, request_id),
+                    input_artifact_id=published.input.relative_path,
+                    input_byte_length=published.input.byte_length,
+                    input_sha256=published.input.sha256,
+                    result_artifact_id=published.result.relative_path,
+                    result_byte_length=published.result.byte_length,
+                    result_sha256=published.result.sha256,
                 )
-            else:
+                log_event(
+                    LOGGER,
+                    logging.INFO,
+                    "round_analysis_completed",
+                    **_analysis_fields(completed, request_id),
+                    state="complete",
+                    result_status=result.status,
+                )
+
+            if not manager.publish(job.id, [output], commit):
+                raise JobCancelled("job cancellation requested before analysis publication")
+            manager.report_progress(
+                job.id,
+                phase="Reconstruct round",
+                completed=1,
+                total=1,
+                unit="rounds",
+                step_id="reconstruction",
+            )
+        except JobCancelled:
+            self._fail_analysis(str(analysis_id))
+            raise
+        except Exception as error:
+            LOGGER.exception("round_analysis_job_failed", extra={"job_id": job.id})
+            self._fail_analysis(str(analysis_id))
+            failed = self.store.get(analysis_id)
+            if failed is not None:
                 log_event(
                     LOGGER,
                     logging.ERROR,
                     "round_analysis_failed",
-                    exc_info=failure_info,
+                    exc_info=_exception_info(error),
                     **_analysis_fields(failed, request_id),
                     state="failed",
                     error=failed.error,
                 )
+            raise RuntimeError(ANALYSIS_WORKER_FAILURE) from None
+
+    def _fail_analysis(self, analysis_id: str) -> None:
+        analysis = self.store.get(analysis_id)
+        if analysis is not None and analysis.state not in {"complete", "failed"}:
+            self.store.mark_failed(analysis_id, ANALYSIS_WORKER_FAILURE)
 
     def _run_reconstruction(
         self,
@@ -1100,17 +1141,10 @@ def _log_state_change(
     )
 
 
-def _log_worker_event(event: str, *, queue_depth: int) -> None:
-    """Log process-level worker lifecycle events."""
-
-    log_event(LOGGER, logging.INFO, event, queue_depth=queue_depth)
-
-
 def _exception_info(
     error: BaseException,
 ) -> tuple[type[BaseException], BaseException, object] | None:
-    """Return traceback information for one failed worker operation."""
-
+    """Return traceback information for one failed analysis operation."""
     if error.__traceback__ is None:
         return None
     return type(error), error, error.__traceback__

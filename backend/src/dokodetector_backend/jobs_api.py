@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, Literal
@@ -16,8 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from dokodetector_backend.errors import APIErrorDetail, ContractError
 from dokodetector_backend.job_scheduler import Budget, Claims, JobScheduler, QueueRevisionConflict
 from dokodetector_backend.job_store import (
+    CancellationToken,
     FakeParticipant,
     Job,
+    JobCancelled,
     JobConflict,
     JobLogEntry,
     JobManager,
@@ -186,6 +189,11 @@ class JobTypeRegistry:
         normalizer = getattr(self._participants[job_type], "normalize", None)
         return request if normalizer is None else normalizer(request)
 
+    def retry_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        participant = self._participants[request["type"]]
+        prepare_retry = getattr(participant, "retry_request", None)
+        return request if prepare_retry is None else prepare_retry(request)
+
     def job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
         participant = self._participants[request["type"]]
         describe = getattr(participant, "job_fields", None)
@@ -270,6 +278,66 @@ class JobManagerService:
             raise JobOwnershipError("job manager is not available")
         return self.manager
 
+    def run_inline(
+        self,
+        idempotency_key: str,
+        request: dict[str, Any],
+        *,
+        correlation_id: str | None = None,
+    ) -> Job:
+        """Run one fixture job inline with normal durable state transitions."""
+        temporary_owner = self.manager is None
+        if temporary_owner:
+            self.manager = JobManager(
+                self.operations_root,
+                self.registry,
+                verify_publication=self.registry.verify_publication,
+            ).__enter__()
+            self.registry.reconcile(self.manager)
+        manager = self.get_manager()
+        try:
+            job = manager.accept(
+                idempotency_key,
+                request,
+                correlation_id=correlation_id,
+            )
+            if job.state != "queued":
+                if self.scheduler is None:
+                    return job
+                deadline = time.monotonic() + 30
+                while job.state in {"queued", "running", "cancelling", "waiting"}:
+                    if time.monotonic() >= deadline:
+                        raise JobStateError("inline fixture job did not reach a terminal state")
+                    time.sleep(0.01)
+                    job = manager.get(job.id)
+                return job
+            if self.scheduler is not None:
+                deadline = time.monotonic() + 30
+                while job.state in {"queued", "running", "cancelling", "waiting"}:
+                    if time.monotonic() >= deadline:
+                        raise JobStateError("inline fixture job did not reach a terminal state")
+                    time.sleep(0.01)
+                    job = manager.get(job.id)
+                return job
+            manager.transition(job.id, "running")
+            try:
+                self.registry.handle(job, self.registry.claims_for(job), CancellationToken())
+            except JobCancelled:
+                manager.transition(job.id, "cancelled")
+            except Exception as error:
+                current = manager.get(job.id)
+                current.failure = {"code": "handler_failed", "message": str(error)}
+                manager._write_job(current)
+                manager.transition(job.id, "failed")
+            else:
+                if manager.get(job.id).state == "running":
+                    manager.transition(job.id, "succeeded")
+            return manager.get(job.id)
+        finally:
+            if temporary_owner and self.manager is not None:
+                self.manager.__exit__(None, None, None)
+                self.manager = None
+
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 _ACTIVE_STATES = {"queued", "running", "waiting", "cancelling"}
@@ -351,6 +419,8 @@ def cancel_job(job_id: str, request: Request, body: EmptyBody) -> JobDetail:
     manager = _manager(request)
     try:
         job = manager.cancel(job_id)
+        request.app.state.job_type_registry.reconcile(manager)
+        job = manager.get(job_id)
         return _detail(job, manager.queue())
     except Exception as error:
         _raise_job_error(error)

@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M9 complete; M10–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M10 complete; M11–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -29,7 +29,7 @@ Use the domain terms in the [glossary](../../glossary.md).
 | Proposed card scenes            | `proposed_card_scene_pipeline_service.py`; private single-worker executor; visible-card editor polling | Managed leaf job.                                                                                     |
 | Visual identities               | `visual_identity_pipeline_service.py`; private executor and inner workers; run and auto-approval UI    | Managed leaf job; retain explicit review decisions.                                                   |
 | Table observations              | `observation_pipeline_service.py`; private executor; `ObservationRunControls.tsx`                      | Managed leaf job.                                                                                     |
-| Round analysis                  | `round_analysis_service.py`; private async queue and worker; `RoundAnalysisControls.tsx`               | Managed leaf job with analysis/reconstruction steps.                                                  |
+| Round analysis                  | `round_analysis_service.py`; `RoundAnalysisControls.tsx`                                                | Managed leaf job with analysis/reconstruction steps.                                                  |
 | Automated recording pipeline    | `automated_pipeline_worker.py`; private async queue; coordinator and `AutomatedPipelineControls.tsx`   | Managed parent job with scheduled child jobs.                                                         |
 | Calibration preview calculation | `calibration_refinement_service.py`; calculation through synchronous request paths                     | Managed calculation job against an exact draft snapshot. Reads must not start expensive calculations. |
 | Counterfactual reconstruction   | `round_analysis_api.py`; synchronous create-or-reuse route                                             | Managed calculation job; retain immutable correction and result semantics.                            |
@@ -376,13 +376,15 @@ missing evidence remains distinct; accepted input protection and retries are ver
 
 Result: [M9 table observations](../../reports/0110-M9_Table_Observations.md).
 
-### M10 — Connect round analysis — Not started
+### M10 — Connect round analysis — Complete
 
 Replace the analysis queue/worker with a handler and job steps. Preserve exact observations, round
 facts, rules, search limits, immutable results, and diagnostics.
 
 Acceptance: local analysis fixtures cover analysis/reconstruction phases, failure, safe-stop
 limits, cancellation, interruption, and retry. No private analysis scheduler remains.
+
+Result: [M10 round analysis](../../reports/0110-M10_Round_Analysis.md).
 
 ### M11 — Connect automated pipelines as parent jobs — Not started
 

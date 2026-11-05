@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app_factory import create_test_app
@@ -15,6 +16,7 @@ from test_round_analysis_api import (
 )
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.job_store import Job
 from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
@@ -90,7 +92,7 @@ def test_synchronous_analysis_logs_info_lifecycle_and_debug_package_trace(
     assert _events(caplog, "round_analysis_artifacts_published")[0].levelno == logging.DEBUG
 
 
-def test_asynchronous_analysis_logs_queue_and_reaches_terminal_state(
+def test_asynchronous_analysis_uses_shared_job_scheduler_and_reaches_terminal_state(
     caplog, tmp_path: Path
 ) -> None:
     caplog.set_level(logging.DEBUG, logger="dokodetector_backend")
@@ -115,14 +117,11 @@ def test_asynchronous_analysis_logs_queue_and_reaches_terminal_state(
             time.sleep(0.01)
         assert status.json()["state"] == "complete"
 
-    queued = _events(caplog, "round_analysis_queued")
-    assert len(queued) == 1
-    assert queued[0].levelno == logging.DEBUG
-    assert queued[0].event_fields["request_id"] == "request-m2-async"
-    worker_started = _events(caplog, "round_analysis_worker_started")
-    worker_stopped = _events(caplog, "round_analysis_worker_stopped")
-    assert len(worker_started) == len(worker_stopped) == 1
-    assert worker_started[0].levelno == worker_stopped[0].levelno == logging.INFO
+    service_events = _events(caplog, "round_analysis_state_changed")
+    assert [event.event_fields["state"] for event in service_events] == [
+        "analyzing_evidence",
+        "reconstructing",
+    ]
     completed = _events(caplog, "round_analysis_completed")
     assert len(completed) == 1
     assert completed[0].event_fields["request_id"] == "request-m2-async"
@@ -171,8 +170,7 @@ def test_failed_analysis_logs_error_traceback_and_safe_terminal_fields(
     assert "secret analyzer details" not in response.text
 
 
-def test_startup_recovery_logs_a_warning_for_interrupted_analysis(caplog, tmp_path: Path) -> None:
-    caplog.set_level(logging.DEBUG, logger="dokodetector_backend")
+def test_interrupted_managed_analysis_is_reconciled_to_a_safe_failure(tmp_path: Path) -> None:
     request = RoundAnalysisCreateRequest.model_validate(
         {
             "analysis_id": "00000000-0000-0000-0000-000000000032",
@@ -205,16 +203,28 @@ def test_startup_recovery_logs_a_warning_for_interrupted_analysis(caplog, tmp_pa
     store = RoundAnalysisStore(RoundAnalysisArtifactStorage(settings.operations_root))
     store.create(request)
 
-    create_test_app(settings)
+    app = create_test_app(settings)
+    now = datetime.now(timezone.utc).isoformat()
+    interrupted = Job.model_validate(
+        {
+            "id": "00000000-0000-0000-0000-000000000035",
+            "type": "round_analysis",
+            "label": "Analyze round",
+            "context": {
+                "recording_id": request.recording_id,
+                "request_id": "request-interrupted",
+            },
+            "request": request.to_mapping(),
+            "idempotency_key": "00000000-0000-0000-0000-000000000036",
+            "request_hash": "0" * 64,
+            "state": "interrupted",
+            "created_at": now,
+            "updated_at": now,
+            "finished_at": now,
+        }
+    )
+    app.state.round_analysis_service.reconcile_jobs([interrupted])
 
-    recovered = _events(caplog, "round_analysis_recovery_failed")
-    assert len(recovered) == 1
-    assert recovered[0].levelno == logging.WARNING
-    assert recovered[0].event_fields == {
-        "analysis_count": 1,
-        "reason": "backend_restarted",
-    }
-    checked = _events(caplog, "round_analysis_recovery_checked")
-    assert len(checked) == 1
-    assert checked[0].levelno == logging.DEBUG
-    assert checked[0].event_fields == {"failed_count": 1}
+    recovered = app.state.round_analysis_store.get(request.analysis_id)
+    assert recovered.state == "failed"
+    assert recovered.error == "The round analysis could not be completed."

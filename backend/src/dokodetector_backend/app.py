@@ -56,6 +56,7 @@ from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_api import router as round_analysis_router
+from dokodetector_backend.round_analysis_jobs import RoundAnalysisJobParticipant
 from dokodetector_backend.round_analysis_service import RoundAnalysisService
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
@@ -227,6 +228,17 @@ def create_app(
     app.state.observation_pipeline_service.job_manager_provider = (
         app.state.job_manager_service.get_manager
     )
+    app.state.round_analysis_service = RoundAnalysisService(
+        app.state.round_analysis_store,
+        app.state.evidence_package_store,
+        app.state.table_observation_store,
+        app.state.round_analysis_storage,
+        app.state.recording_bundle_store,
+        app.state.repository_bundle_storage,
+        app.state.analyzer,
+        pipeline_revision_store=app.state.pipeline_revision_store,
+        pipeline_selection_store=app.state.pipeline_selection_store,
+    )
     event_job_participant = EventJobParticipant(app.state.event_pipeline_service)
     for event_job_type in ("event_processing", "event_import"):
         app.state.job_type_registry.register(
@@ -301,6 +313,19 @@ def create_app(
         ),
         Claims(cpu=1, locks=()),
     )
+    round_analysis_job_participant = RoundAnalysisJobParticipant(app.state.round_analysis_service)
+    app.state.job_type_registry.register(
+        "round_analysis",
+        lambda _request: None,
+        round_analysis_job_participant,
+        lambda job, claims, token, participant=round_analysis_job_participant: participant.handle(
+            job,
+            claims,
+            token,
+            app.state.job_manager_service.get_manager(),
+        ),
+        Claims(cpu=1, locks=()),
+    )
     recovered_event_count = app.state.event_pipeline_service.recover_interrupted_runs()
     log_event(
         LOGGER,
@@ -309,33 +334,6 @@ def create_app(
         failed_count=recovered_event_count,
     )
     app.state.run_round_analysis_synchronously = run_round_analysis_synchronously
-    recovered_analysis_count = app.state.round_analysis_store.fail_non_terminal()
-    log_event(
-        LOGGER,
-        logging.DEBUG,
-        "round_analysis_recovery_checked",
-        failed_count=recovered_analysis_count,
-    )
-    if recovered_analysis_count:
-        log_event(
-            LOGGER,
-            logging.WARNING,
-            "round_analysis_recovery_failed",
-            analysis_count=recovered_analysis_count,
-            reason="backend_restarted",
-        )
-    app.state.round_analysis_service = RoundAnalysisService(
-        app.state.round_analysis_store,
-        app.state.evidence_package_store,
-        app.state.table_observation_store,
-        app.state.round_analysis_storage,
-        app.state.recording_bundle_store,
-        app.state.repository_bundle_storage,
-        app.state.analyzer,
-        pipeline_revision_store=app.state.pipeline_revision_store,
-        pipeline_selection_store=app.state.pipeline_selection_store,
-        max_concurrent_requests=app_settings.gemini_max_concurrent_requests,
-    )
     app.state.automated_pipeline_run_service = AutomatedPipelineRunService(
         store=AutomatedPipelineRunStore(app_settings.pipeline_root / "automated-runs"),
         recording_source_provider=app.state.event_pipeline_service.get_recording_source,
@@ -357,7 +355,6 @@ def create_app(
     lifecycle_services = (
         app.state.job_manager_service,
         *pipeline_composition.lifecycle_services,
-        app.state.round_analysis_service,
         app.state.automated_pipeline_worker,
     )
     register_error_handlers(app)
