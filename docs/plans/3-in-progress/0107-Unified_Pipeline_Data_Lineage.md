@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
-- **Outcome:** M0–M4 are complete; M5–M10 are not started. This epic supplies contracts, services, and migration
+- **Outcome:** M0–M5 are complete; M6–M10 are not started. This epic supplies contracts, services, and migration
   tools. [Epic 0108](../4-blocked/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 
@@ -176,7 +176,7 @@ changed reviewed content, and copied unchanged content have distinct, durable re
 The [M4 result](../../reports/0107-M4_Review_Decisions.md) records decisions and coverage
 independently of content saves and calculates applicability along explicit copy and revision lineage.
 
-### M5 — Preserve applicable identity review — Not started
+### M5 — Preserve applicable identity review — Complete
 
 Implement the bounded applicability service for refreshed identity results. Use exact evidence and
 explicit correspondence. Retain human-corrected classifications when applicable.
@@ -184,6 +184,9 @@ explicit correspondence. Retain human-corrected classifications when applicable.
 Acceptance: correct card 100 in a scene, recompute identity fixtures, retain unaffected decisions,
 and require review only for affected/ambiguous results. Include changed occlusion of another card,
 changed crop policy, deleted cards, duplicate identities, and unchanged crops after a full rerun.
+
+The [M5 result](../../reports/0107-M5_Identity_Review.md) resolves human decisions against exact
+crop evidence and explicit correspondence. It exposes corrections as overlays for later integration.
 
 ### M6 — Unify virtual-scene content — Not started
 
