@@ -11,6 +11,7 @@ from doko_operations.pipeline_data import (
     sha256_bytes,
 )
 
+from dokodetector_backend.filesystem import atomic_write_json
 from dokodetector_backend.pipeline_lineage import PipelineLineage
 from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
 from dokodetector_backend.pipeline_node_store import NodeUsed, PipelineNodeStore
@@ -140,3 +141,67 @@ def test_processor_lineage_keeps_empty_results_and_protects_accepted_inputs(
     )
     assert partial["status"] == "partial"
     assert partial["result"] is None
+
+
+def test_processor_lineage_reuses_imported_revision_nodes(tmp_path: Path) -> None:
+    storage = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
+    revisions = PipelineRevisionStore(storage)
+    node_store = PipelineNodeStore(tmp_path / "nodes")
+    content = {"schema_version": "event-data/v1", "events": []}
+    revision = EventDataRevision.from_mapping(
+        {
+            "manifest": {
+                "schema_version": "data-revision/v1",
+                "revision_id": "legacy-events-revision",
+                "content_type": "events",
+                "content_schema": "event-data/v1",
+                "recording_id": "recording-01",
+                "source": SOURCE,
+                "content_sha256": sha256_bytes(canonical_json_bytes(content)),
+                "input_revision_ids": [],
+                "origin": "processor",
+                "producer": {
+                    "kind": "processor",
+                    "processor_type": "event-detection",
+                    "run_id": "legacy-run",
+                    "implementation_id": "fixture",
+                    "model_id": None,
+                },
+                "coverage": {"kind": "processed", "intervals": []},
+                "created_at": "2026-09-05T10:00:00Z",
+            },
+            "content": content,
+        }
+    )
+    revisions.publish(revision)
+    node_store.create(
+        "migrated-events-node",
+        "Migrated events",
+        "events",
+        SOURCE,
+        content,
+        {"legacy_revision_id": revision.manifest.revision_id},
+        revision_id="migrated-events-revision",
+    )
+    atomic_write_json(
+        node_store.root / ".legacy-revision-map.json",
+        {
+            "schema_version": "legacy-revision-map/v1",
+            "snapshot_sha256": "b" * 64,
+            "revisions": {
+                revision.manifest.revision_id: {
+                    "node_id": "migrated-events-node",
+                    "revision_id": "migrated-events-revision",
+                }
+            },
+        },
+    )
+    writer = PipelineLineageWriter(
+        node_store, PipelineLineage(node_store), PipelineNodeUses(node_store), revisions
+    )
+
+    assert writer._ensure_revision_node(revisions.require(revision.manifest.revision_id)) == (
+        "migrated-events-node",
+        "migrated-events-revision",
+    )
+    assert len(node_store.list_nodes()) == 1

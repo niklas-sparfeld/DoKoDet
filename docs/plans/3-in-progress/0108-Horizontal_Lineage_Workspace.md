@@ -291,9 +291,12 @@ If source data has drifted, regenerate the plan; do not use an outdated inventor
 Progress: the stopped stores have a consistent recovery snapshot. The inventory covers 2,086
 resources and 34,414 files with no blocking conflicts. The user declared three detector revision
 inputs lost. Their IDs remain on the calibration references with explicit lost status. The IMG_0096
-calibration is preserved in an exact embedded scene copy. A fresh staging package passed independent
-verification. No active store or runtime pointer has changed. Import and runtime cutover remain.
-See the [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
+calibration is preserved in an exact embedded scene copy. The verified package is active at
+`data/operations/pipeline-nodes`. It contains 835 processor data nodes, 594 processor runs, and
+five analysis runs. The processor writer resolves imported revision IDs to these nodes. Legacy
+workspace summaries, selections, drafts, and independent reviews still use their existing stores.
+M10 remains open until those readers and review decisions pass the cutover checks. See the
+[M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
 ### M11 — Delete replaced architecture — Not started
 

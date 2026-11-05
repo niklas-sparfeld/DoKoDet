@@ -14,9 +14,16 @@ The inventory digest is
 `data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss`. The full recovery
 snapshot is at `data/operations-recovery/0108-m10-20261105/operations`.
 
-This result means the staged data is internally consistent and has no unresolved mappings. It does
-not mean that runtime readers or writers use the staged package. No active store or runtime pointer
-has changed. The workspace still uses the legacy stores for its content summary.
+The import is active at `data/operations/pipeline-nodes`. It contains 835 validated processor data
+nodes, 594 processor runs, and five analysis runs. The imported analysis records retain exact
+observation revisions, evidence-package digests, and input/result artifact digests. The processor
+writer loads the imported legacy-revision map, so new runs reuse migrated nodes.
+
+The existing operations stores remain in place. Workspace summaries, selections, maintained
+drafts, calibration drafts, and independent review records still use their existing readers. M10
+is not complete until the draft and review readers use the migrated records and restart checks
+confirm the intended content and decisions. The recovery snapshot and verified migration package
+remain available for recovery.
 
 ## Declared lost inputs
 
@@ -51,7 +58,14 @@ is recorded as ignored filesystem metadata and remains in the staged file invent
 
 The earlier stage at `data/operations-recovery/0108-m10-20261105/migration-stage` remains unchanged.
 The accepted-loss stage has a plan digest that binds it to the three declared lost IDs. An
-independent package verification passed.
+independent package verification passed. The active node store has
+`data/operations/pipeline-nodes/.migration-import.json` and
+`data/operations/pipeline-nodes/.legacy-revision-map.json`, both bound to the snapshot digest.
+
+The importer changes v1 event labels to the current `card_state_changed` content contract and
+stores the original labels in revision metadata. It upgrades the retained v1 scene and identity
+contracts for node validation. The original bytes remain in the staging package and recovery
+snapshot.
 
 ## Changes and verification
 
@@ -65,10 +79,15 @@ Focused checks passed:
 - `mise exec -- uv run --project backend pytest backend/tests/test_lineage_migration_inventory.py backend/tests/test_lineage_migration_apply.py -q` — 24 passed
 - `mise exec -- uv run --project backend ruff check backend/src/dokodetector_backend/lineage_migration_inventory.py backend/src/dokodetector_backend/lineage_migration_apply.py backend/tests/test_lineage_migration_inventory.py backend/tests/test_lineage_migration_apply.py`
 - `mise exec -- uv run --project backend ruff format --check backend/src/dokodetector_backend/lineage_migration_inventory.py backend/src/dokodetector_backend/lineage_migration_apply.py backend/tests/test_lineage_migration_inventory.py backend/tests/test_lineage_migration_apply.py`
+- `mise exec -- uv run --project backend pytest backend/tests/test_lineage_migration_import.py backend/tests/test_pipeline_lineage_writer.py -q` — 3 passed
+- Ruff check and format check passed for the importer, lineage writer, and focused tests.
+- The local import reported 835 nodes, 594 processor runs, and five analysis runs. The active
+  writer loaded all 835 legacy revision mappings and resolved a migrated event revision to its
+  imported node.
 
 ## Remaining M10 work
 
-Import the verified resources into the runtime node and lineage stores. Then verify migrated
-processor results, drafts, reviews, scenes, and analyses through the workspace, switch runtime
-readers and writers, and verify that restart keeps the new store active. Keep the recovery and
-staging packages until that cutover passes. M10 remains in progress.
+Switch workspace summaries, selections, maintained drafts, calibration drafts, and independent
+reviews to the imported nodes and review records. Verify results, coverage, exact inputs, and
+restart behavior through the workspace. Keep the recovery and staging packages until those checks
+pass. M10 remains in progress.

@@ -9,7 +9,7 @@ from typing import Any
 from doko_operations.pipeline_data import ProcessorRunRequest
 
 from dokodetector_backend.pipeline_lineage import PipelineLineage
-from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
+from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore, _read_json
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.pipeline_store import ProcessorRunState, StoredPipelineRevision
 
@@ -48,6 +48,14 @@ class PipelineLineageWriter:
         self.lineage = lineage
         self.uses = uses
         self.revision_store = revision_store
+        migration_map_path = node_store.root / ".legacy-revision-map.json"
+        migration_map = _read_json(migration_map_path) if migration_map_path.exists() else None
+        if migration_map is not None and (
+            migration_map.get("schema_version") != "legacy-revision-map/v1"
+            or not isinstance(migration_map.get("revisions"), dict)
+        ):
+            raise ValueError("invalid legacy revision map")
+        self.migrated_revisions = {} if migration_map is None else migration_map["revisions"]
 
     @staticmethod
     def _run_id(run_id: str, attempt: int) -> str:
@@ -59,6 +67,12 @@ class PipelineLineageWriter:
 
     def _ensure_revision_node(self, revision: StoredPipelineRevision) -> tuple[str, str]:
         manifest = revision.manifest
+        migrated = self.migrated_revisions.get(manifest.revision_id)
+        if migrated is not None:
+            if not isinstance(migrated, dict) or set(migrated) != {"node_id", "revision_id"}:
+                raise ValueError("invalid migrated revision entry")
+            self.node_store.get(migrated["node_id"])
+            return migrated["node_id"], migrated["revision_id"]
         node_id = self._node_id(manifest.revision_id)
         try:
             node = self.node_store.get(node_id)
