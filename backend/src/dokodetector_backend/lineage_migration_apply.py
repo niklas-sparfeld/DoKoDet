@@ -54,6 +54,13 @@ def _validate_plan(plan: dict[str, Any]) -> None:
         raise ValueError("invalid inventory contents")
     if not isinstance(plan.get("sealed_artifacts"), list):
         raise ValueError("invalid sealed-artifact declarations")
+    if not isinstance(plan.get("reference_only_root_ids", []), list):
+        raise ValueError("invalid reference-only roots")
+    if any(
+        not isinstance(root_id, str) or not root_id
+        for root_id in plan.get("reference_only_root_ids", [])
+    ):
+        raise ValueError("invalid reference-only root ID")
 
 
 def _safe_id(value: Any) -> str:
@@ -72,9 +79,16 @@ def _safe_id(value: Any) -> str:
 def _verify_package(root: Path, manifest: dict[str, Any]) -> None:
     files = manifest["files"]
     resources = manifest["resources"]
+    reference_only = set(manifest.get("reference_only_root_ids", []))
     if len(files) != manifest["file_count"] or len(resources) != manifest["resource_count"]:
         raise ValueError("staged counts do not match manifest")
     for item in files:
+        if item.get("external_reference") is True:
+            if item["root_id"] not in reference_only:
+                raise ValueError("external artifact root is not declared reference-only")
+            if "staged_path" in item:
+                raise ValueError("external artifact must not name a staged path")
+            continue
         relative = _safe_relative(item["staged_path"])
         size, digest = _sha256(root / relative)
         if (size, digest) != (item["byte_length"], item["sha256"]):
@@ -117,6 +131,9 @@ def apply_plan(
             raise ValueError("destination must be outside all source roots")
     if {item["root_id"] for item in plan["files"]} - set(normalized_roots):
         raise ValueError("apply roots do not match the inventory")
+    reference_only = set(plan.get("reference_only_root_ids", []))
+    if reference_only - set(normalized_roots):
+        raise ValueError("reference-only root is not declared")
     from dokodetector_backend.lineage_migration_inventory import _files
 
     sealed_by_root: dict[str, set[str]] = {key: set() for key in normalized_roots}
@@ -144,6 +161,8 @@ def apply_plan(
         existing = _read_object(existing_path)
         if existing.get("snapshot_sha256") != plan["snapshot_sha256"]:
             raise ValueError("destination contains a different snapshot")
+        if existing.get("reference_only_root_ids", []) != sorted(reference_only):
+            raise ValueError("destination uses a different external-reference policy")
         _verify_package(target, existing)
         return existing
 
@@ -163,19 +182,32 @@ def apply_plan(
             size, digest = _sha256(source)
             if (size, digest) != (item["byte_length"], item["sha256"]):
                 raise ValueError(f"source snapshot changed: {item['path']}")
-            staged_relative = Path("evidence") / root_id / relative
-            staged_file = staging / staged_relative
-            staged_file.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, staged_file)
-            files.append(
-                {
-                    "root_id": root_id,
-                    "path": item["path"],
-                    "staged_path": staged_relative.as_posix(),
-                    "byte_length": size,
-                    "sha256": digest,
-                }
-            )
+            if root_id in reference_only:
+                files.append(
+                    {
+                        "root_id": root_id,
+                        "path": item["path"],
+                        "external_reference": True,
+                        "byte_length": size,
+                        "sha256": digest,
+                    }
+                )
+            else:
+                if item.get("external_reference") is True:
+                    raise ValueError("external artifact root is not declared reference-only")
+                staged_relative = Path("evidence") / root_id / relative
+                staged_file = staging / staged_relative
+                staged_file.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, staged_file)
+                files.append(
+                    {
+                        "root_id": root_id,
+                        "path": item["path"],
+                        "staged_path": staged_relative.as_posix(),
+                        "byte_length": size,
+                        "sha256": digest,
+                    }
+                )
 
         resources = []
         resource_root = staging / "resources"
@@ -217,6 +249,7 @@ def apply_plan(
             "conflicts": plan["conflicts"],
             "uncertainties": plan["uncertainties"],
             "sealed_artifacts": plan["sealed_artifacts"],
+            "reference_only_root_ids": sorted(reference_only),
             "file_count": len(files),
             "resource_count": len(resources),
             "files": files,

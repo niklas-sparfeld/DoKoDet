@@ -182,6 +182,40 @@ def test_repaired_selection_keeps_unknown_history_without_blocking(tmp_path: Pat
     assert selected["references"][0]["target_revision_id"]
 
 
+def test_table_observation_identity_is_checked_against_its_own_path(tmp_path: Path):
+    observation_id = "observation-one"
+    write(
+        tmp_path / "table-observations" / observation_id / "observation.json",
+        {
+            "schema_version": "table-observation/v1",
+            "observation_id": observation_id,
+            "source": {"package_id": "package-one"},
+            "session": {"session_id": "session-one", "event_sequence": 1},
+            "observed_at_ms": 10,
+            "status": "observed",
+            "capabilities": ["identity_candidates"],
+            "cards": [],
+            "calibration": "uncalibrated",
+            "analyzer": {"name": "fixture", "version": "v1"},
+            "diagnostics": {},
+        },
+    )
+
+    result = inventory({"snapshot": tmp_path}, snapshot_is_immutable=True)
+
+    assert not any(
+        conflict.get("message") == "observation identity differs from path"
+        for conflict in result["conflicts"]
+    )
+    observation = next(
+        resource
+        for resource in result["resources"]
+        if resource["kind"] == "table_observation_artifact"
+    )
+    assert observation["old_id"] == observation_id
+    assert observation["recording_id"] is None
+
+
 def test_unrecognized_sealed_path_is_not_read(tmp_path: Path, monkeypatch):
     import dokodetector_backend.lineage_migration_inventory as module
 

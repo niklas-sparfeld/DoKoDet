@@ -94,6 +94,41 @@ def test_apply_plan_copies_and_verifies_then_reapplies_idempotently(tmp_path: Pa
     assert not list(tmp_path.glob(".staged-*"))
 
 
+def test_reference_only_root_is_verified_without_copying_its_bytes(tmp_path: Path):
+    source = tmp_path / "source"
+    source.mkdir()
+    plan = _plan(source)
+    media = tmp_path / "media"
+    media.mkdir()
+    video = b"large external video"
+    (media / "recording.mov").write_bytes(video)
+    plan["files"].append(
+        {
+            "root_id": "media",
+            "path": "recording.mov",
+            "byte_length": len(video),
+            "sha256": _sha(video),
+        }
+    )
+    plan["reference_only_root_ids"] = ["media"]
+    target = tmp_path / "staged"
+
+    manifest = apply_plan(plan, target, {"snapshot": source, "media": media})
+
+    external = next(item for item in manifest["files"] if item["root_id"] == "media")
+    assert external == {
+        "root_id": "media",
+        "path": "recording.mov",
+        "external_reference": True,
+        "byte_length": len(video),
+        "sha256": _sha(video),
+    }
+    assert not (target / "evidence/media/recording.mov").exists()
+    (media / "recording.mov").write_bytes(b"changed")
+    with pytest.raises(ValueError, match="source snapshot changed"):
+        apply_plan(plan, tmp_path / "retry", {"snapshot": source, "media": media})
+
+
 def test_apply_plan_refuses_changed_source_and_preserves_no_destination(tmp_path: Path):
     source = tmp_path / "source"
     source.mkdir()

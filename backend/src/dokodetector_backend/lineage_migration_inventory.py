@@ -15,20 +15,20 @@ from uuid import UUID, uuid5
 from doko_operations.card_plane_calibration import CalibrationRun
 from doko_operations.pipeline_data import (
     RecordingVideoSource,
-    parse_data_revision_manifest_bytes,
     parse_pipeline_selection_bytes,
-    parse_processor_run_request_bytes,
-    parse_processor_run_state_bytes,
 )
 from doko_operations.pipeline_reference import (
     parse_reference_draft_bytes,
     parse_reference_state_bytes,
 )
 from table_evidence_analyzer.card_scene_contract import CalibrationDraft, CalibrationReflowReceipt
+from table_evidence_analyzer.pipeline_data import parse_observation_bytes
 
 from dokodetector_backend.pipeline_lineage import _acyclic
-from dokodetector_backend.pipeline_store import PipelineRevisionStore
+from dokodetector_backend.pipeline_store import PipelineRevisionStore, ProcessorRunStore
 from dokodetector_backend.round_analysis_contract import parse_round_analysis_create_request_bytes
+from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
+from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.visible_card_review_store import VisibleCardReviewStore
 
 NAMESPACE = UUID("d1154376-3ab4-5d84-93e1-092dd4ea62d8")
@@ -130,12 +130,23 @@ def _resource(path: str) -> tuple[str, str, str] | None:
     if (
         len(p) == 4
         and p[:2] == ["pipeline", "automated-runs"]
-        and p[2] in {"runs", "idempotency"}
+        and p[2] in {"runs", "idempotency", "coordinator-runs"}
         and p[3].endswith(".json")
     ):
-        return ("automated_run" if p[2] == "runs" else "automated_run_receipt", path, p[3][:-5])
-    if len(p) >= 2 and p[0] == "round-analyses":
-        return ("analysis_artifact", path, path)
+        kind = "automated_run_receipt" if p[2] == "idempotency" else "automated_run"
+        return (kind, path, p[3][:-5])
+    if len(p) >= 3 and p[0] == "table-observations" and p[2] == "observation.json":
+        return ("table_observation_artifact", "/".join(p[:2]), p[1])
+    if len(p) >= 3 and p[0] == "round-analyses":
+        if p[2] == "counterfactuals" and len(p) >= 5:
+            return (
+                "counterfactual_artifact",
+                "/".join(p[:4]),
+                f"{p[1]}/{p[3]}",
+            )
+        return ("analysis_artifact", "/".join(p[:2]), p[1])
+    if len(p) >= 3 and p[0] == "legacy-round-analysis-artifacts":
+        return ("legacy_analysis_artifact", "/".join(p[:2]), p[1])
     return None
 
 
@@ -166,6 +177,7 @@ def inventory(
     snapshot_is_immutable: bool = False,
     scope_complete: bool = False,
     consumer_root_ids: Sequence[str] = (),
+    reference_only_root_ids: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Inventory explicitly declared roots without changing them or reading sealed artifacts.
 
@@ -190,6 +202,10 @@ def inventory(
         root_id not in normalized for root_id in consumer_root_ids
     ):
         raise ValueError("consumer roots must identify declared roots")
+    if len(set(reference_only_root_ids)) != len(reference_only_root_ids) or any(
+        root_id not in normalized for root_id in reference_only_root_ids
+    ):
+        raise ValueError("reference-only roots must identify declared roots")
     values = list(normalized.values())
     if any(
         a == b or a in b.parents or b in a.parents
@@ -252,6 +268,11 @@ def inventory(
     uncertainties: list[dict[str, Any]] = []
     resources = []
     revision_ids: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    revision_stores = {root_id: PipelineRevisionStore(root) for root_id, root in normalized.items()}
+    run_stores = {
+        root_id: ProcessorRunStore(root, revision_store=revision_stores[root_id])
+        for root_id, root in normalized.items()
+    }
     for (root_id, kind, relative, old_id), files in sorted(groups.items()):
         key = ["0107-migration/v1", kind, root_id, relative]
         item = {
@@ -298,8 +319,7 @@ def inventory(
     def get(item: dict[str, Any], suffix: str) -> bytes:
         path = (
             item["relative_identity"]
-            if item["kind"]
-            in {"selection", "automated_run", "automated_run_receipt", "analysis_artifact"}
+            if item["kind"] in {"selection", "automated_run", "automated_run_receipt"}
             else f"{item['relative_identity']}/{suffix}"
         )
         expected = first[item["root_id"]][path]
@@ -435,11 +455,12 @@ def inventory(
         try:
             kind = item["kind"]
             if kind == "pipeline_revision":
-                manifest_raw, content = get(item, "manifest.json"), get(item, "content.json")
-                parsed = parse_data_revision_manifest_bytes(manifest_raw)
+                stored = revision_stores[root_id]._read_path(
+                    normalized[root_id] / item["relative_identity"], validate_lineage=False
+                )
+                parsed = stored.manifest
                 if parsed.revision_id != item["old_id"]:
                     raise ValueError("revision identity differs from path")
-                PipelineRevisionStore._validate_payload_bytes(parsed, content, manifest_raw)
                 item["content_sha256"] = parsed.content_sha256
                 item["content_type"] = parsed.content_type
                 item["recording_id"] = parsed.recording_id
@@ -448,6 +469,19 @@ def inventory(
                     reference(item, "input", old)
                 producer = parsed.producer.to_mapping()
                 reference(item, "copy_base", producer.get("base_revision_id"))
+            elif kind == "table_observation_artifact":
+                observation = parse_observation_bytes(get(item, "observation.json"))
+                if observation.observation_id != item["old_id"]:
+                    raise ValueError("observation identity differs from path")
+                item["recording_id"] = observation.source.recording_id
+                item["content_sha256"] = hashlib.sha256(get(item, "observation.json")).hexdigest()
+                for old in observation.source.input_revision_ids or ():
+                    reference(item, "input", old)
+            elif kind == "legacy_analysis_artifact":
+                item["recording_id"] = None
+                item["content_sha256"] = hashlib.sha256(
+                    _json([file["sha256"] for file in item["files"]])
+                ).hexdigest()
             elif kind == "selection":
                 selected = parse_pipeline_selection_bytes(get(item, ""))
                 if f"{selected.recording_id}/{selected.content_type}" != item["old_id"]:
@@ -459,8 +493,13 @@ def inventory(
                     item, "completed_reference", selected.selected_completed_reference_revision_id
                 )
             elif kind == "processor_run":
-                request = parse_processor_run_request_bytes(get(item, "request.json"))
-                state = parse_processor_run_state_bytes(get(item, "state.json"))
+                stored = run_stores[root_id]._read_path(
+                    normalized[root_id] / item["relative_identity"],
+                    validate_output_revisions=False,
+                    validate_output_lineage=False,
+                    include_items=True,
+                )
+                request, state = stored.request, stored.state
                 if request.run_id != item["old_id"] or state.run_id != item["old_id"]:
                     raise ValueError("run identity differs from path")
                 source_reference(item, request.source)
@@ -515,12 +554,8 @@ def inventory(
                 uncertainties.append(
                     {"resource": item["new_id"], "kind": "item_history_not_recorded"}
                 )
-            elif (
-                kind == "analysis_artifact"
-                and item["relative_identity"].endswith("/state.json")
-                and len(item["relative_identity"].split("/")) == 3
-            ):
-                state = _parse_json(get(item, ""))
+            elif kind == "analysis_artifact":
+                state = _parse_json(get(item, "state.json"))
                 request_raw = state.get("request_json")
                 if not isinstance(request_raw, str):
                     raise ValueError("analysis request is not recorded")
@@ -536,11 +571,17 @@ def inventory(
                 reference(item, "observations", request.table_observation_revision_id)
                 for revision_id in request.correction_constraint_revision_ids:
                     reference(item, "correction_constraint", revision_id)
+                request_mapping = request.model_dump(mode="json")
                 item["analysis_context"] = {
-                    "round_context": request.model_dump(mode="json")["round_context"],
-                    "rules_version": request.rules_version,
-                    "search": request.search.model_dump(mode="json"),
-                    "round_setup": request.model_dump(mode="json")["round_setup"],
+                    key: request_mapping[key]
+                    for key in (
+                        "round_context",
+                        "rules_version",
+                        "search",
+                        "round_setup",
+                        "evidence_package_ids",
+                    )
+                    if key in request_mapping
                 }
                 for role in ("input", "result"):
                     artifact_id, digest = (
@@ -565,6 +606,12 @@ def inventory(
                                 "artifact_id": artifact_id,
                             }
                         )
+                analysis = RoundAnalysisStore(
+                    RoundAnalysisArtifactStorage(normalized[root_id])
+                ).get(request.analysis_id)
+                if analysis is None:
+                    raise ValueError("round analysis state or artifact bytes are invalid")
+                item["analysis_status"] = analysis.state
                 if request.evidence_package_ids:
                     uncertainties.append(
                         {
@@ -573,9 +620,6 @@ def inventory(
                             "ids": [str(i) for i in request.evidence_package_ids],
                         }
                     )
-                uncertainties.append(
-                    {"resource": item["new_id"], "kind": "analysis_state_validation_required"}
-                )
             elif kind == "calibration_revision":
                 run = CalibrationRun.from_mapping(_parse_json(get(item, "manifest.json")))
                 if (
@@ -767,6 +811,7 @@ def inventory(
         "resources": resources,
         "unclassified_files": unmapped,
         "source_locations": locations,
+        "reference_only_root_ids": sorted(reference_only_root_ids),
         "scope_complete": scope_complete,
         "consumer_references": consumers,
         "sealed_artifacts": sorted(sealed_values, key=lambda x: (x["root_id"], x["relative_path"])),
@@ -803,6 +848,7 @@ def main() -> None:
         "snapshot_is_immutable",
         "scope_complete",
         "consumer_root_ids",
+        "reference_only_root_ids",
     } or not isinstance(config.get("roots"), dict):
         parser.error("config needs roots and optional sealed and source_locations")
     output = args.output.absolute().resolve()
@@ -817,6 +863,7 @@ def main() -> None:
         snapshot_is_immutable=config.get("snapshot_is_immutable", False),
         scope_complete=config.get("scope_complete", False),
         consumer_root_ids=config.get("consumer_root_ids", ()),
+        reference_only_root_ids=config.get("reference_only_root_ids", ()),
     )
     atomic_write_json(output, plan)
 
