@@ -74,6 +74,11 @@
 		A00000000000000000000056 /* DeviceProposedCardSceneInitialization.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000056 /* DeviceProposedCardSceneInitialization.swift */; };
 		A00000000000000000000057 /* DeviceCardSceneJointFit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000057 /* DeviceCardSceneJointFit.swift */; };
 		A00000000000000000000050 /* RFDETRSegMedium.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000050 /* RFDETRSegMedium.mlpackage */; };
+		A00000000000000000000058 /* DinoV3CoreMLRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000058 /* DinoV3CoreMLRunner.swift */; };
+		A0000000000000000000005A /* DINOv3Identity.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000005B /* DINOv3Identity.mlpackage */; };
+		A0000000000000000000005C /* DeviceIdentityObservationPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000005C /* DeviceIdentityObservationPipeline.swift */; };
+		A0000000000000000000005D /* DeviceVisualIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000005D /* DeviceVisualIdentity.swift */; };
+		A0000000000000000000005E /* DeviceVisibleRegionCropper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000005E /* DeviceVisibleRegionCropper.swift */; };
 		A00000000000000000000039 /* RecordingProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000039 /* RecordingProfile.swift */; };
 		A0000000000000000000003A /* RecordingWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000003A /* RecordingWorkspace.swift */; };
 		A00000000000000000000036 /* RepositoryIntakeDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000036 /* RepositoryIntakeDocuments.swift */; };
@@ -118,6 +123,11 @@
 		B00000000000000000000056 /* DeviceProposedCardSceneInitialization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceProposedCardSceneInitialization.swift; sourceTree = "<group>"; };
 		B00000000000000000000057 /* DeviceCardSceneJointFit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCardSceneJointFit.swift; sourceTree = "<group>"; };
 		B00000000000000000000050 /* RFDETRSegMedium.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = CardEventProbe/Runtime/RFDETRSegMedium.mlpackage; sourceTree = "<group>"; };
+		B00000000000000000000058 /* DinoV3CoreMLRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DinoV3CoreMLRunner.swift; sourceTree = "<group>"; };
+		B0000000000000000000005B /* DINOv3Identity.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper.mlpackage; path = CardEventProbe/Runtime/DINOv3Identity.mlpackage; sourceTree = "<group>"; };
+		B0000000000000000000005C /* DeviceIdentityObservationPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIdentityObservationPipeline.swift; sourceTree = "<group>"; };
+		B0000000000000000000005D /* DeviceVisualIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceVisualIdentity.swift; sourceTree = "<group>"; };
+		B0000000000000000000005E /* DeviceVisibleRegionCropper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceVisibleRegionCropper.swift; sourceTree = "<group>"; };
 		B00000000000000000000011 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		B00000000000000000000012 /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		B00000000000000000000013 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
@@ -209,6 +219,7 @@
 				D00000000000000000000004 /* Frameworks */,
 				B00000000000000000000044 /* CardEventNet0103M3.mlpackage */,
 				B00000000000000000000050 /* RFDETRSegMedium.mlpackage */,
+				B0000000000000000000005B /* DINOv3Identity.mlpackage */,
 				854184EA3037408D009260B8 /* Recovered References */,
 			);
 			sourceTree = "<group>";
@@ -257,6 +268,7 @@
 				B00000000000000000000002 /* AppState.swift */,
 				B0000000000000000000003E /* RecordingWorkflow.swift */,
 				B0000000000000000000003F /* EvidenceAnalysisWorkflow.swift */,
+				B0000000000000000000005C /* DeviceIdentityObservationPipeline.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -285,6 +297,8 @@
 				B00000000000000000000055 /* DeviceRecordingCalibration.swift */,
 				B00000000000000000000056 /* DeviceProposedCardSceneInitialization.swift */,
 				B00000000000000000000057 /* DeviceCardSceneJointFit.swift */,
+				B0000000000000000000005D /* DeviceVisualIdentity.swift */,
+				B0000000000000000000005E /* DeviceVisibleRegionCropper.swift */,
 				B00000000000000000000039 /* RecordingProfile.swift */,
 				B0000000000000000000003A /* RecordingWorkspace.swift */,
 				B0000000000000000000003B /* RecordingWorkspacePresentation.swift */,
@@ -316,6 +330,7 @@
 			isa = PBXGroup;
 			children = (
 				B00000000000000000000048 /* RfdetrCoreMLRunner.swift */,
+				B00000000000000000000058 /* DinoV3CoreMLRunner.swift */,
 				B00000000000000000000005 /* ModelContract.swift */,
 				B00000000000000000000006 /* VideoFrame.swift */,
 				B00000000000000000000007 /* CardEventModelRunner.swift */,
@@ -437,7 +452,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "python3 \"$SRCROOT/../scripts/0106_m1_prepare_ios_model.py\"\npython3 \"$SRCROOT/../scripts/0106_m2_prepare_ios_rfdetr.py\"";
+			shellScript = "python3 \"$SRCROOT/../scripts/0106_m1_prepare_ios_model.py\"\npython3 \"$SRCROOT/../scripts/0106_m2_prepare_ios_rfdetr.py\"\npython3 \"$SRCROOT/../scripts/0106_m10_prepare_ios_dinov3.py\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -492,6 +507,7 @@
 			files = (
 				A00000000000000000000044 /* CardEventNet0103M3.mlpackage in Resources */,
 				A00000000000000000000050 /* RFDETRSegMedium.mlpackage in Resources */,
+				A0000000000000000000005A /* DINOv3Identity.mlpackage in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -538,6 +554,7 @@
 				A00000000000000000000002 /* AppState.swift in Sources */,
 				A0000000000000000000003E /* RecordingWorkflow.swift in Sources */,
 				A0000000000000000000003F /* EvidenceAnalysisWorkflow.swift in Sources */,
+				A0000000000000000000005C /* DeviceIdentityObservationPipeline.swift in Sources */,
 				A00000000000000000000003 /* CameraSession.swift in Sources */,
 				A00000000000000000000004 /* CameraPreview.swift in Sources */,
 				A00000000000000000000005 /* ModelContract.swift in Sources */,
@@ -583,6 +600,7 @@
 				A00000000000000000000046 /* DeviceCaptureTimeline.swift in Sources */,
 				A00000000000000000000047 /* VisibleCardStage.swift in Sources */,
 				A00000000000000000000048 /* RfdetrCoreMLRunner.swift in Sources */,
+				A00000000000000000000058 /* DinoV3CoreMLRunner.swift in Sources */,
 				A00000000000000000000049 /* DeviceVisibleCardPipeline.swift in Sources */,
 				A00000000000000000000052 /* DeviceCardPlaneGeometry.swift in Sources */,
 				A00000000000000000000053 /* DeviceTablePlaneFitSeed.swift in Sources */,
@@ -590,6 +608,8 @@
 				A00000000000000000000055 /* DeviceRecordingCalibration.swift in Sources */,
 				A00000000000000000000056 /* DeviceProposedCardSceneInitialization.swift in Sources */,
 				A00000000000000000000057 /* DeviceCardSceneJointFit.swift in Sources */,
+				A0000000000000000000005D /* DeviceVisualIdentity.swift in Sources */,
+				A0000000000000000000005E /* DeviceVisibleRegionCropper.swift in Sources */,
 				A00000000000000000000039 /* RecordingProfile.swift in Sources */,
 				A0000000000000000000003A /* RecordingWorkspace.swift in Sources */,
 				A0000000000000000000003B /* RecordingWorkspacePresentation.swift in Sources */,

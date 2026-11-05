@@ -8,12 +8,13 @@
 - **Depends on:** Epic 0105 M0–M2 execution contract and stage graph; the model artifacts and
   limitations from Epics 0103 and 0104. Compare against the completed 0105 local workflow when
   0105 M4 is available; this comparison is required for M13.
-- **Outcome:** M0–M9 complete. M10–M13 remain. The iOS package now derives deterministic
+- **Outcome:** M0–M10 complete. M11–M13 remain. The iOS package now derives deterministic
   table-plane fit candidates from robust boundary evidence, calculates immutable calibration
   refinement previews, and initializes calibration-backed per-frame scene proposals. Live capture
-  retains event proposals and frame timing;
-  the visible-card stage retains event-frame provenance, model lineage, and proposal outcomes. No
-  device result or model-quality claim exists.
+  retains event proposals and frame timing; the visible-card stage retains event-frame provenance,
+  model lineage, and proposal outcomes. M10 runs the frozen DINOv3 package on predicted visible
+  regions and assembles revision-bound table observations. No device result or model-quality claim
+  exists.
 
 ## Purpose and scope
 
@@ -201,6 +202,10 @@ runtime and memory measurements, card-limit behavior, and the unresolved simulat
 
 ### M10 — Run visual identity and assemble observations
 
+**Complete.** The device stage runs the pinned DINOv3 package, saves each identity outcome and crop,
+and assembles table observations with event, visible-card, and identity lineage. See the
+[M10 result](../../reports/0106-M10_Visual_Identity_and_Observations.md).
+
 Run the selected DINOv3 model on the defined crops and assemble table observations using the 0105
 contracts. Preserve all candidates, abstentions, face-down evidence, and per-item errors under the
 selected policy. Save lineage and diagnostics.
@@ -208,6 +213,9 @@ selected policy. Save lineage and diagnostics.
 Acceptance: fixtures cover crop transforms, identity outputs, empty and unusable crops, partial
 probabilities, and observation handoff. Compare the frozen DINOv3 crops with their reference and
 report differences.
+
+The [M10 result](../../reports/0106-M10_Visual_Identity_and_Observations.md) records crop and
+observation fixtures, the two-crop DINOv3 comparison, and simulator build verification.
 
 ### M11 — Reconstruct and retain the round analysis
 
