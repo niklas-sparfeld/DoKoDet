@@ -62,8 +62,11 @@ class PipelineNodeEdits:
         actor: Mapping[str, Any],
         *,
         reason: str | None = None,
+        name: str | None = None,
     ) -> dict[str, Any]:
-        return self._execute("copy", node_id, revision_id, key, actor, reason=reason)
+        return self._execute(
+            "copy", node_id, revision_id, key, actor, reason=reason, copy_name=name
+        )
 
     def restore(
         self,
@@ -103,6 +106,7 @@ class PipelineNodeEdits:
         operations: Sequence[Mapping[str, Any]] = (),
         evidence: Any = None,
         reason: str | None = None,
+        copy_name: str | None = None,
     ) -> dict[str, Any]:
         _safe_id(node_id, "node_id")
         _safe_id(expected, "revision_id")
@@ -122,6 +126,7 @@ class PipelineNodeEdits:
                 "actor": who,
                 "evidence": evidence,
                 "reason": reason,
+                "copy_name": copy_name,
             },
             "request",
         )
@@ -210,9 +215,10 @@ class PipelineNodeEdits:
             metadata["_edit_operation"] = {"key": key, "digest": digest, "result": result}
             self._journal(journal, key, digest, None)
             if copied:
+                name = copy_name or self._copy_name(node.name)
                 self.store.create(
                     destination,
-                    f"{node.name} ({token})",
+                    name,
                     node.content_type,
                     node.source,
                     target_content,
@@ -225,6 +231,15 @@ class PipelineNodeEdits:
                 )
             self._journal(journal, key, digest, result)
             return result
+
+    def _copy_name(self, source_name: str) -> str:
+        names = {node.name for node in self.store.list_nodes()}
+        candidate = f"{source_name} copy"
+        suffix = 2
+        while candidate in names:
+            candidate = f"{source_name} copy {suffix}"
+            suffix += 1
+        return candidate
 
     def _remove_uncommitted_revision(self, node_id: str, revision_id: str, digest: str) -> None:
         path = self.store._node_path(node_id) / "revisions" / revision_id

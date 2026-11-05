@@ -32,6 +32,7 @@ import {
   validateLineageSelection,
   type PipelineLineageGraph,
 } from "./pipelineLineageSelection";
+import type { LineageStageKey } from "./pipelineLineageSelection";
 import {
   PIPELINE_STAGE_KEYS,
   primaryActionForStage,
@@ -93,6 +94,7 @@ export function RecordingPipelineWorkspace({
   const [lineageGraphError, setLineageGraphError] = useState<string | null>(
     null,
   );
+  const [lineageRefresh, setLineageRefresh] = useState(0);
   const [urlState, setUrlState] = useState(() =>
     readPipelineUrlState(window.location.search),
   );
@@ -216,7 +218,7 @@ export function RecordingPipelineWorkspace({
         }
       });
     return () => controller.abort();
-  }, [recordingId, urlState.lineage]);
+  }, [lineageRefresh, recordingId, urlState.lineage]);
 
   useEffect(() => {
     if (urlState.frameReviewQueue !== "0096-M4" || stageKey !== "visible_cards")
@@ -382,6 +384,77 @@ export function RecordingPipelineWorkspace({
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, []);
 
+  const copyLineageNode = useCallback(
+    async (
+      column: LineageStageKey,
+      nodeId: string,
+      revisionId: string,
+    ): Promise<void> => {
+      const response = await fetch(
+        `/api/pipeline/nodes/${encodeURIComponent(nodeId)}/copy`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            revision_id: revisionId,
+            idempotency_key: crypto.randomUUID(),
+            actor: { kind: "human", id: "workspace-operator" },
+            reason: "user_requested_copy",
+          }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          response.status === 409
+            ? "This revision changed. Reload lineage and try again."
+            : "The copy could not be created.",
+        );
+      }
+      const result: unknown = await response.json();
+      if (
+        result === null ||
+        typeof result !== "object" ||
+        !("node_id" in result) ||
+        typeof result.node_id !== "string" ||
+        !("revision_id" in result) ||
+        typeof result.revision_id !== "string" ||
+        !("name" in result) ||
+        typeof result.name !== "string"
+      ) {
+        throw new Error("The backend returned invalid copy data.");
+      }
+      const sourceName =
+        lineageGraph?.nodes.find((node) => node.node_id === nodeId)?.name ??
+        "selected data";
+      const nextSelection = {
+        schema_version: "pipeline-lineage-selection/v1" as const,
+        selected: {
+          ...(urlState.lineage === null
+            ? {}
+            : (decodeLineageSelection(urlState.lineage)?.selected ?? {})),
+          [column]: {
+            node_id: result.node_id,
+            revision_id: result.revision_id,
+          },
+        },
+      };
+      setNotice(
+        `Created ${result.name} from ${sourceName}. You can return to the original in lineage.`,
+      );
+      setLineageRefresh((value) => value + 1);
+      navigateTo(
+        recordingPipelineNavigationPath(recordingId, stageKey ?? "events", {
+          ...urlState,
+          lineage: JSON.stringify(nextSelection),
+          left: null,
+          right: null,
+          reference: null,
+        }),
+      );
+    },
+    [lineageGraph, navigateTo, recordingId, stageKey, urlState],
+  );
+
   const replaceUrlState = useCallback(
     (nextState: PipelineUrlState): void => {
       const nextPath = compare
@@ -522,6 +595,7 @@ export function RecordingPipelineWorkspace({
         error={error}
         lineageGraph={lineageGraph}
         lineageGraphError={lineageGraphError}
+        onCopyNode={copyLineageNode}
         onNavigate={navigateTo}
       />
       {urlState.frameReviewQueue === "0096-M4" &&

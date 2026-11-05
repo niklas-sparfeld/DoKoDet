@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   LineageStageKey,
   PipelineLineageGraph,
@@ -40,6 +41,11 @@ type Props = {
   graphError: string | null;
   selection: PipelineLineageSelection | null;
   onSelect: (selection: PipelineLineageSelection) => void;
+  onCopy: (
+    column: LineageStageKey,
+    nodeId: string,
+    revisionId: string,
+  ) => Promise<void>;
 };
 
 export function PipelineLineageDrawer({
@@ -48,6 +54,7 @@ export function PipelineLineageDrawer({
   graphError,
   selection,
   onSelect,
+  onCopy,
 }: Props) {
   const revisionsByNode = new Map<string, PipelineLineageGraph["revisions"]>();
   for (const revision of graph?.revisions ?? []) {
@@ -166,6 +173,15 @@ export function PipelineLineageDrawer({
                           nodeId={node.node_id}
                           revisionId={visibleRevision?.revision_id ?? null}
                         />
+                        {visibleRevision !== undefined &&
+                        column.key !== "round_analyses" ? (
+                          <CopyNodeAction
+                            column={column.key}
+                            nodeId={node.node_id}
+                            revisionId={visibleRevision.revision_id}
+                            onCopy={onCopy}
+                          />
+                        ) : null}
                         {revisions.length > 1 ? (
                           <details className={styles.lineageHistory}>
                             <summary>History ({revisions.length})</summary>
@@ -248,6 +264,47 @@ function AnalysisRunCard({
         </ul>
       )}
     </article>
+  );
+}
+
+function CopyNodeAction({
+  column,
+  nodeId,
+  revisionId,
+  onCopy,
+}: {
+  column: LineageStageKey;
+  nodeId: string;
+  revisionId: string;
+  onCopy: (
+    column: LineageStageKey,
+    nodeId: string,
+    revisionId: string,
+  ) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <button
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setError(null);
+          void onCopy(column, nodeId, revisionId)
+            .catch((reason: unknown) =>
+              setError(
+                reason instanceof Error ? reason.message : "Copy failed.",
+              ),
+            )
+            .finally(() => setBusy(false));
+        }}
+        type="button"
+      >
+        {busy ? "Creating copy…" : "Create copy"}
+      </button>
+      {error !== null ? <small role="alert">{error}</small> : null}
+    </>
   );
 }
 

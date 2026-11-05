@@ -50,6 +50,11 @@ export type RecordingWorkspaceShellProps = {
   error: string | null;
   lineageGraph: PipelineLineageGraph | null;
   lineageGraphError: string | null;
+  onCopyNode: (
+    column: Exclude<PipelineNavigationStepKey, "round_analyses">,
+    nodeId: string,
+    revisionId: string,
+  ) => Promise<void>;
   onNavigate: (path: string) => void;
 };
 
@@ -86,6 +91,7 @@ export function RecordingWorkspaceShell({
   error,
   lineageGraph,
   lineageGraphError,
+  onCopyNode,
   onNavigate,
 }: RecordingWorkspaceShellProps) {
   const [lineageOpen, setLineageOpen] = useState(false);
@@ -250,6 +256,7 @@ export function RecordingWorkspaceShell({
               );
               onNavigate(path);
             }}
+            onCopy={onCopyNode}
           />
         ) : null}
 

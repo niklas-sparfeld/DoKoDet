@@ -7,9 +7,10 @@
 - **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0–M2 are complete; M3–M12 are not started. The workspace exposes exact graph data,
+- **Outcome:** M0–M3 are complete; M4–M12 are not started. The workspace exposes exact graph data,
   preserves validated lineage URLs, and has aligned step and data rows. The horizontal drawer
   selects exact revisions and shows copy and processor sources with collapsed revision history.
+  Shared node edit, copy, and restore transactions are available through the workspace API.
   Processor input and trigger UX remains later work.
 
 ## Agreed layout
@@ -159,13 +160,20 @@ stays collapsed until opened. Selecting a revision updates the exact lineage URL
 selections in other steps. The layout reflows to three, two, then one column on narrower screens.
 Processor input controls remain separate from lineage browsing.
 
-### M3 — Integrate shared editing and copy UX — Not started
+### M3 — Integrate shared editing and copy UX — Complete
 
 Use atomic 0107 copy services. Select the copy after the first actual change. Add automatic names,
 reason/source notice, original navigation, save/conflict states, and explicit copy/history actions.
 
 Acceptance: editor open creates nothing; first protected edit creates/selects one copy; continued
 edits and retries use it. Preserve exact inspection position and explain missing correspondence.
+
+Result: the workspace API exposes idempotent node edit, explicit copy, and historical restore
+operations through the atomic 0107 service. A changed edit after accepted downstream use creates a
+uniquely named copy; retries return the same result. The lineage drawer can create a copy of the
+exact displayed revision, selects the returned copy, and reports its source while keeping the
+original available in lineage. Editor-specific save adapters will connect during M4–M7 as each
+legacy editor moves to node content.
 
 ### M4 — Move event editing to data nodes — Not started
 

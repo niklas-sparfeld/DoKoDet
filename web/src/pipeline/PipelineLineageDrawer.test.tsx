@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { PipelineLineageDrawer } from "./PipelineLineageDrawer";
@@ -88,8 +88,9 @@ const graph: PipelineLineageGraph = {
 };
 
 describe("PipelineLineageDrawer", () => {
-  it("aligns data sets, labels copy and process sources, and selects an exact revision", () => {
+  it("aligns data sets, labels copy and process sources, and selects an exact revision", async () => {
     const onSelect = vi.fn();
+    const onCopy = vi.fn().mockResolvedValue(undefined);
     const selection: PipelineLineageSelection = {
       schema_version: "pipeline-lineage-selection/v1",
       selected: {
@@ -103,6 +104,7 @@ describe("PipelineLineageDrawer", () => {
         graphError={null}
         selection={selection}
         onSelect={onSelect}
+        onCopy={onCopy}
       />,
     );
 
@@ -139,6 +141,12 @@ describe("PipelineLineageDrawer", () => {
         events: { node_id: "event-copy", revision_id: "event-copy-r1" },
       },
     });
+    await act(async () => {
+      fireEvent.click(
+        within(eventColumn).getAllByRole("button", { name: "Create copy" })[0],
+      );
+    });
+    expect(onCopy).toHaveBeenCalledWith("events", "event-original", "event-r2");
   });
 
   it("keeps revision history collapsed until requested", () => {
@@ -149,6 +157,7 @@ describe("PipelineLineageDrawer", () => {
         graphError={null}
         selection={null}
         onSelect={vi.fn()}
+        onCopy={vi.fn().mockResolvedValue(undefined)}
       />,
     );
     const history = screen.getByText("History (2)").closest("details");
