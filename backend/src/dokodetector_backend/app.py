@@ -39,6 +39,7 @@ from dokodetector_backend.job_scheduler import Claims
 from dokodetector_backend.jobs_api import JobManagerService, JobTypeRegistry
 from dokodetector_backend.jobs_api import router as jobs_router
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
+from dokodetector_backend.observation_jobs import ObservationJobParticipant
 from dokodetector_backend.pending_video_api import router as pending_video_router
 from dokodetector_backend.pending_video_storage import PendingVideoStorage
 from dokodetector_backend.persistence import EvidencePackagePersister
@@ -223,6 +224,9 @@ def create_app(
     app.state.visual_identity_pipeline_service.job_manager_provider = (
         app.state.job_manager_service.get_manager
     )
+    app.state.observation_pipeline_service.job_manager_provider = (
+        app.state.job_manager_service.get_manager
+    )
     event_job_participant = EventJobParticipant(app.state.event_pipeline_service)
     for event_job_type in ("event_processing", "event_import"):
         app.state.job_type_registry.register(
@@ -277,6 +281,19 @@ def create_app(
         lambda _request: None,
         visual_identity_job_participant,
         lambda job, claims, token, participant=visual_identity_job_participant: participant.execute(
+            job,
+            claims,
+            token,
+            app.state.job_manager_service.get_manager(),
+        ),
+        Claims(cpu=1, locks=()),
+    )
+    observation_job_participant = ObservationJobParticipant(app.state.observation_pipeline_service)
+    app.state.job_type_registry.register(
+        "table_observation_assembly",
+        lambda _request: None,
+        observation_job_participant,
+        lambda job, claims, token, participant=observation_job_participant: participant.handle(
             job,
             claims,
             token,

@@ -5,10 +5,9 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Mapping
-from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import UTC, datetime
-from threading import RLock
 from typing import Any
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from doko_operations.pipeline_data import (
     DataRevision,
@@ -31,6 +30,7 @@ from table_evidence_analyzer import (
     canonical_table_observation_data_bytes,
 )
 
+from dokodetector_backend.job_store import Job, JobCancelled, JobManager
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
@@ -73,38 +73,31 @@ class ObservationPipelineService:
         self.selection_store = selection_store
         self.recording_store = recording_store
         self.storage = PipelineRuntimeStorage(runtime_root, operations_root)
-        self._executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="observation-pipeline"
-        )
-        self._futures: dict[str, Future[None]] = {}
-        self._lock = RLock()
-
-    async def start(self) -> None:
-        """Keep the lifecycle symmetrical with the other pipeline services."""
-
-    async def stop(self) -> None:
-        self._executor.shutdown(wait=True, cancel_futures=False)
-        with self._lock:
-            self._futures.clear()
+        self.job_manager_provider: Any | None = None
 
     def start_assembly(self, recording_id: str, payload: Mapping[str, Any]) -> StoredProcessorRun:
-        request = self._build_request(recording_id, payload)
-        run, created = self.run_store.create(request)
-        if not created:
-            return run
-        running = self.run_store.start(run.run_id)
-        with self._lock:
-            self._futures[run.run_id] = self._executor.submit(self._execute, run.run_id)
-        return running
+        if self.job_manager_provider is None:
+            raise ObservationPipelineError("the shared job manager is not available")
+        request_payload = payload.get("request", payload)
+        request_id = request_payload.get("run_id") if isinstance(request_payload, Mapping) else None
+        key = (
+            str(uuid5(NAMESPACE_URL, f"table-observation-run:{request_id}"))
+            if isinstance(request_id, str) and request_id
+            else str(uuid4())
+        )
+        job = self.job_manager_provider().accept(
+            key,
+            {
+                "type": "table_observation_assembly",
+                "context": {"recording_id": recording_id},
+                "request": dict(payload),
+            },
+        )
+        return self.get_run(recording_id, job.id)
 
     def get_run(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         run = self.run_store.require(run_id)
         self._require_recording(run.request, recording_id)
-        with self._lock:
-            future = self._futures.get(run_id)
-        if run.state.status == "complete" and future is not None and not future.done():
-            future.result()
-            run = self.run_store.require(run_id)
         return run
 
     def list_runs(self, recording_id: str) -> tuple[StoredProcessorRun, ...]:
@@ -126,10 +119,187 @@ class ObservationPipelineService:
 
     def retry(self, recording_id: str, run_id: str) -> StoredProcessorRun:
         self.get_run(recording_id, run_id)
-        retried = self.run_store.retry(run_id)
-        with self._lock:
-            self._futures[run_id] = self._executor.submit(self._execute, run_id)
-        return retried
+        if self.job_manager_provider is None:
+            raise ObservationPipelineError("the shared job manager is not available")
+        job = self.job_manager_provider().retry(run_id, str(uuid4()))
+        return self.get_run(recording_id, job.id)
+
+    def freeze_job_request(self, recording_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        request = self._build_request(recording_id, payload)
+        return {
+            "schema": "table-observation-job-request/v1",
+            "processor_request": request.to_mapping(),
+        }
+
+    def validate_frozen_job_request(self, recording_id: str, frozen: Mapping[str, Any]) -> None:
+        try:
+            request = ProcessorRunRequest.from_mapping(frozen["processor_request"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ObservationPipelineInputError(
+                "the frozen observation request is invalid"
+            ) from error
+        if (
+            frozen.get("schema") != "table-observation-job-request/v1"
+            or request.source.recording_id != recording_id
+            or request.processor_type != "observation-assembly"
+            or len(request.input_revision_ids) != 3
+        ):
+            raise ObservationPipelineInputError("the frozen observation inputs are invalid")
+        self._validate_frozen_inputs(recording_id, request)
+
+    def _validate_frozen_inputs(self, recording_id: str, request: ProcessorRunRequest) -> None:
+        for revision_id, content_type, content_class in zip(
+            request.input_revision_ids,
+            ("events", "visible_cards", "visual_identities"),
+            (EventData, VisibleCardData, VisualIdentityData),
+            strict=True,
+        ):
+            revision = self._require_revision(revision_id, content_type, content_class)
+            if (
+                revision.manifest.recording_id != recording_id
+                or revision.manifest.source != request.source
+            ):
+                raise ObservationPipelineInputError("the frozen inputs do not match the recording")
+
+    def prepare_job(self, job_id: str, envelope: Mapping[str, Any], after_write: Any) -> None:
+        recording_id = envelope["context"]["recording_id"]
+        self.validate_frozen_job_request(recording_id, envelope["request"])
+        values = dict(envelope["request"]["processor_request"])
+        values["run_id"] = job_id
+        request = ProcessorRunRequest.from_mapping(values)
+        run, _ = self.run_store.create(request)
+        if run.request.to_mapping() != request.to_mapping():
+            raise ObservationPipelineInputError("the accepted observation run conflicts")
+        del after_write
+
+    def verify_job(self, job_id: str, envelope: Mapping[str, Any]) -> bool:
+        try:
+            self.validate_frozen_job_request(
+                envelope["context"]["recording_id"], envelope["request"]
+            )
+            values = dict(envelope["request"]["processor_request"])
+            values["run_id"] = job_id
+            return self.run_store.require(job_id).request.to_mapping() == (
+                ProcessorRunRequest.from_mapping(values).to_mapping()
+            )
+        except (OSError, KeyError, TypeError, ValueError, PipelineNotFound):
+            return False
+
+    def verify_job_publication(self, job: Job, results: list[dict[str, Any]]) -> bool:
+        try:
+            if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
+                return False
+            revision = self.revision_store.require(results[0]["id"])
+            run = self.run_store.require(job.id)
+            return (
+                run.state.status == "complete"
+                and run.state.output_revision_ids == (revision.manifest.revision_id,)
+                and results[0].get("digest") == revision.manifest.content_sha256
+            )
+        except (KeyError, TypeError, ValueError, PipelineNotFound):
+            return False
+
+    def reconcile_job_states(self, jobs: list[Job]) -> None:
+        for job in jobs:
+            if job.type != "table_observation_assembly":
+                continue
+            run = self.run_store.get(job.id)
+            if run is None or run.state.status not in {"queued", "running"}:
+                continue
+            failures = {
+                "interrupted": RunFailure(
+                    "backend_restarted",
+                    "Observation assembly was interrupted by a backend restart.",
+                ),
+                "cancelled": RunFailure("cancelled", "Observation assembly was cancelled."),
+                "failed": RunFailure("job_failed", "Observation assembly failed."),
+            }
+            failure = failures.get(job.state)
+            if failure is not None:
+                if run.state.status == "queued":
+                    self.run_store.start(job.id)
+                self.run_store.fail(job.id, failure)
+
+    def execute_job(self, job: Job, token: Any, manager: JobManager) -> None:
+        run_id = job.id
+        run = self.run_store.start(run_id)
+        try:
+            token.check()
+            event_revision = self._require_revision(
+                run.request.input_revision_ids[0], "events", EventData
+            )
+            visible_revision = self._require_revision(
+                run.request.input_revision_ids[1], "visible_cards", VisibleCardData
+            )
+            identity_revision = self._require_revision(
+                run.request.input_revision_ids[2], "visual_identities", VisualIdentityData
+            )
+            assert isinstance(event_revision.content, EventData)
+            assert isinstance(visible_revision.content, VisibleCardData)
+            assert isinstance(identity_revision.content, VisualIdentityData)
+            total = len(event_revision.content.events)
+            self.run_store.update_progress(run_id, progress=RunProgress(completed=0, total=total))
+            manager.report_progress(
+                job.id,
+                phase="Assembling table observations",
+                completed=0,
+                total=total,
+                unit="events",
+            )
+            configuration = run.request.configuration
+            content = assemble_table_observations(
+                event_revision.content,
+                visible_revision.content,
+                identity_revision.content,
+                recording_id=run.request.source.recording_id,
+                video_sha256=run.request.source.video_sha256,
+                assembly_run_id=run_id,
+                input_revision_ids=run.request.input_revision_ids,
+                session_id=_optional_text(configuration.get("session_id")),
+                calibration=_calibration(configuration.get("calibration")),
+                analyzer_name=_optional_text(configuration.get("analyzer_name"))
+                or "observation-assembler",
+                analyzer_version=_optional_text(configuration.get("analyzer_version")) or "v1",
+            )
+            token.check()
+            items = tuple(
+                RunItemOutcome(
+                    item_id=observation.observation_id,
+                    status="succeeded",
+                    result=observation.model_dump(mode="json", exclude_none=True),
+                    failure=None,
+                )
+                for observation in content.observations
+            )
+            progress = RunProgress(completed=total, total=total)
+            revision_id = f"table-observations-{_safe(run.run_id)}-attempt-{run.state.attempt}"
+            digest = sha256_bytes(canonical_table_observation_data_bytes(content))
+            output = {
+                "kind": "pipeline_revision",
+                "id": revision_id,
+                "digest": digest,
+                "available": True,
+            }
+
+            def commit() -> None:
+                revision = self._publish_revision(run, content)
+                if (
+                    revision.manifest.revision_id != revision_id
+                    or revision.manifest.content_sha256 != digest
+                ):
+                    raise ObservationPipelineError("the published observation revision changed")
+                self.run_store.complete(run_id, [revision_id], progress=progress, items=items)
+                self._advance_generated_selection(run.request.source.recording_id, revision_id)
+
+            if not manager.publish(job.id, [output], commit):
+                raise JobCancelled("job cancellation requested before observation publication")
+        except JobCancelled:
+            self._fail_safely(run_id, "cancelled", "Observation assembly was cancelled.")
+            raise
+        except Exception:
+            LOGGER.exception("observation_pipeline_worker_failed")
+            self._fail_safely(run_id, "assembly_failed", "The observation assembler failed.")
+            raise
 
     def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> PipelineSelection:
         expected_revision = payload.get("expected_revision")
@@ -185,9 +355,7 @@ class ObservationPipelineService:
         values = dict(raw)
         recording = self.recording_store.get_metadata(recording_id)
         if recording is None or not recording.session_id:
-            raise ObservationPipelineInputError(
-                "the recording has no valid canonical session ID"
-            )
+            raise ObservationPipelineInputError("the recording has no valid canonical session ID")
         configuration = values.get("configuration", {})
         if not isinstance(configuration, Mapping):
             raise ObservationPipelineInputError("configuration must be an object")
@@ -308,68 +476,6 @@ class ObservationPipelineService:
                 f"revision {revision_id} is not valid {content_type} content"
             )
         return revision
-
-    def _execute(self, run_id: str) -> None:
-        try:
-            run = self.run_store.require(run_id)
-            event_revision = self._require_revision(
-                run.request.input_revision_ids[0], "events", EventData
-            )
-            visible_revision = self._require_revision(
-                run.request.input_revision_ids[1], "visible_cards", VisibleCardData
-            )
-            identity_revision = self._require_revision(
-                run.request.input_revision_ids[2], "visual_identities", VisualIdentityData
-            )
-            assert isinstance(event_revision.content, EventData)
-            assert isinstance(visible_revision.content, VisibleCardData)
-            assert isinstance(identity_revision.content, VisualIdentityData)
-            total = len(event_revision.content.events)
-            self.run_store.update_progress(run_id, progress=RunProgress(completed=0, total=total))
-            configuration = run.request.configuration
-            content = assemble_table_observations(
-                event_revision.content,
-                visible_revision.content,
-                identity_revision.content,
-                recording_id=run.request.source.recording_id,
-                video_sha256=run.request.source.video_sha256,
-                assembly_run_id=run_id,
-                input_revision_ids=run.request.input_revision_ids,
-                session_id=_optional_text(configuration.get("session_id")),
-                calibration=_calibration(configuration.get("calibration")),
-                analyzer_name=_optional_text(configuration.get("analyzer_name"))
-                or "observation-assembler",
-                analyzer_version=_optional_text(configuration.get("analyzer_version")) or "v1",
-            )
-            items = tuple(
-                RunItemOutcome(
-                    item_id=observation.observation_id,
-                    status="succeeded",
-                    result=observation.model_dump(mode="json", exclude_none=True),
-                    failure=None,
-                )
-                for observation in content.observations
-            )
-            self.run_store.update_progress(
-                run_id,
-                progress=RunProgress(completed=total, total=total),
-                items=items,
-            )
-            revision = self._publish_revision(run, content)
-            self.run_store.complete(
-                run_id,
-                [revision.manifest.revision_id],
-                progress=RunProgress(completed=total, total=total),
-                items=items,
-            )
-            self._advance_generated_selection(
-                run.request.source.recording_id, revision.manifest.revision_id
-            )
-        except (ObservationPipelineError, ObservationAssemblyError) as error:
-            self._fail_safely(run_id, "assembly_failed", str(error))
-        except Exception:
-            LOGGER.exception("observation_pipeline_worker_failed")
-            self._fail_safely(run_id, "assembly_failed", "The observation assembler failed.")
 
     def _publish_revision(
         self, run: StoredProcessorRun, content: TableObservationData

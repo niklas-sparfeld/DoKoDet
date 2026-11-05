@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M8 complete; M9–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M9 complete; M10–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -367,12 +367,14 @@ Cancellation and retry do not duplicate completed outputs or exceed the worker b
 
 Result: [M8 visual identities](../../reports/0110-M8_Visual_Identities.md).
 
-### M9 — Connect table observations — Not started
+### M9 — Connect table observations — Complete
 
 Adapt observation assembly, progress, publication, and cancellation. Remove its private executor.
 
 Acceptance: multi-input fixtures retain provenance and valid zero-card observations. Failed or
 missing evidence remains distinct; accepted input protection and retries are verified.
+
+Result: [M9 table observations](../../reports/0110-M9_Table_Observations.md).
 
 ### M10 — Connect round analysis — Not started
 

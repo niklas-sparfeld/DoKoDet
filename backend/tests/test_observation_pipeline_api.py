@@ -6,11 +6,13 @@ import time
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from app_factory import create_test_app
 from doko_operations.pipeline_data import sha256_bytes
 from fastapi.testclient import TestClient
+from table_evidence_analyzer import ObservationAssemblyError
 from table_evidence_analyzer.pipeline_data import (
     VisibleCardPileRegion,
     canonical_visible_card_data_bytes,
@@ -25,9 +27,11 @@ from test_visible_card_pipeline_api import (
 )
 from test_visual_identity_pipeline_api import _IdentityProvider
 
+import dokodetector_backend.observation_pipeline_service as observation_service_module
+
 
 def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _install_recording(tmp_path)
     app = create_test_app(
@@ -118,9 +122,10 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             },
         )
         assert first.status_code == 202, first.text
-        assert _wait_observation(client, "assembly-01")["state"]["status"] == "complete"
+        assembly_first_id = first.json()["run_id"]
+        assert _wait_observation(client, assembly_first_id)["state"]["status"] == "complete"
         first_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/observations/assembly-01/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/observations/{assembly_first_id}/result"
         )
         assert first_result.status_code == 200
         first_body = first_result.json()
@@ -136,14 +141,79 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         assert content["observations"][0]["piles"][0]["model_lineage"] == {
             "bundle_id": "pile-observation-fixture"
         }
-        assert content["observations"][0]["source"]["assembly_run_id"] == "assembly-01"
+        assert content["observations"][0]["source"]["assembly_run_id"] == assembly_first_id
         assert content["observations"][0]["source"]["input_revision_ids"] == [
             event_revision_id,
             visible_revision_id,
             identity_revision_id,
         ]
         assert content["observations"][1]["status"] == "observed"
+        assert content["observations"][1]["cards"] == []
         assert content["observations"][2]["status"] == "insufficient_evidence"
+
+        accepted_job = client.get(f"/api/jobs/{assembly_first_id}").json()
+        assert [item["id"] for item in accepted_job["inputs"]] == [
+            event_revision_id,
+            visible_revision_id,
+            identity_revision_id,
+        ]
+        assert [item["digest"] for item in accepted_job["inputs"]] == [
+            app.state.pipeline_revision_store.require(revision_id).manifest.content_sha256
+            for revision_id in (event_revision_id, visible_revision_id, identity_revision_id)
+        ]
+
+        original_assembler = observation_service_module.assemble_table_observations
+        calls = 0
+
+        def fail_accepted_execution(*args: Any, **kwargs: Any) -> Any:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return original_assembler(*args, **kwargs)
+            raise ObservationAssemblyError("fixture execution failure")
+
+        monkeypatch.setattr(
+            observation_service_module, "assemble_table_observations", fail_accepted_execution
+        )
+        failed = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/observations",
+            json={
+                "run_id": "assembly-retry-source",
+                "input_revision_ids": [
+                    event_revision_id,
+                    visible_revision_id,
+                    identity_revision_id,
+                ],
+            },
+        )
+        assert failed.status_code == 202, failed.text
+        failed_job_id = failed.json()["run_id"]
+        assert _wait_observation(client, failed_job_id)["state"]["status"] == "failed"
+        monkeypatch.setattr(
+            observation_service_module, "assemble_table_observations", original_assembler
+        )
+        retried = client.post(
+            f"/api/jobs/{failed_job_id}/retry",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={},
+        )
+        assert retried.status_code == 202, retried.text
+        retry_job_id = retried.json()["id"]
+        assert retry_job_id != failed_job_id
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            retry_job = client.get(f"/api/jobs/{retry_job_id}").json()
+            if retry_job["state"] == "succeeded":
+                break
+            assert retry_job["state"] not in {"failed", "cancelled", "interrupted"}, retry_job
+            time.sleep(0.01)
+        assert retry_job["state"] == "succeeded", retry_job
+        retried_run = app.state.pipeline_run_store.require(retry_job_id)
+        assert retried_run.request.input_revision_ids == (
+            event_revision_id,
+            visible_revision_id,
+            identity_revision_id,
+        )
 
         second = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
@@ -157,10 +227,11 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             },
         )
         assert second.status_code == 202
-        second_body = _wait_observation(client, "assembly-02")
+        assembly_second_id = second.json()["run_id"]
+        second_body = _wait_observation(client, assembly_second_id)
         assert second_body["state"]["status"] == "complete"
         listed = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/observations").json()["runs"]
-        assert {run["run_id"] for run in listed} >= {"assembly-01", "assembly-02"}
+        assert {run["run_id"] for run in listed} >= {assembly_first_id, assembly_second_id}
         selection = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations/selection"
         ).json()
@@ -183,14 +254,14 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
     restarted = create_test_app(_settings(tmp_path))
     with TestClient(restarted) as client:
         persisted = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/observations/assembly-01/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/observations/{assembly_first_id}/result"
         )
         assert persisted.status_code == 200
         assert (
             persisted.json()["revisions"][0]["content"]["observations"][0]["source"][
                 "assembly_run_id"
             ]
-            == "assembly-01"
+            == assembly_first_id
         )
         persisted_observation = persisted.json()["revisions"][0]["content"]["observations"][0]
         assert persisted_observation["piles"][0]["pile_id"] == "pile-observation-fixture"
@@ -210,16 +281,56 @@ def _run_pipeline(
         payload["configuration"] = configuration
     if input_revision_ids is not None:
         payload["input_revision_ids"] = input_revision_ids
+    if stage == "events":
+        response = client.post(
+            "/api/jobs",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={
+                "type": "event_processing",
+                "context": {"recording_id": RECORDING_ID},
+                "request": {
+                    **payload,
+                    "implementation": {"name": "fixture-events", "version": "v1"},
+                    "configuration": {"threshold": 0.5},
+                    "extraction_policy": {"policy_id": "exact-event/v1"},
+                },
+            },
+        )
+        assert response.status_code == 202, response.text
+        job_id = response.json()["id"]
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            job = client.get(f"/api/jobs/{job_id}").json()
+            if job["state"] == "succeeded":
+                return job["results"][0]["id"]
+            assert job["state"] not in {"failed", "cancelled", "interrupted"}, job
+            time.sleep(0.01)
+        raise AssertionError("event job did not complete")
     response = client.post(f"/api/recordings/{RECORDING_ID}/pipeline/{stage}", json=payload)
     assert response.status_code == 202, response.text
+    managed_run_id = response.json()["run_id"]
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        body = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/{stage}/{run_id}").json()
+        body = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/{stage}/{managed_run_id}"
+        ).json()
         if body["state"]["status"] == "complete":
             return body["state"]["output_revision_ids"][0]
         assert body["state"]["status"] != "failed", body
         time.sleep(0.01)
     raise AssertionError(f"{stage} run did not complete")
+
+
+def _run_observation(client: TestClient, run_id: str) -> tuple[str, str]:
+    response = client.post(
+        f"/api/recordings/{RECORDING_ID}/pipeline/observations",
+        json={"run_id": run_id},
+    )
+    assert response.status_code == 202, response.text
+    managed_run_id = response.json()["run_id"]
+    body = _wait_observation(client, managed_run_id)
+    assert body["state"]["status"] == "complete", body
+    return managed_run_id, body["state"]["output_revision_ids"][0]
 
 
 def _wait_observation(client: TestClient, run_id: str) -> dict[str, Any]:
@@ -252,10 +363,7 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
 
     with TestClient(app) as client:
         _run_pipeline(client, "analysis-assembly-01", "events")
-        _run_pipeline(client, "analysis-visible-01", "visible-cards")
-        visible_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/analysis-visible-01"
-        ).json()["state"]["output_revision_ids"][0]
+        visible_revision_id = _run_pipeline(client, "analysis-visible-01", "visible-cards")
         _run_pipeline(
             client,
             "analysis-identity-01",
@@ -271,13 +379,12 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
         )
         assert rejected_override.status_code == 422
         assert "must match the recording session ID" in rejected_override.text
-        first_revision_id = _run_pipeline(
+        observation_run_id, first_revision_id = _run_observation(
             client,
             "analysis-observation-01",
-            "observations",
         )
         observation = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/observations/analysis-observation-01/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/observations/{observation_run_id}/result"
         ).json()["revisions"][0]["content"]["observations"][0]
         assert observation["session"]["session_id"] == session_id
 

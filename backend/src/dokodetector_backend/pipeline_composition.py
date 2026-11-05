@@ -65,7 +65,6 @@ class PipelineComposition:
             self.event_service,
             self.visible_card_service,
             self.visual_identity_service,
-            self.observation_service,
         )
 
 
