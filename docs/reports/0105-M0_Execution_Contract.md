@@ -55,11 +55,12 @@ or silently skip the stage.
 ## Preflight, concurrency, and start behavior
 
 Before accepting a start, validate the recording video and source digest; local provider and model
-availability; required stage configuration; and round/session context, rules version, and search
-limits. Verify that the round context belongs to the recording session and has the required player,
-dealer, and first-trick facts. Do not infer missing facts. Return all actionable blockers and start
-no work when preflight fails. Do not accept staged activity or a recording without a valid round
-setup as a complete-pipeline run.
+availability; required stage configuration; rules version; and search limits. Read the session from
+the recording. Derive game and round IDs from the recording ID and use generic seat labels. Do not
+ask for player IDs or dealer details. The current reconstruction contract still requires a
+first-trick leader, so use `player-1` as a deterministic default. This is an implementation default,
+not an inferred gameplay fact. Return actionable blockers for missing recording, provider, or stage
+configuration and start no work when preflight fails.
 
 Freeze the normalized requests, provider/model identities, configuration, source digest, and any
 initial inputs in the durable overall record. Resolve later-stage inputs only from outputs of this
@@ -73,9 +74,10 @@ completed runs and drafts without overwriting them.
 
 Use a deterministic local backend fixture, not model training or the old 0090 model campaign. The
 fixture must have one accepted recording video, fixed local fake providers for each model stage,
-reviewable event/card/identity revisions, a calibration and scene result, a non-empty observation
-revision, and explicit valid round context. It must retain outputs through the same stores and
-workspace reads as ordinary stage runs. Add variants for preflight failure, duplicate start,
+reviewable event/card/identity revisions, a calibration and scene result, and a non-empty observation
+revision. The service generates round context from the recording and generic player seats. It must
+retain outputs through the same stores and workspace reads as ordinary stage runs. Add variants for
+preflight failure, duplicate start,
 complete empty event/card/identity output, calibration failure, partial scene output, failed stage,
 empty observations, interruption/resume, and changed frozen input.
 
@@ -88,6 +90,6 @@ observations, or reconstruction are correct.
 ## M0 result
 
 M0 is complete. M1 can implement the overall run boundary and preflight around this contract. M2
-must retain interruption and restart safety. M3 must expose all prerequisites before the single
-start action and restore progress and links after reload. M4 must verify the full fixture path and
-record its reproducible setup.
+must retain interruption and restart safety. M3 must expose recording and provider prerequisites
+before the single start action and restore progress and links after reload. M4 must verify the full
+fixture path and record its reproducible setup.

@@ -95,15 +95,6 @@ export type AutomatedPipelineRun = {
 };
 export type AutomatedPipelineStartRequest = {
   idempotency_key: string;
-  session_id: string;
-  round_id: string;
-  round_context: {
-    game_id: string;
-    round_id: string;
-    active_players: string[];
-    dealer: string;
-    first_trick_leader: string;
-  };
   rules_version: "v1";
   search: {
     max_missing_plays: number;

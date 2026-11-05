@@ -43,12 +43,6 @@ export function AutomatedPipelineControls({
   const storageKey = `${STORAGE_PREFIX}${recordingId}`;
   const [run, setRun] = useState<AutomatedPipelineRun | null>(null);
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
-  const [sessionId, setSessionId] = useState("");
-  const [gameId, setGameId] = useState("");
-  const [roundId, setRoundId] = useState("");
-  const [players, setPlayers] = useState("");
-  const [dealer, setDealer] = useState("");
-  const [leader, setLeader] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -59,9 +53,6 @@ export function AutomatedPipelineControls({
       .then((recording) => {
         if (!cancelled) {
           setRecording(recording);
-          setSessionId(recording.session_id);
-          setGameId(recording.source.game_id ?? "");
-          setRoundId(recording.source.round_id ?? recording.round_id);
         }
       })
       .catch(() => undefined);
@@ -121,29 +112,6 @@ export function AutomatedPipelineControls({
   }, [activeRunId, activeRunStatus, client, onRefresh, recordingId]);
 
   async function start() {
-    const activePlayers = players
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
-    const missing = [
-      ["session ID", sessionId],
-      ["game ID", gameId.trim()],
-      ["round ID", roundId.trim()],
-      ["four player IDs", activePlayers.length === 4 ? "set" : ""],
-      ["dealer", dealer.trim()],
-      ["first-trick leader", leader.trim()],
-    ].filter(([, value]) => !value);
-    if (
-      missing.length ||
-      new Set(activePlayers).size !== 4 ||
-      !activePlayers.includes(dealer.trim()) ||
-      !activePlayers.includes(leader.trim())
-    ) {
-      setMessage(
-        `Fix round prerequisites before starting: ${missing.map(([name]) => name).join(", ") || "use four distinct players and select dealer and leader from them"}.`,
-      );
-      return;
-    }
     setBusy(true);
     setMessage(null);
     const config = (stageKey: string, fallback: Record<string, unknown>) => {
@@ -169,15 +137,6 @@ export function AutomatedPipelineControls({
     };
     const payload: AutomatedPipelineStartRequest = {
       idempotency_key: crypto.randomUUID(),
-      session_id: sessionId.trim(),
-      round_id: roundId.trim(),
-      round_context: {
-        game_id: gameId.trim(),
-        round_id: roundId.trim(),
-        active_players: activePlayers,
-        dealer: dealer.trim(),
-        first_trick_leader: leader.trim(),
-      },
       rules_version: "v1",
       search: {
         max_missing_plays: 1,
@@ -225,19 +184,6 @@ export function AutomatedPipelineControls({
           <p className={styles.statusLabel}>Complete pipeline</p>
           <h3 id="automated-pipeline-heading">Run all stages</h3>
         </div>
-      </div>
-      <div className={styles.pipelineContextGrid}>
-        <Field label="Game ID" value={gameId} onChange={setGameId} />
-        <Field label="Round ID" value={roundId} onChange={setRoundId} />
-        <Field label="Session ID" value={sessionId} onChange={setSessionId} />
-        <Field
-          label="Four player IDs"
-          value={players}
-          onChange={setPlayers}
-          placeholder="Player IDs in seat order, separated by commas"
-        />
-        <Field label="Dealer" value={dealer} onChange={setDealer} />
-        <Field label="First-trick leader" value={leader} onChange={setLeader} />
       </div>
       <p className={styles.pipelineRunInputValue}>
         Rules: doko-normal v1. Search limits: 1 missing play, 256 hypotheses,
@@ -298,29 +244,5 @@ export function AutomatedPipelineControls({
         </div>
       ) : null}
     </section>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label className={styles.pipelineRunSelector}>
-      <span>{label}</span>
-      <input
-        aria-label={label}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
   );
 }

@@ -17,19 +17,16 @@ from dokodetector_backend.automated_pipeline_run import (
 from dokodetector_backend.contract import ContractModel
 from dokodetector_backend.errors import APIErrorDetail, ContractError
 from dokodetector_backend.pipeline_api_contracts import validate_recording_id
-from dokodetector_backend.round_analysis_contract import AnalysisRoundContext, AnalysisSearchLimits
+from dokodetector_backend.round_analysis_contract import AnalysisSearchLimits
 
 router = APIRouter()
 BASE = "/api/recordings/{recording_id}/pipeline/runs"
 
 
 class AutomatedPipelineRunStartRequest(ContractModel):
-    """All inputs needed before the six-stage run can be accepted."""
+    """Stage settings needed before the six-stage run can be accepted."""
 
     idempotency_key: UUID
-    session_id: str = Field(min_length=1, max_length=128)
-    round_id: str = Field(min_length=1, max_length=128)
-    round_context: AnalysisRoundContext
     rules_version: Literal["v1"]
     search: AnalysisSearchLimits
     stage_requests: dict[str, dict[str, Any]]

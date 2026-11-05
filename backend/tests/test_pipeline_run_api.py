@@ -40,15 +40,6 @@ def _app(tmp_path: Path) -> FastAPI:
 def _payload() -> dict[str, object]:
     return {
         "idempotency_key": str(uuid4()),
-        "session_id": "session-1",
-        "round_id": "round-1",
-        "round_context": {
-            "game_id": "game-1",
-            "round_id": "round-1",
-            "active_players": ["p1", "p2", "p3", "p4"],
-            "dealer": "p1",
-            "first_trick_leader": "p2",
-        },
         "rules_version": "v1",
         "search": {
             "max_missing_plays": 1,
@@ -95,12 +86,22 @@ def test_start_retry_returns_existing_run(tmp_path: Path) -> None:
     assert worker.enqueued == [first.json()["run_id"]]
 
 
-def test_preflight_error_lists_the_session_blocker(tmp_path: Path) -> None:
-    payload = _payload()
-    payload["session_id"] = "other-session"
+def test_start_generates_round_context_from_recording(tmp_path: Path) -> None:
     with TestClient(_app(tmp_path)) as client:
-        response = client.post("/api/recordings/recording-1/pipeline/runs", json=payload)
+        response = client.post("/api/recordings/recording-1/pipeline/runs", json=_payload())
 
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "pipeline_preflight_failed"
-    assert "session" in response.json()["error"]["details"][0]["message"]
+    assert response.status_code == 202, response.text
+    request = response.json()["request"]
+    assert request["session_id"] == "session-1"
+    assert request["round_id"].startswith("round-")
+    context = request["round_context"]
+    assert context["game_id"].startswith("game-")
+    assert context["round_id"] == request["round_id"]
+    assert context["active_players"] == [
+        "player-1",
+        "player-2",
+        "player-3",
+        "player-4",
+    ]
+    assert context["dealer"] == "dealer-unspecified"
+    assert context["first_trick_leader"] == "player-1"

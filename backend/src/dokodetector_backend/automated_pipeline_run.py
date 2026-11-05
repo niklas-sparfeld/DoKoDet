@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from doko_operations.pipeline_data import RecordingVideoSource
 
-from dokodetector_backend.round_analysis_contract import AnalysisRoundContext, AnalysisSearchLimits
+from dokodetector_backend.round_analysis_contract import AnalysisSearchLimits
 
 try:
     from fcntl import LOCK_EX, LOCK_UN, flock
@@ -181,7 +181,7 @@ class AutomatedPipelineRunService:
         self.round_session_provider = round_session_provider
 
     def start(self, recording_id: str, request: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
-        normalized = self._validate_request(recording_id, request)
+        normalized = self._validate_request(request)
         idempotency_key = str(normalized["idempotency_key"])
         client_request_digest = _digest(normalized)
         with self.store.locked_recording(recording_id):
@@ -204,9 +204,7 @@ class AutomatedPipelineRunService:
                 session_id = self.round_session_provider(recording_id)
             except (LookupError, OSError, RuntimeError, TypeError, ValueError) as error:
                 raise AutomatedPipelinePreflightError([str(error)]) from error
-            blockers = _round_blockers(normalized, session_id)
-            if blockers:
-                raise AutomatedPipelinePreflightError(blockers)
+            normalized.update(_automatic_round_context(recording_id, session_id))
             try:
                 validated = self.recording_provider_validator(
                     recording_id, normalized["stage_requests"]
@@ -246,7 +244,7 @@ class AutomatedPipelineRunService:
     def read(self, run_id: str) -> dict[str, Any]:
         return self.store.get(run_id)
 
-    def _validate_request(self, recording_id: str, request: Mapping[str, Any]) -> dict[str, Any]:
+    def _validate_request(self, request: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(request, Mapping):
             raise AutomatedPipelinePreflightError(["The start request must be an object."])
         stage_requests = request.get("stage_requests")
@@ -274,14 +272,8 @@ class AutomatedPipelineRunService:
                 [f"Provide configuration for {name}." for name in missing_configuration]
             )
 
-        round_context = request.get("round_context")
         search = request.get("search")
         blockers: list[str] = []
-        try:
-            context = AnalysisRoundContext.model_validate(round_context)
-        except Exception as error:
-            blockers.append(f"Round context is missing or invalid: {error}")
-            context = None
         try:
             limits = AnalysisSearchLimits.model_validate(search)
         except Exception as error:
@@ -295,34 +287,33 @@ class AutomatedPipelineRunService:
             blockers.append("Provide a UUID idempotency_key.")
         if blockers:
             raise AutomatedPipelinePreflightError(blockers)
-        assert context is not None and limits is not None
-
-        if context.round_id != request.get("round_id", context.round_id):
-            blockers.append("round_id must match round_context.round_id.")
-        session_id = request.get("session_id")
-        if not isinstance(session_id, str) or not session_id.strip():
-            blockers.append("Provide the recording session ID.")
-        if blockers:
-            raise AutomatedPipelinePreflightError(blockers)
+        assert limits is not None
 
         frozen = dict(request)
         frozen["idempotency_key"] = str(UUID(str(request["idempotency_key"])))
-        frozen["round_context"] = context.model_dump(mode="json")
         frozen["search"] = limits.model_dump(mode="json")
-        frozen["session_id"] = session_id
-        frozen["round_id"] = context.round_id
         frozen["stage_requests"] = {
             name: _json_value(stage_requests[name]) for name in sorted(required)
         }
         return _json_value(frozen)
 
 
-def _round_blockers(request: Mapping[str, Any], session_id: str) -> list[str]:
-    blockers = []
-    context = request.get("round_context", {})
-    if request.get("session_id") != session_id or not isinstance(context, Mapping):
-        blockers.append("Round context session does not match the recording session.")
-    return blockers
+def _automatic_round_context(recording_id: str, session_id: str) -> dict[str, Any]:
+    """Build stable analysis identifiers and generic seats without operator input."""
+
+    suffix = hashlib.sha256(recording_id.encode()).hexdigest()[:16]
+    round_id = f"round-{suffix}"
+    return {
+        "session_id": session_id,
+        "round_id": round_id,
+        "round_context": {
+            "game_id": f"game-{suffix}",
+            "round_id": round_id,
+            "active_players": ["player-1", "player-2", "player-3", "player-4"],
+            "dealer": "dealer-unspecified",
+            "first_trick_leader": "player-1",
+        },
+    }
 
 
 def _json_value(value: Any) -> Any:

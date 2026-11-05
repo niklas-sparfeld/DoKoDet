@@ -38,8 +38,10 @@ and record the exact artifact identities and limitations used in each trial.
 
 ## Execution and evidence
 
-- Collect required round facts and settings before processing. Do not infer missing gameplay facts.
-  Recording and processing may have separate start actions. Report missing inputs clearly.
+- Read the recording session automatically and use the 0105 generic seat and identifier defaults.
+  Do not ask the operator for player IDs, dealer, trick leader, or game, round, and session IDs.
+  Recording and processing may have separate start actions. Report missing recording or stage
+  configuration clearly.
 - Capture one continuous recording and run the existing causal event detector live. Preserve source
   timestamps, event proposal intervals and anchors, and the mapping to recorded video frames.
   Define sampling, orientation, dropped-frame, interruption, and timestamp behavior in M0.

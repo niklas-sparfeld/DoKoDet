@@ -71,7 +71,7 @@ afterEach(() => {
 });
 
 describe("AutomatedPipelineControls", () => {
-  it("validates round facts, starts once, and restores every completed stage and analysis after reload", async () => {
+  it("starts without round metadata and restores every completed stage and analysis after reload", async () => {
     const fetch = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
@@ -100,23 +100,6 @@ describe("AutomatedPipelineControls", () => {
         onRefresh={onRefresh}
       />,
     );
-    await screen.findByDisplayValue("session-1");
-    fireEvent.click(
-      screen.getByRole("button", { name: "Start complete pipeline" }),
-    );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "four player IDs",
-    );
-
-    fireEvent.change(screen.getByLabelText("Four player IDs"), {
-      target: { value: "p1, p2, p3, p4" },
-    });
-    fireEvent.change(screen.getByLabelText("Dealer"), {
-      target: { value: "p1" },
-    });
-    fireEvent.change(screen.getByLabelText("First-trick leader"), {
-      target: { value: "p2" },
-    });
     fireEvent.click(
       screen.getByRole("button", { name: "Start complete pipeline" }),
     );
@@ -129,7 +112,8 @@ describe("AutomatedPipelineControls", () => {
       ([url, init]) =>
         String(url).endsWith("/pipeline/runs") && init?.method === "POST",
     );
-    expect(JSON.parse(String(startCall?.[1]?.body))).toMatchObject({
+    const startPayload = JSON.parse(String(startCall?.[1]?.body));
+    expect(startPayload).toMatchObject({
       stage_requests: {
         visible_card_and_pile_proposals: {
           configuration: { provider: "local-rfdetr-segmentation" },
@@ -137,6 +121,18 @@ describe("AutomatedPipelineControls", () => {
         visual_identity_proposals: { configuration: { provider: "local" } },
       },
     });
+    for (const field of [
+      "session_id",
+      "game_id",
+      "round_id",
+      "round_context",
+      "dealer",
+      "first_trick_leader",
+    ])
+      expect(startPayload).not.toHaveProperty(field);
+    expect(
+      screen.queryByLabelText(/Game ID|Round ID|Session ID|Dealer|leader|player/i),
+    ).not.toBeInTheDocument();
 
     view.unmount();
     render(
