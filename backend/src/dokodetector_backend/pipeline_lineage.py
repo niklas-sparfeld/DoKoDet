@@ -471,10 +471,12 @@ class PipelineLineage:
                     ref = _reference(raw)
                     ref_key = _key(ref)
                     if ref["kind"] == "revision" and ref_key not in known:
-                        if recording_id is None or not self.store.has_revision(
-                            ref["node_id"], ref["revision_id"]
-                        ):
+                        if recording_id is None:
                             raise ValueError("lineage references a missing revision")
+                        try:
+                            self.store.read_revision(ref["node_id"], ref["revision_id"])
+                        except (OSError, KeyError, ValueError) as error:
+                            raise ValueError("lineage references a missing revision") from error
                         known.add(ref_key)
                     if ref["kind"] == "artifact":
                         artifacts[ref_key] = {
@@ -499,8 +501,12 @@ class PipelineLineage:
                 and tuple(edge["from"]) not in known
             ):
                 ref = edge["from"]
-                if recording_id is None or not self.store.has_revision(ref[1], ref[2]):
+                if recording_id is None:
                     raise ValueError("lineage references a missing revision")
+                try:
+                    self.store.read_revision(ref[1], ref[2])
+                except (OSError, KeyError, ValueError) as error:
+                    raise ValueError("lineage references a missing revision") from error
                 known.add(tuple(ref))
         _acyclic([(tuple(edge["from"]), tuple(edge["to"])) for edge in edges])
         nodes.sort(key=lambda n: n["node_id"])

@@ -139,6 +139,8 @@ def import_draft(
     for item in draft.items:
         if item.item_id not in projection["pointers"] or item.review_state not in {
             "accepted",
+            "corrected",
+            "added",
             "empty",
             "unusable",
             "face_down",
@@ -452,3 +454,344 @@ def import_staged_drafts(package_root: Any, store_root: Any) -> dict[str, int]:
                 is not None
             )
     return {"drafts": len(prepared), "scene_nodes": scene_count}
+
+
+def verify_active_draft_snapshot(package_root: Any, store_root: Any) -> int:
+    """Check retained draft files against the staged snapshot before activation.
+
+    Call this while all writers to the active store are stopped. A changed or new file
+    requires a new inventory instead of importing an outdated snapshot.
+    """
+    import hashlib
+    from pathlib import Path
+    from uuid import NAMESPACE_URL, uuid5
+
+    from doko_operations.pipeline_data import canonical_json_bytes, sha256_bytes
+    from doko_operations.pipeline_reference import parse_reference_draft_bytes
+
+    from dokodetector_backend.filesystem import contained_path
+    from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+
+    package = Path(package_root).expanduser().resolve()
+    root = Path(store_root).expanduser().resolve()
+    manifest = json.loads((package / "migration.json").read_bytes())
+    mapping = json.loads((root / ".legacy-revision-map.json").read_bytes())
+    if (
+        manifest.get("schema_version") != "lineage-migration-stage/v1"
+        or not manifest.get("activation_ready")
+        or mapping.get("schema_version") != "legacy-revision-map/v1"
+        or mapping.get("snapshot_sha256") != manifest.get("snapshot_sha256")
+    ):
+        raise ValueError("active draft snapshot does not match the migration package")
+    reader_root = root / ".migrated-readers"
+    expected = set()
+    for resource in manifest["resources"]:
+        if resource["kind"] not in {"maintained_draft", "independent_review"}:
+            continue
+        for file in resource["files"]:
+            path = file["path"]
+            if not path.startswith(("pipeline-references/", "pipeline-reviews/")):
+                raise ValueError("retained draft path is outside the reader store")
+            expected.add(path)
+            target = contained_path(reader_root, path)
+            if target.is_symlink() or not target.is_file():
+                raise ValueError(f"retained draft file is missing: {path}")
+            raw = target.read_bytes()
+            if hashlib.sha256(raw).hexdigest() != file["sha256"] or (
+                "byte_length" in file and len(raw) != file["byte_length"]
+            ):
+                raise ValueError(f"retained draft file changed: {path}")
+    actual = {
+        file.relative_to(reader_root).as_posix()
+        for group in ("pipeline-references", "pipeline-reviews")
+        for file in (reader_root / group).rglob("*")
+        if (file.is_file() or file.is_symlink()) and not file.name.startswith(".")
+    }
+    if actual != expected:
+        raise ValueError("retained draft files changed since the migration snapshot")
+    store = PipelineNodeStore(root)
+    for resource in manifest["resources"]:
+        if resource["kind"] not in {"maintained_draft", "independent_review"}:
+            continue
+        key = f"{resource['kind']}/{resource['old_id']}"
+        for prefix, revision_prefix in (
+            ("lineage-draft:", "lineage-draft-revision:"),
+            ("lineage-draft-scenes:", "lineage-draft-scenes-revision:"),
+        ):
+            node_id = str(uuid5(NAMESPACE_URL, prefix + key))
+            if not (root / node_id).exists():
+                continue
+            draft_file = next(f for f in resource["files"] if f["path"].endswith("/draft.json"))
+            draft = parse_reference_draft_bytes(
+                contained_path(reader_root, draft_file["path"]).read_bytes()
+            )
+            digest = sha256_bytes(canonical_json_bytes(draft.to_mapping()))
+            revision_id = str(uuid5(NAMESPACE_URL, f"{revision_prefix}{key}:{digest}"))
+            try:
+                revision = store.read_revision(node_id, revision_id)
+            except (OSError, KeyError, ValueError) as error:
+                raise ValueError(
+                    "active draft import target conflicts with existing data"
+                ) from error
+            migration = revision.metadata.get("migration")
+            if (
+                not isinstance(migration, dict)
+                or migration.get("legacy_key") != key
+                or migration.get("draft_sha256") != digest
+            ):
+                raise ValueError("active draft import target conflicts with existing data")
+    return len(expected)
+
+
+def verify_staged_drafts(package_root: Any, store_root: Any) -> dict[str, int]:
+    """Verify imported draft content, lineage, and decisions against the staged inputs."""
+    import hashlib
+    from pathlib import Path
+    from uuid import NAMESPACE_URL, uuid5
+
+    from doko_operations.pipeline_data import canonical_json_bytes, sha256_bytes
+    from doko_operations.pipeline_reference import (
+        parse_reference_draft_bytes,
+        parse_reference_state_bytes,
+    )
+
+    from dokodetector_backend.filesystem import contained_path
+    from dokodetector_backend.pipeline_item_provenance import _items
+    from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
+    from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+    from dokodetector_backend.virtual_scene_data import validate_virtual_scenes
+
+    package = Path(package_root).expanduser().resolve()
+    store = PipelineNodeStore(store_root)
+    manifest = json.loads((package / "migration.json").read_bytes())
+    mapping = json.loads((store.root / ".legacy-revision-map.json").read_bytes())
+    if not manifest.get("activation_ready") or manifest.get("snapshot_sha256") != mapping.get(
+        "snapshot_sha256"
+    ):
+        raise ValueError("staged draft snapshot does not match")
+    revisions = mapping["revisions"]
+    reviews = PipelineNodeReviews(store)
+    counts = {"drafts": 0, "scene_nodes": 0, "reviews": 0}
+    verified_sources = {}
+
+    def verify_source(old_id: str, recording_id: str, content_type: str) -> dict[str, str]:
+        target = revisions[old_id]
+        pair = (target["node_id"], target["revision_id"])
+        if pair not in verified_sources:
+            source_node = store.get(pair[0])
+            source_revision = store.read_revision(pair[0], pair[1])
+            verified_sources[pair] = (source_node, source_revision)
+        source_node, source_revision = verified_sources[pair]
+        if (
+            source_node.source.get("recording_id") != recording_id
+            or source_node.content_type != content_type
+            or source_revision.metadata.get("legacy_revision_id") != old_id
+        ):
+            raise ValueError("staged draft source identity differs from the migration plan")
+        return target
+
+    for resource in manifest["resources"]:
+        if resource["kind"] not in {"maintained_draft", "independent_review"}:
+            continue
+
+        def read_file(name: str, resource: dict[str, Any] = resource) -> bytes:
+            files = [f for f in resource["files"] if f["path"].endswith(f"/{name}")]
+            if len(files) != 1:
+                raise ValueError("retained draft file is missing")
+            file = files[0]
+            raw = contained_path(
+                contained_path(package / "evidence", resource["old_root_id"]), file["path"]
+            ).read_bytes()
+            if hashlib.sha256(raw).hexdigest() != file["sha256"]:
+                raise ValueError("retained draft input digest changed")
+            return raw
+
+        draft = parse_reference_draft_bytes(read_file("draft.json"))
+        state = parse_reference_state_bytes(read_file("state.json")).to_mapping()
+        key = f"{resource['kind']}/{resource['old_id']}"
+        digest = sha256_bytes(canonical_json_bytes(draft.to_mapping()))
+        node_id = str(uuid5(NAMESPACE_URL, f"lineage-draft:{key}"))
+        revision_id = str(uuid5(NAMESPACE_URL, f"lineage-draft-revision:{key}:{digest}"))
+        revision = store.read_revision(node_id, revision_id)
+        projection = project_draft(draft)
+        source = verify_source(draft.source_revision_id, draft.recording_id, draft.content_type)
+        if (
+            revision.content != projection["content"]
+            or revision.metadata.get("copied_from") != source
+            or revision.metadata.get("legacy_review", {}).get("state") != state
+            or revision.metadata.get("legacy_review", {}).get("items") != projection["legacy_items"]
+            or revision.metadata.get("item_provenance", {}).get("items")
+            != _items(revision.content, projection["pointers"])
+        ):
+            raise ValueError(f"staged draft differs from its source: {key}")
+        counts["drafts"] += 1
+        expected = []
+        for item in draft.items:
+            if item.item_id in projection["pointers"] and item.review_state in {
+                "accepted",
+                "corrected",
+                "added",
+                "empty",
+                "unusable",
+                "face_down",
+                "identity_unusable",
+                "source_problem",
+            }:
+                expected.append(
+                    (
+                        str(
+                            uuid5(
+                                NAMESPACE_URL, f"lineage-draft-item:{key}:{digest}:{item.item_id}"
+                            )
+                        ),
+                        "item",
+                        item.item_id,
+                        item.review_state,
+                    )
+                )
+        if draft.coverage and draft.proposal_revision_id is None:
+            expected.append(
+                (
+                    str(uuid5(NAMESPACE_URL, f"lineage-draft-coverage:{key}:{digest}")),
+                    "coverage",
+                    None,
+                    None,
+                )
+            )
+        if state["draft_state"] == "completed" and draft.proposal_revision_id is None:
+            expected.append(
+                (
+                    str(uuid5(NAMESPACE_URL, f"lineage-draft-overall:{key}:{digest}")),
+                    "overall",
+                    None,
+                    "complete",
+                )
+            )
+        draft_review_ids = {entry[0] for entry in expected}
+        scene_id = str(uuid5(NAMESPACE_URL, f"lineage-draft-scenes:{key}"))
+        if draft.proposal_revision_id is not None:
+            projected = [
+                (item, project_scene_frame(dict(item.item)))
+                for item in draft.items
+                if item.review_state != "rejected" and item.item.get("card_scene") is not None
+            ]
+            if projected:
+                scene_revision_id = str(
+                    uuid5(NAMESPACE_URL, f"lineage-draft-scenes-revision:{key}:{digest}")
+                )
+                scene_revision = store.read_revision(scene_id, scene_revision_id)
+                scene_content = validate_virtual_scenes(
+                    {
+                        "schema_version": "virtual-scene-data/v1",
+                        "frames": [result["content"]["frames"][0] for _, result in projected],
+                    }
+                )
+                if (
+                    scene_revision.content != scene_content
+                    or scene_revision.metadata.get("copied_from")
+                    != verify_source(
+                        draft.proposal_revision_id, draft.recording_id, "card_scene_proposals"
+                    )
+                    or scene_revision.metadata.get("legacy_state") != state
+                    or scene_revision.metadata.get("item_provenance", {}).get("items")
+                    != _items(
+                        scene_content,
+                        {
+                            frame["frame_id"]: f"/frames/{index}"
+                            for index, frame in enumerate(scene_content["frames"])
+                        },
+                    )
+                ):
+                    raise ValueError(f"staged scenes differ from their source: {key}")
+                counts["scene_nodes"] += 1
+                if state["draft_state"] == "completed":
+                    expected.append(
+                        (
+                            str(uuid5(NAMESPACE_URL, f"lineage-scene-overall:{key}:{digest}")),
+                            "overall",
+                            None,
+                            "complete",
+                        )
+                    )
+                if draft.coverage:
+                    expected.append(
+                        (
+                            str(uuid5(NAMESPACE_URL, f"lineage-scene-coverage:{key}:{digest}")),
+                            "coverage",
+                            None,
+                            None,
+                        )
+                    )
+                for frame, (_, result) in zip(scene_content["frames"], projected, strict=True):
+                    facts = result["legacy_review"]
+                    retained = scene_revision.metadata["legacy_scenes"].get(frame["frame_id"])
+                    if retained != {
+                        "review": facts,
+                        "geometry_unavailable": result.get("geometry_unavailable", False),
+                    }:
+                        raise ValueError(f"staged scene review differs from its source: {key}")
+                    completion = facts.get("completion", {}).get(
+                        "state", facts.get("completion_state")
+                    )
+                    if completion in {"complete", "unusable"}:
+                        expected.append(
+                            (
+                                str(
+                                    uuid5(
+                                        NAMESPACE_URL,
+                                        f"lineage-draft-scene-review:{key}:{digest}:{frame['frame_id']}",
+                                    )
+                                ),
+                                "item",
+                                frame["frame_id"],
+                                completion,
+                            )
+                        )
+        for review_id, kind, item_id, decision in expected:
+            record = reviews.get(review_id)
+            expected_node = node_id if review_id in draft_review_ids else scene_id
+            expected_revision = revision_id if expected_node == node_id else scene_revision_id
+            revision_data = revision if expected_node == node_id else scene_revision
+            if (
+                record["node_id"] != expected_node
+                or record["revision_id"] != expected_revision
+                or record.get("content_sha256") != revision_data.content_sha256
+                or record["kind"] != kind
+                or record.get("decision") != decision
+                or (item_id is not None and record.get("item_id") != item_id)
+                or (
+                    item_id is not None
+                    and record.get("item_sha256")
+                    != revision_data.metadata["item_provenance"]["items"][item_id]["sha256"]
+                )
+                or record.get("reviewer") != {"kind": "not_recorded", "id": None}
+                or record.get("evidence", {}).get("draft_sha256") != digest
+                or (kind == "coverage" and record.get("coverage") != draft.coverage)
+            ):
+                raise ValueError(f"staged review differs from its source: {key}")
+            counts["reviews"] += 1
+    return counts
+
+
+def activate_staged_drafts(package_root: Any, staged_root: Any, active_root: Any) -> dict[str, int]:
+    """Activate a verified import while all active-store writers are stopped.
+
+    Each publication is replay-safe. A failure leaves the original files intact and a retry
+    checks any already-published node before continuing.
+    """
+    from pathlib import Path
+
+    staged = Path(staged_root).expanduser().resolve()
+    active = Path(active_root).expanduser().resolve()
+    if staged == active:
+        raise ValueError("staged and active node stores must be different")
+    expected = verify_staged_drafts(package_root, staged)
+    verify_active_draft_snapshot(package_root, active)
+    imported = import_staged_drafts(package_root, active)
+    if imported != {key: expected[key] for key in ("drafts", "scene_nodes")}:
+        raise ValueError("activated draft counts do not match the verified stage")
+    actual = verify_staged_drafts(package_root, active)
+    if actual != expected:
+        raise ValueError("activated draft verification does not match the stage")
+    verify_active_draft_snapshot(package_root, active)
+    return actual

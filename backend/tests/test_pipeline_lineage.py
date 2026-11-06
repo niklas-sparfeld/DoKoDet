@@ -317,3 +317,25 @@ def test_recording_snapshot_retains_all_inputs_of_a_multi_input_run(tmp_path: Pa
     assert [edge["kind"] for edge in graph["edges"]].count("used") == 2
     assert [edge["kind"] for edge in graph["edges"]].count("produced") == 1
     assert graph == lineage._recording_snapshot(lineage.snapshot(), "recording-01")
+
+
+def test_recording_snapshot_validates_external_run_inputs(tmp_path: Path):
+    store = PipelineNodeStore(tmp_path)
+    external = store.create(
+        "external", "External", "events", {**SOURCE, "recording_id": "recording-02"}, event(1), {}
+    )
+    output = node(store, "output", "events", event(2))
+    PipelineNodeUses(store).accept("cross-run", [("external", external.revision_id)])
+    lineage = PipelineLineage(store)
+    finish(
+        lineage,
+        "cross-run",
+        [ref("external", external.revision_id, "input")],
+        [ref("output", output.revision_id, "output")],
+    )
+    assert lineage.snapshot("recording-01") == lineage._recording_snapshot(
+        lineage.snapshot(), "recording-01"
+    )
+    (tmp_path / "external" / "revisions" / external.revision_id / "revision.json").write_text("{}")
+    with pytest.raises(ValueError, match="missing revision"):
+        lineage.snapshot("recording-01")

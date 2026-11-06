@@ -719,7 +719,7 @@ function operationsBetween(before: EventRecord[], after: EventRecord[]) {
 function reviewState(
   reviews: unknown,
   itemId: string,
-): "accepted" | "rejected" | "pending" {
+): "accepted" | "rejected" | "corrected" | "added" | "pending" {
   if (!Array.isArray(reviews)) return "pending";
   const review = reviews.find(
     (candidate): candidate is Review =>
@@ -727,7 +727,10 @@ function reviewState(
       candidate.kind === "item" &&
       candidate.item_id === itemId,
   );
-  return review?.decision === "accepted" || review?.decision === "rejected"
+  return review?.decision === "accepted" ||
+    review?.decision === "rejected" ||
+    review?.decision === "corrected" ||
+    review?.decision === "added"
     ? review.decision
     : "pending";
 }

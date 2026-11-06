@@ -98,7 +98,7 @@ def test_import_draft_creates_replay_safe_copy_and_preserves_review(tmp_path) ->
                 {
                     "item_id": "e1",
                     "base_item_id": "e1",
-                    "review_state": "accepted",
+                    "review_state": "corrected",
                     "item": {
                         "event_id": "e1",
                         "event_type": "card_state_changed",
@@ -118,7 +118,7 @@ def test_import_draft_creates_replay_safe_copy_and_preserves_review(tmp_path) ->
     assert revision.metadata["copied_from"] == {"node_id": "base", "revision_id": "base-revision"}
     reviews = PipelineNodeReviews(store).list_for_revision(result["node_id"], result["revision_id"])
     assert {r["kind"] for r in reviews} == {"item", "coverage"}
-    assert next(r for r in reviews if r["kind"] == "item")["decision"] == "accepted"
+    assert next(r for r in reviews if r["kind"] == "item")["decision"] == "corrected"
     assert all(r["reviewer"] == {"kind": "not_recorded", "id": None} for r in reviews)
 
 
@@ -346,7 +346,12 @@ def test_staged_import_checks_snapshot_and_uses_exact_mapped_source(tmp_path) ->
     from doko_operations.pipeline_data import canonical_json_bytes
     from test_virtual_scene_data import SOURCE
 
-    from dokodetector_backend.lineage_draft_projection import import_staged_drafts
+    from dokodetector_backend.lineage_draft_projection import (
+        activate_staged_drafts,
+        import_staged_drafts,
+        verify_active_draft_snapshot,
+        verify_staged_drafts,
+    )
     from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 
     package = tmp_path / "package"
@@ -425,8 +430,46 @@ def test_staged_import_checks_snapshot_and_uses_exact_mapped_source(tmp_path) ->
             }
         )
     )
+    reader_root = root / ".migrated-readers"
+    (reader_root / path).parent.mkdir(parents=True)
+    (reader_root / path).write_bytes(payload)
+    (reader_root / state_path).write_bytes(state_payload)
+    assert verify_active_draft_snapshot(package, root) == 2
+    (reader_root / state_path).write_bytes(b"changed")
+    with pytest.raises(ValueError, match="changed"):
+        verify_active_draft_snapshot(package, root)
+    (reader_root / state_path).write_bytes(state_payload)
+    extra = reader_root / "pipeline-references/recording-01/events/unexpected.json"
+    extra.write_bytes(b"{}")
+    with pytest.raises(ValueError, match="changed"):
+        verify_active_draft_snapshot(package, root)
+    extra.unlink()
+    import shutil
+
+    active = tmp_path / "active"
+    shutil.copytree(root, active)
     assert import_staged_drafts(package, root) == {"drafts": 1, "scene_nodes": 0}
     assert import_staged_drafts(package, root) == {"drafts": 1, "scene_nodes": 0}
+    assert verify_active_draft_snapshot(package, root) == 2
+    assert verify_staged_drafts(package, root) == {"drafts": 1, "scene_nodes": 0, "reviews": 1}
+    assert activate_staged_drafts(package, root, active) == {
+        "drafts": 1,
+        "scene_nodes": 0,
+        "reviews": 1,
+    }
+    assert activate_staged_drafts(package, root, active) == {
+        "drafts": 1,
+        "scene_nodes": 0,
+        "reviews": 1,
+    }
+    review_path = next((root / ".review-records").glob("*.json"))
+    original_review = review_path.read_bytes()
+    altered_review = json.loads(original_review)
+    altered_review["decision"] = "rejected"
+    review_path.write_bytes(canonical_json_bytes(altered_review))
+    with pytest.raises(ValueError, match="review differs"):
+        verify_staged_drafts(package, root)
+    review_path.write_bytes(original_review)
     from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
 
     imported = next(node for node in store.list_nodes() if node.node_id != "source")

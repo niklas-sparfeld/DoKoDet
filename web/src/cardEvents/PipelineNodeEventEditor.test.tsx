@@ -104,6 +104,34 @@ describe("PipelineNodeEventEditor", () => {
     ).toBeDisabled();
   });
 
+  it("shows a retained corrected item as reviewed", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(revision))
+      .mockResolvedValueOnce(
+        jsonResponse([
+          {
+            kind: "item",
+            review_id: "review-1",
+            item_id: "event-1",
+            decision: "corrected",
+          },
+        ]),
+      );
+    render(
+      <PipelineNodeEventEditor
+        recordingId="recording-1"
+        nodeId="events"
+        revisionId="r1"
+        durationUs={1_000_000}
+        selectionItemId="event-1"
+        selectionTimeUs={null}
+        onRevisionChange={vi.fn()}
+        onPositionChange={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText("corrected")).toBeInTheDocument();
+  });
+
   it("loads one exact node revision and saves an edit with item provenance", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock
