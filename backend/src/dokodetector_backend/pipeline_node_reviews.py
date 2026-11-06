@@ -177,14 +177,7 @@ class PipelineNodeReviews:
 
     def list_for_revision(self, node_id: str, revision_id: str) -> tuple[dict[str, Any], ...]:
         self.store.read_revision(node_id, revision_id)
-        if not self.root.exists():
-            return ()
-        records = [
-            record
-            for path in sorted(self.root.glob("*.json"))
-            if (record := self.get(path.stem))["node_id"] == node_id
-            and record["revision_id"] == revision_id
-        ]
+        records = self._records_for_revisions({(node_id, revision_id)})
         return tuple(
             sorted(
                 records,
@@ -193,10 +186,41 @@ class PipelineNodeReviews:
             )
         )
 
+    def _records_for_revisions(self, identities: set[tuple[str, str]]) -> list[dict[str, Any]]:
+        """Read only records whose canonical identity matches the requested revisions."""
+        if not self.root.is_dir() or self.root.is_symlink():
+            return []
+        needles = {
+            (f'"node_id":"{node_id}"'.encode(), f'"revision_id":"{revision_id}"'.encode())
+            for node_id, revision_id in identities
+        }
+        records = []
+        for path in sorted(self.root.glob("*.json")):
+            if path.is_symlink():
+                continue
+            payload = path.read_bytes()
+            if any(
+                node_id in payload and revision_id in payload for node_id, revision_id in needles
+            ):
+                record = self.get(path.stem)
+                if (record["node_id"], record["revision_id"]) in identities:
+                    records.append(record)
+        return records
+
     def applicable_for_revision(self, node_id: str, revision_id: str) -> tuple[dict[str, Any], ...]:
         """Return recorded decisions that still apply through exact item lineage."""
-        target = self.store.read_revision(node_id, revision_id)
-        records: dict[str, dict[str, Any]] = {}
+        self.store.recover_transactions()
+        nodes = {}
+
+        def read_revision(source_node_id: str, source_revision_id: str) -> NodeRevision:
+            node = nodes.get(source_node_id)
+            if node is None:
+                node = self.store._get_unrecovered(source_node_id)
+                nodes[source_node_id] = node
+            return self.store._read_revision(node, source_revision_id)
+
+        target = read_revision(node_id, revision_id)
+        lineage: list[NodeRevision] = []
         current = target
         seen: set[tuple[str, str]] = set()
         while True:
@@ -204,22 +228,36 @@ class PipelineNodeReviews:
             if identity in seen:
                 raise ValueError("copy lineage contains a cycle")
             seen.add(identity)
-            for record in self.list_for_revision(*identity):
-                records[record["review_id"]] = record
+            lineage.append(current)
             if current.parent_revision_id is not None:
-                current = self.store.read_revision(current.node_id, current.parent_revision_id)
+                current = read_revision(current.node_id, current.parent_revision_id)
                 continue
             copied = current.metadata.get("copied_from")
             if not isinstance(copied, dict):
                 break
-            current = self.store.read_revision(copied["node_id"], copied["revision_id"])
+            current = read_revision(copied["node_id"], copied["revision_id"])
+
+        index = {(revision.node_id, revision.revision_id): i for i, revision in enumerate(lineage)}
+        records = self._records_for_revisions(set(index))
+
+        item_hashes = [self._revision_items(revision) for revision in lineage]
         applicable = []
-        for record in records.values():
-            result = self.applicability(
-                record["review_id"], node_id, revision_id, record["evidence"]
-            )
-            if result["status"] == "applicable":
-                applicable.append(record)
+        for record in records:
+            source_index = index[(record["node_id"], record["revision_id"])]
+            if record["kind"] != "item":
+                if source_index == 0 and record["content_sha256"] == target.content_sha256:
+                    applicable.append(record)
+                continue
+            item_id = record["item_id"]
+            if any(
+                item_hashes[i].get(item_id, {}).get("sha256") != record["item_sha256"]
+                for i in range(source_index + 1)
+            ):
+                continue
+            source_revision = lineage[source_index]
+            if source_revision.content_sha256 != record["content_sha256"]:
+                raise ValueError("review content digest does not match its revision")
+            applicable.append(record)
         return tuple(
             sorted(
                 applicable,

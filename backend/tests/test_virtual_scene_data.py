@@ -242,8 +242,7 @@ def test_mixed_draft_mapping_requires_explicit_order():
     combined = scene([pose("a", 13), pose("b", 9), pose("manual", 15)], ["b", "manual", "a"])
     mapped = from_draft(draft, FRAME, scene=combined.to_mapping())
     assert mapped["content"]["frames"][0]["scene"] == combined.to_mapping()
-    assert mapped["legacy_review"]["reviewer"] is None
-    assert mapped["legacy_review"]["completion"]["state"] == "pending"
+    assert set(mapped) == {"content"}
     bad = scene([pose("a", 14), pose("b", 9), pose("manual", 15)], ["b", "manual", "a"])
     with pytest.raises(ValueError, match="changes retained poses"):
         from_draft(draft, FRAME, scene=bad.to_mapping())

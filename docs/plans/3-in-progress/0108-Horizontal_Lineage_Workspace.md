@@ -672,6 +672,71 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
+- **Latest package — remove Virtual scenes review metadata reader:** The scene editor now reads exact
+  node review records. Imported review facts move to each frame review question and decision, and
+  geometry gaps use a migration provenance list. A journaled transaction updated 34 active scene
+  node heads and retained all old revisions. It created 1,607 exact current-revision frame review
+  records. Six frames still have no geometry.
+- **Recovery evidence:** The original 34 scene revisions were copied and hash-verified in
+  `data/operations-recovery/0108-m11-20261106/scene-review-metadata-before-cutover`. The transaction
+  and source, recovery-copy, head, and review verification counts are in
+  `data/operations-recovery/0108-m11-20261106/scene-review-metadata-migration.json`.
+- **Checks:** Calibration and migration projection tests passed (17 tests). The Virtual scenes editor
+  test passed (3 tests). Ruff, Ruff format check, TypeScript typecheck, focused ESLint, Prettier, and
+  `git diff --check` passed.
+- **Known limit:** Runtime selection still exposes legacy revision IDs to execution consumers. The
+  migration map, offline draft import helpers, and old reference/review files remain. The reference
+  and review recovery copies must remain until all runtime readers and selection consumers pass the
+  final removal audit. M11 remains incomplete.
+- **Next:** Audit and cut over every runtime selection consumer. Then verify old reference/review
+  storage and remove it only with hash-verified recovery evidence.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+
+- **Latest package — retire retained review metadata from active node heads:** The migration now
+  publishes canonical review and lineage metadata for events, visible cards, visual identities, and
+  Virtual scenes. It removed `legacy_review` from 171 current node heads and `legacy_state` from 34
+  scene heads. Event rejection and scene-only frame summaries now use node metadata fields. Forty-one
+  maintained visible-card drafts now carry canonical detector and proposal revision IDs in their
+  calibration context.
+- **Recovery evidence:** All 171 source revisions remain in node history and have hash-verified copies
+  under `data/operations-recovery/0108-m11-20261106/node-review-metadata-before-cutover`. The
+  migration receipt records 7,700 exact review records from the first pass, 1,607 scene-frame
+  decisions, 22 scene coverage records, and 9,329 records total. The transaction digests and
+  reconciliation counts are in `data/operations-recovery/0108-m11-20261106/node-review-metadata-migration.json`.
+- **Checks:** Calibration, draft projection, Virtual scenes, and node review tests passed (27 tests).
+  The Virtual scenes editor test passed (3 tests), as did TypeScript typecheck, focused ESLint,
+  Prettier, Ruff, Ruff format, and `git diff --check`.
+- **Known limit:** Current pipeline services still expose legacy revision IDs for execution defaults.
+  The legacy revision map and migrated readers still exist for offline import. The old reference and
+  review stores remain on disk as recovery sources. Do not remove them until all execution consumers
+  and selection readers pass the M11 audit.
+- **Next:** Audit every selection consumer. Remove retired selectors and runtime storage readers while
+  preserving explicit processor input choices. Then hash-verify and retire old reference and review
+  storage and run the full M11 removal audit.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+
+- **Latest package — isolate migration readers and bound review lookup cost:** Draft parsing, staged
+  migration, and migration verification now live in `lineage_draft_migration.py`. Runtime projection
+  code contains content transforms only. The Virtual scenes transform no longer returns a legacy
+  review payload. Review applicability reads the lineage once and filters review files by exact
+  source IDs. One real migrated maintained draft rebuilt successfully from canonical node content and
+  reviews (61 items).
+- **Checks:** The calibration, draft migration, node review, and scene contract tests passed (27
+  tests). Ruff and Ruff format passed. The broader nine-module backend suite passed (including
+  pipeline, selection, transaction, API, and processor tests). The focused Virtual scenes browser
+  test (3 tests), TypeScript typecheck, focused ESLint, Prettier, and `git diff --check` passed.
+- **Known limit:** Calibration still reconstructs a `PipelineReferenceDraft` in memory. Processor
+  services and workspace paths still use the execution selection projection to legacy revision IDs.
+  Old reference and review storage, migration readers, and the revision map remain on disk. M11 is
+  incomplete.
+- **Next:** Replace the remaining calibration and processor adapters with node-native execution
+  references. Remove duplicate selection fields only after the processor consumers are verified.
+  Then hash-verify and remove old active storage and run the complete M11 audit.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and

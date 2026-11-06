@@ -172,7 +172,6 @@ class CalibrationRefinementService:
             "draft_sha256": digest,
             "updated_at": target_draft.updated_at,
         }
-        visible_metadata.pop("legacy_review", None)
         visible_metadata["calibration_reflow_context"] = build_calibration_reflow_context(
             target_draft
         )
@@ -199,14 +198,12 @@ class CalibrationRefinementService:
         ]
 
         scene_frames = []
-        scene_facts = {}
         for item in target_draft.items:
             if item.review_state == "rejected" or item.item.get("card_scene") is None:
                 continue
             projected = project_scene_frame(dict(item.item))
             frame = projected["content"]["frames"][0]
             scene_frames.append(frame)
-            scene_facts[frame["frame_id"]] = projected["legacy_review"]
         scene_content = validate_virtual_scenes(
             {"schema_version": "virtual-scene-data/v1", "frames": scene_frames}
         )
@@ -235,7 +232,6 @@ class CalibrationRefinementService:
                 "receipt_id": receipt_id,
                 "proposal_revision_id": target_proposal_revision_id,
             }
-            scene_metadata["legacy_scenes"] = scene_facts
             pointers = {
                 frame["frame_id"]: f"/frames/{index}"
                 for index, frame in enumerate(scene_content["frames"])

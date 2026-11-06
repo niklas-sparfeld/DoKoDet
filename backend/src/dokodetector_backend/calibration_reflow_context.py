@@ -5,14 +5,19 @@ from __future__ import annotations
 from doko_operations.pipeline_reference import PipelineReferenceDraft
 
 
-def build_calibration_reflow_context(draft: PipelineReferenceDraft) -> dict[str, object]:
+def build_calibration_reflow_context(
+    draft: PipelineReferenceDraft,
+    *,
+    source_revision_id: str | None = None,
+    proposal_revision_id: str | None = None,
+) -> dict[str, object]:
     """Keep source links, rejected items, and derived re-review status outside review records."""
     if draft.content_type != "visible_cards":
         raise ValueError("calibration reflow context requires visible-card content")
     return {
         "schema_version": "calibration-reflow-context/v1",
-        "source_revision_id": draft.source_revision_id,
-        "proposal_revision_id": draft.proposal_revision_id,
+        "source_revision_id": source_revision_id or draft.source_revision_id,
+        "proposal_revision_id": proposal_revision_id or draft.proposal_revision_id,
         "draft_revision": draft.revision,
         "updated_at": draft.updated_at,
         "impact": [dict(item) for item in draft.impact],

@@ -54,13 +54,13 @@ def test_projection_preserves_negative_decisions_and_pending_content() -> None:
     projected = project_draft(draft)
     assert [event["event_id"] for event in projected["content"]["events"]] == ["e1", "e3"]
     assert projected["pointers"] == {"e1": "/events/0", "e3": "/events/1"}
-    assert projected["legacy_items"][1]["review_state"] == "rejected"
-    assert projected["legacy_items"][1]["item"]["event_id"] == "e2"
-    assert projected["legacy_items"][2]["review_state"] == "pending"
+    assert draft.items[1].review_state == "rejected"
+    assert draft.items[1].item["event_id"] == "e2"
+    assert draft.items[2].review_state == "pending"
 
 
 def test_import_draft_creates_replay_safe_copy_and_preserves_review(tmp_path) -> None:
-    from dokodetector_backend.lineage_draft_projection import import_draft
+    from dokodetector_backend.lineage_draft_migration import import_draft
     from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
     from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 
@@ -187,6 +187,7 @@ def test_review_batch_loads_its_revision_once(tmp_path, monkeypatch) -> None:
 def test_project_legacy_scene_keeps_exact_geometry_and_review_facts() -> None:
     from test_virtual_scene_data import FRAME, pose, scene
 
+    from dokodetector_backend.lineage_draft_migration import project_scene_review_facts
     from dokodetector_backend.lineage_draft_projection import project_scene_frame
 
     geometry = scene([pose("card-1")], ["card-1"]).to_mapping()
@@ -208,7 +209,7 @@ def test_project_legacy_scene_keeps_exact_geometry_and_review_facts() -> None:
     }
     result = project_scene_frame(frame)
     assert result["content"]["frames"][0]["scene"] == geometry
-    assert result["legacy_review"]["completion_state"] == "complete"
+    assert project_scene_review_facts(frame["card_scene"])["completion_state"] == "complete"
 
 
 def test_unusable_scene_with_missing_manual_geometry_stays_unavailable() -> None:
@@ -219,6 +220,7 @@ def test_unusable_scene_with_missing_manual_geometry_stays_unavailable() -> None
     )
     from test_virtual_scene_data import FRAME, pose, proposal, scene
 
+    from dokodetector_backend.lineage_draft_migration import project_scene_review_facts
     from dokodetector_backend.lineage_draft_projection import project_scene_frame
 
     initial = scene([pose("card-1")], ["card-1"])
@@ -243,8 +245,9 @@ def test_unusable_scene_with_missing_manual_geometry_stays_unavailable() -> None
         {"event_id": "frame-1", "frame_identity": FRAME, "card_scene": draft.to_mapping()}
     )
     assert result["content"]["frames"][0]["scene"] is None
-    assert result["legacy_review"]["completion"]["state"] == "unusable"
-    assert result["legacy_review"]["completion"]["unresolved_card_ids"] == ["card-1", "manual"]
+    review_facts = project_scene_review_facts(draft.to_mapping())
+    assert review_facts["completion"]["state"] == "unusable"
+    assert review_facts["completion"]["unresolved_card_ids"] == ["card-1", "manual"]
 
 
 def test_scene_import_keeps_proposal_lineage_and_replays(tmp_path) -> None:
@@ -260,7 +263,8 @@ def test_scene_import_keeps_proposal_lineage_and_replays(tmp_path) -> None:
     )
     from test_virtual_scene_data import FRAME, SOURCE, pose, proposal, scene
 
-    from dokodetector_backend.lineage_draft_projection import import_draft_scenes
+    from dokodetector_backend.lineage_draft_migration import import_draft_scenes
+    from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
     from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 
     prop = proposal(scene([pose("card-1")], ["card-1"]))
@@ -335,9 +339,17 @@ def test_scene_import_keeps_proposal_lineage_and_replays(tmp_path) -> None:
         "revision_id": "proposal-revision",
     }
     assert revision.content["frames"][0]["scene"] == prop.initialized_scene
-    assert (
-        revision.metadata["legacy_scenes"]["frame-1"]["review"]["completion"]["state"] == "pending"
+    assert revision.metadata["migration"]["geometry_unavailable_frame_ids"] == []
+    assert "legacy_scenes" not in revision.metadata
+    frame_review = next(
+        review
+        for review in PipelineNodeReviews(store).list_for_revision(
+            result["node_id"], result["revision_id"]
+        )
+        if review["item_id"] == "frame-1"
     )
+    assert frame_review["decision"] == "pending"
+    assert "card-1: pending" in frame_review["question"]
 
 
 def test_staged_import_checks_snapshot_and_uses_exact_mapped_source(tmp_path) -> None:
@@ -348,7 +360,7 @@ def test_staged_import_checks_snapshot_and_uses_exact_mapped_source(tmp_path) ->
     from doko_operations.pipeline_data import canonical_json_bytes
     from test_virtual_scene_data import SOURCE
 
-    from dokodetector_backend.lineage_draft_projection import (
+    from dokodetector_backend.lineage_draft_migration import (
         activate_staged_drafts,
         import_staged_drafts,
         verify_active_draft_snapshot,
@@ -532,7 +544,7 @@ def test_scene_only_outcome_does_not_become_an_empty_visible_frame() -> None:
     result = project_draft(draft)
     assert result["content"]["outcomes"] == []
     assert result["scene_only_items"] == ["frame-1"]
-    assert result["legacy_items"][0]["item"]["card_scene"]["schema_version"] == "old"
+    assert draft.items[0].item["card_scene"]["schema_version"] == "old"
 
 
 def test_workspace_offers_an_imported_draft_as_processor_output(tmp_path) -> None:

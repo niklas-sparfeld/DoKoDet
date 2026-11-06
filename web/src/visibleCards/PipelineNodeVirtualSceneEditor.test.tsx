@@ -11,7 +11,19 @@ describe("PipelineNodeVirtualSceneEditor", () => {
       "fetch",
       vi.fn<typeof fetch>(async (input) =>
         String(input).endsWith("/reviews")
-          ? new Response("[]", { status: 200 })
+          ? new Response(
+              JSON.stringify([
+                {
+                  review_id: "frame-review-1",
+                  kind: "item",
+                  item_id: "frame-1",
+                  decision: "unusable",
+                  question:
+                    "Retained frame review. Card states: card-1: rejected. Completion reason: Frame unusable",
+                },
+              ]),
+              { status: 200 },
+            )
           : new Response(
               JSON.stringify({
                 node_id: "scene-node",
@@ -37,17 +49,8 @@ describe("PipelineNodeVirtualSceneEditor", () => {
                   ],
                 },
                 metadata: {
-                  legacy_scenes: {
-                    "frame-1": {
-                      geometry_unavailable: true,
-                      review: {
-                        card_states: [{ card_id: "card-1", state: "rejected" }],
-                        completion: {
-                          state: "unusable",
-                          reason: "Frame unusable",
-                        },
-                      },
-                    },
+                  migration: {
+                    geometry_unavailable_frame_ids: ["frame-1"],
                   },
                 },
                 created_at: "2026-11-05T00:00:00Z",
@@ -71,8 +74,12 @@ describe("PipelineNodeVirtualSceneEditor", () => {
         /Geometry was not available in the retained draft/,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("card-1 · rejected")).toBeInTheDocument();
-    expect(screen.getByText("Frame unusable")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Retained frame review. Card states: card-1: rejected. Completion reason: Frame unusable",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Frame decision: unusable")).toBeInTheDocument();
   });
 
   it("includes the review policy for frame, coverage, and data-set decisions", async () => {

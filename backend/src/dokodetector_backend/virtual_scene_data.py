@@ -135,7 +135,7 @@ def from_draft(
     pile_regions: list[dict[str, Any]] | None = None,
     ignore_regions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Map a draft; return old review facts separately without inventing reviewers.
+    """Map the current scene content without carrying the old review payload.
 
     Mixed pending and resolved cards need an explicitly supplied full scene. Its poses and
     relative orders must agree with each applicable old scene. Rejected cards are excluded.
@@ -206,13 +206,4 @@ def from_draft(
     )
     if content["frames"][0]["frame_identity"]["image_sha256"] != proposal.source_frame_digest:
         raise ValueError("draft frame identity does not match proposal")
-    return {
-        "content": content,
-        "source_draft": draft.to_mapping(),
-        "legacy_review": {
-            "card_states": [s.to_mapping() for s in draft.card_states],
-            "completion": draft.completion.to_mapping(),
-            "reviewed": None if draft.reviewed is None else draft.reviewed.to_mapping(),
-            "reviewer": None,
-        },
-    }
+    return {"content": content}
