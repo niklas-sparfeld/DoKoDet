@@ -547,6 +547,20 @@ the visible-card head update and confirms restart recovery publishes both heads 
   exact node and revision identity, validate canonical metadata and content, and preserve retry and
   historical-input behavior. Then continue the runtime consumer and storage removal audit.
 - **Run count:** Requested up to 10 Luna workers; completed 3 bounded packages; remaining 7.
+- **Latest package — canonical crop descriptor and provenance:** New crop descriptors use
+  `visual-identity-crop-input/v4` and bind the exact source node and revision. Their revision digest
+  covers the canonical node revision record. Each outcome carries the same node identity in
+  `visual-identity-crop-input-provenance/v3`. Validation checks node content, source, legacy
+  execution revision, and revision digest. The v3 crop descriptor and v2 provenance formats remain
+  readable for accepted historical runs, so retries retain their frozen request semantics.
+- **Checks:** Visual identity API, crop input, and pipeline data tests passed (44 tests). Ruff check
+  and format passed. `git diff --check` passed. API fixtures cover new exact node references;
+  existing retry and legacy contract tests passed. No processor model ran.
+- **Known limit:** This package changes the visual identity crop contract only. Other runtime
+  consumers and legacy reference/review storage remain. M11 is incomplete.
+- **Next:** Continue the runtime selection and storage removal audit. Verify no caller depends on
+  legacy crop digest fields before removing legacy manifest readers.
+- **Run count:** Requested up to 10 Luna workers; completed 4 bounded packages; remaining 6.
 
 ### M12 — Verify the complete workflow and close — Not started
 

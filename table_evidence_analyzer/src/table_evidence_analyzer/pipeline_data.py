@@ -1028,26 +1028,29 @@ class VisualIdentityCropInputProvenance:
     source_revision_id: str
     source_revision_digest: str
     source_view_digest: str
+    source_node_id: str | None = None
+    source_node_revision_id: str | None = None
+    schema_version: str = "visual-identity-crop-input-provenance/v2"
 
     @classmethod
     def from_mapping(
         cls, raw: Mapping[str, Any], context: str = "crop_input_provenance"
     ) -> "VisualIdentityCropInputProvenance":
         data = _mapping(raw, context)
-        _strict(
-            data,
-            {
-                "schema_version",
-                "input_kind",
-                "manifest_digest",
-                "source_revision_id",
-                "source_revision_digest",
-                "source_view_digest",
-            },
-            context,
-        )
-        if data["schema_version"] != "visual-identity-crop-input-provenance/v2":
+        schema_version = data.get("schema_version")
+        expected_fields = {
+            "schema_version",
+            "input_kind",
+            "manifest_digest",
+            "source_revision_id",
+            "source_revision_digest",
+            "source_view_digest",
+        }
+        if schema_version == "visual-identity-crop-input-provenance/v3":
+            expected_fields.update({"source_node_id", "source_node_revision_id"})
+        elif schema_version != "visual-identity-crop-input-provenance/v2":
             raise PipelineDataError(f"{context}.schema_version is unsupported")
+        _strict(data, expected_fields, context)
         kind = data["input_kind"]
         if kind not in {
             "gemini_polygon",
@@ -1067,17 +1070,34 @@ class VisualIdentityCropInputProvenance:
                 data["source_revision_digest"], f"{context}.source_revision_digest"
             ),
             source_view_digest=_digest(data["source_view_digest"], f"{context}.source_view_digest"),
+            source_node_id=(
+                None
+                if schema_version == "visual-identity-crop-input-provenance/v2"
+                else _identifier(data["source_node_id"], f"{context}.source_node_id")
+            ),
+            source_node_revision_id=(
+                None
+                if schema_version == "visual-identity-crop-input-provenance/v2"
+                else _identifier(
+                    data["source_node_revision_id"], f"{context}.source_node_revision_id"
+                )
+            ),
+            schema_version=schema_version,
         )
 
     def to_mapping(self) -> dict[str, str]:
-        return {
-            "schema_version": "visual-identity-crop-input-provenance/v2",
+        value = {
+            "schema_version": self.schema_version,
             "input_kind": self.input_kind,
             "manifest_digest": self.manifest_digest,
             "source_revision_id": self.source_revision_id,
             "source_revision_digest": self.source_revision_digest,
             "source_view_digest": self.source_view_digest,
         }
+        if self.schema_version == "visual-identity-crop-input-provenance/v3":
+            value["source_node_id"] = self.source_node_id
+            value["source_node_revision_id"] = self.source_node_revision_id
+        return value
 
 
 @dataclass(frozen=True, slots=True)

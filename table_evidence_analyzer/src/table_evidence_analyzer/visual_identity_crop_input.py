@@ -21,7 +21,8 @@ from table_evidence_analyzer.pipeline_data import (
     parse_pipeline_geometry,
 )
 
-VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION = "visual-identity-crop-input/v3"
+VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION = "visual-identity-crop-input/v4"
+LEGACY_VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION = "visual-identity-crop-input/v3"
 VISUAL_IDENTITY_CROP_INPUT_KINDS = frozenset(
     {
         "gemini_polygon",
@@ -339,6 +340,9 @@ class VisualIdentityCropInput:
     virtual_card_lineage: ReviewedVirtualCardLineage | None = None
     proposed_virtual_card_lineage: ProposedVirtualCardLineage | None = None
     manifest_digest: str | None = None
+    source_node_id: str | None = None
+    source_node_revision_id: str | None = None
+    schema_version: str = LEGACY_VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         if self.input_kind not in VISUAL_IDENTITY_CROP_INPUT_KINDS:
@@ -349,6 +353,16 @@ class VisualIdentityCropInput:
         _identifier(self.source_revision_id, "source_revision_id")
         _digest(self.source_revision_digest, "source_revision_digest")
         _digest(self.source_view_digest, "source_view_digest")
+        if self.schema_version not in {
+            LEGACY_VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION,
+            VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION,
+        }:
+            raise VisualIdentityCropInputError("schema_version is unsupported")
+        if self.schema_version == VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION:
+            _identifier(self.source_node_id, "source_node_id")
+            _identifier(self.source_node_revision_id, "source_node_revision_id")
+        elif self.source_node_id is not None or self.source_node_revision_id is not None:
+            raise VisualIdentityCropInputError("legacy crop input cannot carry node identity")
         if not isinstance(self.items, tuple) or any(
             not isinstance(item, VisualIdentityCropInputItem) for item in self.items
         ):
@@ -400,7 +414,7 @@ class VisualIdentityCropInput:
 
     def _manifest_mapping(self) -> dict[str, Any]:
         value: dict[str, Any] = {
-            "schema_version": VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION,
+            "schema_version": self.schema_version,
             "input_kind": self.input_kind,
             "recording_id": self.recording_id,
             "accepted_video_sha256": self.accepted_video_sha256,
@@ -418,6 +432,9 @@ class VisualIdentityCropInput:
             if self.proposed_virtual_card_lineage is None
             else self.proposed_virtual_card_lineage.to_mapping(),
         }
+        if self.schema_version == VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION:
+            value["source_node_id"] = self.source_node_id
+            value["source_node_revision_id"] = self.source_node_revision_id
         return value
 
     @property
@@ -432,26 +449,26 @@ class VisualIdentityCropInput:
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "VisualIdentityCropInput":
         data = _mapping(raw, "crop_input")
-        _strict(
-            data,
-            {
-                "schema_version",
-                "input_kind",
-                "recording_id",
-                "accepted_video_sha256",
-                "accepted_video_byte_length",
-                "source_revision_id",
-                "source_revision_digest",
-                "source_view_digest",
-                "items",
-                "virtual_card_lineage",
-                "proposed_virtual_card_lineage",
-                "manifest_digest",
-            },
-            "crop_input",
-        )
-        if data["schema_version"] != VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION:
+        schema_version = data.get("schema_version")
+        expected_fields = {
+            "schema_version",
+            "input_kind",
+            "recording_id",
+            "accepted_video_sha256",
+            "accepted_video_byte_length",
+            "source_revision_id",
+            "source_revision_digest",
+            "source_view_digest",
+            "items",
+            "virtual_card_lineage",
+            "proposed_virtual_card_lineage",
+            "manifest_digest",
+        }
+        if schema_version == VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION:
+            expected_fields.update({"source_node_id", "source_node_revision_id"})
+        elif schema_version != LEGACY_VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION:
             raise VisualIdentityCropInputError("crop_input.schema_version is unsupported")
+        _strict(data, expected_fields, "crop_input")
         kind = data["input_kind"]
         if kind not in VISUAL_IDENTITY_CROP_INPUT_KINDS:
             raise VisualIdentityCropInputError("crop_input.input_kind is unsupported")
@@ -497,6 +514,19 @@ class VisualIdentityCropInput:
                 )
             ),
             manifest_digest=_digest(data["manifest_digest"], "crop_input.manifest_digest"),
+            source_node_id=(
+                None
+                if schema_version == LEGACY_VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION
+                else _identifier(data["source_node_id"], "crop_input.source_node_id")
+            ),
+            source_node_revision_id=(
+                None
+                if schema_version == LEGACY_VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION
+                else _identifier(
+                    data["source_node_revision_id"], "crop_input.source_node_revision_id"
+                )
+            ),
+            schema_version=schema_version,
         )
 
 

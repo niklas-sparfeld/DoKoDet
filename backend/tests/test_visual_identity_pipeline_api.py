@@ -592,6 +592,11 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
         generated_outcome = generated_result["revisions"][0]["content"]["outcomes"][0]
         assert generated_result["request"]["input_revision_ids"] == [generated_revision_id]
         assert generated_result["request"]["crop_input"]["input_kind"] == "gemini_polygon"
+        crop_input = generated_result["request"]["crop_input"]
+        input_node_ref = generated_result["request"]["input_node_refs"][0]
+        assert crop_input["schema_version"] == "visual-identity-crop-input/v4"
+        assert crop_input["source_node_id"] == input_node_ref["node_id"]
+        assert crop_input["source_node_revision_id"] == input_node_ref["revision_id"]
         assert generated_result["request"]["crop_input"]["source_revision_id"] == (
             generated_revision_id
         )
@@ -600,6 +605,17 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             == (generated_result["request"]["crop_input"]["manifest_digest"])
         )
         assert generated_outcome["crop_input_provenance"]["input_kind"] == "gemini_polygon"
+        assert generated_outcome["crop_input_provenance"]["schema_version"] == (
+            "visual-identity-crop-input-provenance/v3"
+        )
+        assert (
+            generated_outcome["crop_input_provenance"]["source_node_id"]
+            == (crop_input["source_node_id"])
+        )
+        assert (
+            generated_outcome["crop_input_provenance"]["source_node_revision_id"]
+            == (crop_input["source_node_revision_id"])
+        )
         assert generated_result["request"]["crop_policy"] == {
             "policy_id": "predicted_visible_region",
             "output_encoding": "ppm",

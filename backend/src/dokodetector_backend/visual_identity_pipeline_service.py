@@ -82,6 +82,7 @@ from table_evidence_analyzer.visual_identity import (
     VisualIdentityRequest,
 )
 from table_evidence_analyzer.visual_identity_crop_input import (
+    VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION,
     ProposedVirtualCardLineage,
     ReviewedVirtualCardLineage,
     VisualIdentityCropInput,
@@ -906,7 +907,45 @@ class VisualIdentityPipelineService:
             source_revision_id=crop_input.source_revision_id,
             source_revision_digest=crop_input.source_revision_digest,
             source_view_digest=crop_input.source_view_digest,
+            source_node_id=crop_input.source_node_id,
+            source_node_revision_id=crop_input.source_node_revision_id,
+            schema_version=(
+                "visual-identity-crop-input-provenance/v3"
+                if crop_input.schema_version == VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION
+                else "visual-identity-crop-input-provenance/v2"
+            ),
         )
+
+    def _canonical_crop_source(self, revision: StoredPipelineRevision) -> tuple[str, str, str]:
+        """Return canonical node identity and digest for one crop source revision."""
+        ref = self._canonical_input_node_ref(
+            revision.manifest.revision_id, revision.manifest.content_type
+        )
+        if self.node_store is None:
+            raise VisualIdentityPipelineInputError("Canonical node storage is unavailable.")
+        node = self.node_store.get(ref["node_id"])
+        node_revision = self.node_store.read_revision(ref["node_id"], ref["revision_id"])
+        if (
+            node.content_type != revision.manifest.content_type
+            or node.source != revision.manifest.source.to_mapping()
+            or node_revision.metadata.get("legacy_revision_id") != revision.manifest.revision_id
+            or sha256_bytes(canonical_json_bytes(node_revision.content))
+            != node_revision.content_sha256
+        ):
+            raise VisualIdentityPipelineInputError(
+                "The canonical crop source does not match its execution revision."
+            )
+        payload = {
+            "schema_version": "pipeline-node-revision/v1",
+            "node_id": node_revision.node_id,
+            "revision_id": node_revision.revision_id,
+            "parent_revision_id": node_revision.parent_revision_id,
+            "content": node_revision.content,
+            "content_sha256": node_revision.content_sha256,
+            "metadata": node_revision.metadata,
+            "created_at": node_revision.created_at,
+        }
+        return ref["node_id"], ref["revision_id"], sha256_bytes(canonical_json_bytes(payload))
 
     def resolve_identity_crop_browser_preview(
         self,
@@ -1221,6 +1260,31 @@ class VisualIdentityPipelineService:
                         "the selected input kind does not match its crop-input descriptor"
                     )
                 requested_kind = supplied.input_kind
+            source_node_id, source_node_revision_id, canonical_source_digest = (
+                self._canonical_crop_source(revision)
+            )
+            canonical_descriptor = (
+                supplied is None
+                or supplied.schema_version == VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION
+            )
+            source_revision_digest = (
+                canonical_source_digest
+                if canonical_descriptor
+                else sha256_bytes(
+                    json.dumps(
+                        revision.manifest.to_mapping(), sort_keys=True, separators=(",", ":")
+                    ).encode("utf-8")
+                )
+            )
+            source_node_fields = (
+                {
+                    "source_node_id": source_node_id,
+                    "source_node_revision_id": source_node_revision_id,
+                    "schema_version": VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION,
+                }
+                if canonical_descriptor
+                else {}
+            )
             source_view_bytes = (
                 canonical_proposed_card_scene_data_bytes(revision.content)
                 if isinstance(revision.content, ProposedCardSceneData)
@@ -1354,12 +1418,9 @@ class VisualIdentityPipelineService:
                     accepted_video_sha256=source.video_sha256,
                     accepted_video_byte_length=source.byte_length,
                     source_revision_id=revision.manifest.revision_id,
-                    source_revision_digest=sha256_bytes(
-                        json.dumps(
-                            revision.manifest.to_mapping(), sort_keys=True, separators=(",", ":")
-                        ).encode("utf-8")
-                    ),
+                    source_revision_digest=source_revision_digest,
                     source_view_digest=sha256_bytes(canonical_proposed_card_scene_data_bytes(data)),
+                    **source_node_fields,
                     items=tuple(items),
                     proposed_virtual_card_lineage=ProposedVirtualCardLineage(
                         detector_revision_id=data.detector_revision_id,
@@ -1428,12 +1489,9 @@ class VisualIdentityPipelineService:
                     accepted_video_sha256=source.video_sha256,
                     accepted_video_byte_length=source.byte_length,
                     source_revision_id=revision.manifest.revision_id,
-                    source_revision_digest=sha256_bytes(
-                        json.dumps(
-                            revision.manifest.to_mapping(), sort_keys=True, separators=(",", ":")
-                        ).encode("utf-8")
-                    ),
+                    source_revision_digest=source_revision_digest,
                     source_view_digest=source_view_digest,
+                    **source_node_fields,
                     items=tuple(items),
                 )
                 input_value = VisualIdentityCropInput.from_mapping(input_value.to_mapping())
@@ -1475,12 +1533,9 @@ class VisualIdentityPipelineService:
                     accepted_video_sha256=source.video_sha256,
                     accepted_video_byte_length=source.byte_length,
                     source_revision_id=revision.manifest.revision_id,
-                    source_revision_digest=sha256_bytes(
-                        json.dumps(
-                            revision.manifest.to_mapping(), sort_keys=True, separators=(",", ":")
-                        ).encode("utf-8")
-                    ),
+                    source_revision_digest=source_revision_digest,
                     source_view_digest=source_view_digest,
+                    **source_node_fields,
                     items=tuple(items),
                     virtual_card_lineage=lineage,
                 )
@@ -1516,14 +1571,9 @@ class VisualIdentityPipelineService:
                 accepted_video_sha256=source.video_sha256,
                 accepted_video_byte_length=source.byte_length,
                 source_revision_id=revision.manifest.revision_id,
-                source_revision_digest=sha256_bytes(
-                    json.dumps(
-                        revision.manifest.to_mapping(),
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    ).encode("utf-8")
-                ),
+                source_revision_digest=source_revision_digest,
                 source_view_digest=source_view_digest,
+                **source_node_fields,
                 items=tuple(items),
             )
             input_value = VisualIdentityCropInput.from_mapping(input_value.to_mapping())
