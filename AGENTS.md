@@ -140,7 +140,7 @@ Invoke this mode with `luna loop epic 1234` to complete the remaining milestones
 incomplete milestone. These commands authorize sequential Luna subagents in the current chat.
 They do not change the behavior of `start epic`, `next phase`, or the persistent commands above.
 
-Use Terra at Medium reasoning as the orchestrator and `gpt-6-luna` at Medium reasoning for workers.
+Use Terra at Medium reasoning as the orchestrator and `gpt-6-luna` at High reasoning for workers.
 Check the available model controls. If the requested configuration is unavailable, stop and
 explain. Do not silently substitute another model or claim to change the current chat's model.
 
