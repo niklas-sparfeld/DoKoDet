@@ -371,7 +371,6 @@ def test_calibration_target_proposal_publishes_and_resolves_from_nodes(tmp_path)
     service = CalibrationRefinementService.__new__(CalibrationRefinementService)
     service.node_store = nodes
     service.revision_store = Mock(side_effect=AssertionError("legacy revision store used"))
-    service.reference_service = SimpleNamespace()
     service._publish_target_proposal_node(
         "recording-1",
         "card-scene-reflow-receipt-1",
@@ -482,7 +481,6 @@ def test_reflow_planner_reads_current_content_from_canonical_node(tmp_path) -> N
     )
     service = CalibrationRefinementService.__new__(CalibrationRefinementService)
     service.node_store = nodes
-    service.reference_service = SimpleNamespace()
     service._proposal = Mock(return_value=(None, source, None))
 
     current = service._current_node_reference("recording-1", "source-proposal")

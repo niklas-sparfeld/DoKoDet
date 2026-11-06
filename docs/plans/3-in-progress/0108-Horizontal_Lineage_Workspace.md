@@ -576,8 +576,8 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Next:** Move calibration review validation and draft reflow to canonical node content and
   revision-bound review records. Then audit the remaining selection projections and remove legacy
   stores only after recovery and reconciliation checks pass.
-- **Run count:** Requested up to 20 bounded packages; completed 5; remaining 15. M11 remains
-  incomplete.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 - **Latest package — retire review-scoped calibration routes:** Removed the calibration API routes
   that used `/reviews/{review_id}` and removed the optional review route branch from the browser
   client. The generated OpenAPI client no longer exposes those routes. The recording-scoped
@@ -591,8 +591,24 @@ the visible-card head update and confirms restart recovery publishes both heads 
   records and exact node inputs.
 - **Next:** Convert calibration reflow to canonical node review records and exact proposal and
   detector node references. Continue the full runtime reader and storage audit.
-- **Run count:** Requested up to 20 bounded packages; completed 6; remaining 14. M11 remains
-  incomplete.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+- **Latest package — remove reference and review stores from runtime composition:** Calibration
+  proposal seeding and correction-impact validation now use a pure helper over exact proposal and
+  detector content. Runtime composition no longer creates or exposes the legacy reference and
+  visible-card review services or stores. The standalone calibration refinement routes remain.
+- **Checks:** Pipeline API, calibration refinement service, and reference-service test modules passed
+  (77 tests). Ruff checks, format checks, and `git diff --check` passed.
+- **Known limit:** Calibration draft state still uses
+  `pipeline-nodes/.migrated-readers/calibration-drafts` (26 files). Calibration reflow still reads
+  retained `legacy_review` metadata from canonical node revisions. The old reference and review
+  files remain on disk as recovery data. Runtime selection projection still supplies legacy
+  revision IDs to processor execution choices.
+- **Next:** Move calibration draft storage out of `.migrated-readers` with verified copy and restart
+  checks. Then make calibration reflow consume canonical node review records and exact proposal and
+  detector references. Keep the recovery copies until the final removal audit passes.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
 ### M12 — Verify the complete workflow and close — Not started
 

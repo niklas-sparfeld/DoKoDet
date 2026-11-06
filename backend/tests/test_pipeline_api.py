@@ -83,8 +83,6 @@ def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Pat
         assert all(service.revision_store is revision_store for service in services)
         assert all(service.run_store is run_store for service in services)
         assert all(service.selection_store is selection_store for service in services)
-        assert app.state.pipeline_reference_service.revision_store is revision_store
-        assert app.state.pipeline_reference_service.selection_store is selection_store
         assert (
             app.state.calibration_refinement_service.store.workspace_root
             == app.state.pipeline_lineage_service.store.root
@@ -98,11 +96,10 @@ def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Pat
             selection_store.root
             == app.state.pipeline_lineage_service.store.root / ".migrated-selections"
         )
-        migrated_reader_root = app.state.pipeline_lineage_service.store.root / ".migrated-readers"
-        assert (
-            app.state.pipeline_reference_store.root == migrated_reader_root / "pipeline-references"
-        )
-        assert app.state.visible_card_review_store.root == migrated_reader_root / "pipeline-reviews"
+        assert not hasattr(app.state, "pipeline_reference_service")
+        assert not hasattr(app.state, "pipeline_reference_store")
+        assert not hasattr(app.state, "visible_card_review_service")
+        assert not hasattr(app.state, "visible_card_review_store")
         assert (
             app.state.pipeline_workspace_service.recording_source_provider.__self__
             is app.state.event_pipeline_service
@@ -657,17 +654,10 @@ def test_workspace_run_summary_uses_exact_graph_inputs(tmp_path: Path) -> None:
     ]
 
 
-def test_workspace_does_not_read_legacy_reference_store(tmp_path: Path, monkeypatch) -> None:
+def test_runtime_workspace_does_not_load_legacy_reference_store(tmp_path: Path) -> None:
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
-    reference_store = app.state.pipeline_reference_store
-
-    def reject(*_args, **_kwargs):
-        raise AssertionError("workspace read the retired reference store")
-
-    monkeypatch.setattr(reference_store, "get", reject)
-    monkeypatch.setattr(reference_store, "get_state", reject)
-    monkeypatch.setattr(reference_store, "list_states", reject)
+    assert not hasattr(app.state, "pipeline_reference_store")
 
     workspace = app.state.pipeline_workspace_service.get_workspace(RECORDING_ID, stage_key="events")
 

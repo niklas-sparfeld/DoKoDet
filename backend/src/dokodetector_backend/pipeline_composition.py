@@ -18,8 +18,6 @@ from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
-from dokodetector_backend.pipeline_reference_service import PipelineReferenceService
-from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineRuntimeStorage,
@@ -33,8 +31,6 @@ from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.visible_card_pipeline_service import VisibleCardPipelineService
-from dokodetector_backend.visible_card_review_service import VisibleCardReviewService
-from dokodetector_backend.visible_card_review_store import VisibleCardReviewStore
 from dokodetector_backend.visual_identity_pipeline_service import VisualIdentityPipelineService
 
 
@@ -45,10 +41,6 @@ class PipelineComposition:
     revision_store: PipelineRevisionStore
     run_store: ProcessorRunStore
     selection_store: PipelineNodeSelectionStore
-    reference_store: PipelineReferenceStore
-    visible_card_review_store: VisibleCardReviewStore
-    visible_card_review_service: VisibleCardReviewService
-    reference_service: PipelineReferenceService
     event_service: EventPipelineService
     comparison_service: PipelineComparisonService
     visible_card_service: VisibleCardPipelineService
@@ -98,26 +90,9 @@ def build_pipeline_composition(
     )
     selection_store = PipelineNodeSelectionStore(node_store, revision_store, lineage_writer)
     migrated_reader_root = node_store.root / ".migrated-readers"
-    reference_store = PipelineReferenceStore(migrated_reader_root / "pipeline-references")
-    visible_card_review_store = VisibleCardReviewStore(
-        migrated_reader_root / "pipeline-reviews",
-        legacy_reference_store=reference_store,
-    )
     run_store.lineage_writer = lineage_writer
     node_edits = PipelineNodeEdits(node_store)
     node_reviews = PipelineNodeReviews(node_store)
-    reference_service = PipelineReferenceService(
-        settings,
-        recording_store,
-        repository_storage,
-        reference_store=reference_store,
-        revision_store=revision_store,
-        selection_store=selection_store,
-    )
-    visible_card_review_service = VisibleCardReviewService(
-        store=visible_card_review_store,
-        reference_service=reference_service,
-    )
     event_service = EventPipelineService(
         settings,
         recording_store,
@@ -152,7 +127,6 @@ def build_pipeline_composition(
     )
     calibration_refinement_service = CalibrationRefinementService(
         settings,
-        reference_service=reference_service,
         draft_store=CalibrationDraftStore(migrated_reader_root / "calibration-drafts"),
         node_store=node_store,
     )
@@ -167,9 +141,6 @@ def build_pipeline_composition(
         run_store=run_store,
         selection_store=selection_store,
         node_store=node_store,
-    )
-    reference_service.annotation_crop_resolver = (
-        visual_identity_service.resolve_reviewed_annotation_crops
     )
     observation_service = ObservationPipelineService(
         revision_store=revision_store,
@@ -193,10 +164,6 @@ def build_pipeline_composition(
         revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
-        reference_store=reference_store,
-        visible_card_review_store=visible_card_review_store,
-        visible_card_review_service=visible_card_review_service,
-        reference_service=reference_service,
         event_service=event_service,
         comparison_service=comparison_service,
         visible_card_service=visible_card_service,
@@ -218,10 +185,6 @@ def install_pipeline_composition(state: Any, composition: PipelineComposition) -
     state.pipeline_revision_store = composition.revision_store
     state.pipeline_run_store = composition.run_store
     state.pipeline_selection_store = composition.selection_store
-    state.pipeline_reference_store = composition.reference_store
-    state.visible_card_review_store = composition.visible_card_review_store
-    state.visible_card_review_service = composition.visible_card_review_service
-    state.pipeline_reference_service = composition.reference_service
     state.event_pipeline_service = composition.event_service
     state.pipeline_comparison_service = composition.comparison_service
     state.visible_card_pipeline_service = composition.visible_card_service

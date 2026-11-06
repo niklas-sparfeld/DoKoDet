@@ -56,10 +56,12 @@ from table_evidence_analyzer.pipeline_data import (
 from dokodetector_backend.pipeline_item_provenance import _items
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
 from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
+from dokodetector_backend.pipeline_proposal_seed import seed_proposal_items
 from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceConflict,
     PipelineReferenceInputError,
 )
+from dokodetector_backend.pipeline_reference_handlers import build_reference_handlers
 
 
 def _now() -> str:
@@ -85,11 +87,9 @@ class CalibrationRefinementService:
         self,
         settings: Any,
         *,
-        reference_service: Any,
         draft_store: CalibrationDraftStore | None = None,
         node_store: PipelineNodeStore | None = None,
     ) -> None:
-        self.reference_service = reference_service
         self.node_store = node_store
         self.node_transactions = (
             None if node_store is None else PipelineNodeTransactions(node_store)
@@ -383,9 +383,6 @@ class CalibrationRefinementService:
             raise CalibrationRefinementConflict(
                 "the canonical visible-card state has changed source"
             )
-        source_cache = getattr(self.reference_service, "_source_revision_sources", None)
-        if isinstance(source_cache, dict):
-            source_cache[source.manifest.revision_id] = source.manifest.source
         return SimpleNamespace(state=state, draft=draft)
 
     def _publish_target_proposal_node(
@@ -452,10 +449,10 @@ class CalibrationRefinementService:
 
     def _reflow_impact(self, recording_id: str, current: Any, items: tuple[Any, ...]):
         """Keep the same correction-impact calculation as maintained-reference apply."""
-        handler_factory = getattr(self.reference_service, "_handler", None)
-        if handler_factory is None:
-            return current.draft.impact
-        handler = handler_factory("visible_cards")
+        handler = build_reference_handlers(
+            source_for=lambda *_: None,
+            selected_revision=lambda *_: None,
+        )["visible_cards"]
         handler.validate_draft_items(
             recording_id,
             current.draft.source_revision_id,
@@ -807,7 +804,7 @@ class CalibrationRefinementService:
             _target_proposal, target_source, target_data = self._proposal(
                 recording_id, target_proposal_revision_id
             )
-            target_items = self.reference_service._proposal_seed_items(
+            target_items = seed_proposal_items(
                 recording_id,
                 target_source,
                 target_data,
@@ -1012,9 +1009,6 @@ class CalibrationRefinementService:
             ),
             content=source_content,
         )
-        source_cache = getattr(self.reference_service, "_source_revision_sources", None)
-        if isinstance(source_cache, dict):
-            source_cache[source_id] = source.manifest.source
         return (proposal_node, proposal_revision), source, proposal_content
 
     def _find_node_revision(self, revision_id: str, content_type: str):
