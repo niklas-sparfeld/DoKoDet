@@ -63,6 +63,7 @@ export type RecordingWorkspaceTaskSurfaceProps = {
   onComparisonChange: (comparison: PipelineComparisonResponse) => void;
   onTimeChange: (timeUs: number) => void;
   onAnalysisChange?: (analysisId: string) => void;
+  onNotice?: (message: string) => void;
   lineageGraph?: PipelineLineageGraph | null;
 };
 
@@ -290,6 +291,7 @@ export function RecordingWorkspaceTaskSurface({
   onComparisonChange,
   onTimeChange,
   onAnalysisChange,
+  onNotice,
   lineageGraph = null,
 }: RecordingWorkspaceTaskSurfaceProps) {
   const selectedEventNode =
@@ -370,6 +372,7 @@ export function RecordingWorkspaceTaskSurface({
             selectionItemId={presentation.surface.selectedItemId ?? null}
             selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
             onRailItemsChange={onEventRailItemsChange}
+            onNotice={onNotice}
             onPositionChange={(itemId, timeUs) =>
               onNavigate(
                 recordingPipelineNavigationPath(recordingId, stage.key, {

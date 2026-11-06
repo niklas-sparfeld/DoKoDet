@@ -106,7 +106,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0112 — Bounded multipart upload intake](2-ready/0112-Bounded_Multipart_Upload_Intake.md) | Existing upload routes and filesystem storage | M0–M2 not started. Bound received request bytes before multipart file spooling; verify cleanup, payload limits, and valid retries with local fixtures. |
-| [0108 — Horizontal lineage workspace](3-in-progress/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | M0–M11 complete. M11 retired legacy reference/review runtime paths, moved processor inputs and workspace selections to exact node references, and verified one node publication path with recovery evidence. All 165 frame-review bindings pass the frozen content-digest audit. M12 must verify the complete workflow and close the epic. Processor input and trigger UX remains later work. |
+| [0108 — Horizontal lineage workspace](5-closed/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | Complete. M0–M12 verify the horizontal lineage workspace, exact revision selection, copy-on-edit behavior, review preservation, local migrated data, and removal of replaced runtime paths. Processor input and trigger UX remains later work. See the [M12 verification and closure report](../reports/0108-M12_Verification_and_Closure.md). |
 
 
 ### In Progress

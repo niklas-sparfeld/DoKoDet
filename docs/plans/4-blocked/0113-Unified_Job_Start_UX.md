@@ -6,7 +6,7 @@
   sidebar opens a modal that explains the work and collects its required inputs.
 - **Status:** Blocked
 - **Depends on:** [0110 — Global Job Manager](../5-closed/0110-Global_Job_Manager.md), complete,
-  and [0108 — Horizontal lineage workspace](../3-in-progress/0108-Horizontal_Lineage_Workspace.md),
+  and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
 - **Outcome:** Planned. M0–M10 are not started. Implementation waits for 0108 completion.

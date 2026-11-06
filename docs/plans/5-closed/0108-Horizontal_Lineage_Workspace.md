@@ -4,15 +4,17 @@
 
 - **Summary:** Replace competing data selectors with a horizontal lineage drawer beneath the
   processing steps. Integrate unified data nodes, migrate local data, and delete replaced flows.
-- **Status:** In Progress
+- **Status:** Complete
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0–M10 are complete; M11 is in progress and M12 is not started. The workspace
-  exposes exact graph data,
-  preserves validated lineage URLs, and has aligned step and data rows. The horizontal drawer
-  selects exact revisions and shows copy and processor sources with collapsed revision history.
-  Shared node edit, copy, and restore transactions are available through the workspace API.
-  Processor input and trigger UX remains later work.
+- **Outcome:** M0–M12 are complete. The workspace exposes exact graph data, preserves validated
+  lineage URLs, and has aligned step and data rows. The horizontal drawer selects exact revisions
+  and shows copy and processor sources with collapsed revision history. Shared node edit, copy,
+  and restore transactions are available through the workspace API. Processor input and trigger UX
+  remains later work.
+- **Closure reason:** The complete local workspace passed the M12 browser, web, backend, migration,
+  and removal checks. The active node store and selections remain inspectable, and retired stores
+  have verified recovery copies.
 
 ## Agreed layout
 
@@ -1016,7 +1018,7 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** Requested up to 20 worker loops; worker 1 completed one milestone, M11. Nineteen
   loops remain unused because this run stops when M11 completes.
 
-### M12 — Verify the complete workflow and close — Not started
+### M12 — Verify the complete workflow and close — Complete
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and
 Markdown link checks. Use recorded fixtures and mocks; no hardware or model-quality run is needed.
@@ -1026,6 +1028,30 @@ Acceptance: a browser regression covers the two-row drawer, exact branch switchi
 copy-on-edit notice and selection, source/history navigation, review preservation fixtures, reload,
 and all-source analysis inspection. Local migrated data is inspectable. All removal obligations
 are complete before closure. Update the board and repair links when moving this epic.
+
+Progress: the browser regression covers the two-row navigation, exact event revision selection,
+empty Visible cards state, copy-on-edit notice and exact copy selection, source and history
+navigation, retained review decisions, reload, and all exact analysis inputs. The local node store
+contains 1,006 nodes and 1,223 revisions. The canonical selection store contains 136 files. The
+retired reference and review stores are absent; their recovery copies match the recorded file and
+byte counts. See the [M12 verification and closure report](../../reports/0108-M12_Verification_and_Closure.md).
+
+### Execution handoff — 2026-11-07
+
+- **Completed:** M12 verifies the full workflow and closes Epic 0108 (1/1 milestone complete;
+  0/1 remaining in this run).
+- **Changes:** Added a browser regression for exact lineage browsing and copy-on-edit. Kept the
+  copy notice in the workspace after the editor switches to the new node. Added the M12 evidence
+  report and closed this plan.
+- **Checks:** `npm run check`, `npm run test:e2e`, focused backend pipeline and lineage tests,
+  backend Ruff and format checks, local migration-store inspection, and local Markdown link checks
+  pass. The full backend suite has one unrelated failure, as detailed in the report.
+- **Decisions:** Use fixtures for browser behavior. Inspect local migrated manifests and recovery
+  receipts without changing migrated data. Keep processor input and trigger UX for later epics.
+- **Known limits:** The full backend suite has one interrupted round-analysis failure outside this
+  epic. All focused M12 backend checks pass.
+- **Next:** None. Epic 0108 is closed.
+- **Run count:** Requested one milestone; completed one; zero remain.
 
 ## Implementation entry points
 

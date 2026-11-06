@@ -53,6 +53,7 @@ export function PipelineNodeEventEditor({
   onRevisionChange,
   onPositionChange,
   onRailItemsChange,
+  onNotice,
 }: {
   recordingId: string;
   nodeId: string;
@@ -70,6 +71,7 @@ export function PipelineNodeEventEditor({
   ) => void;
   onPositionChange: (itemId: string | null, timeUs: number) => void;
   onRailItemsChange?: (items: PipelineCardEventRailItem[]) => void;
+  onNotice?: (message: string) => void;
 }) {
   const profileName = useProfileName();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -293,11 +295,11 @@ export function PipelineNodeEventEditor({
       failedRef.current = null;
       setRetryAvailable(false);
       setError(null);
-      setNotice(
-        result.copied
-          ? `Created ${result.name ?? "a copy"} from ${node?.name ?? "the selected event data"} after editing because it has downstream use. The original remains available in lineage.`
-          : "Event changes saved.",
-      );
+      const notice = result.copied
+        ? `Created ${result.name ?? "a copy"} from ${node?.name ?? "the selected event data"} after editing because it has downstream use. The original remains available in lineage.`
+        : "Event changes saved.";
+      setNotice(notice);
+      onNotice?.(notice);
       onRevisionChange(
         source.nodeId,
         source.revisionId,
@@ -309,7 +311,7 @@ export function PipelineNodeEventEditor({
     }
     savingRef.current = false;
     setSaving(false);
-  }, [node?.name, onRevisionChange, profileName, selectedId, timeUs]);
+  }, [node?.name, onNotice, onRevisionChange, profileName, selectedId, timeUs]);
 
   useEffect(() => {
     savePendingRef.current = savePending;

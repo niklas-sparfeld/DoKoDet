@@ -741,6 +741,7 @@ export function RecordingPipelineWorkspace({
                 }),
               )
             }
+            onNotice={setNotice}
             lineageGraph={lineageGraph}
           />
           <RecordingWorkspaceInspector

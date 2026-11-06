@@ -8,7 +8,7 @@
 - **Depends on:** Existing revision, run, and review storage from completed Epics 0048, 0049, 0102,
   and 0105. No new completion gate from Epic 0106.
 - **Outcome:** M0–M10 are complete. This epic supplies tested contracts, services, and fixture
-  migration tools. [Epic 0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
+  migration tools. [Epic 0108](0108-Horizontal_Lineage_Workspace.md) integrates the workspace,
   performs the local cutover, and removes the replaced runtime paths.
 - **Closure reason:** Complete
 - **Closure note:** M0–M10 are complete. The [M10 handoff](../../reports/0107-M10_Verification_and_Handoff.md)
