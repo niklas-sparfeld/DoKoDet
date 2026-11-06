@@ -624,6 +624,17 @@ the visible-card head update and confirms restart recovery publishes both heads 
   readers have been eliminated.
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+- **Latest package — read rejected event decisions from node reviews:** The event editor no longer
+  reads `legacy_review.items` from node metadata. It displays rejected items from exact node review
+  records. The fixture uses the node review API response and the event content remains unchanged.
+- **Checks:** The event editor test module passed (9 tests). TypeScript typecheck, focused ESLint,
+  Prettier, and `git diff --check` passed.
+- **Known limit:** The visible-card editor still reads the old scene-only item summary. Calibration
+  still reads `legacy_review` facts for reflow. These metadata readers remain in M11 scope.
+- **Next:** Remove the remaining workspace and runtime reads of `legacy_review` after their
+  canonical review or lineage data is available.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
 ### M12 — Verify the complete workflow and close — Not started
 

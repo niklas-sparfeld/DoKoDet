@@ -103,20 +103,12 @@ export function PipelineNodeEventEditor({
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [retryAvailable, setRetryAvailable] = useState(false);
-  const retainedReview = node?.metadata?.legacy_review;
-  const retainedItems =
-    retainedReview !== null && typeof retainedReview === "object"
-      ? (retainedReview as Record<string, unknown>).items
-      : null;
-  const rejectedItems = Array.isArray(retainedItems)
-    ? retainedItems.filter(
-        (item): item is { item_id: string; review_state: "rejected" } =>
-          item !== null &&
-          typeof item === "object" &&
-          item.review_state === "rejected" &&
-          typeof item.item_id === "string",
-      )
-    : [];
+  const rejectedItems = reviews.filter(
+    (review): review is Review & { item_id: string } =>
+      review.kind === "item" &&
+      review.decision === "rejected" &&
+      typeof review.item_id === "string",
+  );
   const savePendingRef = useRef<() => Promise<void>>(async () => undefined);
 
   const load = useCallback(
@@ -492,7 +484,7 @@ export function PipelineNodeEventEditor({
               <ul>
                 {rejectedItems.map((item) => (
                   <li key={item.item_id}>
-                    {item.item_id} · rejected in the retained draft
+                    {item.item_id} · rejected in an earlier review
                   </li>
                 ))}
               </ul>
