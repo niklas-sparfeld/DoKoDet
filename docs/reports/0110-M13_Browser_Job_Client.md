@@ -20,10 +20,16 @@ the job. Invalid, unrelated, or external paths do not become links.
   during an intermediate run; the warning was then removed.
 - `npx vitest run src/App.test.tsx src/jobs src/api/client.test.ts` passed (20 tests).
 - `npm run verify:api` passed. No API schema changes were needed.
+- `npx vitest run src/jobs` passed (5 tests). The provider test mounts two consumers, verifies one
+  shared list poll, and resolves an older response after a newer response to confirm that stale data
+  does not replace the current job list.
+- `npm run build` passed.
+- `npx playwright test tests/e2e/jobs.spec.ts` passed (2 browser tests). The tests cover history
+  cursor pagination, exact job and result links, reload, browser back and forward, recovery after an
+  API disconnect, and polling pause/resume across hidden and visible page states.
 - `npm run check` stopped at lint because `src/cardEvents/CardEventFrameSurface.tsx` has two
   existing effect-state lint errors. `npm run format` reports seven pre-existing unformatted files
   outside this milestone. The full Vitest run also showed failures in the existing video and frame
   cache tests; focused job and App tests pass.
 
-Browser automation was not run. Reload/back/forward behavior uses the existing route listener; a
-focused browser test remains for M16.
+M13 browser acceptance passed. M16 still owns full workflow browser checks across all job producers.

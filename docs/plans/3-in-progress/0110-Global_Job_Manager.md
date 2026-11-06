@@ -464,15 +464,19 @@ when every in-scope producer and UI path uses the shared manager.
 - Added an app-level job state owner, bounded active and history list pages, job detail and log
   loading, status and action components, and exact result links with path and identity validation.
 - Verification: web typecheck passed; focused ESLint passed; focused App, job client, result-link,
-  and API client tests passed (20 tests); generated API verification passed.
+  and API client tests passed (20 tests); provider tests passed (5 tests); generated API
+  verification and production build passed; focused Playwright checks passed (2 tests).
 - Repository-wide web checks remain blocked by existing unrelated issues: lint errors in
   `CardEventFrameSurface.tsx`, seven Prettier files, and failures in video/frame cache tests. The
   full suite was run before fixing the App test mocks; those App failures were fixed and the
   focused App suite now passes. The remaining cache failures were not changed.
 - Decision: keep job list polling centralized in the app provider. Detail polling uses the shared
   client and accepts a response only while its route is current. History pages use the API cursor.
-- Limits: no browser automation was run. Exact result links are limited to same-origin job result
-  paths and counterfactual paths whose analysis and result IDs match the job.
+- Acceptance: verified multiple shared-state consumers, stale list-response rejection,
+  disconnection recovery, hidden-page polling pause and return, history pagination, reload,
+  back/forward, and exact result links. Full workflow browser checks remain in M16.
+- Limits: exact result links are limited to same-origin job result paths and counterfactual paths
+  whose analysis and result IDs match the job.
 - Evidence: [M13 browser client report](../../reports/0110-M13_Browser_Job_Client.md).
 - Next: M14, build the global Jobs drawer on this provider and shared components.
 
