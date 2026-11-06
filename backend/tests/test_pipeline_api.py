@@ -85,9 +85,8 @@ def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Pat
         assert all(service.selection_store is selection_store for service in services)
         assert (
             app.state.calibration_refinement_service.store.workspace_root
-            == app.state.pipeline_lineage_service.store.root
-            / ".migrated-readers"
-            / "calibration-drafts"
+            == app.state.pipeline_revision_store.storage.operations_root
+            / "calibration-refinement-drafts"
         )
         assert app.state.pipeline_workspace_service.revision_store is revision_store
         assert app.state.pipeline_workspace_service.run_store is run_store

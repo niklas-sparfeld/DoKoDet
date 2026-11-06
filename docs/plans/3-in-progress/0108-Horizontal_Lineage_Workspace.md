@@ -609,6 +609,21 @@ the visible-card head update and confirms restart recovery publishes both heads 
   detector references. Keep the recovery copies until the final removal audit passes.
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+- **Latest package — move calibration drafts out of migration readers:** Copied the active
+  calibration draft store to `data/operations/calibration-refinement-drafts` and verified all 26
+  files by SHA-256. The old copy remains intact for recovery. Runtime composition now reads the new
+  store root. The recovery manifest is `data/operations-recovery/0108-m11-20261106/calibration-draft-move.json`.
+- **Checks:** The composition test and calibration refinement service tests passed (9 tests).
+  Runtime-store parsing loaded all 26 current and initial draft records. Ruff, format, and
+  `git diff --check` passed.
+- **Known limit:** Calibration still reads retained `legacy_review` metadata from node revisions.
+  Old reference and review files remain on disk as recovery data. The complete storage removal audit
+  has not passed.
+- **Next:** Convert calibration reflow facts to canonical node review records. Then verify the old
+  reference/review storage against its recovery snapshot and remove it only after all runtime
+  readers have been eliminated.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
 ### M12 — Verify the complete workflow and close — Not started
 

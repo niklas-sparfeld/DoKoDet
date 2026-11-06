@@ -89,7 +89,6 @@ def build_pipeline_composition(
         node_store, lineage_service, PipelineNodeUses(node_store), revision_store
     )
     selection_store = PipelineNodeSelectionStore(node_store, revision_store, lineage_writer)
-    migrated_reader_root = node_store.root / ".migrated-readers"
     run_store.lineage_writer = lineage_writer
     node_edits = PipelineNodeEdits(node_store)
     node_reviews = PipelineNodeReviews(node_store)
@@ -127,7 +126,9 @@ def build_pipeline_composition(
     )
     calibration_refinement_service = CalibrationRefinementService(
         settings,
-        draft_store=CalibrationDraftStore(migrated_reader_root / "calibration-drafts"),
+        draft_store=CalibrationDraftStore(
+            settings.operations_root / "calibration-refinement-drafts"
+        ),
         node_store=node_store,
     )
     visual_identity_service = VisualIdentityPipelineService(
