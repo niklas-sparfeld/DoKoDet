@@ -578,6 +578,21 @@ the visible-card head update and confirms restart recovery publishes both heads 
   stores only after recovery and reconciliation checks pass.
 - **Run count:** Requested up to 20 bounded packages; completed 5; remaining 15. M11 remains
   incomplete.
+- **Latest package — retire review-scoped calibration routes:** Removed the calibration API routes
+  that used `/reviews/{review_id}` and removed the optional review route branch from the browser
+  client. The generated OpenAPI client no longer exposes those routes. The recording-scoped
+  calibration refinement endpoints remain.
+- **Checks:** Calibration service and pipeline API tests passed (25 tests). OpenAPI generation and
+  verification, TypeScript typecheck, focused ESLint, Prettier, Ruff, and Ruff formatting checks
+  passed.
+- **Known limit:** Calibration refinement still reconstructs legacy review facts from migrated
+  node metadata and calls the legacy proposal seed helper. The runtime reference and review stores
+  remain loaded. Removing those stores is still unsafe until calibration uses canonical review
+  records and exact node inputs.
+- **Next:** Convert calibration reflow to canonical node review records and exact proposal and
+  detector node references. Continue the full runtime reader and storage audit.
+- **Run count:** Requested up to 20 bounded packages; completed 6; remaining 14. M11 remains
+  incomplete.
 
 ### M12 — Verify the complete workflow and close — Not started
 

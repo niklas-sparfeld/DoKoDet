@@ -13,7 +13,6 @@ from dokodetector_backend.calibration_refinement_service import (
 )
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.pipeline_api_contracts import validate_recording_id
-from dokodetector_backend.visible_card_review_store import VisibleCardReviewStoreError
 
 router = APIRouter()
 BASE = "/api/recordings/{recording_id}/pipeline/calibration-refinement"
@@ -21,21 +20,6 @@ BASE = "/api/recordings/{recording_id}/pipeline/calibration-refinement"
 
 def _service(request: Request) -> Any:
     return request.app.state.calibration_refinement_service
-
-
-def _require_review(request: Request, recording_id: str, review_id: str, proposal_id: str) -> None:
-    try:
-        review = request.app.state.visible_card_review_service.get(recording_id, review_id)
-    except VisibleCardReviewStoreError as error:
-        raise ContractError(
-            "visible_card_review_unavailable", str(error), status_code=409
-        ) from error
-    if review.source != "card_scenes" or review.lineage.get("proposal_revision_id") != proposal_id:
-        raise ContractError(
-            "invalid_calibration_refinement",
-            "proposal_revision_id does not match this card-scene review",
-            status_code=422,
-        )
 
 
 @router.post(BASE, status_code=201)
@@ -133,74 +117,6 @@ def apply_calibration_refinement(
         raise ContractError(
             "calibration_refinement_conflict", str(error), status_code=409
         ) from error
-    except CalibrationRefinementInputError as error:
-        raise ContractError(
-            "invalid_calibration_refinement", str(error), status_code=422
-        ) from error
-
-
-REVIEW_BASE = BASE + "/reviews/{review_id}"
-
-
-@router.post(REVIEW_BASE, status_code=201)
-def start_review_calibration_refinement(
-    recording_id: str, review_id: str, payload: dict[str, Any], request: Request
-) -> dict[str, Any]:
-    """Start calibration refinement bound to one card-scene review."""
-
-    validate_recording_id(recording_id)
-    proposal_id = payload.get("proposal_revision_id")
-    if not isinstance(proposal_id, str):
-        raise ContractError(
-            "invalid_calibration_refinement", "proposal_revision_id is required", status_code=422
-        )
-    _require_review(request, recording_id, review_id, proposal_id)
-    try:
-        return _service(request).start(
-            recording_id, {"proposal_revision_id": proposal_id, "draft_id": review_id}
-        )
-    except CalibrationRefinementInputError as error:
-        raise ContractError(
-            "invalid_calibration_refinement", str(error), status_code=422
-        ) from error
-
-
-@router.get(REVIEW_BASE)
-def get_review_calibration_refinement(
-    recording_id: str, review_id: str, proposal_revision_id: str, request: Request
-) -> dict[str, Any]:
-    validate_recording_id(recording_id)
-    _require_review(request, recording_id, review_id, proposal_revision_id)
-    try:
-        return _service(request).get(recording_id, proposal_revision_id, review_id)
-    except CalibrationRefinementNotFound as error:
-        raise ContractError(
-            "calibration_refinement_not_found", str(error), status_code=404
-        ) from error
-    except CalibrationRefinementInputError as error:
-        raise ContractError(
-            "invalid_calibration_refinement", str(error), status_code=422
-        ) from error
-
-
-@router.put(REVIEW_BASE)
-def update_review_calibration_refinement(
-    recording_id: str,
-    review_id: str,
-    proposal_revision_id: str,
-    payload: dict[str, Any],
-    request: Request,
-) -> dict[str, Any]:
-    validate_recording_id(recording_id)
-    _require_review(request, recording_id, review_id, proposal_revision_id)
-    if "draft_id" in payload and payload["draft_id"] != review_id:
-        raise ContractError(
-            "invalid_calibration_refinement", "draft_id must match review_id", status_code=422
-        )
-    try:
-        return _service(request).update(
-            recording_id, proposal_revision_id, {**payload, "draft_id": review_id}
-        )
     except CalibrationRefinementInputError as error:
         raise ContractError(
             "invalid_calibration_refinement", str(error), status_code=422

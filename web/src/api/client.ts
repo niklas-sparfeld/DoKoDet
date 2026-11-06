@@ -363,14 +363,12 @@ export interface DokoDetectorClient {
     recordingId: string,
     payload: { proposal_revision_id: string; draft_id?: string },
     init?: RequestInit,
-    reviewId?: string,
   ): Promise<CalibrationRefinementResponse>;
   getCalibrationRefinement(
     recordingId: string,
     proposalRevisionId: string,
     draftId?: string,
     init?: RequestInit,
-    reviewId?: string,
   ): Promise<CalibrationRefinementResponse>;
   updateCalibrationRefinement(
     recordingId: string,
@@ -381,7 +379,6 @@ export interface DokoDetectorClient {
       command: Record<string, unknown>;
     },
     init?: RequestInit,
-    reviewId?: string,
   ): Promise<CalibrationRefinementResponse>;
   discardCalibrationRefinement(
     recordingId: string,
@@ -676,12 +673,10 @@ export function createDokoDetectorClient(
         pipelineProposedCardSceneResultPath(recordingId, runId),
         init,
       ),
-    startCalibrationRefinement: (recordingId, payload, init, reviewId) =>
+    startCalibrationRefinement: (recordingId, payload, init) =>
       requestJson<CalibrationRefinementResponse>(
         fetchImplementation,
-        reviewId === undefined
-          ? pipelineCalibrationRefinementPath(recordingId)
-          : `${pipelineCalibrationRefinementPath(recordingId)}/reviews/${encodeURIComponent(reviewId)}`,
+        pipelineCalibrationRefinementPath(recordingId),
         {
           ...init,
           method: "POST",
@@ -694,17 +689,14 @@ export function createDokoDetectorClient(
       proposalRevisionId,
       draftId,
       init,
-      reviewId,
     ) =>
       requestJson<CalibrationRefinementResponse>(
         fetchImplementation,
-        reviewId === undefined
-          ? pipelineCalibrationRefinementReadPath(
-              recordingId,
-              proposalRevisionId,
-              draftId,
-            )
-          : `${pipelineCalibrationRefinementPath(recordingId)}/reviews/${encodeURIComponent(reviewId)}?proposal_revision_id=${encodeURIComponent(proposalRevisionId)}`,
+        pipelineCalibrationRefinementReadPath(
+          recordingId,
+          proposalRevisionId,
+          draftId,
+        ),
         init,
       ),
     updateCalibrationRefinement: (
@@ -712,16 +704,10 @@ export function createDokoDetectorClient(
       proposalRevisionId,
       payload,
       init,
-      reviewId,
     ) =>
       requestJson<CalibrationRefinementResponse>(
         fetchImplementation,
-        reviewId === undefined
-          ? pipelineCalibrationRefinementReadPath(
-              recordingId,
-              proposalRevisionId,
-            )
-          : `${pipelineCalibrationRefinementPath(recordingId)}/reviews/${encodeURIComponent(reviewId)}?proposal_revision_id=${encodeURIComponent(proposalRevisionId)}`,
+        pipelineCalibrationRefinementReadPath(recordingId, proposalRevisionId),
         {
           ...init,
           method: "PUT",
