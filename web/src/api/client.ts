@@ -16,6 +16,8 @@ export type RecordingDetail = JsonResponse<
   paths["/v1/recordings/{recording_id}"]["get"]["responses"][200]
 >;
 export type JobDetail = components["schemas"]["JobDetail"];
+export type JobListResponse = components["schemas"]["JobListResponse"];
+export type JobLogPage = components["schemas"]["JobLogPage"];
 export type EnqueueJobBody = components["schemas"]["EnqueueBody"];
 export type PipelineWorkspace = JsonResponse<
   paths["/api/recordings/{recording_id}/pipeline"]["get"]["responses"][200]
@@ -257,6 +259,17 @@ export class ApiError extends Error {
 }
 
 export interface DokoDetectorClient {
+  listJobs(options?: {
+    scope?: "active" | "history" | "all";
+    cursor?: string;
+    limit?: number;
+    signal?: AbortSignal;
+  }): Promise<JobListResponse>;
+  getJobLogs(
+    jobId: string,
+    options?: { after?: number; limit?: number; signal?: AbortSignal },
+  ): Promise<JobLogPage>;
+  cancelJob(jobId: string, init?: RequestInit): Promise<JobDetail>;
   enqueueJob(
     payload: EnqueueJobBody,
     idempotencyKey: string,
@@ -499,6 +512,45 @@ export function createDokoDetectorClient(
   fetchImplementation: typeof fetch = fetch,
 ): DokoDetectorClient {
   return {
+    listJobs: (options = {}) => {
+      const query = new URLSearchParams();
+      query.set("scope", options.scope ?? "active");
+      query.set(
+        "limit",
+        String(Math.min(100, Math.max(1, options.limit ?? 50))),
+      );
+      if (options.cursor) query.set("cursor", options.cursor);
+      return requestJson<JobListResponse>(
+        fetchImplementation,
+        `/api/jobs?${query}`,
+        { signal: options.signal },
+      );
+    },
+    getJobLogs: (jobId, options = {}) => {
+      const query = new URLSearchParams();
+      query.set(
+        "limit",
+        String(Math.min(500, Math.max(1, options.limit ?? 100))),
+      );
+      if (options.after !== undefined)
+        query.set("after", String(Math.max(0, options.after)));
+      return requestJson<JobLogPage>(
+        fetchImplementation,
+        `/api/jobs/${encodeURIComponent(jobId)}/logs?${query}`,
+        { signal: options.signal },
+      );
+    },
+    cancelJob: (jobId, init) =>
+      requestJson<JobDetail>(
+        fetchImplementation,
+        `/api/jobs/${encodeURIComponent(jobId)}/cancel`,
+        {
+          ...init,
+          method: "POST",
+          headers: jsonHeaders(init?.headers),
+          body: JSON.stringify({}),
+        },
+      ),
     enqueueJob: (payload, idempotencyKey, init) => {
       const headers = jsonHeaders(init?.headers);
       headers.set("Idempotency-Key", idempotencyKey);

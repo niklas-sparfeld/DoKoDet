@@ -170,6 +170,15 @@ describe("App", () => {
       analysis_blocker: "The pipeline is not ready.",
     };
     const fetchMock = vi.fn<typeof fetch>((input) => {
+      if (String(input).startsWith("/api/jobs?"))
+        return Promise.resolve(
+          response({
+            items: [],
+            next_cursor: null,
+            groups: [],
+            queue_revision: 0,
+          }),
+        );
       expect(String(input)).toBe("/v1/recordings");
       return Promise.resolve(response({ recordings: [recording] }));
     });
@@ -191,7 +200,11 @@ describe("App", () => {
         name: "Visible cards: No processor output",
       }),
     ).toHaveAttribute("data-state", "active");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(
+      fetchMock.mock.calls.filter(
+        ([input]) => String(input) === "/v1/recordings",
+      ),
+    ).toHaveLength(1);
   });
 
   it("shows processor output and run state for each pipeline stage", async () => {
@@ -277,9 +290,20 @@ describe("App", () => {
       can_start_analysis: false,
       analysis_blocker: "The pipeline is running.",
     };
+    let recordingReads = 0;
     const fetchMock = vi.fn<typeof fetch>((input) => {
+      if (String(input).startsWith("/api/jobs?"))
+        return Promise.resolve(
+          response({
+            items: [],
+            next_cursor: null,
+            groups: [],
+            queue_revision: 0,
+          }),
+        );
       expect(String(input)).toBe("/v1/recordings");
-      if (fetchMock.mock.calls.length === 1) {
+      recordingReads += 1;
+      if (recordingReads === 1) {
         return Promise.resolve(response({ recordings: [activeRecording] }));
       }
       return new Promise<Response>((resolve) => {
@@ -293,17 +317,17 @@ describe("App", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(recordingReads).toBe(1);
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(2000);
       });
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(recordingReads).toBe(2);
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10_000);
       });
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(recordingReads).toBe(2);
     } finally {
       const finishRefresh = resolveRefresh as
         ((value: Response) => void) | null;
@@ -316,6 +340,15 @@ describe("App", () => {
     window.history.pushState({}, "", `/recordings/${recordingId}`);
     const pipelinePaths: string[] = [];
     const fetchMock = vi.fn<typeof fetch>((input) => {
+      if (String(input).startsWith("/api/jobs?"))
+        return Promise.resolve(
+          response({
+            items: [],
+            next_cursor: null,
+            groups: [],
+            queue_revision: 0,
+          }),
+        );
       pipelinePaths.push(String(input));
       return Promise.resolve(response(workspace()));
     });

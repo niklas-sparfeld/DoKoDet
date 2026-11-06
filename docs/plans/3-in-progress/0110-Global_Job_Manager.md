@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M12 complete; M13–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M13 complete; M14–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -417,13 +417,15 @@ shared queue. Preview results are bound to a draft and evidence snapshot. Counte
 retain the exact correction request and immutable result. Cancellation stops before publication;
 in-process calculations finish their current calculation before they stop.
 
-### M13 — Add the shared browser job client and details — Not started
+### M13 — Add the shared browser job client and details — Complete
 
 Implement one app-level state/polling owner, reusable status/action components, and `/jobs/{id}`.
 Add bounded list/detail/log loading and validated exact-result navigation.
 
 Acceptance: multiple consumers share polling; late responses, disconnection, hidden-page return,
 history pagination, reload, and browser back/forward preserve correct job state and links.
+
+Result: [M13 browser job client and details](../../reports/0110-M13_Browser_Job_Client.md).
 
 ### M14 — Add the global Jobs drawer — Not started
 
@@ -453,6 +455,26 @@ Acceptance: relevant backend tests, web tests, lint/format/type checks, generate
 and focused browser checks pass. Demonstrate bounded MacBook resource use without cloud services,
 phones, full training, or sealed evaluation. Record any baseline failures separately. Close only
 when every in-scope producer and UI path uses the shared manager.
+
+## Execution handoff
+
+### Epic 0110 M13 — run count 1 of 4
+
+- Completed M13; 3 of 4 requested milestones remain for this run.
+- Added an app-level job state owner, bounded active and history list pages, job detail and log
+  loading, status and action components, and exact result links with path and identity validation.
+- Verification: web typecheck passed; focused ESLint passed; focused App, job client, result-link,
+  and API client tests passed (20 tests); generated API verification passed.
+- Repository-wide web checks remain blocked by existing unrelated issues: lint errors in
+  `CardEventFrameSurface.tsx`, seven Prettier files, and failures in video/frame cache tests. The
+  full suite was run before fixing the App test mocks; those App failures were fixed and the
+  focused App suite now passes. The remaining cache failures were not changed.
+- Decision: keep job list polling centralized in the app provider. Detail polling uses the shared
+  client and accepts a response only while its route is current. History pages use the API cursor.
+- Limits: no browser automation was run. Exact result links are limited to same-origin job result
+  paths and counterfactual paths whose analysis and result IDs match the job.
+- Evidence: [M13 browser client report](../../reports/0110-M13_Browser_Job_Client.md).
+- Next: M14, build the global Jobs drawer on this provider and shared components.
 
 ## Scope limits
 

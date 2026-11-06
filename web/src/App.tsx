@@ -3,9 +3,30 @@ import { useEffect, useState } from "react";
 import { RecordingDetailView, RecordingListView } from "./recordings";
 import { FrameReviewQueueView } from "./frameReview/FrameReviewQueueView";
 import { readRecordingPipelineRoute } from "./pipeline/recordingPipelineUrl";
+import { JobStateProvider } from "./jobs/JobState";
+import { JobDetailView } from "./jobs/JobDetailView";
+import { JobListView } from "./jobs/JobListView";
 
 export function App() {
+  return (
+    <JobStateProvider>
+      <AppRoutes />
+    </JobStateProvider>
+  );
+}
+
+function AppRoutes() {
   const location = useAppLocation();
+  const jobRoute = location.pathname.match(/^\/jobs\/([^/]+)\/?$/);
+  if (jobRoute)
+    return (
+      <JobDetailView
+        key={jobRoute[1]}
+        jobId={decodeURIComponent(jobRoute[1])}
+      />
+    );
+  if (location.pathname === "/jobs" || location.pathname === "/jobs/")
+    return <JobListView />;
   if (location.pathname === "/frame-reviews/0096-M4") {
     return <FrameReviewQueueView />;
   }
