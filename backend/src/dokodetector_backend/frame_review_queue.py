@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any, Mapping
 
 QUEUE_SCHEMA = "frame-review-queue/v1"
-RECEIPT_SCHEMA = "frame-review-receipt/v1"
+RECEIPT_SCHEMA = "frame-review-receipt/v2"
 
 
 class QueueContractError(ValueError):
@@ -47,7 +47,7 @@ class FrameReviewItem:
 
 @dataclass(frozen=True, slots=True)
 class FrameReviewReceipt:
-    """An explicit queue save marker that points to the maintained draft decisions."""
+    """An explicit queue save marker that points to one exact node review."""
 
     queue_id: str
     queue_digest: str
@@ -58,8 +58,9 @@ class FrameReviewReceipt:
     source_revision_sha256: str | None
     scene_run_id: str | None
     scene_revision_id: str | None
-    draft_revision: int
-    decision_item_ids: tuple[str, ...]
+    node_id: str
+    revision_id: str
+    review_id: str
     saved_at: str
 
 
@@ -155,22 +156,6 @@ def parse_review_receipt(raw: Mapping[str, Any]) -> FrameReviewReceipt:
     """Parse the minimal workflow receipt; it stores no review geometry or decisions."""
     if raw.get("schema_version") != RECEIPT_SCHEMA:
         raise QueueContractError("unsupported review receipt schema")
-    draft_revision = raw.get("draft_revision")
-    decision_ids = raw.get("decision_item_ids")
-    if (
-        not isinstance(draft_revision, int)
-        or isinstance(draft_revision, bool)
-        or draft_revision < 1
-    ):
-        raise QueueContractError("draft_revision must be a positive integer")
-    if (
-        not isinstance(decision_ids, list)
-        or not decision_ids
-        or not all(isinstance(item_id, str) and item_id for item_id in decision_ids)
-    ):
-        raise QueueContractError("decision_item_ids must identify saved draft decisions")
-    if len(set(decision_ids)) != len(decision_ids):
-        raise QueueContractError("decision_item_ids must be unique")
     return FrameReviewReceipt(
         queue_id=_text(raw, "queue_id"),
         queue_digest=_text(raw, "queue_digest"),
@@ -181,8 +166,9 @@ def parse_review_receipt(raw: Mapping[str, Any]) -> FrameReviewReceipt:
         source_revision_sha256=_text(raw, "source_revision_sha256", optional=True),
         scene_run_id=_text(raw, "scene_run_id", optional=True),
         scene_revision_id=_text(raw, "scene_revision_id", optional=True),
-        draft_revision=draft_revision,
-        decision_item_ids=tuple(decision_ids),
+        node_id=_text(raw, "node_id"),
+        revision_id=_text(raw, "revision_id"),
+        review_id=_text(raw, "review_id"),
         saved_at=_text(raw, "saved_at"),
     )
 
@@ -192,8 +178,7 @@ def review_state(
     *,
     deferred: bool = False,
     receipt: FrameReviewReceipt | None = None,
-    current_draft_revision: int | None = None,
-    current_decision_item_ids: set[str] | None = None,
+    review_applicable: bool = False,
 ) -> ReviewState:
     """Return workflow state without changing canonical review data."""
     if not item.eligible or not item.result_available:
@@ -210,12 +195,7 @@ def review_state(
             and receipt.scene_run_id == item.scene_run_id
             and receipt.scene_revision_id == item.scene_revision_id
         )
-        current = (
-            current_draft_revision == receipt.draft_revision
-            and current_decision_item_ids is not None
-            and set(receipt.decision_item_ids) <= current_decision_item_ids
-        )
-        if matches and current:
+        if matches and review_applicable:
             return ReviewState.SAVED
         return ReviewState.UNAVAILABLE
     return ReviewState.DEFERRED if deferred else ReviewState.PENDING

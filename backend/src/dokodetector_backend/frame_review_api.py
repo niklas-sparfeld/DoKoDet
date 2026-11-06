@@ -67,7 +67,9 @@ class FrameReviewPageResponse(ContractModel):
 class FrameReviewWorkflowRequest(ContractModel):
     queue_digest: str = Field(min_length=64, max_length=64)
     action: Literal["defer", "resume", "set_resume", "save_review"]
-    draft_revision: int | None = Field(default=None, ge=1)
+    node_id: str | None = None
+    revision_id: str | None = None
+    review_id: str | None = None
 
 
 class FrameReviewWorkflowResponse(ContractModel):
@@ -94,7 +96,7 @@ def _load_queue(request: Request) -> tuple[dict[str, Any], tuple[FrameReviewItem
         ) from error
 
 
-def _editor_target(request: Request, item: FrameReviewItem) -> FrameReviewTarget | None:
+def _source_node(request: Request, item: FrameReviewItem) -> dict[str, str] | None:
     if item.source_revision_id is None:
         return None
     writer = request.app.state.pipeline_lineage_writer
@@ -114,6 +116,13 @@ def _editor_target(request: Request, item: FrameReviewItem) -> FrameReviewTarget
             return None
     except (OSError, KeyError, TypeError, ValueError):
         return None
+    return target
+
+
+def _editor_target(request: Request, item: FrameReviewItem) -> FrameReviewTarget | None:
+    target = _source_node(request, item)
+    if target is None:
+        return None
     selection = {
         "schema_version": "pipeline-lineage-selection/v1",
         "selected": {"visible_cards": target},
@@ -128,6 +137,53 @@ def _editor_target(request: Request, item: FrameReviewItem) -> FrameReviewTarget
         scene_run_id=item.scene_run_id,
         scene_revision_id=item.scene_revision_id,
     )
+
+
+def _review_is_applicable(request: Request, item: FrameReviewItem, receipt: Any) -> bool:
+    """Check the saved review, its exact source lineage, and the current node head."""
+    source = _source_node(request, item)
+    if source is None:
+        return False
+    reviews = request.app.state.pipeline_node_reviews
+    store = reviews.store
+    try:
+        review = reviews.get(receipt.review_id)
+        node = store.get(receipt.node_id)
+        if (
+            node.content_type != "visible_cards"
+            or node.source.get("recording_id") != item.recording_id
+            or review.get("kind") != "item"
+            or review.get("node_id") != receipt.node_id
+            or review.get("revision_id") != receipt.revision_id
+            or review.get("item_id") != item.item_id
+            or review.get("decision") not in {"accepted", "rejected"}
+        ):
+            return False
+        current = store.read_revision(receipt.node_id, receipt.revision_id)
+        seen = set()
+        while (current.node_id, current.revision_id) not in seen:
+            pair = (current.node_id, current.revision_id)
+            if pair == (source["node_id"], source["revision_id"]):
+                return (
+                    reviews.applicability(
+                        receipt.review_id,
+                        receipt.node_id,
+                        node.head_revision_id,
+                        review["evidence"],
+                    )["status"]
+                    == "applicable"
+                )
+            seen.add(pair)
+            if current.parent_revision_id is not None:
+                current = store.read_revision(current.node_id, current.parent_revision_id)
+                continue
+            copied = current.metadata.get("copied_from")
+            if not isinstance(copied, dict):
+                return False
+            current = store.read_revision(copied["node_id"], copied["revision_id"])
+    except (OSError, KeyError, TypeError, ValueError):
+        return False
+    return False
 
 
 def _revision_problem(item: FrameReviewItem, result: Any) -> str | None:
@@ -158,7 +214,6 @@ def _project(
     item: FrameReviewItem,
     deferred_keys: set[str],
     by_id: dict[str, Any],
-    reference_cache: dict[str, Any],
 ) -> FrameReviewItemResponse:
     result = by_id.get(item.source_revision_id or "")
     unavailable_reason = _revision_problem(item, result)
@@ -174,17 +229,9 @@ def _project(
             receipt = parse_review_receipt(receipt_raw)
         except QueueContractError:
             unavailable_reason = (
-                "The saved-review receipt is invalid. Keep the maintained draft and "
-                "re-save this exact frame after checking its lineage."
+                "The saved-review receipt is invalid. Re-save this exact frame after "
+                "checking its lineage."
             )
-    if receipt is not None and item.recording_id not in reference_cache:
-        reference_cache[item.recording_id] = request.app.state.pipeline_reference_store.get(
-            item.recording_id, "visible_cards"
-        )
-    reference = reference_cache.get(item.recording_id)
-    current_decisions = (
-        {decision.item_id for decision in reference.draft.items} if reference is not None else None
-    )
     if unavailable_reason:
         state = ReviewState.UNAVAILABLE
     else:
@@ -192,13 +239,12 @@ def _project(
             item,
             deferred=item_key in deferred_keys,
             receipt=receipt,
-            current_draft_revision=(reference.draft.revision if reference is not None else None),
-            current_decision_item_ids=current_decisions,
+            review_applicable=receipt is not None and _review_is_applicable(request, item, receipt),
         )
         if state is ReviewState.UNAVAILABLE:
             unavailable_reason = (
-                "The saved-review receipt no longer matches the current result or "
-                "maintained draft. Inspect the draft before continuing."
+                "The saved review no longer applies to the current result. "
+                "Inspect its lineage before continuing."
             )
     return FrameReviewItemResponse(
         recording_id=item.recording_id,
@@ -232,8 +278,7 @@ def get_frame_review_queue(
         revision = store.get(revision_id, revision_cache=revision_cache)
         if revision is not None:
             by_id[revision_id] = revision
-    reference_cache: dict[str, Any] = {}
-    projected = [_project(request, item, deferred_keys, by_id, reference_cache) for item in items]
+    projected = [_project(request, item, deferred_keys, by_id) for item in items]
     counts_by_state = Counter(item.state for item in projected)
     counts_by_reason = Counter(reason for item in projected for reason in item.reasons)
     filtered = [item for item in projected if state is None or item.state == state]
@@ -288,66 +333,40 @@ def update_frame_review_workflow(
         queue_item = next(
             item for item in items if item.recording_id == recording_id and item.item_id == item_id
         )
-        if payload.draft_revision is None or queue_item.source_revision_id is None:
+        if not all(
+            (payload.node_id, payload.revision_id, payload.review_id, queue_item.source_revision_id)
+        ):
             raise HTTPException(
-                status_code=422, detail="A saved review needs an exact draft revision."
+                status_code=422,
+                detail="A saved review needs an exact node, revision, and review ID.",
             )
         revision = request.app.state.pipeline_revision_store.get(queue_item.source_revision_id)
         problem = _revision_problem(queue_item, revision)
         if problem is not None:
             raise HTTPException(status_code=409, detail=problem)
-        reference = request.app.state.pipeline_reference_store.get(recording_id, "visible_cards")
-        decided = next(
-            (draft_item for draft_item in reference.draft.items if draft_item.item_id == item_id),
-            None,
-        )
-        if (
-            reference.draft.revision != payload.draft_revision
-            or reference.draft.source_revision_id != queue_item.source_revision_id
-            or decided is None
-            or decided.review_state
-            not in {"accepted", "corrected", "rejected", "empty", "unusable"}
-        ):
+        raw_receipt = {
+            "schema_version": "frame-review-receipt/v2",
+            "queue_id": QUEUE_ID,
+            "queue_digest": digest,
+            "recording_id": recording_id,
+            "stage": queue_item.stage,
+            "item_id": item_id,
+            "source_revision_id": queue_item.source_revision_id,
+            "source_revision_sha256": queue_item.source_revision_sha256,
+            "scene_run_id": queue_item.scene_run_id,
+            "scene_revision_id": queue_item.scene_revision_id,
+            "node_id": payload.node_id,
+            "revision_id": payload.revision_id,
+            "review_id": payload.review_id,
+            "saved_at": datetime.now(timezone.utc).isoformat(),
+        }
+        receipt = parse_review_receipt(raw_receipt)
+        if not _review_is_applicable(request, queue_item, receipt):
             raise HTTPException(
                 status_code=409,
-                detail=(
-                    "The maintained draft does not contain a saved decision for "
-                    "this exact queue result."
-                ),
+                detail="The saved review does not apply to this exact queue result.",
             )
-        store.write_receipt(
-            QUEUE_ID,
-            item_key,
-            {
-                "schema_version": "frame-review-receipt/v1",
-                "queue_id": QUEUE_ID,
-                "queue_digest": digest,
-                "recording_id": recording_id,
-                "stage": queue_item.stage,
-                "item_id": item_id,
-                "source_revision_id": queue_item.source_revision_id,
-                "source_revision_sha256": queue_item.source_revision_sha256,
-                "scene_run_id": queue_item.scene_run_id,
-                "scene_revision_id": queue_item.scene_revision_id,
-                "draft_revision": reference.draft.revision,
-                "decision_item_ids": [item_id],
-                "saved_at": datetime.now(timezone.utc).isoformat(),
-            },
-        )
-        # Keep earlier saved decisions current as other frames in the same draft are saved.
-        current_decisions = {draft_item.item_id for draft_item in reference.draft.items}
-        for previous in items:
-            if previous.recording_id != recording_id or previous.item_id == item_id:
-                continue
-            previous_key = _item_key(recording_id, previous.item_id)
-            prior = store.read_receipt(QUEUE_ID, previous_key)
-            if prior is None or prior.get("source_revision_id") != previous.source_revision_id:
-                continue
-            decisions = prior.get("decision_item_ids")
-            if not isinstance(decisions, list) or not set(decisions) <= current_decisions:
-                continue
-            prior["draft_revision"] = reference.draft.revision
-            store.write_receipt(QUEUE_ID, previous_key, prior)
+        store.write_receipt(QUEUE_ID, item_key, raw_receipt)
         progress = store.read(QUEUE_ID, digest)
     else:
         progress = store.update(

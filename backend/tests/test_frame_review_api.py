@@ -100,113 +100,101 @@ def test_frame_review_api_returns_deterministic_counts_and_pages(tmp_path: Path)
     assert sum(item["state"] == "unavailable" for item in one.json()["items"]) == 7
 
 
-def test_save_review_receipt_requires_and_tracks_the_current_explicit_draft(
-    tmp_path: Path,
-) -> None:
+def test_save_review_receipt_requires_exact_applicable_node_review(tmp_path: Path) -> None:
+    from test_virtual_scene_data import FRAME, SOURCE
+
     app = create_test_app(_settings(tmp_path))
     with TestClient(app) as client:
-        page = client.get("/api/frame-reviews/0096-M4?limit=100").json()
+        page = client.get("/api/frame-reviews/0096-M4?limit=1").json()
         item = page["items"][0]
-        route = (
-            f"/api/frame-reviews/0096-M4/items/{item['recording_id']}/{item['item_id']}/workflow"
+        manifest = json.loads(
+            (REPOSITORY_ROOT / "docs/reports/0096-M4_Human_Review_Queue.json").read_text()
         )
-        manifest_path = REPOSITORY_ROOT / "docs/reports/0096-M4_Human_Review_Queue.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        raw_frame = next(
+        frame = next(
             frame
-            for recording in manifest["recordings"]
-            for frame in recording["review_frames"]
-            if recording["recording_id"] == item["recording_id"]
-            and frame["item_id"] == item["item_id"]
+            for row in manifest["recordings"]
+            for frame in row["review_frames"]
+            if row["recording_id"] == item["recording_id"] and frame["item_id"] == item["item_id"]
         )
-        item["editor_target"] = {"revision_id": raw_frame["m1_revision_id"]}
+        source_id = frame["m1_revision_id"]
         writer = app.state.pipeline_lineage_writer
-        writer.migrated_revisions[raw_frame["m1_revision_id"]] = {
-            "node_id": "fixture-node",
-            "revision_id": "fixture-revision",
+        source = {**SOURCE, "recording_id": item["recording_id"]}
+        content = {
+            "schema_version": "visible-card-data/v2",
+            "outcomes": [
+                {
+                    "event_id": item["item_id"],
+                    "frame_identity": FRAME,
+                    "status": "empty",
+                    "candidates": [],
+                    "ignored_regions": [],
+                    "pile_regions": [],
+                    "pile_detection_status": "unsupported",
+                    "error": None,
+                }
+            ],
         }
-        writer.node_store.get = lambda node_id: (
-            SimpleNamespace(
-                content_type="visible_cards", source={"recording_id": item["recording_id"]}
-            )
-            if node_id == "fixture-node"
-            else (_ for _ in ()).throw(FileNotFoundError())
+        node = writer.node_store.create(
+            "fixture-node",
+            "Detector",
+            "visible_cards",
+            source,
+            content,
+            {},
+            revision_id="fixture-revision",
         )
-        writer.node_store.has_revision = lambda node_id, revision_id: (
-            node_id == "fixture-node" and revision_id == "fixture-revision"
-        )
+        writer.migrated_revisions[source_id] = {
+            "node_id": "fixture-node",
+            "revision_id": node.revision_id,
+        }
         app.state.pipeline_revision_store.get = lambda revision_id, **_kwargs: (
             SimpleNamespace(
                 manifest=SimpleNamespace(
-                    revision_id=item["editor_target"]["revision_id"],
                     recording_id=item["recording_id"],
                     content_type="visible_cards",
-                    content_sha256=raw_frame["m1_revision_sha256"],
+                    content_sha256=frame["m1_revision_sha256"],
                 ),
                 content=SimpleNamespace(outcomes=[SimpleNamespace(event_id=item["item_id"])]),
             )
-            if revision_id == item["editor_target"]["revision_id"]
+            if revision_id == source_id
             else None
         )
-        app.state.pipeline_reference_store.get = lambda _recording, _stage: SimpleNamespace(
-            draft=SimpleNamespace(
-                revision=7,
-                source_revision_id=item["editor_target"]["revision_id"],
-                items=(SimpleNamespace(item_id=item["item_id"], review_state="accepted"),),
-            )
+        review = app.state.pipeline_node_reviews.item(
+            "review-1",
+            "fixture-node",
+            node.revision_id,
+            item["item_id"],
+            "visible_card_outcome",
+            "accepted",
+            {"kind": "human", "id": "reviewer"},
+            {"policy": "visible-card-review/v1", "frame": FRAME["image_sha256"]},
         )
-        stale = client.put(
-            route,
-            json={
-                "queue_digest": page["queue_digest"],
-                "action": "save_review",
-                "draft_revision": 6,
-            },
+        route = (
+            f"/api/frame-reviews/0096-M4/items/{item['recording_id']}/{item['item_id']}/workflow"
         )
-        assert stale.status_code == 409
-        assert (
-            app.state.frame_review_workflow_store.read_receipt(
-                "0096-M4", f'["{item["recording_id"]}","{item["item_id"]}"]'
-            )
-            is None
-        )
-
-        valid_get = app.state.pipeline_revision_store.get
-        app.state.pipeline_revision_store.get = lambda _revision_id, **_kwargs: None
-        invalid = client.put(
-            route,
-            json={
-                "queue_digest": page["queue_digest"],
-                "action": "save_review",
-                "draft_revision": 7,
-            },
-        )
-        assert invalid.status_code == 409
-        assert (
-            app.state.frame_review_workflow_store.read_receipt(
-                "0096-M4", f'["{item["recording_id"]}","{item["item_id"]}"]'
-            )
-            is None
-        )
-        app.state.pipeline_revision_store.get = valid_get
-
-        saved = client.put(
-            route,
-            json={
-                "queue_digest": page["queue_digest"],
-                "action": "save_review",
-                "draft_revision": 7,
-            },
-        )
-        assert saved.status_code == 200
-        refreshed = client.get("/api/frame-reviews/0096-M4?limit=100").json()
-        saved_item = next(
-            candidate
-            for candidate in refreshed["items"]
-            if candidate["recording_id"] == item["recording_id"]
-            and candidate["item_id"] == item["item_id"]
-        )
-        assert saved_item["state"] == "saved_review"
+        payload = {
+            "queue_digest": page["queue_digest"],
+            "action": "save_review",
+            "node_id": "fixture-node",
+            "revision_id": node.revision_id,
+            "review_id": review["review_id"],
+        }
+        assert client.put(route, json={**payload, "review_id": "missing"}).status_code == 409
+        assert client.put(route, json=payload).status_code == 200
+        saved = client.get("/api/frame-reviews/0096-M4?limit=1").json()["items"][0]
+        assert saved["state"] == "saved_review"
+        changed = {
+            **content,
+            "outcomes": [
+                {
+                    **content["outcomes"][0],
+                    "frame_identity": {**FRAME, "requested_time_us": 2_000_000},
+                }
+            ],
+        }
+        writer.node_store.save("fixture-node", node.revision_id, changed, {})
+        stale = client.get("/api/frame-reviews/0096-M4?limit=1").json()["items"][0]
+        assert stale["state"] == "unavailable"
 
 
 def test_queue_rejects_a_revision_without_the_pinned_frame(tmp_path: Path) -> None:

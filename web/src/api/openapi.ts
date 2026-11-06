@@ -2078,10 +2078,14 @@ export interface components {
              * @enum {string}
              */
             action: "defer" | "resume" | "set_resume" | "save_review";
-            /** Draft Revision */
-            draft_revision?: number | null;
+            /** Node Id */
+            node_id?: string | null;
             /** Queue Digest */
             queue_digest: string;
+            /** Review Id */
+            review_id?: string | null;
+            /** Revision Id */
+            revision_id?: string | null;
         };
         /** FrameReviewWorkflowResponse */
         FrameReviewWorkflowResponse: {

@@ -55,6 +55,17 @@ def test_review_coverage_and_overall_are_independent(tmp_path: Path) -> None:
     assert store.get("n").head_revision_id == rev.revision_id
 
 
+def test_review_unedited_processor_content_by_exact_item_id(tmp_path: Path) -> None:
+    store = PipelineNodeStore(tmp_path)
+    rev = store.create("n", "Events", "events", SOURCE, content(200), {})
+    reviews = PipelineNodeReviews(store)
+    record = reviews.item(
+        "review", "n", rev.revision_id, "e", "correct?", "accepted", HUMAN, EVIDENCE
+    )
+    assert record["item_id"] == "e"
+    assert reviews.applicability("review", "n", rev.revision_id, EVIDENCE)["status"] == "applicable"
+
+
 def test_latest_review_precedes_older_decision(tmp_path: Path, monkeypatch) -> None:
     store = PipelineNodeStore(tmp_path)
     rev = ItemProvenanceService(store).create(

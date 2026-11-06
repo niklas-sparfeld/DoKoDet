@@ -186,6 +186,8 @@ describe("PipelineNodeVisibleCardEditor", () => {
 
   it("records item acceptance against the selected exact revision", async () => {
     const fetchMock = vi.mocked(fetch);
+    const onReview = vi.fn();
+    window.addEventListener("frame-review-node-reviewed", onReview);
     fetchMock
       .mockResolvedValueOnce(jsonResponse(revision))
       .mockResolvedValueOnce(jsonResponse([]))
@@ -215,6 +217,14 @@ describe("PipelineNodeVisibleCardEditor", () => {
       item_id: "event-1",
       decision: "accepted",
     });
+    await waitFor(() => expect(onReview).toHaveBeenCalledOnce());
+    expect((onReview.mock.calls[0][0] as CustomEvent).detail).toMatchObject({
+      itemId: "event-1",
+      nodeId: "visible-cards",
+      revisionId: "r1",
+      reviewId: "visible-cards-accept-stable-key",
+    });
+    window.removeEventListener("frame-review-node-reviewed", onReview);
   });
 
   it("requires each outcome to be marked inspected before recording full coverage", async () => {

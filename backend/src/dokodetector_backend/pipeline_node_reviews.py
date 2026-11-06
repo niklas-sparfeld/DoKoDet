@@ -234,6 +234,30 @@ class PipelineNodeReviews:
     @staticmethod
     def _revision_items(revision: NodeRevision) -> dict[str, Any]:
         provenance = revision.metadata.get("item_provenance")
+        if provenance is None:
+            item_shapes = {
+                "event-data/v1": ("events", "event_id"),
+                "visible-card-data/v1": ("outcomes", "event_id"),
+                "visible-card-data/v2": ("outcomes", "event_id"),
+                "visual-identity-data/v2": ("outcomes", "card_id"),
+                "virtual-scene-data/v1": ("frames", "frame_id"),
+            }
+            shape = item_shapes.get(revision.content.get("schema_version"))
+            if shape is None:
+                raise ValueError("revision has no item provenance")
+            key, id_key = shape
+            values = revision.content.get(key)
+            if not isinstance(values, list):
+                raise ValueError("revision item collection is invalid")
+            pointers = {}
+            for index, value in enumerate(values):
+                if not isinstance(value, dict) or not isinstance(value.get(id_key), str):
+                    raise ValueError("revision item identity is invalid")
+                item_id = value[id_key]
+                if item_id in pointers:
+                    raise ValueError("revision item identities are not unique")
+                pointers[item_id] = f"/{key}/{index}"
+            return _items(revision.content, pointers)
         if not isinstance(provenance, dict) or not isinstance(provenance.get("items"), dict):
             raise ValueError("revision has no item provenance")
         items = provenance["items"]

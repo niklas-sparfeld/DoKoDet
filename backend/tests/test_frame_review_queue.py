@@ -30,7 +30,7 @@ def _digest(queue: dict) -> None:
 
 def _receipt(item) -> dict:
     return {
-        "schema_version": "frame-review-receipt/v1",
+        "schema_version": "frame-review-receipt/v2",
         "queue_id": item.queue_id,
         "queue_digest": item.queue_digest,
         "recording_id": item.recording_id,
@@ -40,8 +40,9 @@ def _receipt(item) -> dict:
         "source_revision_sha256": item.source_revision_sha256,
         "scene_run_id": item.scene_run_id,
         "scene_revision_id": item.scene_revision_id,
-        "draft_revision": 2,
-        "decision_item_ids": ["card-1"],
+        "node_id": "node-1",
+        "revision_id": "revision-1",
+        "review_id": "review-1",
         "saved_at": "2026-10-17T12:00:00Z",
     }
 
@@ -97,15 +98,14 @@ def test_progress_distinguishes_comparison_reference_from_saved_proposal_review(
     assert review_state(item_with_comparison) is ReviewState.PENDING
 
 
-def test_matching_receipt_requires_current_draft_and_exact_result_lineage() -> None:
+def test_matching_receipt_requires_applicable_review_and_exact_result_lineage() -> None:
     item = parse_frozen_queue(_queue())[0]
     receipt = parse_review_receipt(_receipt(item))
     assert (
         review_state(
             item,
             receipt=receipt,
-            current_draft_revision=2,
-            current_decision_item_ids={"card-1"},
+            review_applicable=True,
         )
         is ReviewState.SAVED
     )
@@ -113,8 +113,7 @@ def test_matching_receipt_requires_current_draft_and_exact_result_lineage() -> N
         review_state(
             item,
             receipt=receipt,
-            current_draft_revision=3,
-            current_decision_item_ids={"card-1"},
+            review_applicable=False,
         )
         is ReviewState.UNAVAILABLE
     )
@@ -125,8 +124,7 @@ def test_matching_receipt_requires_current_draft_and_exact_result_lineage() -> N
         review_state(
             item,
             receipt=parse_review_receipt(stale),
-            current_draft_revision=2,
-            current_decision_item_ids={"card-1"},
+            review_applicable=True,
         )
         is ReviewState.UNAVAILABLE
     )
@@ -137,8 +135,7 @@ def test_matching_receipt_requires_current_draft_and_exact_result_lineage() -> N
         review_state(
             item,
             receipt=parse_review_receipt(unrelated),
-            current_draft_revision=2,
-            current_decision_item_ids={"card-1"},
+            review_applicable=True,
         )
         is ReviewState.UNAVAILABLE
     )
@@ -157,6 +154,6 @@ def test_missing_result_is_unavailable_and_does_not_become_deferred() -> None:
 def test_receipt_needs_explicit_persisted_decision_links() -> None:
     item = parse_frozen_queue(_queue())[0]
     receipt = _receipt(item)
-    receipt["decision_item_ids"] = []
-    with pytest.raises(QueueContractError, match="decision_item_ids"):
+    receipt["review_id"] = ""
+    with pytest.raises(QueueContractError, match="review_id"):
         parse_review_receipt(receipt)

@@ -227,15 +227,17 @@ export function RecordingPipelineWorkspace({
       const detail = (
         event as CustomEvent<{
           itemId: string;
-          draftRevision: number;
-          reviewState: string;
+          nodeId: string;
+          revisionId: string;
+          reviewId: string;
         }>
       ).detail;
       if (
         detail === undefined ||
-        !["accepted", "corrected", "rejected", "empty", "unusable"].includes(
-          detail.reviewState,
-        )
+        !detail.itemId ||
+        !detail.nodeId ||
+        !detail.revisionId ||
+        !detail.reviewId
       )
         return;
       void (async () => {
@@ -244,7 +246,9 @@ export function RecordingPipelineWorkspace({
           await client.updateFrameReviewWorkflow(recordingId, detail.itemId, {
             queue_digest: page.queue_digest,
             action: "save_review",
-            draft_revision: detail.draftRevision,
+            node_id: detail.nodeId,
+            revision_id: detail.revisionId,
+            review_id: detail.reviewId,
           });
           await loadWorkspace();
           window.dispatchEvent(new Event("frame-review-progress-updated"));
@@ -257,9 +261,9 @@ export function RecordingPipelineWorkspace({
         }
       })();
     };
-    window.addEventListener("frame-review-draft-saved", saveReview);
+    window.addEventListener("frame-review-node-reviewed", saveReview);
     return () =>
-      window.removeEventListener("frame-review-draft-saved", saveReview);
+      window.removeEventListener("frame-review-node-reviewed", saveReview);
   }, [client, loadWorkspace, recordingId, stageKey, urlState.frameReviewQueue]);
 
   useEffect(() => {

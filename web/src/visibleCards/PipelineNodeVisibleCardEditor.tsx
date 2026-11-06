@@ -310,6 +310,16 @@ export function PipelineNodeVisibleCardEditor({
         });
         setReviews((current) => [...current, review]);
         setMessage(`Outcome ${kind} decision was saved for this revision.`);
+        window.dispatchEvent(
+          new CustomEvent("frame-review-node-reviewed", {
+            detail: {
+              itemId: selected.event_id,
+              nodeId,
+              revisionId: revision.revision_id,
+              reviewId,
+            },
+          }),
+        );
       }
       setError(null);
     } catch (reason) {
