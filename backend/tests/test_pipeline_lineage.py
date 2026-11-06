@@ -268,17 +268,29 @@ def test_revision_and_restore_edges_and_analysis_context(tmp_path: Path):
         )
 
 
-def test_recording_snapshot_excludes_nodes_from_other_recordings(tmp_path: Path):
+def test_recording_snapshot_excludes_nodes_from_other_recordings(tmp_path: Path, monkeypatch):
     store = PipelineNodeStore(tmp_path)
     node(store, "recording-01-events", "events", event(1))
     other_source = {**SOURCE, "recording_id": "recording-02"}
     store.create("recording-02-events", "other", "events", other_source, event(2), {})
 
-    graph = PipelineLineage(store).snapshot("recording-01")
+    lineage = PipelineLineage(store)
+    expected = lineage._recording_snapshot(lineage.snapshot(), "recording-01")
+    original_history = store.history
+    visited = []
+
+    def history(node_id):
+        visited.append(node_id)
+        return original_history(node_id)
+
+    monkeypatch.setattr(store, "history", history)
+    graph = lineage.snapshot("recording-01")
 
     assert [item["node_id"] for item in graph["nodes"]] == ["recording-01-events"]
     assert len(graph["revisions"]) == 1
     assert graph["runs"] == []
+    assert graph == expected
+    assert "recording-02-events" not in visited
 
 
 def test_recording_snapshot_retains_all_inputs_of_a_multi_input_run(tmp_path: Path):
@@ -304,3 +316,4 @@ def test_recording_snapshot_retains_all_inputs_of_a_multi_input_run(tmp_path: Pa
     assert {item["node_id"] for item in graph["nodes"]} == {"first", "second", "output"}
     assert [edge["kind"] for edge in graph["edges"]].count("used") == 2
     assert [edge["kind"] for edge in graph["edges"]].count("produced") == 1
+    assert graph == lineage._recording_snapshot(lineage.snapshot(), "recording-01")

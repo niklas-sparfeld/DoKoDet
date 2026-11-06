@@ -200,7 +200,7 @@ def test_processor_lineage_reuses_imported_revision_nodes(tmp_path: Path) -> Non
         node_store, PipelineLineage(node_store), PipelineNodeUses(node_store), revisions
     )
 
-    assert writer._ensure_revision_node(revisions.require(revision.manifest.revision_id)) == (
+    assert writer.ensure_revision_node(revisions.require(revision.manifest.revision_id)) == (
         "migrated-events-node",
         "migrated-events-revision",
     )

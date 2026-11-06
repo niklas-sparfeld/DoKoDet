@@ -261,7 +261,7 @@ class PipelineLineage:
     def snapshot(self, recording_id: str | None = None) -> dict[str, Any]:
         """Return exact lineage, optionally limited to one recording."""
         with _process_lock(self.store.root / ".transactions.lock", self.store._lock):
-            result = self._snapshot()
+            result = self._snapshot(recording_id=recording_id)
         return result if recording_id is None else self._recording_snapshot(result, recording_id)
 
     @staticmethod
@@ -319,10 +319,14 @@ class PipelineLineage:
             "edges": edges,
         }
 
-    def _snapshot(self, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _snapshot(
+        self, extra: dict[str, Any] | None = None, *, recording_id: str | None = None
+    ) -> dict[str, Any]:
         nodes, revisions, edges = [], [], []
         known: set[tuple[str, ...]] = set()
         for node in self.store.list_nodes():
+            if recording_id is not None and node.source.get("recording_id") != recording_id:
+                continue
             nodes.append(
                 {
                     "node_id": node.node_id,
@@ -441,6 +445,20 @@ class PipelineLineage:
                             "failure": None,
                         }
                     )
+        if recording_id is not None:
+            selected_nodes = {node["node_id"] for node in nodes}
+            records = [
+                record
+                for record in records
+                if (
+                    isinstance(record.get("context"), Mapping)
+                    and record["context"].get("recording_id") == recording_id
+                )
+                or any(
+                    ref.get("kind") == "revision" and ref.get("node_id") in selected_nodes
+                    for ref in record["inputs"] + record["outputs"]
+                )
+            ]
         records.sort(key=lambda x: x["run_id"])
         producers = set()
         artifacts: dict[tuple[str, ...], dict[str, str]] = {}
@@ -453,7 +471,11 @@ class PipelineLineage:
                     ref = _reference(raw)
                     ref_key = _key(ref)
                     if ref["kind"] == "revision" and ref_key not in known:
-                        raise ValueError("lineage references a missing revision")
+                        if recording_id is None or not self.store.has_revision(
+                            ref["node_id"], ref["revision_id"]
+                        ):
+                            raise ValueError("lineage references a missing revision")
+                        known.add(ref_key)
                     if ref["kind"] == "artifact":
                         artifacts[ref_key] = {
                             "artifact_id": ref["artifact_id"],
@@ -476,7 +498,10 @@ class PipelineLineage:
                 edge["kind"] in {"revised", "copied", "restored"}
                 and tuple(edge["from"]) not in known
             ):
-                raise ValueError("lineage references a missing revision")
+                ref = edge["from"]
+                if recording_id is None or not self.store.has_revision(ref[1], ref[2]):
+                    raise ValueError("lineage references a missing revision")
+                known.add(tuple(ref))
         _acyclic([(tuple(edge["from"]), tuple(edge["to"])) for edge in edges])
         nodes.sort(key=lambda n: n["node_id"])
         revisions.sort(key=lambda r: (r["node_id"], r["revision_id"]))
