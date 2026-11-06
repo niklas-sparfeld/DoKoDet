@@ -14,13 +14,8 @@ import {
   pipelineProposedCardSceneRunPath,
   pipelineProposedCardSceneRunRetryPath,
   pipelineProposedCardSceneRunsPath,
-  pipelineReferenceCompletionPath,
-  pipelineReferenceDraftPath,
-  pipelineReferencePath,
   pipelineVisibleCardResultPath,
   pipelineVisualIdentityResultPath,
-  pipelineVisualIdentityAutoApprovalPath,
-  pipelineVisualIdentityAutoApprovalPlanPath,
   recordingAnalysisPath,
   recordingDetailPath,
   recordingPipelineSelectionPath,
@@ -118,62 +113,6 @@ describe("DokoDetector API client", () => {
     );
   });
 
-  it("uses review-scoped routes for independent visible-card drafts", async () => {
-    const fetchImplementation = vi.fn<typeof fetch>(() =>
-      Promise.resolve(
-        jsonResponse({ recording_id: "recording/1", reviews: [] }),
-      ),
-    );
-    const client = createDokoDetectorClient(fetchImplementation);
-    await client.listVisibleCardReviews("recording/1");
-    await client.getVisibleCardReview("recording/1", "review/1");
-    await client.createVisibleCardReview("recording/1", {
-      operator_id: "operator-1",
-      seed: "selected_generated",
-      source_revision_id: "revision-1",
-      idempotency_key: "retry-1",
-    });
-    await client.updateVisibleCardReviewDraft("recording/1", "review/1", {
-      expected_revision: 0,
-      operator_id: "operator-1",
-      command_id: "command-1",
-      operations: [],
-    });
-
-    expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
-      "/api/recordings/recording%2F1/pipeline/visible-card-reviews",
-      "/api/recordings/recording%2F1/pipeline/visible-card-reviews/review%2F1",
-      "/api/recordings/recording%2F1/pipeline/visible-card-reviews",
-      "/api/recordings/recording%2F1/pipeline/visible-card-reviews/review%2F1/draft",
-    ]);
-    expect(fetchImplementation.mock.calls[2]?.[1]?.method).toBe("POST");
-    expect(fetchImplementation.mock.calls[3]?.[1]?.method).toBe("PUT");
-    expect(fetchImplementation.mock.calls[3]?.[1]?.body).toContain("command-1");
-  });
-
-  it("plans and applies guarded visual identity auto-approval", async () => {
-    const fetchImplementation = vi.fn<typeof fetch>(() =>
-      Promise.resolve(jsonResponse({})),
-    );
-    const client = createDokoDetectorClient(fetchImplementation);
-
-    await client.planVisualIdentityAutoApproval("recording/1");
-    await client.applyVisualIdentityAutoApproval("recording/1", {
-      expected_revision: 4,
-      operator_id: "operator-1",
-      command_id: "command-1",
-    });
-
-    expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
-      pipelineVisualIdentityAutoApprovalPlanPath("recording/1"),
-      pipelineVisualIdentityAutoApprovalPath("recording/1"),
-    ]);
-    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
-    expect(fetchImplementation.mock.calls[1]?.[1]?.body).toContain(
-      "expected_revision",
-    );
-  });
-
   it("runs observation assembly and explicit round analysis", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse({})),
@@ -249,27 +188,6 @@ describe("DokoDetector API client", () => {
       selected_generated_revision_id: "events-2",
     });
     await client.comparePipelineRuns("recording/1", comparison);
-    await client.getPipelineReference("recording/1", "events");
-    await client.createPipelineReference("recording/1", "events", {
-      operator_id: "operator-1",
-      seed: "selected_generated",
-      source_revision_id: "events-1",
-    });
-    await client.updatePipelineReferenceDraft("recording/1", "events", {
-      expected_revision: 2,
-      operator_id: "operator-1",
-      command_id: "command-1",
-      operations: [{ operation: "accept", item_id: "item-1" }],
-    });
-    await client.completePipelineReference("recording/1", "events", {
-      expected_revision: 3,
-      operator_id: "reviewer-1",
-      coverage: {
-        kind: "full_recording",
-        intervals: [{ start_us: 0, end_us: 5_000_000 }],
-      },
-    });
-
     expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
       recordingPipelineWorkspacePath("recording/1"),
     );
@@ -281,15 +199,6 @@ describe("DokoDetector API client", () => {
     );
     expect(fetchImplementation.mock.calls[2]?.[0]).toBe(
       pipelineComparisonPath("recording/1"),
-    );
-    expect(fetchImplementation.mock.calls[3]?.[0]).toBe(
-      pipelineReferencePath("recording/1", "events"),
-    );
-    expect(fetchImplementation.mock.calls[5]?.[0]).toBe(
-      pipelineReferenceDraftPath("recording/1", "events"),
-    );
-    expect(fetchImplementation.mock.calls[6]?.[0]).toBe(
-      pipelineReferenceCompletionPath("recording/1", "events"),
     );
   });
 

@@ -206,119 +206,6 @@ export type PipelineReferenceResource = {
     proposal_revision_id?: string | null;
   };
 };
-export type PipelineReferenceCreateRequest = {
-  operator_id: string;
-  seed?: "selected_generated" | "selected_completed" | "empty" | "proposal";
-  source_revision_id?: string;
-  proposal_revision_id?: string;
-  annotation_source?: {
-    visible_card_revision_id: string;
-    visible_card_revision_digest: string;
-  };
-};
-export type PipelineReferenceOperation = {
-  operation:
-    | "accept"
-    | "reject"
-    | "accept_card"
-    | "reject_card"
-    | "add"
-    | "correct"
-    | "decide"
-    | "rebase"
-    | "rebase_annotation_source"
-    | "set_frame_review"
-    | "accept_frame_suggestions"
-    | "set_frame_pending"
-    | "set_frame_unreviewed"
-    | "restore_frame_suggestions"
-    | "set_frame_empty"
-    | "set_frame_unusable"
-    | "create_ignore_region"
-    | "replace_ignore_region"
-    | "delete_ignore_region"
-    | "convert_to_ignore_region"
-    | "create_pile_region"
-    | "replace_pile_region"
-    | "delete_pile_region"
-    | "group_cards_into_pile"
-    | "convert_ignore_region_to_pile"
-    | "accept_identity_suggestion"
-    | "set_identity_unreviewed"
-    | "set_identity_face_down"
-    | "select_identity"
-    | "set_identity_unusable"
-    | "report_identity_source_problem";
-  item_id?: string;
-  item?: Record<string, unknown>;
-  decision?: string;
-  identity?: string;
-  source_revision_id?: string;
-  annotation_source?: {
-    visible_card_revision_id: string;
-    visible_card_revision_digest: string;
-  };
-  proposal_revision_id?: string;
-  region_id?: string;
-  pile_id?: string;
-  region?: Record<string, unknown>;
-  candidate_ids?: string[];
-  card_id?: string;
-};
-export type PipelineReferenceDraftUpdateRequest = {
-  expected_revision: number;
-  operator_id: string;
-  command_id?: string;
-  operations: PipelineReferenceOperation[];
-};
-export type VisibleCardReviewSummary = {
-  review_id: string;
-  recording_id: string;
-  status: "draft" | "completed";
-  source: string;
-  lineage: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-  draft_revision: number;
-  legacy: boolean;
-};
-export type VisibleCardReviewDetail = VisibleCardReviewSummary & {
-  state: PipelineReferenceResource["state"];
-  draft: PipelineReferenceResource["draft"];
-};
-export type PipelineReferenceCompletionRequest = {
-  expected_revision: number;
-  operator_id: string;
-  coverage:
-    | {
-        kind: "full_recording";
-        intervals: Array<{ start_us: number; end_us: number }>;
-      }
-    | {
-        kind: "visible_frames";
-        frames: Array<{
-          item_id?: string;
-          frame_identity: Record<string, unknown> | null;
-          decision:
-            | "cards"
-            | "ignored"
-            | "cards_and_ignored"
-            | "piles"
-            | "cards_and_piles"
-            | "piles_and_ignored"
-            | "cards_piles_and_ignored"
-            | "empty"
-            | "unusable";
-        }>;
-      }
-    | {
-        kind: "visual_identities";
-        cards: Array<{
-          card_id: string;
-          decision: "identity" | "face_down" | "unusable" | "source_problem";
-        }>;
-      };
-};
 export type PipelineEventResult = {
   run_id: string;
   recording_id: string;
@@ -341,14 +228,6 @@ export type PipelineVisibleCardResult = JsonResponse<
 export type PipelineVisualIdentityResult = JsonResponse<
   paths["/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}/result"]["get"]["responses"][200]
 >;
-export type VisualIdentityAutoApprovalPlan = JsonResponse<
-  paths["/api/recordings/{recording_id}/pipeline/visual-identities/auto-approval-plan"]["post"]["responses"][202]
->;
-export type VisualIdentityAutoApprovalReceipt = JsonResponse<
-  paths["/api/recordings/{recording_id}/pipeline/visual-identities/auto-approval"]["post"]["responses"][200]
->;
-export type VisualIdentityAutoApprovalApplyRequest =
-  components["schemas"]["AutoApprovalApplyRequest"];
 export type RecordingSummary = RecordingListResponse["recordings"][number];
 export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
 export type RoundAnalysisTimeline = JsonResponse<
@@ -371,8 +250,6 @@ export class ApiError extends Error {
     this.body = body;
   }
 }
-
-const PIPELINE_REFERENCE_DRAFT_UPDATE_TIMEOUT_MS = 60_000;
 
 export interface DokoDetectorClient {
   enqueueJob(
@@ -584,64 +461,6 @@ export interface DokoDetectorClient {
     runId: string,
     init?: RequestInit,
   ): Promise<PipelineVisualIdentityResult>;
-  planVisualIdentityAutoApproval(
-    recordingId: string,
-    init?: RequestInit,
-  ): Promise<VisualIdentityAutoApprovalPlan>;
-  applyVisualIdentityAutoApproval(
-    recordingId: string,
-    payload: VisualIdentityAutoApprovalApplyRequest,
-    init?: RequestInit,
-  ): Promise<VisualIdentityAutoApprovalReceipt>;
-  getPipelineReference(
-    recordingId: string,
-    contentType: PipelineSelectableContentType,
-    init?: RequestInit,
-  ): Promise<PipelineReferenceResource>;
-  listVisibleCardReviews(
-    recordingId: string,
-    init?: RequestInit,
-  ): Promise<{ recording_id: string; reviews: VisibleCardReviewSummary[] }>;
-  getVisibleCardReview(
-    recordingId: string,
-    reviewId: string,
-    init?: RequestInit,
-  ): Promise<VisibleCardReviewDetail>;
-  createVisibleCardReview(
-    recordingId: string,
-    payload: PipelineReferenceCreateRequest & { idempotency_key: string },
-    init?: RequestInit,
-  ): Promise<VisibleCardReviewDetail>;
-  updateVisibleCardReviewDraft(
-    recordingId: string,
-    reviewId: string,
-    payload: PipelineReferenceDraftUpdateRequest,
-    init?: RequestInit,
-  ): Promise<VisibleCardReviewDetail>;
-  completeVisibleCardReview(
-    recordingId: string,
-    reviewId: string,
-    payload: PipelineReferenceCompletionRequest,
-    init?: RequestInit,
-  ): Promise<VisibleCardReviewDetail>;
-  createPipelineReference(
-    recordingId: string,
-    contentType: PipelineSelectableContentType,
-    payload: PipelineReferenceCreateRequest,
-    init?: RequestInit,
-  ): Promise<PipelineReferenceResource>;
-  updatePipelineReferenceDraft(
-    recordingId: string,
-    contentType: PipelineSelectableContentType,
-    payload: PipelineReferenceDraftUpdateRequest,
-    init?: RequestInit,
-  ): Promise<PipelineReferenceResource>;
-  completePipelineReference(
-    recordingId: string,
-    contentType: PipelineSelectableContentType,
-    payload: PipelineReferenceCompletionRequest,
-    init?: RequestInit,
-  ): Promise<PipelineReferenceResource>;
   startRecordingAnalysis(
     recordingId: string,
     init?: RequestInit,
@@ -1085,104 +904,6 @@ export function createDokoDetectorClient(
         pipelineVisualIdentityResultPath(recordingId, runId),
         init,
       ),
-    planVisualIdentityAutoApproval: (recordingId, init) =>
-      requestJson<VisualIdentityAutoApprovalPlan>(
-        fetchImplementation,
-        pipelineVisualIdentityAutoApprovalPlanPath(recordingId),
-        { ...init, method: "POST" },
-      ),
-    applyVisualIdentityAutoApproval: (recordingId, payload, init) =>
-      requestJson<VisualIdentityAutoApprovalReceipt>(
-        fetchImplementation,
-        pipelineVisualIdentityAutoApprovalPath(recordingId),
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
-    getPipelineReference: (recordingId, contentType, init) =>
-      requestJson<PipelineReferenceResource>(
-        fetchImplementation,
-        pipelineReferencePath(recordingId, contentType),
-        init,
-      ),
-    listVisibleCardReviews: (recordingId, init) =>
-      requestJson(
-        fetchImplementation,
-        visibleCardReviewsPath(recordingId),
-        init,
-      ),
-    getVisibleCardReview: (recordingId, reviewId, init) =>
-      requestJson(
-        fetchImplementation,
-        visibleCardReviewPath(recordingId, reviewId),
-        init,
-      ),
-    createVisibleCardReview: (recordingId, payload, init) =>
-      requestJson(fetchImplementation, visibleCardReviewsPath(recordingId), {
-        ...init,
-        method: "POST",
-        headers: jsonHeaders(init?.headers),
-        body: JSON.stringify(payload),
-      }),
-    updateVisibleCardReviewDraft: (recordingId, reviewId, payload, init) =>
-      requestJson(
-        fetchImplementation,
-        `${visibleCardReviewPath(recordingId, reviewId)}/draft`,
-        {
-          ...init,
-          method: "PUT",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
-    completeVisibleCardReview: (recordingId, reviewId, payload, init) =>
-      requestJson(
-        fetchImplementation,
-        `${visibleCardReviewPath(recordingId, reviewId)}/complete`,
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
-    createPipelineReference: (recordingId, contentType, payload, init) =>
-      requestJson<PipelineReferenceResource>(
-        fetchImplementation,
-        pipelineReferencePath(recordingId, contentType),
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
-    updatePipelineReferenceDraft: (recordingId, contentType, payload, init) =>
-      requestJson<PipelineReferenceResource>(
-        fetchImplementation,
-        pipelineReferenceDraftPath(recordingId, contentType),
-        {
-          ...init,
-          method: "PUT",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-        PIPELINE_REFERENCE_DRAFT_UPDATE_TIMEOUT_MS,
-      ),
-    completePipelineReference: (recordingId, contentType, payload, init) =>
-      requestJson<PipelineReferenceResource>(
-        fetchImplementation,
-        pipelineReferenceCompletionPath(recordingId, contentType),
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
     startRecordingAnalysis: (recordingId, init) =>
       requestJson<RoundAnalysisStatus>(
         fetchImplementation,
@@ -1293,17 +1014,6 @@ export function pipelineEventResultPath(
 
 export function pipelineVisibleCardRunsPath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visible-cards`;
-}
-
-export function visibleCardReviewsPath(recordingId: string): string {
-  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visible-card-reviews`;
-}
-
-export function visibleCardReviewPath(
-  recordingId: string,
-  reviewId: string,
-): string {
-  return `${visibleCardReviewsPath(recordingId)}/${encodeURIComponent(reviewId)}`;
 }
 
 export function pipelineVisibleCardRunPath(
@@ -1427,18 +1137,6 @@ export function pipelineVisualIdentityResultPath(
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visual-identities/${encodeURIComponent(runId)}/result`;
 }
 
-export function pipelineVisualIdentityAutoApprovalPlanPath(
-  recordingId: string,
-): string {
-  return `${pipelineVisualIdentityRunsPath(recordingId)}/auto-approval-plan`;
-}
-
-export function pipelineVisualIdentityAutoApprovalPath(
-  recordingId: string,
-): string {
-  return `${pipelineVisualIdentityRunsPath(recordingId)}/auto-approval`;
-}
-
 export function pipelineIdentityCropPath(
   recordingId: string,
   revisionId: string,
@@ -1481,27 +1179,6 @@ export function pipelineReviewFramePath(
   requestedTimeUs: number,
 ): string {
   return `${pipelineDerivedFramePath(recordingId, snapSampledFrameTimeUs(requestedTimeUs))}?preview=sampled_250ms`;
-}
-
-export function pipelineReferencePath(
-  recordingId: string,
-  contentType: PipelineSelectableContentType,
-): string {
-  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/references/${encodeURIComponent(contentType)}`;
-}
-
-export function pipelineReferenceDraftPath(
-  recordingId: string,
-  contentType: PipelineSelectableContentType,
-): string {
-  return `${pipelineReferencePath(recordingId, contentType)}/draft`;
-}
-
-export function pipelineReferenceCompletionPath(
-  recordingId: string,
-  contentType: PipelineSelectableContentType,
-): string {
-  return `${pipelineReferencePath(recordingId, contentType)}/complete`;
 }
 
 function recordingsPath(): string {
