@@ -470,6 +470,14 @@ def test_staged_import_checks_snapshot_and_uses_exact_mapped_source(tmp_path) ->
     with pytest.raises(ValueError, match="review differs"):
         verify_staged_drafts(package, root)
     review_path.write_bytes(original_review)
+    source_path = root / "source/revisions/source-revision/revision.json"
+    original_source = source_path.read_bytes()
+    altered_source = json.loads(original_source)
+    altered_source["metadata"]["legacy_revision_id"] = "wrong-source"
+    source_path.write_bytes(canonical_json_bytes(altered_source))
+    with pytest.raises(ValueError, match="source identity"):
+        verify_staged_drafts(package, root)
+    source_path.write_bytes(original_source)
     from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
 
     imported = next(node for node in store.list_nodes() if node.node_id != "source")
