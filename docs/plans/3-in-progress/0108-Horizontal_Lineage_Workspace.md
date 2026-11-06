@@ -342,6 +342,9 @@ An activation guard checked 415 retained files and rejected changes or conflicti
 backend was stopped for activation. The frame queue has 165 exact node bindings and no longer reads
 the legacy revision store. The retired maintained-reference and independent-review HTTP routes and
 browser client methods are removed. Internal legacy stores and processor adapters still need removal.
+After restart, the queue returned 165 available items. The IMG_0096 workspace and recording graph
+opened with no workspace diagnostics. Startup recovery reads compact run statuses before loading
+interrupted runs, so it does not load every completed run at startup.
 
 ### M12 — Verify the complete workflow and close — Not started
 

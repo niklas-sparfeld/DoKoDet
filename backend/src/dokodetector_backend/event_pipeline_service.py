@@ -378,13 +378,15 @@ class EventPipelineService:
             message="The event processor did not finish before the backend restarted.",
         )
         count = 0
-        for run in self.run_store.list():
-            if run.state.status not in {"queued", "running"}:
+        for run in self.run_store.list_statuses():
+            if run.status not in {"queued", "running"}:
                 continue
             # New runs are linked to a durable job input-use record. Only settle old
             # execution-only runs here; the manager reconciles linked work itself.
             if self._event_use_path(run.run_id).exists():
                 continue
+            if run.status == "queued":
+                self.run_store.start(run.run_id)
             self.run_store.fail(run.run_id, failure)
             count += 1
         if count:
