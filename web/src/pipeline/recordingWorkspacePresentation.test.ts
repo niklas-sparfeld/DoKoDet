@@ -157,7 +157,7 @@ describe("recording workspace presentation model", () => {
     const generated = pipelineRevision("events-generated-1");
     const run = pipelineRun("run-events-1", {
       status: "complete",
-      output_revision_ids: [generated.revision_id],
+      output_revision_ids: [generated.node_revision_id],
       progress: { completed: 1, total: 2 },
       state: {
         items: [
@@ -180,7 +180,10 @@ describe("recording workspace presentation model", () => {
           events: {
             state: "data-available",
             input_options: [generated],
-            selected_generated_revision_id: generated.revision_id,
+            selected_generated: {
+              node_id: generated.node_id,
+              revision_id: generated.node_revision_id,
+            },
             runs: [run],
           },
         },
@@ -192,7 +195,7 @@ describe("recording workspace presentation model", () => {
           selected: {
             events: {
               node_id: "events-node",
-              revision_id: generated.revision_id,
+              revision_id: generated.node_revision_id,
             },
           },
         }),
@@ -202,7 +205,7 @@ describe("recording workspace presentation model", () => {
     });
 
     expect(presentation.inspector.selection).toMatchObject({
-      revisionId: generated.revision_id,
+      revisionId: generated.node_revision_id,
       itemId: "event-1",
       timeUs: 90_000_000,
     });

@@ -107,7 +107,7 @@ export function ComparisonView({
       reference:
         urlState.reference !== null &&
         referenceOptions.some(
-          (option) => option.revision_id === urlState.reference,
+          (option) => option.node_revision_id === urlState.reference,
         )
           ? urlState.reference
           : defaults.reference,
@@ -327,7 +327,7 @@ export function ComparisonInspectorControls({
       ? urlState.right
       : defaults.right,
     reference: references.some(
-      (option) => option.revision_id === urlState.reference,
+      (option) => option.node_revision_id === urlState.reference,
     )
       ? urlState.reference
       : defaults.reference,
@@ -389,8 +389,11 @@ export function ComparisonInspectorControls({
             onChange={(event) => selectValue("reference", event.target.value)}
           >
             {references.map((option) => (
-              <option key={option.revision_id} value={option.revision_id}>
-                {option.display_label} · {option.revision_id}
+              <option
+                key={option.node_revision_id}
+                value={option.node_revision_id}
+              >
+                {option.display_label} · {option.node_revision_id}
               </option>
             ))}
           </select>
@@ -737,15 +740,15 @@ function defaultComparisonSelection(
 ): { left: string | null; right: string | null; reference: string | null } {
   const pair = newestCompatiblePair(runs);
   const selectedReference =
-    stage.selected_completed_reference_revision_id ?? null;
+    stage.selected_completed_reference?.revision_id ?? null;
   return {
     left: pair?.left.run_id ?? null,
     right: pair?.right.run_id ?? null,
     reference: references.some(
-      (option) => option.revision_id === selectedReference,
+      (option) => option.node_revision_id === selectedReference,
     )
       ? selectedReference
-      : (references[0]?.revision_id ?? null),
+      : (references[0]?.node_revision_id ?? null),
   };
 }
 

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from doko_operations.pipeline_reference import PipelineReferenceDraft
 
-from dokodetector_backend.pipeline_reference_handlers import build_reference_handlers
+from table_evidence_analyzer.pipeline_data import VisibleCardData
 
 
 def project_visible_card_items(
@@ -18,14 +18,41 @@ def project_visible_card_items(
     impact: tuple[dict[str, Any], ...],
     proposal_revision_id: str | None,
 ) -> dict[str, Any]:
-    """Project visible-card items without depending on their storage model."""
-    return _project_items(
-        "visible_cards",
-        items,
-        coverage=coverage,
-        impact=impact,
-        proposal_revision_id=proposal_revision_id,
-    )
+    """Project node-owned visible-card items without legacy reference handlers."""
+    if proposal_revision_id is None and any(
+        item.item.get("card_scene") is not None for item in items
+    ):
+        raise ValueError("retained scenes have no exact proposal revision")
+    retained = [item for item in items if item.review_state != "rejected"]
+    content_items = []
+    content_retained = []
+    scene_only_items = []
+    for item in retained:
+        value = dict(item.item)
+        scene = value.pop("card_scene", None)
+        if (
+            scene is not None
+            and value.get("status") == "detected"
+            and not value.get("candidates")
+            and not value.get("ignored_regions")
+            and not value.get("pile_regions")
+        ):
+            scene_only_items.append(item.item_id)
+            continue
+        content_items.append(value)
+        content_retained.append(item)
+    content = VisibleCardData.from_mapping(
+        {"schema_version": "visible-card-data/v2", "outcomes": content_items}
+    ).to_mapping()
+    return {
+        "content": content,
+        "pointers": {
+            item.item_id: f"/outcomes/{index}" for index, item in enumerate(content_retained)
+        },
+        "scene_only_items": scene_only_items,
+        "coverage": coverage,
+        "impact": list(impact),
+    }
 
 
 def _project_items(
@@ -36,6 +63,8 @@ def _project_items(
     impact: tuple[dict[str, Any], ...],
     proposal_revision_id: str | None,
 ) -> dict[str, Any]:
+    from dokodetector_backend.pipeline_reference_handlers import build_reference_handlers
+
     handlers = build_reference_handlers(
         source_for=lambda *_: None, selected_revision=lambda *_: None
     )

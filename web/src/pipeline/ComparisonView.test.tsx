@@ -41,7 +41,6 @@ function stage(
     state: "complete",
     input_options: [
       {
-        revision_id: "reference-1",
         node_id: "node-reference-1",
         node_revision_id: "node-revision-reference-1",
         is_current_head: true,
@@ -58,8 +57,14 @@ function stage(
       },
     ],
     selection_revision: 1,
-    selected_generated_revision_id: "run-new-output",
-    selected_completed_reference_revision_id: "reference-1",
+    selected_generated: {
+      node_id: "node-run-new-output",
+      revision_id: "node-revision-run-new-output",
+    },
+    selected_completed_reference: {
+      node_id: "node-reference-1",
+      revision_id: "node-revision-reference-1",
+    },
     runs,
     analyses: [],
     compatible_input_sets: [],
@@ -128,7 +133,7 @@ function comparison(
     left: side("run-new", "run-new-output"),
     right: side("run-old", "run-old-output"),
     reference: {
-      revision_id: "reference-1",
+      revision_id: "node-revision-reference-1",
       input_revision_ids: ["input-1"],
       content_sha256: "a".repeat(64),
       origin: "manual",

@@ -24,8 +24,8 @@ export function pipelineStage(
     state: "video-only",
     input_options: [],
     selection_revision: null,
-    selected_generated_revision_id: null,
-    selected_completed_reference_revision_id: null,
+    selected_generated: null,
+    selected_completed_reference: null,
     runs: [],
     analyses: [],
     compatible_input_sets: [],
@@ -90,7 +90,6 @@ export function pipelineRevision(
   overrides: Partial<PipelineRevision> = {},
 ): PipelineRevision {
   return {
-    revision_id: revisionId,
     node_id: `node-${revisionId}`,
     node_revision_id: `node-revision-${revisionId}`,
     is_current_head: true,
@@ -146,7 +145,7 @@ export function recordingPipelinePresentationFixture(
   const generated = pipelineRevision();
   const generatedRun = pipelineRun("run-events-1", {
     status: state === "failed" ? "failed" : "complete",
-    output_revision_ids: state === "failed" ? [] : [generated.revision_id],
+    output_revision_ids: state === "failed" ? [] : [generated.node_revision_id],
     progress: { completed: 2, total: 2 },
     failure:
       state === "failed"
@@ -174,12 +173,17 @@ export function recordingPipelinePresentationFixture(
         input_options:
           state === "video-only" || state === "empty" ? [] : [generated],
         selection_revision: state === "video-only" ? null : 1,
-        selected_generated_revision_id:
+        selected_generated:
           state === "video-only" || state === "empty"
             ? null
-            : generated.revision_id,
-        selected_completed_reference_revision_id:
-          state === "complete" ? "reference-1" : null,
+            : {
+                node_id: generated.node_id,
+                revision_id: generated.node_revision_id,
+              },
+        selected_completed_reference:
+          state === "complete"
+            ? { node_id: "node-reference-1", revision_id: "reference-1" }
+            : null,
         runs: state === "video-only" || state === "empty" ? [] : [generatedRun],
         can_run: state !== "complete",
         comparable_run_ids:

@@ -26,6 +26,8 @@ export type PipelineWorkspaceStage = PipelineWorkspace["stages"][number];
 export type PipelineRun = PipelineWorkspaceStage["runs"][number];
 export type PipelineCompatibleInputSet =
   PipelineWorkspaceStage["compatible_input_sets"][number];
+export type PipelineWorkspaceProcessorInputReference =
+  PipelineCompatibleInputSet["input_node_refs"][number];
 export type PipelineStageKey = PipelineWorkspaceStage["key"];
 export type PipelineSelectableContentType = Exclude<
   PipelineStageKey,
@@ -50,15 +52,12 @@ export type PipelineSelectionResponse = {
 export type PipelineRunStartRequest = {
   request: {
     run_id: string;
-    input_revision_ids?: string[];
-    event_revision_id?: string;
+    input_node_refs?: PipelineWorkspaceProcessorInputReference[];
     input_node_ref?: {
       node_id: string;
       revision_id: string;
       revision_policy: "current_head" | "historical";
     };
-    visible_card_revision_id?: string;
-    card_scene_proposal_revision_id?: string;
     crop_input_kind?:
       | "gemini_polygon"
       | "rfdetr_segment"
@@ -165,7 +164,7 @@ export type CalibrationRefinementApplyResponse = {
   proposal_revision_id: string;
   calibration_revision_id: string;
   receipt: Record<string, unknown>;
-  reference: PipelineReferenceResource;
+  visible_card_node_ref: { node_id: string; revision_id: string };
 };
 export type RoundAnalysisCreateRequest =
   components["schemas"]["RoundAnalysisCreateRequest"];
@@ -180,40 +179,6 @@ export type FrameReviewPageResponse = JsonResponse<
 export type FrameReviewWorkflowResponse = JsonResponse<
   paths["/api/frame-reviews/0096-M4/items/{recording_id}/{item_id}/workflow"]["put"]["responses"][200]
 >;
-export type PipelineReferenceItem = {
-  item_id: string;
-  base_item_id: string | null;
-  review_state: string;
-  item: Record<string, unknown>;
-};
-export type PipelineReferenceResource = {
-  recording_id: string;
-  content_type: PipelineSelectableContentType;
-  state: {
-    recording_id: string;
-    content_type: PipelineSelectableContentType;
-    draft_revision: number;
-    draft_state: "draft" | "completed";
-    source_revision_id: string | null;
-    selected_completed_revision_id: string | null;
-    updated_at: string;
-  };
-  draft: {
-    recording_id: string;
-    content_type: PipelineSelectableContentType;
-    revision: number;
-    source_revision_id: string | null;
-    annotation_source?: {
-      visible_card_revision_id: string;
-      visible_card_revision_digest: string;
-    } | null;
-    items: PipelineReferenceItem[];
-    coverage: Record<string, unknown> | null;
-    impact: Array<Record<string, unknown>>;
-    updated_at: string;
-    proposal_revision_id?: string | null;
-  };
-};
 export type PipelineEventResult = {
   run_id: string;
   recording_id: string;
@@ -347,7 +312,14 @@ export interface DokoDetectorClient {
   ): Promise<PipelineRunResponse>;
   startProposedCardSceneRun(
     recordingId: string,
-    payload: { run_id: string; visible_card_revision_id: string },
+    payload: {
+      run_id: string;
+      input_node_ref: {
+        node_id: string;
+        revision_id: string;
+        revision_policy: "current_head" | "historical";
+      };
+    },
     init?: RequestInit,
   ): Promise<PipelineProposalRunResponse>;
   listProposedCardSceneRuns(
@@ -408,6 +380,7 @@ export interface DokoDetectorClient {
   ): Promise<{
     recording_id: string;
     inputs: Array<{
+      node_id: string;
       revision_id: string;
       created_at: string;
       proposal_data_digest: string;

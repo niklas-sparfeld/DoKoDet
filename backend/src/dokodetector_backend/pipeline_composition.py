@@ -19,7 +19,6 @@ from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelec
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.pipeline_store import (
-    PipelineRevisionStore,
     PipelineRuntimeStorage,
     ProcessorRunStore,
 )
@@ -38,7 +37,6 @@ from dokodetector_backend.visual_identity_pipeline_service import VisualIdentity
 class PipelineComposition:
     """All shared pipeline stores and constructed services."""
 
-    revision_store: PipelineRevisionStore
     run_store: ProcessorRunStore
     selection_store: PipelineNodeSelectionStore
     event_service: EventPipelineService
@@ -81,15 +79,13 @@ def build_pipeline_composition(
     """Create shared pipeline stores and services with explicit dependencies."""
 
     runtime_storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
-    revision_store = PipelineRevisionStore(runtime_storage)
-    run_store = ProcessorRunStore(runtime_storage, revision_store=revision_store)
     node_store = PipelineNodeStore(settings.operations_root / "pipeline-nodes")
     lineage_service = PipelineLineage(node_store)
     lineage_writer = PipelineLineageWriter(
         node_store, lineage_service, PipelineNodeUses(node_store)
     )
+    run_store = ProcessorRunStore(runtime_storage, lineage_writer=lineage_writer)
     selection_store = PipelineNodeSelectionStore(node_store, lineage_writer)
-    run_store.lineage_writer = lineage_writer
     node_edits = PipelineNodeEdits(node_store)
     node_reviews = PipelineNodeReviews(node_store)
     event_service = EventPipelineService(
@@ -97,7 +93,6 @@ def build_pipeline_composition(
         recording_store,
         repository_storage,
         event_provider=event_provider,
-        revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
     )
@@ -112,14 +107,12 @@ def build_pipeline_composition(
         detector_provider=visible_card_provider,
         detector_providers=visible_card_providers,
         frame_resolver=visible_card_frame_resolver,
-        revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
         node_store=node_store,
     )
     proposed_card_scene_service = ProposedCardScenePipelineService(
         settings,
-        revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
         node_store=node_store,
@@ -138,13 +131,11 @@ def build_pipeline_composition(
         identity_classifier=visible_card_identity_classifier,
         identity_classifiers=visible_card_identity_classifiers,
         frame_resolver=visible_card_frame_resolver,
-        revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
         node_store=node_store,
     )
     observation_service = ObservationPipelineService(
-        revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
         recording_store=recording_store,
@@ -154,7 +145,6 @@ def build_pipeline_composition(
     )
     workspace_service = RecordingPipelineWorkspaceService(
         recording_source_provider=event_service.get_recording_source,
-        revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
         round_analysis_store=round_analysis_store,
@@ -162,7 +152,6 @@ def build_pipeline_composition(
         lineage_service=lineage_service,
     )
     return PipelineComposition(
-        revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
         event_service=event_service,
@@ -183,7 +172,6 @@ def build_pipeline_composition(
 def install_pipeline_composition(state: Any, composition: PipelineComposition) -> None:
     """Install the composition under the existing application state keys."""
 
-    state.pipeline_revision_store = composition.revision_store
     state.pipeline_run_store = composition.run_store
     state.pipeline_selection_store = composition.selection_store
     state.event_pipeline_service = composition.event_service

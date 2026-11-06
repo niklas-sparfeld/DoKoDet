@@ -42,8 +42,8 @@ from table_evidence_analyzer.pipeline_data import (
 from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
 from dokodetector_backend.pipeline_store import (
+    LegacyProcessorRunStore,
     PipelineRevisionStore,
-    ProcessorRunStore,
     _process_lock,
 )
 
@@ -675,8 +675,8 @@ def publish_revisions(operations: Path, stage: Path, records: list[dict[str, Any
     """Publish the validated copies in dependency order without running a model."""
     source = PipelineRevisionStore(stage)
     target = PipelineRevisionStore(operations)
-    source_runs = ProcessorRunStore(stage, revision_store=source)
-    target_runs = ProcessorRunStore(operations, revision_store=target)
+    source_runs = LegacyProcessorRunStore(stage, revision_store=source)
+    target_runs = LegacyProcessorRunStore(operations, revision_store=target)
     cache: dict[str, Any] = {}
     target_cache: dict[str, Any] = {}
     for row in records:
@@ -747,7 +747,7 @@ def apply_targets(
     reference_store = PipelineReferenceStore(operations / "pipeline-references")
     staged_reference_store = PipelineReferenceStore(stage / "pipeline-references")
     selection_revision_store = PipelineRevisionStore(operations)
-    selection_runs = ProcessorRunStore(operations, revision_store=selection_revision_store)
+    selection_runs = LegacyProcessorRunStore(operations, revision_store=selection_revision_store)
     selection_lock = RLock()
 
     def validate_selection_pointer(
@@ -917,7 +917,7 @@ def main() -> None:
         raise ValueError("a repair receipt or snapshot already exists; inspect it before retrying")
     operations = repository / "data/operations"
     target = PipelineRevisionStore(operations)
-    runs = ProcessorRunStore(operations, revision_store=target)
+    runs = LegacyProcessorRunStore(operations, revision_store=target)
     stage_store = PipelineRevisionStore(stage)
     stage_cache: dict[str, Any] = {}
     for row in records:

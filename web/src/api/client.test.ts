@@ -83,7 +83,11 @@ describe("DokoDetector API client", () => {
 
     await client.startProposedCardSceneRun("recording/1", {
       run_id: "proposal/run",
-      visible_card_revision_id: "visible-revision-1",
+      input_node_ref: {
+        node_id: "visible-node-1",
+        revision_id: "visible-revision-1",
+        revision_policy: "current_head",
+      },
     });
     await client.listProposedCardSceneRuns("recording/1");
     await client.getProposedCardSceneResult("recording/1", "proposal/run");
@@ -95,7 +99,7 @@ describe("DokoDetector API client", () => {
     ]);
     expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(fetchImplementation.mock.calls[0]?.[1]?.body).toContain(
-      "visible_card_revision_id",
+      "input_node_ref",
     );
   });
 

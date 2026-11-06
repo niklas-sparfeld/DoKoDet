@@ -530,7 +530,10 @@ def test_missing_legacy_frame_evidence_requires_matching_cache_bytes(tmp_path: P
 def test_publish_copy_records_a_repair_run_without_inference(tmp_path: Path) -> None:
     from test_pipeline_store import processor_producer, request, revision
 
-    from dokodetector_backend.pipeline_store import PipelineRevisionStore, ProcessorRunStore
+    from dokodetector_backend.pipeline_store import (
+        LegacyProcessorRunStore,
+        PipelineRevisionStore,
+    )
 
     stage, target = tmp_path / "stage", tmp_path / "target"
     source_store = PipelineRevisionStore(stage)
@@ -538,7 +541,7 @@ def test_publish_copy_records_a_repair_run_without_inference(tmp_path: Path) -> 
     input_revision = revision(revision_id="input-1", producer=processor_producer("import-1"))
     source_store.publish(input_revision)
     target_store.publish(input_revision)
-    run_store = ProcessorRunStore(stage, revision_store=source_store)
+    run_store = LegacyProcessorRunStore(stage, revision_store=source_store)
     run_request = request("copy-run").to_mapping()
     run_request["input_revision_ids"] = ["input-1"]
     run_request["configuration"] = {"lineage_repair": {"inference_performed": False}}
@@ -555,7 +558,7 @@ def test_publish_copy_records_a_repair_run_without_inference(tmp_path: Path) -> 
     repair.publish_revisions(target, stage, [{"new": "copy-output"}])
     repair.publish_revisions(target, stage, [{"new": "copy-output"}])
     copied = target_store.require("copy-output")
-    copied_run = ProcessorRunStore(target, revision_store=target_store).require("copy-run")
+    copied_run = LegacyProcessorRunStore(target, revision_store=target_store).require("copy-run")
     assert copied.manifest == output.manifest
     assert copied_run.state.output_revision_ids == ("copy-output",)
     assert copied_run.request.configuration["lineage_repair"]["inference_performed"] is False

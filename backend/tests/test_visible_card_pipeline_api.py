@@ -144,13 +144,13 @@ def _selected_node_input(
     assert response.status_code == 200, response.text
     workspace = response.json()
     stage = next(item for item in workspace["stages"] if item["key"] == content_type)
-    selected = revision_id or (
-        stage["selected_completed_reference_revision_id"] or stage["selected_generated_revision_id"]
+    selected = revision_id or (stage["selected_completed_reference"] or stage["selected_generated"])
+    selected_revision_id = selected["revision_id"] if isinstance(selected, dict) else selected
+    option = next(
+        item for item in stage["input_options"] if item["node_revision_id"] == selected_revision_id
     )
-    option = next(item for item in stage["input_options"] if item["revision_id"] == selected)
     revision_id = option["node_revision_id"]
     return {
-        "input_revision_ids": [revision_id],
         "input_node_ref": {
             "node_id": option["node_id"],
             "revision_id": revision_id,
@@ -336,7 +336,10 @@ def _run_blocking_visible_detection(
         ).json()["state"]["output_revision_ids"][0]
         visible_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={"run_id": "visible-blocking", "event_revision_id": event_revision_id},
+            json={
+                "run_id": "visible-blocking",
+                **_selected_node_input(client, "events", event_revision_id),
+            },
         )
         assert visible_response.status_code == 202
         visible_run_id = visible_response.json()["run_id"]
@@ -409,19 +412,11 @@ def test_visible_card_run_accepts_exact_node_event_revision_without_legacy_input
         assert option["is_current_head"] is False
 
         native_revision_id = historical_id
-        real_require = app.state.pipeline_selection_store.require_processor_revision
-
-        def no_legacy_input_lookup(revision_id: str):
-            if revision_id == native_revision_id:
-                raise AssertionError("node input was looked up in the legacy revision store")
-            return real_require(revision_id)
-
-        monkeypatch.setattr(app.state.pipeline_revision_store, "require", no_legacy_input_lookup)
+        assert not hasattr(app.state, "pipeline_revision_store")
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-node-historical",
-                "input_revision_ids": [native_revision_id],
                 "input_node_ref": {
                     "node_id": node.node_id,
                     "revision_id": native_revision_id,
@@ -471,7 +466,6 @@ def test_visible_card_run_accepts_exact_node_event_revision_without_legacy_input
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-node-current-head",
-                "input_revision_ids": [current.head_revision_id],
                 "input_node_ref": {
                     "node_id": node.node_id,
                     "revision_id": current.head_revision_id,
@@ -500,7 +494,6 @@ def test_visible_card_run_accepts_exact_node_event_revision_without_legacy_input
             json={
                 "run_id": "visible-node-conflicting-input",
                 "event_revision_id": legacy_id,
-                "input_revision_ids": [current.head_revision_id],
                 "input_node_ref": {
                     "node_id": node.node_id,
                     "revision_id": current.head_revision_id,
@@ -547,14 +540,13 @@ def test_migrated_event_draft_is_selectable_as_exact_visible_card_input(tmp_path
             if item["node_id"] == draft_node.node_id
             and item["node_revision_id"] == draft_node.revision_id
         )
-        assert option["revision_id"] == draft_node.revision_id
+        assert option["node_revision_id"] == draft_node.revision_id
         assert option["display_label"] == "Imported draft events"
 
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-from-migrated-event-draft",
-                "input_revision_ids": [draft_node.revision_id],
                 "input_node_ref": {
                     "node_id": draft_node.node_id,
                     "revision_id": draft_node.revision_id,
@@ -643,7 +635,6 @@ def test_visible_card_node_request_rejects_invalid_node_type_and_policy(tmp_path
                 f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
                 json={
                     "run_id": f"visible-invalid-node-{index}",
-                    "input_revision_ids": [node_ref["revision_id"]],
                     "input_node_ref": node_ref,
                 },
             )
@@ -717,7 +708,6 @@ def test_visible_card_current_head_edit_copy_and_retry_keep_exact_node_revision(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-current-head-retry",
-                "input_revision_ids": [accepted_pair[1]],
                 "input_node_ref": {
                     "node_id": accepted_pair[0],
                     "revision_id": accepted_pair[1],
@@ -919,7 +909,10 @@ def test_visible_card_run_status_uses_shared_job_resource(
         service = app.state.visible_card_pipeline_service
         request = service._build_request(
             RECORDING_ID,
-            {"run_id": "visible-status-metadata", "event_revision_id": event_revision_id},
+            {
+                "run_id": "visible-status-metadata",
+                **_selected_node_input(client, "events", event_revision_id),
+            },
         )
         stored, created = app.state.pipeline_run_store.create(request)
         assert created
@@ -1032,7 +1025,7 @@ def test_visible_card_run_requires_an_explicit_event_input_when_a_selection_exis
     assert app.state.pipeline_selection_store.get_exact(RECORDING_ID, "events") is not None
     assert selected_revision_id == "events-manual-reference"
     assert response.status_code == 422
-    assert "explicit event input" in response.json()["error"]["message"]
+    assert "input_node_ref" in response.json()["error"]["message"]
 
 
 def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcomes(
@@ -1063,8 +1056,7 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-generated",
-                "event_revision_id": generated_event_revision_id,
-                "input_revision_ids": [generated_event_revision_id],
+                **_selected_node_input(client, "events", generated_event_revision_id),
                 "configuration": {"threshold": 0.5},
             },
         )
@@ -1075,9 +1067,7 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
         generated_result = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{generated_run_id}/result"
         ).json()
-        assert not app.state.pipeline_revision_store.has_revision(
-            generated_result["state"]["output_revision_ids"][0]
-        )
+        assert not hasattr(app.state, "pipeline_revision_store")
         generated_content = generated_result["revisions"][0]["content"]
         assert generated_result["request"]["input_revision_ids"] == [generated_event_revision_id]
         assert [outcome["status"] for outcome in generated_content["outcomes"]] == [
@@ -1132,11 +1122,24 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
             * len(generated_event_revision.content.events),
             start_offset_us=1,
         )
+        manual = app.state.pipeline_selection_store.require_processor_revision(manual_revision_id)
+        manual_node = app.state.visible_card_pipeline_service.node_store.create(
+            "manual-events-node",
+            "Manual event draft",
+            "events",
+            manual.manifest.source.to_mapping(),
+            manual.content.to_mapping(),
+            {"fixture": "manual event draft"},
+        )
         visible_reference = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-reference",
-                "event_revision_id": manual_revision_id,
+                "input_node_ref": {
+                    "node_id": manual_node.node_id,
+                    "revision_id": manual_node.revision_id,
+                    "revision_policy": "current_head",
+                },
                 "configuration": {"threshold": 0.6},
                 "extraction_policy": {
                     "policy_id": "exact-event/v1",
@@ -1151,7 +1154,7 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
         reference_result = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{reference_run_id}/result"
         ).json()
-        assert reference_result["request"]["input_revision_ids"] == [manual_revision_id]
+        assert reference_result["request"]["input_revision_ids"] == [manual_node.revision_id]
         assert reference_result["request"]["extraction_policy"]["event_time_anchor"] == "end_us"
         reference_content = reference_result["revisions"][0]["content"]
         assert (
@@ -1232,7 +1235,7 @@ def test_visible_card_pipeline_uses_configured_gemini_model_for_provider_placeho
             RECORDING_ID,
             {
                 "run_id": "visible-for-model",
-                "event_revision_id": event_revision_id,
+                **_selected_node_input(client, "events", event_revision_id),
                 "model": {"name": "gemini", "version": "gemini-visible-cards-v1"},
             },
         )
@@ -1266,7 +1269,10 @@ def test_visible_card_pipeline_retry_creates_a_linked_managed_job(tmp_path: Path
 
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={"run_id": "visible-retry", "event_revision_id": event_revision_id},
+            json={
+                "run_id": "visible-retry",
+                **_selected_node_input(client, "events", event_revision_id),
+            },
         )
         assert response.status_code == 202
         source_job_id = response.json()["run_id"]
@@ -1322,7 +1328,10 @@ def test_visible_card_cancellation_prevents_result_publication(tmp_path: Path) -
 
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={"run_id": "visible-cancel", "event_revision_id": event_revision_id},
+            json={
+                "run_id": "visible-cancel",
+                **_selected_node_input(client, "events", event_revision_id),
+            },
         )
         assert response.status_code == 202
         job_id = response.json()["run_id"]
@@ -1389,7 +1398,10 @@ def test_visible_card_runs_queue_fairly_under_the_single_worker_budget(
 
         first_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={"run_id": "visible-queue-first", "event_revision_id": event_revision_id},
+            json={
+                "run_id": "visible-queue-first",
+                **_selected_node_input(client, "events", event_revision_id),
+            },
         )
         assert first_response.status_code == 202
         first_run_id = first_response.json()["run_id"]
@@ -1397,7 +1409,10 @@ def test_visible_card_runs_queue_fairly_under_the_single_worker_budget(
 
         second_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={"run_id": "visible-queue-second", "event_revision_id": event_revision_id},
+            json={
+                "run_id": "visible-queue-second",
+                **_selected_node_input(client, "events", event_revision_id),
+            },
         )
         assert second_response.status_code == 202
         second_run_id = second_response.json()["run_id"]

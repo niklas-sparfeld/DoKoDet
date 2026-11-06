@@ -17,6 +17,7 @@ from doko_operations.pipeline_data import (
 )
 
 from dokodetector_backend.pipeline_store import (
+    LegacyProcessorRunStore,
     PipelineConflict,
     PipelineNotFound,
     PipelineRevisionStore,
@@ -214,7 +215,7 @@ def test_pipeline_catalogs_filter_by_recording(tmp_path: Path) -> None:
     first_stored, _ = store.publish(first)
     store.publish(other)
 
-    run_store = ProcessorRunStore(tmp_path / "runtime", revision_store=store)
+    run_store = ProcessorRunStore(tmp_path / "runtime")
     first_request = request("run-first")
     other_request = ProcessorRunRequest.from_mapping(
         {**first_request.to_mapping(), "run_id": "run-other", "source": other_source}
@@ -233,17 +234,12 @@ def test_run_store_publishes_request_and_state_together_and_supports_retry(tmp_p
         producer=processor_producer("import-01"),
     )
     revision_store.publish(input_revision)
-    run_store = ProcessorRunStore(
-        PipelineRuntimeStorage(tmp_path / "runtime"), revision_store=revision_store
-    )
+    run_store = ProcessorRunStore(PipelineRuntimeStorage(tmp_path / "runtime"))
 
     stored, created = run_store.create(request(), created_at="2026-09-05T10:00:00Z")
     assert created is True
     assert stored.state.status == "queued"
-    assert (
-        ProcessorRunStore(tmp_path / "runtime", revision_store=revision_store).get("run-01")
-        == stored
-    )
+    assert ProcessorRunStore(tmp_path / "runtime").get("run-01") == stored
 
     running = run_store.start("run-01", started_at="2026-09-05T10:01:00Z")
     failed_item = RunItemOutcome(
@@ -446,7 +442,7 @@ def test_run_store_requires_published_output_and_rejects_illegal_transition(tmp_
             producer=processor_producer("import-01"),
         )
     )
-    run_store = ProcessorRunStore(tmp_path / "runtime", revision_store=revision_store)
+    run_store = LegacyProcessorRunStore(tmp_path / "runtime", revision_store=revision_store)
     run_store.create(request())
     run_store.start("run-01")
 
@@ -470,6 +466,22 @@ def test_run_store_requires_published_output_and_rejects_illegal_transition(tmp_
     assert complete.state.output_revision_ids == ("revision-output",)
 
 
+def test_run_store_does_not_read_outputs_from_legacy_revision_storage(tmp_path: Path) -> None:
+    revision_store = PipelineRevisionStore(tmp_path / "runtime")
+    revision_store.publish(
+        revision(
+            revision_id="revision-output",
+            producer=processor_producer("run-01"),
+        )
+    )
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    run_store.create(request())
+    run_store.start("run-01")
+
+    with pytest.raises(PipelineStateError, match="lineage writer"):
+        run_store.complete("run-01", ["revision-output"])
+
+
 def test_run_catalog_skips_run_with_unpublished_output_revision(tmp_path: Path) -> None:
     revision_store = PipelineRevisionStore(tmp_path / "runtime")
     revision_store.publish(
@@ -478,7 +490,7 @@ def test_run_catalog_skips_run_with_unpublished_output_revision(tmp_path: Path) 
             producer=processor_producer("import-01"),
         )
     )
-    run_store = ProcessorRunStore(tmp_path / "runtime", revision_store=revision_store)
+    run_store = LegacyProcessorRunStore(tmp_path / "runtime", revision_store=revision_store)
     run_store.create(request())
     running = run_store.start("run-01")
 

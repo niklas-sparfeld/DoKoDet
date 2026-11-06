@@ -577,7 +577,6 @@ def test_workspace_offers_an_imported_draft_as_processor_output(tmp_path) -> Non
     )
     service = RecordingPipelineWorkspaceService(
         recording_source_provider=lambda _: None,
-        revision_store=None,
         run_store=None,
         selection_store=None,
         round_analysis_store=None,

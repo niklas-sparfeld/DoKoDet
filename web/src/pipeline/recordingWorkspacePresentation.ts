@@ -44,14 +44,13 @@ export function primaryActionForStage(
   }
   if (stage.can_run) {
     return {
-      kind: stage.selected_generated_revision_id === null ? "run" : "run_again",
-      label:
-        stage.selected_generated_revision_id === null ? "Run" : "Run again",
+      kind: stage.selected_generated === null ? "run" : "run_again",
+      label: stage.selected_generated === null ? "Run" : "Run again",
       blocker: null,
     };
   }
   if (
-    stage.selected_completed_reference_revision_id !== null &&
+    stage.selected_completed_reference !== null &&
     stage.comparable_run_ids.length >= 2
   ) {
     return { kind: "compare", label: "Compare", blocker: null };

@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor, within } from "@testing-library/react";
 
 import type { PipelineWorkspaceStage } from "../api/client";
+import { normalizeWorkspaceSelectionFixture } from "../test/normalizeWorkspaceSelectionFixture";
 import { RunControls } from "./RunControls";
 
 function stage(
@@ -16,15 +17,15 @@ function stage(
     state: "empty",
     input_options: [],
     selection_revision: null,
-    selected_generated_revision_id: null,
-    selected_completed_reference_revision_id: null,
+    selected_generated: null,
+    selected_completed_reference: null,
     runs: [],
     analyses: [],
     compatible_input_sets: [],
     can_run: true,
     run_blockers: [],
     comparable_run_ids: [],
-    ...overrides,
+    ...normalizeWorkspaceSelectionFixture(overrides),
   } as PipelineWorkspaceStage;
 }
 
@@ -148,7 +149,6 @@ describe("RunControls", () => {
       context: { recording_id: "recording-run-controls" },
       request: {
         request: {
-          input_revision_ids: [],
           implementation: { name: "cardeventnet", version: "file-v1" },
           configuration: {},
           extraction_policy: { policy_id: "exact-event/v1" },
@@ -412,11 +412,13 @@ describe("RunControls", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText("Reviewed · events-reviewed")).toBeInTheDocument();
+    expect(
+      screen.getByText("Reviewed · node-revision-events-reviewed"),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByText("Use another retained revision"));
     await userEvent.selectOptions(
       screen.getByRole("combobox", { name: "Exact input revision" }),
-      "events-old",
+      "node-revision-events-old",
     );
     await userEvent.click(
       screen.getByRole("button", { name: "Run processor" }),
@@ -433,7 +435,6 @@ describe("RunControls", () => {
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
         request: {
-          input_revision_ids: ["node-revision-events-old"],
           input_node_ref: {
             node_id: "node-events-old",
             revision_id: "node-revision-events-old",
@@ -509,7 +510,6 @@ describe("RunControls", () => {
       context: { recording_id: "recording-run-controls" },
       request: {
         request: {
-          input_revision_ids: ["node-revision-events-generated"],
           input_node_ref: {
             node_id: "node-events-generated",
             revision_id: "node-revision-events-generated",
@@ -595,7 +595,7 @@ describe("RunControls", () => {
       runs: [
         {
           run_id: "gemini-run",
-          output_revision_ids: ["visible-generated"],
+          output_revision_ids: ["node-revision-visible-generated"],
           configuration: { provider: "gemini" },
           request: { configuration: { provider: "gemini" } },
         },
@@ -614,7 +614,7 @@ describe("RunControls", () => {
 
     await userEvent.selectOptions(
       screen.getByRole("combobox", { name: "Crop geometry input" }),
-      "reviewed_virtual_card:visible-reviewed",
+      "reviewed_virtual_card:node-revision-visible-reviewed",
     );
     await userEvent.click(
       screen.getByRole("button", { name: "Run processor" }),
@@ -630,7 +630,11 @@ describe("RunControls", () => {
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
-        visible_card_revision_id: "visible-reviewed",
+        input_node_ref: {
+          node_id: "node-visible-reviewed",
+          revision_id: "node-revision-visible-reviewed",
+          revision_policy: "current_head",
+        },
         crop_input_kind: "reviewed_virtual_card",
         crop_policy: {
           policy_id: "oracle_visible_region",
@@ -641,7 +645,7 @@ describe("RunControls", () => {
 
     await userEvent.selectOptions(
       screen.getByRole("combobox", { name: "Crop geometry input" }),
-      "gemini_polygon:visible-generated",
+      "gemini_polygon:node-revision-visible-generated",
     );
     await userEvent.click(
       screen.getByRole("button", { name: "Run processor" }),
@@ -657,7 +661,11 @@ describe("RunControls", () => {
     );
     expect(JSON.parse(String(postCalls[1]?.[1]?.body))).toMatchObject({
       request: {
-        visible_card_revision_id: "visible-generated",
+        input_node_ref: {
+          node_id: "node-visible-generated",
+          revision_id: "node-revision-visible-generated",
+          revision_policy: "current_head",
+        },
         crop_input_kind: "gemini_polygon",
         configuration: { provider: "gemini" },
         crop_policy: {
@@ -677,6 +685,7 @@ describe("RunControls", () => {
               recording_id: "recording-run-controls",
               inputs: [
                 {
+                  node_id: "proposal-node-one",
                   revision_id: "proposal-one",
                   created_at: "2026-11-03T00:00:00Z",
                   proposal_data_digest: "a".repeat(64),
@@ -686,6 +695,7 @@ describe("RunControls", () => {
                   unsupported_frame_count: 1,
                 },
                 {
+                  node_id: "proposal-node-two",
                   revision_id: "proposal-two",
                   created_at: "2026-11-04T00:00:00Z",
                   proposal_data_digest: "b".repeat(64),
@@ -760,8 +770,11 @@ describe("RunControls", () => {
     );
     expect(body).toMatchObject({
       request: {
-        input_revision_ids: ["proposal-two"],
-        card_scene_proposal_revision_id: "proposal-two",
+        input_node_ref: {
+          node_id: "proposal-node-two",
+          revision_id: "proposal-two",
+          revision_policy: "historical",
+        },
         crop_input_kind: "proposed_virtual_cards",
         configuration: { provider: "local" },
         crop_policy: {
@@ -811,7 +824,7 @@ describe("RunControls", () => {
     );
     expect(
       screen.getByRole("combobox", { name: "Crop geometry input" }),
-    ).toHaveValue("gemini_polygon:gemini-only");
+    ).toHaveValue("gemini_polygon:node-revision-gemini-only");
 
     const twoInputs = stage("visible_cards", {
       input_options: [
@@ -826,7 +839,7 @@ describe("RunControls", () => {
         ...oneInput.runs,
         {
           run_id: "rfdetr-run",
-          output_revision_ids: ["rfdetr-one"],
+          output_revision_ids: ["node-revision-rfdetr-one"],
           configuration: { provider: "local-rfdetr-segmentation" },
           request: { configuration: { provider: "local-rfdetr-segmentation" } },
         },
@@ -877,7 +890,7 @@ describe("RunControls", () => {
       runs: [
         {
           run_id: "rfdetr-run",
-          output_revision_ids: ["rfdetr-one"],
+          output_revision_ids: ["node-revision-rfdetr-one"],
           configuration: { provider: "local-rfdetr-segmentation" },
           request: { configuration: { provider: "local-rfdetr-segmentation" } },
         },
@@ -906,7 +919,11 @@ describe("RunControls", () => {
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
-        visible_card_revision_id: "rfdetr-one",
+        input_node_ref: {
+          node_id: "node-rfdetr-one",
+          revision_id: "node-revision-rfdetr-one",
+          revision_policy: "current_head",
+        },
         crop_input_kind: "rfdetr_segment",
         configuration: { provider: "local" },
         crop_policy: {

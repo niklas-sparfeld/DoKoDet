@@ -54,11 +54,10 @@ def test_processor_lineage_keeps_empty_results_and_protects_accepted_inputs(
     tmp_path: Path,
 ) -> None:
     storage = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
-    revisions = PipelineRevisionStore(storage)
     node_store = PipelineNodeStore(tmp_path / "nodes")
     lineage = PipelineLineage(node_store)
     writer = PipelineLineageWriter(node_store, lineage, PipelineNodeUses(node_store))
-    runs = ProcessorRunStore(storage, revision_store=revisions, lineage_writer=writer)
+    runs = ProcessorRunStore(storage, lineage_writer=writer)
 
     event_run, _ = runs.create(_request("events-01", "event-detection", []))
     runs.start(event_run.run_id)

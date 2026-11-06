@@ -192,7 +192,7 @@ def _request(left: str, right: str, reference: str) -> dict[str, Any]:
 def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     app = create_test_app(settings)
-    revisions = app.state.pipeline_revision_store
+    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     reference_content = _content(
         [
@@ -304,7 +304,7 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
 
 def test_changed_upstream_input_has_no_paired_delta(tmp_path: Path) -> None:
     app = create_test_app(_settings(tmp_path))
-    revisions = app.state.pipeline_revision_store
+    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     reference = _content(
         [
@@ -346,7 +346,7 @@ def test_changed_upstream_input_has_no_paired_delta(tmp_path: Path) -> None:
 
 def test_partial_run_with_valid_output_is_comparable(tmp_path: Path) -> None:
     app = create_test_app(_settings(tmp_path))
-    revisions = app.state.pipeline_revision_store
+    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     reference = _content(
         [

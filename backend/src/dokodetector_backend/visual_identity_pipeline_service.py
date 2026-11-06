@@ -98,7 +98,6 @@ from dokodetector_backend.pipeline_node_selection_store import (
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
-    PipelineRevisionStore,
     PipelineRuntimeStorage,
     PipelineSelectionConflict,
     PipelineStateError,
@@ -213,7 +212,6 @@ class VisualIdentityPipelineService:
         identity_classifier: Any | None,
         identity_classifiers: Mapping[str, Any] | None = None,
         frame_resolver: FrameResolver | None = None,
-        revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
         selection_store: PipelineNodeSelectionStore,
         node_store: PipelineNodeStore | None = None,
@@ -224,7 +222,6 @@ class VisualIdentityPipelineService:
         self.frame_resolver = (
             frame_resolver if frame_resolver is not None else FFmpegFrameResolver()
         )
-        self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
         self.node_store = node_store
@@ -358,6 +355,7 @@ class VisualIdentityPipelineService:
                     continue
                 values.append(
                     {
+                        "node_id": node.node_id,
                         "revision_id": manifest.revision_id,
                         "created_at": manifest.created_at,
                         "proposal_data_digest": data.data_digest,
@@ -1077,38 +1075,7 @@ class VisualIdentityPipelineService:
                 raise VisualIdentityPipelineInputError("one exact input_node_ref is required")
             input_node_ref = input_node_refs[0]
         if input_node_ref is None:
-            requested_ids = raw.get("input_revision_ids")
-            if requested_ids is not None:
-                if not isinstance(requested_ids, list) or len(requested_ids) != 1:
-                    raise VisualIdentityPipelineInputError(
-                        "one exact input node revision is required"
-                    )
-                revision_id = requested_ids[0]
-                if not isinstance(revision_id, str) or not revision_id:
-                    raise VisualIdentityPipelineInputError(
-                        "input_revision_ids must contain one exact node revision ID"
-                    )
-                try:
-                    node, _ = self.node_store.find_revision(revision_id)
-                except (FileNotFoundError, KeyError, ValueError) as error:
-                    raise VisualIdentityPipelineInputError(
-                        "The selected node revision is unavailable"
-                    ) from error
-                input_node_ref = {
-                    "node_id": node.node_id,
-                    "revision_id": revision_id,
-                    "revision_policy": (
-                        "current_head" if node.head_revision_id == revision_id else "historical"
-                    ),
-                }
-            else:
-                selection = self.selection_store.get_exact(recording_id, content_type)
-                pointer = None if selection is None else selection.selected_generated
-                if pointer is None:
-                    raise VisualIdentityPipelineInputError(
-                        f"Select one exact {content_type} node revision."
-                    )
-                input_node_ref = {**pointer, "revision_policy": "current_head"}
+            raise VisualIdentityPipelineInputError("one exact input_node_ref is required")
         if not isinstance(input_node_ref, Mapping) or set(input_node_ref) != {
             "node_id",
             "revision_id",
@@ -1120,10 +1087,16 @@ class VisualIdentityPipelineService:
             raise VisualIdentityPipelineInputError("input_node_ref needs a revision ID")
         if input_node_ref["revision_policy"] not in {"current_head", "historical"}:
             raise VisualIdentityPipelineInputError("input_node_ref needs a revision policy")
-        requested_ids = raw.get("input_revision_ids")
-        if requested_ids is not None and requested_ids != [visible_revision_id]:
+        if any(
+            raw.get(field) is not None
+            for field in (
+                "input_revision_ids",
+                "visible_card_revision_id",
+                "card_scene_proposal_revision_id",
+            )
+        ):
             raise VisualIdentityPipelineInputError(
-                "input_revision_ids must match the exact node revision"
+                "use input_node_ref instead of revision-ID input fields"
             )
         try:
             revision = self.selection_store.read_node_revision(
@@ -1749,31 +1722,6 @@ class VisualIdentityPipelineService:
             derived_visible_region_digest=sha256_bytes(
                 json.dumps(regions, sort_keys=True, separators=(",", ":")).encode("utf-8")
             ),
-        )
-
-    def _visible_revision_id(self, raw: Mapping[str, Any]) -> str:
-        explicit = raw.get("visible_card_revision_id")
-        input_ids = raw.get("input_revision_ids")
-        if explicit is not None:
-            if not isinstance(explicit, str):
-                raise VisualIdentityPipelineInputError("visible_card_revision_id must be a string.")
-            if input_ids is not None and input_ids != [explicit]:
-                raise VisualIdentityPipelineInputError(
-                    "visible_card_revision_id must match the single input revision ID."
-                )
-            return explicit
-        if input_ids is not None:
-            if (
-                not isinstance(input_ids, list)
-                or len(input_ids) != 1
-                or not isinstance(input_ids[0], str)
-            ):
-                raise VisualIdentityPipelineInputError(
-                    "visual identity classification needs one visible-card input revision."
-                )
-            return input_ids[0]
-        raise VisualIdentityPipelineInputError(
-            "Select one exact visible-card revision before starting visual identity."
         )
 
     @classmethod

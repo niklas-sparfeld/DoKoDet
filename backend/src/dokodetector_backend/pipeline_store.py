@@ -957,12 +957,10 @@ class ProcessorRunStore:
         self,
         storage: PipelineRuntimeStorage | Path | str,
         *,
-        revision_store: PipelineRevisionStore | None = None,
         lineage_writer: Any | None = None,
     ) -> None:
         self.storage = _storage(storage)
         self.root = self.storage.runs_root
-        self.revision_store = revision_store or PipelineRevisionStore(self.storage)
         self.lineage_writer = lineage_writer
         self._lock = RLock()
 
@@ -1718,23 +1716,12 @@ class ProcessorRunStore:
         if not state.output_revision_ids:
             return
         for revision_id in state.output_revision_ids:
-            try:
-                revision = (
-                    self.lineage_writer.require_revision(revision_id)
-                    if self.lineage_writer is not None
-                    else self.revision_store.get(
-                        revision_id,
-                        revision_cache=revision_cache,
-                        validate_lineage=validate_lineage,
-                    )
-                )
-            except PipelineNotFound:
-                revision = None
+            revision = self._get_output_revision(
+                revision_id,
+                revision_cache=revision_cache,
+                validate_lineage=validate_lineage,
+            )
             if revision is None:
-                if self.revision_store.has_revision(revision_id):
-                    raise PipelineDataContractError(
-                        f"run output revision is present but invalid: {revision_id}"
-                    )
                 raise PipelineStateError(f"run output revision is not published: {revision_id}")
             manifest = revision.manifest
             producer = manifest.producer
@@ -1757,12 +1744,58 @@ class ProcessorRunStore:
             if manifest.input_revision_ids != expected_inputs:
                 raise PipelineStateError("run output revision has different input lineage")
 
+    def _get_output_revision(
+        self,
+        revision_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None,
+        validate_lineage: bool,
+    ) -> StoredPipelineRevision | None:
+        del revision_cache, validate_lineage
+        if self.lineage_writer is None:
+            raise PipelineStateError("processor output validation needs the lineage writer")
+        try:
+            return self.lineage_writer.require_revision(revision_id)
+        except PipelineNotFound:
+            return None
+
     @staticmethod
     def _log_invalid(path: Path, error: BaseException) -> None:
         if str(error).startswith("run output revision is present but invalid:"):
             LOGGER.debug("processor_run_catalog_skipped path=%s reason=%s", path, error)
             return
         LOGGER.warning("processor_run_catalog_skipped path=%s reason=%s", path, error)
+
+
+class LegacyProcessorRunStore(ProcessorRunStore):
+    """Read pre-lineage processor runs for the migration inventory only."""
+
+    def __init__(
+        self,
+        storage: PipelineRuntimeStorage | Path | str,
+        *,
+        revision_store: PipelineRevisionStore,
+    ) -> None:
+        super().__init__(storage)
+        self.legacy_revision_store = revision_store
+
+    def _get_output_revision(
+        self,
+        revision_id: str,
+        *,
+        revision_cache: dict[str, StoredPipelineRevision] | None,
+        validate_lineage: bool,
+    ) -> StoredPipelineRevision | None:
+        revision = self.legacy_revision_store.get(
+            revision_id,
+            revision_cache=revision_cache,
+            validate_lineage=validate_lineage,
+        )
+        if revision is None and self.legacy_revision_store.has_revision(revision_id):
+            raise PipelineDataContractError(
+                f"run output revision is present but invalid: {revision_id}"
+            )
+        return revision
 
 
 __all__ = [
@@ -1773,6 +1806,7 @@ __all__ = [
     "PipelineSelectionConflict",
     "PipelineStateError",
     "PipelineStoreError",
+    "LegacyProcessorRunStore",
     "ProcessorRunStatus",
     "ProcessorRunStore",
     "StoredPipelineRevision",

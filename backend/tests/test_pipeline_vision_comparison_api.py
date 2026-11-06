@@ -226,7 +226,7 @@ def _visible_content(
 
 def test_visible_card_comparison_route_uses_exact_frame_and_geometry_policy(tmp_path: Path) -> None:
     app = create_test_app(_settings(tmp_path))
-    revisions = app.state.pipeline_revision_store
+    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     reviewed_geometry = ReviewedVisibleRegionGeometry(
         polygons=(((100, 100), (200, 100), (200, 200), (100, 200)),)
@@ -322,7 +322,7 @@ def test_visible_card_comparison_pairs_request_time_only_differences(
         ),
     )
     app = create_test_app(_settings(tmp_path))
-    revisions = app.state.pipeline_revision_store
+    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     reviewed_time_us = requested_time_us + (4_836 if frame_index == 300 else 6_044)
     reviewed_frame = _frame(
@@ -408,7 +408,7 @@ def test_visible_card_comparison_rejects_other_frame_identity_changes(
     tmp_path: Path, change: dict[str, Any]
 ) -> None:
     app = create_test_app(_settings(tmp_path))
-    revisions = app.state.pipeline_revision_store
+    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     geometry = ReviewedVisibleRegionGeometry(
         polygons=(((100, 100), (200, 100), (200, 200), (100, 200)),)
@@ -501,7 +501,7 @@ def _identity_outcome(
 
 def test_visual_identity_comparison_route_reports_upstream_experiment(tmp_path: Path) -> None:
     app = create_test_app(_settings(tmp_path))
-    revisions = app.state.pipeline_revision_store
+    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     visible_input = _visible_content(DetectorBoxGeometry(100, 100, 200, 200))
     _publish(revisions, "visible-input-1", "visible_cards", visible_input, origin="manual")

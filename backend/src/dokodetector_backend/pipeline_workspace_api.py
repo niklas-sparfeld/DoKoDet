@@ -31,7 +31,6 @@ class PipelineWorkspaceVideoResponse(ContractModel):
 class PipelineWorkspaceInputOptionResponse(ContractModel):
     """One immutable generated or maintained input revision available to a stage."""
 
-    revision_id: str
     node_id: str
     node_revision_id: str
     is_current_head: bool
@@ -47,10 +46,27 @@ class PipelineWorkspaceInputOptionResponse(ContractModel):
     created_at: str
 
 
+class PipelineWorkspaceNodeReferenceResponse(ContractModel):
+    """One exact node and revision pointer used by processor controls."""
+
+    node_id: str
+    revision_id: str
+
+
+class PipelineWorkspaceProcessorInputReferenceResponse(ContractModel):
+    """One exact node revision and revision policy frozen for processing."""
+
+    node_id: str
+    revision_id: str
+    revision_policy: Literal["current_head", "historical"]
+
+
 class PipelineWorkspaceCompatibleInputSetResponse(ContractModel):
     """One exact revision set accepted by observation assembly."""
 
-    input_revision_ids: list[str] = Field(min_length=3, max_length=3)
+    input_node_refs: list[PipelineWorkspaceProcessorInputReferenceResponse] = Field(
+        min_length=3, max_length=3
+    )
     display_label: str
 
 
@@ -151,8 +167,8 @@ class PipelineWorkspaceStageResponse(ContractModel):
     input_options: list[PipelineWorkspaceInputOptionResponse]
     compatible_input_sets: list[PipelineWorkspaceCompatibleInputSetResponse]
     selection_revision: int | None = Field(default=None, ge=0)
-    selected_generated_revision_id: str | None = None
-    selected_completed_reference_revision_id: str | None = None
+    selected_generated: PipelineWorkspaceNodeReferenceResponse | None = None
+    selected_completed_reference: PipelineWorkspaceNodeReferenceResponse | None = None
     runs: list[PipelineWorkspaceRunResponse]
     analyses: list[PipelineWorkspaceAnalysisResponse]
     can_run: bool

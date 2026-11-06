@@ -303,7 +303,7 @@ Active-store checks opened scene, review, draft, calibration, and analysis data 
 content and coverage after rebuilding the runtime. See the
 [M10 migration reconciliation](../../reports/0108-M10_Migration_Reconciliation.md).
 
-### M11 — Delete replaced architecture — In progress
+### M11 — Delete replaced architecture — Complete
 
 Complete the removal table. Trace selection consumers and keep only required execution semantics.
 Delete old active storage after recovery evidence, legacy readers, view/review-specific runtime
@@ -927,12 +927,94 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Checks:** Frame-review API, binding, and lineage-target tests passed (7 tests). Ruff check and
   formatting passed for changed files. `git diff --check` passed.
 - **Known limit:** M11 remains incomplete. Runtime processor-run storage still has a legacy
-  revision-store fallback, and workspace execution choices still expose scalar selected revision
-  fields instead of exact node references. These are the remaining known runtime adapters.
-- **Next:** Remove the run-store fallback and expose exact node references in the workspace response
-  and controls. Then finish the full removal and recovery audit.
-- **Run count:** This request allows up to 20 worker loops. Worker 1 completed two implementation
-  packages; 0 milestones are complete. M11 remains in progress. Up to 18 worker loops remain.
+  revision-store fallback. This is the remaining known processor storage adapter.
+- **Next:** Remove the run-store fallback. Then finish the full removal and recovery audit.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 completed three implementation
+  packages; 0 milestones are complete. M11 remains in progress. Up to 17 worker loops remain.
+
+- **Latest package — return exact node pointers in workspace selections:** Workspace stage options
+  now expose only `node_id` and `node_revision_id`. Selected generated and reference values now
+  return the complete node and revision pointer. Run, observation, round-analysis, and comparison
+  controls consume those exact references. The response no longer projects selections to scalar
+  revision IDs.
+- **Checks:** Pipeline workspace and visible-card API tests passed (37 tests). Focused web/API tests
+  passed (70 tests). Backend Ruff check and format, web generated API verification, typecheck,
+  Prettier, and `git diff --check` passed.
+- **Known limit:** `ProcessorRunStore` still has a legacy revision-store branch when no lineage
+  writer is attached, and runtime composition still constructs the revision store for that branch.
+  M11 remains incomplete until the branch is isolated to migration code or removed.
+- **Next:** Remove the runtime fallback while keeping migration inventory reads explicit. Then run
+  the full M11 runtime, storage, and recovery audit.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 completed four implementation
+  packages; 0 milestones are complete. M11 remains in progress. Up to 16 worker loops remain.
+
+- **Latest package — preserve exact observation inputs in the workspace:** Compatible observation
+  input sets now carry three exact node references with revision policies. The observation controls
+  send those references to the run API and derive revision IDs only for the run contract. The
+  workspace no longer returns a revision-ID-only option set for this processor.
+- **Checks:** Pipeline workspace and visible-card API tests passed (38 tests), including a fixture
+  that checks all three references and policies. Focused observation, run-control, and workspace
+  web tests passed (42 tests). Backend Ruff check and format, web generated API verification,
+  typecheck, Prettier, ESLint, and `git diff --check` passed.
+- **Known limit:** `ProcessorRunStore` still has a legacy revision-store branch when no lineage
+  writer is attached. M11 remains incomplete until that branch is isolated to migration code or
+  removed.
+- **Next:** Remove the runtime fallback while keeping migration inventory reads explicit. Then run
+  the full M11 runtime, storage, and recovery audit.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 completed five implementation
+  packages; 0 milestones are complete. M11 remains in progress. Up to 15 worker loops remain.
+
+- **Latest package — remove runtime revision-store publication and fallback:** Runtime composition
+  now creates the lineage writer before the run store and passes it to the run store at creation.
+  Processor and workspace services no longer receive or retain `PipelineRevisionStore`. The legacy
+  run reader is named `LegacyProcessorRunStore` and is used by migration inventory and the offline
+  repair tool only. Workspace stage selections and compatible observation input sets return exact
+  node references. Calibration reflow validates node content directly and its apply response names
+  the exact `visible_card_node_ref`. Proposal seeding and calibration reflow no longer call legacy
+  reference handlers. Reflowed proposal nodes now carry a canonical data-revision manifest. Browser
+  checks that asserted removed Generated/Reviewed editing paths were deleted.
+- **Checks:** The focused pipeline API, visible-card API, comparison APIs, frame-review API,
+  processor store, proposal service, calibration refinement, observation API, visual-identity API,
+  migration, and offline repair tests passed across 18 modules. Web typecheck, lint, format,
+  generated API verification, all 179 Vitest tests, and seven Playwright tests passed. The direct
+  runtime/recovery audit passed for retired paths, migration snapshot counts and bytes, 26
+  calibration draft hashes, and all 136 canonical selections. Backend lint/format, link checks, and
+  the final removal audit remain before M11 can complete.
+- **Known limit:** The run request schema still stores derived revision IDs beside exact input node
+  references for processor-run history. This is not a second selector; execution reads the exact
+  references. Calibration anchor commands remain in the calibration-specific draft store. The full
+  recovery receipt and retired-storage audit is not yet complete. M11 remains in progress.
+- **Next:** Run the full required M11 checks and audit active source, workspace selections, node
+  publication, recovery receipts, and retired storage. Resolve any remaining acceptance gaps before
+  moving this epic to M12.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 completed seven implementation
+  packages; 0 milestones are complete. M11 remains in progress. Up to 13 worker loops remain.
+
+- **Latest package — require exact node references for processor starts:** Visible-card, scene,
+  identity, and observation APIs now reject revision-ID selector fields and require exact node
+  references. Web controls send node references for detector, scene, identity, and observation
+  inputs. Proposed crop options include the node ID. The generated and persisted revision IDs stay
+  in run history as derived metadata; processors read the frozen node references. The workspace
+  continues to return exact selected pointers and compatible observation input sets.
+- **Checks:** Twenty focused backend modules passed, including processor APIs, workspace inputs,
+  migration and recovery, calibration, comparisons, and offline repair. Backend Ruff and format
+  checks passed. `npm run check` passed type, lint, format, generated API, and all 179 web tests.
+  `npm run test:e2e` passed all seven browser tests. The direct selection audit verified 136 files
+  and 187 exact pointers. Retired active-store paths are absent, and recovery receipts remain at
+  `data/operations-recovery/0108-m11-20261106`. Local links in the epic and board and
+  `git diff --check` passed.
+- **Full-suite baseline:** `uv run pytest -q` from `backend` has one failure in
+  `tests/test_app.py::test_factory_converts_interrupted_round_analysis_to_failed`. It expects an
+  unlinked queued round-analysis record to fail at app construction. This test and its round-analysis
+  behavior are outside M11 and were not changed. All M11-focused backend tests pass.
+- **Acceptance:** M11 passes. Runtime processors use exact node references and one lineage-writer
+  publication path. Legacy revision reads are isolated in migration inventory and offline repair.
+  Calibration uses `VisibleCardNodeDraft` and returns exact node references. The workspace has no
+  scalar selection projection. Old reference and review storage remain absent with verified
+  recovery copies.
+- **Next:** M12 — verify the complete workflow and close the epic. M12 is not started in this run.
+- **Run count:** Requested up to 20 worker loops; worker 1 completed one milestone, M11. Nineteen
+  loops remain unused because this run stops when M11 completes.
 
 ### M12 — Verify the complete workflow and close — Not started
 

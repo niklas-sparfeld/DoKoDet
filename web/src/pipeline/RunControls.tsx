@@ -37,6 +37,11 @@ type CropInputKind =
 type CropInputOption = {
   kind: CropInputKind;
   revisionId: string;
+  nodeRef: {
+    node_id: string;
+    revision_id: string;
+    revision_policy: "current_head" | "historical";
+  };
   label: string;
 };
 
@@ -109,9 +114,9 @@ export function RunControls({
       ? stages.find((candidate) => candidate.key === UPSTREAM_STAGE[runStage])
       : undefined;
   const generatedRevisionId =
-    upstreamStage?.selected_generated_revision_id ?? null;
+    upstreamStage?.selected_generated?.revision_id ?? null;
   const reviewedRevisionId =
-    upstreamStage?.selected_completed_reference_revision_id ?? null;
+    upstreamStage?.selected_completed_reference?.revision_id ?? null;
   const [inputOrigin, setInputOrigin] = useState<InputOrigin>(() =>
     reviewedRevisionId === null ? "generated" : "reviewed",
   );
@@ -125,6 +130,7 @@ export function RunControls({
   const [cropInputSelection, setCropInputSelection] = useState("");
   const [proposedCropInputs, setProposedCropInputs] = useState<
     Array<{
+      node_id: string;
       revision_id: string;
       created_at: string;
       detector_revision_id: string;
@@ -169,6 +175,11 @@ export function RunControls({
           ...proposedCropInputs.map((input) => ({
             kind: "proposed_virtual_cards" as const,
             revisionId: input.revision_id,
+            nodeRef: {
+              node_id: input.node_id,
+              revision_id: input.revision_id,
+              revision_policy: "historical" as const,
+            },
             label: `Proposed virtual cards · ${input.revision_id} · ${input.supported_frame_count} supported frames · calibration ${input.calibration_revision_id}`,
           })),
         ]
@@ -189,14 +200,14 @@ export function RunControls({
   const selectedEventOption =
     runStage === "visible_cards"
       ? (upstreamStage?.input_options.find(
-          (option) => option.revision_id === selectedRevisionId,
+          (option) => option.node_revision_id === selectedRevisionId,
         ) ?? null)
       : null;
   const reviewedInputListed =
     reviewedRevisionId !== null &&
     (upstreamStage?.input_options.some(
       (option) =>
-        option.revision_id === reviewedRevisionId &&
+        option.node_revision_id === reviewedRevisionId &&
         option.origin !== "processor",
     ) ??
       false);
@@ -246,6 +257,7 @@ export function RunControls({
           visibleCardModelVariant,
           selectedCropInput?.kind ?? null,
           selectedEventOption,
+          selectedCropInput?.nodeRef ?? null,
           historicalRevisionId !== "" || inputOrigin === "reviewed"
             ? "historical"
             : "current_head",
@@ -499,8 +511,11 @@ export function RunControls({
                 >
                   <option value="">Use the selected {inputOrigin} input</option>
                   {historicalOptions.map((option) => (
-                    <option key={option.revision_id} value={option.revision_id}>
-                      {option.display_label} · {option.revision_id}
+                    <option
+                      key={option.node_revision_id}
+                      value={option.node_revision_id}
+                    >
+                      {option.display_label} · {option.node_revision_id}
                     </option>
                   ))}
                 </select>
@@ -768,6 +783,7 @@ function buildRunRequest(
   visibleCardModelVariant: VisibleCardModelVariant = "gemini",
   cropInputKind: CropInputKind | null = null,
   eventOption: PipelineWorkspaceStage["input_options"][number] | null = null,
+  cropInputRef: CropInputOption["nodeRef"] | null = null,
   eventRevisionPolicy: "current_head" | "historical" = "current_head",
 ): PipelineRunStartRequest {
   const request = latestRun?.request ?? {};
@@ -807,24 +823,17 @@ function buildRunRequest(
   return {
     request: {
       run_id: runId,
-      ...(inputRevisionId === null
-        ? { input_revision_ids: [] }
-        : {
-            input_revision_ids: [inputRevisionId],
-            ...(stage === "visual_identities" &&
-            cropInputKind === "proposed_virtual_cards"
-              ? { card_scene_proposal_revision_id: inputRevisionId }
-              : stage === "visible_cards"
-                ? {
-                    input_revision_ids: [eventOption!.node_revision_id],
-                    input_node_ref: {
-                      node_id: eventOption!.node_id,
-                      revision_id: eventOption!.node_revision_id,
-                      revision_policy: eventRevisionPolicy,
-                    },
-                  }
-                : { visible_card_revision_id: inputRevisionId }),
-          }),
+      ...(stage === "visible_cards" && eventOption !== null
+        ? {
+            input_node_ref: {
+              node_id: eventOption.node_id,
+              revision_id: eventOption.node_revision_id,
+              revision_policy: eventRevisionPolicy,
+            },
+          }
+        : stage === "visual_identities" && cropInputRef !== null
+          ? { input_node_ref: cropInputRef }
+          : {}),
       ...(stage === "visual_identities" && cropInputKind !== null
         ? { crop_input_kind: cropInputKind }
         : {}),
@@ -844,7 +853,7 @@ function buildCropInputOptions(
   for (const revision of stage.input_options) {
     if (revision.origin !== "processor") continue;
     const run = stage.runs.find((candidate) =>
-      candidate.output_revision_ids.includes(revision.revision_id),
+      candidate.output_revision_ids.includes(revision.node_revision_id),
     );
     const configuration = readObject(run?.configuration);
     const requestConfiguration = readObject(run?.request.configuration);
@@ -856,31 +865,53 @@ function buildCropInputOptions(
       : "gemini_polygon";
     options.push({
       kind,
-      revisionId: revision.revision_id,
-      label: `${formatCropInputKind(kind)} · ${revision.revision_id}${
-        revision.revision_id === stage.selected_generated_revision_id
+      revisionId: revision.node_revision_id,
+      nodeRef: {
+        node_id: revision.node_id,
+        revision_id: revision.node_revision_id,
+        revision_policy: revision.is_current_head
+          ? "current_head"
+          : "historical",
+      },
+      label: `${formatCropInputKind(kind)} · ${revision.node_revision_id}${
+        revision.node_revision_id === stage.selected_generated?.revision_id
           ? " · selected generated revision"
           : ""
       }`,
     });
   }
-  const reviewedRevisionId = stage.selected_completed_reference_revision_id;
+  const reviewedRevisionId =
+    stage.selected_completed_reference?.revision_id ?? null;
   if (reviewedRevisionId !== null) {
     const revision = stage.input_options.find(
       (candidate) =>
-        candidate.revision_id === reviewedRevisionId &&
+        candidate.node_revision_id === reviewedRevisionId &&
         candidate.origin !== "processor",
     );
     if (revision !== undefined) {
       options.push({
         kind: "reviewed_virtual_card",
-        revisionId: revision.revision_id,
-        label: `Reviewed virtual cards · ${revision.revision_id}`,
+        revisionId: revision.node_revision_id,
+        nodeRef: {
+          node_id: revision.node_id,
+          revision_id: revision.node_revision_id,
+          revision_policy: revision.is_current_head
+            ? "current_head"
+            : "historical",
+        },
+        label: `Reviewed virtual cards · ${revision.node_revision_id}`,
       });
       options.push({
         kind: "reviewed_visible_card",
-        revisionId: revision.revision_id,
-        label: `Reviewed visible cards · ${revision.revision_id}`,
+        revisionId: revision.node_revision_id,
+        nodeRef: {
+          node_id: revision.node_id,
+          revision_id: revision.node_revision_id,
+          revision_policy: revision.is_current_head
+            ? "current_head"
+            : "historical",
+        },
+        label: `Reviewed visible cards · ${revision.node_revision_id}`,
       });
     }
   }

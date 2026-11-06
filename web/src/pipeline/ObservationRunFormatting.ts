@@ -3,6 +3,7 @@ import {
   type PipelineRun,
   type PipelineRunResponse,
   type PipelineRunStartRequest,
+  type PipelineWorkspaceProcessorInputReference,
 } from "../api/client";
 
 export const TERMINAL_RUN_STATES = new Set(["complete", "partial", "failed"]);
@@ -19,13 +20,13 @@ export type RunFacts = {
 
 export function buildObservationRequest(
   runId: string,
-  inputRevisionIds: string[],
+  inputNodeRefs: PipelineWorkspaceProcessorInputReference[],
   latestRun: PipelineRun | null,
 ): PipelineRunStartRequest {
   return {
     request: {
       run_id: runId,
-      input_revision_ids: inputRevisionIds,
+      input_node_refs: inputNodeRefs,
       implementation: latestRun?.implementation ?? {
         name: "observation-assembler",
         version: "v1",

@@ -42,8 +42,8 @@ export function RoundAnalysisControls({
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
   const [observationRevisionId, setObservationRevisionId] = useState(
     () =>
-      stage.selected_generated_revision_id ??
-      stage.input_options[0]?.revision_id ??
+      stage.selected_generated?.revision_id ??
+      stage.input_options[0]?.node_revision_id ??
       "",
   );
   const [gameId, setGameId] = useState("");
@@ -184,9 +184,7 @@ export function RoundAnalysisControls({
       return null;
     }
     const observation = stage.input_options.find(
-      (option) =>
-        option.revision_id === observationRevisionId ||
-        option.node_revision_id === observationRevisionId,
+      (option) => option.node_revision_id === observationRevisionId,
     );
     if (observation === undefined) {
       setMessage(
@@ -292,8 +290,11 @@ export function RoundAnalysisControls({
           >
             <option value="">Select an observation revision</option>
             {stage.input_options.map((option) => (
-              <option key={option.revision_id} value={option.revision_id}>
-                {option.display_label} · {option.revision_id}
+              <option
+                key={option.node_revision_id}
+                value={option.node_revision_id}
+              >
+                {option.display_label} · {option.node_revision_id}
               </option>
             ))}
           </select>

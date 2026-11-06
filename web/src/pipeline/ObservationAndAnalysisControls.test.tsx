@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor } from "@testing-library/react";
 
 import type { PipelineWorkspaceStage } from "../api/client";
+import { normalizeWorkspaceSelectionFixture } from "../test/normalizeWorkspaceSelectionFixture";
 import {
   ObservationRunControls,
   RoundAnalysisControls,
@@ -22,14 +23,14 @@ function stage(
     input_options: [],
     compatible_input_sets: [],
     selection_revision: null,
-    selected_generated_revision_id: null,
-    selected_completed_reference_revision_id: null,
+    selected_generated: null,
+    selected_completed_reference: null,
     runs: [],
     analyses: [],
     can_run: true,
     run_blockers: [],
     comparable_run_ids: [],
-    ...overrides,
+    ...normalizeWorkspaceSelectionFixture(overrides),
   } as PipelineWorkspaceStage;
 }
 
@@ -85,7 +86,23 @@ describe("observation and analysis controls", () => {
     const observations = stage("table_observations", {
       compatible_input_sets: [
         {
-          input_revision_ids: ["events-1", "visible-1", "identity-1"],
+          input_node_refs: [
+            {
+              node_id: "node-events-1",
+              revision_id: "node-revision-events-1",
+              revision_policy: "historical",
+            },
+            {
+              node_id: "node-visible-1",
+              revision_id: "node-revision-visible-1",
+              revision_policy: "historical",
+            },
+            {
+              node_id: "node-identity-1",
+              revision_id: "node-revision-identity-1",
+              revision_policy: "historical",
+            },
+          ],
           display_label:
             "Generated events + generated cards + generated identities",
         },
@@ -115,7 +132,23 @@ describe("observation and analysis controls", () => {
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
-        input_revision_ids: ["events-1", "visible-1", "identity-1"],
+        input_node_refs: [
+          {
+            node_id: "node-events-1",
+            revision_id: "node-revision-events-1",
+            revision_policy: "historical",
+          },
+          {
+            node_id: "node-visible-1",
+            revision_id: "node-revision-visible-1",
+            revision_policy: "historical",
+          },
+          {
+            node_id: "node-identity-1",
+            revision_id: "node-revision-identity-1",
+            revision_policy: "historical",
+          },
+        ],
         implementation: { name: "observation-assembler", version: "v1" },
       },
     });
@@ -280,7 +313,7 @@ describe("observation and analysis controls", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Enter explicit game ID, round ID, session ID, dealer, first-trick leader, four active players before starting round analysis.",
+      "Enter explicit observation revision, game ID, round ID, session ID, dealer, first-trick leader, four active players before starting round analysis.",
     );
   });
 

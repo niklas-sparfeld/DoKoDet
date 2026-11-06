@@ -28,7 +28,10 @@ from table_evidence_analyzer.pipeline_data import parse_observation_bytes
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.pipeline_lineage import _acyclic
-from dokodetector_backend.pipeline_store import PipelineRevisionStore, ProcessorRunStore
+from dokodetector_backend.pipeline_store import (
+    LegacyProcessorRunStore,
+    PipelineRevisionStore,
+)
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.visible_card_review_store import VisibleCardReviewStore
@@ -469,7 +472,7 @@ def inventory(
     revision_ids: dict[str, list[dict[str, Any]]] = defaultdict(list)
     revision_stores = {root_id: PipelineRevisionStore(root) for root_id, root in normalized.items()}
     run_stores = {
-        root_id: ProcessorRunStore(root, revision_store=revision_stores[root_id])
+        root_id: LegacyProcessorRunStore(root, revision_store=revision_stores[root_id])
         for root_id, root in normalized.items()
     }
     for (root_id, kind, relative, old_id), files in sorted(groups.items()):

@@ -2753,8 +2753,8 @@ export interface components {
         PipelineWorkspaceCompatibleInputSetResponse: {
             /** Display Label */
             display_label: string;
-            /** Input Revision Ids */
-            input_revision_ids: string[];
+            /** Input Node Refs */
+            input_node_refs: components["schemas"]["PipelineWorkspaceProcessorInputReferenceResponse"][];
         };
         /**
          * PipelineWorkspaceDiagnosticResponse
@@ -2834,8 +2834,31 @@ export interface components {
             producer: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * PipelineWorkspaceNodeReferenceResponse
+         * @description One exact node and revision pointer used by processor controls.
+         */
+        PipelineWorkspaceNodeReferenceResponse: {
+            /** Node Id */
+            node_id: string;
             /** Revision Id */
             revision_id: string;
+        };
+        /**
+         * PipelineWorkspaceProcessorInputReferenceResponse
+         * @description One exact node revision and revision policy frozen for processing.
+         */
+        PipelineWorkspaceProcessorInputReferenceResponse: {
+            /** Node Id */
+            node_id: string;
+            /** Revision Id */
+            revision_id: string;
+            /**
+             * Revision Policy
+             * @enum {string}
+             */
+            revision_policy: "current_head" | "historical";
         };
         /**
          * PipelineWorkspaceProgressResponse
@@ -2953,10 +2976,8 @@ export interface components {
             run_blockers: string[];
             /** Runs */
             runs: components["schemas"]["PipelineWorkspaceRunResponse"][];
-            /** Selected Completed Reference Revision Id */
-            selected_completed_reference_revision_id?: string | null;
-            /** Selected Generated Revision Id */
-            selected_generated_revision_id?: string | null;
+            selected_completed_reference?: components["schemas"]["PipelineWorkspaceNodeReferenceResponse"] | null;
+            selected_generated?: components["schemas"]["PipelineWorkspaceNodeReferenceResponse"] | null;
             /** Selection Revision */
             selection_revision?: number | null;
             /**

@@ -42,7 +42,6 @@ from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelec
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
-    PipelineRevisionStore,
     PipelineRuntimeStorage,
     ProcessorRunStore,
     StoredPipelineRevision,
@@ -76,13 +75,11 @@ class ProposedCardScenePipelineService:
         self,
         settings: Settings,
         *,
-        revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
         selection_store: PipelineNodeSelectionStore,
         node_store: PipelineNodeStore | None = None,
     ) -> None:
         self.settings = settings
-        self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
         self.node_store = node_store or getattr(
@@ -351,8 +348,6 @@ class ProposedCardScenePipelineService:
             raise ProposedCardScenePipelineInputError("the proposal request must be an object")
         unknown = set(payload) - {
             "run_id",
-            "visible_card_revision_id",
-            "input_revision_ids",
             "configuration",
             "input_node_ref",
         }
@@ -360,21 +355,8 @@ class ProposedCardScenePipelineService:
             raise ProposedCardScenePipelineInputError(
                 "the proposal request has unknown fields: " + ", ".join(sorted(unknown))
             )
-        revision_id = payload.get("visible_card_revision_id")
         node_ref = payload.get("input_node_ref")
-        input_ids = payload.get("input_revision_ids")
-        if input_ids is not None:
-            if not isinstance(input_ids, list) or len(input_ids) != 1:
-                raise ProposedCardScenePipelineInputError(
-                    "a proposal needs one visible-card input revision"
-                )
-            input_revision_id = input_ids[0]
-            if revision_id is not None and revision_id != input_revision_id:
-                raise ProposedCardScenePipelineInputError(
-                    "visible_card_revision_id conflicts with input_revision_ids"
-                )
-            revision_id = input_revision_id
-        if revision_id is None:
+        if node_ref is None:
             exact = getattr(self.selection_store, "get_exact", lambda *_: None)(
                 recording_id, "visible_cards"
             )
@@ -383,30 +365,19 @@ class ProposedCardScenePipelineService:
                     **exact.selected_generated,
                     "revision_policy": "current_head",
                 }
-                revision_id = exact.selected_generated["revision_id"]
-            else:
-                revision_id = None
-        if not isinstance(revision_id, str) or not revision_id:
-            raise ProposedCardScenePipelineInputError(
-                "no generated visible-card revision is selected"
-            )
-        if node_ref is None and self.node_store is not None:
-            try:
-                node, _ = self.node_store.find_revision(revision_id)
-            except (FileNotFoundError, KeyError, ValueError):
-                node = None
-            if node is not None:
-                node_ref = {
-                    "node_id": node.node_id,
-                    "revision_id": revision_id,
-                    "revision_policy": (
-                        "current_head" if node.head_revision_id == revision_id else "historical"
-                    ),
-                }
         if node_ref is None:
             raise ProposedCardScenePipelineInputError(
                 "an exact visible-card node revision is required"
             )
+        if not isinstance(node_ref, Mapping) or set(node_ref) != {
+            "node_id",
+            "revision_id",
+            "revision_policy",
+        }:
+            raise ProposedCardScenePipelineInputError("input_node_ref is invalid")
+        revision_id = node_ref.get("revision_id")
+        if not isinstance(revision_id, str) or not revision_id:
+            raise ProposedCardScenePipelineInputError("input_node_ref needs a revision ID")
         revision = self._visible_input(recording_id, revision_id, node_ref)
         if revision.recording_id != recording_id:
             raise ProposedCardScenePipelineInputError(

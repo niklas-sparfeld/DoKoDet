@@ -31,7 +31,6 @@ from dokodetector_backend.filesystem import enumerate_resource_directories
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore, _read_json
 from dokodetector_backend.pipeline_store import (
-    PipelineRevisionStore,
     ProcessorRunStatus,
     ProcessorRunStore,
     StoredProcessorRun,
@@ -102,7 +101,6 @@ class RecordingPipelineWorkspaceService:
         self,
         *,
         recording_source_provider: Callable[[str], RecordingVideoSource],
-        revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
         selection_store: PipelineNodeSelectionStore,
         round_analysis_store: Any,
@@ -110,7 +108,6 @@ class RecordingPipelineWorkspaceService:
         lineage_service: Any,
     ) -> None:
         self.recording_source_provider = recording_source_provider
-        self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
         self.round_analysis_store = round_analysis_store
@@ -486,7 +483,10 @@ class RecordingPipelineWorkspaceService:
                 self.node_store.get(revision.node_id).head_revision_id == revision.node_revision_id
             )
             options.append(option)
-        options.sort(key=lambda option: (option["created_at"], option["revision_id"]), reverse=True)
+        options.sort(
+            key=lambda option: (option["created_at"], option["node_revision_id"]),
+            reverse=True,
+        )
         analyses = (
             self._analysis_summaries(recording_id, diagnostics)
             if definition.key == "round_analyses"
@@ -498,12 +498,8 @@ class RecordingPipelineWorkspaceService:
             else []
         )
         selection_revision = None if selection is None else selection.revision
-        selected_generated = self._selection_revision_id(
-            None if selection is None else selection.selected_generated
-        )
-        selected_completed = self._selection_revision_id(
-            None if selection is None else selection.selected_completed_reference
-        )
+        selected_generated = None if selection is None else selection.selected_generated
+        selected_completed = None if selection is None else selection.selected_completed_reference
         comparable_run_ids = [
             run.run_id
             for run in stage_runs
@@ -537,8 +533,8 @@ class RecordingPipelineWorkspaceService:
             "input_options": options,
             "compatible_input_sets": compatible_input_sets,
             "selection_revision": selection_revision,
-            "selected_generated_revision_id": selected_generated,
-            "selected_completed_reference_revision_id": selected_completed,
+            "selected_generated": selected_generated,
+            "selected_completed_reference": selected_completed,
             "runs": [
                 self._run_summary(
                     run,
@@ -583,11 +579,6 @@ class RecordingPipelineWorkspaceService:
         return selection
 
     @staticmethod
-    def _selection_revision_id(pointer: Mapping[str, str] | None) -> str | None:
-        """Return the exact selected node revision ID used by execution controls."""
-        return None if pointer is None else pointer["revision_id"]
-
-    @staticmethod
     def _revision_option(revision: Any, stage_key: str) -> dict[str, Any]:
         manifest = RecordingPipelineWorkspaceService._manifest(revision)
         generated = manifest.origin == "processor"
@@ -595,7 +586,6 @@ class RecordingPipelineWorkspaceService:
         if getattr(revision, "migrated_draft", False):
             label = "Imported draft"
         return {
-            "revision_id": revision.node_revision_id,
             "content_type": manifest.content_type,
             "origin": manifest.origin,
             "completion_state": "complete",
@@ -798,6 +788,18 @@ class RecordingPipelineWorkspaceService:
                         visible_revision.manifest.revision_id,
                         identity_revision.manifest.revision_id,
                     ]
+                    input_node_refs = [
+                        {
+                            "node_id": revision.node_id,
+                            "revision_id": revision.node_revision_id,
+                            "revision_policy": "historical",
+                        }
+                        for revision in (
+                            event_revision,
+                            visible_revision,
+                            identity_revision,
+                        )
+                    ]
                     try:
                         assemble_table_observations(
                             event_revision.content,
@@ -812,13 +814,17 @@ class RecordingPipelineWorkspaceService:
                         continue
                     compatible.append(
                         {
-                            "input_revision_ids": input_revision_ids,
+                            "input_node_refs": input_node_refs,
                             "display_label": " + ".join(
                                 labels[revision_id] for revision_id in input_revision_ids
                             ),
                         }
                     )
-        compatible.sort(key=lambda item: tuple(item["input_revision_ids"]))
+        compatible.sort(
+            key=lambda item: tuple(
+                (ref["node_id"], ref["revision_id"]) for ref in item["input_node_refs"]
+            )
+        )
         return compatible
 
     def _analysis_summaries(

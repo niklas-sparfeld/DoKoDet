@@ -41,7 +41,6 @@ from dokodetector_backend.pipeline_node_selection_store import (
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
-    PipelineRevisionStore,
     PipelineRuntimeStorage,
     PipelineSelectionConflict,
     PipelineStateError,
@@ -68,7 +67,6 @@ class ObservationPipelineService:
     def __init__(
         self,
         *,
-        revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
         selection_store: PipelineNodeSelectionStore,
         recording_store: Any,
@@ -76,7 +74,6 @@ class ObservationPipelineService:
         operations_root: Any,
         node_store: PipelineNodeStore | None = None,
     ) -> None:
-        self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
         self.node_store = node_store
@@ -456,75 +453,18 @@ class ObservationPipelineService:
     ) -> tuple[dict[str, str], ...]:
         expected_types = ("events", "visible_cards", "visual_identities")
         provided = raw.get("input_node_refs")
-        if provided is None:
-            if any(
-                raw.get(field) is not None
-                for field in (
-                    "event_revision_id",
-                    "visible_card_revision_id",
-                    "visual_identity_revision_id",
-                )
-            ):
-                raise ObservationPipelineInputError(
-                    "use input_revision_ids or exact input_node_refs for observation inputs"
-                )
-            input_ids = raw.get("input_revision_ids")
-            if isinstance(input_ids, list) and len(input_ids) == len(expected_types):
-                refs = []
-                for revision_id, content_type in zip(input_ids, expected_types, strict=True):
-                    if not isinstance(revision_id, str) or not revision_id:
-                        raise ObservationPipelineInputError(
-                            "observation inputs need exact node revision IDs"
-                        )
-                    try:
-                        node, _ = self.node_store.find_revision(revision_id)
-                    except (FileNotFoundError, KeyError, ValueError) as error:
-                        raise ObservationPipelineInputError(
-                            f"the selected {content_type} node revision is unavailable"
-                        ) from error
-                    if (
-                        node.content_type != content_type
-                        or node.source.get("recording_id") != recording_id
-                    ):
-                        raise ObservationPipelineInputError(
-                            f"the selected node revision is not {content_type} for this recording"
-                        )
-                    refs.append(
-                        {
-                            "node_id": node.node_id,
-                            "revision_id": revision_id,
-                            "revision_policy": (
-                                "current_head"
-                                if node.head_revision_id == revision_id
-                                else "historical"
-                            ),
-                        }
-                    )
-                provided = refs
-            else:
-                refs = []
-                for content_type in expected_types:
-                    selection = self.selection_store.get_exact(recording_id, content_type)
-                    if selection is None:
-                        raise ObservationPipelineInputError(
-                            f"no selected {content_type} node revision is available"
-                        )
-                    pointer = selection.selected_completed_reference or selection.selected_generated
-                    if pointer is None:
-                        raise ObservationPipelineInputError(
-                            f"no selected {content_type} node revision is available"
-                        )
-                    refs.append(
-                        {
-                            **pointer,
-                            "revision_policy": (
-                                "historical"
-                                if selection.selected_completed_reference is not None
-                                else "current_head"
-                            ),
-                        }
-                    )
-                provided = refs
+        if any(
+            raw.get(field) is not None
+            for field in (
+                "input_revision_ids",
+                "event_revision_id",
+                "visible_card_revision_id",
+                "visual_identity_revision_id",
+            )
+        ):
+            raise ObservationPipelineInputError(
+                "use exact input_node_refs instead of revision-ID input fields"
+            )
         if not isinstance(provided, list) or len(provided) != 3:
             raise ObservationPipelineInputError(
                 "assembly needs ordered event, visible-card, and identity node references"

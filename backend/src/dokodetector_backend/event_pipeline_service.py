@@ -38,14 +38,10 @@ from doko_operations.pipeline_data import (
 from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.intake_contract import parse_proposal_generator_run
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
-from dokodetector_backend.pipeline_lineage import PipelineLineage
-from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
 from dokodetector_backend.pipeline_node_selection_store import (
     ExactNodeSelection,
     PipelineNodeSelectionStore,
 )
-from dokodetector_backend.pipeline_node_store import PipelineNodeStore
-from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.pipeline_service_errors import (
     PipelineInputError,
     PipelineProviderError,
@@ -53,7 +49,6 @@ from dokodetector_backend.pipeline_service_errors import (
 )
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
-    PipelineRevisionStore,
     PipelineRuntimeStorage,
     PipelineSelectionConflict,
     PipelineStateError,
@@ -304,34 +299,18 @@ class EventPipelineService:
         repository_storage: RepositoryBundleStorage,
         *,
         event_provider: EventProcessorProvider | None = None,
-        revision_store: PipelineRevisionStore | None = None,
-        run_store: ProcessorRunStore | None = None,
-        selection_store: PipelineNodeSelectionStore | None = None,
+        run_store: ProcessorRunStore,
+        selection_store: PipelineNodeSelectionStore,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
         self.repository_storage = repository_storage
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
-        self.revision_store = revision_store or PipelineRevisionStore(self.storage)
-        self.run_store = run_store or ProcessorRunStore(
-            self.storage,
-            revision_store=self.revision_store,
-        )
-        if selection_store is None:
-            lineage_writer = self.run_store.lineage_writer
-            node_store = (
-                lineage_writer.node_store
-                if lineage_writer is not None
-                else PipelineNodeStore(settings.operations_root / "pipeline-nodes")
-            )
-            if lineage_writer is None:
-                lineage_writer = PipelineLineageWriter(
-                    node_store,
-                    PipelineLineage(node_store),
-                    PipelineNodeUses(node_store),
-                )
-                self.run_store.lineage_writer = lineage_writer
-            selection_store = PipelineNodeSelectionStore(node_store, lineage_writer)
+        self.run_store = run_store
+        if run_store.lineage_writer is None:
+            raise ValueError("event pipeline requires a lineage-backed run store")
+        if selection_store.lineage_writer is not run_store.lineage_writer:
+            raise ValueError("event pipeline selection store must share the run lineage writer")
         self.selection_store = selection_store
         self.event_provider = event_provider or CardEventFileProvider(
             settings.repository_root,

@@ -39,8 +39,8 @@ export function ObservationRunControls({
       ["events", "visible_cards", "visual_identities"].map((key) => {
         const upstream = stages.find((candidate) => candidate.key === key);
         return (
-          upstream?.selected_completed_reference_revision_id ??
-          upstream?.selected_generated_revision_id ??
+          upstream?.selected_completed_reference ??
+          upstream?.selected_generated ??
           null
         );
       }),
@@ -49,8 +49,10 @@ export function ObservationRunControls({
   const defaultSet = useMemo(
     () =>
       compatibleSets.find((candidate) =>
-        candidate.input_revision_ids.every(
-          (revisionId, index) => revisionId === selectedDefaults[index],
+        candidate.input_node_refs.every(
+          (reference, index) =>
+            reference.node_id === selectedDefaults[index]?.node_id &&
+            reference.revision_id === selectedDefaults[index]?.revision_id,
         ),
       ) ??
       compatibleSets[0] ??
@@ -69,7 +71,8 @@ export function ObservationRunControls({
   const [message, setMessage] = useState<string | null>(null);
   const selectedSet =
     compatibleSets.find(
-      (candidate) => candidate.input_revision_ids.join("|") === selectedSetKey,
+      (candidate) =>
+        JSON.stringify(candidate.input_node_refs) === selectedSetKey,
     ) ?? defaultSet;
   const selectedRun = useMemo(
     () =>
@@ -97,11 +100,7 @@ export function ObservationRunControls({
     try {
       const response = await client.startObservationRun(
         recordingId,
-        buildObservationRequest(
-          runId,
-          selectedSet.input_revision_ids,
-          latestRun,
-        ),
+        buildObservationRequest(runId, selectedSet.input_node_refs, latestRun),
       );
       setLiveRun(response);
       setTrackedRunId(response.run_id);
@@ -140,7 +139,11 @@ export function ObservationRunControls({
               <span>Compatible revision set</span>
               <select
                 aria-label="Compatible revision set"
-                value={selectedSet?.input_revision_ids.join("|") ?? ""}
+                value={
+                  selectedSet === null
+                    ? ""
+                    : JSON.stringify(selectedSet.input_node_refs)
+                }
                 disabled={busy || compatibleSets.length === 0}
                 onChange={(event) => setSelectedSetKey(event.target.value)}
               >
@@ -149,8 +152,8 @@ export function ObservationRunControls({
                 ) : (
                   compatibleSets.map((candidate) => (
                     <option
-                      key={candidate.input_revision_ids.join("|")}
-                      value={candidate.input_revision_ids.join("|")}
+                      key={JSON.stringify(candidate.input_node_refs)}
+                      value={JSON.stringify(candidate.input_node_refs)}
                     >
                       {candidate.display_label}
                     </option>
@@ -173,7 +176,13 @@ export function ObservationRunControls({
           </div>
           {selectedSet !== null ? (
             <p className={styles.pipelineRunInputValue}>
-              Exact inputs: {selectedSet.input_revision_ids.join(", ")}
+              Exact inputs:{" "}
+              {selectedSet.input_node_refs
+                .map(
+                  (reference) =>
+                    `${reference.node_id}@${reference.revision_id}`,
+                )
+                .join(", ")}
             </p>
           ) : null}
         </>

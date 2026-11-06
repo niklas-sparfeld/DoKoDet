@@ -15,6 +15,7 @@ import {
 import { RecordingPipelineWorkspace } from "./RecordingPipelineWorkspace";
 import { App } from "../App";
 import type { PipelineWorkspace, PipelineWorkspaceStage } from "../api/client";
+import { normalizeWorkspaceSelectionFixture } from "../test/normalizeWorkspaceSelectionFixture";
 
 const RECORDING_ID = "recording-shell";
 
@@ -30,15 +31,15 @@ function stage(
     state: "video-only",
     input_options: [],
     selection_revision: null,
-    selected_generated_revision_id: null,
-    selected_completed_reference_revision_id: null,
+    selected_generated: null,
+    selected_completed_reference: null,
     runs: [],
     analyses: [],
     compatible_input_sets: [],
     can_run: true,
     run_blockers: [],
     comparable_run_ids: [],
-    ...overrides,
+    ...normalizeWorkspaceSelectionFixture(overrides),
   } as PipelineWorkspaceStage;
 }
 
@@ -134,7 +135,7 @@ describe("recording pipeline workspace", () => {
         generated as PipelineWorkspaceStage["input_options"][number],
       ],
       selection_revision: 4,
-      selected_generated_revision_id: generated.revision_id,
+      selected_generated_revision_id: generated.node_revision_id,
       can_run: false,
     });
     vi.stubGlobal(
@@ -246,7 +247,7 @@ describe("recording pipeline workspace", () => {
       within(inspector).getByRole("combobox", {
         name: "Default generated revision",
       }),
-    ).toHaveValue(generated.revision_id);
+    ).toHaveValue(generated.node_revision_id);
     expect(
       within(inspector).getByRole("button", { name: "Run processor" }),
     ).toBeInTheDocument();
@@ -274,7 +275,7 @@ describe("recording pipeline workspace", () => {
     expect(screen.getAllByText("No data set selected")).toHaveLength(7);
     expect(
       screen.getByRole("combobox", { name: "Default generated revision" }),
-    ).toHaveValue(generated.revision_id);
+    ).toHaveValue(generated.node_revision_id);
     expect(screen.queryByRole("button", { name: "Review" })).toBeNull();
     expect(
       screen.getByText("Select an Events data set in the lineage drawer."),
@@ -484,7 +485,7 @@ describe("recording pipeline workspace", () => {
     const body = workspace({
       state: "data-available",
       input_options: [generated],
-      selected_generated_revision_id: generated.revision_id,
+      selected_generated_revision_id: generated.node_revision_id,
       can_run: false,
       runs: [
         {
@@ -499,7 +500,7 @@ describe("recording pipeline workspace", () => {
           implementation: { name: "fixture", version: "1" },
           input_revision_ids: [],
           model: null,
-          output_revision_ids: [generated.revision_id],
+          output_revision_ids: [generated.node_revision_id],
           progress: { completed: 1, total: 1 },
           request: {},
           run_id: "run-rail-1",
@@ -942,7 +943,7 @@ describe("recording pipeline workspace", () => {
     const body = workspace({
       state: "data-available",
       input_options: [generated],
-      selected_generated_revision_id: generated.revision_id,
+      selected_generated_revision_id: generated.node_revision_id,
       can_run: false,
     });
     vi.stubGlobal(
@@ -1202,7 +1203,7 @@ describe("recording pipeline workspace", () => {
     window.history.pushState(
       {},
       "",
-      "/recordings/recording-shell/pipeline/events/compare?left=run-left&right=run-right&reference=reference-compare-1",
+      "/recordings/recording-shell/pipeline/events/compare?left=run-left&right=run-right&reference=node-revision-reference-compare-1",
     );
     const body = workspace();
     body.stages[0] = stage("events", {
@@ -1213,6 +1214,8 @@ describe("recording pipeline workspace", () => {
       input_options: [
         {
           revision_id: "reference-compare-1",
+          node_id: "node-reference-compare-1",
+          node_revision_id: "node-revision-reference-compare-1",
           content_type: "events",
           origin: "manual",
           completion_state: "complete",
@@ -1269,7 +1272,7 @@ describe("recording pipeline workspace", () => {
         failure: null,
       },
       reference: {
-        revision_id: "reference-compare-1",
+        revision_id: "node-revision-reference-compare-1",
         input_revision_ids: [],
         content_sha256: "b".repeat(64),
         origin: "manual",
@@ -1547,14 +1550,14 @@ describe("recording pipeline workspace", () => {
     const selector = await screen.findByRole("combobox", {
       name: "Default generated revision",
     });
-    await userEvent.setup().selectOptions(selector, "events-2");
+    await userEvent.setup().selectOptions(selector, "events-node-r2");
 
     expect(
       await screen.findByText(
         "The processor input changed elsewhere. The winning selection is shown.",
       ),
     ).toBeInTheDocument();
-    await waitFor(() => expect(selector).toHaveValue("events-2"));
+    await waitFor(() => expect(selector).toHaveValue("events-node-r2"));
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/recordings/recording-shell/pipeline/events/selection",
       expect.objectContaining({

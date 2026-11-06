@@ -25,6 +25,7 @@ from doko_operations.card_plane_calibration_refinement import (
 )
 from doko_operations.card_plane_geometry import TablePlaneCalibration
 from doko_operations.pipeline_data import (
+    DataRevision,
     ProcessorProducer,
     canonical_json_bytes,
     parse_source,
@@ -58,7 +59,6 @@ from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceConflict,
     PipelineReferenceInputError,
 )
-from dokodetector_backend.pipeline_reference_handlers import build_reference_handlers
 from dokodetector_backend.visible_card_node_draft import (
     VisibleCardNodeDraft,
     VisibleCardNodeDraftItem,
@@ -433,19 +433,31 @@ class CalibrationRefinementService:
             implementation_id="calibration-reflow/v1",
             model_id=None,
         )
+        coverage = {
+            "kind": "calibration-reflow-proposed-card-scenes",
+            "source_proposal_revision_id": source_proposal_revision_id,
+            "calibration_revision_id": calibration.calibration_revision_id,
+            "calibration_digest": calibration.calibration_digest,
+        }
+        manifest = DataRevision(
+            revision_id=revision_id,
+            content_type="card_scene_proposals",
+            content_schema=PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
+            recording_id=recording_id,
+            source=source.manifest.source,
+            content_sha256=digest,
+            input_revision_ids=(source.manifest.revision_id,),
+            origin="processor",
+            producer=producer,
+            coverage=coverage,
+            created_at=_now(),
+        )
         metadata = {
-            "origin": "processor",
-            "legacy_revision_id": revision_id,
-            "legacy_content_schema": PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
-            "legacy_content_sha256": digest,
-            "input_revision_ids": [source.manifest.revision_id],
-            "producer": producer.to_mapping(),
-            "coverage": {
-                "kind": "calibration-reflow-proposed-card-scenes",
-                "source_proposal_revision_id": source_proposal_revision_id,
-                "calibration_revision_id": calibration.calibration_revision_id,
-                "calibration_digest": calibration.calibration_digest,
-            },
+            "origin": manifest.origin,
+            "input_revision_ids": list(manifest.input_revision_ids),
+            "producer": manifest.producer.to_mapping(),
+            "coverage": manifest.coverage,
+            "data_revision": manifest.to_mapping(),
             "calibration_reflow": {"source_proposal_revision_id": source_proposal_revision_id},
         }
         existing = self._find_node_revision(revision_id, "card_scene_proposals")
@@ -477,23 +489,42 @@ class CalibrationRefinementService:
             ) from error
 
     def _reflow_impact(self, recording_id: str, current: Any, items: tuple[Any, ...]):
-        """Keep correction impact while calibration reflow updates the node."""
-        handler = build_reference_handlers(
-            source_for=lambda *_: None,
-            selected_revision=lambda *_: None,
-        )["visible_cards"]
-        handler.validate_draft_items(
-            recording_id,
-            current.source_revision_id,
-            list(items),
-        )
-        impact = list(current.impact)
-        previous_by_id = {item.item_id: item for item in current.items}
-        for item in items:
-            previous = previous_by_id.get(item.item_id)
-            if previous is not None:
-                impact.extend(handler.correction_impact(recording_id, previous, item))
-        return tuple(impact)
+        """Validate reflowed node content and retain its recorded impact."""
+        if self.node_store is None:
+            raise CalibrationRefinementInputError("the active pipeline node store is unavailable")
+        source = self._find_node_revision(current.source_revision_id, "visible_cards")
+        if source is None:
+            raise CalibrationRefinementConflict("the detector source node revision is missing")
+        source_node, source_revision = source
+        if source_node.source.get("recording_id") != recording_id:
+            raise CalibrationRefinementConflict("the detector source belongs to another recording")
+        if len({item.item_id for item in items}) != len(items):
+            raise CalibrationRefinementInputError("visible-card node item IDs must be unique")
+        if any(item.item_id != item.item.get("event_id") for item in items):
+            raise CalibrationRefinementInputError(
+                "visible-card node item ID does not match its content"
+            )
+        try:
+            VisibleCardData.from_mapping(
+                {
+                    "schema_version": "visible-card-data/v2",
+                    "outcomes": [item.item for item in items],
+                }
+            )
+            source_data = VisibleCardData.from_mapping(source_revision.content)
+        except (TypeError, ValueError) as error:
+            raise CalibrationRefinementInputError(
+                f"visible-card reflow content is invalid: {error}"
+            ) from error
+        source_event_ids = {outcome.event_id for outcome in source_data.outcomes}
+        if any(
+            item.base_item_id is not None and item.base_item_id not in source_event_ids
+            for item in items
+        ):
+            raise CalibrationRefinementInputError(
+                "visible-card node item refers to a missing detector outcome"
+            )
+        return tuple(current.impact)
 
     def start(self, recording_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(payload, Mapping):

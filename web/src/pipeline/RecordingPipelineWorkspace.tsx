@@ -335,7 +335,7 @@ export function RecordingPipelineWorkspace({
       nextRevisionId === null
         ? undefined
         : stage.input_options.find(
-            (option) => option.revision_id === nextRevisionId,
+            (option) => option.node_revision_id === nextRevisionId,
           );
     if (nextRevisionId !== null && selectedOption === undefined) {
       setSelectionBusy(false);
@@ -370,30 +370,9 @@ export function RecordingPipelineWorkspace({
                   ? {
                       ...candidate,
                       selection_revision: response.selection.revision,
-                      selected_generated_revision_id:
-                        response.selection.selected_generated === null
-                          ? null
-                          : (candidate.input_options.find(
-                              (option) =>
-                                option.node_id ===
-                                  response.selection.selected_generated
-                                    ?.node_id &&
-                                option.node_revision_id ===
-                                  response.selection.selected_generated
-                                    ?.revision_id,
-                            )?.revision_id ?? null),
-                      selected_completed_reference_revision_id:
-                        response.selection.selected_completed_reference === null
-                          ? null
-                          : (candidate.input_options.find(
-                              (option) =>
-                                option.node_id ===
-                                  response.selection
-                                    .selected_completed_reference?.node_id &&
-                                option.node_revision_id ===
-                                  response.selection
-                                    .selected_completed_reference?.revision_id,
-                            )?.revision_id ?? null),
+                      selected_generated: response.selection.selected_generated,
+                      selected_completed_reference:
+                        response.selection.selected_completed_reference,
                     }
                   : candidate,
               ),
@@ -824,9 +803,9 @@ function sanitizeUrlState(
       .filter(
         (option) => option.origin === "manual" || option.origin === "corrected",
       )
-      .map((option) => option.revision_id),
+      .map((option) => option.node_revision_id),
   );
-  const selectedReference = stage.selected_completed_reference_revision_id;
+  const selectedReference = stage.selected_completed_reference?.revision_id;
   return {
     ...state,
     item:

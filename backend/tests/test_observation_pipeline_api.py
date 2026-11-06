@@ -32,6 +32,23 @@ from test_visual_identity_pipeline_api import _IdentityProvider
 import dokodetector_backend.observation_pipeline_service as observation_service_module
 
 
+def _exact_input_refs(app: Any, revision_ids: list[str]) -> list[dict[str, str]]:
+    node_store = app.state.pipeline_selection_store.node_store
+    refs = []
+    for revision_id in revision_ids:
+        node, _ = node_store.find_revision(revision_id)
+        refs.append(
+            {
+                "node_id": node.node_id,
+                "revision_id": revision_id,
+                "revision_policy": (
+                    "current_head" if node.head_revision_id == revision_id else "historical"
+                ),
+            }
+        )
+    return refs
+
+
 def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -117,10 +134,19 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert workspace.status_code == 200
         compatible_input_set = {
-            "input_revision_ids": [
-                event_revision_id,
-                generated_visible_revision_id,
-                identity_revision_id,
+            "input_node_refs": [
+                {
+                    "node_id": stage_option["node_id"],
+                    "revision_id": revision_id,
+                    "revision_policy": "historical",
+                }
+                for stage, revision_id in zip(
+                    workspace.json()["stages"][:3],
+                    [event_revision_id, generated_visible_revision_id, identity_revision_id],
+                    strict=True,
+                )
+                for stage_option in stage["input_options"]
+                if stage_option["node_revision_id"] == revision_id
             ],
             "display_label": (
                 "Processor output events + Processor output visible cards + "
@@ -134,11 +160,9 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             json={
                 "request": {
                     "run_id": "assembly-01",
-                    "input_revision_ids": [
-                        event_revision_id,
-                        visible_revision_id,
-                        identity_revision_id,
-                    ],
+                    "input_node_refs": _exact_input_refs(
+                        app, [event_revision_id, visible_revision_id, identity_revision_id]
+                    ),
                 }
             },
         )
@@ -230,11 +254,9 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
             json={
                 "run_id": "assembly-retry-source",
-                "input_revision_ids": [
-                    event_revision_id,
-                    visible_revision_id,
-                    identity_revision_id,
-                ],
+                "input_node_refs": _exact_input_refs(
+                    app, [event_revision_id, visible_revision_id, identity_revision_id]
+                ),
             },
         )
         assert failed.status_code == 202, failed.text
@@ -280,11 +302,9 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
             json={
                 "run_id": "assembly-02",
-                "input_revision_ids": [
-                    event_revision_id,
-                    visible_revision_id,
-                    identity_revision_id,
-                ],
+                "input_node_refs": _exact_input_refs(
+                    app, [event_revision_id, visible_revision_id, identity_revision_id]
+                ),
             },
         )
         assert second.status_code == 202
@@ -351,9 +371,13 @@ def _run_pipeline(
     if configuration is not None:
         payload["configuration"] = configuration
     if input_revision_ids is not None:
-        payload["input_revision_ids"] = input_revision_ids
+        assert len(input_revision_ids) == 1
+        input_stage = "events" if stage == "visible-cards" else "visible_cards"
+        payload.update(_selected_node_input(client, input_stage, input_revision_ids[0]))
     if stage == "events":
         return _run_event_job(client, run_id)
+    if stage == "observations":
+        return _run_observation(client, run_id)[1]
     if stage == "visible-cards" and input_revision_ids is None:
         payload.update(_selected_node_input(client, "events"))
     response = client.post(f"/api/recordings/{RECORDING_ID}/pipeline/{stage}", json=payload)
@@ -374,9 +398,12 @@ def _run_pipeline(
 
 
 def _run_observation(client: TestClient, run_id: str) -> tuple[str, str]:
+    workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline").json()
+    compatible_sets = workspace["stages"][3]["compatible_input_sets"]
+    input_refs = compatible_sets[0]["input_node_refs"]
     response = client.post(
         f"/api/recordings/{RECORDING_ID}/pipeline/observations",
-        json={"run_id": run_id},
+        json={"run_id": run_id, "input_node_refs": input_refs},
     )
     assert response.status_code == 202, response.text
     managed_run_id = response.json()["run_id"]
@@ -418,7 +445,7 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
     )
 
     with TestClient(app) as client:
-        _run_pipeline(client, "analysis-assembly-01", "events")
+        event_revision_id = _run_pipeline(client, "analysis-assembly-01", "events")
         visible_revision_id = _run_pipeline(client, "analysis-visible-01", "visible-cards")
         _run_pipeline(
             client,
@@ -430,6 +457,16 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
             json={
                 "run_id": "analysis-observation-conflict",
+                "input_node_refs": _exact_input_refs(
+                    app,
+                    [
+                        event_revision_id,
+                        visible_revision_id,
+                        app.state.pipeline_selection_store.get_exact(
+                            RECORDING_ID, "visual_identities"
+                        ).selected_generated["revision_id"],
+                    ],
+                ),
                 "configuration": {"session_id": "wrong-session"},
             },
         )

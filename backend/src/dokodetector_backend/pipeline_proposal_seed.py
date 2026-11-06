@@ -13,7 +13,6 @@ from table_evidence_analyzer.card_scene_contract import (
 from table_evidence_analyzer.pipeline_data import ProposedCardSceneData, VisibleCardData
 
 from dokodetector_backend.pipeline_reference_errors import PipelineReferenceInputError
-from dokodetector_backend.pipeline_reference_handlers import build_reference_handlers
 from dokodetector_backend.pipeline_store import StoredPipelineRevision
 from dokodetector_backend.visible_card_node_draft import VisibleCardNodeDraftItem
 
@@ -139,13 +138,23 @@ def seed_proposal_items(
                 item=item,
             )
         )
-    handlers = build_reference_handlers(
-        source_for=lambda *_: None,
-        selected_revision=lambda *_: None,
-    )
-    handlers["visible_cards"].validate_draft_items(
-        recording_id, source_revision.manifest.revision_id, items
-    )
+    if source_revision.manifest.recording_id != recording_id:
+        raise PipelineReferenceInputError("the proposal detector belongs to another recording")
+    if len({item.item_id for item in items}) != len(items):
+        raise PipelineReferenceInputError("visible-card node item IDs must be unique")
+    if any(item.item_id != item.item.get("event_id") for item in items):
+        raise PipelineReferenceInputError("visible-card node item IDs do not match their content")
+    try:
+        VisibleCardData.from_mapping(
+            {
+                "schema_version": "visible-card-data/v2",
+                "outcomes": [item.item for item in items],
+            }
+        )
+    except (TypeError, ValueError) as error:
+        raise PipelineReferenceInputError(
+            f"proposal-generated visible-card node content is invalid: {error}"
+        ) from error
     return tuple(items)
 
 

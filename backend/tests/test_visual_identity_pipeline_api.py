@@ -200,7 +200,7 @@ def test_visual_identity_classification_runs_as_a_managed_job(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-managed",
-                "visible_card_revision_id": visible_revision_id,
+                **_selected_node_input(client, "visible_cards", visible_revision_id),
             },
         )
         assert identity_response.status_code == 202, identity_response.text
@@ -210,10 +210,7 @@ def test_visual_identity_classification_runs_as_a_managed_job(
         identity_run = identity_job_record
         service = app.state.visual_identity_pipeline_service
 
-        def fail_legacy_manifest_read(*args: Any, **kwargs: Any) -> object:
-            raise AssertionError("canonical identity input reads must not load legacy manifests")
-
-        monkeypatch.setattr(service.revision_store, "require", fail_legacy_manifest_read)
+        assert not hasattr(service, "revision_store")
         canonical_input = service.canonical_input_revision(
             ProcessorRunRequest.from_mapping(identity_run["request"]["processor_request"])
         )
@@ -296,8 +293,22 @@ def _fixture_generated_visible_revision(
         coverage={"kind": "completed-reference", "card_ids": [item.card_id for item in candidates]},
         created_at="2026-01-01T00:00:00Z",
     )
-    stored, _ = app.state.pipeline_selection_store.publish_processor_revision(manifest, content)
+    stored, _ = app.state.pipeline_lineage_writer.publish_processor_revision(manifest, content)
     return stored.manifest.revision_id
+
+
+def _node_input(app: Any, revision_id: str) -> dict[str, object]:
+    nodes = app.state.visual_identity_pipeline_service.node_store
+    node, _ = nodes.find_revision(revision_id)
+    return {
+        "input_node_ref": {
+            "node_id": node.node_id,
+            "revision_id": revision_id,
+            "revision_policy": "current_head"
+            if node.head_revision_id == revision_id
+            else "historical",
+        }
+    }
 
 
 def test_visual_identity_resolves_concrete_local_classifier_name_from_local_registry(
@@ -411,13 +422,13 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             revision_id="visible-revision-with-pile",
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(pile_content)),
         )
-        app.state.pipeline_selection_store.publish_processor_revision(pile_manifest, pile_content)
+        app.state.pipeline_lineage_writer.publish_processor_revision(pile_manifest, pile_content)
 
         identity_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-source-validation",
-                "input_revision_ids": ["visible-revision-with-pile"],
+                **_node_input(app, "visible-revision-with-pile"),
             },
         )
         assert identity_response.status_code == 202, identity_response.text
@@ -444,14 +455,14 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             revision_id="visible-pile-only",
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(pile_only_content)),
         )
-        app.state.pipeline_selection_store.publish_processor_revision(
+        app.state.pipeline_lineage_writer.publish_processor_revision(
             pile_only_manifest, pile_only_content
         )
         pile_only_identity = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-pile-only",
-                "input_revision_ids": ["visible-pile-only"],
+                **_node_input(app, "visible-pile-only"),
             },
         )
         assert pile_only_identity.status_code == 202, pile_only_identity.text
@@ -483,12 +494,12 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             revision_id="visible-mixed-card-and-empty",
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(mixed_content)),
         )
-        app.state.pipeline_selection_store.publish_processor_revision(mixed_manifest, mixed_content)
+        app.state.pipeline_lineage_writer.publish_processor_revision(mixed_manifest, mixed_content)
         mixed_identity = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-mixed-card-and-empty",
-                "input_revision_ids": ["visible-mixed-card-and-empty"],
+                **_node_input(app, "visible-mixed-card-and-empty"),
             },
         )
         assert mixed_identity.status_code == 202, mixed_identity.text
@@ -520,10 +531,10 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             revision_id="visible-empty",
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(empty_content)),
         )
-        app.state.pipeline_selection_store.publish_processor_revision(empty_manifest, empty_content)
+        app.state.pipeline_lineage_writer.publish_processor_revision(empty_manifest, empty_content)
         empty_identity = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
-            json={"run_id": "identity-empty", "input_revision_ids": ["visible-empty"]},
+            json={"run_id": "identity-empty", **_node_input(app, "visible-empty")},
         )
         assert empty_identity.status_code == 202, empty_identity.text
         empty_run_id = empty_identity.json()["run_id"]
@@ -574,10 +585,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={"run_id": "identity-implicit-input"},
         )
-        assert implicit_input.status_code == 202
-        assert (
-            _wait_identity(client, implicit_input.json()["run_id"])["state"]["status"] == "complete"
-        )
+        assert implicit_input.status_code == 422
         fixture_revision_id = _fixture_generated_visible_revision(
             app,
             app.state.pipeline_selection_store.require_processor_revision(
@@ -591,7 +599,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-generated",
-                "input_revision_ids": [generated_revision_id],
+                **_selected_node_input(client, "visible_cards", generated_revision_id),
             },
         )
         assert generated_identity.status_code == 202
@@ -706,13 +714,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
         with monkeypatch.context() as cached_patch:
             cached_patch.setattr(service, "resolve_identity_crop", fail_if_canonical_resolution)
             revision_reads: list[str] = []
-            read_revision = service.revision_store._read_path
-
-            def track_revision_read(path: Any, **kwargs: Any) -> Any:
-                revision_reads.append(path.name)
-                return read_revision(path, **kwargs)
-
-            cached_patch.setattr(service.revision_store, "_read_path", track_revision_read)
+            assert not hasattr(service, "revision_store")
             cached_only_preview = client.get(
                 f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
                 f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
@@ -878,7 +880,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-completed",
-                "input_revision_ids": [fixture_revision_id],
+                **_node_input(app, fixture_revision_id),
                 "crop_policy": {
                     "policy_id": "predicted_visible_region",
                     "output_encoding": "ppm",
@@ -985,7 +987,7 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-retry-baseline",
-                "input_revision_ids": [fixture_revision_id],
+                **_node_input(app, fixture_revision_id),
             },
         )
         assert baseline_response.status_code == 202
@@ -1001,14 +1003,17 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
         retry_source_id = str(uuid4())
         request = app.state.visual_identity_pipeline_service._build_request(
             RECORDING_ID,
-            {"run_id": retry_source_id, "input_revision_ids": [fixture_revision_id]},
+            {"run_id": retry_source_id, **_node_input(app, fixture_revision_id)},
         )
         source_job = manager.accept(
             str(uuid4()),
             {
                 "type": "visual_identity_classification",
                 "context": {"recording_id": RECORDING_ID},
-                "request": request.to_mapping(),
+                "request": {
+                    "schema": "visual-identity-job-request/v1",
+                    "processor_request": request.to_mapping(),
+                },
             },
         )
         manager.transition(source_job.id, "running")
@@ -1131,7 +1136,7 @@ def test_visual_identity_candidates_are_bounded_and_ordered(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-blocking",
-                "input_revision_ids": [fixture_revision_id],
+                **_node_input(app, fixture_revision_id),
             },
         )
         assert identity_response.status_code == 202, identity_response.text
@@ -1481,7 +1486,7 @@ def test_local_pipeline_requests_record_actual_bundle_and_crop(tmp_path: Any) ->
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-local",
-                "visible_card_revision_id": revision,
+                **_selected_node_input(client, "visible_cards", revision),
                 "configuration": {"provider": "local"},
                 "crop_policy": {"policy_id": "predicted_visible_region", "output_encoding": "ppm"},
             },
@@ -1699,7 +1704,7 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
                 RECORDING_ID,
                 {
                     "run_id": "identity-stale-proposal-lineage",
-                    "input_revision_ids": [proposal_revision_id],
+                    **_node_input(app, proposal_revision_id),
                     "crop_input_kind": "proposed_virtual_cards",
                     "crop_input": stale_crop_input.to_mapping(),
                     "configuration": {"provider": "local"},
@@ -1719,8 +1724,7 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
                 "run_id": "identity-from-proposal",
-                "input_revision_ids": [proposal_revision_id],
-                "card_scene_proposal_revision_id": proposal_revision_id,
+                **_node_input(app, proposal_revision_id),
                 "crop_input_kind": "proposed_virtual_cards",
                 "configuration": {"provider": "local"},
             },

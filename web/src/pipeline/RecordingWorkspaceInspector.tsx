@@ -307,7 +307,7 @@ export function RecordingWorkspaceInspector({
             <span>Default generated revision</span>
             <select
               aria-label="Default generated revision"
-              value={stage.selected_generated_revision_id ?? ""}
+              value={stage.selected_generated?.revision_id ?? ""}
               disabled={selectionBusy}
               onChange={(event) =>
                 void onSelectGeneratedRevision(event.target.value || null)
@@ -317,8 +317,11 @@ export function RecordingWorkspaceInspector({
               {stage.input_options
                 .filter((option) => option.origin === "processor")
                 .map((option) => (
-                  <option key={option.revision_id} value={option.revision_id}>
-                    {option.display_label} · {option.revision_id}
+                  <option
+                    key={option.node_revision_id}
+                    value={option.node_revision_id}
+                  >
+                    {option.display_label} · {option.node_revision_id}
                   </option>
                 ))}
             </select>

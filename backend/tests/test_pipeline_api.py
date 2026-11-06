@@ -69,7 +69,6 @@ def test_legacy_reference_and_review_routes_are_not_mounted(tmp_path: Path) -> N
 def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Path) -> None:
     app = create_test_app(_settings(tmp_path))
     with TestClient(app):
-        revision_store = app.state.pipeline_revision_store
         run_store = app.state.pipeline_run_store
         selection_store = app.state.pipeline_selection_store
 
@@ -80,15 +79,16 @@ def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Pat
             app.state.visual_identity_pipeline_service,
             app.state.observation_pipeline_service,
         )
-        assert all(service.revision_store is revision_store for service in services)
+        assert not hasattr(app.state, "pipeline_revision_store")
+        assert all(not hasattr(service, "revision_store") for service in services)
+        assert run_store.lineage_writer is app.state.pipeline_lineage_writer
         assert all(service.run_store is run_store for service in services)
         assert all(service.selection_store is selection_store for service in services)
         assert (
             app.state.calibration_refinement_service.store.workspace_root
-            == app.state.pipeline_revision_store.storage.operations_root
-            / "calibration-refinement-drafts"
+            == _settings(tmp_path).operations_root / "calibration-refinement-drafts"
         )
-        assert app.state.pipeline_workspace_service.revision_store is revision_store
+        assert not hasattr(app.state.pipeline_workspace_service, "revision_store")
         assert app.state.pipeline_workspace_service.run_store is run_store
         assert app.state.pipeline_workspace_service.selection_store is selection_store
         assert (
@@ -539,7 +539,8 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         assert workspace.status_code == 200
         body = workspace.json()
         events = body["stages"][0]
-        revision_id = events["selected_generated_revision_id"]
+        selected = events["selected_generated"]
+        revision_id = selected["revision_id"]
         assert events["state"] == "data-available"
         assert revision_id is not None
         assert events["selection_revision"] == 1
@@ -552,13 +553,13 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         }
         assert events["runs"][0]["state"]["items"] == []
         assert events["runs"][0]["output_revision_ids"] == [revision_id]
-        assert events["input_options"][0]["revision_id"] == revision_id
+        assert selected["node_id"] == events["input_options"][0]["node_id"]
         assert events["input_options"][0]["node_revision_id"] == revision_id
         assert events["input_options"][0]["node_id"]
         assert events["input_options"][0]["origin"] == "processor"
 
         # Processor results have one canonical node write and no revision-store copy.
-        assert not app.state.pipeline_revision_store.has_revision(revision_id)
+        assert not hasattr(app.state, "pipeline_revision_store")
 
         catalog = client.get("/v1/recordings")
         assert catalog.status_code == 200
@@ -665,7 +666,67 @@ def test_workspace_run_summary_uses_exact_graph_inputs(tmp_path: Path) -> None:
     event_run = workspace["stages"][0]["runs"][0]
     assert event_run["input_revision_ids"] == []
     assert event_run["output_revision_ids"] == [
-        workspace["stages"][0]["selected_generated_revision_id"]
+        workspace["stages"][0]["selected_generated"]["revision_id"]
+    ]
+
+
+def test_compatible_observation_inputs_return_exact_node_references(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+    node_store = app.state.pipeline_lineage_writer.node_store
+    source = app.state.event_pipeline_service.get_recording_source(RECORDING_ID).to_mapping()
+    fixtures = (
+        ("event-node", "event-r1", "events", {"schema_version": "event-data/v1", "events": []}),
+        (
+            "visible-node",
+            "visible-r1",
+            "visible_cards",
+            {"schema_version": "visible-card-data/v2", "outcomes": []},
+        ),
+        (
+            "identity-node",
+            "identity-r1",
+            "visual_identities",
+            {"schema_version": "visual-identity-data/v2", "outcomes": []},
+        ),
+    )
+    for node_id, revision_id, content_type, content in fixtures:
+        node_store.create(
+            node_id,
+            node_id,
+            content_type,
+            source,
+            content,
+            {},
+            revision_id=revision_id,
+        )
+
+    stage = app.state.pipeline_workspace_service.get_workspace(
+        RECORDING_ID, stage_key="table_observations"
+    )["stages"][3]
+
+    assert stage["compatible_input_sets"] == [
+        {
+            "input_node_refs": [
+                {
+                    "node_id": "event-node",
+                    "revision_id": "event-r1",
+                    "revision_policy": "historical",
+                },
+                {
+                    "node_id": "visible-node",
+                    "revision_id": "visible-r1",
+                    "revision_policy": "historical",
+                },
+                {
+                    "node_id": "identity-node",
+                    "revision_id": "identity-r1",
+                    "revision_policy": "historical",
+                },
+            ],
+            "display_label": "Processor output events + Processor output visible cards + "
+            "Processor output visual identities",
+        }
     ]
 
 
@@ -705,9 +766,9 @@ def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
         assert response.status_code == 200, response.text
         events = response.json()["stages"][0]
         assert events["selection_revision"] is None
-        assert events["selected_generated_revision_id"] is None
+        assert events["selected_generated"] is None
         assert not any(
-            option["revision_id"] == "missing-revision" for option in events["input_options"]
+            option["node_revision_id"] == "missing-revision" for option in events["input_options"]
         )
         assert {
             diagnostic["code"]

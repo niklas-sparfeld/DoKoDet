@@ -50,7 +50,7 @@ def test_reconcile_fails_only_interrupted_proposal_runs(tmp_path: Path) -> None:
     runs = Mock()
     runs.get.return_value = SimpleNamespace(state=SimpleNamespace(status="running"))
     service = ProposedCardScenePipelineService(
-        _Settings(tmp_path), revision_store=Mock(), run_store=runs, selection_store=Mock()
+        _Settings(tmp_path), run_store=runs, selection_store=Mock()
     )
 
     service.reconcile_job_states(
@@ -74,6 +74,15 @@ class _Settings:
     def __init__(self, root: Path) -> None:
         self.evidence_root = root / "runtime"
         self.operations_root = root / "operations"
+
+
+def _node_ref(nodes: PipelineNodeStore, revision_id: str) -> dict[str, str]:
+    node, _ = nodes.find_revision(revision_id)
+    return {
+        "node_id": node.node_id,
+        "revision_id": revision_id,
+        "revision_policy": "current_head" if node.head_revision_id == revision_id else "historical",
+    }
 
 
 def _publish_input_node(
@@ -199,7 +208,9 @@ def _run_proposal_job(
             {
                 "type": "proposed_card_scene_creation",
                 "context": {"recording_id": recording_id},
-                "request": {"visible_card_revision_id": revision_id},
+                "request": {
+                    "input_node_ref": _node_ref(service.node_store, revision_id),
+                },
             },
         )
         job = manager.transition(job.id, "running")
@@ -216,7 +227,7 @@ def test_service_publishes_proposal_without_changing_detector_input(
 ) -> None:
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
-    runs = ProcessorRunStore(runtime, revision_store=revisions)
+    runs = ProcessorRunStore(runtime)
     source = RecordingVideoSource(
         recording_id="recording-0073",
         relative_path="recordings/recording-0073/video.mov",
@@ -248,7 +259,6 @@ def test_service_publishes_proposal_without_changing_detector_input(
 
     service = ProposedCardScenePipelineService(
         _Settings(tmp_path),
-        revision_store=revisions,
         run_store=runs,
         selection_store=selections,
         node_store=nodes,
@@ -312,7 +322,6 @@ def test_proposal_request_uses_exact_canonical_visible_card_node(tmp_path: Path)
     )
     service = ProposedCardScenePipelineService(
         _Settings(tmp_path),
-        revision_store=Mock(side_effect=AssertionError("legacy revision store used")),
         run_store=Mock(),
         selection_store=Mock(),
         node_store=nodes,
@@ -322,7 +331,6 @@ def test_proposal_request_uses_exact_canonical_visible_card_node(tmp_path: Path)
         source.recording_id,
         {
             "run_id": "proposal-node-run",
-            "visible_card_revision_id": node.revision_id,
             "input_node_ref": {
                 "node_id": node.node_id,
                 "revision_id": node.revision_id,
@@ -344,7 +352,7 @@ def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
 ) -> None:
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
-    runs = ProcessorRunStore(runtime, revision_store=revisions)
+    runs = ProcessorRunStore(runtime)
     source = RecordingVideoSource(
         recording_id="recording-0073",
         relative_path="recordings/recording-0073/video.mov",
@@ -403,7 +411,6 @@ def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
     nodes, selections = _publish_input_node(tmp_path, revisions, runs, input_revision, content)
     service = ProposedCardScenePipelineService(
         _Settings(tmp_path),
-        revision_store=revisions,
         run_store=runs,
         selection_store=selections,
         node_store=nodes,
@@ -434,7 +441,7 @@ def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
 def test_cancelled_proposal_does_not_publish_a_completed_revision(tmp_path: Path) -> None:
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
-    runs = ProcessorRunStore(runtime, revision_store=revisions)
+    runs = ProcessorRunStore(runtime)
     source = RecordingVideoSource(
         recording_id="recording-cancel",
         relative_path="recordings/recording-cancel/video.mov",
@@ -464,7 +471,6 @@ def test_cancelled_proposal_does_not_publish_a_completed_revision(tmp_path: Path
     nodes, selections = _publish_input_node(tmp_path, revisions, runs, input_revision, content)
     service = ProposedCardScenePipelineService(
         _Settings(tmp_path),
-        revision_store=revisions,
         run_store=runs,
         selection_store=selections,
         node_store=nodes,
@@ -487,7 +493,7 @@ def test_cancelled_proposal_does_not_publish_a_completed_revision(tmp_path: Path
 def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> None:
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
-    runs = ProcessorRunStore(runtime, revision_store=revisions)
+    runs = ProcessorRunStore(runtime)
     source = RecordingVideoSource(
         recording_id="recording-0073",
         relative_path="recordings/recording-0073/video.mov",
@@ -517,7 +523,6 @@ def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> Non
     nodes, selections = _publish_input_node(tmp_path, revisions, runs, input_revision, content)
     service = ProposedCardScenePipelineService(
         _Settings(tmp_path),
-        revision_store=revisions,
         run_store=runs,
         selection_store=selections,
         node_store=nodes,
@@ -528,6 +533,6 @@ def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> Non
             source.recording_id,
             {
                 "run_id": "proposal-run-gemini",
-                "visible_card_revision_id": input_revision.revision_id,
+                "input_node_ref": _node_ref(nodes, input_revision.revision_id),
             },
         )
