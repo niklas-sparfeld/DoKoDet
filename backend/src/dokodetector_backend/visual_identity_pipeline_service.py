@@ -40,6 +40,7 @@ from doko_operations.derived_view import (
     resolve_visible_region_crop,
 )
 from doko_operations.pipeline_data import (
+    DATA_REVISION_SCHEMA_VERSION,
     DataRevision,
     HumanProducer,
     ModelIdentity,
@@ -1138,13 +1139,8 @@ class VisualIdentityPipelineService:
         try:
             node = self.node_store.get(ref["node_id"])
             revision = self.node_store.read_revision(node.node_id, ref["revision_id"])
-            manifest_source = self.revision_store.require(request.input_revision_ids[0])
         except (FileNotFoundError, KeyError, ValueError) as error:
             raise VisualIdentityPipelineInputError("The canonical input is unavailable.") from error
-        except PipelineNotFound as error:
-            raise VisualIdentityPipelineInputError(
-                "The input provenance is unavailable."
-            ) from error
         if (
             revision.metadata.get("legacy_revision_id") != request.input_revision_ids[0]
             or node.source != request.source.to_mapping()
@@ -1154,6 +1150,43 @@ class VisualIdentityPipelineService:
             )
         ):
             raise VisualIdentityPipelineInputError("The canonical input no longer matches the run.")
+        metadata: dict[str, Any] = {}
+        for historical_revision in reversed(self.node_store.history(node.node_id)):
+            metadata.update(historical_revision.metadata)
+        legacy_revision_id = revision.metadata.get("legacy_revision_id")
+        if not isinstance(legacy_revision_id, str):
+            raise VisualIdentityPipelineInputError("The canonical input provenance is unavailable.")
+        content_schema = metadata.get(
+            "legacy_content_schema",
+            {
+                "visible_cards": "visible-card-data/v2",
+                "card_scene_proposals": "proposed-card-scene-data/v1",
+            }.get(node.content_type),
+        )
+        manifest = DataRevision.from_mapping(
+            {
+                "schema_version": DATA_REVISION_SCHEMA_VERSION,
+                "revision_id": legacy_revision_id,
+                "content_type": node.content_type,
+                "content_schema": content_schema,
+                "recording_id": request.source.recording_id,
+                "source": node.source,
+                "content_sha256": metadata.get("legacy_content_sha256", revision.content_sha256),
+                "input_revision_ids": metadata.get("input_revision_ids", []),
+                "origin": metadata.get("origin", "processor"),
+                "producer": metadata.get(
+                    "producer",
+                    {
+                        "kind": "processor",
+                        "run_id": legacy_revision_id,
+                        "processor_type": "pipeline-import",
+                        "implementation_id": "doko_detector.node_store",
+                    },
+                ),
+                "coverage": metadata.get("coverage", {"kind": "unknown"}),
+                "created_at": metadata.get("legacy_created_at", revision.created_at),
+            }
+        )
         raw = canonical_json_bytes(revision.content)
         content = (
             parse_proposed_card_scene_data_bytes(raw)
@@ -1161,11 +1194,9 @@ class VisualIdentityPipelineService:
             else parse_visible_card_data_bytes(raw)
         )
         content_digest = sha256_bytes(raw)
-        metadata = revision.metadata
-        if content_digest != manifest_source.manifest.content_sha256:
+        if content_digest != manifest.content_sha256:
             raise VisualIdentityPipelineInputError("The canonical input content digest changed.")
-        del metadata
-        return StoredPipelineRevision(manifest_source.manifest, content)
+        return StoredPipelineRevision(manifest, content)
 
     def _freeze_crop_input(
         self,

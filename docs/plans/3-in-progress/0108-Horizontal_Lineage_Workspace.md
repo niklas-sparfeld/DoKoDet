@@ -532,6 +532,21 @@ the visible-card head update and confirms restart recovery publishes both heads 
   using canonical revision metadata throughout. Then audit all selection consumers, update exact
   selection writers, and prove recovery before retiring `.migrated-readers` and old storage.
 - **Run count:** Requested up to 10 Luna loops; completed 2 bounded packages; remaining 8.
+- **Latest package — canonical identity input manifest:** `canonical_input_revision` now reads and
+  validates content from the exact node and revision reference, then rebuilds the legacy execution
+  manifest from validated node metadata. The identity worker no longer needs a legacy revision
+  manifest to materialize that input. A fixture makes legacy manifest reads fail and confirms the
+  exact node revision still loads with the expected execution revision ID.
+- **Checks:** The visual-identity API module passed (9 tests). Ruff check, Ruff format check, and
+  `git diff --check` passed. An initial focused invocation named a nonexistent test module; the
+  corrected command passed. No processor model ran.
+- **Known limit:** Crop descriptor digest validation and stored crop provenance still depend on the
+  legacy manifest contract. This package did not change the crop schema or remove other legacy
+  readers/storage. M11 remains incomplete.
+- **Next:** Cut over crop descriptor and outcome provenance together. Bind each descriptor to the
+  exact node and revision identity, validate canonical metadata and content, and preserve retry and
+  historical-input behavior. Then continue the runtime consumer and storage removal audit.
+- **Run count:** Requested up to 10 Luna workers; completed 3 bounded packages; remaining 7.
 
 ### M12 — Verify the complete workflow and close — Not started
 

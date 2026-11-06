@@ -17,6 +17,7 @@ from doko_operations.pipeline_data import (
     DataRevision,
     HumanProducer,
     ProcessorProducer,
+    ProcessorRunRequest,
     RecordingVideoSource,
     RunProgress,
     sha256_bytes,
@@ -159,7 +160,9 @@ def test_visual_identity_run_listing_uses_recording_scoped_storage(
     assert calls == [RECORDING_ID]
 
 
-def test_visual_identity_classification_runs_as_a_managed_job(tmp_path: Any) -> None:
+def test_visual_identity_classification_runs_as_a_managed_job(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
     _install_recording(tmp_path)
     app = create_test_app(
         _settings(tmp_path),
@@ -205,6 +208,15 @@ def test_visual_identity_classification_runs_as_a_managed_job(tmp_path: Any) -> 
         identity_run = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_job_id}"
         ).json()
+        service = app.state.visual_identity_pipeline_service
+
+        def fail_legacy_manifest_read(*args: Any, **kwargs: Any) -> object:
+            raise AssertionError("canonical identity input reads must not load legacy manifests")
+
+        monkeypatch.setattr(service.revision_store, "require", fail_legacy_manifest_read)
+        canonical_input = service.canonical_input_revision(
+            ProcessorRunRequest.from_mapping(identity_run["request"])
+        )
 
     assert identity_job["state"]["status"] == "complete"
     assert identity_job_record["state"] == "succeeded"
@@ -213,6 +225,7 @@ def test_visual_identity_classification_runs_as_a_managed_job(tmp_path: Any) -> 
     assert identity_run["request"]["input_revision_ids"] == [visible_revision_id]
     assert len(identity_run["request"]["input_node_refs"]) == 1
     assert identity_run["request"]["input_node_refs"][0]["revision_id"]
+    assert canonical_input.manifest.revision_id == visible_revision_id
 
 
 def _fixture_generated_visible_revision(
