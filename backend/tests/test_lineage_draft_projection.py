@@ -117,7 +117,7 @@ def test_import_draft_creates_replay_safe_copy_and_preserves_review(tmp_path) ->
     revision = store.read_revision(result["node_id"], result["revision_id"])
     assert revision.metadata["copied_from"] == {"node_id": "base", "revision_id": "base-revision"}
     assert revision.metadata["scene_only_frame_ids"] == []
-    assert "scene_only_items" not in revision.metadata["legacy_review"]
+    assert "legacy_review" not in revision.metadata
     reviews = PipelineNodeReviews(store).list_for_revision(result["node_id"], result["revision_id"])
     assert {r["kind"] for r in reviews} == {"item", "coverage"}
     assert next(r for r in reviews if r["kind"] == "item")["decision"] == "corrected"

@@ -78,6 +78,7 @@ def import_draft(
 
     from doko_operations.pipeline_data import canonical_json_bytes, sha256_bytes
 
+    from dokodetector_backend.calibration_reflow_context import build_calibration_reflow_context
     from dokodetector_backend.pipeline_item_provenance import _items
     from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
     from dokodetector_backend.pipeline_node_store import NodeConflict
@@ -102,19 +103,20 @@ def import_draft(
             "draft_sha256": digest,
             "updated_at": draft.updated_at,
         },
-        "legacy_review": {
-            "items": projection["legacy_items"],
-            "coverage": projection["coverage"],
-            "impact": projection["impact"],
-            "state": legacy_state,
-        },
         "scene_only_frame_ids": projection["scene_only_items"],
+        "excluded_items": [
+            {"item_id": item.item_id, "decision": "rejected"}
+            for item in draft.items
+            if item.review_state == "rejected"
+        ],
         "item_provenance": {
             "version": 1,
             "items": _items(projection["content"], projection["pointers"]),
             "changes": [],
         },
     }
+    if draft.content_type == "visible_cards":
+        metadata["calibration_reflow_context"] = build_calibration_reflow_context(draft)
     try:
         stored = store.create(
             node_id,
@@ -555,6 +557,7 @@ def verify_staged_drafts(package_root: Any, store_root: Any) -> dict[str, int]:
         parse_reference_state_bytes,
     )
 
+    from dokodetector_backend.calibration_reflow_context import build_calibration_reflow_context
     from dokodetector_backend.filesystem import contained_path
     from dokodetector_backend.pipeline_item_provenance import _items
     from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
@@ -618,12 +621,21 @@ def verify_staged_drafts(package_root: Any, store_root: Any) -> dict[str, int]:
         if (
             revision.content != projection["content"]
             or revision.metadata.get("copied_from") != source
-            or revision.metadata.get("legacy_review", {}).get("state") != state
-            or revision.metadata.get("legacy_review", {}).get("items") != projection["legacy_items"]
             or revision.metadata.get("item_provenance", {}).get("items")
             != _items(revision.content, projection["pointers"])
+            or revision.metadata.get("scene_only_frame_ids") != projection["scene_only_items"]
+            or revision.metadata.get("excluded_items")
+            != [
+                {"item_id": item.item_id, "decision": "rejected"}
+                for item in draft.items
+                if item.review_state == "rejected"
+            ]
         ):
             raise ValueError(f"staged draft differs from its source: {key}")
+        if draft.content_type == "visible_cards" and revision.metadata.get(
+            "calibration_reflow_context"
+        ) != build_calibration_reflow_context(draft):
+            raise ValueError(f"staged calibration context differs from its source: {key}")
         counts["drafts"] += 1
         expected = []
         for item in draft.items:

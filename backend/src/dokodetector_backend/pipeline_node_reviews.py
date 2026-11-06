@@ -193,6 +193,41 @@ class PipelineNodeReviews:
             )
         )
 
+    def applicable_for_revision(self, node_id: str, revision_id: str) -> tuple[dict[str, Any], ...]:
+        """Return recorded decisions that still apply through exact item lineage."""
+        target = self.store.read_revision(node_id, revision_id)
+        records: dict[str, dict[str, Any]] = {}
+        current = target
+        seen: set[tuple[str, str]] = set()
+        while True:
+            identity = (current.node_id, current.revision_id)
+            if identity in seen:
+                raise ValueError("copy lineage contains a cycle")
+            seen.add(identity)
+            for record in self.list_for_revision(*identity):
+                records[record["review_id"]] = record
+            if current.parent_revision_id is not None:
+                current = self.store.read_revision(current.node_id, current.parent_revision_id)
+                continue
+            copied = current.metadata.get("copied_from")
+            if not isinstance(copied, dict):
+                break
+            current = self.store.read_revision(copied["node_id"], copied["revision_id"])
+        applicable = []
+        for record in records.values():
+            result = self.applicability(
+                record["review_id"], node_id, revision_id, record["evidence"]
+            )
+            if result["status"] == "applicable":
+                applicable.append(record)
+        return tuple(
+            sorted(
+                applicable,
+                key=lambda record: (record["reviewed_at"], record["review_id"]),
+                reverse=True,
+            )
+        )
+
     def applicability(
         self, review_id: str, node_id: str, revision_id: str, evidence: Mapping[str, Any] | None
     ) -> dict[str, str]:

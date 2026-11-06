@@ -36,13 +36,22 @@ describe("PipelineNodeEventEditor", () => {
 
   it("shows retained rejected events without adding them to the event content", async () => {
     vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse(revision))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...revision,
+          metadata: {
+            excluded_items: [
+              { item_id: "event-rejected", decision: "rejected" },
+            ],
+          },
+        }),
+      )
       .mockResolvedValueOnce(
         jsonResponse([
           {
-            review_id: "review-rejected",
+            review_id: "review-rejected-second",
             kind: "item",
-            item_id: "event-rejected",
+            item_id: "event-rejected-second",
             decision: "rejected",
           },
         ]),
@@ -60,10 +69,13 @@ describe("PipelineNodeEventEditor", () => {
       />,
     );
     expect(
-      await screen.findByText("Retained rejected events (1)"),
+      await screen.findByText("Retained rejected events (2)"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("event-rejected · rejected in an earlier review"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("event-rejected-second · rejected in an earlier review"),
     ).toBeInTheDocument();
   });
 

@@ -654,6 +654,24 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
+- **Latest package — remove calibration reflow's legacy review adapter:** Calibration reflow now
+  reconstructs retained item state from applicable node item reviews and exact-revision coverage and
+  overall reviews. It stores non-decision reflow context outside review metadata. Event rejection
+  summaries and scene-only frame IDs remain separate from review records. Migration projection
+  verification now checks the isolated context.
+- **Checks:** The calibration reflow, draft projection, and node review test modules passed (24 tests).
+  Ruff and Ruff formatting passed. The event editor test module passed (9 tests), with TypeScript
+  typecheck and Prettier checks passing.
+- **Known limit:** The Virtual scenes editor still reads `legacy_scenes` from node metadata. Runtime
+  selection consumers still project node selections to legacy revision IDs for processor inputs.
+  The migration map/readers, old reference/review files, and duplicate selection documents remain.
+  M11 is incomplete; do not remove recovery copies before canonical runtime readers and reconciliation
+  checks pass.
+- **Next:** Remove scene review metadata reads through canonical node reviews. Continue selection
+  consumer cutover, then verify and retire old active stores and migration projections.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and

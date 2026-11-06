@@ -53,7 +53,9 @@ from table_evidence_analyzer.pipeline_data import (
     canonical_proposed_card_scene_data_bytes,
 )
 
+from dokodetector_backend.calibration_reflow_context import build_calibration_reflow_context
 from dokodetector_backend.pipeline_item_provenance import _items
+from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
 from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
 from dokodetector_backend.pipeline_proposal_seed import seed_proposal_items
@@ -140,10 +142,14 @@ class CalibrationRefinementService:
                     )
             return
         source_projection = project_draft(current.draft)
+        source_context = visible_revision.metadata.get("calibration_reflow_context")
         if (
             visible_revision.metadata.get("migration", {}).get("legacy_key") != key
-            or visible_revision.metadata.get("legacy_review", {}).get("items")
-            != source_projection["legacy_items"]
+            or not isinstance(source_context, dict)
+            or source_context.get("schema_version") != "calibration-reflow-context/v1"
+            or source_context.get("proposal_revision_id") != current.draft.proposal_revision_id
+            or source_context.get("source_revision_id") != current.draft.source_revision_id
+            or source_projection["content"] != visible_revision.content
         ):
             raise CalibrationRefinementConflict(
                 "the migrated visible-card draft differs from the maintained reference"
@@ -158,13 +164,6 @@ class CalibrationRefinementService:
             impact=current.draft.impact if impact is None else impact,
             updated_at=_now(),
         )
-        target_state = replace(
-            current.state,
-            draft_revision=target_draft.revision,
-            draft_state="draft",
-            source_revision_id=target_draft.source_revision_id,
-            updated_at=target_draft.updated_at,
-        )
         projection = project_draft(target_draft)
         digest = sha256_bytes(canonical_json_bytes(target_draft.to_mapping()))
         visible_metadata = dict(visible_revision.metadata)
@@ -173,13 +172,10 @@ class CalibrationRefinementService:
             "draft_sha256": digest,
             "updated_at": target_draft.updated_at,
         }
-        visible_metadata["legacy_review"] = {
-            **visible_metadata.get("legacy_review", {}),
-            "items": projection["legacy_items"],
-            "coverage": projection["coverage"],
-            "impact": projection["impact"],
-            "state": target_state.to_mapping(),
-        }
+        visible_metadata.pop("legacy_review", None)
+        visible_metadata["calibration_reflow_context"] = build_calibration_reflow_context(
+            target_draft
+        )
         visible_metadata["scene_only_frame_ids"] = projection["scene_only_items"]
         visible_metadata["calibration_reflow"] = {
             "receipt_id": receipt_id,
@@ -267,7 +263,7 @@ class CalibrationRefinementService:
         )
 
     def _node_reflow_reference(
-        self, recording_id: str, current: Any, target_proposal_revision_id: str
+        self, recording_id: str, target_proposal_revision_id: str
     ) -> dict[str, Any] | None:
         """Return the published draft view when a previous apply already committed."""
         if self.node_store is None:
@@ -279,37 +275,17 @@ class CalibrationRefinementService:
             revision = self.node_store.read_revision_record(node_id, node.head_revision_id)
         except FileNotFoundError:
             return None
-        legacy = revision.metadata.get("legacy_review")
         if (
             revision.metadata.get("migration", {}).get("legacy_key") != key
             or revision.metadata.get("calibration_reflow", {}).get("proposal_revision_id")
             != target_proposal_revision_id
-            or not isinstance(legacy, dict)
-            or not isinstance(legacy.get("items"), list)
         ):
             return None
-        from doko_operations.pipeline_reference import PipelineReferenceDraft
-
-        raw = current.draft.to_mapping()
-        raw.update(
-            {
-                "revision": current.draft.revision + 1,
-                "items": legacy["items"],
-                "coverage": None,
-                "proposal_revision_id": target_proposal_revision_id,
-                "updated_at": revision.metadata.get("migration", {}).get(
-                    "updated_at", current.draft.updated_at
-                ),
-            }
-        )
-        draft = PipelineReferenceDraft.from_mapping(raw)
-        state = replace(
-            current.state,
-            draft_revision=draft.revision,
-            draft_state="draft",
-            updated_at=draft.updated_at,
-        )
-        return {"state": state.to_mapping(), "draft": draft.to_mapping()}
+        current_node = self._current_node_reference(recording_id, target_proposal_revision_id)
+        return {
+            "state": current_node.state.to_mapping(),
+            "draft": current_node.draft.to_mapping(),
+        }
 
     def _current_node_reference(
         self,
@@ -335,44 +311,119 @@ class CalibrationRefinementService:
             raise CalibrationRefinementConflict(
                 "the canonical visible-card draft has changed source"
             )
-        legacy_review = revision.metadata.get("legacy_review")
-        if not isinstance(legacy_review, dict) or not isinstance(legacy_review.get("items"), list):
+        context = revision.metadata.get("calibration_reflow_context")
+        if not isinstance(context, dict) or context.get("schema_version") != (
+            "calibration-reflow-context/v1"
+        ):
             raise CalibrationRefinementInputError(
-                "the canonical visible-card review facts are missing"
+                "the canonical calibration reflow context is missing"
             )
-        raw_state = legacy_review.get("state")
-        if not isinstance(raw_state, dict):
-            raise CalibrationRefinementInputError("the canonical visible-card state is missing")
         try:
-            state = PipelineReferenceState.from_mapping(raw_state)
-            actual_proposal_id = revision.metadata.get("calibration_reflow", {}).get(
-                "proposal_revision_id", proposal_revision_id
-            )
+            actual_proposal_id = context.get("proposal_revision_id") or proposal_revision_id
+            if actual_proposal_id != proposal_revision_id:
+                raise CalibrationRefinementConflict(
+                    "the canonical visible-card draft uses a different proposal revision"
+                )
             _proposal, source, _data = self._proposal(recording_id, actual_proposal_id)
-            items = tuple(
-                ReferenceDraftItem.from_mapping(item, f"legacy_review.items[{index}]")
-                for index, item in enumerate(legacy_review["items"])
+            review_records = PipelineNodeReviews(self.node_store).applicable_for_revision(
+                node_id, revision.revision_id
+            )
+            item_decisions = {}
+            for review in review_records:
+                if review["kind"] == "item":
+                    item_decisions.setdefault(review["item_id"], review["decision"])
+            base_item_ids = context.get("base_item_ids", {})
+            affected_item_ids = set(context.get("affected_item_ids", []))
+            items_by_id = {}
+            for outcome in VisibleCardData.from_mapping(revision.content).outcomes:
+                decision = item_decisions.get(outcome.event_id, "pending")
+                if decision not in {
+                    "accepted",
+                    "corrected",
+                    "rejected",
+                    "added",
+                    "empty",
+                    "unusable",
+                    "identity_unusable",
+                    "source_problem",
+                    "face_down",
+                    "pending",
+                }:
+                    decision = "pending"
+                if outcome.event_id in affected_item_ids and decision in {"pending", "accepted"}:
+                    decision = "affected"
+                base_item_id = base_item_ids.get(outcome.event_id)
+                if decision not in {
+                    "accepted",
+                    "corrected",
+                    "rejected",
+                    "empty",
+                    "unusable",
+                    "identity_unusable",
+                    "source_problem",
+                }:
+                    base_item_id = None
+                item = ReferenceDraftItem.from_mapping(
+                    {
+                        "item_id": outcome.event_id,
+                        "base_item_id": base_item_id,
+                        "review_state": decision,
+                        "item": outcome.to_mapping(),
+                    }
+                )
+                items_by_id[item.item_id] = item
+            for raw_item in context.get("excluded_items", []):
+                item = ReferenceDraftItem.from_mapping(raw_item)
+                items_by_id.setdefault(item.item_id, item)
+            items = tuple(items_by_id.values())
+            current_reviews = PipelineNodeReviews(self.node_store).list_for_revision(
+                node_id, revision.revision_id
+            )
+            coverage_review = next(
+                (review for review in current_reviews if review["kind"] == "coverage"), None
+            )
+            overall_review = next(
+                (review for review in current_reviews if review["kind"] == "overall"), None
+            )
+            updated_at = context.get("updated_at")
+            source_revision_id = context.get("source_revision_id")
+            draft_revision = context.get("draft_revision")
+            if (
+                not isinstance(updated_at, str)
+                or source_revision_id != source.manifest.revision_id
+                or isinstance(draft_revision, bool)
+                or not isinstance(draft_revision, int)
+            ):
+                raise CalibrationRefinementInputError(
+                    "the canonical calibration reflow context is invalid"
+                )
+            state = PipelineReferenceState(
+                recording_id=recording_id,
+                content_type="visible_cards",
+                draft_revision=draft_revision,
+                draft_state=(
+                    "completed"
+                    if overall_review is not None and overall_review["decision"] == "complete"
+                    else "draft"
+                ),
+                source_revision_id=source_revision_id,
+                selected_completed_revision_id=None,
+                updated_at=updated_at,
             )
             draft = PipelineReferenceDraft.from_mapping(
                 {
                     "schema_version": "pipeline-reference-draft/v2",
                     "recording_id": recording_id,
                     "content_type": "visible_cards",
-                    "revision": state.draft_revision,
+                    "revision": draft_revision,
                     "source_revision_id": source.manifest.revision_id,
                     "items": [item.to_mapping() for item in items],
-                    "coverage": legacy_review.get("coverage"),
-                    "impact": legacy_review.get("impact", []),
-                    "updated_at": state.updated_at,
+                    "coverage": None if coverage_review is None else coverage_review["coverage"],
+                    "impact": context.get("impact", []),
+                    "updated_at": updated_at,
                     "proposal_revision_id": actual_proposal_id,
                 }
             )
-            from dokodetector_backend.lineage_draft_projection import project_draft
-
-            if project_draft(draft)["content"] != revision.content:
-                raise CalibrationRefinementConflict(
-                    "the canonical visible-card content differs from its review facts"
-                )
         except (TypeError, ValueError) as error:
             if isinstance(error, CalibrationRefinementError):
                 raise
@@ -719,7 +770,7 @@ class CalibrationRefinementService:
                     },
                 }
             node_reference = self._node_reflow_reference(
-                recording_id, reference, previous_receipt.proposal_revision_id
+                recording_id, previous_receipt.proposal_revision_id
             )
             if node_reference is not None:
                 return {

@@ -97,6 +97,10 @@ def test_applicability_on_copy_and_change(tmp_path: Path) -> None:
         reviews.applicability("i", copy["node_id"], copy["revision_id"], EVIDENCE)["status"]
         == "applicable"
     )
+    assert [
+        review["review_id"]
+        for review in reviews.applicable_for_revision(copy["node_id"], copy["revision_id"])
+    ] == ["i"]
     assert (
         reviews.applicability("o", copy["node_id"], copy["revision_id"], EVIDENCE)["status"]
         == "inapplicable"
@@ -114,6 +118,7 @@ def test_applicability_on_copy_and_change(tmp_path: Path) -> None:
         reviews.applicability("i", changed["node_id"], changed["revision_id"], EVIDENCE)["status"]
         == "inapplicable"
     )
+    assert reviews.applicable_for_revision(changed["node_id"], changed["revision_id"]) == ()
     assert (
         reviews.applicability("i", copy["node_id"], copy["revision_id"], None)["status"]
         == "unknown"

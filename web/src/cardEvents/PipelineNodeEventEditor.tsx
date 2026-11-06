@@ -103,12 +103,33 @@ export function PipelineNodeEventEditor({
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [retryAvailable, setRetryAvailable] = useState(false);
-  const rejectedItems = reviews.filter(
-    (review): review is Review & { item_id: string } =>
-      review.kind === "item" &&
-      review.decision === "rejected" &&
-      typeof review.item_id === "string",
-  );
+  const rejectedItems = useMemo(() => {
+    const byId = new Map<string, { item_id: string }>();
+    const excluded = node?.metadata?.excluded_items;
+    if (Array.isArray(excluded)) {
+      for (const item of excluded) {
+        if (
+          item !== null &&
+          typeof item === "object" &&
+          (item as Record<string, unknown>).decision === "rejected" &&
+          typeof (item as Record<string, unknown>).item_id === "string"
+        ) {
+          const itemId = (item as Record<string, string>).item_id;
+          byId.set(itemId, { item_id: itemId });
+        }
+      }
+    }
+    for (const review of reviews) {
+      if (
+        review.kind === "item" &&
+        review.decision === "rejected" &&
+        typeof review.item_id === "string"
+      ) {
+        byId.set(review.item_id, { item_id: review.item_id });
+      }
+    }
+    return [...byId.values()];
+  }, [node, reviews]);
   const savePendingRef = useRef<() => Promise<void>>(async () => undefined);
 
   const load = useCallback(

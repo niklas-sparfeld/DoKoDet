@@ -15,6 +15,7 @@ from dokodetector_backend.calibration_refinement_service import (
     CalibrationRefinementNotFound,
     CalibrationRefinementService,
 )
+from dokodetector_backend.calibration_reflow_context import build_calibration_reflow_context
 
 
 class _DraftStore:
@@ -172,11 +173,12 @@ def test_node_reflow_recovers_after_first_head_and_replays_exactly(tmp_path, mon
         visible_id,
         "Imported visible-card draft",
         "visible_cards",
-        SOURCE,
+        {**SOURCE, "recording_id": recording_id},
         projection["content"],
         {
             "migration": {"legacy_key": key, "draft_sha256": digest},
-            "legacy_review": {"items": projection["legacy_items"]},
+            "calibration_reflow_context": build_calibration_reflow_context(draft),
+            "scene_only_frame_ids": projection["scene_only_items"],
         },
         revision_id="visible-imported",
     )
@@ -237,6 +239,8 @@ def test_node_reflow_recovers_after_first_head_and_replays_exactly(tmp_path, mon
     service = CalibrationRefinementService.__new__(CalibrationRefinementService)
     service.node_store = nodes
     service.node_transactions = PipelineNodeTransactions(nodes)
+    source = SimpleNamespace(manifest=SimpleNamespace(revision_id="source-revision", source=SOURCE))
+    service._proposal = lambda *_args: (None, source, None)
     reflowed_items = (
         draft.items[0],
         replace(
@@ -306,7 +310,7 @@ def test_node_reflow_recovers_after_first_head_and_replays_exactly(tmp_path, mon
         )["status"]
         == "inapplicable"
     )
-    reference = service._node_reflow_reference(recording_id, current, "proposal-target")
+    reference = service._node_reflow_reference(recording_id, "proposal-target")
     assert reference is not None
     assert reference["draft"]["proposal_revision_id"] == "proposal-target"
     service._publish_node_reflow(
@@ -431,7 +435,7 @@ def test_reflow_planner_reads_current_content_from_canonical_node(tmp_path) -> N
     from uuid import NAMESPACE_URL, uuid5
 
     from doko_operations.pipeline_data import parse_source
-    from doko_operations.pipeline_reference import PipelineReferenceState
+    from doko_operations.pipeline_reference import PipelineReferenceDraft
 
     from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 
@@ -445,14 +449,19 @@ def test_reflow_planner_reads_current_content_from_canonical_node(tmp_path) -> N
     }
     key = "maintained_draft/recording-1/visible_cards"
     node_id = str(uuid5(NAMESPACE_URL, f"lineage-draft:{key}"))
-    state = PipelineReferenceState(
-        recording_id="recording-1",
-        content_type="visible_cards",
-        draft_revision=3,
-        draft_state="draft",
-        source_revision_id="detector-node-revision",
-        selected_completed_revision_id=None,
-        updated_at="2026-11-06T10:00:00Z",
+    draft = PipelineReferenceDraft.from_mapping(
+        {
+            "schema_version": "pipeline-reference-draft/v2",
+            "recording_id": "recording-1",
+            "content_type": "visible_cards",
+            "revision": 3,
+            "source_revision_id": "detector-node-revision",
+            "proposal_revision_id": "source-proposal",
+            "items": [],
+            "coverage": None,
+            "impact": [],
+            "updated_at": "2026-11-06T10:00:00Z",
+        }
     )
     nodes = PipelineNodeStore(tmp_path / "nodes")
     nodes.create(
@@ -463,13 +472,8 @@ def test_reflow_planner_reads_current_content_from_canonical_node(tmp_path) -> N
         {"schema_version": "visible-card-data/v2", "outcomes": []},
         {
             "migration": {"legacy_key": key},
-            "legacy_review": {
-                "items": [],
-                "coverage": None,
-                "impact": [],
-                "scene_only_items": [],
-                "state": state.to_mapping(),
-            },
+            "calibration_reflow_context": build_calibration_reflow_context(draft),
+            "scene_only_frame_ids": [],
         },
         revision_id="visible-draft-revision",
     )
@@ -485,7 +489,8 @@ def test_reflow_planner_reads_current_content_from_canonical_node(tmp_path) -> N
 
     current = service._current_node_reference("recording-1", "source-proposal")
 
-    assert current.state == state
+    assert current.state.draft_state == "draft"
+    assert current.state.source_revision_id == "detector-node-revision"
     assert current.draft.revision == 3
     assert current.draft.proposal_revision_id == "source-proposal"
     assert current.draft.items == ()
