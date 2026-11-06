@@ -178,9 +178,9 @@ class CalibrationRefinementService:
             "items": projection["legacy_items"],
             "coverage": projection["coverage"],
             "impact": projection["impact"],
-            "scene_only_items": projection["scene_only_items"],
             "state": target_state.to_mapping(),
         }
+        visible_metadata["scene_only_frame_ids"] = projection["scene_only_items"]
         visible_metadata["calibration_reflow"] = {
             "receipt_id": receipt_id,
             "proposal_revision_id": target_proposal_revision_id,

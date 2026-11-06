@@ -96,11 +96,7 @@ export function PipelineNodeVisibleCardEditor({
     selectedId === null ? undefined : outcomeById.get(selectedId);
   const readOnly =
     revision !== null && revision.head_revision_id !== revision.revision_id;
-  const legacyReview = revision?.metadata.legacy_review;
-  const sceneOnlyItems =
-    legacyReview !== null && typeof legacyReview === "object"
-      ? (legacyReview as Record<string, unknown>).scene_only_items
-      : null;
+  const sceneOnlyItems = revision?.metadata.scene_only_frame_ids;
   const sceneOnlyCount = Array.isArray(sceneOnlyItems)
     ? sceneOnlyItems.length
     : 0;

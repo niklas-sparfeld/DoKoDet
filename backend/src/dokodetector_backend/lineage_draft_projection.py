@@ -106,9 +106,9 @@ def import_draft(
             "items": projection["legacy_items"],
             "coverage": projection["coverage"],
             "impact": projection["impact"],
-            "scene_only_items": projection["scene_only_items"],
             "state": legacy_state,
         },
+        "scene_only_frame_ids": projection["scene_only_items"],
         "item_provenance": {
             "version": 1,
             "items": _items(projection["content"], projection["pointers"]),

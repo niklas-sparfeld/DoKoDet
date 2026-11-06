@@ -55,7 +55,7 @@ describe("PipelineNodeVisibleCardEditor", () => {
       .mockResolvedValueOnce(
         jsonResponse({
           ...revision,
-          metadata: { legacy_review: { scene_only_items: ["event-1"] } },
+          metadata: { scene_only_frame_ids: ["event-1"] },
           content: { schema_version: "visible-card-data/v2", outcomes: [] },
         }),
       )

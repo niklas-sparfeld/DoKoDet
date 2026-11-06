@@ -635,6 +635,24 @@ the visible-card head update and confirms restart recovery publishes both heads 
   canonical review or lineage data is available.
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+- **Latest package — move scene-only frame identity out of review metadata:** The visible-card
+  editor reads `scene_only_frame_ids` at the node revision level. New imports and calibration
+  reflows write this field outside review metadata. A journaled local migration updated 12 active
+  node heads with 326 frame IDs. It preserved every old revision and removed the nested
+  `scene_only_items` key from the new heads.
+- **Recovery evidence:** The source revision hashes and migrated node IDs are recorded in
+  `data/operations-recovery/0108-m11-20261106/scene-only-metadata-migration.json`. All 12 new heads
+  and the 326 frame IDs were checked after publication.
+- **Checks:** The lineage draft projection and calibration refinement tests passed (17 tests). The
+  visible-card editor test module passed (6 tests). TypeScript typecheck, focused ESLint, Prettier,
+  Ruff, format, and `git diff --check` passed.
+- **Known limit:** Calibration still reads other fields from `legacy_review`. This migration only
+  removed the scene-only summary from that object. Old reference and review files remain as recovery
+  data.
+- **Next:** Move calibration reflow to `PipelineNodeReviews` and retained correction lineage. Then
+  eliminate `legacy_review` readers and complete the old-store recovery audit.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
 ### M12 — Verify the complete workflow and close — Not started
 
