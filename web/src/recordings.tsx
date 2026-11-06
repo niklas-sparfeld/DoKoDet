@@ -179,7 +179,7 @@ function RecordingPipelineProgress({
           status.stages,
         );
         const label = PIPELINE_PROGRESS_LABELS[stage.key];
-        const stateLabel = formatPipelineStageState(stage.key, stage.state);
+        const stateLabel = formatPipelineStageState(stage.state);
         return (
           <li
             key={stage.key}
@@ -213,7 +213,7 @@ function pipelineProgressState(
 ): PipelineProgressState {
   if (state === "complete") return "complete";
   if (state === "failed") return "failed";
-  if (state === "active-run" || state === "partial" || state === "draft") {
+  if (state === "active-run" || state === "partial") {
     return "active";
   }
   if (index === stages.findIndex((stage) => stage.state !== "complete")) {

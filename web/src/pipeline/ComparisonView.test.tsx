@@ -38,11 +38,13 @@ function stage(
     processor_key: `${key}-processor`,
     processor_type: `${key}-processor`,
     output_content_type: key,
-    has_maintained_reference: true,
     state: "complete",
     input_options: [
       {
         revision_id: "reference-1",
+        node_id: "node-reference-1",
+        node_revision_id: "node-revision-reference-1",
+        is_current_head: true,
         content_type: key === "events" ? "events" : key,
         origin: "manual",
         completion_state: "complete",
@@ -61,20 +63,8 @@ function stage(
     runs,
     analyses: [],
     compatible_input_sets: [],
-    reference: {
-      state: "complete",
-      draft_revision: 1,
-      selected_completion: "reference-1",
-      source_revision_id: "input-1",
-      coverage: { kind: "full" },
-      coverage_state: "complete",
-      affected_count: 0,
-      updated_at: "2026-09-06T10:00:00Z",
-    },
     can_run: false,
     run_blockers: [],
-    can_review: false,
-    review_blockers: [],
     comparable_run_ids: runs.map((item) => item.run_id),
   };
 }

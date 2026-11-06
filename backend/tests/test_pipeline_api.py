@@ -51,7 +51,7 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
     assert modules == {
         "dokodetector_backend.pipeline_workspace_api": 2,
         "dokodetector_backend.pipeline_run_api": 2,
-        "dokodetector_backend.pipeline_stage_api": 35,
+        "dokodetector_backend.pipeline_stage_api": 34,
         "dokodetector_backend.pipeline_comparison_api": 1,
     }
     assert len(pipeline_router.routes) == len(child_routers) + 2
@@ -532,7 +532,7 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         body = workspace.json()
         events = body["stages"][0]
         revision_id = events["selected_generated_revision_id"]
-        assert events["state"] == "generated-only"
+        assert events["state"] == "data-available"
         assert revision_id is not None
         assert events["selection_revision"] == 1
         assert events["comparable_run_ids"] == [created.json()["id"]]
@@ -553,7 +553,7 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         catalog = client.get("/v1/recordings")
         assert catalog.status_code == 200
         assert catalog.json()["recordings"][0]["pipeline_status"]["stages"] == [
-            {"key": "events", "state": "generated-only"},
+            {"key": "events", "state": "data-available"},
             {"key": "visible_cards", "state": "empty"},
             {"key": "visual_identities", "state": "empty"},
             {"key": "table_observations", "state": "empty"},
@@ -659,23 +659,24 @@ def test_workspace_run_summary_uses_exact_graph_inputs(tmp_path: Path) -> None:
     ]
 
 
-def test_stage_workspace_skips_inactive_reference_drafts(tmp_path: Path, monkeypatch) -> None:
+def test_workspace_does_not_read_legacy_reference_store(tmp_path: Path, monkeypatch) -> None:
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
     reference_store = app.state.pipeline_reference_store
-    draft_reads: list[str] = []
-    original_get = reference_store.get
 
-    def traced_get(recording_id: str, content_type: str):
-        draft_reads.append(content_type)
-        return original_get(recording_id, content_type)
+    def reject(*_args, **_kwargs):
+        raise AssertionError("workspace read the retired reference store")
 
-    monkeypatch.setattr(reference_store, "get", traced_get)
+    monkeypatch.setattr(reference_store, "get", reject)
+    monkeypatch.setattr(reference_store, "get_state", reject)
+    monkeypatch.setattr(reference_store, "list_states", reject)
 
     workspace = app.state.pipeline_workspace_service.get_workspace(RECORDING_ID, stage_key="events")
 
     assert workspace["schema_version"] == "pipeline-workspace/v1"
-    assert draft_reads == []
+    assert "reference" not in workspace["stages"][0]
+    assert "can_review" not in workspace["stages"][0]
+    app.state.pipeline_workspace_service.get_statuses([RECORDING_ID], analyses_by_recording={})
 
 
 def test_recording_pipeline_workspace_reports_invalid_selection_pointer(

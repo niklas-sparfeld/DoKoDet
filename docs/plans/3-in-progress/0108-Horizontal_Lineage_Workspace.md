@@ -7,7 +7,7 @@
 - **Status:** In Progress
 - **Depends on:** [Epic 0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md), including tested
   migration tools and provenance/review contracts.
-- **Outcome:** M0–M10 are complete; M11–M12 are not started. The workspace
+- **Outcome:** M0–M10 are complete; M11 is in progress and M12 is not started. The workspace
   exposes exact graph data,
   preserves validated lineage URLs, and has aligned step and data rows. The horizontal drawer
   selects exact revisions and shows copy and processor sources with collapsed revision history.
@@ -345,6 +345,156 @@ browser client methods are removed. Internal legacy stores and processor adapter
 After restart, the queue returned 165 available items. The IMG_0096 workspace and recording graph
 opened with no workspace diagnostics. Startup recovery reads compact run statuses before loading
 interrupted runs, so it does not load every completed run at startup.
+
+The workspace now includes imported draft node revisions in its exact input options. Imported draft
+options use an explicit label. A fixture confirms that a migrated event draft can start visible-card
+processing with its exact node and revision IDs. The unused maintained identity-crop route and
+client path are removed. The active old reference and review stores still match the M10 recovery
+snapshot byte for byte. A separate recovery copy now preserves all 136 active node-selection files.
+An additive exact node-selection API now reads and writes node/revision pointers without converting
+them through the legacy revision map. A coordinated transaction foundation journals multiple node
+revisions and exact selections. Node and selection reads recover a prepared transaction before
+they return. Fixture tests cover pointer validation, competing selection writers, publication of
+visible-card and virtual-scene revisions, and recovery after the first node head changes.
+Calibration apply now publishes the reflowed visible-card draft and virtual-scene draft through one
+journaled node transaction. It leaves exact selections unchanged, as the prior apply path did. It
+retains the established calibration gates, forced affected-frame decisions, and correction-impact
+calculation. Immutable item reviews remain applicable only when the item digest is unchanged through
+the revision parent chain. Changed item decisions and exact-revision overall and coverage decisions
+remain in the review history but are inapplicable to the new revision. A fixture interrupts after
+the visible-card head update and confirms restart recovery publishes both heads before reads.
+
+### Execution handoff — 2026-11-06
+
+- **Completed:** M11 work remains incomplete (0/1 complete, 1/1 remaining in this run).
+- **Changes:** Imported draft revisions appear in workspace options and use an Imported draft label.
+  A fixture runs visible-card processing from an exact migrated event node. The maintained identity
+  crop route and client path are removed. This run adds an exact node-selection API and a journaled
+  multi-node transaction foundation. Production callers still use the legacy selection projection.
+- **Recovery evidence:** The 511 files under `data/operations/pipeline-references` and the 53 files
+  under `data/operations/pipeline-reviews` match the M10 recovery snapshot with no missing, extra,
+  or changed files. `verify_active_draft_snapshot` confirmed 415 retained draft and review files
+  against the verified M10 migration package. Before selection cutover, all 136 active selection
+  documents were copied and hash-verified at
+  `data/operations-recovery/0108-m11-20261106/migrated-selections-before-cutover`; see
+  `data/operations-recovery/0108-m11-20261106/selection-recovery.json`.
+- **Checks:** The imported-event fixture, route inventory, focused Ruff checks, `git diff --check`,
+  and generated OpenAPI verification passed. The full web check stops at two lint errors in
+  `CardEventFrameSurface.tsx`. The full web test run has nine failures in three CardEvent cache and
+  frame-surface test files; 164 tests passed. A prior focused backend run had one retry-race failure;
+  its isolated rerun passed. The new node store, edit, accepted-use, exact-selection, and coordinated
+  transaction fixtures pass (22 tests); focused Ruff, formatting, and `git diff --check` pass.
+- **Known limit:** `PipelineNodeSelectionStore`, `PipelineLineageWriter`, and the workspace still
+  read `.legacy-revision-map.json`. Runtime composition still loads `.migrated-readers`. Calibration
+  refinement still uses reference-service validation and correction-impact helpers, with the exact
+  detector source cached from its canonical node. Runtime calibration reads and old reference storage
+  remain until the remaining M11 removal audit and recovery checks pass.
+- **Latest package:** Proposal creation can consume an exact canonical visible-card node revision.
+  The node reference is frozen in the processor request, validated again before execution, and read
+  by the worker. Fixture checks confirm the request retains exact node and revision IDs and does not
+  call the legacy revision store during freeze or validation. Calibration proposal lookup and target
+  publication now use canonical proposal and detector nodes. The reflow planner reads the current
+  visible-card node revision and its retained review facts, then runs the established seed and reflow
+  functions with a cached canonical detector source. It stores the receipt before the journaled node
+  transaction so a retry can finish or return the same published result. Focused calibration,
+  proposal, and transaction tests pass, along with operation data-contract tests and Ruff,
+  formatting, and `git diff --check`. M11 remains incomplete.
+- **Remaining M11 work:** Runtime selection adapters, migrated readers, and old reference/review
+  storage remain. Keep these stores until the remaining runtime cutover and recovery checks pass. The
+  imported-draft expectation and retry test race were
+  resolved: the workspace test
+  now asserts imported drafts are offered, and its polling waits for the managed job's terminal
+  state. `uv run --project backend pytest
+  backend/tests/test_visible_card_pipeline_api.py::test_migrated_event_draft_is_selectable_as_exact_visible_card_input
+  backend/tests/test_visible_card_pipeline_api.py::test_visible_card_pipeline_retry_creates_a_linked_managed_job
+  backend/tests/test_lineage_draft_projection.py::test_workspace_offers_an_imported_draft_as_processor_output
+  -q --tb=short` passed all three.
+- **Additional changes:** Calibration apply now publishes migrated visible-card and virtual-scene
+  draft revisions in one journaled transaction. Node revision IDs are deterministic from the
+  reflow receipt. The transaction has no selection updates because legacy apply did not change
+  selection pointers. The no-selection transaction path no longer instantiates the legacy selection
+  adapter. A retry after node publication returns the exact published draft projection.
+- **Review rules:** Old immutable review records remain stored. Item decisions apply through the
+  revision parent chain only when the item digest is unchanged. Changed item decisions and
+  exact-revision overall or coverage decisions are inapplicable. The focused fixture checks both
+  unchanged and changed item decisions and exact-revision overall decisions.
+- **Checks:** `uv run --project backend ruff check` on the calibration service, composition,
+  transaction service, and calibration tests passed. Ruff formatting passed. Focused pytest for
+  calibration refinement, node transactions, node reviews, and lineage draft projection passed
+  (24 tests). `git diff --check` passed. The transaction fixture interrupts after the visible-card
+  head update, restarts the node store, and verifies both heads before further reads.
+- **Next:** Verify the full reflow path against a richer calibration fixture, including anchor
+  state and affected frame behavior. Then remove the legacy map reader, migrated readers, duplicate
+  selection fields, and old reference storage only after verified recovery evidence. Run the
+  complete M11 removal audit before commit.
+- **Run count:** Requested 1 milestone; completed 0; remaining 1.
+
+- **Latest package — map-free runtime selection:** `PipelineNodeSelectionStore` and
+  `PipelineLineageWriter` no longer load `.legacy-revision-map.json`. Selection projection resolves
+  retained legacy execution IDs from the selected node revision metadata. The workspace builds its
+  revision lookup from node history. The migration map remains an input to offline migration and
+  verification functions only. Exact pointer validation still rejects a wrong recording/content
+  type and an absent node revision. A fixture writes malformed map bytes and confirms runtime
+  selection reads still succeed from canonical node metadata. This preserves execution request
+  fields while removing the migration map from runtime selection reads and writes.
+- **Checks:** Focused selection, lineage writer, pipeline API, draft projection, proposed-scene, and
+  migrated-event processor-input fixtures passed (35 tests). Ruff check, Ruff format check, and
+  `git diff --check` passed. The source audit found no migration-map reference in the selection,
+  lineage writer, workspace, or composition modules. A wider exploratory run also exercised
+  observation and identity APIs; it had 9 failures caused by existing removed-endpoint/input
+  expectations recorded above and 64 passing tests. No real processor ran.
+- **Remaining:** Runtime consumers still use the `PipelineSelection` projection for legacy
+  execution request fields. Convert those consumers to explicit node/revision references before
+  removing that projection. Migrated reader and old reference/review storage cutover remains unsafe
+  until its review and calibration consumers move to canonical nodes. M11 is incomplete.
+- **Run count:** Requested up to 10 Luna loops; completed 1; remaining 9.
+- **Follow-up check:** A correction pass began migrating fixture helpers to enqueue event jobs
+  through the current Job API and to pass the selected event node/revision from workspace options.
+  The focused rerun did not pass. It exposed stale test assumptions beyond the original nine: the
+  observation retry test compares different output revision IDs; the analysis counterfactual POST
+  returns 404; and visual-card tests still poll job IDs as if they were processor run IDs. The
+  modified fixture helpers are incomplete and must be reconciled before they can serve as evidence.
+  No backend contract ambiguity is established yet. Do not treat these failures as baseline. Next,
+  align each fixture with the response IDs and current routes, rerun the nine cases, then continue
+  exact-reference cutover for visual identity and observation consumers.
+- **Reconciliation attempt:** Ran the three affected backend API modules again. Nine tests fail.
+  The visual-identity fixtures post a managed job, then use the requested run ID with the old
+  stage-result route. The response has a different run ID, and the old route returns 404. One
+  observation fixture expects a legacy compatible-input set that the current workspace does not
+  return. Two parameter cases post a counterfactual to a removed direct-create route. These are
+  fixture/API gaps; this run did not establish that the runtime lineage contracts are wrong. The
+  observation retry also still compares different output revision IDs. Do not commit the package
+  until the fixtures use current job results and canonical node references, and the counterfactual
+  case uses the current job API.
+- **Checks:** Selection, transaction, and calibration-refinement fixtures passed (14 tests).
+  Ruff check, Ruff format check, generated OpenAPI verification, and `git diff --check` passed on
+  the current files. The three API modules remain red (9 failures), so the M11 package is not safe
+  to commit. No processor ran.
+- **Next:** Reconcile managed-job IDs and result reads in the affected fixtures. Replace stale
+  compatible-input assertions with exact node-reference expectations. Route counterfactual
+  fixtures through the job API. Then rerun the three modules and continue the remaining M11
+  selection and storage removal audit. Preserve active reference/review storage until all
+  consumers and recovery checks pass.
+- **Commit decision:** No intermediate commit. Existing M11 source and fixture changes remain
+  uncommitted because affected API fixtures do not yet provide verified evidence.
+
+- **Latest reconciliation:** Fixed the nine failures in the observation, visual-identity, and
+  visible-card API modules. Fixtures now use managed job IDs and results. The observation fixture
+  writes its changed visible-card revision and generated identity revision to canonical node
+  storage. The counterfactual fixture now submits through `/api/jobs`. It also waits for the
+  observation selection pointer to catch up after the run reaches its terminal state. This was a
+  fixture timing issue; no observation service change was needed. The visual-identity retry fixture
+  now seeds a real failed job before it calls the retry route.
+- **Checks:** All modified backend test modules passed, including the three formerly failing API
+  modules. Ruff check and format passed. TypeScript typecheck, lint and format on changed web files,
+  OpenAPI verification, and `git diff --check` passed. Full web checks still report two lint errors
+  in unchanged `CardEventFrameSurface.tsx`, seven formatting warnings in unchanged CardEvent files
+  and `AutomatedPipelineControls.test.tsx`, and nine failures in three unchanged CardEvent cache and
+  frame-surface test files. The remaining selection and storage cutover is not complete. No
+  processor ran.
+- **Commit:** An intermediate M11 commit is safe after these focused checks. Keep M11 in progress.
+  Runtime selection adapters, migrated readers, and old reference/review storage remain for the
+  next package.
 
 ### M12 — Verify the complete workflow and close — Not started
 

@@ -9,7 +9,7 @@ from typing import Any
 from doko_operations.pipeline_data import ProcessorRunRequest
 
 from dokodetector_backend.pipeline_lineage import PipelineLineage
-from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore, _read_json
+from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.pipeline_store import ProcessorRunState, StoredPipelineRevision
 
@@ -48,14 +48,6 @@ class PipelineLineageWriter:
         self.lineage = lineage
         self.uses = uses
         self.revision_store = revision_store
-        migration_map_path = node_store.root / ".legacy-revision-map.json"
-        migration_map = _read_json(migration_map_path) if migration_map_path.exists() else None
-        if migration_map is not None and (
-            migration_map.get("schema_version") != "legacy-revision-map/v1"
-            or not isinstance(migration_map.get("revisions"), dict)
-        ):
-            raise ValueError("invalid legacy revision map")
-        self.migrated_revisions = {} if migration_map is None else migration_map["revisions"]
 
     @staticmethod
     def _run_id(run_id: str, attempt: int) -> str:
@@ -67,12 +59,15 @@ class PipelineLineageWriter:
 
     def ensure_revision_node(self, revision: StoredPipelineRevision) -> tuple[str, str]:
         manifest = revision.manifest
-        migrated = self.migrated_revisions.get(manifest.revision_id)
-        if migrated is not None:
-            if not isinstance(migrated, dict) or set(migrated) != {"node_id", "revision_id"}:
-                raise ValueError("invalid migrated revision entry")
-            self.node_store.get(migrated["node_id"])
-            return migrated["node_id"], migrated["revision_id"]
+        for candidate in self.node_store.list_nodes():
+            if (
+                candidate.content_type != manifest.content_type
+                or candidate.source != manifest.source.to_mapping()
+            ):
+                continue
+            for candidate_revision in self.node_store.history(candidate.node_id):
+                if candidate_revision.metadata.get("legacy_revision_id") == manifest.revision_id:
+                    return candidate.node_id, candidate_revision.revision_id
         node_id = self._node_id(manifest.revision_id)
         try:
             node = self.node_store.get(node_id)
@@ -116,18 +111,36 @@ class PipelineLineageWriter:
         run_id = self._run_id(request.run_id, state.attempt)
         inputs: list[dict[str, str]] = []
         revision_pairs = []
-        for index, revision_id in enumerate(request.input_revision_ids):
-            revision = self.revision_store.require(revision_id)
-            node_id, node_revision_id = self.ensure_revision_node(revision)
-            revision_pairs.append((node_id, node_revision_id))
+        if request.input_node_ref is not None:
+            ref = request.input_node_ref
+            self.node_store.get(ref["node_id"])
+            self.node_store.read_revision(ref["node_id"], ref["revision_id"])
+            revision_pairs.append((ref["node_id"], ref["revision_id"]))
             inputs.append(
                 {
                     "kind": "revision",
-                    "node_id": node_id,
-                    "revision_id": node_revision_id,
-                    "role": _input_role(request, index, revision),
+                    "node_id": ref["node_id"],
+                    "revision_id": ref["revision_id"],
+                    "role": (
+                        "visible_cards"
+                        if request.processor_type == "visible-card-scene-proposal"
+                        else "events"
+                    ),
                 }
             )
+        else:
+            for index, revision_id in enumerate(request.input_revision_ids):
+                revision = self.revision_store.require(revision_id)
+                node_id, node_revision_id = self.ensure_revision_node(revision)
+                revision_pairs.append((node_id, node_revision_id))
+                inputs.append(
+                    {
+                        "kind": "revision",
+                        "node_id": node_id,
+                        "revision_id": node_revision_id,
+                        "role": _input_role(request, index, revision),
+                    }
+                )
         if not inputs:
             source = request.source
             inputs.append(
@@ -138,7 +151,12 @@ class PipelineLineageWriter:
                     "role": "recording_video",
                 }
             )
-        self.uses.accept(run_id, revision_pairs)
+        revision_policy = (
+            request.input_node_ref["revision_policy"]
+            if request.input_node_ref is not None
+            else "current_head"
+        )
+        self.uses.accept(run_id, revision_pairs, revision_policy=revision_policy)
         self.lineage.start(
             run_id,
             inputs=inputs,
@@ -215,6 +233,16 @@ class PipelineLineageWriter:
         )
 
     def _input_refs(self, request: ProcessorRunRequest) -> list[dict[str, str]]:
+        if request.input_node_ref is not None:
+            ref = request.input_node_ref
+            return [
+                {
+                    "kind": "revision",
+                    "node_id": ref["node_id"],
+                    "revision_id": ref["revision_id"],
+                    "role": "events",
+                }
+            ]
         refs = []
         for index, revision_id in enumerate(request.input_revision_ids):
             revision = self.revision_store.require(revision_id)

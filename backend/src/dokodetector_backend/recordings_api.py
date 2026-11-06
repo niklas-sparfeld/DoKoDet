@@ -56,8 +56,7 @@ PipelineStageState = Literal[
     "active-run",
     "partial",
     "failed",
-    "generated-only",
-    "draft",
+    "data-available",
     "complete",
 ]
 
@@ -214,9 +213,7 @@ def list_recordings(request: Request) -> RecordingListResponse:
     entries = service.recording_catalog()
     pipeline_statuses = request.app.state.pipeline_workspace_service.get_statuses(
         [entry.recording.recording_id for entry in entries],
-        analyses_by_recording={
-            entry.recording.recording_id: entry.analyses for entry in entries
-        },
+        analyses_by_recording={entry.recording.recording_id: entry.analyses for entry in entries},
     )
     return RecordingListResponse(
         recordings=[

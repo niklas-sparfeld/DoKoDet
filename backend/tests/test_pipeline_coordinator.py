@@ -26,6 +26,17 @@ def test_identity_stage_uses_proposed_card_scene_crop_input() -> None:
     assert "visible_card_revision_id" not in payload["request"]
 
 
+def test_visible_card_stage_sends_its_exact_event_revision() -> None:
+    payload = RetainedPipelineStageExecutor._request_payload(
+        "visible_card_and_pile_proposals",
+        "visible-run",
+        {"configuration": {"provider": "local-rfdetr-segmentation"}},
+        ("events-selected-by-stage",),
+    )
+
+    assert payload["request"]["event_revision_id"] == "events-selected-by-stage"
+
+
 def test_coordinator_persists_exact_lineage_and_reuses_completed_stages(tmp_path: Path) -> None:
     calls: list[tuple[str, tuple[str, ...]]] = []
 

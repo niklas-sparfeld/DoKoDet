@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any, Mapping
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
@@ -18,6 +19,8 @@ from doko_operations.pipeline_data import (
     RunFailure,
     RunItemOutcome,
     RunProgress,
+    canonical_json_bytes,
+    parse_source,
     sha256_bytes,
 )
 from doko_operations.proposed_card_scene_processor import (
@@ -30,10 +33,12 @@ from table_evidence_analyzer.pipeline_data import (
     ProposedCardSceneData,
     VisibleCardData,
     canonical_proposed_card_scene_data_bytes,
+    parse_visible_card_data_bytes,
 )
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
@@ -74,11 +79,13 @@ class ProposedCardScenePipelineService:
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
         selection_store: PipelineSelectionStore,
+        node_store: PipelineNodeStore | None = None,
     ) -> None:
         self.settings = settings
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
+        self.node_store = node_store
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.job_manager_provider: Any | None = None
 
@@ -128,13 +135,15 @@ class ProposedCardScenePipelineService:
             raise ProposedCardScenePipelineInputError("the frozen proposal schema is invalid")
         if request.source.recording_id != recording_id or len(request.input_revision_ids) != 1:
             raise ProposedCardScenePipelineInputError("the frozen proposal inputs are invalid")
-        input_revision = self.revision_store.require(request.input_revision_ids[0])
-        producer = input_revision.manifest.producer
+        input_revision = self._visible_input(
+            recording_id, request.input_revision_ids[0], request.input_node_ref
+        )
+        producer = input_revision.producer
         if (
-            input_revision.manifest.recording_id != recording_id
-            or input_revision.manifest.content_type != "visible_cards"
+            input_revision.recording_id != recording_id
+            or input_revision.content_type != "visible_cards"
             or not isinstance(input_revision.content, VisibleCardData)
-            or input_revision.manifest.origin != "processor"
+            or input_revision.origin != "processor"
             or request.processor_type != PROPOSED_CARD_SCENE_PROCESSOR_TYPE
             or not isinstance(producer, ProcessorProducer)
             or producer.processor_type != "visible-card-detection"
@@ -207,13 +216,17 @@ class ProposedCardScenePipelineService:
         run = self.run_store.start(run_id)
         try:
             token.check()
-            source_revision = self.revision_store.require(run.request.input_revision_ids[0])
+            source_revision = self._visible_input(
+                run.request.source.recording_id,
+                run.request.input_revision_ids[0],
+                run.request.input_node_ref,
+            )
             if not isinstance(source_revision.content, VisibleCardData):
                 raise ProposedCardScenePipelineError("the proposal input content is invalid")
             local_result = visible_card_data_to_local_result(
                 source_revision.content,
                 recording_id=run.request.source.recording_id,
-                source_revision=source_revision.manifest.revision_id,
+                source_revision=run.request.input_revision_ids[0],
             )
 
             def report_progress(
@@ -235,8 +248,8 @@ class ProposedCardScenePipelineService:
 
             processor_result = build_proposed_card_scenes(
                 local_result,
-                detector_revision_id=source_revision.manifest.revision_id,
-                detector_revision_digest=source_revision.manifest.content_sha256,
+                detector_revision_id=run.request.input_revision_ids[0],
+                detector_revision_digest=source_revision.content_sha256,
                 calibration_store=CalibrationRevisionStore(self.settings.operations_root),
                 progress_callback=report_progress,
             )
@@ -338,12 +351,14 @@ class ProposedCardScenePipelineService:
             "visible_card_revision_id",
             "input_revision_ids",
             "configuration",
+            "input_node_ref",
         }
         if unknown:
             raise ProposedCardScenePipelineInputError(
                 "the proposal request has unknown fields: " + ", ".join(sorted(unknown))
             )
         revision_id = payload.get("visible_card_revision_id")
+        node_ref = payload.get("input_node_ref")
         input_ids = payload.get("input_revision_ids")
         if input_ids is not None:
             if not isinstance(input_ids, list) or len(input_ids) != 1:
@@ -357,26 +372,38 @@ class ProposedCardScenePipelineService:
                 )
             revision_id = input_revision_id
         if revision_id is None:
-            selection = self.selection_store.get(recording_id, "visible_cards")
-            revision_id = None if selection is None else selection.selected_generated_revision_id
+            exact = getattr(self.selection_store, "get_exact", lambda *_: None)(
+                recording_id, "visible_cards"
+            )
+            if exact is not None and exact.selected_generated is not None:
+                node_ref = {
+                    **exact.selected_generated,
+                    "revision_policy": "current_head",
+                }
+                revision_id = exact.selected_generated["revision_id"]
+            else:
+                selection = self.selection_store.get(recording_id, "visible_cards")
+                revision_id = (
+                    None if selection is None else selection.selected_generated_revision_id
+                )
         if not isinstance(revision_id, str) or not revision_id:
             raise ProposedCardScenePipelineInputError(
                 "no generated visible-card revision is selected"
             )
-        revision = self.revision_store.require(revision_id)
-        if revision.manifest.recording_id != recording_id:
+        revision = self._visible_input(recording_id, revision_id, node_ref)
+        if revision.recording_id != recording_id:
             raise ProposedCardScenePipelineInputError(
                 "the selected visible-card revision belongs to another recording"
             )
-        if revision.manifest.content_type != "visible_cards" or not isinstance(
+        if revision.content_type != "visible_cards" or not isinstance(
             revision.content, VisibleCardData
         ):
             raise ProposedCardScenePipelineInputError(
                 "the proposal input must be a visible-card revision"
             )
-        producer = revision.manifest.producer
+        producer = revision.producer
         if (
-            revision.manifest.origin != "processor"
+            revision.origin != "processor"
             or not isinstance(producer, ProcessorProducer)
             or producer.processor_type != "visible-card-detection"
             or producer.model_id is None
@@ -394,7 +421,7 @@ class ProposedCardScenePipelineService:
         return ProcessorRunRequest(
             run_id=run_id,
             processor_type=PROPOSED_CARD_SCENE_PROCESSOR_TYPE,
-            source=revision.manifest.source,
+            source=revision.source,
             input_revision_ids=(revision_id,),
             implementation=ImplementationIdentity(
                 name="proposed-card-scene-processor", version="v2"
@@ -403,6 +430,72 @@ class ProposedCardScenePipelineService:
             configuration=dict(configuration),
             extraction_policy={"policy_id": "selected-visible-card-revision/v1"},
             crop_policy=None,
+            input_node_ref=revision.node_ref,
+        )
+
+    def _visible_input(self, recording_id: str, revision_id: str, node_ref: Any):
+        if node_ref is not None:
+            if (
+                self.node_store is None
+                or not isinstance(node_ref, Mapping)
+                or set(node_ref)
+                != {
+                    "node_id",
+                    "revision_id",
+                    "revision_policy",
+                }
+            ):
+                raise ProposedCardScenePipelineInputError("input_node_ref is invalid")
+            if node_ref["revision_id"] != revision_id or node_ref["revision_policy"] not in {
+                "current_head",
+                "historical",
+            }:
+                raise ProposedCardScenePipelineInputError("input_node_ref does not match input")
+            try:
+                node = self.node_store.get(node_ref["node_id"])
+                revision = self.node_store.read_revision(node.node_id, revision_id)
+                content = parse_visible_card_data_bytes(canonical_json_bytes(revision.content))
+                source = parse_source(node.source)
+            except (FileNotFoundError, KeyError, TypeError, ValueError) as error:
+                raise ProposedCardScenePipelineInputError(
+                    "the visible-card node revision is unavailable"
+                ) from error
+            if (
+                node.content_type != "visible_cards"
+                or source.recording_id != recording_id
+                or (
+                    node_ref["revision_policy"] == "current_head"
+                    and node.head_revision_id != revision_id
+                )
+            ):
+                raise ProposedCardScenePipelineInputError("the visible-card node input is invalid")
+            producer = None
+            raw_producer = revision.metadata.get("producer")
+            if isinstance(raw_producer, Mapping):
+                try:
+                    producer = ProcessorProducer.from_mapping(raw_producer)
+                except (TypeError, ValueError):
+                    producer = None
+            return SimpleNamespace(
+                recording_id=recording_id,
+                content_type=node.content_type,
+                content=content,
+                origin=revision.metadata.get("origin"),
+                producer=producer,
+                source=source,
+                node_ref=dict(node_ref),
+                content_sha256=revision.content_sha256,
+            )
+        revision = self.revision_store.require(revision_id)
+        return SimpleNamespace(
+            recording_id=revision.manifest.recording_id,
+            content_type=revision.manifest.content_type,
+            content=revision.content,
+            origin=revision.manifest.origin,
+            producer=revision.manifest.producer,
+            source=revision.manifest.source,
+            node_ref=None,
+            content_sha256=revision.manifest.content_sha256,
         )
 
     def _publish_revision(

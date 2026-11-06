@@ -788,10 +788,7 @@ function sanitizeUrlState(
       )
       .map((option) => option.revision_id),
   );
-  const selectedReference =
-    stage.selected_completed_reference_revision_id ??
-    stage.reference?.selected_completion ??
-    null;
+  const selectedReference = stage.selected_completed_reference_revision_id;
   return {
     ...state,
     item:

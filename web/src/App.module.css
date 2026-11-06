@@ -929,7 +929,7 @@ h2 {
 .status[data-state="affected"],
 .status[data-state="incomplete-coverage"],
 .status[data-state="active-run"],
-.status[data-state="generated-only"],
+.status[data-state="data-available"],
 .status[data-state="draft"] {
   --status-surface: var(--warning-surface);
   --status-ink: var(--warning);
@@ -1996,12 +1996,8 @@ progress {
   color: var(--muted-ink);
 }
 
-.recordingPipelineStep[data-stage-state="generated-only"]
+.recordingPipelineStep[data-stage-state="data-available"]
   .recordingPipelineStatus,
-.recordingPipelineStep[data-stage-state="draft"] .recordingPipelineStatus {
-  color: var(--accent-bright);
-}
-
 .recordingPipelineStep[data-stage-state="failed"] .recordingPipelineStatus {
   color: var(--danger);
 }

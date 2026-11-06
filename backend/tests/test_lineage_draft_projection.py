@@ -533,7 +533,7 @@ def test_scene_only_outcome_does_not_become_an_empty_visible_frame() -> None:
     assert result["legacy_items"][0]["item"]["card_scene"]["schema_version"] == "old"
 
 
-def test_workspace_does_not_offer_an_unconnected_import_as_processor_output(tmp_path) -> None:
+def test_workspace_offers_an_imported_draft_as_processor_output(tmp_path) -> None:
     from types import SimpleNamespace
 
     from test_virtual_scene_data import SOURCE
@@ -566,10 +566,11 @@ def test_workspace_does_not_offer_an_unconnected_import_as_processor_output(tmp_
         revision_store=None,
         run_store=None,
         selection_store=None,
-        reference_store=None,
         round_analysis_store=None,
         node_store=store,
         lineage_service=SimpleNamespace(root=tmp_path / ".lineage"),
     )
     revisions = service._node_revisions_for_recording("recording-01")
-    assert {r.node_id for r in revisions} == {"source"}
+    assert {r.node_id for r in revisions} == {"source", "draft"}
+    draft = next(r for r in revisions if r.node_id == "draft")
+    assert draft.migrated_draft is True

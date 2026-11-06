@@ -23,6 +23,7 @@ from table_evidence_analyzer.pipeline_data import (
 from dokodetector_backend.job_scheduler import Claims
 from dokodetector_backend.job_store import JobCancelled, JobManager
 from dokodetector_backend.jobs_api import JobTypeRegistry
+from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineRuntimeStorage,
@@ -255,6 +256,60 @@ def test_service_publishes_proposal_without_changing_detector_input(
         canonical_json_bytes(revisions.require(input_revision.revision_id).content.to_mapping())
         == original_bytes
     )
+
+
+def test_proposal_request_uses_exact_canonical_visible_card_node(tmp_path: Path) -> None:
+    source = RecordingVideoSource(
+        recording_id="recording-node-input",
+        relative_path="recordings/recording-node-input/video.mov",
+        video_sha256=DIGEST,
+        byte_length=100,
+        duration_us=10_000_000,
+    )
+    content = _visible_data()
+    nodes = PipelineNodeStore(tmp_path / "nodes")
+    producer = ProcessorProducer(
+        run_id="detector-run-node",
+        processor_type="visible-card-detection",
+        implementation_id="local-rfdetr-fine-frame/v1",
+        model_id="local-rfdetr-fine-frame",
+    )
+    node = nodes.create(
+        "visible-node",
+        "Visible cards",
+        "visible_cards",
+        source.to_mapping(),
+        content.to_mapping(),
+        {"origin": "processor", "producer": producer.to_mapping()},
+        revision_id="visible-node-revision",
+    )
+    service = ProposedCardScenePipelineService(
+        _Settings(tmp_path),
+        revision_store=Mock(side_effect=AssertionError("legacy revision store used")),
+        run_store=Mock(),
+        selection_store=Mock(),
+        node_store=nodes,
+    )
+
+    frozen = service.freeze_job_request(
+        source.recording_id,
+        {
+            "run_id": "proposal-node-run",
+            "visible_card_revision_id": node.revision_id,
+            "input_node_ref": {
+                "node_id": node.node_id,
+                "revision_id": node.revision_id,
+                "revision_policy": "current_head",
+            },
+        },
+    )
+    service.validate_frozen_job_request(source.recording_id, frozen)
+    assert frozen["processor_request"]["input_revision_ids"] == [node.revision_id]
+    assert frozen["processor_request"]["input_node_ref"] == {
+        "node_id": node.node_id,
+        "revision_id": node.revision_id,
+        "revision_policy": "current_head",
+    }
 
 
 def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(

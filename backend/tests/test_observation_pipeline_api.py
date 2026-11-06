@@ -23,6 +23,8 @@ from test_visible_card_pipeline_api import (
     _EventProvider,
     _FrameResolver,
     _install_recording,
+    _run_event_job,
+    _selected_node_input,
     _settings,
 )
 from test_visual_identity_pipeline_api import _IdentityProvider
@@ -88,16 +90,49 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         )
         app.state.pipeline_revision_store.publish(pile_visible_manifest, pile_visible_content)
         visible_revision_id = "visible-assembly-with-pile"
+        node_store = app.state.visible_card_pipeline_service.node_store
+        visible_node = next(
+            node
+            for node in node_store.list_nodes()
+            if any(
+                revision.metadata.get("legacy_revision_id") == generated_visible_revision_id
+                for revision in node_store.history(node.node_id)
+            )
+        )
+        visible_node_head = node_store.get(visible_node.node_id).head_revision_id
+        node_store.save(
+            visible_node.node_id,
+            visible_node_head,
+            pile_visible_content.to_mapping(),
+            {
+                "legacy_revision_id": visible_revision_id,
+                "legacy_content_sha256": pile_visible_manifest.content_sha256,
+            },
+        )
         identity_revision_id = _run_pipeline(
             client,
             "identity-assembly",
             "visual-identities",
             input_revision_ids=[visible_revision_id],
         )
+        identity_revision = app.state.pipeline_revision_store.require(identity_revision_id)
+        node_store.create(
+            "fixture-assembly-identity-node",
+            "Generated visual identities",
+            "visual_identities",
+            identity_revision.manifest.source.to_mapping(),
+            identity_revision.content.to_mapping(),
+            {
+                "legacy_revision_id": identity_revision_id,
+                "legacy_content_sha256": identity_revision.manifest.content_sha256,
+                "legacy_content_schema": identity_revision.manifest.content_schema,
+            },
+            revision_id=identity_revision_id,
+        )
 
         workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert workspace.status_code == 200
-        assert {
+        compatible_input_set = {
             "input_revision_ids": [
                 event_revision_id,
                 generated_visible_revision_id,
@@ -106,7 +141,8 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             "display_label": (
                 "Generated events + Generated visible cards + Generated visual identities"
             ),
-        } in workspace.json()["stages"][3]["compatible_input_sets"]
+        }
+        assert compatible_input_set in workspace.json()["stages"][3]["compatible_input_sets"]
 
         first = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
@@ -268,6 +304,16 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         selection = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations/selection"
         ).json()
+        deadline = time.monotonic() + 5
+        while (
+            selection["selection"]["selected_generated_revision_id"]
+            != second_body["state"]["output_revision_ids"][0]
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.01)
+            selection = client.get(
+                f"/api/recordings/{RECORDING_ID}/pipeline/observations/selection"
+            ).json()
         assert (
             selection["selection"]["selected_generated_revision_id"]
             == second_body["state"]["output_revision_ids"][0]
@@ -315,30 +361,9 @@ def _run_pipeline(
     if input_revision_ids is not None:
         payload["input_revision_ids"] = input_revision_ids
     if stage == "events":
-        response = client.post(
-            "/api/jobs",
-            headers={"Idempotency-Key": str(uuid4())},
-            json={
-                "type": "event_processing",
-                "context": {"recording_id": RECORDING_ID},
-                "request": {
-                    **payload,
-                    "implementation": {"name": "fixture-events", "version": "v1"},
-                    "configuration": {"threshold": 0.5},
-                    "extraction_policy": {"policy_id": "exact-event/v1"},
-                },
-            },
-        )
-        assert response.status_code == 202, response.text
-        job_id = response.json()["id"]
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline:
-            job = client.get(f"/api/jobs/{job_id}").json()
-            if job["state"] == "succeeded":
-                return job["results"][0]["id"]
-            assert job["state"] not in {"failed", "cancelled", "interrupted"}, job
-            time.sleep(0.01)
-        raise AssertionError("event job did not complete")
+        return _run_event_job(client, run_id)
+    if stage == "visible-cards" and input_revision_ids is None:
+        payload.update(_selected_node_input(client, "events"))
     response = client.post(f"/api/recordings/{RECORDING_ID}/pipeline/{stage}", json=payload)
     assert response.status_code == 202, response.text
     managed_run_id = response.json()["run_id"]
@@ -493,16 +518,34 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
             "card_identity_overrides": [],
             "candidate_probability_overrides": [],
         }
-        counterfactual = client.post(
-            f"/v1/round-analyses/{first_analysis_id}/counterfactuals",
-            json=counterfactual_payload,
+        counterfactual_job = client.post(
+            "/api/jobs",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={
+                "type": "counterfactual",
+                "context": {"analysis_id": first_analysis_id},
+                "request": counterfactual_payload,
+            },
         )
-        assert counterfactual.status_code == 201, counterfactual.text
+        assert counterfactual_job.status_code == 202, counterfactual_job.text
+        counterfactual_job_id = counterfactual_job.json()["id"]
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            counterfactual_status = client.get(f"/api/jobs/{counterfactual_job_id}").json()
+            if counterfactual_status["state"] == "succeeded":
+                break
+            assert counterfactual_status["state"] not in {
+                "failed",
+                "cancelled",
+                "interrupted",
+            }, counterfactual_status
+            time.sleep(0.01)
+        assert counterfactual_status["state"] == "succeeded", counterfactual_status
         counterfactual_read = client.get(
             f"/v1/round-analyses/{first_analysis_id}/counterfactuals/{counterfactual_id}"
         )
         assert counterfactual_read.status_code == 200
-        assert counterfactual_read.json() == counterfactual.json()
+        assert counterfactual_read.json()["counterfactual_id"] == counterfactual_id
 
         second_revision_id = _run_pipeline(
             client,

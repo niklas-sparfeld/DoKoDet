@@ -27,7 +27,6 @@ function stage(
     processor_key: `${key}-processor`,
     processor_type: `${key}-processor`,
     output_content_type: key,
-    has_maintained_reference: key !== "round_analyses",
     state: "video-only",
     input_options: [],
     selection_revision: null,
@@ -36,11 +35,8 @@ function stage(
     runs: [],
     analyses: [],
     compatible_input_sets: [],
-    reference: null,
     can_run: true,
     run_blockers: [],
-    can_review: false,
-    review_blockers: [],
     comparable_run_ids: [],
     ...overrides,
   } as PipelineWorkspaceStage;
@@ -82,7 +78,6 @@ describe("recording pipeline workspace", () => {
       {
         selected_generated_revision_id: "events-1",
         can_run: false,
-        can_review: true,
       },
       "blocked",
     ],
@@ -99,7 +94,6 @@ describe("recording pipeline workspace", () => {
       "Open analysis",
       {
         key: "round_analyses",
-        has_maintained_reference: false,
         can_run: false,
         analyses: [{ state: "complete" }],
       },
@@ -120,6 +114,9 @@ describe("recording pipeline workspace", () => {
   it("renders the compact workspace shell and two-row navigation", async () => {
     const generated = {
       revision_id: "events-2",
+      node_id: "node-events-2",
+      node_revision_id: "node-revision-events-2",
+      is_current_head: true,
       content_type: "events",
       origin: "processor",
       completion_state: "complete",
@@ -132,14 +129,13 @@ describe("recording pipeline workspace", () => {
       created_at: "2026-09-06T00:00:00Z",
     };
     const body = workspace({
-      state: "generated-only",
+      state: "data-available",
       input_options: [
         generated as PipelineWorkspaceStage["input_options"][number],
       ],
       selection_revision: 4,
       selected_generated_revision_id: generated.revision_id,
       can_run: false,
-      can_review: true,
     });
     vi.stubGlobal(
       "fetch",
@@ -471,6 +467,9 @@ describe("recording pipeline workspace", () => {
   it("routes shared rail item selection through the restorable URL state", async () => {
     const generated = {
       revision_id: "events-rail-revision",
+      node_id: "node-events-rail-revision",
+      node_revision_id: "node-revision-events-rail-revision",
+      is_current_head: true,
       content_type: "events",
       origin: "processor",
       completion_state: "complete",
@@ -483,11 +482,10 @@ describe("recording pipeline workspace", () => {
       created_at: "2026-09-06T00:00:00Z",
     } as PipelineWorkspaceStage["input_options"][number];
     const body = workspace({
-      state: "generated-only",
+      state: "data-available",
       input_options: [generated],
       selected_generated_revision_id: generated.revision_id,
       can_run: false,
-      can_review: true,
       runs: [
         {
           attempt: 1,
@@ -571,6 +569,9 @@ describe("recording pipeline workspace", () => {
     };
     const generated = {
       revision_id: revisionId,
+      node_id: `node-${revisionId}`,
+      node_revision_id: `node-revision-${revisionId}`,
+      is_current_head: true,
       content_type: "visible_cards",
       origin: "processor",
       completion_state: "complete",
@@ -588,11 +589,10 @@ describe("recording pipeline workspace", () => {
         key,
         key === "visible_cards"
           ? {
-              state: "generated-only",
+              state: "data-available",
               input_options: [generated],
               selected_generated_revision_id: revisionId,
               can_run: false,
-              can_review: true,
               runs: [
                 {
                   attempt: 1,
@@ -713,6 +713,9 @@ describe("recording pipeline workspace", () => {
     const itemId = "visible-review-frame-1";
     const generated = {
       revision_id: revisionId,
+      node_id: `node-${revisionId}`,
+      node_revision_id: `node-revision-${revisionId}`,
+      is_current_head: true,
       content_type: "visible_cards",
       origin: "processor",
       completion_state: "complete",
@@ -743,11 +746,10 @@ describe("recording pipeline workspace", () => {
         key,
         key === "visible_cards"
           ? {
-              state: "generated-only",
+              state: "data-available",
               input_options: [generated, defaultGenerated],
               selected_generated_revision_id: defaultRevisionId,
               can_run: false,
-              can_review: true,
               runs: [
                 {
                   attempt: 1,
@@ -923,6 +925,9 @@ describe("recording pipeline workspace", () => {
     );
     const generated = {
       revision_id: "events-reviewed-source",
+      node_id: "node-events-reviewed-source",
+      node_revision_id: "node-revision-events-reviewed-source",
+      is_current_head: true,
       content_type: "events",
       origin: "processor",
       completion_state: "complete",
@@ -935,72 +940,19 @@ describe("recording pipeline workspace", () => {
       created_at: "2026-09-06T00:00:00Z",
     } as PipelineWorkspaceStage["input_options"][number];
     const body = workspace({
-      state: "draft",
+      state: "data-available",
       input_options: [generated],
       selected_generated_revision_id: generated.revision_id,
-      reference: {
-        state: "draft",
-        draft_revision: 1,
-        selected_completion: null,
-        source_revision_id: generated.revision_id,
-        coverage: null,
-        coverage_state: "none",
-        affected_count: 0,
-        updated_at: null,
-      },
       can_run: false,
-      can_review: false,
     });
-    const reference = {
-      recording_id: RECORDING_ID,
-      content_type: "events",
-      state: {
-        recording_id: RECORDING_ID,
-        content_type: "events",
-        draft_revision: 1,
-        draft_state: "draft",
-        source_revision_id: generated.revision_id,
-        selected_completed_revision_id: null,
-        updated_at: "2026-09-06T00:00:00Z",
-      },
-      draft: {
-        recording_id: RECORDING_ID,
-        content_type: "events",
-        revision: 1,
-        source_revision_id: generated.revision_id,
-        items: [
-          {
-            item_id: "reviewed-event-1",
-            base_item_id: "generated-event-1",
-            review_state: "pending",
-            item: {
-              event_id: "generated-event-1",
-              event_type: "card_state_changed",
-              start_us: 1_000_000,
-              end_us: 1_500_000,
-            },
-          },
-        ],
-        coverage: null,
-        impact: [],
-        updated_at: "2026-09-06T00:00:00Z",
-      },
-    };
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>((input) =>
+      vi.fn<typeof fetch>(() =>
         Promise.resolve(
-          new Response(
-            JSON.stringify(
-              String(input).endsWith("/pipeline/references/events")
-                ? reference
-                : body,
-            ),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            },
-          ),
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
         ),
       ),
     );
@@ -1512,7 +1464,7 @@ describe("recording pipeline workspace", () => {
 
   it("reloads the winning selection after an optimistic conflict", async () => {
     const first = workspace({
-      state: "generated-only",
+      state: "data-available",
       input_options: [
         {
           revision_id: "events-1",
@@ -1544,7 +1496,6 @@ describe("recording pipeline workspace", () => {
       selection_revision: 4,
       selected_generated_revision_id: "events-1",
       can_run: false,
-      can_review: true,
     });
     const winner = workspace({
       ...first.stages[0],

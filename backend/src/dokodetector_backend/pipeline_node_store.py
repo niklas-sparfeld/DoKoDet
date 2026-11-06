@@ -134,6 +134,19 @@ class PipelineNodeStore:
     def __init__(self, root: Path | str) -> None:
         self.root = Path(root).expanduser().resolve()
         self._lock = RLock()
+        self._recovering_transactions = False
+
+    def recover_transactions(self) -> None:
+        """Complete any prepared coordinated node/selection transaction before reads."""
+        if self._recovering_transactions:
+            return
+        self._recovering_transactions = True
+        try:
+            from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
+
+            PipelineNodeTransactions(self).recover()
+        finally:
+            self._recovering_transactions = False
 
     def _node_path(self, node_id: str) -> Path:
         return contained_path(self.root, _safe_id(node_id, "node_id"))
@@ -182,6 +195,10 @@ class PipelineNodeStore:
         return revision
 
     def get(self, node_id: str) -> Node:
+        self.recover_transactions()
+        return self._get_unrecovered(node_id)
+
+    def _get_unrecovered(self, node_id: str) -> Node:
         path = self._node_path(node_id)
         manifest = _read_json(path / "manifest.json")
         if set(manifest) != {

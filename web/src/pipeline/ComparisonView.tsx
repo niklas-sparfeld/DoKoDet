@@ -737,9 +737,7 @@ function defaultComparisonSelection(
 ): { left: string | null; right: string | null; reference: string | null } {
   const pair = newestCompatiblePair(runs);
   const selectedReference =
-    stage.selected_completed_reference_revision_id ??
-    stage.reference?.selected_completion ??
-    null;
+    stage.selected_completed_reference_revision_id ?? null;
   return {
     left: pair?.left.run_id ?? null,
     right: pair?.right.run_id ?? null,

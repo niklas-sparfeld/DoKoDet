@@ -13,7 +13,6 @@ function stage(
     processor_key: key,
     processor_type: key,
     output_content_type: key,
-    has_maintained_reference: key !== "round_analyses",
     state: "empty",
     input_options: [],
     selection_revision: null,
@@ -22,11 +21,8 @@ function stage(
     runs: [],
     analyses: [],
     compatible_input_sets: [],
-    reference: null,
     can_run: true,
     run_blockers: [],
-    can_review: false,
-    review_blockers: [],
     comparable_run_ids: [],
     ...overrides,
   } as PipelineWorkspaceStage;
@@ -35,6 +31,9 @@ function stage(
 function option(revisionId: string, displayLabel = revisionId) {
   return {
     revision_id: revisionId,
+    node_id: `node-${revisionId}`,
+    node_revision_id: `node-revision-${revisionId}`,
+    is_current_head: true,
     content_type: "events" as const,
     origin: "processor" as const,
     completion_state: "complete" as const,
@@ -149,11 +148,11 @@ describe("RunControls", () => {
       context: { recording_id: "recording-run-controls" },
       request: {
         request: {
-        input_revision_ids: [],
-        implementation: { name: "cardeventnet", version: "file-v1" },
-        configuration: {},
-        extraction_policy: { policy_id: "exact-event/v1" },
-        crop_policy: null,
+          input_revision_ids: [],
+          implementation: { name: "cardeventnet", version: "file-v1" },
+          configuration: {},
+          extraction_policy: { policy_id: "exact-event/v1" },
+          crop_policy: null,
         },
       },
     });
@@ -346,9 +345,10 @@ describe("RunControls", () => {
           }),
         );
       }
-      const body = path === "/api/jobs/events-job-1"
-        ? jobResponse("events-job-1", "succeeded")
-        : response;
+      const body =
+        path === "/api/jobs/events-job-1"
+          ? jobResponse("events-job-1", "succeeded")
+          : response;
       return Promise.resolve(
         new Response(JSON.stringify(body), {
           status: 200,
@@ -409,6 +409,7 @@ describe("RunControls", () => {
       selected_completed_reference_revision_id: "events-reviewed",
       input_options: [
         option("events-generated", "Generated events"),
+        option("events-reviewed", "Reviewed events"),
         option("events-old", "Older events"),
       ],
     });
@@ -448,8 +449,12 @@ describe("RunControls", () => {
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       request: {
         request: {
-          input_revision_ids: ["events-old"],
-          event_revision_id: "events-old",
+          input_revision_ids: ["node-revision-events-old"],
+          input_node_ref: {
+            node_id: "node-events-old",
+            revision_id: "node-revision-events-old",
+            revision_policy: "historical",
+          },
         },
       },
     });
@@ -464,7 +469,9 @@ describe("RunControls", () => {
           ? {
               id: "visible-run-fine-frame",
               state: "running",
-              request: { processor_request: { processor_type: "visible-card-detection" } },
+              request: {
+                processor_request: { processor_type: "visible-card-detection" },
+              },
               steps: [],
               failure: null,
             }
@@ -479,6 +486,7 @@ describe("RunControls", () => {
     vi.stubGlobal("fetch", fetchMock);
     const events = stage("events", {
       selected_generated_revision_id: "events-generated",
+      input_options: [option("events-generated")],
     });
     const visible = stage("visible_cards");
 
@@ -517,7 +525,12 @@ describe("RunControls", () => {
       context: { recording_id: "recording-run-controls" },
       request: {
         request: {
-          input_revision_ids: ["events-generated"],
+          input_revision_ids: ["node-revision-events-generated"],
+          input_node_ref: {
+            node_id: "node-events-generated",
+            revision_id: "node-revision-events-generated",
+            revision_policy: "current_head",
+          },
           configuration: { provider: "local-rfdetr-fine-frame" },
         },
       },
@@ -536,6 +549,7 @@ describe("RunControls", () => {
     vi.stubGlobal("fetch", fetchMock);
     const events = stage("events", {
       selected_generated_revision_id: "events-generated",
+      input_options: [option("events-generated")],
     });
     const visible = stage("visible_cards");
     render(
@@ -562,7 +576,9 @@ describe("RunControls", () => {
       ([, init]) => init?.method === "POST",
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
-      request: { request: { configuration: { provider: "local-rfdetr-crop-review" } } },
+      request: {
+        request: { configuration: { provider: "local-rfdetr-crop-review" } },
+      },
     });
   });
 
@@ -1093,6 +1109,8 @@ describe("RunControls", () => {
         }),
       ),
     );
-    expect(await screen.findByText("The processor request is queued.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("The processor request is queued."),
+    ).toBeInTheDocument();
   });
 });

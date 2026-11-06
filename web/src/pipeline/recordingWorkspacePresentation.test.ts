@@ -41,9 +41,7 @@ describe("recording workspace presentation model", () => {
   it.each([
     ["video-only", "video", "idle"],
     ["empty", "video", "idle"],
-    ["generated-only", "video", "idle"],
-    ["draft", "video", "draft"],
-    ["affected", "video", "affected"],
+    ["data-available", "video", "idle"],
     ["failed", "video", "failed"],
     ["complete", "video", "complete"],
   ] as const)(
@@ -103,24 +101,9 @@ describe("recording workspace presentation model", () => {
     }
   });
 
-  it("does not select a revision when the lineage has no saved choice", () => {
+  it("does not select a revision when the workspace has no saved choice", () => {
     const presentation = buildRecordingWorkspacePresentation({
-      workspace: pipelineWorkspace({
-        stageOverrides: {
-          visible_cards: {
-            reference: {
-              state: "empty",
-              draft_revision: null,
-              selected_completion: null,
-              source_revision_id: null,
-              coverage: null,
-              coverage_state: "none",
-              affected_count: 0,
-              updated_at: null,
-            },
-          },
-        },
-      }),
+      workspace: pipelineWorkspace(),
       stageKey: "visible_cards",
     });
 
@@ -154,7 +137,6 @@ describe("recording workspace presentation model", () => {
             state: "empty",
             can_run: false,
             run_blockers: ["Select an input revision first."],
-            review_blockers: ["No maintained reference exists."],
           },
         },
       }),
@@ -196,7 +178,7 @@ describe("recording workspace presentation model", () => {
       workspace: pipelineWorkspace({
         stageOverrides: {
           events: {
-            state: "generated-only",
+            state: "data-available",
             input_options: [generated],
             selected_generated_revision_id: generated.revision_id,
             runs: [run],

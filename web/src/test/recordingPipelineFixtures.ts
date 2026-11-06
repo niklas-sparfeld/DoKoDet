@@ -21,7 +21,6 @@ export function pipelineStage(
     processor_key: `${key}-processor`,
     processor_type: `${key}-processor`,
     output_content_type: key,
-    has_maintained_reference: key !== "round_analyses",
     state: "video-only",
     input_options: [],
     selection_revision: null,
@@ -30,11 +29,8 @@ export function pipelineStage(
     runs: [],
     analyses: [],
     compatible_input_sets: [],
-    reference: null,
     can_run: true,
     run_blockers: [],
-    can_review: false,
-    review_blockers: [],
     comparable_run_ids: [],
     ...overrides,
   };
@@ -95,6 +91,9 @@ export function pipelineRevision(
 ): PipelineRevision {
   return {
     revision_id: revisionId,
+    node_id: `node-${revisionId}`,
+    node_revision_id: `node-revision-${revisionId}`,
+    is_current_head: true,
     content_type: "events",
     origin: "processor",
     completion_state: "complete",
@@ -142,14 +141,7 @@ export function pipelineWorkspace({
 }
 
 export function recordingPipelinePresentationFixture(
-  state:
-    | "video-only"
-    | "empty"
-    | "generated-only"
-    | "draft"
-    | "affected"
-    | "failed"
-    | "complete",
+  state: "video-only" | "empty" | "data-available" | "failed" | "complete",
 ): PipelineWorkspace {
   const generated = pipelineRevision();
   const generatedRun = pipelineRun("run-events-1", {
@@ -175,19 +167,6 @@ export function recordingPipelinePresentationFixture(
       ],
     },
   });
-  const referenceState: PipelineWorkspaceStage["reference"] =
-    state === "draft" || state === "affected" || state === "complete"
-      ? {
-          state: state === "draft" ? "draft" : "complete",
-          draft_revision: 2,
-          selected_completion: state === "complete" ? "reference-1" : null,
-          source_revision_id: generated.revision_id,
-          coverage: {},
-          coverage_state: state === "complete" ? "complete" : "incomplete",
-          affected_count: state === "affected" ? 2 : 0,
-          updated_at: "2026-09-06T00:00:00Z",
-        }
-      : null;
   return pipelineWorkspace({
     stageOverrides: {
       events: {
@@ -202,9 +181,7 @@ export function recordingPipelinePresentationFixture(
         selected_completed_reference_revision_id:
           state === "complete" ? "reference-1" : null,
         runs: state === "video-only" || state === "empty" ? [] : [generatedRun],
-        reference: referenceState,
         can_run: state !== "complete",
-        can_review: state === "generated-only",
         comparable_run_ids:
           state === "complete" ? ["run-events-1", "run-events-2"] : [],
       },

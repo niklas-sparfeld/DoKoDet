@@ -49,7 +49,6 @@ class _WorkspaceStageDefinition:
     processor_key: str
     processor_type: str
     content_type: str
-    reviewable: bool
 
 
 _WORKSPACE_STAGES = (
@@ -58,45 +57,32 @@ _WORKSPACE_STAGES = (
         processor_key="event_detection",
         processor_type="event-detection",
         content_type="events",
-        reviewable=True,
     ),
     _WorkspaceStageDefinition(
         key="visible_cards",
         processor_key="visible_card_detection",
         processor_type="visible-card-detection",
         content_type="visible_cards",
-        reviewable=True,
     ),
     _WorkspaceStageDefinition(
         key="visual_identities",
         processor_key="visual_identity_classification",
         processor_type="visual-card-identity",
         content_type="visual_identities",
-        reviewable=True,
     ),
     _WorkspaceStageDefinition(
         key="table_observations",
         processor_key="observation_assembly",
         processor_type="observation-assembly",
         content_type="table_observations",
-        reviewable=False,
     ),
     _WorkspaceStageDefinition(
         key="round_analyses",
         processor_key="round_analysis",
         processor_type="round-analysis",
         content_type="round_analyses",
-        reviewable=False,
     ),
 )
-
-
-@dataclass(frozen=True, slots=True)
-class _WorkspaceReference:
-    """Reference state for workspace summaries, with an optional loaded draft."""
-
-    state: Any
-    draft: Any | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +93,7 @@ class _WorkspaceNodeRevision:
     content: Any | None
     node_id: str
     node_revision_id: str
+    migrated_draft: bool = False
 
 
 class RecordingPipelineWorkspaceService:
@@ -119,7 +106,6 @@ class RecordingPipelineWorkspaceService:
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
         selection_store: PipelineSelectionStore,
-        reference_store: Any,
         round_analysis_store: Any,
         node_store: PipelineNodeStore,
         lineage_service: Any,
@@ -128,21 +114,14 @@ class RecordingPipelineWorkspaceService:
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
-        self.reference_store = reference_store
         self.round_analysis_store = round_analysis_store
         self.node_store = node_store
         self.lineage_service = lineage_service
-        mapping_path = node_store.root / ".legacy-revision-map.json"
-        mapping = json.loads(mapping_path.read_bytes()) if mapping_path.is_file() else {}
-        if mapping and (
-            mapping.get("schema_version") != "legacy-revision-map/v1"
-            or not isinstance(mapping.get("revisions"), dict)
-        ):
-            raise ValueError("invalid legacy revision map")
-        self._legacy_revisions = mapping.get("revisions", {})
         self._node_revision_legacy_ids = {
-            (target["node_id"], target["revision_id"]): legacy_id
-            for legacy_id, target in self._legacy_revisions.items()
+            (node.node_id, revision.revision_id): revision.metadata["legacy_revision_id"]
+            for node in node_store.list_nodes()
+            for revision in node_store.history(node.node_id)
+            if isinstance(revision.metadata.get("legacy_revision_id"), str)
         }
 
     def get_workspace(
@@ -188,27 +167,6 @@ class RecordingPipelineWorkspaceService:
                 "table_observations",
             )
         }
-        active_content_type = next(
-            (
-                definition.content_type
-                for definition in _WORKSPACE_STAGES
-                if definition.key == stage_key and definition.reviewable
-            ),
-            None,
-        )
-        references = {
-            content_type: self._reference(
-                recording_id,
-                content_type,
-                diagnostics,
-                include_draft=self._should_load_reference_draft(
-                    content_type,
-                    stage_key=stage_key,
-                    active_content_type=active_content_type,
-                ),
-            )
-            for content_type in ("events", "visible_cards", "visual_identities")
-        }
         full_revisions = revisions if include_revision_content else ()
         stages = [
             self._stage(
@@ -218,7 +176,6 @@ class RecordingPipelineWorkspaceService:
                 revisions=revisions,
                 runs=runs,
                 selection=selections.get(definition.content_type),
-                reference=references.get(definition.content_type),
                 selections=selections,
                 revision_by_id=revision_by_id,
                 full_revisions=full_revisions,
@@ -262,13 +219,6 @@ class RecordingPipelineWorkspaceService:
                 (run.processor_type, run.status)
             )
 
-        references_by_recording: dict[str, dict[str, Any]] = {}
-        for reference in self.reference_store.list_states():
-            if reference.recording_id in requested_ids:
-                references_by_recording.setdefault(reference.recording_id, {})[
-                    reference.content_type
-                ] = reference
-
         if analyses_by_recording is None:
             analyses = self.round_analysis_store.list()
             analyses_by_recording = {}
@@ -279,7 +229,6 @@ class RecordingPipelineWorkspaceService:
         for recording_id in requested_ids:
             recording_revisions = revisions_by_recording.get(recording_id, set())
             recording_runs = runs_by_recording.get(recording_id, ())
-            recording_references = references_by_recording.get(recording_id, {})
             recording_analyses = analyses_by_recording.get(recording_id, ())
             stages = [
                 {
@@ -288,7 +237,6 @@ class RecordingPipelineWorkspaceService:
                         definition,
                         has_revision=definition.content_type in recording_revisions,
                         runs=recording_runs,
-                        reference=recording_references.get(definition.content_type),
                         analyses=recording_analyses,
                     ),
                 }
@@ -349,11 +297,6 @@ class RecordingPipelineWorkspaceService:
                 inherited.update(revision.metadata)
             for node_revision in history:
                 metadata = {**inherited, **node_revision.metadata}
-                migration = metadata.get("migration")
-                if isinstance(migration, dict) and migration.get("legacy_key"):
-                    # These nodes are browsable in lineage. Processor inputs still use the
-                    # revision-store contract until its node-backed cutover is complete.
-                    continue
                 revision_metadata = node_revision.metadata
                 legacy_id = revision_metadata.get("legacy_revision_id")
                 revision_id = legacy_id if isinstance(legacy_id, str) else node_revision.revision_id
@@ -362,7 +305,15 @@ class RecordingPipelineWorkspaceService:
                         "schema_version": DATA_REVISION_SCHEMA_VERSION,
                         "revision_id": revision_id,
                         "content_type": node.content_type,
-                        "content_schema": metadata.get("legacy_content_schema", "node-content/v1"),
+                        "content_schema": metadata.get(
+                            "legacy_content_schema",
+                            {
+                                "events": "event-data/v1",
+                                "visible_cards": "visible-card-data/v2",
+                                "visual_identities": "visual-identity-data/v1",
+                                "table_observations": "table-observation-data/v1",
+                            }[node.content_type],
+                        ),
                         "recording_id": recording_id,
                         "source": node.source,
                         "content_sha256": metadata.get(
@@ -403,6 +354,10 @@ class RecordingPipelineWorkspaceService:
                         content=content,
                         node_id=node.node_id,
                         node_revision_id=node_revision.revision_id,
+                        migrated_draft=(
+                            isinstance(metadata.get("migration"), dict)
+                            and isinstance(metadata["migration"].get("legacy_key"), str)
+                        ),
                     )
                 )
         return tuple(revisions)
@@ -491,7 +446,6 @@ class RecordingPipelineWorkspaceService:
         *,
         has_revision: bool,
         runs: Collection[tuple[str, str]],
-        reference: Any,
         analyses: Collection[Any],
     ) -> str:
         stage_runs = [
@@ -509,12 +463,8 @@ class RecordingPipelineWorkspaceService:
                 return "complete"
             if any(analysis.state == "failed" for analysis in analyses):
                 return "failed"
-        if reference is not None:
-            if reference.draft_state == "completed":
-                return "complete"
-            return "draft"
         if has_revision:
-            return "generated-only"
+            return "data-available"
         if any(status == "partial" for status in stage_runs):
             return "partial"
         if any(status == "failed" for status in stage_runs):
@@ -530,7 +480,6 @@ class RecordingPipelineWorkspaceService:
         revisions: tuple[Any, ...],
         runs: tuple[StoredProcessorRun, ...],
         selection: Any,
-        reference: Any,
         selections: Mapping[str, Any],
         revision_by_id: Mapping[str, Any],
         full_revisions: tuple[Any, ...],
@@ -546,18 +495,16 @@ class RecordingPipelineWorkspaceService:
         stage_runs = tuple(
             run for run in runs if run.request.processor_type == definition.processor_type
         )
-        options = [self._revision_option(revision, definition.key) for revision in stage_revisions]
-        options.sort(key=lambda option: (option["created_at"], option["revision_id"]), reverse=True)
-        reference_summary = (
-            self._reference_summary(
-                reference,
-                definition.content_type,
-                revision_by_id,
-                diagnostics,
+        options = []
+        for revision in stage_revisions:
+            option = self._revision_option(revision, definition.key)
+            option["node_id"] = revision.node_id
+            option["node_revision_id"] = revision.node_revision_id
+            option["is_current_head"] = (
+                self.node_store.get(revision.node_id).head_revision_id == revision.node_revision_id
             )
-            if definition.reviewable
-            else None
-        )
+            options.append(option)
+        options.sort(key=lambda option: (option["created_at"], option["revision_id"]), reverse=True)
         analyses = (
             self._analysis_summaries(recording_id, diagnostics)
             if definition.key == "round_analyses"
@@ -591,19 +538,16 @@ class RecordingPipelineWorkspaceService:
             selections=selections,
             compatible_input_sets=compatible_input_sets,
         )
-        review_blockers = self._review_blockers(definition, options, reference_summary)
         return {
             "key": definition.key,
             "processor_key": definition.processor_key,
             "processor_type": definition.processor_type,
             "output_content_type": definition.content_type,
-            "has_maintained_reference": definition.reviewable,
             "state": self._stage_state(
                 definition,
                 source,
                 options,
                 stage_runs,
-                reference_summary,
                 analyses,
             ),
             "input_options": options,
@@ -628,11 +572,8 @@ class RecordingPipelineWorkspaceService:
                 for run in self._ordered_runs(stage_runs)
             ],
             "analyses": analyses,
-            "reference": reference_summary,
             "can_run": not run_blockers,
             "run_blockers": run_blockers,
-            "can_review": not review_blockers,
-            "review_blockers": review_blockers,
             "comparable_run_ids": comparable_run_ids,
         }
 
@@ -666,128 +607,13 @@ class RecordingPipelineWorkspaceService:
             )
         return selection
 
-    def _reference(
-        self,
-        recording_id: str,
-        content_type: str,
-        diagnostics: list[dict[str, Any]],
-        *,
-        include_draft: bool,
-    ) -> _WorkspaceReference | None:
-        root = self.reference_store.reference_root(recording_id, content_type)
-        if not (root / "state.json").exists() and not (root / "draft.json").exists():
-            return None
-
-        state = self.reference_store.get_state(recording_id, content_type)
-        # Completed references only need state.json for workspace badges. Active drafts for
-        # the requested stage still load draft.json for affected_count and coverage.
-        if state is not None and (
-            not include_draft or getattr(state, "draft_state", None) == "completed"
-        ):
-            return _WorkspaceReference(state=state, draft=None)
-
-        reference = self.reference_store.get(recording_id, content_type)
-        if reference is None:
-            diagnostics.append(
-                {
-                    "code": "invalid_reference",
-                    "message": f"The {content_type} maintained reference is invalid.",
-                    "content_type": content_type,
-                    "revision_id": None,
-                }
-            )
-            return None
-        return _WorkspaceReference(state=reference.state, draft=reference.draft)
-
-    @staticmethod
-    def _should_load_reference_draft(
-        content_type: str,
-        *,
-        stage_key: str | None,
-        active_content_type: str | None,
-    ) -> bool:
-        """Load large drafts only when the workspace needs item-level summary fields."""
-
-        if stage_key is None:
-            return True
-        return active_content_type is not None and content_type == active_content_type
-
-    def _reference_summary(
-        self,
-        reference: _WorkspaceReference | None,
-        content_type: str,
-        revision_by_id: Mapping[str, Any],
-        diagnostics: list[dict[str, Any]],
-    ) -> dict[str, Any]:
-        if reference is None:
-            return {
-                "state": "empty",
-                "draft_revision": None,
-                "selected_completion": None,
-                "source_revision_id": None,
-                "coverage": None,
-                "coverage_state": "none",
-                "affected_count": 0,
-                "updated_at": None,
-            }
-        selected_completion = reference.state.selected_completed_revision_id
-        selected_revision = (
-            None if selected_completion is None else revision_by_id.get(selected_completion)
-        )
-        selected_manifest = None if selected_revision is None else self._manifest(selected_revision)
-        if selected_manifest is not None and (
-            selected_manifest.recording_id != reference.state.recording_id
-            or selected_manifest.content_type != content_type
-        ):
-            selected_manifest = None
-        if selected_completion is not None and selected_manifest is None:
-            diagnostics.append(
-                {
-                    "code": "missing_reference_revision",
-                    "message": "The maintained reference completion is unavailable.",
-                    "content_type": content_type,
-                    "revision_id": selected_completion,
-                }
-            )
-        state = "complete" if reference.state.draft_state == "completed" else "draft"
-        if reference.draft is None:
-            coverage = None if selected_manifest is None else selected_manifest.coverage
-            return {
-                "state": state,
-                "draft_revision": reference.state.draft_revision,
-                "selected_completion": selected_completion,
-                "source_revision_id": reference.state.source_revision_id,
-                "coverage": coverage,
-                "coverage_state": "complete"
-                if state == "complete"
-                else "incomplete"
-                if coverage is not None
-                else "none",
-                "affected_count": 0,
-                "updated_at": reference.state.updated_at,
-            }
-        affected_count = sum(item.review_state == "affected" for item in reference.draft.items)
-        coverage = reference.draft.coverage
-        return {
-            "state": state,
-            "draft_revision": reference.state.draft_revision,
-            "selected_completion": selected_completion,
-            "source_revision_id": reference.state.source_revision_id,
-            "coverage": coverage,
-            "coverage_state": "complete"
-            if state == "complete"
-            else "incomplete"
-            if coverage is not None
-            else "none",
-            "affected_count": affected_count,
-            "updated_at": reference.state.updated_at,
-        }
-
     @staticmethod
     def _revision_option(revision: Any, stage_key: str) -> dict[str, Any]:
         manifest = RecordingPipelineWorkspaceService._manifest(revision)
         generated = manifest.origin == "processor"
         label = "Generated" if generated else "Reviewed"
+        if getattr(revision, "migrated_draft", False):
+            label = "Imported draft"
         return {
             "revision_id": manifest.revision_id,
             "content_type": manifest.content_type,
@@ -880,7 +706,6 @@ class RecordingPipelineWorkspaceService:
         source: RecordingVideoSource,
         options: list[dict[str, Any]],
         runs: tuple[StoredProcessorRun, ...],
-        reference: dict[str, Any] | None,
         analyses: list[dict[str, Any]],
     ) -> str:
         if any(run.state.status in {"queued", "running"} for run in runs):
@@ -894,16 +719,8 @@ class RecordingPipelineWorkspaceService:
             return "complete"
         if any(analysis["state"] == "failed" for analysis in analyses):
             return "failed"
-        if reference is not None and reference["state"] == "complete":
-            return "complete"
-        if reference is not None and reference["affected_count"]:
-            return "affected"
-        if reference is not None and reference["coverage_state"] == "incomplete":
-            return "incomplete-coverage"
-        if reference is not None and reference["state"] == "draft":
-            return "draft"
         if options:
-            return "generated-only"
+            return "data-available"
         if any(run.state.status == "partial" for run in runs):
             return "partial"
         if any(run.state.status == "failed" for run in runs):
@@ -1028,22 +845,6 @@ class RecordingPipelineWorkspaceService:
                     )
         compatible.sort(key=lambda item: tuple(item["input_revision_ids"]))
         return compatible
-
-    @staticmethod
-    def _review_blockers(
-        definition: _WorkspaceStageDefinition,
-        options: list[dict[str, Any]],
-        reference: dict[str, Any] | None,
-    ) -> list[str]:
-        if not definition.reviewable:
-            return ["This stage does not have a maintained human reference."]
-        if reference is not None and reference["state"] == "draft":
-            return []
-        if not options:
-            return ["Create a complete generated result first."]
-        if reference is not None and reference["state"] == "complete":
-            return ["Start a new review from the selected generated result to review again."]
-        return []
 
     def _analysis_summaries(
         self, recording_id: str, diagnostics: list[dict[str, Any]]

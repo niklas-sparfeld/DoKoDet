@@ -505,26 +505,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/recordings/{recording_id}/pipeline/derived-views/reviewed-identity-crops/{item_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Reviewed Identity Crop
-         * @description Return a verified crop from the current maintained identity annotation draft.
-         */
-        get: operations["get_reviewed_identity_crop_api_recordings__recording_id__pipeline_derived_views_reviewed_identity_crops__item_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/recordings/{recording_id}/pipeline/events": {
         parameters: {
             query?: never;
@@ -3017,6 +2997,12 @@ export interface components {
             display_label: string;
             /** Input Revision Ids */
             input_revision_ids: string[];
+            /** Is Current Head */
+            is_current_head: boolean;
+            /** Node Id */
+            node_id: string;
+            /** Node Revision Id */
+            node_revision_id: string;
             /**
              * Origin
              * @enum {string}
@@ -3038,36 +3024,6 @@ export interface components {
             completed: number;
             /** Total */
             total: number;
-        };
-        /**
-         * PipelineWorkspaceReferenceResponse
-         * @description The one maintained reference and its current draft facts.
-         */
-        PipelineWorkspaceReferenceResponse: {
-            /** Affected Count */
-            affected_count: number;
-            /** Coverage */
-            coverage?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Coverage State
-             * @enum {string}
-             */
-            coverage_state: "none" | "incomplete" | "complete";
-            /** Draft Revision */
-            draft_revision?: number | null;
-            /** Selected Completion */
-            selected_completion?: string | null;
-            /** Source Revision Id */
-            source_revision_id?: string | null;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "empty" | "draft" | "complete";
-            /** Updated At */
-            updated_at?: string | null;
         };
         /**
          * PipelineWorkspaceResponse
@@ -3150,16 +3106,12 @@ export interface components {
         PipelineWorkspaceStageResponse: {
             /** Analyses */
             analyses: components["schemas"]["PipelineWorkspaceAnalysisResponse"][];
-            /** Can Review */
-            can_review: boolean;
             /** Can Run */
             can_run: boolean;
             /** Comparable Run Ids */
             comparable_run_ids: string[];
             /** Compatible Input Sets */
             compatible_input_sets: components["schemas"]["PipelineWorkspaceCompatibleInputSetResponse"][];
-            /** Has Maintained Reference */
-            has_maintained_reference: boolean;
             /** Input Options */
             input_options: components["schemas"]["PipelineWorkspaceInputOptionResponse"][];
             /**
@@ -3173,9 +3125,6 @@ export interface components {
             processor_key: string;
             /** Processor Type */
             processor_type: string;
-            reference?: components["schemas"]["PipelineWorkspaceReferenceResponse"] | null;
-            /** Review Blockers */
-            review_blockers: string[];
             /** Run Blockers */
             run_blockers: string[];
             /** Runs */
@@ -3190,7 +3139,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "video-only" | "empty" | "active-run" | "partial" | "failed" | "generated-only" | "draft" | "affected" | "incomplete-coverage" | "complete";
+            state: "video-only" | "empty" | "active-run" | "partial" | "failed" | "data-available" | "complete";
         };
         /**
          * PipelineWorkspaceVideoResponse
@@ -3352,7 +3301,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "video-only" | "empty" | "active-run" | "partial" | "failed" | "generated-only" | "draft" | "complete";
+            state: "video-only" | "empty" | "active-run" | "partial" | "failed" | "data-available" | "complete";
         };
         /**
          * RecordingPipelineStatusSummary
@@ -5215,39 +5164,6 @@ export interface operations {
             path: {
                 recording_id: string;
                 revision_id: string;
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_reviewed_identity_crop_api_recordings__recording_id__pipeline_derived_views_reviewed_identity_crops__item_id__get: {
-        parameters: {
-            query: {
-                crop_sha256: string;
-                preview?: string | null;
-            };
-            header?: never;
-            path: {
-                recording_id: string;
                 item_id: string;
             };
             cookie?: never;

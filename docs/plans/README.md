@@ -105,7 +105,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0108 — Horizontal lineage workspace](3-in-progress/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | M0–M10 complete. M11 is in progress: the migrated node store is active and unmounted legacy editors are removed; runtime legacy storage and adapters remain. M12 is not started. Processor input and trigger UX remains later work. |
+| [0108 — Horizontal lineage workspace](3-in-progress/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | M0–M10 complete. M11 is in progress: calibration reflow uses canonical nodes and journaled recovery; the managed-job selection/API fixtures now pass. Runtime selection adapters, migrated readers, and old reference/review storage remain. M12 is not started. Processor input and trigger UX remains later work. |
 
 
 ### In Progress

@@ -20,7 +20,6 @@ function stage(
     processor_key: key,
     processor_type: key,
     output_content_type: key,
-    has_maintained_reference: key !== "round_analyses",
     state: key === "events" ? "video-only" : "empty",
     input_options: [],
     compatible_input_sets: [],
@@ -29,23 +28,8 @@ function stage(
     selected_completed_reference_revision_id: null,
     runs: [],
     analyses: [],
-    reference:
-      key === "round_analyses"
-        ? null
-        : {
-            state: "empty",
-            draft_revision: null,
-            selected_completion: null,
-            source_revision_id: null,
-            coverage: null,
-            coverage_state: "none",
-            affected_count: 0,
-            updated_at: null,
-          },
     can_run: key === "events",
     run_blockers: key === "events" ? [] : ["Waiting for the event revision."],
-    can_review: false,
-    review_blockers: [],
     comparable_run_ids: [],
     ...overrides,
   };
@@ -200,7 +184,7 @@ describe("App", () => {
       name: "Pipeline progress",
     });
     expect(
-      within(progress).getByRole("listitem", { name: "Events: Reviewed" }),
+      within(progress).getByRole("listitem", { name: "Events: Complete" }),
     ).toHaveAttribute("data-state", "complete");
     expect(
       within(progress).getByRole("listitem", {
@@ -210,10 +194,10 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("shows whether each pipeline stage has output to review", async () => {
+  it("shows processor output and run state for each pipeline stage", async () => {
     const status = pipelineStatus("complete");
-    status.stages[1].state = "generated-only";
-    status.stages[2].state = "draft";
+    status.stages[1].state = "data-available";
+    status.stages[2].state = "data-available";
     status.stages[3].state = "active-run";
     status.stages[4].state = "failed";
     vi.stubGlobal(
@@ -250,17 +234,17 @@ describe("App", () => {
     ).getByRole("list", { name: "Pipeline progress" });
     expect(
       within(progress).getByRole("listitem", {
-        name: "Events: Reviewed",
+        name: "Events: Complete",
       }),
     ).toBeInTheDocument();
     expect(
       within(progress).getByRole("listitem", {
-        name: "Visible cards: Ready for review",
+        name: "Visible cards: Data available",
       }),
     ).toBeInTheDocument();
     expect(
       within(progress).getByRole("listitem", {
-        name: "Identities: Review in progress",
+        name: "Identities: Data available",
       }),
     ).toBeInTheDocument();
     expect(
@@ -349,16 +333,17 @@ describe("App", () => {
     );
     expect(fetchMock).toHaveBeenCalled();
     expect(pipelinePaths).toEqual([
+      `/api/recordings/${recordingId}/pipeline/lineage`,
       `/api/recordings/${recordingId}/pipeline?stage=events`,
-      `/v1/repository-bundles/${recordingId}/video`,
+      `/v1/recordings/${recordingId}`,
     ]);
   });
 
-  it("restores stage and view changes through browser history", async () => {
+  it("restores stage changes through browser history", async () => {
     window.history.pushState(
       {},
       "",
-      `/recordings/${recordingId}/pipeline/events?view=generated`,
+      `/recordings/${recordingId}/pipeline/events`,
     );
     vi.stubGlobal(
       "fetch",
@@ -370,11 +355,6 @@ describe("App", () => {
     expect(
       await screen.findByRole("region", { name: "Events task surface" }),
     ).toBeInTheDocument();
-    await userEvent
-      .setup()
-      .click(screen.getByRole("button", { name: "Reviewed" }));
-    await waitFor(() => expect(window.location.search).toBe("?view=reviewed"));
-
     await userEvent
       .setup()
       .click(screen.getByRole("link", { name: /Visible cards/ }));
@@ -393,7 +373,7 @@ describe("App", () => {
         `/recordings/${recordingId}/pipeline/events`,
       ),
     );
-    expect(window.location.search).toBe("?view=reviewed");
+    expect(window.location.search).toBe("");
     expect(
       await screen.findByRole("region", { name: "Events task surface" }),
     ).toBeInTheDocument();

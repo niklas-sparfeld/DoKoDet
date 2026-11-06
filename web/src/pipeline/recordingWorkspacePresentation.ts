@@ -59,10 +59,7 @@ export function primaryActionForStage(
   return {
     kind: "blocked",
     label: "Blocked",
-    blocker:
-      stage.run_blockers[0] ??
-      stage.review_blockers[0] ??
-      "No action is available.",
+    blocker: stage.run_blockers[0] ?? "No action is available.",
   };
 }
 
@@ -159,7 +156,7 @@ export type RecordingWorkspacePresentation = {
     progress: ProgressPresentation;
     primaryAction: PipelinePrimaryAction | null;
     activeBlocker: string | null;
-    saveState: "idle" | "draft" | "affected" | "failed" | "complete";
+    saveState: "idle" | "failed" | "complete";
     selection: WorkspaceSelection | null;
   };
   rail: {
@@ -599,14 +596,6 @@ function saveStateForStage(
 ): RecordingWorkspacePresentation["inspector"]["saveState"] {
   if (stage.state === "failed") return "failed";
   if (stage.state === "complete") return "complete";
-  if (
-    stage.state === "affected" ||
-    (stage.reference?.affected_count ?? 0) > 0
-  ) {
-    return "affected";
-  }
-  if (stage.state === "draft" || stage.reference?.state === "draft")
-    return "draft";
   return "idle";
 }
 

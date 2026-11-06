@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Literal
 
 from dokodetector_backend.filesystem import atomic_write_json, contained_path
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore, _read_json
@@ -16,7 +16,20 @@ class PipelineNodeUses:
     def __init__(self, store: PipelineNodeStore) -> None:
         self.store = store
 
-    def accept(self, run_id: str, inputs: Sequence[tuple[str, str]]) -> dict[str, Any]:
+    def accept(
+        self,
+        run_id: str,
+        inputs: Sequence[tuple[str, str]],
+        *,
+        revision_policy: Literal["current_head", "historical"] = "current_head",
+    ) -> dict[str, Any]:
+        """Accept exact node revisions under an explicit head policy.
+
+        ``current_head`` preserves the normal execution contract. ``historical``
+        accepts an exact immutable revision that exists on each specified node.
+        """
+        if revision_policy not in {"current_head", "historical"}:
+            raise ValueError("invalid revision policy")
         _safe_id(run_id, "run_id")
         refs = []
         for node_id, revision_id in inputs:
@@ -39,7 +52,10 @@ class PipelineNodeUses:
                 return previous
             for ref in refs:
                 node = self.store.get(ref["node_id"])
-                if node.head_revision_id != ref["revision_id"]:
+                if (
+                    revision_policy == "current_head"
+                    and node.head_revision_id != ref["revision_id"]
+                ):
                     raise NodeConflict("input working head changed before acceptance")
                 self.store.read_revision(ref["node_id"], ref["revision_id"])
             record = {

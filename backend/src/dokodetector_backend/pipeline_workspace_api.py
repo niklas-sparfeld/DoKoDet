@@ -32,6 +32,9 @@ class PipelineWorkspaceInputOptionResponse(ContractModel):
     """One immutable generated or maintained input revision available to a stage."""
 
     revision_id: str
+    node_id: str
+    node_revision_id: str
+    is_current_head: bool
     content_type: Literal["events", "visible_cards", "visual_identities", "table_observations"]
     origin: Literal["processor", "manual", "corrected"]
     completion_state: Literal["complete"]
@@ -96,19 +99,6 @@ class PipelineWorkspaceRunResponse(ContractModel):
     failed_item_count: int = Field(ge=0)
 
 
-class PipelineWorkspaceReferenceResponse(ContractModel):
-    """The one maintained reference and its current draft facts."""
-
-    state: Literal["empty", "draft", "complete"]
-    draft_revision: int | None = Field(default=None, ge=0)
-    selected_completion: str | None = None
-    source_revision_id: str | None = None
-    coverage: dict[str, Any] | None = None
-    coverage_state: Literal["none", "incomplete", "complete"]
-    affected_count: int = Field(ge=0)
-    updated_at: str | None = None
-
-
 class PipelineWorkspaceAnalysisResponse(ContractModel):
     """The retained round-analysis lifecycle facts shown by the final stage."""
 
@@ -148,17 +138,13 @@ class PipelineWorkspaceStageResponse(ContractModel):
     processor_key: str
     processor_type: str
     output_content_type: str
-    has_maintained_reference: bool
     state: Literal[
         "video-only",
         "empty",
         "active-run",
         "partial",
         "failed",
-        "generated-only",
-        "draft",
-        "affected",
-        "incomplete-coverage",
+        "data-available",
         "complete",
     ]
     input_options: list[PipelineWorkspaceInputOptionResponse]
@@ -168,11 +154,8 @@ class PipelineWorkspaceStageResponse(ContractModel):
     selected_completed_reference_revision_id: str | None = None
     runs: list[PipelineWorkspaceRunResponse]
     analyses: list[PipelineWorkspaceAnalysisResponse]
-    reference: PipelineWorkspaceReferenceResponse | None = None
     can_run: bool
     run_blockers: list[str]
-    can_review: bool
-    review_blockers: list[str]
     comparable_run_ids: list[str]
 
 
@@ -239,7 +222,6 @@ __all__ = [
     "PipelineWorkspaceImplementationResponse",
     "PipelineWorkspaceInputOptionResponse",
     "PipelineWorkspaceProgressResponse",
-    "PipelineWorkspaceReferenceResponse",
     "PipelineWorkspaceResponse",
     "PipelineWorkspaceRunResponse",
     "PipelineWorkspaceStageResponse",

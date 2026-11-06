@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
+from uuid import NAMESPACE_URL, uuid5
 
 from doko_operations.card_plane_calibration import CalibrationRevisionStore
 from doko_operations.card_plane_calibration_refinement import (
@@ -18,13 +21,19 @@ from doko_operations.card_plane_calibration_refinement import (
     build_calibration_preview,
     build_published_calibration_run,
     exclude_anchors_in_reviewed_ignore_regions,
+    reflow_reference_items,
 )
 from doko_operations.card_plane_geometry import TablePlaneCalibration
 from doko_operations.pipeline_data import (
-    DataRevision,
     ProcessorProducer,
     canonical_json_bytes,
+    parse_source,
     sha256_bytes,
+)
+from doko_operations.pipeline_reference import (
+    PipelineReferenceDraft,
+    PipelineReferenceState,
+    ReferenceDraftItem,
 )
 from doko_operations.proposed_card_scene_processor import (
     build_proposed_card_scene_data,
@@ -44,14 +53,12 @@ from table_evidence_analyzer.pipeline_data import (
     canonical_proposed_card_scene_data_bytes,
 )
 
+from dokodetector_backend.pipeline_item_provenance import _items
+from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
+from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
 from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceConflict,
     PipelineReferenceInputError,
-)
-from dokodetector_backend.pipeline_reference_store import PipelineReferenceNotFound
-from dokodetector_backend.pipeline_store import PipelineNotFound, PipelineRevisionStore
-from dokodetector_backend.proposed_card_scene_pipeline_service import (
-    ProposedCardScenePipelineService,
 )
 
 
@@ -78,17 +85,389 @@ class CalibrationRefinementService:
         self,
         settings: Any,
         *,
-        revision_store: PipelineRevisionStore,
-        proposal_service: ProposedCardScenePipelineService,
         reference_service: Any,
         draft_store: CalibrationDraftStore | None = None,
+        node_store: PipelineNodeStore | None = None,
     ) -> None:
-        self.revision_store = revision_store
-        self.proposal_service = proposal_service
         self.reference_service = reference_service
+        self.node_store = node_store
+        self.node_transactions = (
+            None if node_store is None else PipelineNodeTransactions(node_store)
+        )
         self.store = draft_store or CalibrationDraftStore(settings.operations_root)
         self.calibration_store = CalibrationRevisionStore(settings.operations_root)
         self.receipt_store = CalibrationReflowReceiptStore(settings.operations_root)
+
+    def _publish_node_reflow(
+        self,
+        recording_id: str,
+        current: Any,
+        items: tuple[Any, ...],
+        target_proposal_revision_id: str,
+        receipt_id: str,
+        impact: tuple[dict[str, Any], ...] | None = None,
+    ) -> None:
+        """Publish migrated visible-card and scene drafts as one recoverable update."""
+        if self.node_store is None or self.node_transactions is None:
+            raise CalibrationRefinementInputError(
+                "calibration reflow requires the active pipeline node store"
+            )
+        from dokodetector_backend.lineage_draft_projection import project_draft, project_scene_frame
+        from dokodetector_backend.virtual_scene_data import validate_virtual_scenes
+
+        key = f"maintained_draft/{recording_id}/visible_cards"
+        visible_node_id = str(uuid5(NAMESPACE_URL, f"lineage-draft:{key}"))
+        scene_node_id = str(uuid5(NAMESPACE_URL, f"lineage-draft-scenes:{key}"))
+        visible_node = self.node_store.get(visible_node_id)
+        visible_revision = self.node_store.read_revision_record(
+            visible_node_id, visible_node.head_revision_id
+        )
+        if visible_revision.metadata.get("calibration_reflow", {}).get("receipt_id") == receipt_id:
+            try:
+                scene_node = self.node_store.get(scene_node_id)
+            except FileNotFoundError:
+                scene_node = None
+            if scene_node is not None:
+                scene_revision = self.node_store.read_revision_record(
+                    scene_node_id, scene_node.head_revision_id
+                )
+                if (
+                    scene_revision.metadata.get("calibration_reflow", {}).get("receipt_id")
+                    != receipt_id
+                ):
+                    raise CalibrationRefinementConflict(
+                        "the visible-card and virtual-scene reflow heads do not match"
+                    )
+            return
+        source_projection = project_draft(current.draft)
+        if (
+            visible_revision.metadata.get("migration", {}).get("legacy_key") != key
+            or visible_revision.metadata.get("legacy_review", {}).get("items")
+            != source_projection["legacy_items"]
+        ):
+            raise CalibrationRefinementConflict(
+                "the migrated visible-card draft differs from the maintained reference"
+            )
+
+        target_draft = replace(
+            current.draft,
+            revision=current.draft.revision + 1,
+            items=items,
+            proposal_revision_id=target_proposal_revision_id,
+            coverage=None,
+            impact=current.draft.impact if impact is None else impact,
+            updated_at=_now(),
+        )
+        target_state = replace(
+            current.state,
+            draft_revision=target_draft.revision,
+            draft_state="draft",
+            source_revision_id=target_draft.source_revision_id,
+            updated_at=target_draft.updated_at,
+        )
+        projection = project_draft(target_draft)
+        digest = sha256_bytes(canonical_json_bytes(target_draft.to_mapping()))
+        visible_metadata = dict(visible_revision.metadata)
+        visible_metadata["migration"] = {
+            **visible_metadata.get("migration", {}),
+            "draft_sha256": digest,
+            "updated_at": target_draft.updated_at,
+        }
+        visible_metadata["legacy_review"] = {
+            **visible_metadata.get("legacy_review", {}),
+            "items": projection["legacy_items"],
+            "coverage": projection["coverage"],
+            "impact": projection["impact"],
+            "scene_only_items": projection["scene_only_items"],
+            "state": target_state.to_mapping(),
+        }
+        visible_metadata["calibration_reflow"] = {
+            "receipt_id": receipt_id,
+            "proposal_revision_id": target_proposal_revision_id,
+        }
+        visible_metadata["item_provenance"] = {
+            "version": 1,
+            "items": _items(projection["content"], projection["pointers"]),
+            "changes": [],
+        }
+        node_updates = [
+            {
+                "node_id": visible_node_id,
+                "expected_revision_id": visible_revision.revision_id,
+                "revision_id": str(
+                    uuid5(NAMESPACE_URL, f"calibration-reflow:{receipt_id}:visible")
+                ),
+                "content": projection["content"],
+                "metadata": visible_metadata,
+            }
+        ]
+
+        scene_frames = []
+        scene_facts = {}
+        for item in target_draft.items:
+            if item.review_state == "rejected" or item.item.get("card_scene") is None:
+                continue
+            projected = project_scene_frame(dict(item.item))
+            frame = projected["content"]["frames"][0]
+            scene_frames.append(frame)
+            scene_facts[frame["frame_id"]] = projected["legacy_review"]
+        scene_content = validate_virtual_scenes(
+            {"schema_version": "virtual-scene-data/v1", "frames": scene_frames}
+        )
+        try:
+            scene_node = self.node_store.get(scene_node_id)
+        except FileNotFoundError:
+            if scene_frames:
+                raise CalibrationRefinementInputError(
+                    "the migrated virtual-scene draft is missing"
+                ) from None
+        else:
+            scene_revision = self.node_store.read_revision_record(
+                scene_node_id, scene_node.head_revision_id
+            )
+            if scene_revision.metadata.get("migration", {}).get("legacy_key") != key:
+                raise CalibrationRefinementConflict(
+                    "the migrated virtual-scene draft has a different source"
+                )
+            scene_metadata = dict(scene_revision.metadata)
+            scene_metadata["migration"] = {
+                **scene_metadata.get("migration", {}),
+                "draft_sha256": digest,
+                "updated_at": target_draft.updated_at,
+            }
+            scene_metadata["calibration_reflow"] = {
+                "receipt_id": receipt_id,
+                "proposal_revision_id": target_proposal_revision_id,
+            }
+            scene_metadata["legacy_scenes"] = scene_facts
+            pointers = {
+                frame["frame_id"]: f"/frames/{index}"
+                for index, frame in enumerate(scene_content["frames"])
+            }
+            scene_metadata["item_provenance"] = {
+                "version": 1,
+                "items": _items(scene_content, pointers),
+                "changes": [],
+            }
+            node_updates.append(
+                {
+                    "node_id": scene_node_id,
+                    "expected_revision_id": scene_revision.revision_id,
+                    "revision_id": str(
+                        uuid5(NAMESPACE_URL, f"calibration-reflow:{receipt_id}:scenes")
+                    ),
+                    "content": scene_content,
+                    "metadata": scene_metadata,
+                }
+            )
+        self.node_transactions.commit(
+            receipt_id,
+            node_updates=node_updates,
+            selection_updates=[],
+        )
+
+    def _node_reflow_reference(
+        self, recording_id: str, current: Any, target_proposal_revision_id: str
+    ) -> dict[str, Any] | None:
+        """Return the published draft view when a previous apply already committed."""
+        if self.node_store is None:
+            return None
+        key = f"maintained_draft/{recording_id}/visible_cards"
+        node_id = str(uuid5(NAMESPACE_URL, f"lineage-draft:{key}"))
+        try:
+            node = self.node_store.get(node_id)
+            revision = self.node_store.read_revision_record(node_id, node.head_revision_id)
+        except FileNotFoundError:
+            return None
+        legacy = revision.metadata.get("legacy_review")
+        if (
+            revision.metadata.get("migration", {}).get("legacy_key") != key
+            or revision.metadata.get("calibration_reflow", {}).get("proposal_revision_id")
+            != target_proposal_revision_id
+            or not isinstance(legacy, dict)
+            or not isinstance(legacy.get("items"), list)
+        ):
+            return None
+        from doko_operations.pipeline_reference import PipelineReferenceDraft
+
+        raw = current.draft.to_mapping()
+        raw.update(
+            {
+                "revision": current.draft.revision + 1,
+                "items": legacy["items"],
+                "coverage": None,
+                "proposal_revision_id": target_proposal_revision_id,
+                "updated_at": revision.metadata.get("migration", {}).get(
+                    "updated_at", current.draft.updated_at
+                ),
+            }
+        )
+        draft = PipelineReferenceDraft.from_mapping(raw)
+        state = replace(
+            current.state,
+            draft_revision=draft.revision,
+            draft_state="draft",
+            updated_at=draft.updated_at,
+        )
+        return {"state": state.to_mapping(), "draft": draft.to_mapping()}
+
+    def _current_node_reference(
+        self,
+        recording_id: str,
+        proposal_revision_id: str,
+        *,
+        allow_missing: bool = False,
+    ):
+        if self.node_store is None:
+            raise CalibrationRefinementInputError("the active pipeline node store is unavailable")
+        key = f"maintained_draft/{recording_id}/visible_cards"
+        node_id = str(uuid5(NAMESPACE_URL, f"lineage-draft:{key}"))
+        try:
+            node = self.node_store.get(node_id)
+            revision = self.node_store.read_revision_record(node_id, node.head_revision_id)
+        except FileNotFoundError as error:
+            if allow_missing:
+                return None
+            raise CalibrationRefinementInputError(
+                "the canonical visible-card draft is missing; reload the pipeline"
+            ) from error
+        if node.content_type != "visible_cards" or node.source.get("recording_id") != recording_id:
+            raise CalibrationRefinementConflict(
+                "the canonical visible-card draft has changed source"
+            )
+        legacy_review = revision.metadata.get("legacy_review")
+        if not isinstance(legacy_review, dict) or not isinstance(legacy_review.get("items"), list):
+            raise CalibrationRefinementInputError(
+                "the canonical visible-card review facts are missing"
+            )
+        raw_state = legacy_review.get("state")
+        if not isinstance(raw_state, dict):
+            raise CalibrationRefinementInputError("the canonical visible-card state is missing")
+        try:
+            state = PipelineReferenceState.from_mapping(raw_state)
+            actual_proposal_id = revision.metadata.get("calibration_reflow", {}).get(
+                "proposal_revision_id", proposal_revision_id
+            )
+            _proposal, source, _data = self._proposal(recording_id, actual_proposal_id)
+            items = tuple(
+                ReferenceDraftItem.from_mapping(item, f"legacy_review.items[{index}]")
+                for index, item in enumerate(legacy_review["items"])
+            )
+            draft = PipelineReferenceDraft.from_mapping(
+                {
+                    "schema_version": "pipeline-reference-draft/v2",
+                    "recording_id": recording_id,
+                    "content_type": "visible_cards",
+                    "revision": state.draft_revision,
+                    "source_revision_id": source.manifest.revision_id,
+                    "items": [item.to_mapping() for item in items],
+                    "coverage": legacy_review.get("coverage"),
+                    "impact": legacy_review.get("impact", []),
+                    "updated_at": state.updated_at,
+                    "proposal_revision_id": actual_proposal_id,
+                }
+            )
+            from dokodetector_backend.lineage_draft_projection import project_draft
+
+            if project_draft(draft)["content"] != revision.content:
+                raise CalibrationRefinementConflict(
+                    "the canonical visible-card content differs from its review facts"
+                )
+        except (TypeError, ValueError) as error:
+            if isinstance(error, CalibrationRefinementError):
+                raise
+            raise CalibrationRefinementInputError(
+                f"the canonical visible-card draft is invalid: {error}"
+            ) from error
+        if state.recording_id != recording_id or state.content_type != "visible_cards":
+            raise CalibrationRefinementConflict(
+                "the canonical visible-card state has changed source"
+            )
+        source_cache = getattr(self.reference_service, "_source_revision_sources", None)
+        if isinstance(source_cache, dict):
+            source_cache[source.manifest.revision_id] = source.manifest.source
+        return SimpleNamespace(state=state, draft=draft)
+
+    def _publish_target_proposal_node(
+        self,
+        recording_id: str,
+        revision_id: str,
+        source: Any,
+        data: ProposedCardSceneData,
+        calibration: TablePlaneCalibration,
+        source_proposal_revision_id: str,
+    ) -> None:
+        if self.node_store is None:
+            raise CalibrationRefinementInputError("the active pipeline node store is unavailable")
+        node_id = "data-" + hashlib.sha256(revision_id.encode("utf-8")).hexdigest()[:32]
+        digest = sha256_bytes(canonical_proposed_card_scene_data_bytes(data))
+        producer = ProcessorProducer(
+            run_id=revision_id.removeprefix("card-scene-reflow-"),
+            processor_type="visible-card-scene-proposal-reflow",
+            implementation_id="calibration-reflow/v1",
+            model_id=None,
+        )
+        metadata = {
+            "origin": "processor",
+            "legacy_revision_id": revision_id,
+            "legacy_content_schema": PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
+            "legacy_content_sha256": digest,
+            "input_revision_ids": [source.manifest.revision_id],
+            "producer": producer.to_mapping(),
+            "coverage": {
+                "kind": "calibration-reflow-proposed-card-scenes",
+                "source_proposal_revision_id": source_proposal_revision_id,
+                "calibration_revision_id": calibration.calibration_revision_id,
+                "calibration_digest": calibration.calibration_digest,
+            },
+            "calibration_reflow": {"source_proposal_revision_id": source_proposal_revision_id},
+        }
+        existing = self._find_node_revision(revision_id, "card_scene_proposals")
+        if existing is not None:
+            node, revision = existing
+            if (
+                node.node_id != node_id
+                or revision.content != data.to_mapping()
+                or revision.content_sha256 != digest
+                or revision.metadata.get("input_revision_ids") != [source.manifest.revision_id]
+            ):
+                raise CalibrationRefinementConflict(
+                    "the target proposal node conflicts with this calibration reflow"
+                )
+            return
+        try:
+            self.node_store.create(
+                node_id,
+                f"Calibration reflow {recording_id}",
+                "card_scene_proposals",
+                source.manifest.source.to_mapping(),
+                data.to_mapping(),
+                metadata,
+                revision_id=revision_id,
+            )
+        except NodeConflict as error:
+            raise CalibrationRefinementConflict(
+                "the target proposal node already exists with different content"
+            ) from error
+
+    def _reflow_impact(self, recording_id: str, current: Any, items: tuple[Any, ...]):
+        """Keep the same correction-impact calculation as maintained-reference apply."""
+        handler_factory = getattr(self.reference_service, "_handler", None)
+        if handler_factory is None:
+            return current.draft.impact
+        handler = handler_factory("visible_cards")
+        handler.validate_draft_items(
+            recording_id,
+            current.draft.source_revision_id,
+            list(items),
+        )
+        impact = list(current.draft.impact)
+        previous_by_id = {item.item_id: item for item in current.draft.items}
+        for item in items:
+            previous = previous_by_id.get(item.item_id)
+            if previous is not None:
+                impact.extend(handler.correction_impact(recording_id, previous, item))
+        return tuple(impact)
 
     def start(self, recording_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(payload, Mapping):
@@ -237,7 +616,7 @@ class CalibrationRefinementService:
         )
 
     @staticmethod
-    def _require_current_source(draft: CalibrationDraft, source: DataRevision) -> None:
+    def _require_current_source(draft: CalibrationDraft, source: Any) -> None:
         if (
             draft.detector_revision_id != source.manifest.revision_id
             or draft.detector_revision_digest != source.manifest.content_sha256
@@ -308,7 +687,7 @@ class CalibrationRefinementService:
             raise CalibrationRefinementInputError(
                 "the calibration draft uses a stale detector revision; reload the refinement"
             )
-        frame_scenes = self._frame_scenes(recording_id, data)
+        frame_scenes = self._frame_scenes(recording_id, proposal_revision_id, data)
         effective_draft = exclude_anchors_in_reviewed_ignore_regions(draft, frame_scenes)
         receipt_id = (
             "reflow-"
@@ -327,12 +706,7 @@ class CalibrationRefinementService:
         except CalibrationRefinementError:
             previous_receipt = None
         if previous_receipt is not None:
-            try:
-                reference = self.reference_service.get_reference(recording_id, "visible_cards")
-            except PipelineReferenceNotFound as error:
-                raise CalibrationRefinementInputError(
-                    "the maintained visible-card draft is missing; reload the pipeline"
-                ) from error
+            reference = self._current_node_reference(recording_id, proposal_revision_id)
             if reference.draft.proposal_revision_id == previous_receipt.proposal_revision_id:
                 return {
                     "schema_version": "table-plane-calibration-refinement/v1",
@@ -342,7 +716,24 @@ class CalibrationRefinementService:
                     "proposal_revision_id": previous_receipt.proposal_revision_id,
                     "calibration_revision_id": previous_receipt.target_calibration_revision_id,
                     "receipt": previous_receipt.to_mapping(),
-                    "reference": reference.to_mapping(),
+                    "reference": {
+                        "state": reference.state.to_mapping(),
+                        "draft": reference.draft.to_mapping(),
+                    },
+                }
+            node_reference = self._node_reflow_reference(
+                recording_id, reference, previous_receipt.proposal_revision_id
+            )
+            if node_reference is not None:
+                return {
+                    "schema_version": "table-plane-calibration-refinement/v1",
+                    "action": "applied",
+                    "recording_id": recording_id,
+                    "source_proposal_revision_id": proposal_revision_id,
+                    "proposal_revision_id": previous_receipt.proposal_revision_id,
+                    "calibration_revision_id": previous_receipt.target_calibration_revision_id,
+                    "receipt": previous_receipt.to_mapping(),
+                    "reference": node_reference,
                 }
         preview = build_calibration_preview(
             effective_draft,
@@ -361,12 +752,11 @@ class CalibrationRefinementService:
             if preview.failure is not None:
                 action = preview.failure.action
             raise CalibrationRefinementInputError(action)
-        try:
-            current_reference = self.reference_service.get_reference(recording_id, "visible_cards")
-        except PipelineReferenceNotFound as error:
-            raise CalibrationRefinementInputError(
-                "the maintained visible-card draft is missing; reload the pipeline"
-            ) from error
+        current_reference = self._current_node_reference(recording_id, proposal_revision_id)
+        if current_reference.draft.proposal_revision_id != proposal_revision_id:
+            raise CalibrationRefinementConflict(
+                "the canonical visible-card draft uses a different proposal revision"
+            )
         forced_affected_frame_ids = tuple(
             sorted(
                 item.item_id
@@ -399,50 +789,47 @@ class CalibrationRefinementService:
             },
         )
         target_proposal_revision_id = f"card-scene-reflow-{receipt_id}"
-        target_manifest = DataRevision(
-            revision_id=target_proposal_revision_id,
-            content_type="card_scene_proposals",
-            content_schema=PROPOSED_CARD_SCENE_DATA_SCHEMA_VERSION,
-            recording_id=recording_id,
-            source=source.manifest.source,
-            content_sha256=sha256_bytes(canonical_proposed_card_scene_data_bytes(target_data)),
-            input_revision_ids=(source.manifest.revision_id,),
-            origin="processor",
-            producer=ProcessorProducer(
-                run_id=receipt_id,
-                processor_type="visible-card-scene-proposal-reflow",
-                implementation_id="calibration-reflow/v1",
-                model_id=None,
-            ),
-            coverage={
-                "kind": "calibration-reflow-proposed-card-scenes",
-                "source_proposal_revision_id": proposal_revision_id,
-                "calibration_revision_id": target.calibration_revision_id,
-                "calibration_digest": target.calibration_digest,
-            },
-            created_at=_now(),
-        )
         self.calibration_store.publish(
             build_published_calibration_run(
                 target,
                 diagnostics=target_data.calibration_diagnostics,
             )
         )
-        self.revision_store.publish(target_manifest, target_data)
+        self._publish_target_proposal_node(
+            recording_id,
+            target_proposal_revision_id,
+            source,
+            target_data,
+            target,
+            proposal_revision_id,
+        )
         try:
-            current, _target_items, planned = self.reference_service.plan_visible_card_reflow(
+            _target_proposal, target_source, target_data = self._proposal(
+                recording_id, target_proposal_revision_id
+            )
+            target_items = self.reference_service._proposal_seed_items(
                 recording_id,
-                proposal_revision_id,
+                target_source,
+                target_data,
                 target_proposal_revision_id,
+                current_reference.draft.items,
+            )
+            planned = reflow_reference_items(
+                current_reference.draft.items,
+                target_items,
                 data.calibration,
                 target.to_mapping(),
+                target_proposal_revision_id=target_proposal_revision_id,
+                target_proposal_data_digest=target_data.data_digest,
                 force_affected_frame_ids=forced_affected_frame_ids,
             )
         except PipelineReferenceConflict as error:
             raise CalibrationRefinementConflict(str(error)) from error
         except PipelineReferenceInputError as error:
             raise CalibrationRefinementInputError(str(error)) from error
+        current = current_reference
         reinitialized, rebased, affected_frames = planned[1], planned[2], planned[3]
+        reflow_impact = self._reflow_impact(recording_id, current, planned[0])
         affected_cards = tuple(sorted(set(preview.changed_card_ids)))
         receipt = CalibrationReflowReceipt.create(
             receipt_id=receipt_id,
@@ -466,21 +853,40 @@ class CalibrationRefinementService:
         )
         self.receipt_store.publish(recording_id, receipt)
         try:
-            reference = self.reference_service.apply_visible_card_reflow(
+            self._publish_node_reflow(
                 recording_id,
-                source_proposal_revision_id=proposal_revision_id,
-                target_proposal_revision_id=target_proposal_revision_id,
-                source_calibration=data.calibration,
-                target_calibration=target.to_mapping(),
-                expected_revision=current.state.draft_revision,
-                command_id=receipt_id,
-                operator_id=operator_id,
-                force_affected_frame_ids=forced_affected_frame_ids,
+                current,
+                planned[0],
+                target_proposal_revision_id,
+                receipt_id,
+                reflow_impact,
             )
-        except PipelineReferenceConflict as error:
+        except NodeConflict as error:
             raise CalibrationRefinementConflict(str(error)) from error
-        except PipelineReferenceInputError as error:
+        except FileNotFoundError as error:
+            raise CalibrationRefinementInputError(
+                "the migrated visible-card draft is missing"
+            ) from error
+        except ValueError as error:
+            if isinstance(error, CalibrationRefinementError):
+                raise
             raise CalibrationRefinementInputError(str(error)) from error
+        timestamp = _now()
+        reference_draft = replace(
+            current.draft,
+            revision=current.draft.revision + 1,
+            items=planned[0],
+            proposal_revision_id=target_proposal_revision_id,
+            coverage=None,
+            impact=reflow_impact,
+            updated_at=timestamp,
+        )
+        reference_state = replace(
+            current.state,
+            draft_revision=reference_draft.revision,
+            draft_state="draft",
+            updated_at=timestamp,
+        )
         return {
             "schema_version": "table-plane-calibration-refinement/v1",
             "action": "applied",
@@ -489,7 +895,10 @@ class CalibrationRefinementService:
             "proposal_revision_id": target_proposal_revision_id,
             "calibration_revision_id": target.calibration_revision_id,
             "receipt": receipt.to_mapping(),
-            "reference": reference.to_mapping(),
+            "reference": {
+                "state": reference_state.to_mapping(),
+                "draft": reference_draft.to_mapping(),
+            },
         }
 
     def _target_calibration(
@@ -529,30 +938,97 @@ class CalibrationRefinementService:
     def _proposal(
         self, recording_id: str, proposal_revision_id: str
     ) -> tuple[Any, Any, ProposedCardSceneData]:
+        proposal = self._find_node_revision(proposal_revision_id, "card_scene_proposals")
+        if proposal is None:
+            raise CalibrationRefinementInputError("proposal node revision was not found")
+        proposal_node, proposal_revision = proposal
         try:
-            proposal = self.revision_store.require(proposal_revision_id)
-        except PipelineNotFound as error:
-            raise CalibrationRefinementInputError("proposal revision was not found") from error
-        if proposal.manifest.recording_id != recording_id:
-            raise CalibrationRefinementInputError("proposal revision belongs to another recording")
-        if proposal.manifest.content_type != "card_scene_proposals" or not isinstance(
-            proposal.content, ProposedCardSceneData
+            proposal_content = ProposedCardSceneData.from_mapping(proposal_revision.content)
+        except (TypeError, ValueError) as error:
+            raise CalibrationRefinementInputError("proposal node content is invalid") from error
+        if (
+            sha256_bytes(canonical_proposed_card_scene_data_bytes(proposal_content))
+            != proposal_revision.content_sha256
         ):
-            raise CalibrationRefinementInputError("proposal_revision_id must reference card scenes")
-        source_ids = proposal.manifest.input_revision_ids
+            raise CalibrationRefinementInputError("proposal node content digest is invalid")
+        proposal_metadata = proposal_revision.metadata
+        source_ids = proposal_metadata.get("input_revision_ids")
+        producer = proposal_metadata.get("producer")
+        if (
+            proposal_node.source.get("recording_id") != recording_id
+            or proposal_metadata.get("origin") != "processor"
+            or not isinstance(producer, dict)
+            or producer.get("processor_type")
+            not in {"visible-card-scene-proposal", "visible-card-scene-proposal-reflow"}
+            or not isinstance(source_ids, list)
+        ):
+            raise CalibrationRefinementInputError("proposal node lineage is invalid")
         if len(source_ids) != 1:
             raise CalibrationRefinementInputError("proposal revision must have one detector input")
+        proposal_manifest = SimpleNamespace(
+            recording_id=recording_id,
+            content_type=proposal_node.content_type,
+            revision_id=proposal_revision.revision_id,
+            input_revision_ids=tuple(source_ids),
+            source=parse_source(proposal_node.source),
+        )
+        if proposal_manifest.content_type != "card_scene_proposals":
+            raise CalibrationRefinementInputError("proposal_revision_id must reference card scenes")
+        if len(source_ids) != 1:
+            raise CalibrationRefinementInputError("proposal revision must have one detector input")
+        source_node_revision = self._find_node_revision(source_ids[0], "visible_cards")
+        if source_node_revision is None:
+            raise CalibrationRefinementInputError("proposal detector node revision was not found")
+        source_node, source_revision = source_node_revision
         try:
-            source = self.revision_store.require(source_ids[0])
-        except PipelineNotFound as error:
-            raise CalibrationRefinementInputError(
-                "proposal detector input was not found"
-            ) from error
-        if not isinstance(source.content, VisibleCardData):
+            source_content = VisibleCardData.from_mapping(source_revision.content)
+        except (TypeError, ValueError) as error:
             raise CalibrationRefinementInputError(
                 "proposal detector input is not visible-card data"
+            ) from error
+        source_id = source_ids[0]
+        digest = source_revision.content_sha256
+        source_producer = source_revision.metadata.get("producer")
+        if (
+            source_id != proposal_content.detector_revision_id
+            or digest != proposal_content.detector_revision_digest
+            or parse_source(source_node.source).recording_id != recording_id
+            or source_revision.metadata.get("origin") != "processor"
+            or not isinstance(source_producer, dict)
+            or source_producer.get("processor_type") != "visible-card-detection"
+            or not isinstance(source_producer.get("model_id"), str)
+            or not source_producer["model_id"].startswith("local-rfdetr-")
+        ):
+            raise CalibrationRefinementInputError(
+                "proposal detector digest or node lineage is invalid"
             )
-        return proposal, source, proposal.content
+        source = SimpleNamespace(
+            manifest=SimpleNamespace(
+                recording_id=recording_id,
+                content_type="visible_cards",
+                revision_id=source_id,
+                content_sha256=digest,
+                source=parse_source(source_node.source),
+            ),
+            content=source_content,
+        )
+        source_cache = getattr(self.reference_service, "_source_revision_sources", None)
+        if isinstance(source_cache, dict):
+            source_cache[source_id] = source.manifest.source
+        return (proposal_node, proposal_revision), source, proposal_content
+
+    def _find_node_revision(self, revision_id: str, content_type: str):
+        if self.node_store is None:
+            return None
+        for node in self.node_store.list_nodes():
+            if node.content_type != content_type:
+                continue
+            try:
+                revision = self.node_store.read_revision_record(node.node_id, revision_id)
+            except FileNotFoundError:
+                continue
+            return node, revision
+        return None
 
     def _response(
         self,
@@ -565,7 +1041,7 @@ class CalibrationRefinementService:
     ) -> dict[str, Any]:
         if not include_frame_scenes:
             return self._pending_response(recording_id, proposal_revision_id, draft)
-        frame_scenes = self._frame_scenes(recording_id, data)
+        frame_scenes = self._frame_scenes(recording_id, proposal_revision_id, data)
         effective_draft = exclude_anchors_in_reviewed_ignore_regions(draft, frame_scenes)
         preview = build_calibration_preview(
             effective_draft,
@@ -634,12 +1110,11 @@ class CalibrationRefinementService:
         }
 
     def _frame_scenes(
-        self, recording_id: str, data: ProposedCardSceneData
+        self, recording_id: str, proposal_revision_id: str, data: ProposedCardSceneData
     ) -> tuple[dict[str, Any], ...]:
-        try:
-            reference = self.reference_service.get_reference(recording_id, "visible_cards")
-        except PipelineReferenceNotFound:
-            reference = None
+        reference = self._current_node_reference(
+            recording_id, proposal_revision_id, allow_missing=True
+        )
         if reference is not None and reference.draft.items:
             return tuple({"item_id": item.item_id, **item.item} for item in reference.draft.items)
         return tuple(

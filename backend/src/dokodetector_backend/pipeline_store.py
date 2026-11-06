@@ -1750,7 +1750,10 @@ class ProcessorRunStore:
                 raise PipelineStateError("run output revision has a different content type")
             if manifest.source != request.source:
                 raise PipelineStateError("run output revision has a different source")
-            if manifest.input_revision_ids != request.input_revision_ids:
+            expected_inputs = (
+                () if request.input_node_ref is not None else request.input_revision_ids
+            )
+            if manifest.input_revision_ids != expected_inputs:
                 raise PipelineStateError("run output revision has different input lineage")
 
     @staticmethod

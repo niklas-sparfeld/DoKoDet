@@ -41,6 +41,40 @@ def test_accepted_use_is_durable_and_guards_edits(tmp_path: Path) -> None:
         uses.accept("run", [("n", "different")])
 
 
+def test_historical_acceptance_is_explicit_exact_and_idempotent(tmp_path: Path) -> None:
+    store = PipelineNodeStore(tmp_path)
+    first = store.create("n", "Events", "events", SOURCE, content(200), {})
+    second = store.save("n", first.revision_id, content(300), {})
+    uses = PipelineNodeUses(store)
+
+    accepted = uses.accept(
+        "historical-run", [("n", first.revision_id)], revision_policy="historical"
+    )
+    assert accepted["inputs"] == [{"node_id": "n", "revision_id": first.revision_id}]
+    assert (
+        uses.accept("historical-run", [("n", first.revision_id)], revision_policy="historical")
+        == accepted
+    )
+    assert store.get("n").head_revision_id == second.revision_id
+
+
+def test_historical_acceptance_requires_revision_on_specified_node(tmp_path: Path) -> None:
+    store = PipelineNodeStore(tmp_path)
+    store.create("n", "Events", "events", SOURCE, content(200), {})
+    with pytest.raises(KeyError, match="missing"):
+        PipelineNodeUses(store).accept(
+            "missing-run", [("n", "missing")], revision_policy="historical"
+        )
+
+
+def test_current_head_acceptance_rejects_changed_head(tmp_path: Path) -> None:
+    store = PipelineNodeStore(tmp_path)
+    first = store.create("n", "Events", "events", SOURCE, content(200), {})
+    store.save("n", first.revision_id, content(300), {})
+    with pytest.raises(NodeConflict, match="working head changed"):
+        PipelineNodeUses(store).accept("stale-run", [("n", first.revision_id)])
+
+
 def test_edit_and_accept_serialize(tmp_path: Path) -> None:
     store = PipelineNodeStore(tmp_path)
     revision = store.create("n", "Events", "events", SOURCE, content(200), {})

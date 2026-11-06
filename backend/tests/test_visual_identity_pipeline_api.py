@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from app_factory import create_test_app
@@ -40,6 +41,8 @@ from test_visible_card_pipeline_api import (
     _EventProvider,
     _FrameResolver,
     _install_recording,
+    _run_event_job,
+    _selected_node_input,
     _settings,
     _wait,
     _wait_event,
@@ -48,6 +51,7 @@ from test_visible_card_pipeline_api import (
 from dokodetector_backend import (
     visual_identity_pipeline_service as visual_identity_pipeline_service_module,
 )
+from dokodetector_backend.job_store import CancellationToken
 from dokodetector_backend.visual_identity_pipeline_service import (
     VisualIdentityPipelineError,
     VisualIdentityPipelineService,
@@ -178,8 +182,7 @@ def test_visual_identity_classification_runs_as_a_managed_job(tmp_path: Any) -> 
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-for-managed-identity",
-                "event_revision_id": event_revision_id,
-                "input_revision_ids": [event_revision_id],
+                **_selected_node_input(client, "events", event_revision_id),
                 "configuration": {"threshold": 0.5},
             },
         )
@@ -336,31 +339,20 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
     )
 
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-for-identity-source-validation"},
-        )
-        assert event_response.status_code == 202
-        _wait_event(client, "events-for-identity-source-validation")
-        event_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/"
-            "events-for-identity-source-validation/result"
-        ).json()["state"]["output_revision_ids"][0]
+        event_revision_id = _run_event_job(client, "events-for-identity-source-validation")
 
         visible_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-for-identity-source-validation",
-                "event_revision_id": event_revision_id,
+                **_selected_node_input(client, "events", event_revision_id),
             },
         )
         assert visible_response.status_code == 202
-        assert _wait(client, "visible-for-identity-source-validation")["state"]["status"] == (
-            "complete"
-        )
+        visible_run_id = visible_response.json()["run_id"]
+        assert _wait(client, visible_run_id)["state"]["status"] == ("complete")
         visible_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/"
-            "visible-for-identity-source-validation/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
 
         visible_revision = app.state.pipeline_revision_store.require(visible_revision_id)
@@ -410,12 +402,10 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             },
         )
         assert identity_response.status_code == 202, identity_response.text
-        assert _wait_identity(client, "identity-source-validation")["state"]["status"] == (
-            "complete"
-        )
+        identity_run_id = identity_response.json()["run_id"]
+        assert _wait_identity(client, identity_run_id)["state"]["status"] == ("complete")
         identity_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/"
-            "identity-source-validation/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_run_id}/result"
         ).json()
         assert {item["card_id"] for item in identity_result["request"]["crop_input"]["items"]} == {
             candidate.card_id for candidate in pile_content.outcomes[0].candidates
@@ -444,9 +434,10 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             },
         )
         assert pile_only_identity.status_code == 202, pile_only_identity.text
-        assert _wait_identity(client, "identity-pile-only")["state"]["status"] == "complete"
+        pile_only_run_id = pile_only_identity.json()["run_id"]
+        assert _wait_identity(client, pile_only_run_id)["state"]["status"] == "complete"
         pile_only_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-pile-only/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{pile_only_run_id}/result"
         ).json()
         assert pile_only_result["request"]["crop_input"]["items"] == []
         assert pile_only_result["revisions"][0]["content"]["outcomes"] == []
@@ -480,12 +471,10 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             },
         )
         assert mixed_identity.status_code == 202, mixed_identity.text
-        assert _wait_identity(client, "identity-mixed-card-and-empty")["state"]["status"] == (
-            "complete"
-        )
+        mixed_run_id = mixed_identity.json()["run_id"]
+        assert _wait_identity(client, mixed_run_id)["state"]["status"] == ("complete")
         mixed_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/"
-            "identity-mixed-card-and-empty/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{mixed_run_id}/result"
         ).json()
         assert {item["card_id"] for item in mixed_result["request"]["crop_input"]["items"]} == {
             candidate.card_id for candidate in visible_revision.content.outcomes[0].candidates
@@ -516,9 +505,10 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             json={"run_id": "identity-empty", "input_revision_ids": ["visible-empty"]},
         )
         assert empty_identity.status_code == 202, empty_identity.text
-        assert _wait_identity(client, "identity-empty")["state"]["status"] == "complete"
+        empty_run_id = empty_identity.json()["run_id"]
+        assert _wait_identity(client, empty_run_id)["state"]["status"] == "complete"
         empty_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-empty/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{empty_run_id}/result"
         ).json()
         assert empty_result["request"]["crop_input"]["items"] == []
         assert empty_result["revisions"][0]["content"]["outcomes"] == []
@@ -544,22 +534,18 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
     )
 
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-generated"},
-        )
-        assert event_response.status_code == 202
-        _wait_event(client, "events-generated")
+        _run_event_job(client, "events-generated")
         client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/events-generated/result")
 
         visible_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={"run_id": "visible-generated"},
+            json={"run_id": "visible-generated", **_selected_node_input(client, "events")},
         )
         assert visible_response.status_code == 202
-        assert _wait(client, "visible-generated")["state"]["status"] == "complete"
+        visible_run_id = visible_response.json()["run_id"]
+        assert _wait(client, visible_run_id)["state"]["status"] == "complete"
         visible_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-generated/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()
         generated_revision_id = visible_result["state"]["output_revision_ids"][0]
         generated_content = visible_result["revisions"][0]["content"]
@@ -572,7 +558,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             app,
             app.state.pipeline_revision_store.require(generated_revision_id).manifest.source,
             generated_content["outcomes"][0]["frame_identity"],
-            "visible-generated",
+            visible_run_id,
         )
 
         generated_identity = client.post(
@@ -583,9 +569,10 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             },
         )
         assert generated_identity.status_code == 202
-        assert _wait_identity(client, "identity-generated")["state"]["status"] == "complete"
+        identity_run_id = generated_identity.json()["run_id"]
+        assert _wait_identity(client, identity_run_id)["state"]["status"] == "complete"
         generated_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-generated/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_run_id}/result"
         ).json()
         generated_outcome = generated_result["revisions"][0]["content"]["outcomes"][0]
         assert generated_result["request"]["input_revision_ids"] == [generated_revision_id]
@@ -611,7 +598,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
         service = app.state.visual_identity_pipeline_service
         generated_revision = app.state.pipeline_revision_store.require(generated_revision_id)
         original_require = service.run_store.require
-        generated_run = original_require("visible-generated")
+        generated_run = original_require(visible_run_id)
         rfdetr_run = SimpleNamespace(
             request=SimpleNamespace(
                 configuration={
@@ -625,9 +612,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
                 service.run_store,
                 "require",
                 lambda run_id, **kwargs: (
-                    rfdetr_run
-                    if run_id == "visible-generated"
-                    else original_require(run_id, **kwargs)
+                    rfdetr_run if run_id == visible_run_id else original_require(run_id, **kwargs)
                 ),
             )
             rfdetr_input = service._freeze_crop_input(
@@ -716,7 +701,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
         dependency_files = [
             service.revision_store.revision_path(identity_revision_id) / "content.json",
             service.revision_store.revision_path(generated_revision_id) / "content.json",
-            service.run_store.run_path("identity-generated") / "request.json",
+            service.run_store.run_path(identity_run_id) / "request.json",
             service._video_path(RECORDING_ID),
         ]
         for dependency in dependency_files:
@@ -753,14 +738,16 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
 
         preview_path.joinpath("content.bin").write_bytes(b"corrupt preview")
         resolve_calls = 0
-        original_resolve_identity_crop = service.resolve_identity_crop
+        original_resolve_identity_crop = service._resolve_identity_crop_from_validated
 
         def count_canonical_resolution(*args: object, **kwargs: object) -> object:
             nonlocal resolve_calls
             resolve_calls += 1
             return original_resolve_identity_crop(*args, **kwargs)
 
-        monkeypatch.setattr(service, "resolve_identity_crop", count_canonical_resolution)
+        monkeypatch.setattr(
+            service, "_resolve_identity_crop_from_validated", count_canonical_resolution
+        )
         regenerated_preview = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/derived-views/identity-crops/"
             f"{identity_revision_id}/{generated_outcome['card_id']}?preview=browser"
@@ -786,7 +773,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
         frozen_provider = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
-                "run_id": "identity-generated",
+                "run_id": "identity-frozen-provider-changed",
                 "configuration": {"provider": "different-provider"},
             },
         )
@@ -828,9 +815,10 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             },
         )
         assert completed_identity.status_code == 202
-        assert _wait_identity(client, "identity-completed")["state"]["status"] == "complete"
+        completed_run_id = completed_identity.json()["run_id"]
+        assert _wait_identity(client, completed_run_id)["state"]["status"] == "complete"
         result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-completed/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{completed_run_id}/result"
         ).json()
         assert result["request"]["input_revision_ids"] == [fixture_revision_id]
         assert result["request"]["crop_policy"] == {
@@ -869,7 +857,7 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
     )
     with TestClient(restarted) as client:
         persisted = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-completed/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{completed_run_id}/result"
         )
         assert persisted.status_code == 200
         persisted_result = persisted.json()
@@ -896,27 +884,20 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
     )
 
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-for-identity-retry"},
-        )
-        assert event_response.status_code == 202
-        _wait_event(client, "events-for-identity-retry")
-        event_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-identity-retry/result"
-        ).json()["state"]["output_revision_ids"][0]
+        event_revision_id = _run_event_job(client, "events-for-identity-retry")
 
         visible_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-for-identity-retry",
-                "event_revision_id": event_revision_id,
+                **_selected_node_input(client, "events", event_revision_id),
             },
         )
         assert visible_response.status_code == 202
-        assert _wait(client, "visible-for-identity-retry")["state"]["status"] == "complete"
+        visible_run_id = visible_response.json()["run_id"]
+        assert _wait(client, visible_run_id)["state"]["status"] == "complete"
         visible_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-for-identity-retry/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()
         visible_revision_id = visible_result["state"]["output_revision_ids"][0]
         visible_revision = app.state.pipeline_revision_store.require(visible_revision_id)
@@ -924,7 +905,7 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
             app,
             visible_revision.manifest.source,
             visible_result["revisions"][0]["content"]["outcomes"][0]["frame_identity"],
-            "visible-for-identity-retry",
+            visible_run_id,
         )
 
         baseline_response = client.post(
@@ -935,29 +916,53 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
             },
         )
         assert baseline_response.status_code == 202
-        assert _wait_identity(client, "identity-retry-baseline")["state"]["status"] == "complete"
-        baseline = app.state.pipeline_run_store.require("identity-retry-baseline")
+        baseline_run_id = baseline_response.json()["run_id"]
+        assert _wait_identity(client, baseline_run_id)["state"]["status"] == "complete"
+        baseline = app.state.pipeline_run_store.require(baseline_run_id)
 
+        job_service = app.state.job_manager_service
+        assert job_service.scheduler is not None
+        job_service.scheduler.__exit__(None, None, None)
+        job_service.scheduler = None
+        manager = job_service.get_manager()
+        retry_source_id = str(uuid4())
         request = app.state.visual_identity_pipeline_service._build_request(
             RECORDING_ID,
-            {"run_id": "identity-retry", "input_revision_ids": [fixture_revision_id]},
+            {"run_id": retry_source_id, "input_revision_ids": [fixture_revision_id]},
         )
-        stored, created = app.state.pipeline_run_store.create(request)
-        assert created
-        app.state.pipeline_run_store.start(stored.run_id)
+        source_job = manager.accept(
+            str(uuid4()),
+            {
+                "type": "visual_identity_classification",
+                "context": {"recording_id": RECORDING_ID},
+                "request": request.to_mapping(),
+            },
+        )
+        manager.transition(source_job.id, "running")
+        app.state.pipeline_run_store.start(source_job.id)
         app.state.pipeline_run_store.partial(
-            stored.run_id,
+            source_job.id,
             progress=RunProgress(completed=2, total=4),
             items=baseline.state.items[:2],
         )
+        manager.transition(source_job.id, "failed")
 
         retry_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-retry/retry"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{source_job.id}/retry"
         )
         assert retry_response.status_code == 202
-        status = _wait_identity(client, "identity-retry")
+        retry_run_id = retry_response.json()["run_id"]
+        retry_job = manager.get(retry_run_id)
+        manager.transition(retry_run_id, "running")
+        app.state.job_type_registry.handle(
+            retry_job,
+            app.state.job_type_registry.claims_for(retry_job),
+            CancellationToken(),
+        )
+        assert manager.get(retry_run_id).state == "succeeded"
+        status = _wait_identity(client, retry_run_id)
         retry_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-retry/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{retry_run_id}/result"
         ).json()
 
     assert status["state"]["status"] == "complete"
@@ -1014,26 +1019,19 @@ def test_visual_identity_candidates_are_bounded_and_ordered(
         visible_card_identity_classifier=BlockingIdentityProvider(),
     )
     with TestClient(app) as client:
-        event_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events",
-            json={"run_id": "events-for-identity-blocking"},
-        )
-        assert event_response.status_code == 202
-        _wait_event(client, "events-for-identity-blocking")
-        event_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/events-for-identity-blocking/result"
-        ).json()["state"]["output_revision_ids"][0]
+        event_revision_id = _run_event_job(client, "events-for-identity-blocking")
         visible_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
                 "run_id": "visible-for-identity-blocking",
-                "event_revision_id": event_revision_id,
+                **_selected_node_input(client, "events", event_revision_id),
             },
         )
         assert visible_response.status_code == 202
-        assert _wait(client, "visible-for-identity-blocking")["state"]["status"] == "complete"
+        visible_run_id = visible_response.json()["run_id"]
+        assert _wait(client, visible_run_id)["state"]["status"] == "complete"
         visible_result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/visible-for-identity-blocking/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()
         visible_revision_id = visible_result["state"]["output_revision_ids"][0]
         source = app.state.pipeline_revision_store.require(visible_revision_id).manifest.source
@@ -1041,7 +1039,7 @@ def test_visual_identity_candidates_are_bounded_and_ordered(
             app,
             source,
             visible_result["revisions"][0]["content"]["outcomes"][0]["frame_identity"],
-            "visible-for-identity-blocking",
+            visible_run_id,
         )
         resolve_calls = []
         original_resolve = visual_identity_pipeline_service_module.resolve_exact_event
@@ -1061,12 +1059,13 @@ def test_visual_identity_candidates_are_bounded_and_ordered(
             },
         )
         assert identity_response.status_code == 202, identity_response.text
+        identity_run_id = identity_response.json()["run_id"]
         assert started_two.wait(2)
         assert maximum == 2
         release.set()
-        assert _wait_identity(client, "identity-blocking")["state"]["status"] == "complete"
+        assert _wait_identity(client, identity_run_id)["state"]["status"] == "complete"
         result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-blocking/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_run_id}/result"
         ).json()
         assert len(resolve_calls) == 1
 
@@ -1083,13 +1082,14 @@ def test_visual_identity_candidates_are_bounded_and_ordered(
         "failed",
         "face_down",
     ]
-    assert [item["item_id"] for item in result["state"]["items"]] == [
+    stored_identity_run = app.state.pipeline_run_store.require(identity_run_id, include_items=True)
+    assert [item.item_id for item in stored_identity_run.state.items] == [
         "card-classified",
         "card-empty",
         "card-failed",
         "card-unusable",
     ]
-    assert result["state"]["progress"] == {"completed": 4, "total": 4}
+    assert stored_identity_run.state.progress.to_mapping() == {"completed": 4, "total": 4}
 
 
 def test_visual_identity_accepts_typed_card_scene_draft_views(tmp_path: Any) -> None:
@@ -1330,10 +1330,30 @@ def _wait_identity(client: TestClient, run_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + 5
     body: dict[str, Any] = {}
     while time.monotonic() < deadline:
-        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{run_id}")
-        body = response.json()
-        if body["state"]["status"] in {"complete", "partial", "failed"}:
-            return body
+        job_response = client.get(f"/api/jobs/{run_id}")
+        if job_response.status_code == 200:
+            job = job_response.json()
+            if job["state"] in {"succeeded", "failed", "cancelled", "interrupted"}:
+                response = client.get(
+                    f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{run_id}"
+                )
+                if response.status_code == 200:
+                    body = response.json()
+                else:
+                    body = {"state": {"progress": {"completed": 0, "total": 0}, "items": []}}
+                status = "complete" if job["state"] == "succeeded" else job["state"]
+                body.setdefault("state", {})["status"] = status
+                body["state"].setdefault("progress", {"completed": 0, "total": 0})
+                body["state"].setdefault("items", [])
+                return body
+        else:
+            response = client.get(
+                f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{run_id}"
+            )
+            if response.status_code == 200:
+                body = response.json()
+                if body["state"]["status"] in {"complete", "partial", "failed"}:
+                    return body
         time.sleep(0.01)
     return body
 
@@ -1356,16 +1376,14 @@ def test_local_pipeline_requests_record_actual_bundle_and_crop(tmp_path: Any) ->
         visible_card_identity_classifier=identity,
     )
     with TestClient(app) as client:
-        assert (
-            client.post(
-                f"/api/recordings/{RECORDING_ID}/pipeline/events", json={"run_id": "events-local"}
-            ).status_code
-            == 202
-        )
-        _wait_event(client, "events-local")
+        assert _run_event_job(client, "events-local")
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-            json={"run_id": "cards-local", "configuration": {"provider": detector.name}},
+            json={
+                "run_id": "cards-local",
+                **_selected_node_input(client, "events"),
+                "configuration": {"provider": detector.name},
+            },
         )
         assert response.status_code == 202, response.text
         assert (
@@ -1373,9 +1391,10 @@ def test_local_pipeline_requests_record_actual_bundle_and_crop(tmp_path: Any) ->
             == detector.bundle_identity
         )
         assert response.json()["request"]["configuration"]["device"] == "cpu"
-        _wait(client, "cards-local")
+        visible_run_id = response.json()["run_id"]
+        _wait(client, visible_run_id)
         revision = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/cards-local/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
@@ -1392,9 +1411,10 @@ def test_local_pipeline_requests_record_actual_bundle_and_crop(tmp_path: Any) ->
         assert saved["configuration"]["bundle_identity"] == identity.bundle_identity
         assert saved["configuration"]["device"] == "cpu"
         assert saved["crop_policy"]["policy_id"] == "predicted_visible_region"
-        assert _wait_identity(client, "identity-local")["state"]["status"] == "complete"
+        identity_run_id = response.json()["run_id"]
+        assert _wait_identity(client, identity_run_id)["state"]["status"] == "complete"
         request = app.state.visual_identity_pipeline_service.run_store.require(
-            "identity-local"
+            identity_run_id
         ).request
         identity.device = "mps"
         with pytest.raises(VisualIdentityPipelineError, match="device changed"):
@@ -1444,25 +1464,19 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
     )
     service = app.state.visual_identity_pipeline_service
     with TestClient(app) as client:
-        assert (
-            client.post(
-                f"/api/recordings/{RECORDING_ID}/pipeline/events",
-                json={"run_id": "events-for-proposed-identity"},
-            ).status_code
-            == 202
+        _run_event_job(client, "events-for-proposed-identity")
+        visible_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "cards-for-proposed-identity",
+                **_selected_node_input(client, "events"),
+            },
         )
-        _wait_event(client, "events-for-proposed-identity")
-        assert (
-            client.post(
-                f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
-                json={"run_id": "cards-for-proposed-identity"},
-            ).status_code
-            == 202
-        )
-        _wait(client, "cards-for-proposed-identity")
+        assert visible_response.status_code == 202, visible_response.text
+        visible_run_id = visible_response.json()["run_id"]
+        _wait(client, visible_run_id)
         detector_revision_id = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/"
-            "cards-for-proposed-identity/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
         detector_revision = app.state.pipeline_revision_store.require(detector_revision_id)
         frame_outcome = detector_revision.content.outcomes[0]
@@ -1627,7 +1641,8 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
             },
         )
         assert started.status_code == 202, started.text
-        assert _wait_identity(client, "identity-from-proposal")["state"]["status"] == "failed"
+        identity_run_id = started.json()["run_id"]
+        assert _wait_identity(client, identity_run_id)["state"]["status"] == "failed"
         crop_input = started.json()["request"]["crop_input"]
         assert started.json()["request"]["input_revision_ids"] == [proposal_revision_id]
         assert crop_input["input_kind"] == "proposed_virtual_cards"
@@ -1645,19 +1660,18 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
     )
     with TestClient(restarted) as client:
         reopened = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/identity-from-proposal"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_run_id}"
         )
         assert reopened.status_code == 200, reopened.text
         assert reopened.json()["request"]["crop_input"] == crop_input
         retried = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/"
-            "identity-from-proposal/retry"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_run_id}/retry"
         )
         assert retried.status_code == 202, retried.text
-        assert _wait_identity(client, "identity-from-proposal")["state"]["status"] == "complete"
+        retry_run_id = retried.json()["run_id"]
+        assert _wait_identity(client, retry_run_id)["state"]["status"] == "complete"
         reopened = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/"
-            "identity-from-proposal/result"
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{retry_run_id}/result"
         )
         assert reopened.status_code == 200, reopened.text
         outcomes = reopened.json()["revisions"][0]["content"]["outcomes"]

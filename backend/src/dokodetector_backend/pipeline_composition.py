@@ -141,19 +141,20 @@ def build_pipeline_composition(
         revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
+        node_store=node_store,
     )
     proposed_card_scene_service = ProposedCardScenePipelineService(
         settings,
         revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
+        node_store=node_store,
     )
     calibration_refinement_service = CalibrationRefinementService(
         settings,
-        revision_store=revision_store,
-        proposal_service=proposed_card_scene_service,
         reference_service=reference_service,
         draft_store=CalibrationDraftStore(migrated_reader_root / "calibration-drafts"),
+        node_store=node_store,
     )
     visual_identity_service = VisualIdentityPipelineService(
         settings,
@@ -183,7 +184,6 @@ def build_pipeline_composition(
         revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
-        reference_store=reference_store,
         round_analysis_store=round_analysis_store,
         node_store=node_store,
         lineage_service=lineage_service,

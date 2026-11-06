@@ -50,6 +50,11 @@ export type PipelineRunStartRequest = {
     run_id: string;
     input_revision_ids?: string[];
     event_revision_id?: string;
+    input_node_ref?: {
+      node_id: string;
+      revision_id: string;
+      revision_policy: "current_head" | "historical";
+    };
     visible_card_revision_id?: string;
     card_scene_proposal_revision_id?: string;
     crop_input_kind?:
@@ -1143,14 +1148,6 @@ export function pipelineIdentityCropPath(
   itemId: string,
 ): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/identity-crops/${encodeURIComponent(revisionId)}/${encodeURIComponent(itemId)}?preview=browser`;
-}
-
-export function pipelineReviewedIdentityCropPath(
-  recordingId: string,
-  itemId: string,
-  cropSha256: string,
-): string {
-  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/reviewed-identity-crops/${encodeURIComponent(itemId)}?preview=browser&crop_sha256=${encodeURIComponent(cropSha256)}`;
 }
 
 export const SAMPLED_FRAME_INTERVAL_US = 250_000;

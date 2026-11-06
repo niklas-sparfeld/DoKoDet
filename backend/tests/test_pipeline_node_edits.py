@@ -69,6 +69,22 @@ def test_used_edit_copy_retry_and_subsequent_edits(tmp_path: Path) -> None:
     assert not following["copied"] and following["node_id"] == result["node_id"]
 
 
+def test_historical_use_keeps_existing_node_edit_protection(tmp_path: Path) -> None:
+    store = PipelineNodeStore(tmp_path)
+    first = store.create("n", "Events", "events", SOURCE, content(200), {})
+    current = store.save("n", first.revision_id, content(300), {})
+    PipelineNodeUses(store).accept(
+        "historical-run", [("n", first.revision_id)], revision_policy="historical"
+    )
+
+    result = PipelineNodeEdits(store).edit("n", current.revision_id, content(400), "edit", ACTOR)
+
+    assert result["copied"] and result["reason"] == "downstream_use"
+    assert result["node_id"] != "n"
+    assert store.get("n").head_revision_id == current.revision_id
+    assert store.read_revision("n", first.revision_id).content == content(200)
+
+
 def test_concurrent_retry_and_invalid_edit_leaves_no_copy(tmp_path: Path) -> None:
     store = PipelineNodeStore(tmp_path)
     initial = store.create("n", "Events", "events", SOURCE, content(200), {})

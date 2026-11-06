@@ -190,6 +190,12 @@ export function RunControls({
       ? (selectedCropInput?.revisionId ?? null)
       : historicalRevisionId ||
         (inputOrigin === "reviewed" ? reviewedRevisionId : generatedRevisionId);
+  const selectedEventOption =
+    runStage === "visible_cards"
+      ? (upstreamStage?.input_options.find(
+          (option) => option.revision_id === selectedRevisionId,
+        ) ?? null)
+      : null;
   const reviewedInputListed =
     reviewedRevisionId !== null &&
     (upstreamStage?.input_options.some(
@@ -279,7 +285,8 @@ export function RunControls({
   const startRun = async () => {
     if (
       runStage === null ||
-      (runStage !== "events" && selectedRevisionId === null)
+      (runStage !== "events" && selectedRevisionId === null) ||
+      (runStage === "visible_cards" && selectedEventOption === null)
     ) {
       setMessage(
         "Select a complete compatible input before starting the processor.",
@@ -303,6 +310,10 @@ export function RunControls({
           selectedProcessorOrigin,
           visibleCardModelVariant,
           selectedCropInput?.kind ?? null,
+          selectedEventOption,
+          historicalRevisionId !== "" || inputOrigin === "reviewed"
+            ? "historical"
+            : "current_head",
         ),
       );
       setLiveRun(response);
@@ -350,6 +361,7 @@ export function RunControls({
   const canStart =
     stage.can_run &&
     (runStage === "events" || selectedRevisionId !== null) &&
+    (runStage !== "visible_cards" || selectedEventOption !== null) &&
     (runStage !== "visual_identities" ||
       proposedCropInputsLoadedFor === recordingId);
 
@@ -841,6 +853,8 @@ function buildRunRequest(
   processorOrigin: ProcessorOrigin = "cloud",
   visibleCardModelVariant: VisibleCardModelVariant = "gemini",
   cropInputKind: CropInputKind | null = null,
+  eventOption: PipelineWorkspaceStage["input_options"][number] | null = null,
+  eventRevisionPolicy: "current_head" | "historical" = "current_head",
 ): PipelineRunStartRequest {
   const request = latestRun?.request ?? {};
   const implementation =
@@ -887,7 +901,14 @@ function buildRunRequest(
             cropInputKind === "proposed_virtual_cards"
               ? { card_scene_proposal_revision_id: inputRevisionId }
               : stage === "visible_cards"
-                ? { event_revision_id: inputRevisionId }
+                ? {
+                    input_revision_ids: [eventOption!.node_revision_id],
+                    input_node_ref: {
+                      node_id: eventOption!.node_id,
+                      revision_id: eventOption!.node_revision_id,
+                      revision_policy: eventRevisionPolicy,
+                    },
+                  }
                 : { visible_card_revision_id: inputRevisionId }),
           }),
       ...(stage === "visual_identities" && cropInputKind !== null
