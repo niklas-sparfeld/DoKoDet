@@ -141,7 +141,7 @@ def _wait_for(predicate, timeout: float = 5) -> None:
     raise AssertionError("condition was not reached")
 
 
-def test_fake_pipeline_uses_one_slot_and_yields_to_independent_work(tmp_path: Path) -> None:
+def test_mixed_recording_pipeline_yields_to_an_independent_leaf_job(tmp_path: Path) -> None:
     run_id = str(uuid4())
     document, _service, participant = _participant(run_id)
     started: list[str] = []
@@ -162,7 +162,7 @@ def test_fake_pipeline_uses_one_slot_and_yields_to_independent_work(tmp_path: Pa
             str(uuid4()),
             {
                 "type": "fake",
-                "context": {"recording_id": "recording-1"},
+                "context": {"recording_id": "recording-2"},
                 "request": {"input": "independent"},
             },
         )
@@ -204,6 +204,8 @@ def test_fake_pipeline_uses_one_slot_and_yields_to_independent_work(tmp_path: Pa
         assert maximum_active == 1
         assert started.index("independent") < started.index("stage:visible_card_and_pile_proposals")
         assert manager.get(independent.id).state == "succeeded"
+        assert manager.get(parent.id).context["recording_id"] == "recording-1"
+        assert manager.get(independent.id).context["recording_id"] == "recording-2"
         assert document["status"] == "complete"
 
 

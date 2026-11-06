@@ -37,9 +37,7 @@ class PipelineStageRequestBuilder:
             return {"request": values}
         if stage == "card_scene_and_calibration":
             if len(input_revision_ids) != 1:
-                raise ValueError(
-                    "Card-scene proposals need one visible-card revision."
-                )
+                raise ValueError("Card-scene proposals need one visible-card revision.")
             return {
                 "run_id": run_id,
                 "visible_card_revision_id": input_revision_ids[0],
@@ -47,9 +45,7 @@ class PipelineStageRequestBuilder:
             }
         if stage == "visual_identity_proposals":
             if len(input_revision_ids) != 1:
-                raise ValueError(
-                    "Identity classification needs one proposed card-scene revision."
-                )
+                raise ValueError("Identity classification needs one proposed card-scene revision.")
             values["card_scene_proposal_revision_id"] = input_revision_ids[0]
             values["crop_input_kind"] = "proposed_virtual_cards"
             return {"request": values}
@@ -102,7 +98,6 @@ def frozen_pilot_stage_plan(
         ),
     )
     return plan
-
 
 
 __all__ = [

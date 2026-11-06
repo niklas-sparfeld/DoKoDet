@@ -374,12 +374,14 @@ def _run_pipeline(
     managed_run_id = response.json()["run_id"]
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        body = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/{stage}/{managed_run_id}"
-        ).json()
-        if body["state"]["status"] == "complete":
+        job = client.get(f"/api/jobs/{managed_run_id}").json()
+        if job["state"] in {"failed", "cancelled", "interrupted"}:
+            raise AssertionError(f"{stage} job failed: {job}")
+        if job["state"] == "succeeded":
+            body = client.get(
+                f"/api/recordings/{RECORDING_ID}/pipeline/{stage}/{managed_run_id}/result"
+            ).json()
             return body["state"]["output_revision_ids"][0]
-        assert body["state"]["status"] != "failed", body
         time.sleep(0.01)
     raise AssertionError(f"{stage} run did not complete")
 
@@ -400,9 +402,13 @@ def _wait_observation(client: TestClient, run_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + 5
     body: dict[str, Any] = {}
     while time.monotonic() < deadline:
-        body = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/observations/{run_id}").json()
-        if body["state"]["status"] in {"complete", "failed"}:
-            return body
+        job = client.get(f"/api/jobs/{run_id}").json()
+        if job["state"] in {"failed", "cancelled", "interrupted"}:
+            return {"state": {"status": job["state"]}, "failure": job.get("failure")}
+        if job["state"] == "succeeded":
+            return client.get(
+                f"/api/recordings/{RECORDING_ID}/pipeline/observations/{run_id}/result"
+            ).json()
         time.sleep(0.01)
     return body
 

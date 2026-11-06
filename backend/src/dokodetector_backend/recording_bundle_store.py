@@ -164,9 +164,7 @@ class RecordingBundleStore:
 
         stored = self.get(staged.recording_id)
         if stored is None or stored.bundle_fingerprint != incoming_fingerprint:
-            raise RecordingBundleStoreError(
-                "The published recording bundle failed validation."
-            )
+            raise RecordingBundleStoreError("The published recording bundle failed validation.")
         return stored, True
 
     def _read_path(

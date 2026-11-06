@@ -109,9 +109,7 @@ class RoundAnalysisStore:
     def list_by_recording(self, recording_id: str) -> tuple[StoredRoundAnalysis, ...]:
         """Return valid analyses for one recording, newest first."""
 
-        return tuple(
-            analysis for analysis in self.list() if analysis.recording_id == recording_id
-        )
+        return tuple(analysis for analysis in self.list() if analysis.recording_id == recording_id)
 
     def create(
         self,
@@ -532,10 +530,7 @@ def _state_payload(analysis: StoredRoundAnalysis) -> dict[str, Any]:
 
 
 def _same_request(left: StoredRoundAnalysis, right: StoredRoundAnalysis) -> bool:
-    return (
-        left.request_sha256 == right.request_sha256
-        and left.request_json == right.request_json
-    )
+    return left.request_sha256 == right.request_sha256 and left.request_json == right.request_json
 
 
 def _string(payload: dict[str, Any], name: str) -> str:

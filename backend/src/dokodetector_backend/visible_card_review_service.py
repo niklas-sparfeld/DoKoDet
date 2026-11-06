@@ -159,9 +159,11 @@ class VisibleCardReviewService:
     def select_completed(
         self, recording_id: str, review_id: str, expected_selection_revision: Any
     ) -> dict[str, Any]:
-        if isinstance(expected_selection_revision, bool) or not isinstance(
-            expected_selection_revision, int
-        ) or expected_selection_revision < 0:
+        if (
+            isinstance(expected_selection_revision, bool)
+            or not isinstance(expected_selection_revision, int)
+            or expected_selection_revision < 0
+        ):
             raise PipelineReferenceInputError(
                 "expected_selection_revision must be a non-negative integer"
             )

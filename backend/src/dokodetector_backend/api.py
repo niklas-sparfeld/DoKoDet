@@ -445,8 +445,7 @@ def get_evidence_video_snippet(package_id: str, request: Request) -> FileRespons
         )
 
     video_path = (
-        package_store.storage.package_path(package.package_id)
-        / f"video/{snippet.part_name}.mp4"
+        package_store.storage.package_path(package.package_id) / f"video/{snippet.part_name}.mp4"
     )
     if not video_path.is_file():
         raise ContractError(
@@ -478,9 +477,7 @@ def get_package_table_observations(package_id: str, request: Request) -> list[Ta
         )
     return [
         _parse_stored_observation(row.observation_json)
-        for row in request.app.state.table_observation_store.list_for_package(
-            requested_package_id
-        )
+        for row in request.app.state.table_observation_store.list_for_package(requested_package_id)
     ]
 
 

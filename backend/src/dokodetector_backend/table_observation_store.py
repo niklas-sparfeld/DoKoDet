@@ -106,9 +106,7 @@ class TableObservationStore:
             observation
             for observation in self.list_for_recording(recording_id)
             if (assembly_run_id is None or observation.assembly_run_id == assembly_run_id)
-            and (
-                expected_inputs is None or observation.input_revision_ids == expected_inputs
-            )
+            and (expected_inputs is None or observation.input_revision_ids == expected_inputs)
         )
 
     def get_for_analyzer(

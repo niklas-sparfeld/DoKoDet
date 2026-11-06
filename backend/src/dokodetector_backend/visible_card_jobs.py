@@ -83,6 +83,6 @@ class VisibleCardJobParticipant:
 
     def claims_for(self, job: Job) -> Claims:
         return Claims(
-            cpu=self.service.max_concurrent_requests,
+            cpu=1,
             locks=(f"recording:{job.context['recording_id']}:visible_cards",),
         )

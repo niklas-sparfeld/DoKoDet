@@ -113,9 +113,7 @@ def test_analysis_session_id_accepts_canonical_identifiers(session_id: str) -> N
 @pytest.mark.parametrize("session_id", ["", "has whitespace", "/invalid"])
 def test_analysis_session_id_rejects_invalid_identifiers(session_id: str) -> None:
     with pytest.raises(ValidationError):
-        RoundAnalysisCreateRequest.model_validate(
-            {**create_payload(), "session_id": session_id}
-        )
+        RoundAnalysisCreateRequest.model_validate({**create_payload(), "session_id": session_id})
 
 
 @pytest.mark.parametrize(

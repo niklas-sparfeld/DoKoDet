@@ -100,7 +100,10 @@ async function fetchRecordingVideoObjectUrl(
   return objectUrl;
 }
 
-function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+function raceWithAbort<T>(
+  promise: Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     if (signal.aborted) {
       reject(new DOMException("Aborted", "AbortError"));

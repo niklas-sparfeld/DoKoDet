@@ -272,9 +272,8 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("serializes catalog refreshes while a pipeline is active", async () => {
+  it("does not poll the recording catalog for lifecycle while a job is active", async () => {
     vi.useFakeTimers();
-    let resolveRefresh: ((value: Response) => void) | null = null;
     const activeRecording = {
       recording_id: recordingId,
       source_asset_id: "source-fixture",
@@ -303,12 +302,7 @@ describe("App", () => {
         );
       expect(String(input)).toBe("/v1/recordings");
       recordingReads += 1;
-      if (recordingReads === 1) {
-        return Promise.resolve(response({ recordings: [activeRecording] }));
-      }
-      return new Promise<Response>((resolve) => {
-        resolveRefresh = resolve;
-      });
+      return Promise.resolve(response({ recordings: [activeRecording] }));
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -322,16 +316,13 @@ describe("App", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(2000);
       });
-      expect(recordingReads).toBe(2);
+      expect(recordingReads).toBe(1);
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10_000);
       });
-      expect(recordingReads).toBe(2);
+      expect(recordingReads).toBe(1);
     } finally {
-      const finishRefresh = resolveRefresh as
-        ((value: Response) => void) | null;
-      finishRefresh?.(response({ recordings: [] }));
       vi.useRealTimers();
     }
   });

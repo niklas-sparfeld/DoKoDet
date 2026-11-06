@@ -2586,6 +2586,8 @@ export interface components {
         PipelineVisibleCardResultResponse: {
             /** Attempt */
             attempt: number;
+            /** Job Id */
+            job_id?: string | null;
             /** Processor Type */
             processor_type: string;
             /** Recording Id */
@@ -2684,6 +2686,8 @@ export interface components {
         PipelineVisualIdentityResultResponse: {
             /** Attempt */
             attempt: number;
+            /** Job Id */
+            job_id?: string | null;
             /** Processor Type */
             processor_type: string;
             /** Recording Id */

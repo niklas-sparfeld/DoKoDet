@@ -28,12 +28,7 @@ REPOSITORY_FIXTURE = (
     / "evidence-package-complete"
 )
 OBSERVATION_FIXTURE = (
-    Path(__file__).parents[2]
-    / "fixtures"
-    / "game-engine"
-    / "v1"
-    / "observations"
-    / "minimal.json"
+    Path(__file__).parents[2] / "fixtures" / "game-engine" / "v1" / "observations" / "minimal.json"
 )
 
 
@@ -163,9 +158,7 @@ def test_api_and_analyzer_use_only_filesystem_metadata(tmp_path: Path) -> None:
     )
     app = create_test_app(settings)
 
-    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture(
-        "example-complete"
-    )
+    manifest_bytes, frame_sources, payload, video_source = load_upload_fixture("example-complete")
     with TestClient(app) as client:
         uploaded = client.put(
             f"/v1/evidence-packages/{payload['package_id']}",

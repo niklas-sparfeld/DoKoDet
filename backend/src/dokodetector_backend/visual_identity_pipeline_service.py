@@ -1826,7 +1826,11 @@ class VisualIdentityPipelineService:
                 return item
         return None
 
-    def execute_job(self, job: Job, token: Any, manager: JobManager) -> None:
+    def execute_job(
+        self, job: Job, token: Any, manager: JobManager, *, cpu_budget: int = 1
+    ) -> None:
+        if cpu_budget < 1:
+            raise ValueError("The visual identity CPU budget must be positive.")
         run = self.run_store.start(job.id)
         try:
             token.check()
@@ -1943,7 +1947,11 @@ class VisualIdentityPipelineService:
             )
             frame_cache: OrderedDict[tuple[int, str], Any] = OrderedDict()
             with ThreadPoolExecutor(
-                max_workers=self._max_concurrent_requests(run.request),
+                max_workers=min(
+                    cpu_budget,
+                    self._max_concurrent_requests(run.request),
+                    max(1, len(pending_candidates)),
+                ),
                 thread_name_prefix="visual-identity-card",
             ) as executor:
                 futures: dict[Future[VisualIdentityOutcome], int] = {

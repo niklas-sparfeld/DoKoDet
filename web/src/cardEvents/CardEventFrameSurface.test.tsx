@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   pipelineDerivedFramePath,
@@ -45,13 +45,20 @@ function stubReviewFetch(
   return fetchMock;
 }
 
-function derivedFetchCount(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>): number {
+function derivedFetchCount(
+  fetchMock: ReturnType<typeof vi.fn<typeof fetch>>,
+): number {
   return fetchMock.mock.calls.filter(([input]) =>
     String(input).includes("/derived-views/exact-event/"),
   ).length;
 }
 
 describe("CardEventFrameSurface", () => {
+  beforeEach(() => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:fixture");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -84,7 +91,9 @@ describe("CardEventFrameSurface", () => {
       ).toHaveAttribute("data-frame-settled", "true"),
     );
     expect(
-      screen.getByLabelText("CardEvent review source frame").querySelector("video"),
+      screen
+        .getByLabelText("CardEvent review source frame")
+        .querySelector("video"),
     ).not.toBeNull();
   });
 
@@ -177,7 +186,9 @@ describe("CardEventFrameSurface", () => {
     );
 
     expect(
-      screen.getByLabelText("CardEvent review source frame").querySelector("video"),
+      screen
+        .getByLabelText("CardEvent review source frame")
+        .querySelector("video"),
     ).toBe(video);
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });

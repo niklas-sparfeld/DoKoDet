@@ -37,11 +37,7 @@ class EvidencePackageStorage:
     def file_digests(self, package_id: UUID | str | Path) -> dict[str, StoredRepositoryFile]:
         """Hash every regular file in one canonical package."""
 
-        package_path = (
-            package_id
-            if isinstance(package_id, Path)
-            else self.package_path(package_id)
-        )
+        package_path = package_id if isinstance(package_id, Path) else self.package_path(package_id)
         root = self.root.expanduser().resolve()
         try:
             package_path = package_path.expanduser().resolve()
@@ -63,11 +59,7 @@ class EvidencePackageStorage:
     def file_metadata(self, package_id: UUID | str | Path) -> dict[str, StoredRepositoryFile]:
         """Read regular-file metadata without opening file contents."""
 
-        package_path = (
-            package_id
-            if isinstance(package_id, Path)
-            else self.package_path(package_id)
-        )
+        package_path = package_id if isinstance(package_id, Path) else self.package_path(package_id)
         root = self.root.expanduser().resolve()
         try:
             package_path = package_path.expanduser().resolve()

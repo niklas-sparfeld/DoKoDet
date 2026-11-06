@@ -169,14 +169,13 @@ class VisualIdentityJobParticipant:
             self.service.run_store.fail(job.id, failure)
 
     def execute(self, job: Job, claims: Claims, token: Any, manager: JobManager) -> None:
-        del claims
-        self.service.execute_job(job, token, manager)
+        self.service.execute_job(job, token, manager, cpu_budget=claims.cpu)
 
     def claims_for(self, job: Job) -> Claims:
         request = ProcessorRunRequest.from_mapping(job.request["processor_request"])
         device = request.configuration.get("device")
         return Claims(
-            cpu=self.service._max_concurrent_requests(request),
+            cpu=1,
             accelerator=1 if device == "mps" else 0,
             locks=(f"recording:{job.context['recording_id']}:visual_identities",),
         )

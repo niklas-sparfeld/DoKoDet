@@ -116,6 +116,7 @@ class PipelineVisualIdentityResultResponse(ContractModel):
     """The completed visual identity result with typed persisted outcomes."""
 
     run_id: str
+    job_id: str | None = None
     recording_id: str
     processor_type: str
     status: Literal["queued", "running", "complete", "partial", "failed"]
@@ -220,6 +221,7 @@ class PipelineVisibleCardResultResponse(ContractModel):
     """The completed visible-card result with typed persisted outcomes."""
 
     run_id: str
+    job_id: str | None = None
     recording_id: str
     processor_type: str
     status: Literal["queued", "running", "complete", "partial", "failed"]
@@ -379,10 +381,6 @@ def update_visible_card_selection(
     return {"recording_id": recording_id, "selection": selection.to_mapping()}
 
 
-
-
-
-
 @router.get(
     VISIBLE_CARD_BASE + "/{run_id}/result",
     response_model=PipelineVisibleCardResultResponse,
@@ -445,10 +443,6 @@ def list_proposed_card_scene_runs(recording_id: str, request: Request) -> dict[s
     except ProposedCardScenePipelineError as error:
         raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
     return {"recording_id": recording_id, "runs": [run_response(run) for run in runs]}
-
-
-
-
 
 
 @router.get(PROPOSED_CARD_SCENE_BASE + "/{run_id}/result")
@@ -655,10 +649,6 @@ def update_visual_identity_selection(
     return {"recording_id": recording_id, "selection": selection.to_mapping()}
 
 
-
-
-
-
 @router.get(
     VISUAL_IDENTITY_BASE + "/{run_id}/result",
     response_model=PipelineVisualIdentityResultResponse,
@@ -740,10 +730,6 @@ def update_observation_selection(
     except (ObservationPipelineInputError, PipelineConflict) as error:
         raise ContractError("invalid_selection", str(error), status_code=422) from error
     return {"recording_id": recording_id, "selection": selection.to_mapping()}
-
-
-
-
 
 
 @router.get(OBSERVATION_BASE + "/{run_id}/result")

@@ -123,7 +123,6 @@ def create_app(
     app.state.job_manager_service = JobManagerService(
         app_settings.operations_root,
         app.state.job_type_registry,
-        cpu_budget=app_settings.gemini_max_concurrent_requests,
     )
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
     app.state.operations_storage = EvidenceStorage(app_settings.operations_root)

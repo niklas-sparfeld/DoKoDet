@@ -4,13 +4,16 @@
 
 - **Summary:** Unify backend work under one durable job contract, HTTP API, scheduler, and global
   Jobs drawer. Keep processor results and data lineage in their owning stores.
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Existing backend execution and filesystem storage. No completion gate from
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M15 complete; M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M16 complete. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
+- **Closure reason:** All in-scope producers and UI paths use the shared Job Manager. Mixed-recording
+  fixtures and focused browser checks cover queue management, recovery, retry, cancellation,
+  failures, and exact result navigation. See the [M16 closeout](../../reports/0110-M16_Local_Workflow_Closeout.md).
 
 ## Problem and inspected scope
 
@@ -454,7 +457,7 @@ routes, hidden lifecycle aliases, and the standalone automated worker/coordinato
 links and the round-analysis manager job ID connect launch and management. Domain run lists and
 result routes remain available.
 
-### M16 — Verify the complete local workflow and close — Not started
+### M16 — Verify the complete local workflow and close — Complete
 
 Run a mixed-recording fixture workflow covering leaf and parent jobs, reorder conflicts, cancel,
 restart, retry, failures, and exact result navigation. Publish the ownership and operator handoff.
@@ -464,7 +467,27 @@ and focused browser checks pass. Demonstrate bounded MacBook resource use withou
 phones, full training, or sealed evaluation. Record any baseline failures separately. Close only
 when every in-scope producer and UI path uses the shared manager.
 
+Result: [M16 local workflow and operator handoff](../../reports/0110-M16_Local_Workflow_Closeout.md)
+records ownership, local resource limits, workflow evidence, and operator steps.
+
 ## Execution handoff
+
+### Epic 0110 M16 — run count 4 of 4
+
+- Completed M16; 4 of 4 requested milestones are complete and 0 remain.
+- Verified a mixed-recording fixture with a six-stage parent on `recording-1` and an independent
+  leaf on `recording-2`. Verified one processing slot and one CPU permit, group reorder conflict,
+  cancellation, restart, parent/child recovery, failed-stage history, explicit retry, and exact
+  result navigation.
+- Fixed strict result response schemas to include nullable manager job IDs. Migrated producer tests
+  to the shared job routes. Bound visible-card and visual-identity frame workers to scheduler CPU
+  claims. Updated the session-context fixture to match the current generated context contract.
+- Verification passed: 135 focused backend Job Manager and producer tests; full backend Ruff check and
+  format check; web `npm run check` including 179 Vitest tests; production build; and four focused
+  Jobs Playwright checks. Details: [M16 closeout](../../reports/0110-M16_Local_Workflow_Closeout.md).
+- No external services, phones, training, or sealed evaluation were used. Live model performance
+  and memory were not measured.
+- Next: none. Requested/completed/remaining: 4/4/0.
 
 ### Epic 0110 M15 — run count 3 of 4
 

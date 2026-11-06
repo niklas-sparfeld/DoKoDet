@@ -335,9 +335,7 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
             CARD_STATE_CHANGED_EVENT_TYPE
         )
         assert body["revisions"][0]["manifest"]["producer"]["kind"] == "processor"
-        selection = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/selection"
-        )
+        selection = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/selection")
         assert (
             selection.json()["selection"]["selected_generated_revision_id"]
             == (body["state"]["output_revision_ids"][0])

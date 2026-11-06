@@ -73,9 +73,10 @@ def test_failed_staged_rename_leaves_no_visible_resource(
         raise OSError("simulated directory publication failure")
 
     monkeypatch.setattr("dokodetector_backend.filesystem.os.rename", fail_rename)
-    with pytest.raises(OSError, match="simulated directory publication failure"), staging_directory(
-        root
-    ) as staged:
+    with (
+        pytest.raises(OSError, match="simulated directory publication failure"),
+        staging_directory(root) as staged,
+    ):
         (staged / "manifest.json").write_text('{"id":"resource-001"}', encoding="utf-8")
         commit_staged_directory(staged, destination)
 

@@ -63,9 +63,7 @@ def test_round_analysis_state_supports_lifecycle_and_restart_conversion(tmp_path
     inserted, created = store.insert(analysis)
     replayed, replay_created = store.insert(analysis)
     store.update_progress(ANALYSIS_ID, state="analyzing_evidence", completed=1)
-    converted = store.fail_non_terminal(
-        now=datetime(2026, 8, 30, 1, 2, 3, tzinfo=timezone.utc)
-    )
+    converted = store.fail_non_terminal(now=datetime(2026, 8, 30, 1, 2, 3, tzinfo=timezone.utc))
 
     assert created is True
     assert replay_created is False

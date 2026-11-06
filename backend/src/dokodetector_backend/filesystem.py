@@ -47,13 +47,7 @@ def contained_path(root: Path, relative_path: str | Path) -> Path:
 
     raw = str(relative_path)
     path = PurePath(relative_path)
-    if (
-        not raw
-        or path.is_absolute()
-        or raw in {".", ".."}
-        or "\\" in raw
-        or ".." in path.parts
-    ):
+    if not raw or path.is_absolute() or raw in {".", ".."} or "\\" in raw or ".." in path.parts:
         raise FilesystemPathError("path must be a non-empty safe relative path")
 
     resolved_root = Path(root).expanduser().resolve()

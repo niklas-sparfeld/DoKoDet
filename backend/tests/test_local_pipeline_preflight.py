@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import pytest
 
 from dokodetector_backend import local_pipeline_preflight as preflight
-from dokodetector_backend.config import Settings
 from dokodetector_backend.automated_pipeline_contracts import frozen_pilot_stage_plan
+from dokodetector_backend.config import Settings
 
 
 @pytest.fixture

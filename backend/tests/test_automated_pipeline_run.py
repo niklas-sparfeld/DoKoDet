@@ -94,11 +94,12 @@ def test_start_freezes_inputs_persists_status_and_handles_idempotent_retry(
     assert [stage["status"] for stage in created["stages"]] == ["pending"] * 6
 
 
-def test_start_rejects_invalid_preflight_without_persisting_a_run(tmp_path: Path) -> None:
+def test_start_uses_recording_session_for_generated_round_context(tmp_path: Path) -> None:
     service = _service(tmp_path, session_id="different-session")
-    with pytest.raises(AutomatedPipelinePreflightError, match="session"):
-        service.start("recording-1", _request())
-    assert list((tmp_path / "runs").glob("*.json")) == []
+    created, idempotent = service.start("recording-1", _request())
+    assert not idempotent
+    assert created["request"]["session_id"] == "different-session"
+    assert len(list((tmp_path / "runs").glob("*.json"))) == 1
 
 
 def test_start_rejects_missing_stage_settings_without_provider_work(tmp_path: Path) -> None:

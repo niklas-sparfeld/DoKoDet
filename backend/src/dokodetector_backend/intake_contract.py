@@ -579,9 +579,7 @@ def validate_evidence_package_bundle(
             bundle.files.evidence_manifest, evidence_manifest, "evidence manifest"
         )
         _verify_evidence_member(bundle.files.package_record, package_record, "package record")
-        _verify_evidence_member(
-            bundle.files.task_enrollment, task_enrollment, "task enrollment"
-        )
+        _verify_evidence_member(bundle.files.task_enrollment, task_enrollment, "task enrollment")
         _verify_evidence_member(bundle.files.lineage, lineage, "lineage")
 
     expected_frame_paths = {f"frames/{frame.part_name}.jpg" for frame in original.frames}

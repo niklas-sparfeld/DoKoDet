@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from types import SimpleNamespace
@@ -205,9 +206,7 @@ def test_visual_identity_classification_runs_as_a_managed_job(
         identity_job_id = identity_response.json()["run_id"]
         identity_job = _wait_event(client, identity_job_id)
         identity_job_record = client.get(f"/api/jobs/{identity_job_id}").json()
-        identity_run = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_job_id}"
-        ).json()
+        identity_run = identity_job_record
         service = app.state.visual_identity_pipeline_service
 
         def fail_legacy_manifest_read(*args: Any, **kwargs: Any) -> object:
@@ -215,16 +214,18 @@ def test_visual_identity_classification_runs_as_a_managed_job(
 
         monkeypatch.setattr(service.revision_store, "require", fail_legacy_manifest_read)
         canonical_input = service.canonical_input_revision(
-            ProcessorRunRequest.from_mapping(identity_run["request"])
+            ProcessorRunRequest.from_mapping(identity_run["request"]["processor_request"])
         )
 
     assert identity_job["state"]["status"] == "complete"
     assert identity_job_record["state"] == "succeeded"
     assert identity_job_record["inputs"][0]["id"] == visible_revision_id
-    assert identity_run["state"]["status"] == "complete"
-    assert identity_run["request"]["input_revision_ids"] == [visible_revision_id]
-    assert len(identity_run["request"]["input_node_refs"]) == 1
-    assert identity_run["request"]["input_node_refs"][0]["revision_id"]
+    assert identity_run["state"] == "succeeded"
+    assert identity_run["request"]["processor_request"]["input_revision_ids"] == [
+        visible_revision_id
+    ]
+    assert len(identity_run["request"]["processor_request"]["input_node_refs"]) == 1
+    assert identity_run["request"]["processor_request"]["input_node_refs"][0]["revision_id"]
     assert canonical_input.manifest.revision_id == visible_revision_id
 
 
@@ -979,10 +980,12 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
         manager.transition(source_job.id, "failed")
 
         retry_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{source_job.id}/retry"
+            f"/api/jobs/{source_job.id}/retry",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={},
         )
         assert retry_response.status_code == 202
-        retry_run_id = retry_response.json()["run_id"]
+        retry_run_id = retry_response.json()["id"]
         retry_job = manager.get(retry_run_id)
         manager.transition(retry_run_id, "running")
         app.state.job_type_registry.handle(
@@ -998,7 +1001,7 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
 
     assert status["state"]["status"] == "complete"
     assert status["state"]["progress"] == {"completed": 4, "total": 4}
-    assert len(status["state"]["items"]) == 4
+    assert len(status["revisions"][0]["content"]["outcomes"]) == 4
     assert status["request"]["crop_input"] == request.crop_input
     assert all(
         outcome["crop_input_provenance"]["manifest_digest"] == request.crop_input["manifest_digest"]
@@ -1013,7 +1016,7 @@ def test_visual_identity_candidates_are_bounded_and_ordered(
     active = 0
     maximum = 0
     lock = threading.Lock()
-    started_two = threading.Event()
+    started_one = threading.Event()
     release = threading.Event()
 
     class BlockingIdentityProvider:
@@ -1026,8 +1029,7 @@ def test_visual_identity_candidates_are_bounded_and_ordered(
             with lock:
                 active += 1
                 maximum = max(maximum, active)
-                if active == 2:
-                    started_two.set()
+                started_one.set()
             try:
                 assert release.wait(2)
                 if request.card_id.endswith("failed"):
@@ -1091,8 +1093,9 @@ def test_visual_identity_candidates_are_bounded_and_ordered(
         )
         assert identity_response.status_code == 202, identity_response.text
         identity_run_id = identity_response.json()["run_id"]
-        assert started_two.wait(2)
-        assert maximum == 2
+        assert started_one.wait(2)
+        time.sleep(0.05)
+        assert maximum == 1
         release.set()
         assert _wait_identity(client, identity_run_id)["state"]["status"] == "complete"
         result = client.get(
@@ -1366,7 +1369,7 @@ def _wait_identity(client: TestClient, run_id: str) -> dict[str, Any]:
             job = job_response.json()
             if job["state"] in {"succeeded", "failed", "cancelled", "interrupted"}:
                 response = client.get(
-                    f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{run_id}"
+                    f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{run_id}/result"
                 )
                 if response.status_code == 200:
                     body = response.json()
@@ -1377,14 +1380,6 @@ def _wait_identity(client: TestClient, run_id: str) -> dict[str, Any]:
                 body["state"].setdefault("progress", {"completed": 0, "total": 0})
                 body["state"].setdefault("items", [])
                 return body
-        else:
-            response = client.get(
-                f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{run_id}"
-            )
-            if response.status_code == 200:
-                body = response.json()
-                if body["state"]["status"] in {"complete", "partial", "failed"}:
-                    return body
         time.sleep(0.01)
     return body
 
@@ -1690,16 +1685,16 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
         visible_card_identity_classifier=identity,
     )
     with TestClient(restarted) as client:
-        reopened = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_run_id}"
-        )
+        reopened = client.get(f"/api/jobs/{identity_run_id}")
         assert reopened.status_code == 200, reopened.text
-        assert reopened.json()["request"]["crop_input"] == crop_input
+        assert reopened.json()["request"]["processor_request"]["crop_input"] == crop_input
         retried = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_run_id}/retry"
+            f"/api/jobs/{identity_run_id}/retry",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={},
         )
         assert retried.status_code == 202, retried.text
-        retry_run_id = retried.json()["run_id"]
+        retry_run_id = retried.json()["id"]
         assert _wait_identity(client, retry_run_id)["state"]["status"] == "complete"
         reopened = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{retry_run_id}/result"

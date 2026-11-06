@@ -91,7 +91,9 @@
   width: 100%;
   max-height: 80vh;
   object-fit: contain;
-  transition: filter 120ms ease, opacity 120ms ease;
+  transition:
+    filter 120ms ease,
+    opacity 120ms ease;
 }
 
 .frameImageHidden {

@@ -27,9 +27,10 @@ def test_store_reads_canonical_bundle_without_rebuild(tmp_path: Path) -> None:
 
     assert stored is not None
     assert stored.recording_id == "recording-both"
-    assert stored.source_sha256 == json.loads((bundle_path / "manifest.json").read_text())[
-        "source_sha256"
-    ]
+    assert (
+        stored.source_sha256
+        == json.loads((bundle_path / "manifest.json").read_text())["source_sha256"]
+    )
     assert stored.received_at.isoformat() == "2026-08-28T08:00:00+00:00"
 
 

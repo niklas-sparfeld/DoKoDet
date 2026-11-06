@@ -411,9 +411,7 @@ class RoundAnalysisTimelineProjector:
             directory / "result.json", analysis.result_artifact_sha256
         )
         if result_bytes.decode("utf-8") != analysis.result_json:
-            raise RoundAnalysisTimelineError(
-                "The stored analysis state differs from result.json."
-            )
+            raise RoundAnalysisTimelineError("The stored analysis state differs from result.json.")
 
         try:
             request = parse_round_analysis_create_request_bytes(
@@ -513,9 +511,7 @@ class RoundAnalysisTimelineProjector:
             directory / "result.json", analysis.result_artifact_sha256
         )
         if result_bytes.decode("utf-8") != analysis.result_json:
-            raise RoundAnalysisTimelineError(
-                "The stored analysis state differs from result.json."
-            )
+            raise RoundAnalysisTimelineError("The stored analysis state differs from result.json.")
         try:
             request = parse_round_analysis_create_request_bytes(
                 analysis.request_json.encode("utf-8")

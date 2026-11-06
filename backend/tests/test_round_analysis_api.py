@@ -649,6 +649,8 @@ def test_lifespan_starts_and_stops_the_shared_job_scheduler(backend_tmp_path: Pa
 
     with client:
         assert app.state.job_manager_service.scheduler is not None
+        assert app.state.job_manager_service.scheduler.budget.slots == 1
+        assert app.state.job_manager_service.scheduler.budget.cpu == 1
         assert app.state.job_manager_service.manager is not None
     assert app.state.job_manager_service.scheduler is None
     assert app.state.job_manager_service.manager is None

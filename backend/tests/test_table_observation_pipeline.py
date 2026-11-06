@@ -281,12 +281,14 @@ def test_persisted_analyzer_observation_runs_through_round_reconstruction_harnes
     assert artifacts.result.status == "incomplete"
     assert artifacts.result.sources[0].observation_path == stored.relative_path
     assert artifacts.result.sources[0].observation_id == stored.observation_id
-    assert artifacts.result.sources[0].sha256 == hashlib.sha256(
-        persisted_path.read_bytes()
-    ).hexdigest()
-    assert parse_round_reconstruction_result_bytes(
-        artifacts.result_path.read_bytes()
-    ).to_mapping() == artifacts.result.to_mapping()
+    assert (
+        artifacts.result.sources[0].sha256
+        == hashlib.sha256(persisted_path.read_bytes()).hexdigest()
+    )
+    assert (
+        parse_round_reconstruction_result_bytes(artifacts.result_path.read_bytes()).to_mapping()
+        == artifacts.result.to_mapping()
+    )
 
 
 def test_runner_is_idempotent_and_processes_pending_packages(backend) -> None:
@@ -354,7 +356,9 @@ def test_observation_conflict_keeps_original_bytes(backend) -> None:
             changed, canonical_json_bytes(changed)
         )
     assert (
-        client.app.state.table_observation_store.get(stored.observation_id).observation_json.encode()
+        client.app.state.table_observation_store.get(
+            stored.observation_id
+        ).observation_json.encode()
         == original_bytes
     )
     assert (

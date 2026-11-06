@@ -524,7 +524,10 @@ export function RecordingTimelineRail({
       <div className={styles.recordingTimelineLanesViewport}>
         <div
           className={styles.recordingTimelineLanes}
-          style={{ ...trackStyle, transform: `translateX(-${scrubberScrollLeft}px)` }}
+          style={{
+            ...trackStyle,
+            transform: `translateX(-${scrubberScrollLeft}px)`,
+          }}
         >
           {lanes.map((lane) => {
             const laneItems = itemByLane.get(lane.id) ?? [];

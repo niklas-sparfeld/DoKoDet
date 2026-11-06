@@ -249,9 +249,7 @@ class EvidencePackageStore:
 
             stored = self.get(staged.package_id)
             if stored is None or stored.package_fingerprint != staged_package.package_fingerprint:
-                raise EvidencePackageStoreError(
-                    "The published evidence package failed validation."
-                )
+                raise EvidencePackageStoreError("The published evidence package failed validation.")
             return stored, True
 
     def _read_path(
@@ -397,8 +395,10 @@ def _assert_package_files(
         descriptors[bundle.files.video_snippet.relative_path] = bundle.files.video_snippet
     for relative_path, descriptor in descriptors.items():
         stored = files.get(relative_path)
-        if stored is None or stored.byte_length != descriptor.byte_length or (
-            verify_digests and stored.sha256 != descriptor.sha256
+        if (
+            stored is None
+            or stored.byte_length != descriptor.byte_length
+            or (verify_digests and stored.sha256 != descriptor.sha256)
         ):
             raise IntakeContractError(
                 f"canonical file does not match its manifest: {relative_path}"

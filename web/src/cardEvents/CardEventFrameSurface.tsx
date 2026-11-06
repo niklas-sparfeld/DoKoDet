@@ -13,7 +13,10 @@ import {
   peekCachedReviewFrame,
   ReviewFrameUnavailableError,
 } from "./cardEventFrameCache";
-import { loadRecordingVideoUrl, peekRecordingVideoUrl } from "./recordingVideoCache";
+import {
+  loadRecordingVideoUrl,
+  peekRecordingVideoUrl,
+} from "./recordingVideoCache";
 
 type FrameStatus = "loading" | "ready" | "failed";
 type VideoBufferState = "buffering" | "ready" | "network";
@@ -75,11 +78,16 @@ export function CardEventFrameSurface({
     const controller = new AbortController();
     const cached = peekRecordingVideoUrl(recordingId);
     if (cached !== null) {
-      setVideoSrc(cached);
-      setVideoBufferState("ready");
-      return;
+      void Promise.resolve().then(() => {
+        if (controller.signal.aborted) return;
+        setVideoSrc(cached);
+        setVideoBufferState("ready");
+      });
+      return () => controller.abort();
     }
-    setVideoBufferState("buffering");
+    void Promise.resolve().then(() => {
+      if (!controller.signal.aborted) setVideoBufferState("buffering");
+    });
     void loadRecordingVideoUrl(recordingId, controller.signal)
       .then((url) => {
         if (controller.signal.aborted) return;
@@ -99,11 +107,15 @@ export function CardEventFrameSurface({
 
     const cached = peekCachedReviewFrame(requestUrl);
     if (cached !== null) {
-      setJpegUrl(cached);
-      setJpegTimeUs(normalizedTimeUs);
-      setStatus("ready");
-      setError(null);
-      return;
+      const controller = new AbortController();
+      void Promise.resolve().then(() => {
+        if (controller.signal.aborted) return;
+        setJpegUrl(cached);
+        setJpegTimeUs(normalizedTimeUs);
+        setStatus("ready");
+        setError(null);
+      });
+      return () => controller.abort();
     }
 
     const sequence = jpegSequenceRef.current + 1;
@@ -111,8 +123,12 @@ export function CardEventFrameSurface({
     jpegAbortRef.current?.abort();
     const controller = new AbortController();
     jpegAbortRef.current = controller;
-    setStatus("loading");
-    setError(null);
+    void Promise.resolve().then(() => {
+      if (controller.signal.aborted || sequence !== jpegSequenceRef.current)
+        return;
+      setStatus("loading");
+      setError(null);
+    });
 
     void loadCachedReviewFrame(requestUrl, controller.signal)
       .then((objectUrl) => {

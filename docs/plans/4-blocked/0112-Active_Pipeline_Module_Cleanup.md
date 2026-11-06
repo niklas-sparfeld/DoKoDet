@@ -6,7 +6,7 @@
   tests with each owner. Reduce the source and test context needed for a normal change.
 - **Status:** Blocked
 - **Depends on:** [0108 M11](../3-in-progress/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--in-progress)
-  must finish removing replaced runtime storage and adapters. [0110 M15](../3-in-progress/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--not-started)
+  must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
 - **Outcome:** Six active code paths have small composition roots, explicit owners, focused test
   entry points, and size checks. All milestones are not started.

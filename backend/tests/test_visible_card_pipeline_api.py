@@ -341,7 +341,7 @@ def _run_blocking_visible_detection(
         assert visible_response.status_code == 202
         visible_run_id = visible_response.json()["run_id"]
         assert started_one.wait(2)
-        expected = min(cap, event_limit or cap)
+        expected = min(1, cap, event_limit or cap)
         if expected == 1:
             time.sleep(0.05)
             assert calls == 1
@@ -758,10 +758,12 @@ def test_visible_card_current_head_edit_copy_and_retry_keep_exact_node_revision(
         }
 
         retry_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{failed_run_id}/retry"
+            f"/api/jobs/{failed_run_id}/retry",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={},
         )
         assert retry_response.status_code == 202
-        retry_run_id = retry_response.json()["run_id"]
+        retry_run_id = retry_response.json()["id"]
         assert _wait_for_terminal_job(terminal_jobs, retry_run_id) == "succeeded"
         retry_job = client.get(f"/api/jobs/{retry_run_id}").json()
         assert retry_job["retry_of"] == failed_run_id
@@ -827,10 +829,10 @@ def test_visible_card_current_head_edit_copy_and_retry_keep_exact_node_revision(
         assert {job.id for job in manager.list_jobs()} == accepted_job_ids
 
 
-def test_visible_card_events_are_bounded_and_ordered(tmp_path: Path) -> None:
+def test_visible_card_events_respect_the_single_worker_budget(tmp_path: Path) -> None:
     maximum, event_ids = _run_blocking_visible_detection(tmp_path, 2)
 
-    assert maximum == 2
+    assert maximum == 1
     assert event_ids == [
         "event-000000",
         "event-000001",
@@ -860,9 +862,19 @@ def _wait(client: TestClient, run_id: str) -> dict:
         if job_response.status_code == 200:
             job = job_response.json()
             if job["state"] in {"succeeded", "failed", "cancelled", "interrupted"}:
-                return client.get(
-                    f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{run_id}"
-                ).json()
+                result = client.get(
+                    f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{run_id}/result"
+                )
+                if result.status_code == 200:
+                    return result.json()
+                return {
+                    "state": {
+                        "status": "complete" if job["state"] == "succeeded" else job["state"],
+                        "progress": {"completed": 0, "total": 0},
+                        "items": [],
+                    },
+                    "failure": job.get("failure"),
+                }
         time.sleep(0.01)
     return body
 
@@ -885,7 +897,7 @@ def _wait_for_terminal_job(terminal_jobs: queue.Queue[tuple[str, str]], job_id: 
     raise AssertionError(f"job {job_id} did not reach a terminal state")
 
 
-def test_visible_card_status_poll_uses_run_metadata_without_item_payloads(
+def test_visible_card_run_status_uses_shared_job_resource(
     tmp_path: Path,
 ) -> None:
     _install_recording(tmp_path)
@@ -923,13 +935,11 @@ def test_visible_card_status_poll_uses_run_metadata_without_item_payloads(
             ),
         )
 
-        response = client.get(
+        legacy_response = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{stored.run_id}"
         )
 
-    assert response.status_code == 200
-    assert response.json()["state"]["progress"] == {"completed": 1, "total": 5}
-    assert response.json()["state"]["items"] == []
+    assert legacy_response.status_code == 404
 
 
 def _manual_event_revision(
@@ -1256,10 +1266,12 @@ def test_visible_card_pipeline_retry_creates_a_linked_managed_job(tmp_path: Path
         app.state.visible_card_pipeline_service.detector_provider.event_concurrency_limit = 1
 
         retry_response = client.post(
-            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{source_job_id}/retry"
+            f"/api/jobs/{source_job_id}/retry",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={},
         )
         assert retry_response.status_code == 202
-        retried_run_id = retry_response.json()["run_id"]
+        retried_run_id = retry_response.json()["id"]
         status = _wait(client, retried_run_id)
         retried_job = client.get(f"/api/jobs/{retried_run_id}").json()
 
@@ -1322,14 +1334,14 @@ def test_visible_card_cancellation_prevents_result_publication(tmp_path: Path) -
     assert result.json()["revisions"] == []
 
 
-def test_visible_card_runs_do_not_starve_each_other_at_zero_progress(
+def test_visible_card_runs_queue_fairly_under_the_single_worker_budget(
     tmp_path: Path,
 ) -> None:
     _install_recording(tmp_path)
     active = 0
     maximum = 0
     lock = threading.Lock()
-    started_two = threading.Event()
+    started_one = threading.Event()
     release = threading.Event()
 
     class BlockingDetector:
@@ -1342,8 +1354,7 @@ def test_visible_card_runs_do_not_starve_each_other_at_zero_progress(
             with lock:
                 active += 1
                 maximum = max(maximum, active)
-                if active == 2:
-                    started_two.set()
+                started_one.set()
             try:
                 assert release.wait(2)
                 return ProviderResult(status="ok")
@@ -1373,7 +1384,7 @@ def test_visible_card_runs_do_not_starve_each_other_at_zero_progress(
         )
         assert first_response.status_code == 202
         first_run_id = first_response.json()["run_id"]
-        assert started_two.wait(2)
+        assert started_one.wait(2)
 
         second_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
@@ -1389,7 +1400,7 @@ def test_visible_card_runs_do_not_starve_each_other_at_zero_progress(
         assert _wait(client, first_run_id)["state"]["status"] == "complete"
         assert _wait(client, second_run_id)["state"]["status"] == "complete"
 
-    assert maximum == 2
+    assert maximum == 1
 
 
 def test_exact_event_derived_view_route_retrieves_a_cold_cache_frame(tmp_path: Path) -> None:
