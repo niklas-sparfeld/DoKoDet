@@ -331,14 +331,17 @@ draft and review records still need conversion to editable nodes before their ol
 An isolated staged conversion now creates 137 draft nodes and 34 virtual-scene nodes. It retains
 8,778 item, coverage, and completion records, 94 completed and 43 draft states, and exact source
 links. It keeps 326 scene-only frames separate from visible-region data. Six scene frames have
-unavailable geometry; their original facts remain in node metadata. The active store has not been
-changed. Processor services still use the old revision store, so imported drafts are not yet offered
+unavailable geometry; their original facts remain in node metadata. The guarded import is active
+and its content, exact sources, and reviews passed independent verification. Processor services
+still use the old revision store, so imported drafts are not yet offered
 as execution inputs. Frame queue links now select exact lineage nodes. Queue receipts use exact
 node review IDs and check the original source and current review applicability. Item reviews can
 also bind directly to an unedited processor revision. Virtual-scene and identity review requests
 now include the policy required by the node review service.
-An activation guard checks retained files and rejects changed input or conflicting nodes. Activation
-still requires stopped writers and a final verification of the staged and active node stores.
+An activation guard checked 415 retained files and rejected changes or conflicting nodes. The
+backend was stopped for activation. The frame queue has 165 exact node bindings and no longer reads
+the legacy revision store. The retired maintained-reference and independent-review HTTP routes and
+browser client methods are removed. Internal legacy stores and processor adapters still need removal.
 
 ### M12 — Verify the complete workflow and close — Not started
 

@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import Field
 
 from dokodetector_backend.contract import ContractModel
+from dokodetector_backend.frame_review_bindings import load_frame_review_bindings
 from dokodetector_backend.frame_review_queue import (
     FrameReviewItem,
     QueueContractError,
@@ -96,31 +97,72 @@ def _load_queue(request: Request) -> tuple[dict[str, Any], tuple[FrameReviewItem
         ) from error
 
 
-def _source_node(request: Request, item: FrameReviewItem) -> dict[str, str] | None:
-    if item.source_revision_id is None:
-        return None
-    writer = request.app.state.pipeline_lineage_writer
-    target = writer.migrated_revisions.get(item.source_revision_id)
-    if target is None:
-        target = {
-            "node_id": writer._node_id(item.source_revision_id),
-            "revision_id": item.source_revision_id,
-        }
+def _queue_bindings(request: Request, digest: str) -> dict[tuple[str, str], dict[str, str] | None]:
     try:
-        node = writer.node_store.get(target["node_id"])
+        return load_frame_review_bindings(
+            request.app.state.pipeline_node_reviews.store.root, digest
+        )
+    except FileNotFoundError:
+        return {}
+    except (OSError, UnicodeError, ValueError) as error:
+        raise HTTPException(
+            status_code=503, detail="The frame review node bindings are invalid."
+        ) from error
+
+
+def _source_node(
+    request: Request, item: FrameReviewItem, bindings: dict, cache: dict
+) -> tuple[dict[str, str] | None, str | None]:
+    if not item.eligible:
+        return (
+            None,
+            "The frozen selection has no detector revision. Check the recording's M1 dependency.",
+        )
+    target = bindings.get((item.recording_id, item.item_id))
+    if target is None:
+        return (
+            None,
+            "The pinned detector result is missing or invalid. "
+            "Restore that exact revision before review.",
+        )
+    pair = (target["node_id"], target["revision_id"])
+    try:
+        if pair not in cache:
+            store = request.app.state.pipeline_node_reviews.store
+            cache[pair] = (store.get(pair[0]), store.read_revision(pair[0], pair[1]))
+        node, revision = cache[pair]
         if (
             node.content_type != "visible_cards"
             or node.source.get("recording_id") != item.recording_id
-            or not writer.node_store.has_revision(target["node_id"], target["revision_id"])
+            or revision.metadata.get("legacy_revision_id") != item.source_revision_id
         ):
-            return None
+            return None, "The pinned detector revision belongs to a different recording or stage."
+        if (
+            item.source_revision_sha256 is not None
+            and revision.metadata.get("legacy_content_sha256") != item.source_revision_sha256
+        ):
+            return (
+                None,
+                "The pinned detector result digest changed. "
+                "Restore the frozen result before review.",
+            )
+        if not any(
+            outcome.get("event_id") == item.item_id
+            for outcome in revision.content.get("outcomes", [])
+        ):
+            return None, "The pinned detector result does not contain this frame."
     except (OSError, KeyError, TypeError, ValueError):
-        return None
-    return target
+        return (
+            None,
+            "The pinned detector result is missing or invalid. "
+            "Restore that exact revision before review.",
+        )
+    return target, None
 
 
-def _editor_target(request: Request, item: FrameReviewItem) -> FrameReviewTarget | None:
-    target = _source_node(request, item)
+def _editor_target(
+    item: FrameReviewItem, target: dict[str, str] | None
+) -> FrameReviewTarget | None:
     if target is None:
         return None
     selection = {
@@ -131,7 +173,7 @@ def _editor_target(request: Request, item: FrameReviewItem) -> FrameReviewTarget
         {"lineage": json.dumps(selection, separators=(",", ":")), "item": item.item_id}
     )
     return FrameReviewTarget(
-        path=(f"/recordings/{quote(item.recording_id, safe='')}/pipeline/visible_cards?{query}"),
+        path=f"/recordings/{quote(item.recording_id, safe='')}/pipeline/visible_cards?{query}",
         revision_id=item.source_revision_id,
         item_id=item.item_id,
         scene_run_id=item.scene_run_id,
@@ -139,9 +181,10 @@ def _editor_target(request: Request, item: FrameReviewItem) -> FrameReviewTarget
     )
 
 
-def _review_is_applicable(request: Request, item: FrameReviewItem, receipt: Any) -> bool:
+def _review_is_applicable(
+    request: Request, item: FrameReviewItem, receipt: Any, source: dict[str, str] | None
+) -> bool:
     """Check the saved review, its exact source lineage, and the current node head."""
-    source = _source_node(request, item)
     if source is None:
         return False
     reviews = request.app.state.pipeline_node_reviews
@@ -186,40 +229,15 @@ def _review_is_applicable(request: Request, item: FrameReviewItem, receipt: Any)
     return False
 
 
-def _revision_problem(item: FrameReviewItem, result: Any) -> str | None:
-    if not item.eligible:
-        return "The frozen selection has no detector revision. Check the recording's M1 dependency."
-    if result is None:
-        return (
-            "The pinned detector result is missing or invalid. "
-            "Restore that exact revision before review."
-        )
-    if (
-        result.manifest.recording_id != item.recording_id
-        or result.manifest.content_type != "visible_cards"
-    ):
-        return "The pinned detector revision belongs to a different recording or stage."
-    if (
-        item.source_revision_sha256 is not None
-        and result.manifest.content_sha256 != item.source_revision_sha256
-    ):
-        return "The pinned detector result digest changed. Restore the frozen result before review."
-    if not any(outcome.event_id == item.item_id for outcome in result.content.outcomes):
-        return "The pinned detector result does not contain this frame."
-    return None
-
-
 def _project(
     request: Request,
     item: FrameReviewItem,
     deferred_keys: set[str],
-    by_id: dict[str, Any],
+    bindings: dict,
+    cache: dict,
 ) -> FrameReviewItemResponse:
-    result = by_id.get(item.source_revision_id or "")
-    unavailable_reason = _revision_problem(item, result)
-    editor_target = _editor_target(request, item)
-    if unavailable_reason is None and editor_target is None:
-        unavailable_reason = "The pinned detector revision is missing from lineage."
+    source, unavailable_reason = _source_node(request, item, bindings, cache)
+    editor_target = _editor_target(item, source)
 
     item_key = _item_key(item.recording_id, item.item_id)
     receipt_raw = request.app.state.frame_review_workflow_store.read_receipt(QUEUE_ID, item_key)
@@ -239,7 +257,8 @@ def _project(
             item,
             deferred=item_key in deferred_keys,
             receipt=receipt,
-            review_applicable=receipt is not None and _review_is_applicable(request, item, receipt),
+            review_applicable=receipt is not None
+            and _review_is_applicable(request, item, receipt, source),
         )
         if state is ReviewState.UNAVAILABLE:
             unavailable_reason = (
@@ -271,14 +290,9 @@ def get_frame_review_queue(
     workflow: FrameReviewWorkflowStore = request.app.state.frame_review_workflow_store
     progress = workflow.read(QUEUE_ID, digest)
     deferred_keys = set(progress["deferred_item_keys"])
-    store = request.app.state.pipeline_revision_store
-    by_id = {}
-    revision_cache = {}
-    for revision_id in {item.source_revision_id for item in items if item.source_revision_id}:
-        revision = store.get(revision_id, revision_cache=revision_cache)
-        if revision is not None:
-            by_id[revision_id] = revision
-    projected = [_project(request, item, deferred_keys, by_id) for item in items]
+    bindings = _queue_bindings(request, digest)
+    cache: dict = {}
+    projected = [_project(request, item, deferred_keys, bindings, cache) for item in items]
     counts_by_state = Counter(item.state for item in projected)
     counts_by_reason = Counter(reason for item in projected for reason in item.reasons)
     filtered = [item for item in projected if state is None or item.state == state]
@@ -340,8 +354,8 @@ def update_frame_review_workflow(
                 status_code=422,
                 detail="A saved review needs an exact node, revision, and review ID.",
             )
-        revision = request.app.state.pipeline_revision_store.get(queue_item.source_revision_id)
-        problem = _revision_problem(queue_item, revision)
+        bindings = _queue_bindings(request, digest)
+        source, problem = _source_node(request, queue_item, bindings, {})
         if problem is not None:
             raise HTTPException(status_code=409, detail=problem)
         raw_receipt = {
@@ -361,7 +375,7 @@ def update_frame_review_workflow(
             "saved_at": datetime.now(timezone.utc).isoformat(),
         }
         receipt = parse_review_receipt(raw_receipt)
-        if not _review_is_applicable(request, queue_item, receipt):
+        if not _review_is_applicable(request, queue_item, receipt, source):
             raise HTTPException(
                 status_code=409,
                 detail="The saved review does not apply to this exact queue result.",

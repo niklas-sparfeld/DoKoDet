@@ -1,5 +1,4 @@
 import json
-from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 
 from dokodetector_backend.frame_review_api import _editor_target
@@ -22,22 +21,7 @@ def test_queue_target_selects_exact_node_revision_and_item() -> None:
         eligible=True,
         comparison_eligible=False,
     )
-    store = SimpleNamespace(
-        has_revision=lambda node_id, revision_id: (
-            (node_id, revision_id) == ("node-1", "revision-1")
-        ),
-        get=lambda _: SimpleNamespace(
-            content_type="visible_cards", source={"recording_id": "recording-1"}
-        ),
-    )
-    writer = SimpleNamespace(
-        migrated_revisions={"old-revision": {"node_id": "node-1", "revision_id": "revision-1"}},
-        node_store=store,
-    )
-    request = SimpleNamespace(
-        app=SimpleNamespace(state=SimpleNamespace(pipeline_lineage_writer=writer))
-    )
-    target = _editor_target(request, item)
+    target = _editor_target(item, {"node_id": "node-1", "revision_id": "revision-1"})
     params = parse_qs(urlparse(target.path).query)
     assert params["item"] == ["frame-1"]
     assert json.loads(params["lineage"][0])["selected"]["visible_cards"] == {

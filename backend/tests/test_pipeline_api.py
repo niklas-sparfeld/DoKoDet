@@ -20,7 +20,6 @@ from fastapi.testclient import TestClient
 from dokodetector_backend.config import Settings
 from dokodetector_backend.pipeline_api import router as pipeline_router
 from dokodetector_backend.pipeline_comparison_api import router as comparison_router
-from dokodetector_backend.pipeline_reference_api import router as reference_router
 from dokodetector_backend.pipeline_run_api import router as run_router
 from dokodetector_backend.pipeline_stage_api import router as stage_router
 from dokodetector_backend.pipeline_workspace_api import router as workspace_router
@@ -36,7 +35,6 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
         run_router,
         stage_router,
         comparison_router,
-        reference_router,
     )
     routes = [
         route
@@ -55,9 +53,17 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
         "dokodetector_backend.pipeline_run_api": 2,
         "dokodetector_backend.pipeline_stage_api": 35,
         "dokodetector_backend.pipeline_comparison_api": 1,
-        "dokodetector_backend.pipeline_reference_api": 6,
     }
     assert len(pipeline_router.routes) == len(child_routers) + 2
+
+
+def test_legacy_reference_and_review_routes_are_not_mounted(tmp_path: Path) -> None:
+    app = create_test_app(_settings(tmp_path))
+    with TestClient(app) as client:
+        base = f"/api/recordings/{RECORDING_ID}/pipeline"
+        assert client.get(f"{base}/references/events").status_code == 404
+        assert client.get(f"{base}/visible-card-reviews").status_code == 404
+        assert client.post(f"{base}/visual-identities/auto-approval-plan").status_code == 405
 
 
 def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Path) -> None:

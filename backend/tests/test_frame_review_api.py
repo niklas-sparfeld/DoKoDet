@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 from app_factory import create_test_app
 from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.frame_review_bindings import write_frame_review_bindings
 from dokodetector_backend.frame_review_workflow_store import FrameReviewWorkflowStore
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -140,25 +140,25 @@ def test_save_review_receipt_requires_exact_applicable_node_review(tmp_path: Pat
             "visible_cards",
             source,
             content,
-            {},
+            {"legacy_revision_id": source_id, "legacy_content_sha256": frame["m1_revision_sha256"]},
             revision_id="fixture-revision",
         )
-        writer.migrated_revisions[source_id] = {
-            "node_id": "fixture-node",
-            "revision_id": node.revision_id,
-        }
-        app.state.pipeline_revision_store.get = lambda revision_id, **_kwargs: (
-            SimpleNamespace(
-                manifest=SimpleNamespace(
-                    recording_id=item["recording_id"],
-                    content_type="visible_cards",
-                    content_sha256=frame["m1_revision_sha256"],
-                ),
-                content=SimpleNamespace(outcomes=[SimpleNamespace(event_id=item["item_id"])]),
-            )
-            if revision_id == source_id
-            else None
+        write_frame_review_bindings(
+            writer.node_store.root,
+            {
+                "schema_version": "frame-review-node-bindings/v1",
+                "queue_id": "0096-M4",
+                "queue_digest": page["queue_digest"],
+                "items": [
+                    {
+                        "recording_id": item["recording_id"],
+                        "item_id": item["item_id"],
+                        "source": {"node_id": "fixture-node", "revision_id": node.revision_id},
+                    }
+                ],
+            },
         )
+        app.state.pipeline_revision_store = None
         review = app.state.pipeline_node_reviews.item(
             "review-1",
             "fixture-node",
@@ -198,6 +198,8 @@ def test_save_review_receipt_requires_exact_applicable_node_review(tmp_path: Pat
 
 
 def test_queue_rejects_a_revision_without_the_pinned_frame(tmp_path: Path) -> None:
+    from test_virtual_scene_data import SOURCE
+
     app = create_test_app(_settings(tmp_path))
     with TestClient(app) as client:
         page = client.get("/api/frame-reviews/0096-M4?limit=1").json()
@@ -212,18 +214,33 @@ def test_queue_rejects_a_revision_without_the_pinned_frame(tmp_path: Path) -> No
             if recording["recording_id"] == item["recording_id"]
             and frame["item_id"] == item["item_id"]
         )
-        target = frame["m1_revision_id"]
-        app.state.pipeline_revision_store.get = lambda revision_id, **_kwargs: (
-            SimpleNamespace(
-                manifest=SimpleNamespace(
-                    recording_id=item["recording_id"],
-                    content_type="visible_cards",
-                    content_sha256=frame["m1_revision_sha256"],
-                ),
-                content=SimpleNamespace(outcomes=[]),
-            )
-            if revision_id == target
-            else None
+        store = app.state.pipeline_lineage_writer.node_store
+        node = store.create(
+            "fixture-node",
+            "Detector",
+            "visible_cards",
+            {**SOURCE, "recording_id": item["recording_id"]},
+            {"schema_version": "visible-card-data/v2", "outcomes": []},
+            {
+                "legacy_revision_id": frame["m1_revision_id"],
+                "legacy_content_sha256": frame["m1_revision_sha256"],
+            },
+            revision_id="fixture-revision",
+        )
+        write_frame_review_bindings(
+            store.root,
+            {
+                "schema_version": "frame-review-node-bindings/v1",
+                "queue_id": "0096-M4",
+                "queue_digest": page["queue_digest"],
+                "items": [
+                    {
+                        "recording_id": item["recording_id"],
+                        "item_id": item["item_id"],
+                        "source": {"node_id": "fixture-node", "revision_id": node.revision_id},
+                    }
+                ],
+            },
         )
         result = client.get("/api/frame-reviews/0096-M4?limit=1").json()["items"][0]
         assert result["state"] == "unavailable"

@@ -33,15 +33,4 @@ def run_response(run: Any) -> dict[str, Any]:
     }
 
 
-def reference_response(reference: Any) -> dict[str, Any]:
-    """Translate a stored maintained reference to its public response shape."""
-
-    return {
-        "recording_id": reference.state.recording_id,
-        "content_type": reference.state.content_type,
-        "state": reference.state.to_mapping(),
-        "draft": reference.draft.to_mapping(),
-    }
-
-
-__all__ = ["reference_response", "run_response", "validate_recording_id"]
+__all__ = ["run_response", "validate_recording_id"]
