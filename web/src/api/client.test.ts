@@ -6,12 +6,8 @@ import {
   pipelineDerivedFramePath,
   pipelineIdentityCropPath,
   pipelineReviewFramePath,
-  pipelineObservationRunPath,
-  pipelineObservationRunRetryPath,
   pipelineObservationRunsPath,
   pipelineProposedCardSceneResultPath,
-  pipelineProposedCardSceneRunPath,
-  pipelineProposedCardSceneRunRetryPath,
   pipelineProposedCardSceneRunsPath,
   pipelineVisibleCardResultPath,
   pipelineVisualIdentityResultPath,
@@ -79,7 +75,7 @@ describe("DokoDetector API client", () => {
     );
   });
 
-  it("runs the proposed card-scene processor through its lifecycle routes", async () => {
+  it("starts, lists, and reads proposed card-scene results", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse({ status: "complete", state: {} })),
     );
@@ -90,15 +86,11 @@ describe("DokoDetector API client", () => {
       visible_card_revision_id: "visible-revision-1",
     });
     await client.listProposedCardSceneRuns("recording/1");
-    await client.getProposedCardSceneRun("recording/1", "proposal/run");
-    await client.retryProposedCardSceneRun("recording/1", "proposal/run");
     await client.getProposedCardSceneResult("recording/1", "proposal/run");
 
     expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
       pipelineProposedCardSceneRunsPath("recording/1"),
       pipelineProposedCardSceneRunsPath("recording/1"),
-      pipelineProposedCardSceneRunPath("recording/1", "proposal/run"),
-      pipelineProposedCardSceneRunRetryPath("recording/1", "proposal/run"),
       pipelineProposedCardSceneResultPath("recording/1", "proposal/run"),
     ]);
     expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
@@ -141,18 +133,14 @@ describe("DokoDetector API client", () => {
     } satisfies RoundAnalysisCreateRequest;
 
     await client.startObservationRun("recording/1", runPayload);
-    await client.getObservationRun("recording/1", "observation-run-1");
-    await client.retryObservationRun("recording/1", "observation-run-1");
     await client.createRoundAnalysis(analysisPayload);
 
     expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
       pipelineObservationRunsPath("recording/1"),
-      pipelineObservationRunPath("recording/1", "observation-run-1"),
-      pipelineObservationRunRetryPath("recording/1", "observation-run-1"),
       "/v1/round-analyses",
     ]);
     expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
-    expect(fetchImplementation.mock.calls[3]?.[1]?.body).toContain(
+    expect(fetchImplementation.mock.calls[1]?.[1]?.body).toContain(
       "table_observation_revision_id",
     );
   });

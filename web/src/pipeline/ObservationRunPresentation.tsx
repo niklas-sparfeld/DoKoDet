@@ -15,14 +15,10 @@ export function RunHistory({
   runs,
   trackedRunId,
   onSelect,
-  onRetry,
-  busy,
 }: {
   runs: PipelineRun[];
   trackedRunId: string | null;
   onSelect: (runId: string) => void;
-  onRetry: (runId: string) => Promise<void>;
-  busy: boolean;
 }) {
   return (
     <ul className={styles.pipelineRunList}>
@@ -44,15 +40,8 @@ export function RunHistory({
           {run.failure !== null && run.failure !== undefined ? (
             <span>{run.failure.message}</span>
           ) : null}
-          {run.status === "failed" || run.status === "partial" ? (
-            <button
-              className={styles.detailButton}
-              type="button"
-              disabled={busy}
-              onClick={() => void onRetry(run.run_id)}
-            >
-              Retry same run
-            </button>
+          {run.job_id ? (
+            <a href={`/jobs/${encodeURIComponent(run.job_id)}`}>View job</a>
           ) : null}
         </li>
       ))}
@@ -60,15 +49,7 @@ export function RunHistory({
   );
 }
 
-export function PipelineRunStatus({
-  run,
-  onRetry,
-  busy,
-}: {
-  run: RunFacts;
-  onRetry: (runId: string) => Promise<void>;
-  busy: boolean;
-}) {
+export function PipelineRunStatus({ run }: { run: RunFacts }) {
   const progress = readObject(run.state.progress);
   const completed = readNumber(progress?.completed);
   const total = readNumber(progress?.total);
@@ -139,15 +120,8 @@ export function PipelineRunStatus({
           <dd>{formatValue(run.request.crop_policy)}</dd>
         </div>
       </dl>
-      {run.status === "failed" || run.status === "partial" ? (
-        <button
-          className={styles.detailButton}
-          type="button"
-          disabled={busy}
-          onClick={() => void onRetry(run.run_id)}
-        >
-          Retry same run
-        </button>
+      {run.job_id ? (
+        <a href={`/jobs/${encodeURIComponent(run.job_id)}`}>Manage job</a>
       ) : null}
     </div>
   );

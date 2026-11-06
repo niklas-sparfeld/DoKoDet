@@ -331,6 +331,7 @@ export type CounterfactualController = {
   excludedCards: ReadonlySet<string>;
   submitting: boolean;
   response: RoundCounterfactualResponse | null;
+  jobId: string | null;
   error: string | null;
   effectiveCardIdentityOverrides: CounterfactualCardIdentityOverride[];
   effectiveOverrides: CounterfactualOverride[];
@@ -375,6 +376,7 @@ export function CounterfactualWorkbench({
   const [response, setResponse] = useState<RoundCounterfactualResponse | null>(
     null,
   );
+  const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -543,8 +545,9 @@ export function CounterfactualWorkbench({
     };
     setSubmitting(true);
     setError(null);
+    setJobId(null);
     try {
-      let job = await client.enqueueJob(
+      const job = await client.enqueueJob(
         {
           type: "counterfactual",
           context: { analysis_id: timeline.analysis_id },
@@ -552,22 +555,7 @@ export function CounterfactualWorkbench({
         },
         crypto.randomUUID(),
       );
-      while (
-        ["queued", "running", "waiting", "cancelling"].includes(job.state)
-      ) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        job = await client.getJob(job.id);
-      }
-      if (job.state !== "succeeded") {
-        throw new Error(
-          (job.failure?.message as string) || `Counterfactual ${job.state}`,
-        );
-      }
-      const nextResponse = await client.getRoundCounterfactual(
-        timeline.analysis_id,
-        payload.counterfactual_id,
-      );
-      setResponse(nextResponse);
+      setJobId(job.id);
     } catch (reason: unknown) {
       setResponse(null);
       setError(describeError(reason));
@@ -579,6 +567,7 @@ export function CounterfactualWorkbench({
   function restoreBaseline() {
     setDraft(EMPTY_COUNTERFACTUAL_DRAFT);
     setResponse(null);
+    setJobId(null);
     setError(null);
   }
 
@@ -588,6 +577,7 @@ export function CounterfactualWorkbench({
     excludedCards,
     submitting,
     response,
+    jobId,
     error,
     effectiveCardIdentityOverrides,
     effectiveOverrides,
@@ -691,8 +681,16 @@ export function CounterfactualRunControls({
             counterfactual.allObservationsExcluded
           }
         >
-          {counterfactual.submitting ? "Running…" : "Run counterfactual"}
+          {counterfactual.submitting ? "Starting…" : "Run counterfactual"}
         </button>
+        {counterfactual.jobId !== null ? (
+          <p>
+            Counterfactual processing was accepted.{" "}
+            <a href={`/jobs/${encodeURIComponent(counterfactual.jobId)}`}>
+              View job
+            </a>
+          </p>
+        ) : null}
         <button
           type="button"
           className={styles.secondaryButton}

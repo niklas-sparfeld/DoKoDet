@@ -71,46 +71,6 @@ export function AutomatedPipelineControls({
     };
   }, [client, recordingId, storageKey]);
 
-  const activeRunId = run?.run_id;
-  const activeRunStatus = run?.status;
-  useEffect(() => {
-    if (
-      activeRunId === undefined ||
-      activeRunStatus === undefined ||
-      !RUNNING.has(activeRunStatus)
-    )
-      return;
-    let cancelled = false;
-    let timer: number | undefined;
-    const poll = async () => {
-      try {
-        const next = await client.getAutomatedPipelineRun(
-          recordingId,
-          activeRunId,
-        );
-        if (cancelled) return;
-        setRun(next);
-        if (!RUNNING.has(next.status)) {
-          await onRefresh();
-          return;
-        }
-      } catch (reason) {
-        if (!cancelled)
-          setMessage(
-            reason instanceof Error
-              ? reason.message
-              : "Unable to refresh pipeline status.",
-          );
-      }
-      if (!cancelled) timer = window.setTimeout(() => void poll(), 1200);
-    };
-    timer = window.setTimeout(() => void poll(), 0);
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, [activeRunId, activeRunStatus, client, onRefresh, recordingId]);
-
   async function start() {
     setBusy(true);
     setMessage(null);
@@ -164,6 +124,7 @@ export function AutomatedPipelineControls({
       );
       window.localStorage.setItem(storageKey, accepted.run_id);
       setRun(accepted);
+      await onRefresh();
     } catch (reason) {
       setMessage(
         reason instanceof Error ? reason.message : "Pipeline preflight failed.",
@@ -210,7 +171,10 @@ export function AutomatedPipelineControls({
       {run !== null ? (
         <div aria-live="polite">
           <p>
-            Run {run.run_id} · {run.status}
+            Run {run.run_id} · {run.status} ·{" "}
+            <a href={`/jobs/${encodeURIComponent(run.job_id ?? run.run_id)}`}>
+              View job
+            </a>
           </p>
           {run.failure ? (
             <p role="alert">

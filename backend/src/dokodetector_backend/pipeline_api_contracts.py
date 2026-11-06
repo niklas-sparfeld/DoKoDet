@@ -17,13 +17,14 @@ def validate_recording_id(recording_id: str) -> None:
         raise ContractError("invalid_recording_id", "The recording ID is invalid.")
 
 
-def run_response(run: Any) -> dict[str, Any]:
+def run_response(run: Any, *, job_id: str | None = None) -> dict[str, Any]:
     """Translate a stored processor run to its public response shape."""
 
     request = run.request.to_mapping()
     state = run.state.to_mapping()
     return {
         "run_id": run.run_id,
+        "job_id": job_id,
         "recording_id": run.request.source.recording_id,
         "processor_type": run.request.processor_type,
         "status": run.state.status,

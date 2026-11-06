@@ -79,6 +79,7 @@ class PipelineWorkspaceRunResponse(ContractModel):
     """The retained execution facts needed to reproduce one stage result."""
 
     run_id: str
+    job_id: str | None = None
     status: Literal["queued", "running", "complete", "partial", "failed"]
     attempt: int = Field(gt=0)
     request: dict[str, Any]

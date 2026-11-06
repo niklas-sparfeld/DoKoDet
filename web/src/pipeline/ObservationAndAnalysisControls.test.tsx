@@ -279,7 +279,7 @@ describe("observation and analysis controls", () => {
     );
   });
 
-  it("retains a failed observation run in the history with a retry action", () => {
+  it("retains a legacy failed observation run without inventing a job link", () => {
     const failedRun = {
       ...runResponse("failed"),
       failure: { message: "processor failed" },
@@ -302,9 +302,7 @@ describe("observation and analysis controls", () => {
     expect(
       screen.getByText("Retained assembly runs and actual inputs"),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("button", { name: "Retry same run" }),
-    ).toHaveLength(1);
+    expect(screen.queryByRole("link", { name: "View job" })).toBeNull();
   });
 
   it("validates search limits and creates an encoded analysis path", () => {

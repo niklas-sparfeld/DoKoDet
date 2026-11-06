@@ -232,6 +232,7 @@ class RoundAnalysisStatus(ContractModel):
     """Status document for one queued, running, or terminal analysis."""
 
     analysis_id: UUID
+    job_id: str | None = None
     recording_id: Identifier
     round_id: Identifier
     session_id: Identifier

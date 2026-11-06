@@ -51,7 +51,7 @@ def test_pipeline_route_inventory_stays_in_focused_modules() -> None:
     assert modules == {
         "dokodetector_backend.pipeline_workspace_api": 2,
         "dokodetector_backend.pipeline_run_api": 2,
-        "dokodetector_backend.pipeline_stage_api": 34,
+        "dokodetector_backend.pipeline_stage_api": 26,
         "dokodetector_backend.pipeline_comparison_api": 1,
     }
     assert len(pipeline_router.routes) == len(child_routers) + 2
@@ -63,7 +63,7 @@ def test_legacy_reference_and_review_routes_are_not_mounted(tmp_path: Path) -> N
         base = f"/api/recordings/{RECORDING_ID}/pipeline"
         assert client.get(f"{base}/references/events").status_code == 404
         assert client.get(f"{base}/visible-card-reviews").status_code == 404
-        assert client.post(f"{base}/visual-identities/auto-approval-plan").status_code == 405
+        assert client.post(f"{base}/visual-identities/auto-approval-plan").status_code == 404
 
 
 def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Path) -> None:
@@ -336,7 +336,7 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
         )
         assert body["revisions"][0]["manifest"]["producer"]["kind"] == "processor"
         selection = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/generated-selection"
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/selection"
         )
         assert (
             selection.json()["selection"]["selected_generated_revision_id"]

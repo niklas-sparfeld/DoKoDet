@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M14 complete; M15–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M15 complete; M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -438,7 +438,7 @@ drawer can coexist with lineage navigation without covering central frame contro
 
 Result: [M14 global Jobs drawer](../../reports/0110-M14_Global_Jobs_Drawer.md).
 
-### M15 — Remove duplicate UI and execution contracts — Not started
+### M15 — Remove duplicate UI and execution contracts — Complete
 
 Replace remaining per-feature polling/status/action UI with shared job components and links.
 Remove obsolete lifecycle endpoints, service pools, worker loops, and browser types. Apply the
@@ -447,6 +447,12 @@ M0 history treatment without changing domain output bytes, review decisions, or 
 Acceptance: source inventory has no in-scope private background scheduler or independent job
 poller. All launch paths return job IDs. Existing domain result routes and retained history remain
 inspectable. No compatibility facade, dual write, or second lineage cutover remains.
+
+Result: [M15 duplicate lifecycle removal](../../reports/0110-M15_Duplicate_Lifecycle_Removal.md)
+removes per-feature status pollers, processor retry controls, obsolete stage status and retry
+routes, hidden lifecycle aliases, and the standalone automated worker/coordinator path. Shared job
+links and the round-analysis manager job ID connect launch and management. Domain run lists and
+result routes remain available.
 
 ### M16 — Verify the complete local workflow and close — Not started
 
@@ -459,6 +465,24 @@ phones, full training, or sealed evaluation. Record any baseline failures separa
 when every in-scope producer and UI path uses the shared manager.
 
 ## Execution handoff
+
+### Epic 0110 M15 — run count 3 of 4
+
+- Completed M15; 1 of 4 requested milestones remains for this run.
+- Replaced feature-owned job polling with shared job links. Removed processor retry UI and routed
+  management through the shared job page. New processor, counterfactual, automated-pipeline, and
+  round-analysis launches expose manager job IDs. Legacy history has no fabricated job ID.
+- Removed per-run stage status and retry endpoints, hidden stage route aliases, and the obsolete
+  standalone automated worker, coordinator, and CLI. Kept durable parent/child jobs and the
+  bounded inner worker pools.
+- Verification: 57 focused backend tests; 31 focused browser tests; web typecheck, focused ESLint,
+  Prettier, OpenAPI verification, and focused Ruff checks passed. Evidence: [M15 report](../../reports/0110-M15_Duplicate_Lifecycle_Removal.md).
+- A broader backend run found one existing unrelated preflight fixture failure in
+  `test_start_rejects_invalid_preflight_without_persisting_a_run`; M15 did not change preflight
+  validation.
+- Limits: the automated-pipeline endpoint remains a saved run-history reader. M16 must verify the
+  complete workflow, legacy history, and exact result navigation after restart.
+- Next: M16, verify the complete local workflow and close. Requested/completed/remaining: 4/3/1.
 
 ### Epic 0110 M14 — run count 2 of 4
 

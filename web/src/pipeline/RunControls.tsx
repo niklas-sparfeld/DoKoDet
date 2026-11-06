@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ApiError,
@@ -15,7 +15,6 @@ import {
   readProbabilityMetrics,
 } from "./ProbabilityOverlay";
 import { readRunActivity } from "./ObservationRunFormatting";
-import { usePageVisibility } from "./usePageVisibility";
 
 type RunStageKey = Extract<
   PipelineStageKey,
@@ -78,8 +77,6 @@ const UPSTREAM_STAGE: Record<Exclude<RunStageKey, "events">, RunStageKey> = {
   visual_identities: "visible_cards",
 };
 
-const TERMINAL_STATES = new Set(["complete", "partial", "failed"]);
-
 type RunControlsProps = {
   recordingId: string;
   stage: PipelineWorkspaceStage;
@@ -90,6 +87,7 @@ type RunControlsProps = {
 
 type RunFacts = {
   run_id: string;
+  job_id?: string | null;
   status: string;
   attempt: number;
   request: Record<string, unknown>;
@@ -104,7 +102,6 @@ export function RunControls({
   compact = false,
 }: RunControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
-  const pageVisible = usePageVisibility();
   const isRunStage = RUN_STAGE_KEYS.includes(stage.key as RunStageKey);
   const runStage = isRunStage ? (stage.key as RunStageKey) : null;
   const upstreamStage =
@@ -144,7 +141,6 @@ export function RunControls({
         (run) => run.status === "queued" || run.status === "running",
       )?.run_id ?? null,
   );
-  const terminalRunIdsRef = useRef(new Set<string>());
   const [liveRun, setLiveRun] = useState<PipelineRunResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -215,67 +211,6 @@ export function RunControls({
   );
   const latestRun = stage.runs[0] ?? null;
 
-  const getRun = useCallback(
-    (runId: string, init?: RequestInit): Promise<PipelineRunResponse> => {
-      if (runStage === "events") {
-        return client.getEventRun(recordingId, runId, init);
-      }
-      if (runStage === "visible_cards") {
-        return client.getVisibleCardRun(recordingId, runId, init);
-      }
-      return client.getVisualIdentityRun(recordingId, runId, init);
-    },
-    [client, recordingId, runStage],
-  );
-
-  useEffect(() => {
-    if (runStage === null || trackedRunId === null || !pageVisible) {
-      return;
-    }
-    if (terminalRunIdsRef.current.has(trackedRunId)) {
-      return;
-    }
-    let cancelled = false;
-    let timer: number | null = null;
-    let controller: AbortController | null = null;
-
-    const poll = async () => {
-      if (cancelled) return;
-      controller = new AbortController();
-      try {
-        const response = await getRun(trackedRunId, {
-          signal: controller.signal,
-        });
-        if (cancelled) {
-          return;
-        }
-        setLiveRun(response);
-        if (TERMINAL_STATES.has(response.status)) {
-          terminalRunIdsRef.current.add(trackedRunId);
-          await onRefresh();
-          return;
-        }
-        timer = window.setTimeout(() => void poll(), 1000);
-      } catch (reason: unknown) {
-        if (!cancelled) {
-          setMessage(describeRunError(reason));
-          timer = window.setTimeout(() => void poll(), 1000);
-        }
-      } finally {
-        controller = null;
-      }
-    };
-
-    void poll();
-    return () => {
-      cancelled = true;
-      if (timer !== null) {
-        window.clearTimeout(timer);
-      }
-      controller?.abort();
-    };
-  }, [getRun, onRefresh, pageVisible, runStage, trackedRunId]);
-
   const setOrigin = (origin: InputOrigin) => {
     setInputOrigin(origin);
     setHistoricalRevisionId("");
@@ -317,31 +252,6 @@ export function RunControls({
         ),
       );
       setLiveRun(response);
-      terminalRunIdsRef.current.delete(response.run_id);
-      setTrackedRunId(response.run_id);
-      await onRefresh();
-    } catch (reason: unknown) {
-      setMessage(describeRunError(reason));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const retryRun = async (runId: string) => {
-    if (runStage === null) {
-      return;
-    }
-    setBusy(true);
-    setMessage(null);
-    try {
-      const response = await retryProcessorRun(
-        client,
-        recordingId,
-        runStage,
-        runId,
-      );
-      setLiveRun(response);
-      terminalRunIdsRef.current.delete(response.run_id);
       setTrackedRunId(response.run_id);
       await onRefresh();
     } catch (reason: unknown) {
@@ -607,12 +517,19 @@ export function RunControls({
       ) : null}
 
       {selectedRun !== null ? (
-        <RunStatus
-          run={selectedRun}
-          onRetry={retryRun}
-          busy={busy}
-          showProbabilities={runStage === "events"}
-        />
+        <>
+          {selectedRun.job_id ? (
+            <p>
+              <a href={`/jobs/${encodeURIComponent(selectedRun.job_id)}`}>
+                View job {selectedRun.job_id}
+              </a>
+            </p>
+          ) : null}
+          <RunStatus
+            run={selectedRun}
+            showProbabilities={runStage === "events"}
+          />
+        </>
       ) : null}
 
       {stage.runs.length > 0 ? (
@@ -649,15 +566,10 @@ export function RunControls({
                 {run.failure !== null && run.failure !== undefined ? (
                   <span>{run.failure.message}</span>
                 ) : null}
-                {run.status === "failed" || run.status === "partial" ? (
-                  <button
-                    className={styles.detailButton}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void retryRun(run.run_id)}
-                  >
-                    Retry same run
-                  </button>
+                {run.job_id ? (
+                  <a href={`/jobs/${encodeURIComponent(run.job_id)}`}>
+                    View job
+                  </a>
                 ) : null}
               </li>
             ))}
@@ -670,13 +582,9 @@ export function RunControls({
 
 function RunStatus({
   run,
-  onRetry,
-  busy,
   showProbabilities,
 }: {
   run: RunFacts;
-  onRetry: (runId: string) => Promise<void>;
-  busy: boolean;
   showProbabilities: boolean;
 }) {
   const [probabilitiesOpen, setProbabilitiesOpen] = useState(false);
@@ -695,9 +603,9 @@ function RunStatus({
     run.status === "complete"
       ? "The processor completed and retained its output revision."
       : run.status === "partial"
-        ? "The processor returned a partial result. Review the successful items or retry the same frozen request."
+        ? "The processor returned a partial result. Review the successful items in the job details."
         : run.status === "failed"
-          ? "The processor failed. Retry keeps the run ID and exact frozen inputs."
+          ? "The processor failed. Review the job details to retry with the exact frozen inputs."
           : run.status === "queued"
             ? "The processor request is queued."
             : "The processor is running.";
@@ -766,15 +674,8 @@ function RunStatus({
           <dd>{describeCropInputRun(run.request)}</dd>
         </div>
       </dl>
-      {run.status === "failed" || run.status === "partial" ? (
-        <button
-          className={styles.detailButton}
-          type="button"
-          disabled={busy}
-          onClick={() => void onRetry(run.run_id)}
-        >
-          Retry same run
-        </button>
+      {run.job_id ? (
+        <a href={`/jobs/${encodeURIComponent(run.job_id)}`}>Manage job</a>
       ) : null}
       {probabilityMetrics !== null ? (
         <button
@@ -811,7 +712,7 @@ async function startProcessorRun(
       },
       crypto.randomUUID(),
     );
-    return client.getEventRun(recordingId, job.id);
+    return pipelineRunFromJob(job, recordingId, "event-detection");
   }
   if (stage === "visible_cards") {
     const job = await client.enqueueJob(
@@ -822,26 +723,39 @@ async function startProcessorRun(
       },
       crypto.randomUUID(),
     );
-    return client.getVisibleCardRun(recordingId, job.id);
+    return pipelineRunFromJob(job, recordingId, "visible-card-detection");
   }
   return client.startVisualIdentityRun(recordingId, payload);
 }
 
-async function retryProcessorRun(
-  client: ReturnType<typeof createDokoDetectorClient>,
+function pipelineRunFromJob(
+  job: import("../api/client").JobDetail,
   recordingId: string,
-  stage: RunStageKey,
-  runId: string,
-): Promise<PipelineRunResponse> {
-  if (stage === "events") {
-    const job = await client.retryJob(runId, crypto.randomUUID());
-    return client.getEventRun(recordingId, job.id);
-  }
-  if (stage === "visible_cards") {
-    const job = await client.retryJob(runId, crypto.randomUUID());
-    return client.getVisibleCardRun(recordingId, job.id);
-  }
-  return client.retryVisualIdentityRun(recordingId, runId);
+  processorType: string,
+): PipelineRunResponse {
+  const status =
+    job.state === "waiting" || job.state === "cancelling"
+      ? "running"
+      : job.state;
+  const step = job.steps[0];
+  return {
+    run_id: job.id,
+    job_id: job.id,
+    recording_id: recordingId,
+    processor_type: processorType,
+    status,
+    attempt: 1,
+    request: job.request,
+    state: {
+      run_id: job.id,
+      status,
+      progress: { completed: step?.completed ?? 0, total: step?.total ?? 0 },
+      terminal_failure: job.failure,
+      output_revision_ids: [],
+      items: [],
+      metrics: {},
+    },
+  };
 }
 
 function buildRunRequest(

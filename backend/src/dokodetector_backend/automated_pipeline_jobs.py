@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
-from dokodetector_backend.job_scheduler import Claims
-from dokodetector_backend.job_store import Job, JobManager, Step
-from dokodetector_backend.pipeline_coordinator import (
+from dokodetector_backend.automated_pipeline_contracts import (
+    PipelineStageRequestBuilder,
     StageDefinition,
     frozen_pilot_stage_plan,
 )
+from dokodetector_backend.job_scheduler import Claims
+from dokodetector_backend.job_store import Job, JobManager, Step
 from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
 
 
@@ -196,8 +197,6 @@ class AutomatedPipelineJobParticipant:
     def _child_request(
         parent: Job, definition: StageDefinition, inputs: tuple[str, ...]
     ) -> dict[str, Any]:
-        from dokodetector_backend.pipeline_coordinator import RetainedPipelineStageExecutor
-
         run_id = str(uuid5(NAMESPACE_URL, f"{parent.request['run_id']}:{definition.name}"))
         recording_id = parent.context["recording_id"]
         if definition.name == "reconstruction":
@@ -220,7 +219,7 @@ class AutomatedPipelineJobParticipant:
                 "context": {"recording_id": recording_id},
                 "request": analysis.model_dump(mode="json"),
             }
-        payload = RetainedPipelineStageExecutor._request_payload(
+        payload = PipelineStageRequestBuilder._request_payload(
             definition.name, run_id, definition.request, inputs
         )
         stage_types = {

@@ -637,26 +637,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/recordings/{recording_id}/pipeline/observations/{run_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Observation Assembly
-         * @description Return one observation assembly run and its immutable request.
-         */
-        get: operations["get_observation_assembly_api_recordings__recording_id__pipeline_observations__run_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/recordings/{recording_id}/pipeline/observations/{run_id}/result": {
         parameters: {
             query?: never;
@@ -671,26 +651,6 @@ export interface paths {
         get: operations["get_observation_assembly_result_api_recordings__recording_id__pipeline_observations__run_id__result_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recordings/{recording_id}/pipeline/observations/{run_id}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry Observation Assembly
-         * @description Retry one failed observation assembly run.
-         */
-        post: operations["retry_observation_assembly_api_recordings__recording_id__pipeline_observations__run_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -721,26 +681,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/recordings/{recording_id}/pipeline/proposed-card-scenes/{run_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Proposed Card Scene Run
-         * @description Return one proposed-card-scene run.
-         */
-        get: operations["get_proposed_card_scene_run_api_recordings__recording_id__pipeline_proposed_card_scenes__run_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/recordings/{recording_id}/pipeline/proposed-card-scenes/{run_id}/result": {
         parameters: {
             query?: never;
@@ -755,26 +695,6 @@ export interface paths {
         get: operations["get_proposed_card_scene_result_api_recordings__recording_id__pipeline_proposed_card_scenes__run_id__result_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recordings/{recording_id}/pipeline/proposed-card-scenes/{run_id}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry Proposed Card Scene Run
-         * @description Retry one failed or partial proposal run.
-         */
-        post: operations["retry_proposed_card_scene_run_api_recordings__recording_id__pipeline_proposed_card_scenes__run_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -869,26 +789,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/recordings/{recording_id}/pipeline/visible-cards/{run_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Visible Card Run
-         * @description Return one visible-card detector run and its immutable request.
-         */
-        get: operations["get_visible_card_run_api_recordings__recording_id__pipeline_visible_cards__run_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/recordings/{recording_id}/pipeline/visible-cards/{run_id}/result": {
         parameters: {
             query?: never;
@@ -903,26 +803,6 @@ export interface paths {
         get: operations["get_visible_card_result_api_recordings__recording_id__pipeline_visible_cards__run_id__result_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recordings/{recording_id}/pipeline/visible-cards/{run_id}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry Visible Card Run
-         * @description Retry one failed visible-card detector run.
-         */
-        post: operations["retry_visible_card_run_api_recordings__recording_id__pipeline_visible_cards__run_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -997,26 +877,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Visual Identity Run
-         * @description Return one visual identity classifier run and its immutable request.
-         */
-        get: operations["get_visual_identity_run_api_recordings__recording_id__pipeline_visual_identities__run_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}/result": {
         parameters: {
             query?: never;
@@ -1031,26 +891,6 @@ export interface paths {
         get: operations["get_visual_identity_result_api_recordings__recording_id__pipeline_visual_identities__run_id__result_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry Visual Identity Run
-         * @description Retry one failed visual identity classifier run.
-         */
-        post: operations["retry_visual_identity_run_api_recordings__recording_id__pipeline_visual_identities__run_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3072,6 +2912,8 @@ export interface components {
             implementation: components["schemas"]["PipelineWorkspaceImplementationResponse"];
             /** Input Revision Ids */
             input_revision_ids: string[];
+            /** Job Id */
+            job_id?: string | null;
             /** Model */
             model?: {
                 [key: string]: unknown;
@@ -3572,6 +3414,8 @@ export interface components {
             created_at: string;
             /** Error */
             error?: string | null;
+            /** Job Id */
+            job_id?: string | null;
             /** Recording Id */
             recording_id: string;
             result?: components["schemas"]["RoundAnalysisResult"] | null;
@@ -5504,40 +5348,6 @@ export interface operations {
             };
         };
     };
-    get_observation_assembly_api_recordings__recording_id__pipeline_observations__run_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_observation_assembly_result_api_recordings__recording_id__pipeline_observations__run_id__result_get: {
         parameters: {
             query?: never;
@@ -5552,40 +5362,6 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    retry_observation_assembly_api_recordings__recording_id__pipeline_observations__run_id__retry_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5678,40 +5454,6 @@ export interface operations {
             };
         };
     };
-    get_proposed_card_scene_run_api_recordings__recording_id__pipeline_proposed_card_scenes__run_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_proposed_card_scene_result_api_recordings__recording_id__pipeline_proposed_card_scenes__run_id__result_get: {
         parameters: {
             query?: never;
@@ -5726,40 +5468,6 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    retry_proposed_card_scene_run_api_recordings__recording_id__pipeline_proposed_card_scenes__run_id__retry_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5991,40 +5699,6 @@ export interface operations {
             };
         };
     };
-    get_visible_card_run_api_recordings__recording_id__pipeline_visible_cards__run_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_visible_card_result_api_recordings__recording_id__pipeline_visible_cards__run_id__result_get: {
         parameters: {
             query?: never;
@@ -6044,40 +5718,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PipelineVisibleCardResultResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    retry_visible_card_run_api_recordings__recording_id__pipeline_visible_cards__run_id__retry_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
                 };
             };
             /** @description Validation Error */
@@ -6268,40 +5908,6 @@ export interface operations {
             };
         };
     };
-    get_visual_identity_run_api_recordings__recording_id__pipeline_visual_identities__run_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_visual_identity_result_api_recordings__recording_id__pipeline_visual_identities__run_id__result_get: {
         parameters: {
             query?: never;
@@ -6321,40 +5927,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PipelineVisualIdentityResultResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    retry_visual_identity_run_api_recordings__recording_id__pipeline_visual_identities__run_id__retry_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                recording_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
                 };
             };
             /** @description Validation Error */

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   createDokoDetectorClient,
@@ -9,12 +9,10 @@ import styles from "../App.module.css";
 import {
   buildObservationRequest,
   describePipelineError,
-  TERMINAL_RUN_STATES,
   toRunFacts,
 } from "./ObservationRunFormatting";
 import { PipelineRunStatus, RunHistory } from "./ObservationRunPresentation";
 import { PipelineControlStatusBadge } from "./PipelineControlStatusBadge";
-import { usePageVisibility } from "./usePageVisibility";
 
 export type ObservationRunControlsProps = {
   recordingId: string;
@@ -32,7 +30,6 @@ export function ObservationRunControls({
   compact = false,
 }: ObservationRunControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
-  const pageVisible = usePageVisibility();
   const compatibleSets = useMemo(
     () => stage.compatible_input_sets ?? [],
     [stage.compatible_input_sets],
@@ -87,54 +84,6 @@ export function ObservationRunControls({
   );
   const latestRun = stage.runs[0] ?? null;
 
-  const getRun = useCallback(
-    (runId: string, init?: RequestInit) =>
-      client.getObservationRun(recordingId, runId, init),
-    [client, recordingId],
-  );
-
-  useEffect(() => {
-    if (trackedRunId === null || !pageVisible) {
-      return;
-    }
-    let cancelled = false;
-    let timer: number | null = null;
-    let controller: AbortController | null = null;
-    const poll = async () => {
-      if (cancelled) return;
-      controller = new AbortController();
-      try {
-        const response = await getRun(trackedRunId, {
-          signal: controller.signal,
-        });
-        if (cancelled) {
-          return;
-        }
-        setLiveRun(response);
-        if (TERMINAL_RUN_STATES.has(response.status)) {
-          await onRefresh();
-          return;
-        }
-        timer = window.setTimeout(() => void poll(), 1000);
-      } catch (reason: unknown) {
-        if (!cancelled) {
-          setMessage(describePipelineError(reason));
-          timer = window.setTimeout(() => void poll(), 1000);
-        }
-      } finally {
-        controller = null;
-      }
-    };
-    void poll();
-    return () => {
-      cancelled = true;
-      if (timer !== null) {
-        window.clearTimeout(timer);
-      }
-      controller?.abort();
-    };
-  }, [getRun, onRefresh, pageVisible, trackedRunId]);
-
   async function startRun() {
     if (selectedSet === null) {
       setMessage(
@@ -154,21 +103,6 @@ export function ObservationRunControls({
           latestRun,
         ),
       );
-      setLiveRun(response);
-      setTrackedRunId(response.run_id);
-      await onRefresh();
-    } catch (reason: unknown) {
-      setMessage(describePipelineError(reason));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function retryRun(runId: string) {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const response = await client.retryObservationRun(recordingId, runId);
       setLiveRun(response);
       setTrackedRunId(response.run_id);
       await onRefresh();
@@ -250,7 +184,16 @@ export function ObservationRunControls({
         </p>
       ) : null}
       {selectedRun !== null ? (
-        <PipelineRunStatus run={selectedRun} onRetry={retryRun} busy={busy} />
+        <>
+          {selectedRun.job_id ? (
+            <p>
+              <a href={`/jobs/${encodeURIComponent(selectedRun.job_id)}`}>
+                View job {selectedRun.job_id}
+              </a>
+            </p>
+          ) : null}
+          <PipelineRunStatus run={selectedRun} />
+        </>
       ) : null}
       {stage.runs.length > 0 ? (
         <details className={styles.pipelineRunHistory}>
@@ -263,8 +206,6 @@ export function ObservationRunControls({
               setLiveRun(null);
               setMessage(null);
             }}
-            onRetry={retryRun}
-            busy={busy}
           />
         </details>
       ) : null}

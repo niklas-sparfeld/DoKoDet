@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from dokodetector_backend.errors import ContractError
-from dokodetector_backend.job_store import JobConflict
+from dokodetector_backend.job_store import JobConflict, JobOwnershipError
 from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.round_analysis_contract import (
     CounterfactualArtifact,
@@ -157,7 +157,9 @@ async def _queue_round_analysis(
             status_code=500,
         ) from error
     try:
-        return service.status(UUID(job.request["analysis_id"]))
+        return service.status(UUID(job.request["analysis_id"])).model_copy(
+            update={"job_id": job.id}
+        )
     except (RoundAnalysisNotFound, KeyError, TypeError, ValueError) as error:
         raise ContractError(
             "analysis_not_found", "The round analysis was not found.", status_code=500
@@ -180,7 +182,22 @@ def get_round_analysis(analysis_id: str, request: Request) -> RoundAnalysisStatu
         ) from error
     service: RoundAnalysisService = request.app.state.round_analysis_service
     try:
-        return service.status(parsed_id)
+        status = service.status(parsed_id)
+        try:
+            manager = request.app.state.job_manager_service.get_manager()
+        except JobOwnershipError:
+            job_id = None
+        else:
+            job_id = next(
+                (
+                    job.id
+                    for job in manager.list_jobs()
+                    if job.type == "round_analysis"
+                    and job.request.get("analysis_id") == str(parsed_id)
+                ),
+                None,
+            )
+        return status.model_copy(update={"job_id": job_id})
     except RoundAnalysisNotFound as error:
         raise ContractError(
             "analysis_not_found",

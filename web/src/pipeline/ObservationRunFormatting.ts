@@ -9,6 +9,7 @@ export const TERMINAL_RUN_STATES = new Set(["complete", "partial", "failed"]);
 
 export type RunFacts = {
   run_id: string;
+  job_id?: string | null;
   status: string;
   attempt: number;
   request: Record<string, unknown>;
@@ -47,6 +48,7 @@ export function toRunFacts(
   }
   return {
     run_id: run.run_id,
+    job_id: run.job_id,
     status: run.status,
     attempt: run.attempt,
     request: run.request,
@@ -62,9 +64,9 @@ export function runStatusMessage(status: string): string {
   return status === "complete"
     ? "Observation assembly completed and retained its output revision."
     : status === "partial"
-      ? "Observation assembly returned a partial result. Review it or retry the same frozen request."
+      ? "Observation assembly returned a partial result. Review the job details to retry with the frozen inputs."
       : status === "failed"
-        ? "Observation assembly failed. Retry keeps the run ID and exact frozen inputs."
+        ? "Observation assembly failed. Review the job details to retry with the frozen inputs."
         : status === "queued"
           ? "Observation assembly is queued."
           : "Observation assembly is running.";

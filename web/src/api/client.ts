@@ -75,6 +75,7 @@ export type PipelineRunStartRequest = {
 };
 export type PipelineRunResponse = {
   run_id: string;
+  job_id: string | null;
   recording_id: string;
   processor_type: string;
   status: string;
@@ -339,24 +340,9 @@ export interface DokoDetectorClient {
     payload: PipelineComparisonRequest,
     init?: RequestInit,
   ): Promise<PipelineComparisonResponse>;
-  getEventRun(
-    recordingId: string,
-    runId: string,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
   startVisibleCardRun(
     recordingId: string,
     payload: PipelineRunStartRequest,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
-  getVisibleCardRun(
-    recordingId: string,
-    runId: string,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
-  retryVisibleCardRun(
-    recordingId: string,
-    runId: string,
     init?: RequestInit,
   ): Promise<PipelineRunResponse>;
   startProposedCardSceneRun(
@@ -368,16 +354,6 @@ export interface DokoDetectorClient {
     recordingId: string,
     init?: RequestInit,
   ): Promise<{ recording_id: string; runs: PipelineProposalRunResponse[] }>;
-  getProposedCardSceneRun(
-    recordingId: string,
-    runId: string,
-    init?: RequestInit,
-  ): Promise<PipelineProposalRunResponse>;
-  retryProposedCardSceneRun(
-    recordingId: string,
-    runId: string,
-    init?: RequestInit,
-  ): Promise<PipelineProposalRunResponse>;
   getProposedCardSceneResult(
     recordingId: string,
     runId: string,
@@ -444,29 +420,9 @@ export interface DokoDetectorClient {
       unsupported_frame_count: number;
     }>;
   }>;
-  getVisualIdentityRun(
-    recordingId: string,
-    runId: string,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
-  retryVisualIdentityRun(
-    recordingId: string,
-    runId: string,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
   startObservationRun(
     recordingId: string,
     payload: PipelineRunStartRequest,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
-  getObservationRun(
-    recordingId: string,
-    runId: string,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
-  retryObservationRun(
-    recordingId: string,
-    runId: string,
     init?: RequestInit,
   ): Promise<PipelineRunResponse>;
   getEventResult(
@@ -683,52 +639,6 @@ export function createDokoDetectorClient(
           body: JSON.stringify(payload),
         },
       ),
-    getEventRun: async (recordingId, runId, init) => {
-      const job = await requestJson<JobDetail>(
-        fetchImplementation,
-        `/api/jobs/${encodeURIComponent(runId)}`,
-        init,
-      );
-      if (
-        ["succeeded", "failed", "cancelled", "interrupted"].includes(job.state)
-      ) {
-        return requestJson<PipelineRunResponse>(
-          fetchImplementation,
-          pipelineEventResultPath(recordingId, runId),
-          init,
-        );
-      }
-      const processorRequest =
-        (job.request.processor_request as
-          Record<string, unknown> | undefined) ?? job.request;
-      const step = job.steps[0];
-      const status =
-        job.state === "waiting" || job.state === "cancelling"
-          ? "running"
-          : job.state;
-      return {
-        run_id: job.id,
-        recording_id: recordingId,
-        processor_type: String(
-          processorRequest.processor_type ?? "event-detection",
-        ),
-        status,
-        attempt: 1,
-        request: processorRequest,
-        state: {
-          run_id: job.id,
-          status,
-          progress: {
-            completed: step?.completed ?? 0,
-            total: step?.total ?? 0,
-          },
-          terminal_failure: job.failure,
-          output_revision_ids: [],
-          items: [],
-          metrics: {},
-        },
-      };
-    },
     startVisibleCardRun: (recordingId, payload, init) =>
       requestJson<PipelineRunResponse>(
         fetchImplementation,
@@ -739,58 +649,6 @@ export function createDokoDetectorClient(
           headers: jsonHeaders(init?.headers),
           body: JSON.stringify(payload),
         },
-      ),
-    getVisibleCardRun: async (recordingId, runId, init) => {
-      const job = await requestJson<JobDetail>(
-        fetchImplementation,
-        `/api/jobs/${encodeURIComponent(runId)}`,
-        init,
-      );
-      if (
-        ["succeeded", "failed", "cancelled", "interrupted"].includes(job.state)
-      ) {
-        return requestJson<PipelineRunResponse>(
-          fetchImplementation,
-          pipelineVisibleCardResultPath(recordingId, runId),
-          init,
-        );
-      }
-      const processorRequest =
-        (job.request.processor_request as
-          Record<string, unknown> | undefined) ?? job.request;
-      const step = job.steps[0];
-      const status =
-        job.state === "waiting" || job.state === "cancelling"
-          ? "running"
-          : job.state;
-      return {
-        run_id: job.id,
-        recording_id: recordingId,
-        processor_type: String(
-          processorRequest.processor_type ?? "visible-card-detection",
-        ),
-        status,
-        attempt: 1,
-        request: processorRequest,
-        state: {
-          run_id: job.id,
-          status,
-          progress: {
-            completed: step?.completed ?? 0,
-            total: step?.total ?? 0,
-          },
-          terminal_failure: job.failure,
-          output_revision_ids: [],
-          items: [],
-          metrics: {},
-        },
-      };
-    },
-    retryVisibleCardRun: (recordingId, runId, init) =>
-      requestJson<PipelineRunResponse>(
-        fetchImplementation,
-        pipelineVisibleCardRunRetryPath(recordingId, runId),
-        { ...init, method: "POST" },
       ),
     startProposedCardSceneRun: (recordingId, payload, init) =>
       requestJson<PipelineProposalRunResponse>(
@@ -811,18 +669,6 @@ export function createDokoDetectorClient(
         fetchImplementation,
         pipelineProposedCardSceneRunsPath(recordingId),
         init,
-      ),
-    getProposedCardSceneRun: (recordingId, runId, init) =>
-      requestJson<PipelineProposalRunResponse>(
-        fetchImplementation,
-        pipelineProposedCardSceneRunPath(recordingId, runId),
-        init,
-      ),
-    retryProposedCardSceneRun: (recordingId, runId, init) =>
-      requestJson<PipelineProposalRunResponse>(
-        fetchImplementation,
-        pipelineProposedCardSceneRunRetryPath(recordingId, runId),
-        { ...init, method: "POST" },
       ),
     getProposedCardSceneResult: (recordingId, runId, init) =>
       requestJson<PipelineProposalResultResponse>(
@@ -927,18 +773,6 @@ export function createDokoDetectorClient(
         `${pipelineVisualIdentityRunsPath(recordingId)}/proposed-crop-inputs`,
         init,
       ),
-    getVisualIdentityRun: (recordingId, runId, init) =>
-      requestJson<PipelineRunResponse>(
-        fetchImplementation,
-        pipelineVisualIdentityRunPath(recordingId, runId),
-        init,
-      ),
-    retryVisualIdentityRun: (recordingId, runId, init) =>
-      requestJson<PipelineRunResponse>(
-        fetchImplementation,
-        pipelineVisualIdentityRunRetryPath(recordingId, runId),
-        { ...init, method: "POST" },
-      ),
     startObservationRun: (recordingId, payload, init) =>
       requestJson<PipelineRunResponse>(
         fetchImplementation,
@@ -949,18 +783,6 @@ export function createDokoDetectorClient(
           headers: jsonHeaders(init?.headers),
           body: JSON.stringify(payload),
         },
-      ),
-    getObservationRun: (recordingId, runId, init) =>
-      requestJson<PipelineRunResponse>(
-        fetchImplementation,
-        pipelineObservationRunPath(recordingId, runId),
-        init,
-      ),
-    retryObservationRun: (recordingId, runId, init) =>
-      requestJson<PipelineRunResponse>(
-        fetchImplementation,
-        pipelineObservationRunRetryPath(recordingId, runId),
-        { ...init, method: "POST" },
       ),
     getEventResult: (recordingId, runId, init) =>
       requestJson<PipelineEventResult>(
@@ -1092,20 +914,6 @@ export function pipelineVisibleCardRunsPath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visible-cards`;
 }
 
-export function pipelineVisibleCardRunPath(
-  recordingId: string,
-  runId: string,
-): string {
-  return `${pipelineVisibleCardRunsPath(recordingId)}/${encodeURIComponent(runId)}`;
-}
-
-export function pipelineVisibleCardRunRetryPath(
-  recordingId: string,
-  runId: string,
-): string {
-  return `${pipelineVisibleCardRunPath(recordingId, runId)}/retry`;
-}
-
 export function pipelineProposedCardSceneRunsPath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/proposed-card-scenes`;
 }
@@ -1115,13 +923,6 @@ export function pipelineProposedCardSceneRunPath(
   runId: string,
 ): string {
   return `${pipelineProposedCardSceneRunsPath(recordingId)}/${encodeURIComponent(runId)}`;
-}
-
-export function pipelineProposedCardSceneRunRetryPath(
-  recordingId: string,
-  runId: string,
-): string {
-  return `${pipelineProposedCardSceneRunPath(recordingId, runId)}/retry`;
 }
 
 export function pipelineProposedCardSceneResultPath(
@@ -1167,36 +968,8 @@ export function pipelineVisualIdentityRunsPath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visual-identities`;
 }
 
-export function pipelineVisualIdentityRunPath(
-  recordingId: string,
-  runId: string,
-): string {
-  return `${pipelineVisualIdentityRunsPath(recordingId)}/${encodeURIComponent(runId)}`;
-}
-
-export function pipelineVisualIdentityRunRetryPath(
-  recordingId: string,
-  runId: string,
-): string {
-  return `${pipelineVisualIdentityRunPath(recordingId, runId)}/retry`;
-}
-
 export function pipelineObservationRunsPath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/observations`;
-}
-
-export function pipelineObservationRunPath(
-  recordingId: string,
-  runId: string,
-): string {
-  return `${pipelineObservationRunsPath(recordingId)}/${encodeURIComponent(runId)}`;
-}
-
-export function pipelineObservationRunRetryPath(
-  recordingId: string,
-  runId: string,
-): string {
-  return `${pipelineObservationRunPath(recordingId, runId)}/retry`;
 }
 
 export function pipelineVisibleCardResultPath(

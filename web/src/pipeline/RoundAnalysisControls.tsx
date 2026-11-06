@@ -19,7 +19,6 @@ import {
   RoundAnalysisStatusPanel,
 } from "./RoundAnalysisPresentation";
 import { PipelineControlStatusBadge } from "./PipelineControlStatusBadge";
-import { usePageVisibility } from "./usePageVisibility";
 
 export type RoundAnalysisControlsProps = {
   recordingId: string;
@@ -39,7 +38,6 @@ export function RoundAnalysisControls({
   compact = false,
 }: RoundAnalysisControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
-  const pageVisible = usePageVisibility();
   const loadedContextAnalysisId = useRef<string | null>(null);
   const [recording, setRecording] = useState<RecordingDetail | null>(null);
   const [observationRevisionId, setObservationRevisionId] = useState(
@@ -69,6 +67,10 @@ export function RoundAnalysisControls({
       )?.analysis_id ??
       null,
   );
+  const [trackedJobId, setTrackedJobId] = useState<string | null>(null);
+  const [trackedJobAnalysisId, setTrackedJobAnalysisId] = useState<
+    string | null
+  >(null);
   const [liveStatus, setLiveStatus] = useState<RoundAnalysisStatus | null>(
     null,
   );
@@ -122,48 +124,6 @@ export function RoundAnalysisControls({
   }, [client, stage.analyses]);
 
   const activeAnalysisId = selectedAnalysisId ?? trackedAnalysisId;
-
-  useEffect(() => {
-    if (activeAnalysisId === null || !pageVisible) {
-      return;
-    }
-    let cancelled = false;
-    let timer: number | null = null;
-    let controller: AbortController | null = null;
-    const poll = async () => {
-      if (cancelled) return;
-      controller = new AbortController();
-      try {
-        const response = await client.getRoundAnalysisStatus(activeAnalysisId, {
-          signal: controller.signal,
-        });
-        if (cancelled) {
-          return;
-        }
-        setLiveStatus(response);
-        if (TERMINAL_ANALYSIS_STATES.has(response.state)) {
-          await onRefresh();
-          return;
-        }
-        timer = window.setTimeout(() => void poll(), 1000);
-      } catch (reason: unknown) {
-        if (!cancelled) {
-          setMessage(describePipelineError(reason));
-          timer = window.setTimeout(() => void poll(), 1000);
-        }
-      } finally {
-        controller = null;
-      }
-    };
-    void poll();
-    return () => {
-      cancelled = true;
-      if (timer !== null) {
-        window.clearTimeout(timer);
-      }
-      controller?.abort();
-    };
-  }, [activeAnalysisId, client, onRefresh, pageVisible]);
 
   function validateContext(): RoundAnalysisCreateRequest | null {
     const activePlayers = players
@@ -256,6 +216,8 @@ export function RoundAnalysisControls({
     try {
       const response = await client.createRoundAnalysis(request);
       setTrackedAnalysisId(response.analysis_id);
+      setTrackedJobId(response.job_id ?? null);
+      setTrackedJobAnalysisId(response.analysis_id);
       setLiveStatus(response);
       onSelectAnalysis(response.analysis_id);
       await onRefresh();
@@ -294,6 +256,13 @@ export function RoundAnalysisControls({
             <PipelineControlStatusBadge value={displayedStatus} />
           ) : null}
         </div>
+      ) : null}
+      {trackedJobId !== null && trackedJobAnalysisId === activeAnalysisId ? (
+        <p>
+          <a href={`/jobs/${encodeURIComponent(trackedJobId)}`}>
+            View job {trackedJobId}
+          </a>
+        </p>
       ) : null}
       {stage.run_blockers.length > 0 ? (
         <p className={styles.detailBlocker}>{stage.run_blockers[0]}</p>

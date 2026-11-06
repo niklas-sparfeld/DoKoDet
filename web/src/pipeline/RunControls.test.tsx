@@ -100,7 +100,7 @@ describe("RunControls", () => {
     const fetchMock = vi.fn<typeof fetch>((input, init) => {
       if (init?.method === "POST") {
         return Promise.resolve(
-          new Response(JSON.stringify({ id: "events-job-1" }), {
+          new Response(JSON.stringify(jobResponse("events-job-1")), {
             status: 202,
             headers: { "Content-Type": "application/json" },
           }),
@@ -317,7 +317,7 @@ describe("RunControls", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens the stored CardEventNet probability chart", async () => {
+  it("links the accepted event job to shared job details", async () => {
     const response = runResponse(
       "events-run-1",
       "complete",
@@ -339,7 +339,7 @@ describe("RunControls", () => {
       const path = String(input);
       if (init?.method === "POST") {
         return Promise.resolve(
-          new Response(JSON.stringify({ id: "events-job-1" }), {
+          new Response(JSON.stringify(jobResponse("events-job-1", "queued")), {
             status: 202,
             headers: { "Content-Type": "application/json" },
           }),
@@ -370,25 +370,9 @@ describe("RunControls", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Run processor" }),
     );
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Show probabilities" }),
-    );
-
     expect(
-      screen.getByRole("dialog", { name: "CardEventNet probabilities" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", {
-        name: "CardEventNet probability over time chart",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("img").querySelector("polyline")).toHaveAttribute(
-      "points",
-    );
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Close probabilities" }),
-    );
+      await screen.findByRole("link", { name: /View job/ }),
+    ).toHaveAttribute("href", "/jobs/events-job-1");
     expect(
       screen.queryByRole("dialog", { name: "CardEventNet probabilities" }),
     ).not.toBeInTheDocument();
@@ -1035,7 +1019,7 @@ describe("RunControls", () => {
     expect(screen.queryByRole("option", { name: /cascade/i })).toBeNull();
   });
 
-  it("keeps retry on the same run and explains partial and failed outcomes", async () => {
+  it("keeps legacy failed history without inventing a job link", async () => {
     const retainedRun = {
       run_id: "failed-run",
       status: "failed" as const,
@@ -1065,24 +1049,6 @@ describe("RunControls", () => {
       failure: { code: "provider_failed", message: "fixture failed" },
       failed_item_count: 0,
     };
-    const fetchMock = vi.fn<typeof fetch>((input, init) => {
-      if (init?.method === "POST") {
-        return Promise.resolve(
-          new Response(JSON.stringify({ id: "retried-job" }), {
-            status: 202,
-            headers: { "Content-Type": "application/json" },
-          }),
-        );
-      }
-      return Promise.resolve(
-        new Response(JSON.stringify(jobResponse("retried-job")), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      );
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
     render(
       <RunControls
         recordingId="recording-run-controls"
@@ -1094,23 +1060,10 @@ describe("RunControls", () => {
 
     const history = screen.getByText("Retained runs and actual inputs");
     await userEvent.click(history);
-    await userEvent.click(
-      within(screen.getByRole("list")).getByRole("button", {
-        name: "Retry same run",
-      }),
-    );
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/jobs/failed-run/retry",
-        expect.objectContaining({
-          method: "POST",
-          headers: expect.any(Headers),
-        }),
-      ),
-    );
     expect(
-      await screen.findByText("The processor request is queued."),
-    ).toBeInTheDocument();
+      within(screen.getByRole("list")).queryByRole("link", {
+        name: "View job",
+      }),
+    ).toBeNull();
   });
 });

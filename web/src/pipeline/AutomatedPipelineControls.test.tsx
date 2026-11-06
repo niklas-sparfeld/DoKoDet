@@ -103,7 +103,9 @@ describe("AutomatedPipelineControls", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Start complete pipeline" }),
     );
-    await screen.findByText("Run run-1 · complete");
+    expect(
+      await screen.findByRole("link", { name: "View job" }),
+    ).toHaveAttribute("href", "/jobs/run-1");
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("/pipeline/runs"),
       expect.objectContaining({ method: "POST" }),
@@ -131,7 +133,9 @@ describe("AutomatedPipelineControls", () => {
     ])
       expect(startPayload).not.toHaveProperty(field);
     expect(
-      screen.queryByLabelText(/Game ID|Round ID|Session ID|Dealer|leader|player/i),
+      screen.queryByLabelText(
+        /Game ID|Round ID|Session ID|Dealer|leader|player/i,
+      ),
     ).not.toBeInTheDocument();
 
     view.unmount();
@@ -148,8 +152,14 @@ describe("AutomatedPipelineControls", () => {
         expect.objectContaining({ headers: expect.any(Headers) }),
       ),
     );
-    expect(await screen.findByText("Run run-1 · complete")).toBeInTheDocument();
-    expect(screen.getAllByRole("link")).toHaveLength(6);
+    expect(
+      await screen.findByRole("link", { name: "View job" }),
+    ).toHaveAttribute("href", "/jobs/run-1");
+    expect(screen.getAllByRole("link")).toHaveLength(7);
+    expect(screen.getByRole("link", { name: "View job" })).toHaveAttribute(
+      "href",
+      "/jobs/run-1",
+    );
     expect(
       screen.getByRole("link", { name: /Event proposals/ }),
     ).toHaveAttribute("href", expect.stringContaining("/pipeline/events"));

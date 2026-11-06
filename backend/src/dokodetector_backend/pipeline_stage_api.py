@@ -17,7 +17,6 @@ from pydantic import Field
 from dokodetector_backend.contract import ContractModel
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.event_pipeline_service import EventPipelineService
-from dokodetector_backend.job_store import JobStateError
 from dokodetector_backend.observation_pipeline_service import (
     ObservationPipelineError,
     ObservationPipelineInputError,
@@ -28,7 +27,6 @@ from dokodetector_backend.pipeline_store import (
     PipelineConflict,
     PipelineNotFound,
     PipelineSelectionConflict,
-    PipelineStateError,
 )
 from dokodetector_backend.proposed_card_scene_pipeline_service import (
     ProposedCardScenePipelineError,
@@ -252,7 +250,6 @@ def _proposed_card_scene_service(request: Request) -> Any:
 
 
 @router.get(BASE)
-@router.get(BASE + "/runs", include_in_schema=False)
 def list_event_runs(recording_id: str, request: Request) -> dict[str, Any]:
     """List durable event processor runs for one recording."""
 
@@ -265,7 +262,6 @@ def list_event_runs(recording_id: str, request: Request) -> dict[str, Any]:
 
 
 @router.get(BASE + "/selection")
-@router.get(BASE + "/generated-selection", include_in_schema=False)
 def get_generated_selection(recording_id: str, request: Request) -> dict[str, Any]:
     """Return the current generated and completed-reference event pointers."""
 
@@ -278,7 +274,6 @@ def get_generated_selection(recording_id: str, request: Request) -> dict[str, An
 
 
 @router.put(BASE + "/selection")
-@router.put(BASE + "/generated-selection", include_in_schema=False)
 def update_generated_selection(
     recording_id: str,
     payload: dict[str, Any],
@@ -297,7 +292,6 @@ def update_generated_selection(
 
 
 @router.get(BASE + "/{run_id}/result")
-@router.get(BASE + "/runs/{run_id}/result", include_in_schema=False)
 def get_event_result(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Return a completed event run and its stored data revisions."""
 
@@ -314,7 +308,6 @@ def get_event_result(recording_id: str, run_id: str, request: Request) -> dict[s
 
 
 @router.post(VISIBLE_CARD_BASE, status_code=202)
-@router.post(VISIBLE_CARD_BASE + "/runs", status_code=202, include_in_schema=False)
 def start_visible_card_run(
     recording_id: str, payload: dict[str, Any], request: Request
 ) -> dict[str, Any]:
@@ -337,7 +330,7 @@ def start_visible_card_run(
                 "request": payload,
             },
         )
-        return run_response(service.get_run(recording_id, job.id))
+        return run_response(service.get_run(recording_id, job.id), job_id=job.id)
     except (VisibleCardPipelineInputError, PipelineConflict) as error:
         raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
     except PipelineNotFound as error:
@@ -347,7 +340,6 @@ def start_visible_card_run(
 
 
 @router.get(VISIBLE_CARD_BASE)
-@router.get(VISIBLE_CARD_BASE + "/runs", include_in_schema=False)
 def list_visible_card_runs(recording_id: str, request: Request) -> dict[str, Any]:
     """List durable visible-card detector runs for one recording."""
 
@@ -360,7 +352,6 @@ def list_visible_card_runs(recording_id: str, request: Request) -> dict[str, Any
 
 
 @router.get(VISIBLE_CARD_BASE + "/selection")
-@router.get(VISIBLE_CARD_BASE + "/generated-selection", include_in_schema=False)
 def get_visible_card_selection(recording_id: str, request: Request) -> dict[str, Any]:
     """Return the current visible-card generated and reference pointers."""
 
@@ -373,7 +364,6 @@ def get_visible_card_selection(recording_id: str, request: Request) -> dict[str,
 
 
 @router.put(VISIBLE_CARD_BASE + "/selection")
-@router.put(VISIBLE_CARD_BASE + "/generated-selection", include_in_schema=False)
 def update_visible_card_selection(
     recording_id: str, payload: dict[str, Any], request: Request
 ) -> dict[str, Any]:
@@ -389,39 +379,8 @@ def update_visible_card_selection(
     return {"recording_id": recording_id, "selection": selection.to_mapping()}
 
 
-@router.get(VISIBLE_CARD_BASE + "/{run_id}")
-@router.get(VISIBLE_CARD_BASE + "/runs/{run_id}", include_in_schema=False)
-def get_visible_card_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
-    """Return one visible-card detector run and its immutable request."""
-
-    try:
-        service = _visible_service(request)
-        run = service.get_run(recording_id, run_id, include_items=False)
-        if run.state.status in {"complete", "failed", "partial"}:
-            run = service.get_run(recording_id, run_id)
-        return run_response(run)
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except VisibleCardPipelineError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
-@router.post(VISIBLE_CARD_BASE + "/{run_id}/retry", status_code=202)
-@router.post(VISIBLE_CARD_BASE + "/runs/{run_id}/retry", status_code=202, include_in_schema=False)
-def retry_visible_card_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
-    """Retry one failed visible-card detector run."""
-
-    try:
-        service = _visible_service(request)
-        service.get_run(recording_id, run_id)
-        job = request.app.state.job_manager_service.get_manager().retry(run_id, str(uuid4()))
-        return run_response(service.get_run(recording_id, job.id))
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except (VisibleCardPipelineInputError, PipelineConflict, PipelineStateError) as error:
-        raise ContractError("invalid_pipeline_retry", str(error), status_code=422) from error
-    except VisibleCardPipelineError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
 @router.get(
@@ -429,7 +388,6 @@ def retry_visible_card_run(recording_id: str, run_id: str, request: Request) -> 
     response_model=PipelineVisibleCardResultResponse,
     response_model_exclude_unset=True,
 )
-@router.get(VISIBLE_CARD_BASE + "/runs/{run_id}/result", include_in_schema=False)
 def get_visible_card_result(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Return one completed visible-card detector run and its stored revision."""
 
@@ -446,7 +404,6 @@ def get_visible_card_result(recording_id: str, run_id: str, request: Request) ->
 
 
 @router.post(PROPOSED_CARD_SCENE_BASE, status_code=202)
-@router.post(PROPOSED_CARD_SCENE_BASE + "/runs", status_code=202, include_in_schema=False)
 def start_proposed_card_scene_run(
     recording_id: str, payload: dict[str, Any], request: Request
 ) -> dict[str, Any]:
@@ -469,7 +426,7 @@ def start_proposed_card_scene_run(
                 "request": payload,
             },
         )
-        return run_response(service.get_run(recording_id, job.id))
+        return run_response(service.get_run(recording_id, job.id), job_id=job.id)
     except (ProposedCardScenePipelineInputError, PipelineConflict) as error:
         raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
     except PipelineNotFound as error:
@@ -479,7 +436,6 @@ def start_proposed_card_scene_run(
 
 
 @router.get(PROPOSED_CARD_SCENE_BASE)
-@router.get(PROPOSED_CARD_SCENE_BASE + "/runs", include_in_schema=False)
 def list_proposed_card_scene_runs(recording_id: str, request: Request) -> dict[str, Any]:
     """List proposed-card-scene processor runs for one recording."""
 
@@ -491,50 +447,11 @@ def list_proposed_card_scene_runs(recording_id: str, request: Request) -> dict[s
     return {"recording_id": recording_id, "runs": [run_response(run) for run in runs]}
 
 
-@router.get(PROPOSED_CARD_SCENE_BASE + "/{run_id}")
-@router.get(PROPOSED_CARD_SCENE_BASE + "/runs/{run_id}", include_in_schema=False)
-def get_proposed_card_scene_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
-    """Return one proposed-card-scene run."""
-
-    try:
-        return run_response(_proposed_card_scene_service(request).get_run(recording_id, run_id))
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except ProposedCardScenePipelineError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
-@router.post(PROPOSED_CARD_SCENE_BASE + "/{run_id}/retry", status_code=202)
-@router.post(
-    PROPOSED_CARD_SCENE_BASE + "/runs/{run_id}/retry",
-    status_code=202,
-    include_in_schema=False,
-)
-def retry_proposed_card_scene_run(
-    recording_id: str, run_id: str, request: Request
-) -> dict[str, Any]:
-    """Retry one failed or partial proposal run."""
-
-    try:
-        service = _proposed_card_scene_service(request)
-        service.get_run(recording_id, run_id)
-        job = request.app.state.job_manager_service.get_manager().retry(run_id, str(uuid4()))
-        return run_response(service.get_run(recording_id, job.id))
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except (
-        JobStateError,
-        ProposedCardScenePipelineInputError,
-        PipelineConflict,
-        PipelineStateError,
-    ) as error:
-        raise ContractError("invalid_pipeline_retry", str(error), status_code=422) from error
-    except ProposedCardScenePipelineError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
 @router.get(PROPOSED_CARD_SCENE_BASE + "/{run_id}/result")
-@router.get(PROPOSED_CARD_SCENE_BASE + "/runs/{run_id}/result", include_in_schema=False)
 def get_proposed_card_scene_result(
     recording_id: str, run_id: str, request: Request
 ) -> dict[str, Any]:
@@ -663,7 +580,6 @@ def get_recording_identity_crop(
 
 
 @router.post(VISUAL_IDENTITY_BASE, status_code=202)
-@router.post(VISUAL_IDENTITY_BASE + "/runs", status_code=202, include_in_schema=False)
 def start_visual_identity_run(
     recording_id: str, payload: dict[str, Any], request: Request
 ) -> dict[str, Any]:
@@ -671,9 +587,8 @@ def start_visual_identity_run(
 
     validate_recording_id(recording_id)
     try:
-        return run_response(
-            _visual_identity_service(request).start_classification(recording_id, payload)
-        )
+        run = _visual_identity_service(request).start_classification(recording_id, payload)
+        return run_response(run, job_id=run.run_id)
     except (VisualIdentityPipelineInputError, PipelineConflict) as error:
         raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
     except PipelineNotFound as error:
@@ -683,7 +598,6 @@ def start_visual_identity_run(
 
 
 @router.get(VISUAL_IDENTITY_BASE)
-@router.get(VISUAL_IDENTITY_BASE + "/runs", include_in_schema=False)
 def list_visual_identity_runs(recording_id: str, request: Request) -> dict[str, Any]:
     """List durable visual identity classifier runs for one recording."""
 
@@ -712,7 +626,6 @@ def list_visual_identity_proposed_crop_inputs(
 
 
 @router.get(VISUAL_IDENTITY_BASE + "/selection")
-@router.get(VISUAL_IDENTITY_BASE + "/generated-selection", include_in_schema=False)
 def get_visual_identity_selection(recording_id: str, request: Request) -> dict[str, Any]:
     """Return the current visual identity generated and reference pointers."""
 
@@ -727,7 +640,6 @@ def get_visual_identity_selection(recording_id: str, request: Request) -> dict[s
 
 
 @router.put(VISUAL_IDENTITY_BASE + "/selection")
-@router.put(VISUAL_IDENTITY_BASE + "/generated-selection", include_in_schema=False)
 def update_visual_identity_selection(
     recording_id: str, payload: dict[str, Any], request: Request
 ) -> dict[str, Any]:
@@ -743,41 +655,14 @@ def update_visual_identity_selection(
     return {"recording_id": recording_id, "selection": selection.to_mapping()}
 
 
-@router.get(VISUAL_IDENTITY_BASE + "/{run_id}")
-@router.get(VISUAL_IDENTITY_BASE + "/runs/{run_id}", include_in_schema=False)
-def get_visual_identity_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
-    """Return one visual identity classifier run and its immutable request."""
-
-    try:
-        return run_response(_visual_identity_service(request).get_run(recording_id, run_id))
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except VisualIdentityPipelineError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
-@router.post(VISUAL_IDENTITY_BASE + "/{run_id}/retry", status_code=202)
-@router.post(
-    VISUAL_IDENTITY_BASE + "/runs/{run_id}/retry", status_code=202, include_in_schema=False
-)
-def retry_visual_identity_run(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
-    """Retry one failed visual identity classifier run."""
-
-    try:
-        return run_response(_visual_identity_service(request).retry(recording_id, run_id))
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except (VisualIdentityPipelineInputError, PipelineConflict, PipelineStateError) as error:
-        raise ContractError("invalid_pipeline_retry", str(error), status_code=422) from error
-    except VisualIdentityPipelineError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
 @router.get(
     VISUAL_IDENTITY_BASE + "/{run_id}/result",
     response_model=PipelineVisualIdentityResultResponse,
 )
-@router.get(VISUAL_IDENTITY_BASE + "/runs/{run_id}/result", include_in_schema=False)
 def get_visual_identity_result(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
     """Return a completed visual identity run and its stored revision."""
 
@@ -798,7 +683,6 @@ def get_visual_identity_result(recording_id: str, run_id: str, request: Request)
 
 
 @router.post(OBSERVATION_BASE, status_code=202)
-@router.post(OBSERVATION_BASE + "/runs", status_code=202, include_in_schema=False)
 def start_observation_assembly(
     recording_id: str, payload: dict[str, Any], request: Request
 ) -> dict[str, Any]:
@@ -806,7 +690,8 @@ def start_observation_assembly(
 
     validate_recording_id(recording_id)
     try:
-        return run_response(_observation_service(request).start_assembly(recording_id, payload))
+        run = _observation_service(request).start_assembly(recording_id, payload)
+        return run_response(run, job_id=run.run_id)
     except (ObservationPipelineInputError, PipelineConflict) as error:
         raise ContractError("invalid_pipeline_request", str(error), status_code=422) from error
     except PipelineNotFound as error:
@@ -816,7 +701,6 @@ def start_observation_assembly(
 
 
 @router.get(OBSERVATION_BASE)
-@router.get(OBSERVATION_BASE + "/runs", include_in_schema=False)
 def list_observation_assemblies(recording_id: str, request: Request) -> dict[str, Any]:
     """List durable observation assembly runs for one recording."""
 
@@ -829,7 +713,6 @@ def list_observation_assemblies(recording_id: str, request: Request) -> dict[str
 
 
 @router.get(OBSERVATION_BASE + "/selection")
-@router.get(OBSERVATION_BASE + "/generated-selection", include_in_schema=False)
 def get_observation_selection(recording_id: str, request: Request) -> dict[str, Any]:
     """Return the current table-observation generated and reference pointers."""
 
@@ -844,7 +727,6 @@ def get_observation_selection(recording_id: str, request: Request) -> dict[str, 
 
 
 @router.put(OBSERVATION_BASE + "/selection")
-@router.put(OBSERVATION_BASE + "/generated-selection", include_in_schema=False)
 def update_observation_selection(
     recording_id: str, payload: dict[str, Any], request: Request
 ) -> dict[str, Any]:
@@ -860,36 +742,11 @@ def update_observation_selection(
     return {"recording_id": recording_id, "selection": selection.to_mapping()}
 
 
-@router.get(OBSERVATION_BASE + "/{run_id}")
-@router.get(OBSERVATION_BASE + "/runs/{run_id}", include_in_schema=False)
-def get_observation_assembly(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
-    """Return one observation assembly run and its immutable request."""
-
-    try:
-        return run_response(_observation_service(request).get_run(recording_id, run_id))
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except ObservationPipelineError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
-@router.post(OBSERVATION_BASE + "/{run_id}/retry", status_code=202)
-@router.post(OBSERVATION_BASE + "/runs/{run_id}/retry", status_code=202, include_in_schema=False)
-def retry_observation_assembly(recording_id: str, run_id: str, request: Request) -> dict[str, Any]:
-    """Retry one failed observation assembly run."""
-
-    try:
-        return run_response(_observation_service(request).retry(recording_id, run_id))
-    except PipelineNotFound as error:
-        raise ContractError("pipeline_run_not_found", str(error), status_code=404) from error
-    except (ObservationPipelineInputError, PipelineConflict, PipelineStateError) as error:
-        raise ContractError("invalid_pipeline_retry", str(error), status_code=422) from error
-    except ObservationPipelineError as error:
-        raise ContractError("pipeline_unavailable", str(error), status_code=503) from error
 
 
 @router.get(OBSERVATION_BASE + "/{run_id}/result")
-@router.get(OBSERVATION_BASE + "/runs/{run_id}/result", include_in_schema=False)
 def get_observation_assembly_result(
     recording_id: str, run_id: str, request: Request
 ) -> dict[str, Any]:

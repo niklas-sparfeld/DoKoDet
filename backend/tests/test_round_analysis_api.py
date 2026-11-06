@@ -219,6 +219,7 @@ def test_create_runs_worker_and_publishes_compact_result(backend_tmp_path: Path)
     assert response.status_code == 202
     body = response.json()
     assert body["analysis_id"] == ANALYSIS_ID
+    assert body["job_id"]
     assert body["state"] == "complete"
     assert body["completed_evidence_packages"] == 1
     assert body["result"]["terminal_status"] == "complete"
@@ -231,7 +232,10 @@ def test_create_runs_worker_and_publishes_compact_result(backend_tmp_path: Path)
     assert body["result"]["input_artifact_id"] == (f"round-analyses/{ANALYSIS_ID}/input.json")
     assert body["result"]["result_artifact_id"] == (f"round-analyses/{ANALYSIS_ID}/result.json")
     assert app.state.round_analysis_storage.analysis_path(ANALYSIS_ID).is_dir()
-    assert client.get(f"/v1/round-analyses/{ANALYSIS_ID}").json() == body
+    history = client.get(f"/v1/round-analyses/{ANALYSIS_ID}").json()
+    assert history["analysis_id"] == body["analysis_id"]
+    assert history["result"] == body["result"]
+    assert history["state"] == body["state"]
     lineage = app.state.pipeline_lineage_service.snapshot(RECORDING_ID)
     analysis_run = next(
         item for item in lineage["runs"] if item["run_id"] == f"analysis-{ANALYSIS_ID}"
