@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from doko_operations.card_plane_geometry import virtual_card_long_size
-from doko_operations.pipeline_reference import ReferenceDraftItem
 from table_evidence_analyzer.card_scene_contract import (
     CardReviewState,
     CardSceneDraft,
@@ -16,6 +15,7 @@ from table_evidence_analyzer.pipeline_data import ProposedCardSceneData, Visible
 from dokodetector_backend.pipeline_reference_errors import PipelineReferenceInputError
 from dokodetector_backend.pipeline_reference_handlers import build_reference_handlers
 from dokodetector_backend.pipeline_store import StoredPipelineRevision
+from dokodetector_backend.visible_card_node_draft import VisibleCardNodeDraftItem
 
 
 def seed_proposal_items(
@@ -23,8 +23,8 @@ def seed_proposal_items(
     source_revision: StoredPipelineRevision,
     proposal_data: ProposedCardSceneData,
     proposal_revision_id: str,
-    previous_items: tuple[ReferenceDraftItem, ...] = (),
-) -> tuple[ReferenceDraftItem, ...]:
+    previous_items: tuple[VisibleCardNodeDraftItem, ...] = (),
+) -> tuple[VisibleCardNodeDraftItem, ...]:
     """Seed a draft while preserving reviewed pile and ignore regions by exact frame."""
     if not isinstance(source_revision.content, VisibleCardData):
         raise PipelineReferenceInputError("the proposal source must be visible-card data")
@@ -36,7 +36,7 @@ def seed_proposal_items(
         )
     projection = proposal_projection(proposal_data)
     previous_by_item_id = {item.item_id: item for item in previous_items}
-    items: list[ReferenceDraftItem] = []
+    items: list[VisibleCardNodeDraftItem] = []
     for outcome in outcomes:
         frame = frames[outcome.event_id]
         item = outcome.to_mapping()
@@ -132,7 +132,7 @@ def seed_proposal_items(
                 item["card_scene"] = draft.to_mapping()
             review_state = "accepted" if has_reviewed_piles else "unusable"
         items.append(
-            ReferenceDraftItem(
+            VisibleCardNodeDraftItem(
                 item_id=outcome.event_id,
                 base_item_id=None,
                 review_state=review_state,

@@ -12,7 +12,7 @@ import json
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -61,7 +61,6 @@ from .card_plane_geometry import (
     virtual_card_long_size,
 )
 from .pipeline_data import canonical_json_bytes
-from .pipeline_reference import ReferenceDraftItem
 from .visible_card_ignore import geometry_is_within
 
 CALIBRATION_DRAFT_STORE_DIRECTORY = "table-plane-calibration-drafts"
@@ -170,9 +169,7 @@ def _weighted_fit(
                     {
                         "base": base.calibration_digest,
                         "anchors": [anchor.observation_digest for anchor in selected],
-                        "weights": [
-                            contribution_by_id[item.anchor_id].weight for item in selected
-                        ],
+                        "weights": [contribution_by_id[item.anchor_id].weight for item in selected],
                     }
                 )[:24]
             ),
@@ -463,9 +460,8 @@ def build_calibration_preview(
         )
     candidate_mapping = candidate.to_mapping()
     return CalibrationPreview.create(
-        preview_id="preview-" + _digest(
-            {"draft": draft.draft_digest, "candidate": candidate_mapping}
-        )[:24],
+        preview_id="preview-"
+        + _digest({"draft": draft.draft_digest, "candidate": candidate_mapping})[:24],
         draft_id=draft.draft_id,
         base_calibration_revision_id=base.calibration_revision_id,
         base_calibration_digest=base.calibration_digest,
@@ -495,7 +491,8 @@ def _blocked_preview(
     rejected_count: int,
 ) -> CalibrationPreview:
     return CalibrationPreview.create(
-        preview_id="preview-" + _digest(
+        preview_id="preview-"
+        + _digest(
             {
                 "draft": draft.draft_digest,
                 "base": base.calibration_digest,
@@ -883,9 +880,7 @@ def reflow_card_scene_draft(
         if previous.source == "manual" and previous.card_id not in target_proposal.card_ids:
             states.append(previous)
 
-    resolved_ids = {
-        item.card_id for item in states if item.state in {"accepted", "adjusted"}
-    }
+    resolved_ids = {item.card_id for item in states if item.state in {"accepted", "adjusted"}}
     maximum = 0.0
     affected: list[str] = []
     reviewed = None
@@ -958,20 +953,20 @@ def reflow_card_scene_draft(
     )
 
 
-def reflow_reference_items(
-    current_items: Sequence[ReferenceDraftItem],
-    target_items: Sequence[ReferenceDraftItem],
+def reflow_visible_card_items(
+    current_items: Sequence[Any],
+    target_items: Sequence[Any],
     source_calibration: TablePlaneCalibration | Mapping[str, Any],
     target_calibration: TablePlaneCalibration | Mapping[str, Any],
     *,
     target_proposal_revision_id: str,
     target_proposal_data_digest: str,
     force_affected_frame_ids: Sequence[str] = (),
-) -> tuple[tuple[ReferenceDraftItem, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+) -> tuple[tuple[Any, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     """Reflow visible-card items and return reinitialized, rebased, and affected IDs."""
 
     current_by_id = {item.item_id: item for item in current_items}
-    updated: list[ReferenceDraftItem] = []
+    updated: list[Any] = []
     reinitialized: list[str] = []
     rebased: list[str] = []
     affected_frames: list[str] = []
@@ -1017,9 +1012,7 @@ def reflow_reference_items(
                     "card_id": region["card_id"],
                     "geometry": region["geometry"],
                     "normalization": region["normalization"],
-                    "side": previous_candidates.get(region["card_id"], {}).get(
-                        "side", "unknown"
-                    ),
+                    "side": previous_candidates.get(region["card_id"], {}).get("side", "unknown"),
                     **(
                         {"model_scores": previous_candidates[region["card_id"]]["model_scores"]}
                         if region["card_id"] in previous_candidates
@@ -1047,9 +1040,8 @@ def reflow_reference_items(
         item["card_scene"] = result.draft.to_mapping()
         state = previous.review_state
         if (
-            (result.affected_card_ids or target_item.item_id in force_affected_frame_ids)
-            and state in {"accepted", "corrected"}
-        ):
+            result.affected_card_ids or target_item.item_id in force_affected_frame_ids
+        ) and state in {"accepted", "corrected"}:
             state = "affected"
             affected_frames.append(target_item.item_id)
         if state in {"accepted", "corrected", "affected"}:
@@ -1064,14 +1056,7 @@ def reflow_reference_items(
                 for card_state in result.draft.card_states
                 if card_state.state == "pending"
             )
-        updated.append(
-            ReferenceDraftItem(
-                item_id=previous.item_id,
-                base_item_id=previous.base_item_id,
-                review_state=state,
-                item=item,
-            )
-        )
+        updated.append(replace(previous, review_state=state, item=item))
     return (
         tuple(updated),
         tuple(sorted(set(reinitialized))),
@@ -1271,5 +1256,5 @@ __all__ = [
     "build_published_calibration_run",
     "exclude_anchors_in_reviewed_ignore_regions",
     "reflow_card_scene_draft",
-    "reflow_reference_items",
+    "reflow_visible_card_items",
 ]

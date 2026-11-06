@@ -873,6 +873,25 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 completed one bounded audit
   package; 0 milestones are complete. M11 remains in progress. Up to 19 worker loops remain.
 
+- **Latest package — use node-native calibration reflow state:** The active calibration service no
+  longer imports or constructs `PipelineReferenceDraft`, `PipelineReferenceState`, or
+  `ReferenceDraftItem`. It builds a `VisibleCardNodeDraft` from exact visible-card node content,
+  review records, and reflow metadata. Proposal seeding and reflow preserve node-owned item values.
+  Calibration apply responses now return `visible_card_node_ref` with exact node and revision IDs;
+  they do not return reference state or a reference-shaped draft. Migration-only parsing and
+  projection remain isolated in the migration path.
+- **Checks:** Calibration refinement, draft projection/migration, node review, and lineage writer
+  tests passed (27 tests). Backend Ruff check/format, operations Ruff check/format, and
+  `git diff --check` passed.
+- **Known limit:** Processor services still publish duplicate revision-store records before lineage
+  node publication. Workspace stage responses still project exact selections to legacy revision
+  IDs. M11 remains incomplete.
+- **Next:** Replace processor execution input and output persistence with exact node references and
+  one canonical node write path. Remove the workspace's legacy revision-ID projection after its
+  processor consumers use exact references.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and

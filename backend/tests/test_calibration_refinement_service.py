@@ -123,7 +123,7 @@ def test_node_reflow_recovers_after_first_head_and_replays_exactly(tmp_path, mon
     from uuid import NAMESPACE_URL, uuid5
 
     from doko_operations.pipeline_data import canonical_json_bytes, sha256_bytes
-    from doko_operations.pipeline_reference import PipelineReferenceDraft, PipelineReferenceState
+    from doko_operations.pipeline_reference import PipelineReferenceDraft
     from test_virtual_scene_data import FRAME, HUMAN, SOURCE
 
     from dokodetector_backend.lineage_draft_projection import project_draft
@@ -224,18 +224,7 @@ def test_node_reflow_recovers_after_first_head_and_replays_exactly(tmp_path, mon
         HUMAN,
         {"frame_sha256": "e" * 64, "policy": "calibration-scene/v1"},
     )
-    current = SimpleNamespace(
-        draft=draft,
-        state=PipelineReferenceState(
-            recording_id=recording_id,
-            content_type="visible_cards",
-            draft_revision=0,
-            draft_state="draft",
-            source_revision_id="source-revision",
-            selected_completed_revision_id=None,
-            updated_at=draft.updated_at,
-        ),
-    )
+    current = draft
     service = CalibrationRefinementService.__new__(CalibrationRefinementService)
     service.node_store = nodes
     service.node_transactions = PipelineNodeTransactions(nodes)
@@ -310,9 +299,9 @@ def test_node_reflow_recovers_after_first_head_and_replays_exactly(tmp_path, mon
         )["status"]
         == "inapplicable"
     )
-    reference = service._node_reflow_reference(recording_id, "proposal-target")
-    assert reference is not None
-    assert reference["draft"]["proposal_revision_id"] == "proposal-target"
+    node_ref = service._node_reflow_node_ref(recording_id, "proposal-target")
+    assert node_ref is not None
+    assert node_ref == {"node_id": visible_id, "revision_id": visible_head}
     service._publish_node_reflow(
         recording_id,
         current,
@@ -487,11 +476,38 @@ def test_reflow_planner_reads_current_content_from_canonical_node(tmp_path) -> N
     service.node_store = nodes
     service._proposal = Mock(return_value=(None, source, None))
 
-    current = service._current_node_reference("recording-1", "source-proposal")
+    current = service._current_node_draft("recording-1", "source-proposal")
 
-    assert current.state.draft_state == "draft"
-    assert current.state.source_revision_id == "detector-node-revision"
-    assert current.draft.revision == 3
-    assert current.draft.proposal_revision_id == "source-proposal"
-    assert current.draft.items == ()
+    assert current.source_revision_id == "detector-node-revision"
+    assert current.revision == 3
+    assert current.proposal_revision_id == "source-proposal"
+    assert current.items == ()
+    assert current.to_mapping()["schema_version"] == "visible-card-node-draft/v1"
     service._proposal.assert_called_once_with("recording-1", "source-proposal")
+
+
+def test_visible_card_reflow_keeps_node_item_type() -> None:
+    from doko_operations.card_plane_calibration_refinement import reflow_visible_card_items
+
+    from dokodetector_backend.visible_card_node_draft import VisibleCardNodeDraftItem
+
+    item = VisibleCardNodeDraftItem(
+        item_id="frame-1",
+        base_item_id="frame-1",
+        review_state="accepted",
+        item={"event_id": "frame-1", "status": "empty"},
+    )
+
+    reflowed, reinitialized, rebased, affected = reflow_visible_card_items(
+        (item,),
+        (VisibleCardNodeDraftItem("frame-1", None, "pending", item.item),),
+        {},
+        {},
+        target_proposal_revision_id="proposal-target",
+        target_proposal_data_digest="a" * 64,
+    )
+
+    assert reflowed == (item,)
+    assert reinitialized == ()
+    assert rebased == ()
+    assert affected == ()

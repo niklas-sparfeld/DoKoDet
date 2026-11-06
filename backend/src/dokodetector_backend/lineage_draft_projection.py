@@ -3,23 +3,47 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from doko_operations.pipeline_reference import PipelineReferenceDraft
+if TYPE_CHECKING:
+    from doko_operations.pipeline_reference import PipelineReferenceDraft
 
 from dokodetector_backend.pipeline_reference_handlers import build_reference_handlers
 
 
-def project_draft(draft: PipelineReferenceDraft) -> dict[str, Any]:
-    """Separate current content from the original item decisions and coverage."""
+def project_visible_card_items(
+    items: tuple[Any, ...],
+    *,
+    coverage: dict[str, Any] | None,
+    impact: tuple[dict[str, Any], ...],
+    proposal_revision_id: str | None,
+) -> dict[str, Any]:
+    """Project visible-card items without depending on their storage model."""
+    return _project_items(
+        "visible_cards",
+        items,
+        coverage=coverage,
+        impact=impact,
+        proposal_revision_id=proposal_revision_id,
+    )
+
+
+def _project_items(
+    content_type: str,
+    items: tuple[Any, ...],
+    *,
+    coverage: dict[str, Any] | None,
+    impact: tuple[dict[str, Any], ...],
+    proposal_revision_id: str | None,
+) -> dict[str, Any]:
     handlers = build_reference_handlers(
         source_for=lambda *_: None, selected_revision=lambda *_: None
     )
-    handler = handlers[draft.content_type]
-    ordered = handler.order_items(draft.items)
+    handler = handlers[content_type]
+    ordered = handler.order_items(items)
     if (
-        draft.content_type == "visible_cards"
-        and draft.proposal_revision_id is None
+        content_type == "visible_cards"
+        and proposal_revision_id is None
         and any(item.item.get("card_scene") is not None for item in ordered)
     ):
         raise ValueError("retained scenes have no exact proposal revision")
@@ -29,7 +53,7 @@ def project_draft(draft: PipelineReferenceDraft) -> dict[str, Any]:
     scene_only_items = []
     for item in retained:
         value = dict(item.item)
-        if draft.content_type == "visible_cards":
+        if content_type == "visible_cards":
             scene = value.pop("card_scene", None)
             if (
                 scene is not None
@@ -55,9 +79,20 @@ def project_draft(draft: PipelineReferenceDraft) -> dict[str, Any]:
             for index, item in enumerate(content_retained)
         },
         "scene_only_items": scene_only_items,
-        "coverage": draft.coverage,
-        "impact": list(draft.impact),
+        "coverage": coverage,
+        "impact": list(impact),
     }
+
+
+def project_draft(draft: PipelineReferenceDraft) -> dict[str, Any]:
+    """Project one migration draft into node content."""
+    return _project_items(
+        draft.content_type,
+        draft.items,
+        coverage=draft.coverage,
+        impact=draft.impact,
+        proposal_revision_id=draft.proposal_revision_id,
+    )
 
 
 def project_scene_frame(frame: dict[str, Any]) -> dict[str, Any]:
