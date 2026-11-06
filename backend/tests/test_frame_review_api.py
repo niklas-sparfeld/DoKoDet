@@ -100,7 +100,11 @@ def test_frame_review_api_returns_deterministic_counts_and_pages(tmp_path: Path)
     assert sum(item["state"] == "unavailable" for item in one.json()["items"]) == 7
 
 
-def test_save_review_receipt_requires_exact_applicable_node_review(tmp_path: Path) -> None:
+def test_save_review_receipt_requires_exact_applicable_node_review(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from dataclasses import replace
+
     from test_virtual_scene_data import FRAME, SOURCE
 
     app = create_test_app(_settings(tmp_path))
@@ -116,7 +120,6 @@ def test_save_review_receipt_requires_exact_applicable_node_review(tmp_path: Pat
             for frame in row["review_frames"]
             if row["recording_id"] == item["recording_id"] and frame["item_id"] == item["item_id"]
         )
-        source_id = frame["m1_revision_id"]
         writer = app.state.pipeline_lineage_writer
         source = {**SOURCE, "recording_id": item["recording_id"]}
         content = {
@@ -140,9 +143,16 @@ def test_save_review_receipt_requires_exact_applicable_node_review(tmp_path: Pat
             "visible_cards",
             source,
             content,
-            {"legacy_revision_id": source_id, "legacy_content_sha256": frame["m1_revision_sha256"]},
+            {},
             revision_id="fixture-revision",
         )
+        original_read_revision = writer.node_store.read_revision
+
+        def read_revision(node_id: str, revision_id: str):
+            revision = original_read_revision(node_id, revision_id)
+            return replace(revision, content_sha256=frame["m1_revision_sha256"])
+
+        monkeypatch.setattr(writer.node_store, "read_revision", read_revision)
         write_frame_review_bindings(
             writer.node_store.root,
             {
@@ -197,7 +207,9 @@ def test_save_review_receipt_requires_exact_applicable_node_review(tmp_path: Pat
         assert stale["state"] == "unavailable"
 
 
-def test_queue_rejects_a_revision_without_the_pinned_frame(tmp_path: Path) -> None:
+def test_queue_rejects_a_revision_without_the_pinned_frame(tmp_path: Path, monkeypatch) -> None:
+    from dataclasses import replace
+
     from test_virtual_scene_data import SOURCE
 
     app = create_test_app(_settings(tmp_path))
@@ -221,12 +233,16 @@ def test_queue_rejects_a_revision_without_the_pinned_frame(tmp_path: Path) -> No
             "visible_cards",
             {**SOURCE, "recording_id": item["recording_id"]},
             {"schema_version": "visible-card-data/v2", "outcomes": []},
-            {
-                "legacy_revision_id": frame["m1_revision_id"],
-                "legacy_content_sha256": frame["m1_revision_sha256"],
-            },
+            {},
             revision_id="fixture-revision",
         )
+        original_read_revision = store.read_revision
+
+        def read_revision(node_id: str, revision_id: str):
+            revision = original_read_revision(node_id, revision_id)
+            return replace(revision, content_sha256=frame["m1_revision_sha256"])
+
+        monkeypatch.setattr(store, "read_revision", read_revision)
         write_frame_review_bindings(
             store.root,
             {

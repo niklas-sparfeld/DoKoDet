@@ -26,10 +26,7 @@ def test_binding_uses_exact_mapped_revision_and_leaves_missing_source_unavailabl
             content_type="visible_cards", source={"recording_id": first.recording_id}
         ),
         read_revision=lambda *_: SimpleNamespace(
-            metadata={
-                "legacy_revision_id": first.source_revision_id,
-                "legacy_content_sha256": first.source_revision_sha256,
-            }
+            revision_id="revision-1", content_sha256=first.source_revision_sha256
         ),
     )
     result = build_frame_review_bindings(raw, {first.source_revision_id: target}, store)
@@ -42,10 +39,7 @@ def test_binding_uses_exact_mapped_revision_and_leaves_missing_source_unavailabl
     assert result["queue_digest"] == first.queue_digest
     assert any(entry["source"] is None for entry in result["items"])
     store.read_revision = lambda *_: SimpleNamespace(
-        metadata={
-            "legacy_revision_id": "other",
-            "legacy_content_sha256": first.source_revision_sha256,
-        }
+        revision_id="revision-1", content_sha256="0" * 64
     )
     with pytest.raises(ValueError, match="source identity"):
         build_frame_review_bindings(raw, {first.source_revision_id: target}, store)

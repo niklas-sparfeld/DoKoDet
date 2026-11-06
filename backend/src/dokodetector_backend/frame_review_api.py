@@ -134,18 +134,16 @@ def _source_node(
         if (
             node.content_type != "visible_cards"
             or node.source.get("recording_id") != item.recording_id
-            or revision.metadata.get("legacy_revision_id") != item.source_revision_id
+            or (
+                item.source_revision_sha256 is not None
+                and revision.content_sha256 != item.source_revision_sha256
+            )
+            or (
+                item.source_revision_sha256 is None
+                and revision.revision_id != item.source_revision_id
+            )
         ):
             return None, "The pinned detector revision belongs to a different recording or stage."
-        if (
-            item.source_revision_sha256 is not None
-            and revision.metadata.get("legacy_content_sha256") != item.source_revision_sha256
-        ):
-            return (
-                None,
-                "The pinned detector result digest changed. "
-                "Restore the frozen result before review.",
-            )
         if not any(
             outcome.get("event_id") == item.item_id
             for outcome in revision.content.get("outcomes", [])

@@ -919,6 +919,21 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 completed one implementation
   package; 0 milestones are complete. M11 remains in progress. Up to 19 worker loops remain.
 
+- **Latest package — verify frame bindings by exact content digest:** The frozen frame-review
+  binding builder and runtime API now validate the pinned node revision by its recording and
+  canonical content digest. They no longer read `legacy_revision_id` or
+  `legacy_content_sha256` from node metadata. All 165 frozen queue items have exact bindings whose
+  stored revision content digests match the queue digests; no binding is missing or mismatched.
+- **Checks:** Frame-review API, binding, and lineage-target tests passed (7 tests). Ruff check and
+  formatting passed for changed files. `git diff --check` passed.
+- **Known limit:** M11 remains incomplete. Runtime processor-run storage still has a legacy
+  revision-store fallback, and workspace execution choices still expose scalar selected revision
+  fields instead of exact node references. These are the remaining known runtime adapters.
+- **Next:** Remove the run-store fallback and expose exact node references in the workspace response
+  and controls. Then finish the full removal and recovery audit.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 completed two implementation
+  packages; 0 milestones are complete. M11 remains in progress. Up to 18 worker loops remain.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and
