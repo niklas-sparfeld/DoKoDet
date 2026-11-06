@@ -848,6 +848,31 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
+- **Latest package — verify removal evidence and bound the remaining runtime adapters:** Confirmed
+  that the retired reference/review stores, migration-reader directory, and legacy revision map are
+  absent. Their recovery directories and files exist. The removal receipt records 511 reference
+  files, 53 review files, 26 calibration draft inputs, and the revision-map digest. The selection
+  cutover receipt records 136 canonical selections and unchanged node pointers. Focused tests for
+  the lineage writer and calibration refinement passed (10 tests).
+- **Runtime audit:** Processor output publication still calls `PipelineRevisionStore.publish` in
+  event, visible-card, proposed-scene, visual-identity, and observation services. The lineage
+  writer then copies those records into nodes. Calibration still imports and constructs
+  `PipelineReferenceDraft` for node reflow and calls `reflow_reference_items`. The workspace still
+  maps exact selection pointers to legacy revision IDs through `_legacy_option_id` and exposes
+  those values in its stage response. These call sites prevent the M11 no-adapter and single-write
+  acceptance criteria from passing.
+- **Checks:** `uv run --project backend pytest backend/tests/test_pipeline_lineage_writer.py
+  backend/tests/test_calibration_refinement_service.py` passed (10 tests). Recovery path presence
+  and retired-path absence checks passed. The first pytest command used a nonexistent workspace
+  test path and collected no tests; no source files changed in this package.
+- **Known limit:** This package verified the retained removal evidence and the precise remaining
+  runtime call sites. It did not remove the adapters. M11 remains incomplete.
+- **Next:** Convert processor outputs to direct node publication and exact node inputs, then replace
+  calibration's reference-shaped reflow model and remove the workspace revision-ID projection.
+  Preserve processor execution choices. Rerun the complete M11 audit after those changes.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 completed one bounded audit
+  package; 0 milestones are complete. M11 remains in progress. Up to 19 worker loops remain.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and
