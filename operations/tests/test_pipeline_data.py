@@ -344,3 +344,47 @@ def test_run_state_keeps_execution_state_separate_from_review_state() -> None:
     parsed_partial = parse_processor_run_state_bytes(canonical_processor_run_state_bytes(partial))
     assert parsed_partial.status == "partial"
     assert parsed_partial.output_revision_ids == ("revision-01",)
+
+
+def test_processor_request_roundtrips_ordered_canonical_node_inputs() -> None:
+    request = {
+        "schema_version": PROCESSOR_RUN_REQUEST_SCHEMA_VERSION,
+        "run_id": "observation-run",
+        "processor_type": "observation-assembly",
+        "source": {
+            "schema_version": "recording-video/v1",
+            "recording_id": "recording-01",
+            "relative_path": "data/intake/recordings/recording-01/video.mov",
+            "video_sha256": DIGEST,
+            "byte_length": 10,
+            "duration_us": 100,
+        },
+        "input_revision_ids": ["legacy-event", "legacy-cards", "legacy-identities"],
+        "input_node_refs": [
+            {"node_id": "events-node", "revision_id": "events-r1", "revision_policy": "historical"},
+            {"node_id": "cards-node", "revision_id": "cards-r2", "revision_policy": "historical"},
+            {
+                "node_id": "identity-node",
+                "revision_id": "identity-r3",
+                "revision_policy": "historical",
+            },
+        ],
+        "implementation": {"name": "fixture", "version": "1"},
+        "model": None,
+        "configuration": {},
+        "extraction_policy": {"policy_id": "fixture/v1"},
+        "crop_policy": None,
+    }
+    parsed = parse_processor_run_request_bytes(canonical_processor_run_request_bytes(request))
+    assert [ref["node_id"] for ref in parsed.input_node_refs or ()] == [
+        "events-node",
+        "cards-node",
+        "identity-node",
+    ]
+    assert parsed.to_mapping()["input_revision_ids"] == request["input_revision_ids"]
+
+    duplicate = list(request["input_node_refs"])
+    duplicate[-1] = dict(duplicate[0])
+    invalid = dict(request, input_node_refs=duplicate)
+    with pytest.raises(PipelineDataContractError, match="unique nodes"):
+        parse_processor_run_request_bytes(canonical_processor_run_request_bytes(invalid))

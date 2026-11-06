@@ -1751,7 +1751,9 @@ class ProcessorRunStore:
             if manifest.source != request.source:
                 raise PipelineStateError("run output revision has a different source")
             expected_inputs = (
-                () if request.input_node_ref is not None else request.input_revision_ids
+                ()
+                if request.input_node_ref is not None or request.input_node_refs is not None
+                else request.input_revision_ids
             )
             if manifest.input_revision_ids != expected_inputs:
                 raise PipelineStateError("run output revision has different input lineage")

@@ -495,6 +495,24 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Commit:** An intermediate M11 commit is safe after these focused checks. Keep M11 in progress.
   Runtime selection adapters, migrated readers, and old reference/review storage remain for the
   next package.
+- **Latest package — ordered processor node references:** `ProcessorRunRequest` now accepts an
+  ordered `input_node_refs` list for visual identity and observation assembly, while retaining the
+  existing single-reference contract for visible-card execution. The contract validates reference
+  shape, processor support, unique nodes, and count against ordered input revision IDs. The lineage
+  writer records each exact node revision and role, then protects the referenced nodes for the
+  accepted run. Output validation treats these inputs as canonical node lineage.
+- **Checks:** Operation pipeline-data tests passed (15 tests). Backend pipeline-store and lineage
+  writer tests passed (21 tests). Ruff check and format checks passed for changed Python files;
+  `git diff --check` passed.
+- **Known limit:** Observation and visual-identity services do not yet populate or validate the
+  ordered references. Their workers still load input content from the legacy revision store. No
+  storage or reader deletion is safe until these consumers move to canonical node content and
+  recovery checks pass. No real processor ran.
+- **Next:** Update the two services to freeze exact ordered node references, validate the referenced
+  revisions again before execution, and read input content from those node revisions. Add API and
+  worker fixtures for historical and current-head inputs. Then remove the old projection only when
+  all selection consumers and storage recovery evidence pass.
+- **Run count:** Requested up to 10 Luna loops; completed 1 bounded package; remaining 9.
 
 ### M12 — Verify the complete workflow and close — Not started
 

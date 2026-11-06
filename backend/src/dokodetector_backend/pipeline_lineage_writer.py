@@ -111,23 +111,35 @@ class PipelineLineageWriter:
         run_id = self._run_id(request.run_id, state.attempt)
         inputs: list[dict[str, str]] = []
         revision_pairs = []
-        if request.input_node_ref is not None:
-            ref = request.input_node_ref
-            self.node_store.get(ref["node_id"])
-            self.node_store.read_revision(ref["node_id"], ref["revision_id"])
-            revision_pairs.append((ref["node_id"], ref["revision_id"]))
-            inputs.append(
-                {
-                    "kind": "revision",
-                    "node_id": ref["node_id"],
-                    "revision_id": ref["revision_id"],
-                    "role": (
-                        "visible_cards"
-                        if request.processor_type == "visible-card-scene-proposal"
-                        else "events"
-                    ),
-                }
-            )
+        node_refs = request.input_node_refs or (
+            (request.input_node_ref,) if request.input_node_ref is not None else ()
+        )
+        if node_refs:
+            roles = {
+                "observation-assembly": ("events", "visible_cards", "visual_identities"),
+                "visual-card-identity": ("visible_cards",),
+                "visible-card-scene-proposal": ("visible_cards",),
+                "visible-card-detection": ("events",),
+            }.get(request.processor_type, ())
+            for index, ref in enumerate(node_refs):
+                node = self.node_store.get(ref["node_id"])
+                self.node_store.read_revision(ref["node_id"], ref["revision_id"])
+                revision_pairs.append((ref["node_id"], ref["revision_id"]))
+                role = roles[index] if index < len(roles) else "input"
+                if request.processor_type == "visual-card-identity":
+                    role = (
+                        "virtual_scenes"
+                        if node.content_type == "card_scene_proposals"
+                        else "visible_cards"
+                    )
+                inputs.append(
+                    {
+                        "kind": "revision",
+                        "node_id": ref["node_id"],
+                        "revision_id": ref["revision_id"],
+                        "role": role,
+                    }
+                )
         else:
             for index, revision_id in enumerate(request.input_revision_ids):
                 revision = self.revision_store.require(revision_id)
@@ -152,8 +164,10 @@ class PipelineLineageWriter:
                 }
             )
         revision_policy = (
-            request.input_node_ref["revision_policy"]
-            if request.input_node_ref is not None
+            "historical"
+            if any(ref["revision_policy"] == "historical" for ref in node_refs)
+            else "current_head"
+            if node_refs
             else "current_head"
         )
         self.uses.accept(run_id, revision_pairs, revision_policy=revision_policy)
@@ -233,15 +247,24 @@ class PipelineLineageWriter:
         )
 
     def _input_refs(self, request: ProcessorRunRequest) -> list[dict[str, str]]:
-        if request.input_node_ref is not None:
-            ref = request.input_node_ref
+        node_refs = request.input_node_refs or (
+            (request.input_node_ref,) if request.input_node_ref is not None else ()
+        )
+        if node_refs:
+            roles = {
+                "observation-assembly": ("events", "visible_cards", "visual_identities"),
+                "visual-card-identity": ("visible_cards",),
+                "visible-card-scene-proposal": ("visible_cards",),
+                "visible-card-detection": ("events",),
+            }.get(request.processor_type, ())
             return [
                 {
                     "kind": "revision",
                     "node_id": ref["node_id"],
                     "revision_id": ref["revision_id"],
-                    "role": "events",
+                    "role": roles[index] if index < len(roles) else "input",
                 }
+                for index, ref in enumerate(node_refs)
             ]
         refs = []
         for index, revision_id in enumerate(request.input_revision_ids):

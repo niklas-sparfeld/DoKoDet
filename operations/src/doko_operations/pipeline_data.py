@@ -179,6 +179,20 @@ def _positive_int(value: Any, field: str) -> int:
     return value
 
 
+def _node_input_reference(value: Any, index: int) -> dict[str, str]:
+    reference = _mapping(value, f"input_node_refs[{index}]")
+    if set(reference) != {"node_id", "revision_id", "revision_policy"}:
+        raise PipelineDataContractError("input node reference has invalid fields")
+    policy = reference["revision_policy"]
+    if policy not in {"current_head", "historical"}:
+        raise PipelineDataContractError("input node reference has an invalid revision policy")
+    return {
+        "node_id": _identifier(reference["node_id"], "input_node_ref.node_id"),
+        "revision_id": _identifier(reference["revision_id"], "input_node_ref.revision_id"),
+        "revision_policy": policy,
+    }
+
+
 def _non_negative_int(value: Any, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise PipelineDataContractError(f"{field} must be a non-negative integer")
@@ -952,6 +966,7 @@ class ProcessorRunRequest:
     crop_policy: dict[str, Any] | None
     crop_input: dict[str, Any] | None = None
     input_node_ref: dict[str, str] | None = None
+    input_node_refs: tuple[dict[str, str], ...] | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> ProcessorRunRequest:
@@ -972,6 +987,8 @@ class ProcessorRunRequest:
             expected.add("crop_input")
         if "input_node_ref" in data:
             expected.add("input_node_ref")
+        if "input_node_refs" in data:
+            expected.add("input_node_refs")
         _strict(
             data, expected if "model" in data else expected - {"model"}, "processor run request"
         )
@@ -1009,6 +1026,26 @@ class ProcessorRunRequest:
                 raise PipelineDataContractError("node input is not valid for this processor")
             if input_node_ref["revision_id"] != data["input_revision_ids"][0]:
                 raise PipelineDataContractError("node input must match the input revision ID")
+        input_node_refs = data.get("input_node_refs")
+        if input_node_refs is not None:
+            if input_node_ref is not None:
+                raise PipelineDataContractError("use input_node_ref or input_node_refs, not both")
+            if not isinstance(input_node_refs, list) or len(input_node_refs) != len(
+                data["input_revision_ids"]
+            ):
+                raise PipelineDataContractError("node inputs must match the input revision IDs")
+            if data["processor_type"] not in {
+                "visible-card-detection",
+                "visible-card-scene-proposal",
+                "visual-card-identity",
+                "observation-assembly",
+            }:
+                raise PipelineDataContractError("node inputs are not valid for this processor")
+            input_node_refs = tuple(
+                _node_input_reference(value, index) for index, value in enumerate(input_node_refs)
+            )
+            if len({value["node_id"] for value in input_node_refs}) != len(input_node_refs):
+                raise PipelineDataContractError("node input references must use unique nodes")
         return cls(
             run_id=_identifier(data["run_id"], "run_id"),
             processor_type=_identifier(data["processor_type"], "processor_type"),
@@ -1031,6 +1068,7 @@ class ProcessorRunRequest:
                 else _json_object(data["crop_input"], "crop_input", require_non_empty=True)
             ),
             input_node_ref=input_node_ref,
+            input_node_refs=input_node_refs,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -1051,6 +1089,8 @@ class ProcessorRunRequest:
             value["crop_input"] = self.crop_input
         if self.input_node_ref is not None:
             value["input_node_ref"] = self.input_node_ref
+        if self.input_node_refs is not None:
+            value["input_node_refs"] = list(self.input_node_refs)
         return value
 
 
