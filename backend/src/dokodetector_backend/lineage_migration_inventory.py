@@ -29,7 +29,6 @@ from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
 from dokodetector_backend.pipeline_lineage import _acyclic
 from dokodetector_backend.pipeline_store import PipelineRevisionStore, ProcessorRunStore
-from dokodetector_backend.round_analysis_contract import parse_round_analysis_create_request_bytes
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.visible_card_review_store import VisibleCardReviewStore
@@ -915,19 +914,30 @@ def inventory(
                 request_raw = state.get("request_json")
                 if not isinstance(request_raw, str):
                     raise ValueError("analysis request is not recorded")
-                request = parse_round_analysis_create_request_bytes(request_raw.encode("utf-8"))
-                if str(request.analysis_id) != item["relative_identity"].split("/")[1] or str(
-                    request.analysis_id
-                ) != state.get("analysis_id"):
+                request_mapping = json.loads(request_raw)
+                if not isinstance(request_mapping, dict):
+                    raise ValueError("analysis request is not an object")
+                analysis_id = request_mapping.get("analysis_id")
+                if not isinstance(analysis_id, str):
+                    raise ValueError("analysis request has no analysis ID")
+                if analysis_id != item["relative_identity"].split("/")[
+                    1
+                ] or analysis_id != state.get("analysis_id"):
                     raise ValueError("analysis identity differs from path")
                 if hashlib.sha256(request_raw.encode("utf-8")).hexdigest() != state.get(
                     "request_sha256"
                 ):
                     raise ValueError("analysis request digest differs")
-                reference(item, "observations", request.table_observation_revision_id)
-                for revision_id in request.correction_constraint_revision_ids:
+                legacy_revision_id = request_mapping.get("table_observation_revision_id")
+                if legacy_revision_id is not None:
+                    reference(item, "observations", legacy_revision_id)
+                elif request_mapping.get("table_observation_node_ref") is None:
+                    raise ValueError("analysis request has no observation input")
+                correction_ids = request_mapping.get("correction_constraint_revision_ids", [])
+                if not isinstance(correction_ids, list):
+                    raise ValueError("analysis correction references are invalid")
+                for revision_id in correction_ids:
                     reference(item, "correction_constraint", revision_id)
-                request_mapping = request.model_dump(mode="json")
                 item["analysis_context"] = {
                     key: request_mapping[key]
                     for key in (

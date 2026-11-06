@@ -818,6 +818,36 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
+- **Latest package — consume exact selections for workspace and round analysis:** The runtime
+  selection reader now returns exact node/revision pointers only. The workspace no longer calls an
+  execution-ID projection method. Round-analysis requests now pin an exact table-observation node
+  revision, validate its recording, video digest, content type, and session, and register that node
+  revision directly in lineage. The web API and iOS Codable contract use the node reference.
+  Automated reconstruction resolves the selected exact pointer. The migration inventory keeps its
+  old request-field parsing in migration-only code.
+- **Recovery evidence:** Three stored pipeline-analysis requests and their input manifests were
+  converted to exact node references. Their original state and manifest files are retained under
+  `data/operations-recovery/0108-m11-20261106/round-analysis-request-cutover-before`. The receipt
+  `data/operations-recovery/0108-m11-20261106/round-analysis-request-cutover.json` records old IDs,
+  exact pointers, and before/after hashes. A direct audit validated all five stored round-analysis
+  requests and every exact observation pointer.
+- **Checks:** Seven focused backend test modules passed. Ruff check and format passed. Web typecheck,
+  focused ESLint, Prettier, generated API verification, and 12 focused browser/API tests passed.
+  `swift build --target CardEventProbeCore` passed. `swift test --filter RoundAnalysisTests` could not
+  compile XCTest because the installed Command Line Tools SDK does not include the XCTest module.
+  `git diff --check` passed.
+- **Known limit:** M11 remains incomplete. The workspace still projects exact selections to the
+  displayed revision ID used by processor controls. Processor services still publish to
+  `PipelineRevisionStore` before the lineage writer copies output content into graph nodes.
+  Calibration still reconstructs `PipelineReferenceDraft`/`PipelineReferenceState` and calls
+  reference reflow helpers. These are the remaining execution, calibration, and duplicate-write
+  adapters.
+- **Next:** Replace processor execution and publication with node-native inputs and one node write
+  path. Replace the calibration reference-shaped working model and response with node working
+  state. Then run the complete removal audit and verify recovery evidence before considering M11.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and

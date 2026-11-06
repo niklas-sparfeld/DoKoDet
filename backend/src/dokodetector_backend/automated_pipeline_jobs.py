@@ -193,9 +193,8 @@ class AutomatedPipelineJobParticipant:
             resolved.append(str(child.results[0]["id"]))
         return tuple(resolved)
 
-    @staticmethod
     def _child_request(
-        parent: Job, definition: StageDefinition, inputs: tuple[str, ...]
+        self, parent: Job, definition: StageDefinition, inputs: tuple[str, ...]
     ) -> dict[str, Any]:
         run_id = str(uuid5(NAMESPACE_URL, f"{parent.request['run_id']}:{definition.name}"))
         recording_id = parent.context["recording_id"]
@@ -204,12 +203,22 @@ class AutomatedPipelineJobParticipant:
                 raise ValueError("Automated pipeline reconstruction cannot be skipped.")
             if len(inputs) != 1:
                 raise ValueError("Round analysis needs one table-observation revision.")
+            selection = self.state.pipeline_selection_store.get_exact(
+                recording_id, "table_observations"
+            )
+            node_ref = (
+                None
+                if selection is None
+                else selection.selected_completed_reference or selection.selected_generated
+            )
+            if node_ref is None:
+                raise ValueError("Round analysis needs a selected table-observation node revision.")
             analysis = RoundAnalysisCreateRequest(
                 analysis_id=uuid5(NAMESPACE_URL, run_id),
                 recording_id=recording_id,
                 round_id=definition.request["round_id"],
                 session_id=definition.request["session_id"],
-                table_observation_revision_id=inputs[0],
+                table_observation_node_ref=node_ref,
                 round_context=definition.request["round_context"],
                 rules_version=definition.request["rules_version"],
                 search=definition.request["search"],

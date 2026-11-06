@@ -60,14 +60,19 @@ final class RoundAnalysisTests: XCTestCase {
             analysisID: UUID(uuidString: "00000000-0000-0000-0000-000000000032")!,
             recordingID: "recording-analysis-fixture",
             sessionID: UUID(uuidString: "00000000-0000-0000-0000-000000000033")!,
-            tableObservationRevisionID: "observations-revision-01",
+            tableObservationNodeRef: RoundAnalysisNodeReference(
+                nodeID: "observations-node-01",
+                revisionID: "observations-revision-01"
+            ),
             roundContext: context,
             correctionConstraintRevisionIDs: ["corrections-01"]
         )
 
         let data = try JSONEncoder().encode(request)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object["table_observation_revision_id"] as? String, "observations-revision-01")
+        let nodeRef = try XCTUnwrap(object["table_observation_node_ref"] as? [String: String])
+        XCTAssertEqual(nodeRef["node_id"], "observations-node-01")
+        XCTAssertEqual(nodeRef["revision_id"], "observations-revision-01")
         XCTAssertNotNil(object["round_context"] as? [String: Any])
         XCTAssertEqual(object["rules_version"] as? String, "v1")
         XCTAssertEqual(object["correction_constraint_revision_ids"] as? [String], ["corrections-01"])

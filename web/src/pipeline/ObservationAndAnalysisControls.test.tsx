@@ -163,6 +163,8 @@ describe("observation and analysis controls", () => {
       input_options: [
         {
           revision_id: "observations-1",
+          node_id: "observations-node-1",
+          node_revision_id: "observations-node-revision-1",
           content_type: "table_observations",
           origin: "processor",
           completion_state: "complete",
@@ -217,7 +219,10 @@ describe("observation and analysis controls", () => {
       ([, init]) => init?.method === "POST",
     );
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
-      table_observation_revision_id: "observations-1",
+      table_observation_node_ref: {
+        node_id: "observations-node-1",
+        revision_id: "observations-node-revision-1",
+      },
       round_context: {
         game_id: "game-1",
         round_id: "round-1",

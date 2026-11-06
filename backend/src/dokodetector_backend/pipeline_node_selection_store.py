@@ -11,7 +11,6 @@ from threading import RLock
 from typing import Any
 
 from doko_operations.pipeline_data import (
-    PipelineSelection,
     canonical_json_bytes,
 )
 
@@ -189,68 +188,6 @@ class PipelineNodeSelectionStore:
             recording_id, content_type, raw["revision"], generated, completed, raw["updated_at"]
         )
 
-    def get_for_execution(
-        self,
-        recording_id: str,
-        content_type: str,
-        *,
-        revision_cache: dict[str, Any] | None = None,
-        revision_manifests: Mapping[str, Any] | None = None,
-    ) -> PipelineSelection | None:
-        self.node_store.recover_transactions()
-        try:
-            path = self.selection_path(recording_id, content_type)
-            raw = json.loads(path.read_bytes())
-            if not isinstance(raw, dict) or set(raw) != {
-                "schema_version",
-                "recording_id",
-                "content_type",
-                "revision",
-                "selected_generated",
-                "selected_completed_reference",
-                "updated_at",
-            }:
-                raise ValueError("invalid node selection record")
-            if (
-                raw["schema_version"] != "pipeline-node-selection/v1"
-                or raw["recording_id"] != recording_id
-                or raw["content_type"] != content_type
-            ):
-                raise ValueError("node selection identity mismatch")
-            execution_ids = {
-                "generated": self._execution_revision_id(
-                    raw["selected_generated"],
-                    recording_id,
-                    content_type,
-                    revision_cache=revision_cache,
-                    revision_manifests=revision_manifests,
-                ),
-                "completed_reference": self._execution_revision_id(
-                    raw["selected_completed_reference"],
-                    recording_id,
-                    content_type,
-                    revision_cache=revision_cache,
-                    revision_manifests=revision_manifests,
-                ),
-            }
-            return PipelineSelection.from_mapping(
-                {
-                    "schema_version": "pipeline-selection/v1",
-                    "revision": raw["revision"],
-                    "recording_id": recording_id,
-                    "content_type": content_type,
-                    "selected_generated_revision_id": execution_ids["generated"],
-                    "selected_completed_reference_revision_id": execution_ids[
-                        "completed_reference"
-                    ],
-                    "updated_at": raw["updated_at"],
-                }
-            )
-        except FileNotFoundError:
-            return None
-        except (OSError, TypeError, UnicodeError, ValueError, KeyError):
-            return None
-
     def reference_for_processor_output(
         self, revision_id: str, recording_id: str, content_type: str
     ) -> dict[str, str]:
@@ -265,33 +202,6 @@ class PipelineNodeSelectionStore:
             raise ValueError("selection revision does not match its recording or content type")
         node_id, node_revision_id = self.lineage_writer.ensure_revision_node(stored)
         return {"node_id": node_id, "revision_id": node_revision_id}
-
-    def _execution_revision_id(
-        self,
-        reference: Any,
-        recording_id: str,
-        content_type: str,
-        *,
-        revision_cache: dict[str, Any] | None = None,
-        revision_manifests: Mapping[str, Any] | None = None,
-    ) -> str | None:
-        if reference is None:
-            return None
-        if not isinstance(reference, dict) or set(reference) != {"node_id", "revision_id"}:
-            raise ValueError("invalid node selection pointer")
-        node_id = reference["node_id"]
-        revision_id = reference["revision_id"]
-        node = self.node_store.get(node_id)
-        record = self.node_store.read_revision_record(node_id, revision_id)
-        execution_id = record.metadata.get("legacy_revision_id", revision_id)
-        if (
-            node.content_type != content_type
-            or node.source.get("recording_id") != recording_id
-            or not isinstance(execution_id, str)
-            or not self.node_store.has_revision(node_id, revision_id)
-        ):
-            raise ValueError("node selection points to an incompatible revision")
-        return execution_id
 
 
 __all__ = ["PipelineNodeSelectionStore"]

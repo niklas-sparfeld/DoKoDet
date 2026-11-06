@@ -43,9 +43,12 @@ def test_exact_selection_roundtrips_without_legacy_mapping(tmp_path: Path) -> No
 
     assert saved.revision == 1
     assert selections.get_exact("recording-01", "events") == saved
-    projected = selections.get_for_execution("recording-01", "events")
-    assert projected is not None
-    assert projected.selected_generated_revision_id == revision.revision_id
+    exact = selections.get_exact("recording-01", "events")
+    assert exact is not None
+    assert exact.selected_generated == {
+        "node_id": "event-node",
+        "revision_id": revision.revision_id,
+    }
 
 
 def test_runtime_selection_does_not_read_legacy_revision_map(tmp_path: Path) -> None:
@@ -68,10 +71,13 @@ def test_runtime_selection_does_not_read_legacy_revision_map(tmp_path: Path) -> 
     )
     (nodes.root / ".legacy-revision-map.json").write_text("not json")
 
-    projected = selections.get_for_execution("recording-01", "events")
+    exact = selections.get_exact("recording-01", "events")
 
-    assert projected is not None
-    assert projected.selected_generated_revision_id == "old-event-revision"
+    assert exact is not None
+    assert exact.selected_generated == {
+        "node_id": "event-node",
+        "revision_id": "canonical-node-revision",
+    }
 
 
 def test_exact_selection_checks_node_identity_and_revision(tmp_path: Path) -> None:

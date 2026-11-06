@@ -313,7 +313,7 @@ class PipelineLineageWriter:
         analysis_id: str,
         *,
         recording_id: str,
-        revision_id: str | None,
+        node_ref: Mapping[str, str] | None,
         package_inputs: Sequence[tuple[str, str]],
         round_context: Mapping[str, Any],
         rules: Mapping[str, Any],
@@ -322,9 +322,16 @@ class PipelineLineageWriter:
         """Register exact observation and package inputs before analysis execution."""
         inputs: list[dict[str, str]] = []
         pairs = []
-        if revision_id is not None:
-            revision = self.revision_store.require(revision_id)
-            node_id, node_revision_id = self.ensure_revision_node(revision)
+        if node_ref is not None:
+            node_id = node_ref["node_id"]
+            node_revision_id = node_ref["revision_id"]
+            node = self.node_store.get(node_id)
+            self.node_store.read_revision_record(node_id, node_revision_id)
+            if (
+                node.content_type != "table_observations"
+                or node.source.get("recording_id") != recording_id
+            ):
+                raise NodeConflict("analysis input reference does not match its recording")
             pairs.append((node_id, node_revision_id))
             inputs.append(
                 {

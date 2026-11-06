@@ -71,7 +71,10 @@ def test_pipeline_create_request_requires_explicit_observation_context() -> None
         "recording_id": "recording-0032",
         "round_id": "round-0032",
         "session_id": str(SESSION_ID),
-        "table_observation_revision_id": "observations-0032",
+        "table_observation_node_ref": {
+            "node_id": "observations-node-0032",
+            "revision_id": "observations-0032",
+        },
         "round_context": {
             "game_id": "game-0032",
             "round_id": "round-0032",

@@ -3331,8 +3331,10 @@ export interface components {
             search: components["schemas"]["AnalysisSearchLimits"];
             /** Session Id */
             session_id: string;
-            /** Table Observation Revision Id */
-            table_observation_revision_id?: string | null;
+            /** Table Observation Node Ref */
+            table_observation_node_ref?: {
+                [key: string]: string;
+            } | null;
         };
         /**
          * RoundAnalysisResult

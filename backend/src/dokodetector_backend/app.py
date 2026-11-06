@@ -236,7 +236,6 @@ def create_app(
         app.state.recording_bundle_store,
         app.state.repository_bundle_storage,
         app.state.analyzer,
-        pipeline_revision_store=app.state.pipeline_revision_store,
         pipeline_selection_store=app.state.pipeline_selection_store,
         pipeline_lineage_writer=app.state.pipeline_lineage_writer,
     )

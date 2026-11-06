@@ -32,7 +32,6 @@ from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelec
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore, _read_json
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
-    PipelineStoreError,
     ProcessorRunStatus,
     ProcessorRunStore,
     StoredProcessorRun,
@@ -157,8 +156,6 @@ class RecordingPipelineWorkspaceService:
                 recording_id,
                 content_type,
                 diagnostics,
-                revision_cache=revision_cache,
-                revision_manifests=revision_by_id,
             )
             for content_type in (
                 "events",
@@ -516,9 +513,13 @@ class RecordingPipelineWorkspaceService:
             else []
         )
         selection_revision = None if selection is None else selection.revision
-        selected_generated = None if selection is None else selection.selected_generated_revision_id
-        selected_completed = (
-            None if selection is None else selection.selected_completed_reference_revision_id
+        selected_generated = self._legacy_option_id(
+            None if selection is None else selection.selected_generated,
+            revisions,
+        )
+        selected_completed = self._legacy_option_id(
+            None if selection is None else selection.selected_completed_reference,
+            revisions,
         )
         comparable_run_ids = [
             run.run_id
@@ -582,18 +583,10 @@ class RecordingPipelineWorkspaceService:
         recording_id: str,
         content_type: str,
         diagnostics: list[dict[str, Any]],
-        *,
-        revision_cache: dict[str, Any] | None = None,
-        revision_manifests: Mapping[str, Any] | None = None,
     ) -> Any:
         try:
-            selection = self.selection_store.get_for_execution(
-                recording_id,
-                content_type,
-                revision_cache=revision_cache,
-                revision_manifests=revision_manifests,
-            )
-        except PipelineStoreError:
+            selection = self.selection_store.get_exact(recording_id, content_type)
+        except (OSError, TypeError, ValueError):
             selection = None
         path = self.selection_store.selection_path(recording_id, content_type)
         if selection is None and (path.exists() or path.is_symlink()):
@@ -606,6 +599,21 @@ class RecordingPipelineWorkspaceService:
                 }
             )
         return selection
+
+    @classmethod
+    def _legacy_option_id(
+        cls, pointer: Mapping[str, str] | None, revisions: tuple[Any, ...]
+    ) -> str | None:
+        """Map an exact pointer to its displayed workspace option identity."""
+        if pointer is None:
+            return None
+        for revision in revisions:
+            if (
+                revision.node_id == pointer["node_id"]
+                and revision.node_revision_id == pointer["revision_id"]
+            ):
+                return cls._manifest(revision).revision_id
+        return None
 
     @staticmethod
     def _revision_option(revision: Any, stage_key: str) -> dict[str, Any]:
@@ -744,8 +752,7 @@ class RecordingPipelineWorkspaceService:
             upstream = "events" if definition.key == "visible_cards" else "visible_cards"
             selection = selections[upstream]
             if selection is None or not (
-                selection.selected_completed_reference_revision_id
-                or selection.selected_generated_revision_id
+                selection.selected_completed_reference or selection.selected_generated
             ):
                 return [f"Select a complete {upstream.replace('_', ' ')} revision first."]
             return []
@@ -760,8 +767,8 @@ class RecordingPipelineWorkspaceService:
                 for content_type in ("events", "visible_cards", "visual_identities")
                 if selections[content_type] is None
                 or not (
-                    selections[content_type].selected_completed_reference_revision_id
-                    or selections[content_type].selected_generated_revision_id
+                    selections[content_type].selected_completed_reference
+                    or selections[content_type].selected_generated
                 )
             ]
             return (
@@ -869,8 +876,8 @@ class RecordingPipelineWorkspaceService:
                 continue
             input_revision_ids = (
                 []
-                if request.table_observation_revision_id is None
-                else [request.table_observation_revision_id]
+                if request.table_observation_node_ref is None
+                else [request.table_observation_node_ref["revision_id"]]
             )
             summaries.append(
                 {

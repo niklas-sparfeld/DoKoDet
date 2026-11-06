@@ -183,13 +183,27 @@ export function RoundAnalysisControls({
       );
       return null;
     }
+    const observation = stage.input_options.find(
+      (option) =>
+        option.revision_id === observationRevisionId ||
+        option.node_revision_id === observationRevisionId,
+    );
+    if (observation === undefined) {
+      setMessage(
+        "Select a stored table-observation revision before starting analysis.",
+      );
+      return null;
+    }
     return {
       schema_version: "round-analysis/v1",
       analysis_id: createUuid(),
       recording_id: recordingId,
       round_id: roundId.trim(),
       session_id: sessionId.trim(),
-      table_observation_revision_id: observationRevisionId,
+      table_observation_node_ref: {
+        node_id: observation.node_id,
+        revision_id: observation.node_revision_id,
+      },
       round_context: {
         game_id: gameId.trim(),
         round_id: roundId.trim(),

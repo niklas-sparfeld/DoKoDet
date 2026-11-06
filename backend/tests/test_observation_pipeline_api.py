@@ -453,6 +453,13 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
             client,
             "analysis-observation-01",
         )
+        selected_observation = app.state.pipeline_selection_store.get_exact(
+            RECORDING_ID, "table_observations"
+        )
+        assert selected_observation is not None
+        observation_ref = selected_observation.selected_generated
+        assert observation_ref is not None
+        assert observation_ref["revision_id"] == first_revision_id
         observation = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations/{observation_run_id}/result"
         ).json()["revisions"][0]["content"]["observations"][0]
@@ -467,7 +474,7 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
                 "recording_id": RECORDING_ID,
                 "round_id": "round-assembly",
                 "session_id": session_id,
-                "table_observation_revision_id": first_revision_id,
+                "table_observation_node_ref": observation_ref,
                 "round_context": {
                     "game_id": "game-assembly",
                     "round_id": "round-assembly",

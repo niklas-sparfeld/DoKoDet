@@ -29,7 +29,6 @@ from game_engine import canonical_json_bytes as canonical_engine_json_bytes
 from game_engine import parse_reconstruction_input_bytes
 from table_evidence_analyzer import TableEvidenceAnalyzer, TableObservation
 from table_evidence_analyzer.pipeline_data import (
-    TableObservationData,
     canonical_json_bytes,
     canonical_table_observation_data_bytes,
     parse_table_observation_data_bytes,
@@ -46,10 +45,7 @@ from dokodetector_backend.intake_contract import (
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
 from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
-from dokodetector_backend.pipeline_store import (
-    PipelineRevisionStore,
-    StoredPipelineRevision,
-)
+from dokodetector_backend.pipeline_node_store import Node, NodeRevision
 from dokodetector_backend.recording_bundle_store import (
     RecordingBundleStore,
     StoredRecordingBundle,
@@ -109,7 +105,8 @@ class ValidatedRoundAnalysisInput:
 
     request: RoundAnalysisCreateRequest
     packages: tuple[StoredPackage, ...]
-    pipeline_revision: StoredPipelineRevision | None = None
+    pipeline_node: Node | None = None
+    pipeline_node_revision: NodeRevision | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,7 +142,6 @@ class RoundAnalysisService:
         recording_bundle_store: RecordingBundleStore,
         repository_bundle_storage: RepositoryBundleStorage,
         analyzer: TableEvidenceAnalyzer,
-        pipeline_revision_store: PipelineRevisionStore | None = None,
         pipeline_selection_store: PipelineNodeSelectionStore | None = None,
         pipeline_lineage_writer: Any | None = None,
     ) -> None:
@@ -157,7 +153,6 @@ class RoundAnalysisService:
         self.artifact_storage = artifact_storage
         self.recording_bundle_store = recording_bundle_store
         self.repository_bundle_storage = repository_bundle_storage
-        self.pipeline_revision_store = pipeline_revision_store
         self.pipeline_selection_store = pipeline_selection_store
         self.pipeline_lineage_writer = pipeline_lineage_writer
         self.analyzer_runner = AnalyzerRunner(
@@ -184,26 +179,32 @@ class RoundAnalysisService:
             )
 
         if request.is_pipeline_analysis:
-            if self.pipeline_revision_store is None:
+            if self.pipeline_selection_store is None:
                 raise RoundAnalysisValidationError("The recording pipeline is not available.")
-            revision = self.pipeline_revision_store.get(request.table_observation_revision_id or "")
-            if revision is None:
-                raise RoundAnalysisValidationError(
-                    "The selected table-observation revision is not stored."
+            assert request.table_observation_node_ref is not None
+            node_ref = request.table_observation_node_ref
+            try:
+                node = self.pipeline_selection_store.node_store.get(node_ref["node_id"])
+                revision = self.pipeline_selection_store.node_store.read_revision_record(
+                    node.node_id, node_ref["revision_id"]
                 )
-            source = revision.manifest.source
+                content = parse_table_observation_data_bytes(canonical_json_bytes(revision.content))
+                source = RecordingVideoSource.from_mapping(node.source)
+            except (FileNotFoundError, KeyError, TypeError, ValueError) as error:
+                raise RoundAnalysisValidationError(
+                    "The selected table-observation node revision is not stored."
+                ) from error
             if (
-                revision.manifest.content_type != "table_observations"
-                or revision.manifest.recording_id != request.recording_id
+                node.content_type != "table_observations"
+                or source.recording_id != request.recording_id
                 or not isinstance(source, RecordingVideoSource)
                 or source.video_sha256 != recording.source_sha256
-                or not isinstance(revision.content, TableObservationData)
-                or not revision.content.observations
+                or not content.observations
             ):
                 raise RoundAnalysisValidationError(
                     "The selected table-observation revision is not linked to the recording video."
                 )
-            for observation in revision.content.observations:
+            for observation in content.observations:
                 if observation.session.session_id != expected_session_id:
                     raise RoundAnalysisValidationError(
                         "All table observations must use the analysis session."
@@ -211,7 +212,8 @@ class RoundAnalysisService:
             return ValidatedRoundAnalysisInput(
                 request=request,
                 packages=(),
-                pipeline_revision=revision,
+                pipeline_node=node,
+                pipeline_node_revision=revision,
             )
 
         packages: list[StoredPackage] = []
@@ -262,7 +264,9 @@ class RoundAnalysisService:
             analyses = self.store.list_by_recording(recording.recording_id)
             try:
                 _, _, round_id = self._analysis_identifiers(recording)
-                has_pipeline_revision = self._has_selected_pipeline_revision(recording.recording_id)
+                has_pipeline_revision = self._has_selected_table_observation_ref(
+                    recording.recording_id
+                )
                 blocker = (
                     None
                     if has_pipeline_revision or packages
@@ -289,7 +293,7 @@ class RoundAnalysisService:
         recording = self.recording_bundle_store.get(recording_id)
         if recording is None:
             raise RoundAnalysisValidationError("The recording bundle is not stored.")
-        pipeline_revision = self._selected_pipeline_revision(recording_id)
+        pipeline_node_ref = self._selected_pipeline_node_ref(recording_id)
         session_id, game_id, round_id = self._analysis_identifiers(recording)
         context, rules_version = self._saved_round_context(recording_id)
         if context is None or rules_version is None:
@@ -304,13 +308,13 @@ class RoundAnalysisService:
             max_hypotheses=256,
             max_search_nodes=250_000,
         )
-        if pipeline_revision is not None:
+        if pipeline_node_ref is not None:
             return RoundAnalysisCreateRequest(
                 analysis_id=uuid4(),
                 recording_id=recording.recording_id,
                 round_id=round_id,
                 session_id=session_id,
-                table_observation_revision_id=pipeline_revision.manifest.revision_id,
+                table_observation_node_ref=pipeline_node_ref,
                 round_context=context,
                 rules_version=rules_version,
                 search=search,
@@ -373,39 +377,16 @@ class RoundAnalysisService:
                 )
         return None, None
 
-    def _selected_pipeline_revision(self, recording_id: str) -> StoredPipelineRevision | None:
-        """Return the selected table-observation revision when it belongs to a recording."""
+    def _has_selected_table_observation_ref(self, recording_id: str) -> bool:
+        return self._selected_pipeline_node_ref(recording_id) is not None
 
-        revision_id = self._selected_table_observation_revision_id(recording_id)
-        if revision_id is None or self.pipeline_revision_store is None:
-            return None
-        revision = self.pipeline_revision_store.get(revision_id)
-        if revision is None or revision.manifest.recording_id != recording_id:
-            return None
-        if revision.manifest.content_type != "table_observations":
-            return None
-        return revision
-
-    def _has_selected_pipeline_revision(self, recording_id: str) -> bool:
-        """Return whether a selected table-observation revision exists without loading content."""
-
-        revision_id = self._selected_table_observation_revision_id(recording_id)
-        if revision_id is None or self.pipeline_revision_store is None:
-            return False
-        return self.pipeline_revision_store.has_revision(revision_id)
-
-    def _selected_table_observation_revision_id(self, recording_id: str) -> str | None:
+    def _selected_pipeline_node_ref(self, recording_id: str) -> dict[str, str] | None:
         if self.pipeline_selection_store is None:
             return None
-        selection = self.pipeline_selection_store.get_for_execution(
-            recording_id, "table_observations"
-        )
+        selection = self.pipeline_selection_store.get_exact(recording_id, "table_observations")
         if selection is None:
             return None
-        return (
-            selection.selected_generated_revision_id
-            or selection.selected_completed_reference_revision_id
-        )
+        return selection.selected_completed_reference or selection.selected_generated
 
     def prepare_inputs(self, request: RoundAnalysisCreateRequest) -> None:
         """Resolve and copy pipeline inputs before analysis work is queued."""
@@ -413,9 +394,10 @@ class RoundAnalysisService:
         if not request.is_pipeline_analysis:
             return
         selected = self.validate_request(request)
-        assert selected.pipeline_revision is not None
-        revision = selected.pipeline_revision
-        content_bytes = canonical_table_observation_data_bytes(revision.content)
+        assert selected.pipeline_node_revision is not None
+        revision = selected.pipeline_node_revision
+        content = parse_table_observation_data_bytes(canonical_json_bytes(revision.content))
+        content_bytes = canonical_table_observation_data_bytes(content)
         context = request.round_context
         assert context is not None
         self.artifact_storage.prepare_inputs(
@@ -431,8 +413,8 @@ class RoundAnalysisService:
                 ).encode("utf-8"),
                 "input-manifest.json": json.dumps(
                     {
-                        "table_observation_revision_id": revision.manifest.revision_id,
-                        "table_observation_content_sha256": revision.manifest.content_sha256,
+                        "table_observation_node_ref": request.table_observation_node_ref,
+                        "table_observation_content_sha256": revision.content_sha256,
                         "rules_version": request.rules_version,
                         "correction_constraint_revision_ids": list(
                             request.correction_constraint_revision_ids
@@ -512,11 +494,7 @@ class RoundAnalysisService:
         inputs = writer.accept_analysis(
             str(request.analysis_id),
             recording_id=request.recording_id,
-            revision_id=(
-                None
-                if selected.pipeline_revision is None
-                else selected.pipeline_revision.manifest.revision_id
-            ),
+            node_ref=request.table_observation_node_ref,
             package_inputs=packages,
             round_context=context,
             rules=rules,
@@ -603,12 +581,13 @@ class RoundAnalysisService:
             {"kind": "evidence_package", "id": str(item.package_id), "digest": item.manifest_sha256}
             for item in selected.packages
         ]
-        if selected.pipeline_revision is not None:
+        if selected.pipeline_node is not None and selected.pipeline_node_revision is not None:
             inputs.append(
                 {
-                    "kind": "pipeline_revision",
-                    "id": selected.pipeline_revision.manifest.revision_id,
-                    "digest": selected.pipeline_revision.manifest.content_sha256,
+                    "kind": "revision",
+                    "node_id": selected.pipeline_node.node_id,
+                    "revision_id": selected.pipeline_node_revision.revision_id,
+                    "digest": selected.pipeline_node_revision.content_sha256,
                 }
             )
         return {

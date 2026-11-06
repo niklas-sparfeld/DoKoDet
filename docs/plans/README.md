@@ -106,7 +106,7 @@ The shared target architecture is
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
 | [0112 — Bounded multipart upload intake](2-ready/0112-Bounded_Multipart_Upload_Intake.md) | Existing upload routes and filesystem storage | M0–M2 not started. Bound received request bytes before multipart file spooling; verify cleanup, payload limits, and valid retries with local fixtures. |
-| [0108 — Horizontal lineage workspace](3-in-progress/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | M0–M10 complete. M11 is in progress: legacy reference/review active stores and migration readers were retired with verified recovery copies. Execution selection projections, calibration reference-shaped working state, and duplicate processor persistence remain. M12 is not started. Processor input and trigger UX remains later work. |
+| [0108 — Horizontal lineage workspace](3-in-progress/0108-Horizontal_Lineage_Workspace.md) | 0107 contracts, services, and verified fixture migration | M0–M10 complete. M11 is in progress: legacy reference/review active stores and migration readers were retired with verified recovery copies. Selection and round-analysis readers now use exact node references. Processor input publication still uses the legacy revision store; calibration still rebuilds reference-shaped working state. M12 is not started. Processor input and trigger UX remains later work. |
 
 
 ### In Progress

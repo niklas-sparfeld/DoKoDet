@@ -135,7 +135,7 @@ class RoundAnalysisCreateRequest(ContractModel):
     session_id: Identifier
     round_setup: AnalysisRoundSetup | None = None
     evidence_package_ids: list[UUID] = Field(default_factory=list)
-    table_observation_revision_id: Identifier | None = None
+    table_observation_node_ref: dict[str, Identifier] | None = None
     round_context: AnalysisRoundContext | None = None
     rules_version: Literal["v1"] | None = None
     correction_constraint_revision_ids: list[Identifier] = Field(default_factory=list)
@@ -143,6 +143,11 @@ class RoundAnalysisCreateRequest(ContractModel):
 
     @model_validator(mode="after")
     def validate_request_identity(self) -> RoundAnalysisCreateRequest:
+        if self.table_observation_node_ref is not None and set(self.table_observation_node_ref) != {
+            "node_id",
+            "revision_id",
+        }:
+            raise ValueError("table_observation_node_ref needs node_id and revision_id.")
         if len(self.evidence_package_ids) != len(set(self.evidence_package_ids)):
             raise ValueError("evidence_package_ids must contain unique values.")
         if len(self.correction_constraint_revision_ids) != len(
@@ -152,21 +157,21 @@ class RoundAnalysisCreateRequest(ContractModel):
         pipeline_fields_present = any(
             value is not None
             for value in (
-                self.table_observation_revision_id,
+                self.table_observation_node_ref,
                 self.round_context,
                 self.rules_version,
             )
         ) or bool(self.correction_constraint_revision_ids)
         if pipeline_fields_present:
             if (
-                self.table_observation_revision_id is None
+                self.table_observation_node_ref is None
                 or self.round_context is None
                 or self.rules_version is None
                 or self.evidence_package_ids
                 or self.round_setup is not None
             ):
                 raise ValueError(
-                    "pipeline analysis needs table_observation_revision_id, round_context, "
+                    "pipeline analysis needs table_observation_node_ref, round_context, "
                     "and rules_version without evidence packages."
                 )
             if self.round_context.round_id != self.round_id:
@@ -181,7 +186,7 @@ class RoundAnalysisCreateRequest(ContractModel):
     def is_pipeline_analysis(self) -> bool:
         """Whether this request uses immutable recording-pipeline inputs."""
 
-        return self.table_observation_revision_id is not None
+        return self.table_observation_node_ref is not None
 
     def resolved_round_setup(self) -> AnalysisRoundSetup:
         """Return the explicit engine setup for either request mode."""
@@ -206,7 +211,7 @@ class RoundAnalysisCreateRequest(ContractModel):
             value.pop("round_setup", None)
             value.pop("evidence_package_ids", None)
         else:
-            value.pop("table_observation_revision_id", None)
+            value.pop("table_observation_node_ref", None)
             value.pop("round_context", None)
             value.pop("rules_version", None)
             value.pop("correction_constraint_revision_ids", None)

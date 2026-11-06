@@ -261,6 +261,21 @@ public struct RoundAnalysisRoundContext: Codable, Equatable, Sendable {
 }
 
 /// The exact request accepted by `POST /v1/round-analyses`.
+public struct RoundAnalysisNodeReference: Codable, Equatable, Sendable {
+    public let nodeID: String
+    public let revisionID: String
+
+    public init(nodeID: String, revisionID: String) {
+        self.nodeID = nodeID
+        self.revisionID = revisionID
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case nodeID = "node_id"
+        case revisionID = "revision_id"
+    }
+}
+
 public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
     public let schemaVersion: String
     public let analysisID: UUID
@@ -269,7 +284,7 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
     public let sessionID: UUID
     public let roundSetup: RoundRecordingSetup
     public let evidencePackageIDs: [UUID]
-    public let tableObservationRevisionID: String?
+    public let tableObservationNodeRef: RoundAnalysisNodeReference?
     public let roundContext: RoundAnalysisRoundContext?
     public let rulesVersion: String?
     public let correctionConstraintRevisionIDs: [String]
@@ -298,7 +313,7 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         self.sessionID = sessionID
         self.roundSetup = roundSetup
         self.evidencePackageIDs = evidencePackageIDs
-        tableObservationRevisionID = nil
+        tableObservationNodeRef = nil
         roundContext = nil
         rulesVersion = nil
         correctionConstraintRevisionIDs = []
@@ -309,14 +324,15 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         analysisID: UUID,
         recordingID: String,
         sessionID: UUID,
-        tableObservationRevisionID: String,
+        tableObservationNodeRef: RoundAnalysisNodeReference,
         roundContext: RoundAnalysisRoundContext,
         rulesVersion: String = "v1",
         correctionConstraintRevisionIDs: [String] = [],
         search: RoundAnalysisSearchLimits = RoundAnalysisSearchLimits()
     ) throws {
         guard roundAnalysisIsIdentifier(recordingID),
-              roundAnalysisIsIdentifier(tableObservationRevisionID),
+              roundAnalysisIsIdentifier(tableObservationNodeRef.nodeID),
+              roundAnalysisIsIdentifier(tableObservationNodeRef.revisionID),
               roundContext.roundID == "round-\(recordingID)",
               rulesVersion == "v1",
               correctionConstraintRevisionIDs.allSatisfy(roundAnalysisIsIdentifier),
@@ -340,7 +356,7 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         self.sessionID = sessionID
         roundSetup = setup
         evidencePackageIDs = []
-        self.tableObservationRevisionID = tableObservationRevisionID
+        self.tableObservationNodeRef = tableObservationNodeRef
         self.roundContext = roundContext
         self.rulesVersion = rulesVersion
         self.correctionConstraintRevisionIDs = correctionConstraintRevisionIDs
@@ -357,7 +373,7 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         ]
         let pipelineKeys: Set<String> = [
             "schema_version", "analysis_id", "recording_id", "round_id", "session_id",
-            "table_observation_revision_id", "round_context", "rules_version",
+            "table_observation_node_ref", "round_context", "rules_version",
             "correction_constraint_revision_ids", "search",
         ]
         guard keys == legacyKeys || keys == pipelineKeys else {
@@ -371,7 +387,7 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         if keys == legacyKeys {
             roundSetup = try container.decode(RoundRecordingSetup.self, forKey: .roundSetup)
             evidencePackageIDs = try container.decode([UUID].self, forKey: .evidencePackageIDs)
-            tableObservationRevisionID = nil
+            tableObservationNodeRef = nil
             roundContext = nil
             rulesVersion = nil
             correctionConstraintRevisionIDs = []
@@ -389,7 +405,10 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
                 firstTrickLeader: context.firstTrickLeader
             )
             evidencePackageIDs = []
-            tableObservationRevisionID = try container.decode(String.self, forKey: .tableObservationRevisionID)
+            tableObservationNodeRef = try container.decode(
+                RoundAnalysisNodeReference.self,
+                forKey: .tableObservationNodeRef
+            )
             self.roundContext = context
             self.rulesVersion = rulesVersion
             correctionConstraintRevisionIDs = try container.decode(
@@ -404,7 +423,7 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
               roundAnalysisIsIdentifier(roundSetup.roundID),
               roundSetup.roundID == roundID,
               roundID == "round-\(recordingID)",
-              (tableObservationRevisionID != nil || (!evidencePackageIDs.isEmpty && roundContext == nil)),
+              (tableObservationNodeRef != nil || (!evidencePackageIDs.isEmpty && roundContext == nil)),
               Set(evidencePackageIDs).count == evidencePackageIDs.count,
               Set(correctionConstraintRevisionIDs).count == correctionConstraintRevisionIDs.count,
               correctionConstraintRevisionIDs.allSatisfy(roundAnalysisIsIdentifier) else {
@@ -420,7 +439,7 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         case sessionID = "session_id"
         case roundSetup = "round_setup"
         case evidencePackageIDs = "evidence_package_ids"
-        case tableObservationRevisionID = "table_observation_revision_id"
+        case tableObservationNodeRef = "table_observation_node_ref"
         case roundContext = "round_context"
         case rulesVersion = "rules_version"
         case correctionConstraintRevisionIDs = "correction_constraint_revision_ids"
@@ -434,8 +453,8 @@ public struct RoundAnalysisCreateRequest: Codable, Equatable, Sendable {
         try container.encode(recordingID, forKey: .recordingID)
         try container.encode(roundID, forKey: .roundID)
         try container.encode(sessionID.uuidString.lowercased(), forKey: .sessionID)
-        if let tableObservationRevisionID, let roundContext, let rulesVersion {
-            try container.encode(tableObservationRevisionID, forKey: .tableObservationRevisionID)
+        if let tableObservationNodeRef, let roundContext, let rulesVersion {
+            try container.encode(tableObservationNodeRef, forKey: .tableObservationNodeRef)
             try container.encode(roundContext, forKey: .roundContext)
             try container.encode(rulesVersion, forKey: .rulesVersion)
             try container.encode(

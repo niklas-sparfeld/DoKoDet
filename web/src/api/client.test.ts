@@ -116,7 +116,10 @@ describe("DokoDetector API client", () => {
       round_id: "round-1",
       session_id: "550e8400-e29b-41d4-a716-446655440034",
       schema_version: "round-analysis/v1",
-      table_observation_revision_id: "observations-1",
+      table_observation_node_ref: {
+        node_id: "observations-node-1",
+        revision_id: "observations-node-revision-1",
+      },
       round_context: {
         game_id: "game-1",
         round_id: "round-1",
@@ -141,7 +144,7 @@ describe("DokoDetector API client", () => {
     ]);
     expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(fetchImplementation.mock.calls[1]?.[1]?.body).toContain(
-      "table_observation_revision_id",
+      "table_observation_node_ref",
     );
   });
 
