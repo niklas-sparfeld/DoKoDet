@@ -122,7 +122,8 @@ class ObservationPipelineService:
     ) -> tuple[StoredProcessorRun, tuple[StoredPipelineRevision, ...]]:
         run = self.get_run(recording_id, run_id)
         revisions = tuple(
-            self.revision_store.require(item) for item in run.state.output_revision_ids
+            self.selection_store.require_processor_revision(item)
+            for item in run.state.output_revision_ids
         )
         return run, revisions
 
@@ -169,13 +170,19 @@ class ObservationPipelineService:
                 node = self.node_store.get(node_ref["node_id"])
                 revision = self.node_store.read_revision(node.node_id, node_ref["revision_id"])
                 source = RecordingVideoSource.from_mapping(node.source)
+                raw_manifest = revision.metadata.get("data_revision")
+                manifest_id = (
+                    raw_manifest.get("revision_id")
+                    if isinstance(raw_manifest, Mapping)
+                    else revision.revision_id
+                )
             except (FileNotFoundError, KeyError, TypeError, ValueError) as error:
                 raise ObservationPipelineInputError("a frozen node input is unavailable") from error
             if (
                 node.content_type != content_type
                 or source.recording_id != recording_id
                 or source != request.source
-                or revision.metadata.get("legacy_revision_id") != revision_id
+                or manifest_id != revision_id
                 or (
                     node_ref["revision_policy"] == "current_head"
                     and node.head_revision_id != node_ref["revision_id"]
@@ -211,7 +218,7 @@ class ObservationPipelineService:
         try:
             if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
                 return False
-            revision = self.revision_store.require(results[0]["id"])
+            revision = self.selection_store.require_processor_revision(results[0]["id"])
             run = self.run_store.require(job.id)
             return (
                 run.state.status == "complete"
@@ -342,8 +349,16 @@ class ObservationPipelineService:
         raw = payload.get("request", payload)
         if not isinstance(raw, Mapping):
             raise ObservationPipelineInputError("request must be an object.")
-        input_ids = self._input_revision_ids(recording_id, raw)
-        event_revision = self._require_revision(input_ids[0], "events", EventData)
+        input_refs = self._input_node_refs(recording_id, raw)
+        input_ids = tuple(ref["revision_id"] for ref in input_refs)
+        event_revision, visible_revision, identity_revision = tuple(
+            self.selection_store.read_node_revision(ref["node_id"], ref["revision_id"])
+            for ref in input_refs
+        )
+        if event_revision.manifest.content_type != "events" or not isinstance(
+            event_revision.content, EventData
+        ):
+            raise ObservationPipelineInputError("the first input is not event node content")
         if not isinstance(event_revision.manifest.source, RecordingVideoSource):
             raise ObservationPipelineInputError(
                 "observation assembly needs a recording video source"
@@ -351,10 +366,14 @@ class ObservationPipelineService:
         source = event_revision.manifest.source
         if event_revision.manifest.source.recording_id != recording_id:
             raise ObservationPipelineInputError("the input revisions belong to another recording")
-        visible_revision = self._require_revision(input_ids[1], "visible_cards", VisibleCardData)
-        identity_revision = self._require_revision(
-            input_ids[2], "visual_identities", VisualIdentityData
-        )
+        if visible_revision.manifest.content_type != "visible_cards" or not isinstance(
+            visible_revision.content, VisibleCardData
+        ):
+            raise ObservationPipelineInputError("the second input is not visible-card node content")
+        if identity_revision.manifest.content_type != "visual_identities" or not isinstance(
+            identity_revision.content, VisualIdentityData
+        ):
+            raise ObservationPipelineInputError("the third input is not identity node content")
         if (
             visible_revision.manifest.source != source
             or identity_revision.manifest.source != source
@@ -386,7 +405,7 @@ class ObservationPipelineService:
         ):
             values.pop(field, None)
         values["input_revision_ids"] = list(input_ids)
-        values["input_node_refs"] = list(self._input_node_refs(recording_id, input_ids))
+        values["input_node_refs"] = list(input_refs)
         values.setdefault("schema_version", "processor-run-request/v1")
         run_id = raw.get("run_id") or payload.get("run_id")
         if not isinstance(run_id, str) or not run_id:
@@ -432,113 +451,121 @@ class ObservationPipelineService:
             )
         return request
 
-    def _input_revision_ids(
-        self, recording_id: str, raw: Mapping[str, Any]
-    ) -> tuple[str, str, str]:
-        named = tuple(
-            raw.get(field)
-            for field in (
-                "event_revision_id",
-                "visible_card_revision_id",
-                "visual_identity_revision_id",
-            )
-        )
-        provided = raw.get("input_revision_ids")
-        if provided is not None and any(value is not None for value in named):
-            raise ObservationPipelineInputError(
-                "use input_revision_ids or named revision IDs, not both"
-            )
-        if provided is not None:
-            values = tuple(provided) if isinstance(provided, list) else ()
-        elif any(value is not None for value in named):
-            values = named
-        else:
-            values = tuple(
-                self._selected_revision_id(recording_id, content_type)
-                for content_type in ("events", "visible_cards", "visual_identities")
-            )
-        if len(values) != 3 or any(not isinstance(value, str) or not value for value in values):
-            raise ObservationPipelineInputError(
-                "assembly needs ordered event, visible-card, and identity revision IDs"
-            )
-        if len(set(values)) != 3:
-            raise ObservationPipelineInputError("assembly input revision IDs must be unique")
-        return values  # type: ignore[return-value]
-
-    def _selected_revision_id(self, recording_id: str, content_type: str) -> str:
-        get_exact = getattr(self.selection_store, "get_exact", None)
-        if not callable(get_exact) or self.node_store is None:
-            raise ObservationPipelineInputError("canonical node selection is unavailable")
-        selection = get_exact(recording_id, content_type)
-        if selection is None:
-            raise ObservationPipelineInputError(f"no selected {content_type} revision is available")
-        pointer = selection.selected_completed_reference or selection.selected_generated
-        if pointer is None:
-            raise ObservationPipelineInputError(f"no selected {content_type} revision is available")
-        try:
-            revision = self.node_store.read_revision(pointer["node_id"], pointer["revision_id"])
-        except (FileNotFoundError, KeyError, ValueError) as error:
-            raise ObservationPipelineInputError(
-                "the selected node revision is unavailable"
-            ) from error
-        if revision.metadata.get("legacy_revision_id") is None:
-            raise ObservationPipelineInputError("the selected node has no execution revision")
-        return revision.metadata["legacy_revision_id"]
-
     def _input_node_refs(
-        self, recording_id: str, input_revision_ids: tuple[str, ...]
+        self, recording_id: str, raw: Mapping[str, Any]
     ) -> tuple[dict[str, str], ...]:
-        if self.node_store is None:
-            raise ObservationPipelineInputError("canonical node storage is unavailable")
         expected_types = ("events", "visible_cards", "visual_identities")
-        refs = []
-        for revision_id, content_type in zip(input_revision_ids, expected_types, strict=True):
-            matches = []
-            get_exact = getattr(self.selection_store, "get_exact", None)
-            selection = get_exact(recording_id, content_type) if callable(get_exact) else None
-            if selection is not None:
-                for pointer in (
-                    selection.selected_completed_reference,
-                    selection.selected_generated,
-                ):
-                    if pointer is None:
-                        continue
-                    try:
-                        node = self.node_store.get(pointer["node_id"])
-                        revision = self.node_store.read_revision(
-                            node.node_id, pointer["revision_id"]
-                        )
-                    except (FileNotFoundError, KeyError, ValueError):
-                        continue
-                    if revision.metadata.get("legacy_revision_id") == revision_id:
-                        matches.append((node, revision))
-                        break
-            if not matches:
-                for node in self.node_store.list_nodes():
-                    if node.content_type != content_type:
-                        continue
-                    for revision in self.node_store.history(node.node_id):
-                        if revision.metadata.get("legacy_revision_id") == revision_id:
-                            matches.append((node, revision))
-            if not matches:
-                lineage_writer = getattr(self.selection_store, "lineage_writer", None)
-                if lineage_writer is not None:
-                    stored = self.revision_store.require(revision_id)
-                    node_id, node_revision_id = lineage_writer.ensure_revision_node(stored)
-                    node = self.node_store.get(node_id)
-                    matches.append((node, self.node_store.read_revision(node_id, node_revision_id)))
-            if len(matches) != 1:
-                raise ObservationPipelineInputError(
-                    f"input {revision_id} has no unique canonical {content_type} node revision"
+        provided = raw.get("input_node_refs")
+        if provided is None:
+            if any(
+                raw.get(field) is not None
+                for field in (
+                    "event_revision_id",
+                    "visible_card_revision_id",
+                    "visual_identity_revision_id",
                 )
-            node, revision = matches[0]
-            refs.append(
-                {
-                    "node_id": node.node_id,
-                    "revision_id": revision.revision_id,
-                    "revision_policy": "historical",
-                }
+            ):
+                raise ObservationPipelineInputError(
+                    "use input_revision_ids or exact input_node_refs for observation inputs"
+                )
+            input_ids = raw.get("input_revision_ids")
+            if isinstance(input_ids, list) and len(input_ids) == len(expected_types):
+                refs = []
+                for revision_id, content_type in zip(input_ids, expected_types, strict=True):
+                    if not isinstance(revision_id, str) or not revision_id:
+                        raise ObservationPipelineInputError(
+                            "observation inputs need exact node revision IDs"
+                        )
+                    try:
+                        node, _ = self.node_store.find_revision(revision_id)
+                    except (FileNotFoundError, KeyError, ValueError) as error:
+                        raise ObservationPipelineInputError(
+                            f"the selected {content_type} node revision is unavailable"
+                        ) from error
+                    if (
+                        node.content_type != content_type
+                        or node.source.get("recording_id") != recording_id
+                    ):
+                        raise ObservationPipelineInputError(
+                            f"the selected node revision is not {content_type} for this recording"
+                        )
+                    refs.append(
+                        {
+                            "node_id": node.node_id,
+                            "revision_id": revision_id,
+                            "revision_policy": (
+                                "current_head"
+                                if node.head_revision_id == revision_id
+                                else "historical"
+                            ),
+                        }
+                    )
+                provided = refs
+            else:
+                refs = []
+                for content_type in expected_types:
+                    selection = self.selection_store.get_exact(recording_id, content_type)
+                    if selection is None:
+                        raise ObservationPipelineInputError(
+                            f"no selected {content_type} node revision is available"
+                        )
+                    pointer = selection.selected_completed_reference or selection.selected_generated
+                    if pointer is None:
+                        raise ObservationPipelineInputError(
+                            f"no selected {content_type} node revision is available"
+                        )
+                    refs.append(
+                        {
+                            **pointer,
+                            "revision_policy": (
+                                "historical"
+                                if selection.selected_completed_reference is not None
+                                else "current_head"
+                            ),
+                        }
+                    )
+                provided = refs
+        if not isinstance(provided, list) or len(provided) != 3:
+            raise ObservationPipelineInputError(
+                "assembly needs ordered event, visible-card, and identity node references"
             )
+        refs = []
+        for ref, content_type in zip(provided, expected_types, strict=True):
+            if not isinstance(ref, Mapping) or set(ref) != {
+                "node_id",
+                "revision_id",
+                "revision_policy",
+            }:
+                raise ObservationPipelineInputError(
+                    "an observation input node reference is invalid"
+                )
+            node_id, revision_id, policy = (
+                ref.get("node_id"),
+                ref.get("revision_id"),
+                ref.get("revision_policy"),
+            )
+            if not all(isinstance(value, str) and value for value in (node_id, revision_id)):
+                raise ObservationPipelineInputError(
+                    "an observation input node reference is invalid"
+                )
+            if policy not in {"current_head", "historical"}:
+                raise ObservationPipelineInputError("an observation input policy is invalid")
+            try:
+                node = self.node_store.get(node_id)
+                self.node_store.read_revision(node_id, revision_id)
+            except (FileNotFoundError, KeyError, ValueError) as error:
+                raise ObservationPipelineInputError(
+                    "an observation input node is unavailable"
+                ) from error
+            if (
+                node.content_type != content_type
+                or node.source.get("recording_id") != recording_id
+                or (policy == "current_head" and node.head_revision_id != revision_id)
+            ):
+                raise ObservationPipelineInputError("an observation input node does not match")
+            refs.append({"node_id": node_id, "revision_id": revision_id, "revision_policy": policy})
+        if len({(ref["node_id"], ref["revision_id"]) for ref in refs}) != len(refs):
+            raise ObservationPipelineInputError("assembly node references must be unique")
         return tuple(refs)
 
     def _canonical_input_content(
@@ -558,18 +585,6 @@ class ObservationPipelineService:
             canonical_json_bytes(revisions[2].content)
         )
         return event_content, visible_content, identity_content
-
-    def _require_revision(
-        self, revision_id: str, content_type: str, content_class: type[Any]
-    ) -> StoredPipelineRevision:
-        revision = self.revision_store.require(revision_id)
-        if revision.manifest.content_type != content_type or not isinstance(
-            revision.content, content_class
-        ):
-            raise ObservationPipelineInputError(
-                f"revision {revision_id} is not valid {content_type} content"
-            )
-        return revision
 
     def _publish_revision(
         self, run: StoredProcessorRun, content: TableObservationData
@@ -601,7 +616,7 @@ class ObservationPipelineService:
             },
             created_at=_now(),
         )
-        stored, _ = self.revision_store.publish(manifest, content)
+        stored, _ = self.selection_store.publish_processor_revision(manifest, content)
         return stored
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:

@@ -18,7 +18,6 @@ from dokodetector_backend.filesystem import atomic_replace_json, contained_path
 from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
-    PipelineRevisionStore,
     PipelineSelectionConflict,
     PipelineStoreError,
     _canonical_timestamp,
@@ -64,11 +63,9 @@ class PipelineNodeSelectionStore:
     def __init__(
         self,
         node_store: PipelineNodeStore,
-        revision_store: PipelineRevisionStore,
         lineage_writer: PipelineLineageWriter | None = None,
     ) -> None:
         self.node_store = node_store
-        self.revision_store = revision_store
         self.lineage_writer = lineage_writer
         self.root = node_store.root / ".pipeline-node-selections"
         self._lock = RLock()
@@ -194,14 +191,39 @@ class PipelineNodeSelectionStore:
         """Resolve a newly published processor output to its exact graph revision."""
         if self.lineage_writer is None:
             raise PipelineStoreError("the processor lineage writer is unavailable")
-        stored = self.revision_store.require(revision_id)
-        if (
-            stored.manifest.recording_id != recording_id
-            or stored.manifest.content_type != content_type
-        ):
-            raise ValueError("selection revision does not match its recording or content type")
-        node_id, node_revision_id = self.lineage_writer.ensure_revision_node(stored)
-        return {"node_id": node_id, "revision_id": node_revision_id}
+        return self.lineage_writer.node_ref_for_processor_output(
+            revision_id, recording_id, content_type
+        )
+
+    def publish_processor_revision(self, manifest: Any, content: Any):
+        """Publish processor content once, as a canonical pipeline node revision."""
+        if self.lineage_writer is None:
+            raise PipelineStoreError("the processor lineage writer is unavailable")
+        return self.lineage_writer.publish_processor_revision(manifest, content)
+
+    def require_processor_revision(self, revision_id: str):
+        """Read a processor output from its canonical node revision."""
+        if self.lineage_writer is None:
+            raise PipelineStoreError("the processor lineage writer is unavailable")
+        return self.lineage_writer.require_revision(revision_id)
+
+    def require_revision(self, revision_id: str):
+        """Read one globally unique exact revision from the node store."""
+        try:
+            node, _ = self.node_store.find_revision(revision_id)
+        except (FileNotFoundError, KeyError, ValueError) as error:
+            raise PipelineStoreError(
+                f"pipeline node revision is unavailable: {revision_id}"
+            ) from error
+        if self.lineage_writer is None:
+            raise PipelineStoreError("the processor lineage writer is unavailable")
+        return self.lineage_writer.read_node_revision(node.node_id, revision_id)
+
+    def read_node_revision(self, node_id: str, revision_id: str):
+        """Read the immutable processor data value for one exact node pointer."""
+        if self.lineage_writer is None:
+            raise PipelineStoreError("the processor lineage writer is unavailable")
+        return self.lineage_writer.read_node_revision(node_id, revision_id)
 
 
 __all__ = ["PipelineNodeSelectionStore"]

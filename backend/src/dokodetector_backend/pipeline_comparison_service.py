@@ -25,10 +25,10 @@ from doko_operations.pipeline_comparison_execution import (
 )
 from doko_operations.pipeline_data import canonical_json_bytes
 
+from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_service_errors import PipelineServiceError
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
-    PipelineRevisionStore,
     ProcessorRunStore,
     StoredProcessorRun,
 )
@@ -48,10 +48,10 @@ class PipelineComparisonService:
     def __init__(
         self,
         *,
-        revision_store: PipelineRevisionStore,
+        selection_store: PipelineNodeSelectionStore,
         run_store: ProcessorRunStore,
     ) -> None:
-        self.revision_store = revision_store
+        self.selection_store = selection_store
         self.run_store = run_store
 
     def compare(
@@ -203,7 +203,7 @@ class PipelineComparisonService:
             )
         revisions = []
         for revision_id in run.state.output_revision_ids:
-            revision = self.revision_store.require(revision_id)
+            revision = self.selection_store.require_processor_revision(revision_id)
             if (
                 revision.manifest.content_type == content_type
                 and revision.manifest.recording_id == recording_id
@@ -223,7 +223,7 @@ class PipelineComparisonService:
         content_type: str,
         source: Any,
     ) -> Any:
-        revision = self.revision_store.require(revision_id)
+        revision = self.selection_store.require_revision(revision_id)
         manifest = revision.manifest
         if (
             manifest.recording_id != recording_id

@@ -57,7 +57,7 @@ class ObservationJobParticipant:
         processor = request["request"]["processor_request"]
         inputs = []
         for revision_id in processor["input_revision_ids"]:
-            revision = self.service.revision_store.require(revision_id)
+            revision = self.service.selection_store.require_processor_revision(revision_id)
             inputs.append(
                 {
                     "kind": "pipeline_revision",

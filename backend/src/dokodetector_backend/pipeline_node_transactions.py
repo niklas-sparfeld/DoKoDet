@@ -154,12 +154,8 @@ class PipelineNodeTransactions:
             from dokodetector_backend.pipeline_node_selection_store import (
                 PipelineNodeSelectionStore,
             )
-            from dokodetector_backend.pipeline_store import PipelineRevisionStore
 
-            selection_store = PipelineNodeSelectionStore(
-                self.node_store,
-                PipelineRevisionStore(self.node_store.root.parent),
-            )
+            selection_store = PipelineNodeSelectionStore(self.node_store)
         prepared_selections = []
         for item in selection_updates:
             assert selection_store is not None
@@ -268,12 +264,8 @@ class PipelineNodeTransactions:
             from dokodetector_backend.pipeline_node_selection_store import (
                 PipelineNodeSelectionStore,
             )
-            from dokodetector_backend.pipeline_store import PipelineRevisionStore
 
-            selections = PipelineNodeSelectionStore(
-                self.node_store,
-                PipelineRevisionStore(self.node_store.root.parent),
-            )
+            selections = PipelineNodeSelectionStore(self.node_store)
         for update in plan["selections"]:
             assert selections is not None
             current = selections.get_exact(update["recording_id"], update["content_type"])

@@ -86,9 +86,9 @@ def build_pipeline_composition(
     node_store = PipelineNodeStore(settings.operations_root / "pipeline-nodes")
     lineage_service = PipelineLineage(node_store)
     lineage_writer = PipelineLineageWriter(
-        node_store, lineage_service, PipelineNodeUses(node_store), revision_store
+        node_store, lineage_service, PipelineNodeUses(node_store)
     )
-    selection_store = PipelineNodeSelectionStore(node_store, revision_store, lineage_writer)
+    selection_store = PipelineNodeSelectionStore(node_store, lineage_writer)
     run_store.lineage_writer = lineage_writer
     node_edits = PipelineNodeEdits(node_store)
     node_reviews = PipelineNodeReviews(node_store)
@@ -102,7 +102,7 @@ def build_pipeline_composition(
         selection_store=selection_store,
     )
     comparison_service = PipelineComparisonService(
-        revision_store=revision_store,
+        selection_store=selection_store,
         run_store=run_store,
     )
     visible_card_service = VisibleCardPipelineService(

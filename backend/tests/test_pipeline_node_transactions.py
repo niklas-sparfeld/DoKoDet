@@ -7,7 +7,6 @@ from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
-from dokodetector_backend.pipeline_store import PipelineRevisionStore
 
 SOURCE = {
     "schema_version": "recording-video/v1",
@@ -25,8 +24,7 @@ def test_coordinated_transaction_publishes_both_nodes_and_exact_selections(
     tmp_path: Path,
 ) -> None:
     nodes = PipelineNodeStore(tmp_path / "nodes")
-    revisions = PipelineRevisionStore(tmp_path / "legacy-revisions")
-    selections = PipelineNodeSelectionStore(nodes, revisions)
+    selections = PipelineNodeSelectionStore(nodes)
     visible = nodes.create("visible-node", "Visible", "visible_cards", SOURCE, VISIBLE, {})
     scenes = nodes.create("scene-node", "Scenes", "virtual_scenes", SOURCE, SCENES, {})
     visible_new = "visible-reflow-r2"
@@ -85,9 +83,7 @@ def test_reader_recovers_interrupted_publication_before_returning_mixed_state(
     tmp_path: Path,
 ) -> None:
     nodes = PipelineNodeStore(tmp_path / "nodes")
-    selections = PipelineNodeSelectionStore(
-        nodes, PipelineRevisionStore(tmp_path / "legacy-revisions")
-    )
+    selections = PipelineNodeSelectionStore(nodes)
     visible = nodes.create("visible-node", "Visible", "visible_cards", SOURCE, VISIBLE, {})
     scenes = nodes.create("scene-node", "Scenes", "virtual_scenes", SOURCE, SCENES, {})
     transactions = PipelineNodeTransactions(nodes)

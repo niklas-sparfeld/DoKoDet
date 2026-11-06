@@ -23,7 +23,11 @@ from table_evidence_analyzer.pipeline_data import (
 from dokodetector_backend.job_scheduler import Claims
 from dokodetector_backend.job_store import JobCancelled, JobManager
 from dokodetector_backend.jobs_api import JobTypeRegistry
+from dokodetector_backend.pipeline_lineage import PipelineLineage
+from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
+from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineRuntimeStorage,
@@ -70,6 +74,22 @@ class _Settings:
     def __init__(self, root: Path) -> None:
         self.evidence_root = root / "runtime"
         self.operations_root = root / "operations"
+
+
+def _publish_input_node(
+    tmp_path: Path,
+    revisions: PipelineRevisionStore,
+    runs: ProcessorRunStore,
+    manifest: DataRevision,
+    content: VisibleCardData,
+) -> tuple[PipelineNodeStore, PipelineNodeSelectionStore]:
+    nodes = PipelineNodeStore(tmp_path / "operations" / "pipeline-nodes")
+    lineage = PipelineLineage(nodes)
+    writer = PipelineLineageWriter(nodes, lineage, PipelineNodeUses(nodes))
+    runs.lineage_writer = writer
+    selections = PipelineNodeSelectionStore(nodes, writer)
+    writer.publish_processor_revision(manifest, content)
+    return nodes, selections
 
 
 def _visible_data() -> VisibleCardData:
@@ -197,7 +217,6 @@ def test_service_publishes_proposal_without_changing_detector_input(
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
     runs = ProcessorRunStore(runtime, revision_store=revisions)
-    selections = Mock()
     source = RecordingVideoSource(
         recording_id="recording-0073",
         relative_path="recordings/recording-0073/video.mov",
@@ -224,11 +243,15 @@ def test_service_publishes_proposal_without_changing_detector_input(
         coverage={"kind": "requested-event-frames"},
         created_at="2026-09-21T10:00:00Z",
     )
-    revisions.publish(input_revision, content)
+    nodes, selections = _publish_input_node(tmp_path, revisions, runs, input_revision, content)
     original_bytes = canonical_json_bytes(content.to_mapping())
 
     service = ProposedCardScenePipelineService(
-        _Settings(tmp_path), revision_store=revisions, run_store=runs, selection_store=selections
+        _Settings(tmp_path),
+        revision_store=revisions,
+        run_store=runs,
+        selection_store=selections,
+        node_store=nodes,
     )
     started = _run_proposal_job(service, source.recording_id, input_revision.revision_id)
     result = service.get_run(source.recording_id, started.id)
@@ -248,11 +271,16 @@ def test_service_publishes_proposal_without_changing_detector_input(
     assert any(
         entry["message"] == "Calibrating virtual cards" for entry in result.state.metrics["logs"]
     )
-    assert revisions.require(result.state.output_revision_ids[0]).manifest.content_type == (
-        "card_scene_proposals"
+    assert (
+        selections.require_processor_revision(
+            result.state.output_revision_ids[0]
+        ).manifest.content_type
+        == "card_scene_proposals"
     )
     assert (
-        canonical_json_bytes(revisions.require(input_revision.revision_id).content.to_mapping())
+        canonical_json_bytes(
+            selections.require_processor_revision(input_revision.revision_id).content.to_mapping()
+        )
         == original_bytes
     )
 
@@ -317,7 +345,6 @@ def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
     runs = ProcessorRunStore(runtime, revision_store=revisions)
-    selections = Mock()
     source = RecordingVideoSource(
         recording_id="recording-0073",
         relative_path="recordings/recording-0073/video.mov",
@@ -373,9 +400,13 @@ def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
         coverage={"kind": "requested-event-frames"},
         created_at="2026-09-21T10:00:00Z",
     )
-    revisions.publish(input_revision, content)
+    nodes, selections = _publish_input_node(tmp_path, revisions, runs, input_revision, content)
     service = ProposedCardScenePipelineService(
-        _Settings(tmp_path), revision_store=revisions, run_store=runs, selection_store=selections
+        _Settings(tmp_path),
+        revision_store=revisions,
+        run_store=runs,
+        selection_store=selections,
+        node_store=nodes,
     )
 
     started = _run_proposal_job(service, source.recording_id, input_revision.revision_id)
@@ -386,7 +417,7 @@ def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
     assert not any(
         entry["message"] == "Calibrating virtual cards" for entry in result.state.metrics["logs"]
     )
-    output_revision = revisions.require(result.state.output_revision_ids[0])
+    output_revision = selections.require_processor_revision(result.state.output_revision_ids[0])
     output = output_revision.content
     assert output_revision.manifest.producer.implementation_id == (
         "proposed-card-scene-processor/v2"
@@ -404,7 +435,6 @@ def test_cancelled_proposal_does_not_publish_a_completed_revision(tmp_path: Path
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
     runs = ProcessorRunStore(runtime, revision_store=revisions)
-    selections = Mock()
     source = RecordingVideoSource(
         recording_id="recording-cancel",
         relative_path="recordings/recording-cancel/video.mov",
@@ -431,9 +461,13 @@ def test_cancelled_proposal_does_not_publish_a_completed_revision(tmp_path: Path
         coverage={"kind": "requested-event-frames"},
         created_at="2026-09-21T10:00:00Z",
     )
-    revisions.publish(input_revision, content)
+    nodes, selections = _publish_input_node(tmp_path, revisions, runs, input_revision, content)
     service = ProposedCardScenePipelineService(
-        _Settings(tmp_path), revision_store=revisions, run_store=runs, selection_store=selections
+        _Settings(tmp_path),
+        revision_store=revisions,
+        run_store=runs,
+        selection_store=selections,
+        node_store=nodes,
     )
 
     job = _run_proposal_job(
@@ -447,17 +481,13 @@ def test_cancelled_proposal_does_not_publish_a_completed_revision(tmp_path: Path
     assert job.state == "cancelled"
     assert run.state.status == "failed"
     assert run.state.output_revision_ids == ()
-    assert not any(
-        item.manifest.content_type == "card_scene_proposals"
-        for item in revisions.list_for_recording(source.recording_id)
-    )
+    assert not any(node.content_type == "card_scene_proposals" for node in nodes.list_nodes())
 
 
 def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> None:
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
     runs = ProcessorRunStore(runtime, revision_store=revisions)
-    selections = Mock()
     source = RecordingVideoSource(
         recording_id="recording-0073",
         relative_path="recordings/recording-0073/video.mov",
@@ -484,9 +514,13 @@ def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> Non
         coverage={"kind": "requested-event-frames"},
         created_at="2026-09-21T10:00:00Z",
     )
-    revisions.publish(input_revision, content)
+    nodes, selections = _publish_input_node(tmp_path, revisions, runs, input_revision, content)
     service = ProposedCardScenePipelineService(
-        _Settings(tmp_path), revision_store=revisions, run_store=runs, selection_store=selections
+        _Settings(tmp_path),
+        revision_store=revisions,
+        run_store=runs,
+        selection_store=selections,
+        node_store=nodes,
     )
 
     with pytest.raises(ProposedCardScenePipelineInputError, match="generated local RF-DETR"):

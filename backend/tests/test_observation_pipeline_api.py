@@ -48,7 +48,9 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         event_revision_id = _run_pipeline(client, "events-assembly", "events")
         visible_revision_id = _run_pipeline(client, "visible-assembly", "visible-cards")
         generated_visible_revision_id = visible_revision_id
-        stored_visible = app.state.pipeline_revision_store.require(visible_revision_id)
+        stored_visible = app.state.pipeline_selection_store.require_processor_revision(
+            visible_revision_id
+        )
         pile = VisibleCardPileRegion.from_mapping(
             {
                 "pile_id": "pile-observation-fixture",
@@ -88,26 +90,21 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             revision_id="visible-assembly-with-pile",
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(pile_visible_content)),
         )
-        app.state.pipeline_revision_store.publish(pile_visible_manifest, pile_visible_content)
-        visible_revision_id = "visible-assembly-with-pile"
-        node_store = app.state.visible_card_pipeline_service.node_store
-        visible_node = next(
-            node
-            for node in node_store.list_nodes()
-            if any(
-                revision.metadata.get("legacy_revision_id") == generated_visible_revision_id
-                for revision in node_store.history(node.node_id)
-            )
+        visible_revision = app.state.pipeline_selection_store.publish_processor_revision(
+            pile_visible_manifest, pile_visible_content
+        )[0]
+        visible_revision_id = visible_revision.manifest.revision_id
+        visible_selection = app.state.pipeline_selection_store.get_exact(
+            RECORDING_ID, "visible_cards"
         )
-        visible_node_head = node_store.get(visible_node.node_id).head_revision_id
-        node_store.save(
-            visible_node.node_id,
-            visible_node_head,
-            pile_visible_content.to_mapping(),
-            {
-                "legacy_revision_id": visible_revision_id,
-                "legacy_content_sha256": pile_visible_manifest.content_sha256,
-            },
+        app.state.pipeline_selection_store.update_exact(
+            RECORDING_ID,
+            "visible_cards",
+            expected_revision=visible_selection.revision,
+            selected_generated=app.state.pipeline_selection_store.reference_for_processor_output(
+                visible_revision_id, RECORDING_ID, "visible_cards"
+            ),
+            selected_completed_reference=visible_selection.selected_completed_reference,
         )
         identity_revision_id = _run_pipeline(
             client,
@@ -115,20 +112,7 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             "visual-identities",
             input_revision_ids=[visible_revision_id],
         )
-        identity_revision = app.state.pipeline_revision_store.require(identity_revision_id)
-        node_store.create(
-            "fixture-assembly-identity-node",
-            "Generated visual identities",
-            "visual_identities",
-            identity_revision.manifest.source.to_mapping(),
-            identity_revision.content.to_mapping(),
-            {
-                "legacy_revision_id": identity_revision_id,
-                "legacy_content_sha256": identity_revision.manifest.content_sha256,
-                "legacy_content_schema": identity_revision.manifest.content_schema,
-            },
-            revision_id=identity_revision_id,
-        )
+        app.state.pipeline_selection_store.require_processor_revision(identity_revision_id)
 
         workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert workspace.status_code == 200
@@ -175,7 +159,7 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         assert len(node_refs) == 3
         assert len({ref["node_id"] for ref in node_refs}) == 3
         assert all(ref["revision_id"] for ref in node_refs)
-        assert [ref["revision_policy"] for ref in node_refs] == ["historical"] * 3
+        assert [ref["revision_policy"] for ref in node_refs] == ["current_head"] * 3
         content = first_body["revisions"][0]["content"]
         assert content["observations"][0]["status"] == "observed"
         assert content["observations"][0]["schema_version"] == "table-observation/v2"
@@ -223,7 +207,9 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             identity_revision_id,
         ]
         assert [item["digest"] for item in accepted_job["inputs"]] == [
-            app.state.pipeline_revision_store.require(revision_id).manifest.content_sha256
+            app.state.pipeline_selection_store.require_processor_revision(
+                revision_id
+            ).manifest.content_sha256
             for revision_id in (event_revision_id, visible_revision_id, identity_revision_id)
         ]
 
@@ -334,7 +320,7 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
                 "visual_identity_revision_id": "missing-revision",
             },
         )
-        assert mismatch.status_code == 404
+        assert mismatch.status_code == 422
 
     restarted = create_test_app(_settings(tmp_path))
     with TestClient(restarted) as client:

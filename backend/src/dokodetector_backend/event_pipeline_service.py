@@ -58,6 +58,7 @@ from dokodetector_backend.pipeline_store import (
     PipelineSelectionConflict,
     PipelineStateError,
     ProcessorRunStore,
+    StoredPipelineRevision,
     StoredProcessorRun,
 )
 from dokodetector_backend.recording_bundle_store import (
@@ -328,12 +329,9 @@ class EventPipelineService:
                     node_store,
                     PipelineLineage(node_store),
                     PipelineNodeUses(node_store),
-                    self.revision_store,
                 )
                 self.run_store.lineage_writer = lineage_writer
-            selection_store = PipelineNodeSelectionStore(
-                node_store, self.revision_store, lineage_writer
-            )
+            selection_store = PipelineNodeSelectionStore(node_store, lineage_writer)
         self.selection_store = selection_store
         self.event_provider = event_provider or CardEventFileProvider(
             settings.repository_root,
@@ -425,10 +423,11 @@ class EventPipelineService:
 
     def get_result(
         self, recording_id: str, run_id: str
-    ) -> tuple[StoredProcessorRun, tuple[EventDataRevision, ...]]:
+    ) -> tuple[StoredProcessorRun, tuple[StoredPipelineRevision, ...]]:
         run = self.get_run(recording_id, run_id)
         revisions = tuple(
-            self.revision_store.require(item) for item in run.state.output_revision_ids
+            self.selection_store.require_processor_revision(item)
+            for item in run.state.output_revision_ids
         )
         return run, revisions
 
@@ -666,7 +665,7 @@ class EventPipelineService:
         try:
             if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
                 return False
-            revision = self.revision_store.require(results[0]["id"])
+            revision = self.selection_store.require_processor_revision(results[0]["id"])
             use = json.loads(self._event_use_path(job.id).read_text(encoding="utf-8"))
             run = self.run_store.require(use["run_id"])
             return (
@@ -754,7 +753,9 @@ class EventPipelineService:
                         _revision_id(run, suffix="import"),
                         producer,
                     )
-                    revision, _ = self.revision_store.publish(revision)
+                    revision, _ = self.selection_store.publish_processor_revision(
+                        revision.manifest, revision.content
+                    )
                 self.run_store.complete(
                     run_id,
                     [revision.manifest.revision_id],
@@ -1005,7 +1006,7 @@ class EventPipelineService:
         self,
         run: StoredProcessorRun,
         content: EventData,
-    ) -> EventDataRevision:
+    ) -> StoredPipelineRevision:
         producer = ProcessorProducer(
             run_id=run.run_id,
             processor_type=run.request.processor_type,
@@ -1013,7 +1014,9 @@ class EventPipelineService:
             model_id=_model_id(run.request.model),
         )
         revision = _build_revision(run.request, content, _revision_id(run), producer)
-        stored, _ = self.revision_store.publish(revision)
+        stored, _ = self.selection_store.publish_processor_revision(
+            revision.manifest, revision.content
+        )
         return stored
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:

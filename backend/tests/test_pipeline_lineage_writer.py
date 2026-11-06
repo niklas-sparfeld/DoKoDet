@@ -17,6 +17,7 @@ from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
 from dokodetector_backend.pipeline_node_store import NodeUsed, PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.pipeline_store import (
+    PipelineNotFound,
     PipelineRevisionStore,
     PipelineRuntimeStorage,
     ProcessorRunStore,
@@ -56,7 +57,7 @@ def test_processor_lineage_keeps_empty_results_and_protects_accepted_inputs(
     revisions = PipelineRevisionStore(storage)
     node_store = PipelineNodeStore(tmp_path / "nodes")
     lineage = PipelineLineage(node_store)
-    writer = PipelineLineageWriter(node_store, lineage, PipelineNodeUses(node_store), revisions)
+    writer = PipelineLineageWriter(node_store, lineage, PipelineNodeUses(node_store))
     runs = ProcessorRunStore(storage, revision_store=revisions, lineage_writer=writer)
 
     event_run, _ = runs.create(_request("events-01", "event-detection", []))
@@ -87,7 +88,7 @@ def test_processor_lineage_keeps_empty_results_and_protects_accepted_inputs(
             "content": event_content,
         }
     )
-    revisions.publish(output)
+    writer.publish_processor_revision(output.manifest, output.content)
     runs.complete(event_run.run_id, [output.manifest.revision_id])
 
     graph = lineage.snapshot("recording-01")
@@ -97,9 +98,20 @@ def test_processor_lineage_keeps_empty_results_and_protects_accepted_inputs(
     assert run["inputs"][0]["kind"] == "artifact"
     assert run["outputs"][0]["revision_id"] == output.manifest.revision_id
 
-    visible_run, _ = runs.create(
-        _request("visible-01", "visible-card-detection", [output.manifest.revision_id])
+    visible_request = ProcessorRunRequest.from_mapping(
+        {
+            **_request(
+                "visible-01", "visible-card-detection", [output.manifest.revision_id]
+            ).to_mapping(),
+            "input_node_ref": {
+                **writer.node_ref_for_processor_output(
+                    output.manifest.revision_id, "recording-01", "events"
+                ),
+                "revision_policy": "current_head",
+            },
+        }
     )
+    visible_run, _ = runs.create(visible_request)
     assert visible_run.state.status == "queued"
     accepted = next(item for item in lineage.snapshot()["runs"] if item["run_id"] == "visible-01")
     assert accepted["status"] == "accepted"
@@ -197,11 +209,9 @@ def test_processor_lineage_reuses_imported_revision_nodes(tmp_path: Path) -> Non
         },
     )
     writer = PipelineLineageWriter(
-        node_store, PipelineLineage(node_store), PipelineNodeUses(node_store), revisions
+        node_store, PipelineLineage(node_store), PipelineNodeUses(node_store)
     )
 
-    assert writer.ensure_revision_node(revisions.require(revision.manifest.revision_id)) == (
-        "migrated-events-node",
-        "migrated-events-revision",
-    )
+    with pytest.raises(PipelineNotFound):
+        writer.require_revision(revision.manifest.revision_id)
     assert len(node_store.list_nodes()) == 1

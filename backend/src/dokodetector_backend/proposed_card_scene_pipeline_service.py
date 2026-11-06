@@ -85,7 +85,9 @@ class ProposedCardScenePipelineService:
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
-        self.node_store = node_store
+        self.node_store = node_store or getattr(
+            getattr(selection_store, "lineage_writer", None), "node_store", None
+        )
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.job_manager_provider: Any | None = None
 
@@ -182,7 +184,7 @@ class ProposedCardScenePipelineService:
         try:
             if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
                 return False
-            revision = self.revision_store.require(results[0]["id"])
+            revision = self.selection_store.require_processor_revision(results[0]["id"])
             run = self.run_store.require(job.id)
             return (
                 run.state.status in {"complete", "partial"}
@@ -340,7 +342,8 @@ class ProposedCardScenePipelineService:
         if not run.state.output_revision_ids:
             raise ProposedCardScenePipelineError("the proposal result is not available")
         return run, tuple(
-            self.revision_store.require(item) for item in run.state.output_revision_ids
+            self.selection_store.require_processor_revision(item)
+            for item in run.state.output_revision_ids
         )
 
     def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
@@ -386,6 +389,23 @@ class ProposedCardScenePipelineService:
         if not isinstance(revision_id, str) or not revision_id:
             raise ProposedCardScenePipelineInputError(
                 "no generated visible-card revision is selected"
+            )
+        if node_ref is None and self.node_store is not None:
+            try:
+                node, _ = self.node_store.find_revision(revision_id)
+            except (FileNotFoundError, KeyError, ValueError):
+                node = None
+            if node is not None:
+                node_ref = {
+                    "node_id": node.node_id,
+                    "revision_id": revision_id,
+                    "revision_policy": (
+                        "current_head" if node.head_revision_id == revision_id else "historical"
+                    ),
+                }
+        if node_ref is None:
+            raise ProposedCardScenePipelineInputError(
+                "an exact visible-card node revision is required"
             )
         revision = self._visible_input(recording_id, revision_id, node_ref)
         if revision.recording_id != recording_id:
@@ -483,17 +503,7 @@ class ProposedCardScenePipelineService:
                 node_ref=dict(node_ref),
                 content_sha256=revision.content_sha256,
             )
-        revision = self.revision_store.require(revision_id)
-        return SimpleNamespace(
-            recording_id=revision.manifest.recording_id,
-            content_type=revision.manifest.content_type,
-            content=revision.content,
-            origin=revision.manifest.origin,
-            producer=revision.manifest.producer,
-            source=revision.manifest.source,
-            node_ref=None,
-            content_sha256=revision.manifest.content_sha256,
-        )
+        raise ProposedCardScenePipelineInputError("the visible-card node revision is unavailable")
 
     def _publish_revision(
         self, run: StoredProcessorRun, data: ProposedCardSceneData
@@ -530,7 +540,7 @@ class ProposedCardScenePipelineService:
             },
             created_at=_now(),
         )
-        stored, _ = self.revision_store.publish(manifest, data)
+        stored, _ = self.selection_store.publish_processor_revision(manifest, data)
         return stored
 
     def _fail_safely(self, run_id: str, code: str, message: str) -> None:

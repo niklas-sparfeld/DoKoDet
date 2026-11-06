@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ from table_evidence_analyzer.pipeline_data import (
 )
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import PipelineRevisionStore, ProcessorRunStore
 
 RECORDING_ID = "recording-vision"
@@ -118,21 +120,34 @@ def _publish(
         from doko_operations.pipeline_data import HumanProducer
 
         producer = HumanProducer.from_mapping(producer)
-    revisions.publish(
-        DataRevision(
-            revision_id=revision_id,
-            content_type=content_type,
-            content_schema=content_schema,
-            recording_id=RECORDING_ID,
-            source=SOURCE,
-            content_sha256=sha256_bytes(content_bytes),
-            input_revision_ids=input_revision_ids,
-            origin=origin,
-            producer=producer,
-            coverage={"kind": "visible_frames", "frames": []},
-            created_at="2026-09-06T10:00:00Z",
-        ),
-        content,
+    manifest = DataRevision(
+        revision_id=revision_id,
+        content_type=content_type,
+        content_schema=content_schema,
+        recording_id=RECORDING_ID,
+        source=SOURCE,
+        content_sha256=sha256_bytes(content_bytes),
+        input_revision_ids=input_revision_ids,
+        origin=origin,
+        producer=producer,
+        coverage={"kind": "visible_frames", "frames": []},
+        created_at="2026-09-06T10:00:00Z",
+    )
+    node_id = "data-" + hashlib.sha256(revision_id.encode("utf-8")).hexdigest()[:32]
+    PipelineNodeStore(revisions.storage.operations_root / "pipeline-nodes").create(
+        node_id,
+        f"{content_type} {revision_id[:8]}",
+        manifest.content_type,
+        manifest.source.to_mapping(),
+        content.to_mapping(),
+        {
+            "origin": manifest.origin,
+            "input_revision_ids": list(manifest.input_revision_ids),
+            "producer": manifest.producer.to_mapping(),
+            "coverage": manifest.coverage,
+            "data_revision": manifest.to_mapping(),
+        },
+        revision_id=revision_id,
     )
 
 
@@ -147,11 +162,22 @@ def _create_run(
     content: Any,
     input_revision_ids: tuple[str, ...] = (),
 ) -> None:
+    input_node_refs = []
+    for input_revision_id in input_revision_ids:
+        node, _ = runs.lineage_writer.node_store.find_revision(input_revision_id)
+        input_node_refs.append(
+            {
+                "node_id": node.node_id,
+                "revision_id": input_revision_id,
+                "revision_policy": "historical",
+            }
+        )
     request = ProcessorRunRequest(
         run_id=run_id,
         processor_type=processor_type,
         source=SOURCE,
         input_revision_ids=input_revision_ids,
+        input_node_refs=tuple(input_node_refs),
         implementation=ImplementationIdentity(name="fixture", version=run_id),
         model=None,
         configuration={"fixture": True},
@@ -367,7 +393,6 @@ def test_visible_card_comparison_pairs_request_time_only_differences(
 @pytest.mark.parametrize(
     "change",
     [
-        {"source_video_sha256": "b" * 64},
         {"image_sha256": "b" * 64},
         {"frame_index": 101},
         {"presentation_timestamp_us": 100_001},

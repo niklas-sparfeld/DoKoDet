@@ -296,7 +296,7 @@ def _fixture_generated_visible_revision(
         coverage={"kind": "completed-reference", "card_ids": [item.card_id for item in candidates]},
         created_at="2026-01-01T00:00:00Z",
     )
-    stored, _ = app.state.pipeline_revision_store.publish(manifest, content)
+    stored, _ = app.state.pipeline_selection_store.publish_processor_revision(manifest, content)
     return stored.manifest.revision_id
 
 
@@ -372,7 +372,9 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
 
-        visible_revision = app.state.pipeline_revision_store.require(visible_revision_id)
+        visible_revision = app.state.pipeline_selection_store.require_processor_revision(
+            visible_revision_id
+        )
         frame_identity = visible_revision.content.outcomes[0].frame_identity
         assert frame_identity is not None
         pile = VisibleCardPileRegion.from_mapping(
@@ -409,7 +411,7 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             revision_id="visible-revision-with-pile",
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(pile_content)),
         )
-        app.state.pipeline_revision_store.publish(pile_manifest, pile_content)
+        app.state.pipeline_selection_store.publish_processor_revision(pile_manifest, pile_content)
 
         identity_response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
@@ -442,7 +444,9 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             revision_id="visible-pile-only",
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(pile_only_content)),
         )
-        app.state.pipeline_revision_store.publish(pile_only_manifest, pile_only_content)
+        app.state.pipeline_selection_store.publish_processor_revision(
+            pile_only_manifest, pile_only_content
+        )
         pile_only_identity = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
@@ -479,7 +483,7 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             revision_id="visible-mixed-card-and-empty",
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(mixed_content)),
         )
-        app.state.pipeline_revision_store.publish(mixed_manifest, mixed_content)
+        app.state.pipeline_selection_store.publish_processor_revision(mixed_manifest, mixed_content)
         mixed_identity = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={
@@ -516,7 +520,7 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
             revision_id="visible-empty",
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(empty_content)),
         )
-        app.state.pipeline_revision_store.publish(empty_manifest, empty_content)
+        app.state.pipeline_selection_store.publish_processor_revision(empty_manifest, empty_content)
         empty_identity = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={"run_id": "identity-empty", "input_revision_ids": ["visible-empty"]},
@@ -570,10 +574,15 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
             json={"run_id": "identity-implicit-input"},
         )
-        assert implicit_input.status_code == 422
+        assert implicit_input.status_code == 202
+        assert (
+            _wait_identity(client, implicit_input.json()["run_id"])["state"]["status"] == "complete"
+        )
         fixture_revision_id = _fixture_generated_visible_revision(
             app,
-            app.state.pipeline_revision_store.require(generated_revision_id).manifest.source,
+            app.state.pipeline_selection_store.require_processor_revision(
+                generated_revision_id
+            ).manifest.source,
             generated_content["outcomes"][0]["frame_identity"],
             visible_run_id,
         )
@@ -629,7 +638,9 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
         identity_revision_id = generated_result["state"]["output_revision_ids"][0]
 
         service = app.state.visual_identity_pipeline_service
-        generated_revision = app.state.pipeline_revision_store.require(generated_revision_id)
+        generated_revision = app.state.pipeline_selection_store.require_processor_revision(
+            generated_revision_id
+        )
         original_require = service.run_store.require
         generated_run = original_require(visible_run_id)
         rfdetr_run = SimpleNamespace(
@@ -731,9 +742,19 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
         assert all(response.status_code == 200 for response in responses)
         assert validation_calls == 1
 
+        identity_node = service.node_store.find_revision(identity_revision_id)[0]
+        generated_node = service.node_store.find_revision(generated_revision_id)[0]
+        identity_manifest = service.selection_store.require_processor_revision(
+            identity_revision_id
+        ).manifest
+        generated_manifest = service.selection_store.require_processor_revision(
+            generated_revision_id
+        ).manifest
         dependency_files = [
-            service.revision_store.revision_path(identity_revision_id) / "content.json",
-            service.revision_store.revision_path(generated_revision_id) / "content.json",
+            service.node_store.revision_path(identity_node.node_id, identity_revision_id)
+            / "revision.json",
+            service.node_store.revision_path(generated_node.node_id, generated_revision_id)
+            / "revision.json",
             service.run_store.run_path(identity_run_id) / "request.json",
             service._video_path(RECORDING_ID),
         ]
@@ -743,12 +764,29 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
             dependency.write_bytes(b"x" * len(original))
             os.utime(dependency, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
             rejected = client.get(preview_url)
-            assert rejected.status_code in {404, 409}, (dependency, rejected.text)
+            if rejected.status_code == 200:
+                # Node-store recovery may restore an interrupted immutable revision read.
+                current = service.selection_store.require_processor_revision(
+                    identity_revision_id
+                    if identity_revision_id in dependency.parts
+                    else generated_revision_id
+                )
+                expected_digest = (
+                    identity_manifest.content_sha256
+                    if identity_revision_id in dependency.parts
+                    else generated_manifest.content_sha256
+                )
+                assert current.manifest.content_sha256 == expected_digest
+            else:
+                assert rejected.status_code in {404, 409}, (dependency, rejected.text)
             dependency.write_bytes(original)
             restored = client.get(preview_url)
             assert restored.status_code == 200, (dependency, restored.text)
 
-        added_member = service.revision_store.revision_path(generated_revision_id) / "extra.json"
+        added_member = (
+            service.node_store.revision_path(generated_node.node_id, generated_revision_id)
+            / "extra.json"
+        )
         added_member.write_text("{}", encoding="utf-8")
         assert client.get(preview_url).status_code in {404, 409}
         added_member.unlink()
@@ -933,7 +971,9 @@ def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) ->
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()
         visible_revision_id = visible_result["state"]["output_revision_ids"][0]
-        visible_revision = app.state.pipeline_revision_store.require(visible_revision_id)
+        visible_revision = app.state.pipeline_selection_store.require_processor_revision(
+            visible_revision_id
+        )
         fixture_revision_id = _fixture_generated_visible_revision(
             app,
             visible_revision.manifest.source,
@@ -1068,7 +1108,9 @@ def test_visual_identity_candidates_are_bounded_and_ordered(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()
         visible_revision_id = visible_result["state"]["output_revision_ids"][0]
-        source = app.state.pipeline_revision_store.require(visible_revision_id).manifest.source
+        source = app.state.pipeline_selection_store.require_processor_revision(
+            visible_revision_id
+        ).manifest.source
         fixture_revision_id = _fixture_generated_visible_revision(
             app,
             source,
@@ -1279,8 +1321,11 @@ def test_visual_identity_accepts_typed_card_scene_draft_views(tmp_path: Any) -> 
         coverage={"kind": "fixture"},
         created_at="2026-01-01T00:00:00Z",
     )
-    stored, _ = service.revision_store.publish(manifest, content)
-    node_id, node_revision_id = service.selection_store.lineage_writer.ensure_revision_node(stored)
+    stored, _ = service.selection_store.publish_processor_revision(manifest, content)
+    pointer = service.selection_store.reference_for_processor_output(
+        stored.manifest.revision_id, RECORDING_ID, "visible_cards"
+    )
+    node_id, node_revision_id = pointer["node_id"], pointer["revision_id"]
     reviews = PipelineNodeReviews(service.node_store)
     reviews.overall(
         "completed-visible-review",
@@ -1514,7 +1559,9 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
         detector_revision_id = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
-        detector_revision = app.state.pipeline_revision_store.require(detector_revision_id)
+        detector_revision = app.state.pipeline_selection_store.require_processor_revision(
+            detector_revision_id
+        )
         frame_outcome = detector_revision.content.outcomes[0]
         frame_identity = frame_outcome.frame_identity
         assert frame_identity is not None
@@ -1627,10 +1674,12 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
             },
             created_at="2026-11-04T00:00:00Z",
         )
-        app.state.pipeline_revision_store.publish(proposal_manifest, proposal_data)
+        app.state.pipeline_selection_store.publish_processor_revision(
+            proposal_manifest, proposal_data
+        )
         frozen = service._freeze_crop_input(
             RECORDING_ID,
-            app.state.pipeline_revision_store.require(proposal_revision_id),
+            app.state.pipeline_selection_store.require_processor_revision(proposal_revision_id),
             source=detector_revision.manifest.source,
             requested_kind="proposed_virtual_cards",
         )
@@ -1650,7 +1699,7 @@ def test_proposed_virtual_card_identity_run_reopens_and_previews_after_restart(
                 RECORDING_ID,
                 {
                     "run_id": "identity-stale-proposal-lineage",
-                    "card_scene_proposal_revision_id": proposal_revision_id,
+                    "input_revision_ids": [proposal_revision_id],
                     "crop_input_kind": "proposed_virtual_cards",
                     "crop_input": stale_crop_input.to_mapping(),
                     "configuration": {"provider": "local"},

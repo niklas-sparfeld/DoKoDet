@@ -5,7 +5,7 @@ import pytest
 
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
-from dokodetector_backend.pipeline_store import PipelineRevisionStore, PipelineSelectionConflict
+from dokodetector_backend.pipeline_store import PipelineSelectionConflict
 
 SOURCE = {
     "schema_version": "recording-video/v1",
@@ -25,7 +25,7 @@ EVENTS = {
 
 def _store(root: Path) -> tuple[PipelineNodeStore, PipelineNodeSelectionStore]:
     nodes = PipelineNodeStore(root / "nodes")
-    selections = PipelineNodeSelectionStore(nodes, PipelineRevisionStore(root / "legacy-revisions"))
+    selections = PipelineNodeSelectionStore(nodes)
     return nodes, selections
 
 
@@ -111,7 +111,6 @@ def test_exact_selection_compare_and_swap_serializes_writers(tmp_path: Path) -> 
         try:
             PipelineNodeSelectionStore(
                 PipelineNodeStore(tmp_path / "nodes"),
-                PipelineRevisionStore(tmp_path / "legacy-revisions"),
             ).update_exact(
                 "recording-01",
                 "events",

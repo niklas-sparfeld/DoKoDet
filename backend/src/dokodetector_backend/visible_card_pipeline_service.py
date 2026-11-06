@@ -163,7 +163,8 @@ class VisibleCardPipelineService:
     ) -> tuple[StoredProcessorRun, tuple[StoredPipelineRevision, ...]]:
         run = self.get_run(recording_id, run_id)
         revisions = tuple(
-            self.revision_store.require(item) for item in run.state.output_revision_ids
+            self.selection_store.require_processor_revision(item)
+            for item in run.state.output_revision_ids
         )
         return run, revisions
 
@@ -236,7 +237,6 @@ class VisibleCardPipelineService:
             raise VisibleCardPipelineInputError("request must be an object.")
         _, source = self._accepted_source(recording_id)
         node_ref = raw.get("input_node_ref")
-        event_revision = None
         if node_ref is not None:
             if raw.get("event_revision_id") is not None:
                 raise VisibleCardPipelineInputError(
@@ -296,14 +296,32 @@ class VisibleCardPipelineService:
             event_revision_id = node_revision_id
         else:
             event_revision_id = self._event_revision_id(raw)
-            event_revision = self.revision_store.require(event_revision_id)
-            if (
-                event_revision.manifest.content_type != "events"
-                or event_revision.manifest.source != source
-                or not isinstance(event_revision.content, EventData)
-            ):
+            try:
+                node, node_revision = self.node_store.find_revision(event_revision_id)
+            except (FileNotFoundError, KeyError, ValueError) as error:
                 raise VisibleCardPipelineInputError(
-                    "The selected event revision does not match the accepted recording video."
+                    "The selected event node revision is unavailable."
+                ) from error
+            if node.content_type != "events" or node.source != source.to_mapping():
+                raise VisibleCardPipelineInputError(
+                    "The selected event node does not match the accepted recording video."
+                )
+            node_ref = {
+                "node_id": node.node_id,
+                "revision_id": event_revision_id,
+                "revision_policy": (
+                    "current_head" if node.head_revision_id == event_revision_id else "historical"
+                ),
+            }
+            try:
+                events = parse_event_data_bytes(canonical_json_bytes(node_revision.content))
+            except (TypeError, ValueError) as error:
+                raise VisibleCardPipelineInputError(
+                    "The selected event node revision has invalid event data."
+                ) from error
+            if not isinstance(events, EventData):
+                raise VisibleCardPipelineInputError(
+                    "The selected event node revision has invalid event data."
                 )
         requested_provider = configuration_provider(raw.get("configuration"))
         provider = self._provider_for_selection(requested_provider)
@@ -323,6 +341,7 @@ class VisibleCardPipelineService:
         values.setdefault("processor_type", "visible-card-detection")
         values.setdefault("source", source.to_mapping())
         values["input_revision_ids"] = [event_revision_id]
+        values["input_node_ref"] = dict(node_ref)
         values.setdefault(
             "implementation",
             {"name": "visible-card-detector-adapter", "version": "v1"},
@@ -427,13 +446,9 @@ class VisibleCardPipelineService:
                     "The frozen event node revision is unavailable."
                 )
         else:
-            event_revision = self.revision_store.require(request.input_revision_ids[0])
-            if (
-                event_revision.manifest.content_type != "events"
-                or event_revision.manifest.source != source
-                or not isinstance(event_revision.content, EventData)
-            ):
-                raise VisibleCardPipelineInputError("The frozen event revision is unavailable.")
+            raise VisibleCardPipelineInputError(
+                "The frozen visible-card request has no exact event node reference."
+            )
 
     def prepare_job(self, job_id: str, envelope: Mapping[str, Any], after_write: Any) -> None:
         recording_id = envelope["context"]["recording_id"]
@@ -488,7 +503,7 @@ class VisibleCardPipelineService:
         try:
             if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
                 return False
-            revision = self.revision_store.require(results[0]["id"])
+            revision = self.selection_store.require_processor_revision(results[0]["id"])
             run = self.run_store.require(job.id)
             return (
                 run.state.status == "complete"
@@ -561,8 +576,9 @@ class VisibleCardPipelineService:
                 node_revision = self.node_store.read_revision(ref["node_id"], ref["revision_id"])
                 event_content = parse_event_data_bytes(canonical_json_bytes(node_revision.content))
             else:
-                event_revision = self.revision_store.require(run.request.input_revision_ids[0])
-                event_content = event_revision.content
+                raise VisibleCardPipelineInputError(
+                    "The accepted visible-card run has no exact event node reference."
+                )
             if not isinstance(event_content, EventData):
                 raise VisibleCardPipelineError("The event input revision is invalid.")
             events = event_content.events
@@ -928,11 +944,7 @@ class VisibleCardPipelineService:
             recording_id=run.request.source.recording_id,
             source=run.request.source,
             content_sha256=sha256_bytes(canonical_visible_card_data_bytes(content)),
-            # The legacy revision store cannot index node revisions. Exact node input
-            # lineage is recorded by PipelineLineageWriter.
-            input_revision_ids=(
-                () if run.request.input_node_ref is not None else run.request.input_revision_ids
-            ),
+            input_revision_ids=run.request.input_revision_ids,
             origin="processor",
             producer=producer,
             coverage={
@@ -943,7 +955,7 @@ class VisibleCardPipelineService:
             },
             created_at=_now(),
         )
-        stored, _ = self.revision_store.publish(manifest, content)
+        stored, _ = self.selection_store.publish_processor_revision(manifest, content)
         return stored
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:

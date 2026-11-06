@@ -892,6 +892,33 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain.
 
+- **Latest package — publish processor output through node storage:** Event, visible-card,
+  proposed-scene, visual-identity, and observation services now publish processor output once via
+  the lineage writer. Processor inputs freeze exact node references, and workers read those exact
+  revisions. Run completion and comparison read outputs from node storage. Workspace options use
+  exact node revision IDs and reconstruct incomplete revision metadata from node content instead
+  of old revision metadata. Comparison fixtures now publish canonical node records and pass exact
+  input pointers.
+- **Checks:** The focused backend processor, workspace, comparison, and node-store suite passed
+  (84 tests). Ruff check and format passed for backend source and focused tests. Web generated API
+  verification, typecheck, and 42 focused workspace/run-control tests passed. `git diff --check`
+  passed.
+- **Runtime audit:** Processor services no longer call `PipelineRevisionStore.publish`. The
+  runtime composition still constructs the revision store for the run-store fallback, and
+  `ProcessorRunStore` still has a legacy read branch when no lineage writer is attached. The
+  workspace response still exposes selected pointers as scalar `selected_*_revision_id` fields,
+  even though the values now come directly from exact node pointers. Frame-review binding and API
+  code still validate frozen source identity through `legacy_revision_id` and
+  `legacy_content_sha256` node metadata.
+- **Known limit:** Those remaining runtime adapters have not passed the M11 removal audit. Retired
+  reference/review storage and the legacy revision map remain absent, with recovery receipts kept
+  under `data/operations-recovery/0108-m11-20261106`. M11 remains incomplete.
+- **Next:** Remove the run-store fallback and revision-ID selection projection. Replace the frame
+  review metadata checks with exact pointer and content-digest checks. Then verify all recovery
+  receipts and run the full M11 removal audit.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 completed one implementation
+  package; 0 milestones are complete. M11 remains in progress. Up to 19 worker loops remain.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and

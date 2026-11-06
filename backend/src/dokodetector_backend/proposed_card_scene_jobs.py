@@ -59,23 +59,16 @@ class ProposedCardSceneJobParticipant:
     def job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
         frozen = request["request"]["processor_request"]
         input_ref = frozen.get("input_node_ref")
-        if input_ref is None:
-            input_digest = self.service.revision_store.require(
-                frozen["input_revision_ids"][0]
-            ).manifest.content_sha256
-            input_kind = "pipeline_revision"
-        else:
-            input_digest = self.service._visible_input(
-                request["context"]["recording_id"],
-                frozen["input_revision_ids"][0],
-                input_ref,
-            ).content_sha256
-            input_kind = "pipeline_node_revision"
+        input_digest = self.service._visible_input(
+            request["context"]["recording_id"],
+            frozen["input_revision_ids"][0],
+            input_ref,
+        ).content_sha256
         return {
             "label": "Create proposed card scenes",
             "inputs": [
                 {
-                    "kind": input_kind,
+                    "kind": "pipeline_node_revision",
                     "id": frozen["input_revision_ids"][0],
                     "digest": input_digest,
                 }

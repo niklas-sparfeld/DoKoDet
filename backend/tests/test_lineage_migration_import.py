@@ -12,7 +12,6 @@ from dokodetector_backend.lineage_migration_import import import_package
 from dokodetector_backend.pipeline_lineage import PipelineLineage
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
-from dokodetector_backend.pipeline_store import PipelineRevisionStore, PipelineRuntimeStorage
 
 SOURCE = {
     "schema_version": "recording-video/v1",
@@ -277,9 +276,6 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
         ).read_bytes() == file["payload"]
     selection_store = PipelineNodeSelectionStore(
         PipelineNodeStore(store_root),
-        PipelineRevisionStore(
-            PipelineRuntimeStorage(tmp_path / "runtime", package / "evidence/operations")
-        ),
     )
     selected = selection_store.get_exact("recording-01", "events")
     assert selected is not None

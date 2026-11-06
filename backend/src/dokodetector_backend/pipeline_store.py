@@ -1718,11 +1718,18 @@ class ProcessorRunStore:
         if not state.output_revision_ids:
             return
         for revision_id in state.output_revision_ids:
-            revision = self.revision_store.get(
-                revision_id,
-                revision_cache=revision_cache,
-                validate_lineage=validate_lineage,
-            )
+            try:
+                revision = (
+                    self.lineage_writer.require_revision(revision_id)
+                    if self.lineage_writer is not None
+                    else self.revision_store.get(
+                        revision_id,
+                        revision_cache=revision_cache,
+                        validate_lineage=validate_lineage,
+                    )
+                )
+            except PipelineNotFound:
+                revision = None
             if revision is None:
                 if self.revision_store.has_revision(revision_id):
                     raise PipelineDataContractError(
@@ -1746,9 +1753,7 @@ class ProcessorRunStore:
                 raise PipelineStateError("run output revision has a different content type")
             if manifest.source != request.source:
                 raise PipelineStateError("run output revision has a different source")
-            expected_inputs = (
-                () if request.input_node_ref is not None else request.input_revision_ids
-            )
+            expected_inputs = request.input_revision_ids
             if manifest.input_revision_ids != expected_inputs:
                 raise PipelineStateError("run output revision has different input lineage")
 

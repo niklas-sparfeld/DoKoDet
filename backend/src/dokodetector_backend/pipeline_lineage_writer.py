@@ -6,48 +6,31 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from doko_operations.pipeline_data import ProcessorRunRequest
+from doko_operations.pipeline_data import DataRevision, ProcessorRunRequest, canonical_json_bytes
 
 from dokodetector_backend.pipeline_lineage import PipelineLineage
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
-from dokodetector_backend.pipeline_store import ProcessorRunState, StoredPipelineRevision
-
-_ROLES = {
-    "event-detection": "events",
-    "visible-card-detection": "events",
-    "visible-card-scene-proposal": "visible_cards",
-    "visual-card-identity": "virtual_scenes",
-    "observation-assembly": "events",
-}
-
-
-def _input_role(request: ProcessorRunRequest, index: int, revision: StoredPipelineRevision) -> str:
-    if request.processor_type == "observation-assembly":
-        return ("events", "visible_cards", "visual_identities")[index]
-    if request.processor_type == "visual-card-identity":
-        return (
-            "virtual_scenes"
-            if revision.manifest.content_type == "card_scene_proposals"
-            else revision.manifest.content_type
-        )
-    return _ROLES.get(request.processor_type, revision.manifest.content_type)
+from dokodetector_backend.pipeline_store import (
+    PipelineNotFound,
+    PipelineRevisionStore,
+    ProcessorRunState,
+    StoredPipelineRevision,
+)
 
 
 class PipelineLineageWriter:
-    """Adapt retained processor revisions and analysis artifacts to lineage nodes."""
+    """Publish processor data revisions as canonical node revisions."""
 
     def __init__(
         self,
         node_store: PipelineNodeStore,
         lineage: PipelineLineage,
         uses: PipelineNodeUses,
-        revision_store: Any,
     ) -> None:
         self.node_store = node_store
         self.lineage = lineage
         self.uses = uses
-        self.revision_store = revision_store
 
     @staticmethod
     def _run_id(run_id: str, attempt: int) -> str:
@@ -57,54 +40,110 @@ class PipelineLineageWriter:
     def _node_id(revision_id: str) -> str:
         return "data-" + hashlib.sha256(revision_id.encode("utf-8")).hexdigest()[:32]
 
-    def ensure_revision_node(self, revision: StoredPipelineRevision) -> tuple[str, str]:
-        manifest = revision.manifest
-        for candidate in self.node_store.list_nodes():
-            if (
-                candidate.content_type != manifest.content_type
-                or candidate.source != manifest.source.to_mapping()
-            ):
-                continue
-            for candidate_revision in self.node_store.history(candidate.node_id):
-                if candidate_revision.metadata.get("legacy_revision_id") == manifest.revision_id:
-                    return candidate.node_id, candidate_revision.revision_id
+    def publish_processor_revision(
+        self, manifest: DataRevision, content: Any
+    ) -> tuple[StoredPipelineRevision, bool]:
+        """Validate and publish one processor output directly to its canonical node."""
+        PipelineRevisionStore._validate_content(manifest, content)
         node_id = self._node_id(manifest.revision_id)
+        metadata = {
+            "origin": manifest.origin,
+            "input_revision_ids": list(manifest.input_revision_ids),
+            "producer": manifest.producer.to_mapping(),
+            "coverage": manifest.coverage,
+            "data_revision": manifest.to_mapping(),
+        }
+        try:
+            self.node_store.create(
+                node_id,
+                f"{manifest.content_type.replace('_', ' ').title()} {manifest.revision_id[:8]}",
+                manifest.content_type,
+                manifest.source.to_mapping(),
+                content.to_mapping(),
+                metadata,
+                revision_id=manifest.revision_id,
+            )
+            return StoredPipelineRevision(manifest, content), True
+        except NodeConflict:
+            node = self.node_store.get(node_id)
+            revision = self.node_store.read_revision(node_id, manifest.revision_id)
+            existing = self._stored_node_revision(node, revision)
+            if (
+                existing.manifest.to_mapping() != manifest.to_mapping()
+                or existing.content.to_mapping() != content.to_mapping()
+            ):
+                raise NodeConflict(
+                    "processor output revision ID has different node content"
+                ) from None
+            return existing, False
+
+    def require_revision(self, revision_id: str) -> StoredPipelineRevision:
+        """Read one canonical output revision by its globally unique revision ID."""
+        node_id = self._node_id(revision_id)
+        return self.read_node_revision(node_id, revision_id)
+
+    def read_node_revision(self, node_id: str, revision_id: str) -> StoredPipelineRevision:
+        """Read one exact node revision as the processor data contract value."""
         try:
             node = self.node_store.get(node_id)
-        except FileNotFoundError:
-            node = None
-        if node is None:
-            try:
-                self.node_store.create(
-                    node_id,
-                    f"{manifest.content_type.replace('_', ' ').title()} {manifest.revision_id[:8]}",
-                    manifest.content_type,
-                    manifest.source.to_mapping(),
-                    revision.content.to_mapping(),
-                    {
-                        "origin": manifest.origin,
-                        "legacy_revision_id": manifest.revision_id,
-                        "legacy_created_at": manifest.created_at,
-                        "legacy_content_schema": manifest.content_schema,
-                        "legacy_content_sha256": manifest.content_sha256,
-                        "input_revision_ids": list(manifest.input_revision_ids),
-                        "producer": manifest.producer.to_mapping(),
-                        "coverage": manifest.coverage,
-                    },
-                    revision_id=manifest.revision_id,
-                )
-            except NodeConflict:
-                node = self.node_store.get(node_id)
-            else:
-                return node_id, manifest.revision_id
-        stored = self.node_store.read_revision(node_id, manifest.revision_id)
+            revision = self.node_store.read_revision(node_id, revision_id)
+        except (FileNotFoundError, KeyError, ValueError) as error:
+            raise PipelineNotFound(f"The pipeline revision was not found: {revision_id}") from error
+        return self._stored_node_revision(node, revision)
+
+    def node_ref_for_processor_output(
+        self, revision_id: str, recording_id: str, content_type: str
+    ) -> dict[str, str]:
+        stored = self.require_revision(revision_id)
         if (
-            node.content_type != manifest.content_type
-            or node.source != manifest.source.to_mapping()
-            or stored.content != revision.content.to_mapping()
+            stored.manifest.recording_id != recording_id
+            or stored.manifest.content_type != content_type
         ):
-            raise NodeConflict("lineage node differs from the retained processor revision")
-        return node_id, manifest.revision_id
+            raise ValueError("processor output does not match its recording or content type")
+        return {"node_id": self._node_id(revision_id), "revision_id": revision_id}
+
+    @staticmethod
+    def _stored_node_revision(node: Any, revision: Any) -> StoredPipelineRevision:
+        raw_manifest = revision.metadata.get("data_revision")
+        if not isinstance(raw_manifest, Mapping):
+            revision_id = revision.revision_id
+            content_schema = revision.content.get("schema_version")
+            if not isinstance(content_schema, str):
+                content_schema = {
+                    "events": "event-data/v1",
+                    "visible_cards": "visible-card-data/v2",
+                    "visual_identities": "visual-identity-data/v2",
+                    "table_observations": "table-observation-data/v1",
+                    "card_scene_proposals": "proposed-card-scene-data/v2",
+                }[node.content_type]
+            raw_manifest = {
+                "schema_version": "data-revision/v1",
+                "revision_id": revision_id,
+                "content_type": node.content_type,
+                "content_schema": content_schema,
+                "recording_id": node.source.get("recording_id"),
+                "source": node.source,
+                "content_sha256": revision.content_sha256,
+                "input_revision_ids": revision.metadata.get("input_revision_ids", []),
+                "origin": revision.metadata.get("origin", "processor"),
+                "producer": revision.metadata.get(
+                    "producer",
+                    {
+                        "kind": "processor",
+                        "run_id": revision_id,
+                        "processor_type": "pipeline-import",
+                        "implementation_id": "doko_detector.node_store",
+                    },
+                ),
+                "coverage": revision.metadata.get("coverage", {"kind": "unknown"}),
+                "created_at": revision.metadata.get("created_at", revision.created_at),
+            }
+        manifest = DataRevision.from_mapping(raw_manifest)
+        content = PipelineRevisionStore._parse_content_bytes_for_manifest(
+            manifest, canonical_json_bytes(revision.content)
+        )
+        PipelineRevisionStore._validate_content(manifest, content)
+        return StoredPipelineRevision(manifest, content)
 
     def accept_processor(self, request: ProcessorRunRequest, state: ProcessorRunState) -> None:
         """Freeze exact inputs before the processor worker starts."""
@@ -142,16 +181,9 @@ class PipelineLineageWriter:
                 )
         else:
             for index, revision_id in enumerate(request.input_revision_ids):
-                revision = self.revision_store.require(revision_id)
-                node_id, node_revision_id = self.ensure_revision_node(revision)
-                revision_pairs.append((node_id, node_revision_id))
-                inputs.append(
-                    {
-                        "kind": "revision",
-                        "node_id": node_id,
-                        "revision_id": node_revision_id,
-                        "role": _input_role(request, index, revision),
-                    }
+                raise ValueError(
+                    "processor execution requires exact node input references; "
+                    f"received revision ID at position {index}: {revision_id}"
                 )
         if not inputs:
             source = request.source
@@ -196,8 +228,9 @@ class PipelineLineageWriter:
         inputs = self._input_refs(request)
         outputs = []
         for revision_id in state.output_revision_ids:
-            revision = self.revision_store.require(revision_id)
-            node_id, node_revision_id = self.ensure_revision_node(revision)
+            revision = self.require_revision(revision_id)
+            node_id = self._node_id(revision_id)
+            node_revision_id = revision_id
             outputs.append(
                 {
                     "kind": "revision",
@@ -214,8 +247,7 @@ class PipelineLineageWriter:
                 result = (
                     "empty"
                     if all(
-                        self._is_empty(self.revision_store.require(x))
-                        for x in state.output_revision_ids
+                        self._is_empty(self.require_revision(x)) for x in state.output_revision_ids
                     )
                     else "nonempty"
                 )
@@ -276,18 +308,9 @@ class PipelineLineageWriter:
                     }
                 )
             return refs
+        if request.input_revision_ids:
+            raise ValueError("processor execution requires exact node input references")
         refs = []
-        for index, revision_id in enumerate(request.input_revision_ids):
-            revision = self.revision_store.require(revision_id)
-            node_id, node_revision_id = self.ensure_revision_node(revision)
-            refs.append(
-                {
-                    "kind": "revision",
-                    "node_id": node_id,
-                    "revision_id": node_revision_id,
-                    "role": _input_role(request, index, revision),
-                }
-            )
         if not refs:
             source = request.source
             refs.append(

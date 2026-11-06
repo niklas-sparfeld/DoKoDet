@@ -553,10 +553,12 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         assert events["runs"][0]["state"]["items"] == []
         assert events["runs"][0]["output_revision_ids"] == [revision_id]
         assert events["input_options"][0]["revision_id"] == revision_id
+        assert events["input_options"][0]["node_revision_id"] == revision_id
+        assert events["input_options"][0]["node_id"]
         assert events["input_options"][0]["origin"] == "processor"
 
-        # Workspace summaries now load revision options from the graph node.
-        shutil.rmtree(app.state.pipeline_revision_store.revision_path(revision_id))
+        # Processor results have one canonical node write and no revision-store copy.
+        assert not app.state.pipeline_revision_store.has_revision(revision_id)
 
         catalog = client.get("/v1/recordings")
         assert catalog.status_code == 200

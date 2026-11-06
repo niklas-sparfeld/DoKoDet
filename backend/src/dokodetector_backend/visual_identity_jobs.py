@@ -137,7 +137,7 @@ class VisualIdentityJobParticipant:
         try:
             if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
                 return False
-            revision = self.service.revision_store.require(results[0]["id"])
+            revision = self.service.selection_store.require_processor_revision(results[0]["id"])
             run = self.service.run_store.require(job.id)
             return (
                 run.state.status in {"complete", "partial"}

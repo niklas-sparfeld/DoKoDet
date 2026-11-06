@@ -151,6 +151,12 @@ class PipelineNodeStore:
     def _node_path(self, node_id: str) -> Path:
         return contained_path(self.root, _safe_id(node_id, "node_id"))
 
+    def revision_path(self, node_id: str, revision_id: str) -> Path:
+        """Return the path to one exact immutable node revision directory."""
+        return contained_path(
+            self._node_path(node_id), Path("revisions") / _safe_id(revision_id, "revision_id")
+        )
+
     def _lock_path(self, node_id: str) -> Path:
         return contained_path(self.root, f".{_safe_id(node_id, 'node_id')}.lock")
 
@@ -234,6 +240,20 @@ class PipelineNodeStore:
             for p in sorted(self.root.iterdir())
             if not p.name.startswith(".") and p.is_dir() and not p.is_symlink()
         )
+
+    def find_revision(self, revision_id: str) -> tuple[Node, NodeRevision]:
+        """Find one globally unique node revision by its exact revision ID."""
+        self.recover_transactions()
+        matches = []
+        for node in self.list_nodes():
+            try:
+                revision = self.read_revision(node.node_id, revision_id)
+            except (FileNotFoundError, KeyError, ValueError):
+                continue
+            matches.append((node, revision))
+        if len(matches) != 1:
+            raise FileNotFoundError(f"node revision is not unique or unavailable: {revision_id}")
+        return matches[0]
 
     def save(
         self,
@@ -356,6 +376,8 @@ class PipelineNodeStore:
         path = contained_path(
             self._node_path(node.node_id), Path("revisions") / revision_id / "revision.json"
         )
+        if {item.name for item in path.parent.iterdir()} != {"revision.json"}:
+            raise ValueError("node revision directory contains unexpected files")
         raw = _read_json(path)
         if set(raw) != {
             "schema_version",

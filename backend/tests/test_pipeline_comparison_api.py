@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from doko_operations.pipeline_data import (
 from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import PipelineRevisionStore, ProcessorRunStore
 
 RECORDING_ID = "recording-1"
@@ -78,7 +80,22 @@ def _publish_revision(
         coverage=coverage or {"kind": "full-recording"},
         created_at="2026-09-06T10:00:00Z",
     )
-    revisions.publish(manifest, content)
+    node_id = "data-" + hashlib.sha256(revision_id.encode("utf-8")).hexdigest()[:32]
+    PipelineNodeStore(revisions.storage.operations_root / "pipeline-nodes").create(
+        node_id,
+        f"Events {revision_id[:8]}",
+        manifest.content_type,
+        manifest.source.to_mapping(),
+        content.to_mapping(),
+        {
+            "origin": manifest.origin,
+            "input_revision_ids": list(manifest.input_revision_ids),
+            "producer": manifest.producer.to_mapping(),
+            "coverage": manifest.coverage,
+            "data_revision": manifest.to_mapping(),
+        },
+        revision_id=revision_id,
+    )
 
 
 def _create_complete_run(
@@ -289,8 +306,6 @@ def test_changed_upstream_input_has_no_paired_delta(tmp_path: Path) -> None:
     app = create_test_app(_settings(tmp_path))
     revisions = app.state.pipeline_revision_store
     runs = app.state.pipeline_run_store
-    base = _content([])
-    _publish_revision(revisions, revision_id="upstream-1", content=base, origin="manual")
     reference = _content(
         [
             {
@@ -315,7 +330,7 @@ def test_changed_upstream_input_has_no_paired_delta(tmp_path: Path) -> None:
         run_id="right-run",
         revision_id="right-output",
         content=reference,
-        input_revision_ids=["upstream-1"],
+        extraction_policy={"policy_id": "event-extract/v2"},
     )
 
     with TestClient(app) as client:

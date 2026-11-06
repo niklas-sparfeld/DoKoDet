@@ -40,7 +40,6 @@ from doko_operations.derived_view import (
     resolve_visible_region_crop,
 )
 from doko_operations.pipeline_data import (
-    DATA_REVISION_SCHEMA_VERSION,
     DataRevision,
     HumanProducer,
     ModelIdentity,
@@ -72,8 +71,6 @@ from table_evidence_analyzer.pipeline_data import (
     canonical_proposed_card_scene_data_bytes,
     canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
-    parse_proposed_card_scene_data_bytes,
-    parse_visible_card_data_bytes,
 )
 from table_evidence_analyzer.visual_identity import (
     CardIdentityClassifierProvider,
@@ -174,12 +171,12 @@ class _ValidatedCropContext:
     revision: StoredPipelineRevision
     crop_input: VisualIdentityCropInput
     roots: tuple[Path, ...]
-    fingerprint: tuple[tuple[str, int, int, int, int, int], ...]
+    fingerprint: tuple[tuple[str, int, int, int, int, int, str], ...]
 
 
 def _crop_dependency_fingerprint(
     roots: tuple[Path, ...],
-) -> tuple[tuple[str, int, int, int, int, int], ...]:
+) -> tuple[tuple[str, int, int, int, int, int, str], ...]:
     """Detect edits, replacements, removals, and added members without reading video bytes."""
 
     entries = []
@@ -196,6 +193,9 @@ def _crop_dependency_fingerprint(
                     stat.st_size,
                     stat.st_mtime_ns,
                     stat.st_ctime_ns,
+                    hashlib.sha256(path.read_bytes()).hexdigest()
+                    if path.is_file() and root.parent.name == "revisions"
+                    else "",
                 )
             )
     return tuple(entries)
@@ -308,60 +308,69 @@ class VisualIdentityPipelineService:
 
         _, source = self._accepted_source(recording_id)
         values = []
-        for manifest in self.revision_store.list_manifests_for_recording(recording_id):
-            if manifest.content_type != "card_scene_proposals":
-                continue
-            revision = self.revision_store.require(manifest.revision_id)
+        for node in self.node_store.list_nodes():
             if (
-                revision.manifest.source != source
-                or not isinstance(revision.content, ProposedCardSceneData)
-                or revision.content.calibration_revision_id is None
-                or not any(frame.status == "supported" for frame in revision.content.frames)
-                or any(
-                    frame.status == "supported" and frame.source_identity is None
-                    for frame in revision.content.frames
+                node.content_type != "card_scene_proposals"
+                or node.source.get("recording_id") != recording_id
+            ):
+                continue
+            for node_revision in self.node_store.history(node.node_id):
+                revision = self.selection_store.read_node_revision(
+                    node.node_id, node_revision.revision_id
                 )
-            ):
-                continue
-            data = revision.content
-            try:
-                detector = self.revision_store.require(data.detector_revision_id)
-            except PipelineNotFound:
-                continue
-            if (
-                detector.manifest.content_type != "visible_cards"
-                or detector.manifest.source != source
-                or detector.manifest.content_sha256 != data.detector_revision_digest
-            ):
-                continue
-            try:
-                calibration_run = self.calibration_store.load(
-                    recording_id, data.calibration_revision_id
+                manifest = revision.manifest
+                if (
+                    revision.manifest.source != source
+                    or not isinstance(revision.content, ProposedCardSceneData)
+                    or revision.content.calibration_revision_id is None
+                    or not any(frame.status == "supported" for frame in revision.content.frames)
+                    or any(
+                        frame.status == "supported" and frame.source_identity is None
+                        for frame in revision.content.frames
+                    )
+                ):
+                    continue
+                data = revision.content
+                try:
+                    detector = self.selection_store.require_processor_revision(
+                        data.detector_revision_id
+                    )
+                except PipelineNotFound:
+                    continue
+                if (
+                    detector.manifest.content_type != "visible_cards"
+                    or detector.manifest.source != source
+                    or detector.manifest.content_sha256 != data.detector_revision_digest
+                ):
+                    continue
+                try:
+                    calibration_run = self.calibration_store.load(
+                        recording_id, data.calibration_revision_id
+                    )
+                except CardPlaneCalibrationError:
+                    continue
+                calibration = calibration_run.calibration
+                if (
+                    calibration is None
+                    or calibration.calibration_digest != data.calibration_digest
+                    or calibration.to_mapping() != data.calibration
+                ):
+                    continue
+                values.append(
+                    {
+                        "revision_id": manifest.revision_id,
+                        "created_at": manifest.created_at,
+                        "proposal_data_digest": data.data_digest,
+                        "detector_revision_id": data.detector_revision_id,
+                        "calibration_revision_id": data.calibration_revision_id,
+                        "supported_frame_count": sum(
+                            frame.status == "supported" for frame in data.frames
+                        ),
+                        "unsupported_frame_count": sum(
+                            frame.status == "unsupported" for frame in data.frames
+                        ),
+                    }
                 )
-            except CardPlaneCalibrationError:
-                continue
-            calibration = calibration_run.calibration
-            if (
-                calibration is None
-                or calibration.calibration_digest != data.calibration_digest
-                or calibration.to_mapping() != data.calibration
-            ):
-                continue
-            values.append(
-                {
-                    "revision_id": manifest.revision_id,
-                    "created_at": manifest.created_at,
-                    "proposal_data_digest": data.data_digest,
-                    "detector_revision_id": data.detector_revision_id,
-                    "calibration_revision_id": data.calibration_revision_id,
-                    "supported_frame_count": sum(
-                        frame.status == "supported" for frame in data.frames
-                    ),
-                    "unsupported_frame_count": sum(
-                        frame.status == "unsupported" for frame in data.frames
-                    ),
-                }
-            )
         return tuple(
             sorted(values, key=lambda item: (item["created_at"], item["revision_id"]), reverse=True)
         )
@@ -378,7 +387,7 @@ class VisualIdentityPipelineService:
         applies the accepted decisions, so a plan can never overwrite an operator decision.
         """
 
-        source = self.revision_store.require(source_revision_id)
+        source = self.selection_store.require_processor_revision(source_revision_id)
         if (
             source.manifest.content_type != "visual_identities"
             or source.manifest.source.recording_id != recording_id
@@ -460,7 +469,7 @@ class VisualIdentityPipelineService:
             ):
                 continue
             for revision_id in run.state.output_revision_ids:
-                revision = self.revision_store.require(revision_id)
+                revision = self.selection_store.require_processor_revision(revision_id)
                 if not isinstance(revision.content, VisualIdentityData):
                     continue
                 for outcome in revision.content.outcomes:
@@ -566,11 +575,7 @@ class VisualIdentityPipelineService:
             validate_output_lineage=False,
         )
         revisions = tuple(
-            self.revision_store.require(
-                item,
-                revision_cache=revision_cache,
-                validate_lineage=False,
-            )
+            self.selection_store.require_processor_revision(item)
             for item in run.state.output_revision_ids
         )
         return run, revisions
@@ -590,10 +595,18 @@ class VisualIdentityPipelineService:
             context = self._crop_contexts.get(revision_id)
             if context is not None:
                 try:
+                    current_revision = self._require_identity_revision(recording_id, revision_id)
                     unchanged = _crop_dependency_fingerprint(context.roots) == context.fingerprint
-                except OSError:
+                except (OSError, ValueError):
                     unchanged = False
-                if unchanged and context.revision.manifest.source.recording_id == recording_id:
+                    current_revision = None
+                if (
+                    unchanged
+                    and current_revision is not None
+                    and current_revision.manifest.content_sha256
+                    == context.revision.manifest.content_sha256
+                    and context.revision.manifest.source.recording_id == recording_id
+                ):
                     outcome = self._require_identity_outcome(context.revision, item_id)
                     self._validate_frozen_crop_outcome(context.crop_input, outcome)
                     self._crop_contexts.move_to_end(revision_id)
@@ -624,7 +637,17 @@ class VisualIdentityPipelineService:
             )
             roots = {self.repository_storage.bundle_path(recording_id)}
             for dependency_id, dependency in revision_cache.items():
-                roots.add(self.revision_store.revision_path(dependency_id))
+                try:
+                    dependency_node, dependency_revision = self.node_store.find_revision(
+                        dependency_id
+                    )
+                except FileNotFoundError as error:
+                    raise DerivedViewError("a canonical crop dependency is unavailable") from error
+                roots.add(
+                    self.node_store.revision_path(
+                        dependency_node.node_id, dependency_revision.revision_id
+                    )
+                )
                 if isinstance(dependency.manifest.producer, ProcessorProducer):
                     roots.add(self.run_store.run_path(dependency.manifest.producer.run_id))
             dependency_roots = tuple(sorted(roots))
@@ -633,7 +656,7 @@ class VisualIdentityPipelineService:
             except OSError:
                 fingerprint = ()
             # Do not reuse a validation if a dependency changed while it was being read.
-            if fingerprint and all(entry[-1] < validation_started_ns for entry in fingerprint):
+            if fingerprint and all(entry[5] < validation_started_ns for entry in fingerprint):
                 self._crop_contexts[revision_id] = _ValidatedCropContext(
                     revision, frozen_input, dependency_roots, fingerprint
                 )
@@ -664,13 +687,17 @@ class VisualIdentityPipelineService:
         """Resolve native crops for exact reviewed visible-card geometry, without a classifier."""
 
         _, source = self._accepted_source(recording_id)
-        revision = self.revision_store.require(visible_revision_id)
+        node_ref = self._canonical_input_node_ref(visible_revision_id, "visible_cards")
+        revision = self.selection_store.read_node_revision(
+            node_ref["node_id"], node_ref["revision_id"]
+        )
         crop_input = self._freeze_crop_input(
             recording_id,
             revision,
             source=source,
             requested_kind="reviewed_visible_card",
             require_current_reference=True,
+            input_node_ref=node_ref,
         )
         resolved: dict[str, dict[str, Any] | str] = {}
         for item in crop_input.items:
@@ -769,10 +796,10 @@ class VisualIdentityPipelineService:
 
             validation_started_ns = time.time_ns()
             _, source = self._accepted_source(recording_id)
+            node_ref = self._canonical_input_node_ref(visible_revision_id, "visible_cards")
             revision_cache: dict[str, StoredPipelineRevision] = {}
-            revision = self.revision_store.require(
-                visible_revision_id,
-                revision_cache=revision_cache,
+            revision = self.selection_store.read_node_revision(
+                node_ref["node_id"], node_ref["revision_id"]
             )
             if (
                 revision.manifest.recording_id != recording_id
@@ -786,13 +813,13 @@ class VisualIdentityPipelineService:
                 source=source,
                 requested_kind="reviewed_visible_card",
                 revision_cache=revision_cache,
+                input_node_ref=node_ref,
             )
 
             roots = {self.repository_storage.bundle_path(recording_id)}
-            for dependency_id, dependency in revision_cache.items():
-                roots.add(self.revision_store.revision_path(dependency_id))
-                if isinstance(dependency.manifest.producer, ProcessorProducer):
-                    roots.add(self.run_store.run_path(dependency.manifest.producer.run_id))
+            roots.add(self.node_store.root / node_ref["node_id"])
+            if isinstance(revision.manifest.producer, ProcessorProducer):
+                roots.add(self.run_store.run_path(revision.manifest.producer.run_id))
             dependency_roots = tuple(sorted(roots))
             try:
                 fingerprint = _crop_dependency_fingerprint(dependency_roots)
@@ -878,12 +905,19 @@ class VisualIdentityPipelineService:
         if accepted_source != run.request.source:
             raise DerivedViewError("the identity crop input source changed")
         input_revision = self.canonical_input_revision(run.request)
+        input_refs = run.request.input_node_refs or ()
+        if len(input_refs) == 1:
+            input_ref = input_refs[0]
+            revision_cache[input_ref["revision_id"]] = self.selection_store.read_node_revision(
+                input_ref["node_id"], input_ref["revision_id"]
+            )
         frozen_input = self._freeze_crop_input(
             run.request.source.recording_id,
             input_revision,
             source=accepted_source,
             requested=run.request.crop_input,
             revision_cache=revision_cache,
+            input_node_ref=(run.request.input_node_refs or [None])[0],
         )
         self._validate_frozen_crop_outcome(frozen_input, outcome)
         try:
@@ -917,19 +951,27 @@ class VisualIdentityPipelineService:
             ),
         )
 
-    def _canonical_crop_source(self, revision: StoredPipelineRevision) -> tuple[str, str, str]:
+    def _canonical_crop_source(
+        self,
+        revision: StoredPipelineRevision,
+        input_node_ref: Mapping[str, str] | None = None,
+    ) -> tuple[str, str, str]:
         """Return canonical node identity and digest for one crop source revision."""
-        ref = self._canonical_input_node_ref(
-            revision.manifest.revision_id, revision.manifest.content_type
-        )
         if self.node_store is None:
             raise VisualIdentityPipelineInputError("Canonical node storage is unavailable.")
+        ref = (
+            dict(input_node_ref)
+            if input_node_ref is not None
+            else self._canonical_input_node_ref(
+                revision.manifest.revision_id, revision.manifest.content_type
+            )
+        )
         node = self.node_store.get(ref["node_id"])
         node_revision = self.node_store.read_revision(ref["node_id"], ref["revision_id"])
         if (
             node.content_type != revision.manifest.content_type
             or node.source != revision.manifest.source.to_mapping()
-            or node_revision.metadata.get("legacy_revision_id") != revision.manifest.revision_id
+            or node_revision.revision_id != revision.manifest.revision_id
             or sha256_bytes(canonical_json_bytes(node_revision.content))
             != node_revision.content_sha256
         ):
@@ -1023,35 +1065,94 @@ class VisualIdentityPipelineService:
         _, source = self._accepted_source(recording_id)
         requested_crop_input = raw.get("crop_input")
         requested_kind = raw.get("crop_input_kind")
-        if requested_kind == "proposed_virtual_cards":
-            visible_revision_id = raw.get("card_scene_proposal_revision_id")
-            if not isinstance(visible_revision_id, str) or not visible_revision_id:
-                raise VisualIdentityPipelineInputError(
-                    "Select one exact proposed card-scene revision."
-                )
-            values = dict(raw)
-            values.pop("card_scene_proposal_revision_id", None)
-            revision = self.revision_store.require(visible_revision_id)
-            if (
-                revision.manifest.content_type != "card_scene_proposals"
-                or revision.manifest.source != source
-            ):
-                raise VisualIdentityPipelineInputError(
-                    "The selected proposal revision does not match the accepted recording video."
-                )
-        else:
-            visible_revision_id = self._visible_revision_id(raw)
-            values = dict(raw)
-            revision = self.revision_store.require(visible_revision_id)
-            if (
-                revision.manifest.content_type != "visible_cards"
-                or revision.manifest.source != source
-                or not isinstance(revision.content, VisibleCardData)
-            ):
-                raise VisualIdentityPipelineInputError(
-                    "The selected visible-card revision does not match the accepted recording "
-                    "video."
-                )
+        content_type = (
+            "card_scene_proposals"
+            if requested_kind == "proposed_virtual_cards"
+            else "visible_cards"
+        )
+        input_node_refs = raw.get("input_node_refs")
+        input_node_ref = raw.get("input_node_ref")
+        if input_node_refs is not None:
+            if not isinstance(input_node_refs, list) or len(input_node_refs) != 1:
+                raise VisualIdentityPipelineInputError("one exact input_node_ref is required")
+            input_node_ref = input_node_refs[0]
+        if input_node_ref is None:
+            requested_ids = raw.get("input_revision_ids")
+            if requested_ids is not None:
+                if not isinstance(requested_ids, list) or len(requested_ids) != 1:
+                    raise VisualIdentityPipelineInputError(
+                        "one exact input node revision is required"
+                    )
+                revision_id = requested_ids[0]
+                if not isinstance(revision_id, str) or not revision_id:
+                    raise VisualIdentityPipelineInputError(
+                        "input_revision_ids must contain one exact node revision ID"
+                    )
+                try:
+                    node, _ = self.node_store.find_revision(revision_id)
+                except (FileNotFoundError, KeyError, ValueError) as error:
+                    raise VisualIdentityPipelineInputError(
+                        "The selected node revision is unavailable"
+                    ) from error
+                input_node_ref = {
+                    "node_id": node.node_id,
+                    "revision_id": revision_id,
+                    "revision_policy": (
+                        "current_head" if node.head_revision_id == revision_id else "historical"
+                    ),
+                }
+            else:
+                selection = self.selection_store.get_exact(recording_id, content_type)
+                pointer = None if selection is None else selection.selected_generated
+                if pointer is None:
+                    raise VisualIdentityPipelineInputError(
+                        f"Select one exact {content_type} node revision."
+                    )
+                input_node_ref = {**pointer, "revision_policy": "current_head"}
+        if not isinstance(input_node_ref, Mapping) or set(input_node_ref) != {
+            "node_id",
+            "revision_id",
+            "revision_policy",
+        }:
+            raise VisualIdentityPipelineInputError("input_node_ref is invalid")
+        visible_revision_id = input_node_ref.get("revision_id")
+        if not isinstance(visible_revision_id, str) or not visible_revision_id:
+            raise VisualIdentityPipelineInputError("input_node_ref needs a revision ID")
+        if input_node_ref["revision_policy"] not in {"current_head", "historical"}:
+            raise VisualIdentityPipelineInputError("input_node_ref needs a revision policy")
+        requested_ids = raw.get("input_revision_ids")
+        if requested_ids is not None and requested_ids != [visible_revision_id]:
+            raise VisualIdentityPipelineInputError(
+                "input_revision_ids must match the exact node revision"
+            )
+        try:
+            revision = self.selection_store.read_node_revision(
+                input_node_ref["node_id"], visible_revision_id
+            )
+        except (FileNotFoundError, KeyError, ValueError) as error:
+            raise VisualIdentityPipelineInputError(
+                "The selected node revision is unavailable"
+            ) from error
+        if (
+            revision.manifest.content_type != content_type
+            or revision.manifest.source != source
+            or (
+                input_node_ref["revision_policy"] == "current_head"
+                and self.node_store.get(input_node_ref["node_id"]).head_revision_id
+                != visible_revision_id
+            )
+        ):
+            raise VisualIdentityPipelineInputError(
+                "The selected node revision does not match the accepted recording video."
+            )
+        if content_type == "visible_cards" and not isinstance(revision.content, VisibleCardData):
+            raise VisualIdentityPipelineInputError(
+                "The selected node has invalid visible-card data"
+            )
+        values = dict(raw)
+        values.pop("card_scene_proposal_revision_id", None)
+        values.pop("visible_card_revision_id", None)
+        values.pop("input_node_ref", None)
         crop_input = self._freeze_crop_input(
             recording_id,
             revision,
@@ -1059,6 +1160,7 @@ class VisualIdentityPipelineService:
             requested=requested_crop_input,
             requested_kind=requested_kind,
             require_current_reference=True,
+            input_node_ref=input_node_ref,
         )
         values.pop("visible_card_revision_id", None)
         values.pop("crop_input_kind", None)
@@ -1069,9 +1171,7 @@ class VisualIdentityPipelineService:
         values.setdefault("processor_type", "visual-card-identity")
         values.setdefault("source", source.to_mapping())
         values["input_revision_ids"] = [visible_revision_id]
-        values["input_node_refs"] = [
-            self._canonical_input_node_ref(visible_revision_id, revision.manifest.content_type)
-        ]
+        values["input_node_refs"] = [dict(input_node_ref)]
         values.setdefault(
             "implementation",
             {"name": "visual-identity-classifier-adapter", "version": "v1"},
@@ -1142,28 +1242,14 @@ class VisualIdentityPipelineService:
     def _canonical_input_node_ref(self, revision_id: str, content_type: str) -> dict[str, str]:
         if self.node_store is None:
             raise VisualIdentityPipelineInputError("Canonical node storage is unavailable.")
-        matches = []
-        for node in self.node_store.list_nodes():
-            if node.content_type != content_type:
-                continue
-            for revision in self.node_store.history(node.node_id):
-                if revision.metadata.get("legacy_revision_id") == revision_id:
-                    matches.append((node, revision))
-        if not matches:
-            writer = getattr(self.selection_store, "lineage_writer", None)
-            if writer is None:
-                raise VisualIdentityPipelineInputError(
-                    "The selected input has no canonical node revision."
-                )
-            stored = self.revision_store.require(revision_id)
-            node_id, node_revision_id = writer.ensure_revision_node(stored)
-            node = self.node_store.get(node_id)
-            matches.append((node, self.node_store.read_revision(node_id, node_revision_id)))
-        if len(matches) != 1:
+        try:
+            node, revision = self.node_store.find_revision(revision_id)
+        except FileNotFoundError as error:
             raise VisualIdentityPipelineInputError(
-                "The selected input has no unique canonical node revision."
-            )
-        node, revision = matches[0]
+                "The selected input has no exact canonical node revision."
+            ) from error
+        if node.content_type != content_type:
+            raise VisualIdentityPipelineInputError("The selected node has the wrong content type.")
         return {
             "node_id": node.node_id,
             "revision_id": revision.revision_id,
@@ -1177,12 +1263,12 @@ class VisualIdentityPipelineService:
             raise VisualIdentityPipelineInputError("An exact canonical input is required.")
         ref = refs[0]
         try:
+            stored = self.selection_store.read_node_revision(ref["node_id"], ref["revision_id"])
             node = self.node_store.get(ref["node_id"])
-            revision = self.node_store.read_revision(node.node_id, ref["revision_id"])
         except (FileNotFoundError, KeyError, ValueError) as error:
             raise VisualIdentityPipelineInputError("The canonical input is unavailable.") from error
         if (
-            revision.metadata.get("legacy_revision_id") != request.input_revision_ids[0]
+            stored.manifest.revision_id != request.input_revision_ids[0]
             or node.source != request.source.to_mapping()
             or (
                 ref["revision_policy"] == "current_head"
@@ -1190,53 +1276,7 @@ class VisualIdentityPipelineService:
             )
         ):
             raise VisualIdentityPipelineInputError("The canonical input no longer matches the run.")
-        metadata: dict[str, Any] = {}
-        for historical_revision in reversed(self.node_store.history(node.node_id)):
-            metadata.update(historical_revision.metadata)
-        legacy_revision_id = revision.metadata.get("legacy_revision_id")
-        if not isinstance(legacy_revision_id, str):
-            raise VisualIdentityPipelineInputError("The canonical input provenance is unavailable.")
-        content_schema = metadata.get(
-            "legacy_content_schema",
-            {
-                "visible_cards": "visible-card-data/v2",
-                "card_scene_proposals": "proposed-card-scene-data/v1",
-            }.get(node.content_type),
-        )
-        manifest = DataRevision.from_mapping(
-            {
-                "schema_version": DATA_REVISION_SCHEMA_VERSION,
-                "revision_id": legacy_revision_id,
-                "content_type": node.content_type,
-                "content_schema": content_schema,
-                "recording_id": request.source.recording_id,
-                "source": node.source,
-                "content_sha256": metadata.get("legacy_content_sha256", revision.content_sha256),
-                "input_revision_ids": metadata.get("input_revision_ids", []),
-                "origin": metadata.get("origin", "processor"),
-                "producer": metadata.get(
-                    "producer",
-                    {
-                        "kind": "processor",
-                        "run_id": legacy_revision_id,
-                        "processor_type": "pipeline-import",
-                        "implementation_id": "doko_detector.node_store",
-                    },
-                ),
-                "coverage": metadata.get("coverage", {"kind": "unknown"}),
-                "created_at": metadata.get("legacy_created_at", revision.created_at),
-            }
-        )
-        raw = canonical_json_bytes(revision.content)
-        content = (
-            parse_proposed_card_scene_data_bytes(raw)
-            if node.content_type == "card_scene_proposals"
-            else parse_visible_card_data_bytes(raw)
-        )
-        content_digest = sha256_bytes(raw)
-        if content_digest != manifest.content_sha256:
-            raise VisualIdentityPipelineInputError("The canonical input content digest changed.")
-        return StoredPipelineRevision(manifest, content)
+        return stored
 
     def _freeze_crop_input(
         self,
@@ -1248,6 +1288,7 @@ class VisualIdentityPipelineService:
         requested_kind: Any = None,
         require_current_reference: bool = False,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
+        input_node_ref: Mapping[str, str] | None = None,
     ) -> VisualIdentityCropInput:
         """Resolve one exact generated or reviewed revision into its crop-input manifest."""
 
@@ -1262,7 +1303,7 @@ class VisualIdentityPipelineService:
                     )
                 requested_kind = supplied.input_kind
             source_node_id, source_node_revision_id, canonical_source_digest = (
-                self._canonical_crop_source(revision)
+                self._canonical_crop_source(revision, input_node_ref)
             )
             canonical_descriptor = (
                 supplied is None
@@ -1329,7 +1370,17 @@ class VisualIdentityPipelineService:
                     or data.calibration_digest is None
                 ):
                     raise VisualIdentityCropInputError("the proposal has no frozen calibration")
-                detector_revision = self.revision_store.require(data.detector_revision_id)
+                try:
+                    detector_node, detector_node_revision = self.node_store.find_revision(
+                        data.detector_revision_id
+                    )
+                    detector_revision = self.selection_store.read_node_revision(
+                        detector_node.node_id, detector_node_revision.revision_id
+                    )
+                except (FileNotFoundError, ValueError) as error:
+                    raise VisualIdentityCropInputError(
+                        "the proposal detector node revision is unavailable"
+                    ) from error
                 if (
                     detector_revision.manifest.recording_id != recording_id
                     or detector_revision.manifest.content_type != "visible_cards"
@@ -1418,7 +1469,7 @@ class VisualIdentityPipelineService:
                     recording_id=recording_id,
                     accepted_video_sha256=source.video_sha256,
                     accepted_video_byte_length=source.byte_length,
-                    source_revision_id=revision.manifest.revision_id,
+                    source_revision_id=source_node_revision_id,
                     source_revision_digest=source_revision_digest,
                     source_view_digest=sha256_bytes(canonical_proposed_card_scene_data_bytes(data)),
                     **source_node_fields,
@@ -1479,7 +1530,7 @@ class VisualIdentityPipelineService:
                     recording_id=recording_id,
                     accepted_video_sha256=source.video_sha256,
                     accepted_video_byte_length=source.byte_length,
-                    source_revision_id=revision.manifest.revision_id,
+                    source_revision_id=source_node_revision_id,
                     source_revision_digest=source_revision_digest,
                     source_view_digest=source_view_digest,
                     **source_node_fields,
@@ -1506,14 +1557,14 @@ class VisualIdentityPipelineService:
                 self._validate_scene_derived_views(revision.content)
                 items, lineage = self._reviewed_virtual_card_items(
                     revision.content,
-                    fallback_scene_revision_id=revision.manifest.revision_id,
+                    fallback_scene_revision_id=source_node_revision_id,
                 )
                 input_value = VisualIdentityCropInput(
                     input_kind=kind,
                     recording_id=recording_id,
                     accepted_video_sha256=source.video_sha256,
                     accepted_video_byte_length=source.byte_length,
-                    source_revision_id=revision.manifest.revision_id,
+                    source_revision_id=source_node_revision_id,
                     source_revision_digest=source_revision_digest,
                     source_view_digest=source_view_digest,
                     **source_node_fields,
@@ -1551,7 +1602,7 @@ class VisualIdentityPipelineService:
                 recording_id=recording_id,
                 accepted_video_sha256=source.video_sha256,
                 accepted_video_byte_length=source.byte_length,
-                source_revision_id=revision.manifest.revision_id,
+                source_revision_id=source_node_revision_id,
                 source_revision_digest=source_revision_digest,
                 source_view_digest=source_view_digest,
                 **source_node_fields,
@@ -1850,6 +1901,7 @@ class VisualIdentityPipelineService:
                 visible_revision,
                 source=source,
                 requested=run.request.crop_input,
+                input_node_ref=(run.request.input_node_refs or [None])[0],
             )
             if frozen_input.to_mapping() != run.request.crop_input:
                 raise VisualIdentityPipelineError("The frozen crop input changed.")
@@ -2425,7 +2477,7 @@ class VisualIdentityPipelineService:
             },
             created_at=_now(),
         )
-        stored, _ = self.revision_store.publish(manifest, content)
+        stored, _ = self.selection_store.publish_processor_revision(manifest, content)
         return stored
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:
@@ -2465,7 +2517,9 @@ class VisualIdentityPipelineService:
         source: RecordingVideoSource | None = None,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> StoredPipelineRevision:
-        revision = self.revision_store.require(revision_id, revision_cache=revision_cache)
+        revision = self.selection_store.require_processor_revision(revision_id)
+        if revision_cache is not None:
+            revision_cache[revision_id] = revision
         if (
             revision.manifest.recording_id != recording_id
             or revision.manifest.content_type != "visual_identities"

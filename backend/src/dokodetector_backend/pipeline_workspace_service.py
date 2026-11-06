@@ -116,12 +116,6 @@ class RecordingPipelineWorkspaceService:
         self.round_analysis_store = round_analysis_store
         self.node_store = node_store
         self.lineage_service = lineage_service
-        self._node_revision_legacy_ids = {
-            (node.node_id, revision.revision_id): revision.metadata["legacy_revision_id"]
-            for node in node_store.list_nodes()
-            for revision in node_store.history(node.node_id)
-            if isinstance(revision.metadata.get("legacy_revision_id"), str)
-        }
 
     def get_workspace(
         self,
@@ -271,12 +265,7 @@ class RecordingPipelineWorkspaceService:
             run = _read_json(path)
             inputs = [ref for ref in run.get("inputs", []) if ref.get("kind") == "revision"]
             inputs.sort(key=lambda ref: (role_order.get(ref["role"], 10), ref["role"]))
-            input_ids = [
-                self._node_revision_legacy_ids.get(
-                    (ref["node_id"], ref["revision_id"]), ref["revision_id"]
-                )
-                for ref in inputs
-            ]
+            input_ids = [ref["revision_id"] for ref in inputs]
             for output in run.get("outputs", []):
                 if output.get("kind") == "revision" and output.get("node_id") in target_node_ids:
                     graph_inputs[(output["node_id"], output["revision_id"])] = input_ids
@@ -294,54 +283,50 @@ class RecordingPipelineWorkspaceService:
                 inherited.update(revision.metadata)
             for node_revision in history:
                 metadata = {**inherited, **node_revision.metadata}
-                revision_metadata = node_revision.metadata
-                legacy_id = revision_metadata.get("legacy_revision_id")
-                revision_id = legacy_id if isinstance(legacy_id, str) else node_revision.revision_id
-                manifest = DataRevision.from_mapping(
-                    {
-                        "schema_version": DATA_REVISION_SCHEMA_VERSION,
-                        "revision_id": revision_id,
-                        "content_type": node.content_type,
-                        "content_schema": metadata.get(
-                            "legacy_content_schema",
-                            {
-                                "events": "event-data/v1",
-                                "visible_cards": "visible-card-data/v2",
-                                "visual_identities": "visual-identity-data/v1",
-                                "table_observations": "table-observation-data/v1",
-                            }[node.content_type],
-                        ),
-                        "recording_id": recording_id,
-                        "source": node.source,
-                        "content_sha256": metadata.get(
-                            "legacy_content_sha256"
-                            if isinstance(legacy_id, str)
-                            else "content_sha256",
-                            node_revision.content_sha256,
-                        ),
-                        "input_revision_ids": metadata.get(
-                            "input_revision_ids",
-                            graph_inputs.get((node.node_id, node_revision.revision_id), []),
-                        ),
-                        "origin": metadata.get("origin", "processor"),
-                        "producer": metadata.get(
-                            "producer",
-                            {
-                                "kind": "processor",
-                                "run_id": metadata.get("legacy_revision_id", revision_id),
-                                "processor_type": metadata.get("processor_type", "pipeline-import"),
-                                "implementation_id": metadata.get(
-                                    "implementation_id", "doko_detector.node_store"
-                                ),
-                            },
-                        ),
-                        "coverage": metadata.get("coverage", {"kind": "unknown"}),
-                        "created_at": metadata.get(
-                            "legacy_created_at" if isinstance(legacy_id, str) else "created_at",
-                            node_revision.created_at,
-                        ),
-                    }
-                )
+                revision_id = node_revision.revision_id
+                raw_manifest = node_revision.metadata.get("data_revision")
+                if isinstance(raw_manifest, Mapping):
+                    manifest = DataRevision.from_mapping(raw_manifest)
+                else:
+                    content_schema = node_revision.content.get("schema_version")
+                    if not isinstance(content_schema, str):
+                        content_schema = {
+                            "events": "event-data/v1",
+                            "visible_cards": "visible-card-data/v2",
+                            "visual_identities": "visual-identity-data/v2",
+                            "table_observations": "table-observation-data/v1",
+                        }[node.content_type]
+                    manifest = DataRevision.from_mapping(
+                        {
+                            "schema_version": DATA_REVISION_SCHEMA_VERSION,
+                            "revision_id": revision_id,
+                            "content_type": node.content_type,
+                            "content_schema": content_schema,
+                            "recording_id": recording_id,
+                            "source": node.source,
+                            "content_sha256": node_revision.content_sha256,
+                            "input_revision_ids": metadata.get(
+                                "input_revision_ids",
+                                graph_inputs.get((node.node_id, node_revision.revision_id), []),
+                            ),
+                            "origin": metadata.get("origin", "processor"),
+                            "producer": metadata.get(
+                                "producer",
+                                {
+                                    "kind": "processor",
+                                    "run_id": revision_id,
+                                    "processor_type": metadata.get(
+                                        "processor_type", "pipeline-import"
+                                    ),
+                                    "implementation_id": metadata.get(
+                                        "implementation_id", "doko_detector.node_store"
+                                    ),
+                                },
+                            ),
+                            "coverage": metadata.get("coverage", {"kind": "unknown"}),
+                            "created_at": metadata.get("created_at", node_revision.created_at),
+                        }
+                    )
                 content = (
                     parser(canonical_json_bytes(node_revision.content)) if include_content else None
                 )
@@ -513,13 +498,11 @@ class RecordingPipelineWorkspaceService:
             else []
         )
         selection_revision = None if selection is None else selection.revision
-        selected_generated = self._legacy_option_id(
-            None if selection is None else selection.selected_generated,
-            revisions,
+        selected_generated = self._selection_revision_id(
+            None if selection is None else selection.selected_generated
         )
-        selected_completed = self._legacy_option_id(
-            None if selection is None else selection.selected_completed_reference,
-            revisions,
+        selected_completed = self._selection_revision_id(
+            None if selection is None else selection.selected_completed_reference
         )
         comparable_run_ids = [
             run.run_id
@@ -568,7 +551,6 @@ class RecordingPipelineWorkspaceService:
                         ),
                         None,
                     ),
-                    self._node_revision_legacy_ids,
                 )
                 for run in self._ordered_runs(stage_runs)
             ],
@@ -600,20 +582,10 @@ class RecordingPipelineWorkspaceService:
             )
         return selection
 
-    @classmethod
-    def _legacy_option_id(
-        cls, pointer: Mapping[str, str] | None, revisions: tuple[Any, ...]
-    ) -> str | None:
-        """Map an exact pointer to its displayed workspace option identity."""
-        if pointer is None:
-            return None
-        for revision in revisions:
-            if (
-                revision.node_id == pointer["node_id"]
-                and revision.node_revision_id == pointer["revision_id"]
-            ):
-                return cls._manifest(revision).revision_id
-        return None
+    @staticmethod
+    def _selection_revision_id(pointer: Mapping[str, str] | None) -> str | None:
+        """Return the exact selected node revision ID used by execution controls."""
+        return None if pointer is None else pointer["revision_id"]
 
     @staticmethod
     def _revision_option(revision: Any, stage_key: str) -> dict[str, Any]:
@@ -623,7 +595,7 @@ class RecordingPipelineWorkspaceService:
         if getattr(revision, "migrated_draft", False):
             label = "Imported draft"
         return {
-            "revision_id": manifest.revision_id,
+            "revision_id": revision.node_revision_id,
             "content_type": manifest.content_type,
             "origin": manifest.origin,
             "completion_state": "complete",
@@ -654,7 +626,6 @@ class RecordingPipelineWorkspaceService:
     def _run_summary(
         run: StoredProcessorRun,
         lineage_run: Mapping[str, Any] | None = None,
-        node_revision_legacy_ids: Mapping[tuple[str, str], str] | None = None,
     ) -> dict[str, Any]:
         state = run.state
         request = run.request.to_mapping()
@@ -668,19 +639,16 @@ class RecordingPipelineWorkspaceService:
         input_revision_ids = list(run.request.input_revision_ids)
         output_revision_ids = list(state.output_revision_ids)
         if lineage_run is not None:
-            revision_ids = node_revision_legacy_ids or {}
             role_order = {"events": 0, "visible_cards": 1, "visual_identities": 2}
             inputs = [ref for ref in lineage_run.get("inputs", []) if ref.get("kind") == "revision"]
             inputs.sort(key=lambda ref: (role_order.get(ref["role"], 10), ref["role"]))
-            input_revision_ids = [
-                revision_ids.get((ref["node_id"], ref["revision_id"]), ref["revision_id"])
-                for ref in inputs
-            ]
+            input_revision_ids = [ref["revision_id"] for ref in inputs]
             output_revision_ids = [
-                revision_ids.get((ref["node_id"], ref["revision_id"]), ref["revision_id"])
+                ref["revision_id"]
                 for ref in lineage_run.get("outputs", [])
                 if ref.get("kind") == "revision"
             ]
+            request["input_revision_ids"] = input_revision_ids
         return {
             "run_id": run.run_id,
             "status": state.status,

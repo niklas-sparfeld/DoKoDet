@@ -378,7 +378,7 @@ def test_visible_card_run_accepts_exact_node_event_revision_without_legacy_input
         legacy_id = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
-        legacy = app.state.pipeline_revision_store.require(legacy_id)
+        legacy = app.state.pipeline_selection_store.require_processor_revision(legacy_id)
         nodes = app.state.visible_card_pipeline_service.node_store
         node = nodes.create(
             "native-event-node",
@@ -409,7 +409,7 @@ def test_visible_card_run_accepts_exact_node_event_revision_without_legacy_input
         assert option["is_current_head"] is False
 
         native_revision_id = historical_id
-        real_require = app.state.pipeline_revision_store.require
+        real_require = app.state.pipeline_selection_store.require_processor_revision
 
         def no_legacy_input_lookup(revision_id: str):
             if revision_id == native_revision_id:
@@ -527,7 +527,7 @@ def test_migrated_event_draft_is_selectable_as_exact_visible_card_input(tmp_path
         legacy_id = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
         ).json()["state"]["output_revision_ids"][0]
-        legacy = app.state.pipeline_revision_store.require(legacy_id)
+        legacy = app.state.pipeline_selection_store.require_processor_revision(legacy_id)
         nodes = app.state.visible_card_pipeline_service.node_store
         draft_node = nodes.create(
             "migrated-event-draft",
@@ -591,7 +591,7 @@ def test_visible_card_node_request_rejects_invalid_node_type_and_policy(tmp_path
         event_id = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_response.json()['id']}/result"
         ).json()["state"]["output_revision_ids"][0]
-        legacy = app.state.pipeline_revision_store.require(event_id)
+        legacy = app.state.pipeline_selection_store.require_processor_revision(event_id)
         nodes = app.state.visible_card_pipeline_service.node_store
         wrong_type = nodes.create(
             "wrong-event-type",
@@ -980,7 +980,9 @@ def _manual_event_revision(
         ),
         content=content,
     )
-    stored, _ = app.state.pipeline_revision_store.publish(revision)
+    stored, _ = app.state.pipeline_selection_store.publish_processor_revision(
+        revision.manifest, revision.content
+    )
     current = app.state.pipeline_selection_store.get_exact(RECORDING_ID, "events")
     app.state.pipeline_selection_store.update_exact(
         RECORDING_ID,
@@ -1013,7 +1015,7 @@ def test_visible_card_run_requires_an_explicit_event_input_when_a_selection_exis
         event_result = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_response.json()['id']}/result"
         ).json()
-        base_revision = app.state.pipeline_revision_store.require(
+        base_revision = app.state.pipeline_selection_store.require_processor_revision(
             event_result["state"]["output_revision_ids"][0]
         )
         selected_revision_id = _manual_event_revision(
@@ -1053,7 +1055,7 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
             f"/api/recordings/{RECORDING_ID}/pipeline/events/{event_run_id}/result"
         ).json()
         generated_event_revision_id = event_result["state"]["output_revision_ids"][0]
-        generated_event_revision = app.state.pipeline_revision_store.require(
+        generated_event_revision = app.state.pipeline_selection_store.require_processor_revision(
             generated_event_revision_id
         )
 
@@ -1073,6 +1075,9 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
         generated_result = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{generated_run_id}/result"
         ).json()
+        assert not app.state.pipeline_revision_store.has_revision(
+            generated_result["state"]["output_revision_ids"][0]
+        )
         generated_content = generated_result["revisions"][0]["content"]
         assert generated_result["request"]["input_revision_ids"] == [generated_event_revision_id]
         assert [outcome["status"] for outcome in generated_content["outcomes"]] == [
