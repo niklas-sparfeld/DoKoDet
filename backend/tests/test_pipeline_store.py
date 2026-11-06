@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from doko_operations.pipeline_data import (
     EventDataRevision,
-    PipelineSelectionUpdate,
     ProcessorRunRequest,
     RunFailure,
     RunItemOutcome,
@@ -22,8 +21,6 @@ from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
     PipelineRuntimeStorage,
-    PipelineSelectionConflict,
-    PipelineSelectionStore,
     PipelineStateError,
     PipelineStoreError,
     ProcessorRunStore,
@@ -500,157 +497,3 @@ def test_run_catalog_skips_run_with_unpublished_output_revision(tmp_path: Path) 
         )
         == 0
     )
-
-
-def test_selection_store_validates_roles_and_optimistic_updates(tmp_path: Path) -> None:
-    revision_store = PipelineRevisionStore(tmp_path / "runtime")
-    revision_store.publish(
-        revision(
-            revision_id="revision-input",
-            producer=processor_producer("import-01"),
-        )
-    )
-    run_store = ProcessorRunStore(tmp_path / "runtime", revision_store=revision_store)
-    run_store.create(request())
-    run_store.start("run-01")
-    revision_store.publish(
-        revision(
-            revision_id="revision-output",
-            producer=processor_producer("run-01"),
-            input_revision_ids=["revision-input"],
-        )
-    )
-    run_store.complete("run-01", ["revision-output"])
-    human_content = event_content(with_score=False)
-    human = revision(
-        revision_id="revision-human",
-        producer={"kind": "human", "review_id": "review-01", "operator_id": "operator-01"},
-        origin="manual",
-        content=human_content,
-    )
-    revision_store.publish(human)
-    selections = PipelineSelectionStore(
-        tmp_path / "runtime", revision_store=revision_store, run_store=run_store
-    )
-
-    selected = selections.update(
-        "recording-01",
-        "events",
-        PipelineSelectionUpdate(
-            expected_revision=0,
-            selected_generated_revision_id="revision-output",
-            selected_completed_reference_revision_id="revision-human",
-        ),
-        updated_at="2026-09-05T10:05:00Z",
-    )
-    assert selected.revision == 1
-    assert selections.list_for_recording("recording-01") == (selected,)
-    with pytest.raises(PipelineSelectionConflict):
-        selections.update(
-            "recording-01",
-            "events",
-            PipelineSelectionUpdate(
-                expected_revision=0,
-                selected_generated_revision_id=None,
-                selected_completed_reference_revision_id=None,
-            ),
-        )
-
-    with pytest.raises(PipelineStateError):
-        selections.update(
-            "recording-01",
-            "events",
-            PipelineSelectionUpdate(
-                expected_revision=1,
-                selected_generated_revision_id="revision-human",
-                selected_completed_reference_revision_id=None,
-            ),
-        )
-
-
-def test_selection_can_replace_an_invalid_pointer_with_revision_guard(tmp_path: Path) -> None:
-    revision_store = PipelineRevisionStore(tmp_path / "runtime")
-    for revision_id in ("reference-old", "reference-new"):
-        revision_store.publish(
-            revision(
-                revision_id=revision_id,
-                producer={"kind": "human", "review_id": "review-01", "operator_id": "operator-01"},
-                origin="manual",
-                content=event_content(with_score=False),
-            )
-        )
-    selections = PipelineSelectionStore(tmp_path / "runtime", revision_store=revision_store)
-    selections.update_pointers(
-        "recording-01",
-        "events",
-        expected_revision=0,
-        selected_generated_revision_id=None,
-        selected_completed_reference_revision_id="reference-old",
-    )
-    content_path = revision_store.revision_path("reference-old") / "content.json"
-    content_path.write_text("{}", encoding="utf-8")
-    assert selections.get("recording-01", "events") is None
-
-    with pytest.raises(PipelineSelectionConflict):
-        selections.update_pointers(
-            "recording-01",
-            "events",
-            expected_revision=0,
-            selected_generated_revision_id=None,
-            selected_completed_reference_revision_id="reference-new",
-        )
-    repaired = selections.update_pointers(
-        "recording-01",
-        "events",
-        expected_revision=1,
-        selected_generated_revision_id=None,
-        selected_completed_reference_revision_id="reference-new",
-    )
-    assert repaired.revision == 2
-    assert selections.get("recording-01", "events") == repaired
-
-
-def test_selection_update_preserves_invalid_selection_file(tmp_path: Path) -> None:
-    selections = PipelineSelectionStore(tmp_path / "runtime")
-    path = selections.selection_path("recording-01", "events")
-    path.parent.mkdir(parents=True)
-    path.write_text("{}", encoding="utf-8")
-
-    with pytest.raises(ValueError):
-        selections.update_pointers(
-            "recording-01",
-            "events",
-            expected_revision=0,
-            selected_generated_revision_id=None,
-            selected_completed_reference_revision_id=None,
-        )
-    assert path.read_text(encoding="utf-8") == "{}"
-
-
-def test_atomic_selection_failure_keeps_previous_bytes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    store = PipelineSelectionStore(tmp_path / "runtime")
-    store.update_pointers(
-        "recording-01",
-        "events",
-        expected_revision=0,
-        selected_generated_revision_id=None,
-        selected_completed_reference_revision_id=None,
-    )
-    path = store.selection_path("recording-01", "events")
-    before = path.read_bytes()
-
-    def fail_replace(*_args: object, **_kwargs: object) -> None:
-        raise OSError("simulated selection replacement failure")
-
-    monkeypatch.setattr("dokodetector_backend.pipeline_store.atomic_replace_json", fail_replace)
-    with pytest.raises(OSError, match="simulated selection replacement failure"):
-        store.update_pointers(
-            "recording-01",
-            "events",
-            expected_revision=1,
-            selected_generated_revision_id=None,
-            selected_completed_reference_revision_id=None,
-        )
-    assert path.read_bytes() == before

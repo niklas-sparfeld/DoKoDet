@@ -167,7 +167,10 @@ describe("DokoDetector API client", () => {
     await client.getRecordingPipeline("recording/1");
     await client.updatePipelineSelection("recording/1", "events", {
       expected_revision: 4,
-      selected_generated_revision_id: "events-2",
+      selected_generated: {
+        node_id: "events-node",
+        revision_id: "events-node-r2",
+      },
     });
     await client.comparePipelineRuns("recording/1", comparison);
     expect(fetchImplementation.mock.calls[0]?.[0]).toBe(

@@ -1468,6 +1468,8 @@ describe("recording pipeline workspace", () => {
       input_options: [
         {
           revision_id: "events-1",
+          node_id: "events-node-1",
+          node_revision_id: "events-node-r1",
           content_type: "events",
           origin: "processor",
           completion_state: "complete",
@@ -1481,6 +1483,8 @@ describe("recording pipeline workspace", () => {
         },
         {
           revision_id: "events-2",
+          node_id: "events-node-2",
+          node_revision_id: "events-node-r2",
           content_type: "events",
           origin: "processor",
           completion_state: "complete",
@@ -1557,7 +1561,10 @@ describe("recording pipeline workspace", () => {
         method: "PUT",
         body: JSON.stringify({
           expected_revision: 4,
-          selected_generated_revision_id: "events-2",
+          selected_generated: {
+            node_id: "events-node-2",
+            revision_id: "events-node-r2",
+          },
         }),
       }),
     );

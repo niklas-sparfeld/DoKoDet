@@ -45,9 +45,9 @@ from dokodetector_backend.intake_contract import (
 )
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
 from dokodetector_backend.logging_config import log_event
+from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
-    PipelineSelectionStore,
     StoredPipelineRevision,
 )
 from dokodetector_backend.recording_bundle_store import (
@@ -146,7 +146,7 @@ class RoundAnalysisService:
         repository_bundle_storage: RepositoryBundleStorage,
         analyzer: TableEvidenceAnalyzer,
         pipeline_revision_store: PipelineRevisionStore | None = None,
-        pipeline_selection_store: PipelineSelectionStore | None = None,
+        pipeline_selection_store: PipelineNodeSelectionStore | None = None,
         pipeline_lineage_writer: Any | None = None,
     ) -> None:
         self.store = store

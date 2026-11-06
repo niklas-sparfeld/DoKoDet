@@ -12,7 +12,6 @@ from typing import Any
 
 from doko_operations.pipeline_data import (
     PipelineSelection,
-    PipelineSelectionUpdate,
     canonical_json_bytes,
 )
 
@@ -252,134 +251,19 @@ class PipelineNodeSelectionStore:
         except (OSError, TypeError, UnicodeError, ValueError, KeyError):
             return None
 
-    def list_for_execution(self) -> tuple[PipelineSelection, ...]:
-        if self.root.is_symlink() or not self.root.is_dir():
-            return ()
-        selections = []
-        revision_cache: dict[str, Any] = {}
-        for directory in sorted(self.root.iterdir(), key=lambda item: item.name):
-            if directory.is_symlink() or not directory.is_dir() or directory.name.startswith("."):
-                continue
-            for path in sorted(directory.glob("*.json"), key=lambda item: item.name):
-                selection = self.get_for_execution(
-                    directory.name, path.stem, revision_cache=revision_cache
-                )
-                if selection is not None:
-                    selections.append(selection)
-        return tuple(selections)
-
-    def list_execution_for_recording(self, recording_id: str) -> tuple[PipelineSelection, ...]:
-        return tuple(
-            item for item in self.list_for_execution() if item.recording_id == recording_id
-        )
-
-    def update_for_execution(
-        self,
-        recording_id: str,
-        content_type: str,
-        update: PipelineSelectionUpdate | Mapping[str, Any],
-        *,
-        updated_at: datetime | str | None = None,
-        revision_cache: dict[str, Any] | None = None,
-    ) -> PipelineSelection:
-        parsed = (
-            PipelineSelectionUpdate.from_mapping(update.to_mapping())
-            if isinstance(update, PipelineSelectionUpdate)
-            else PipelineSelectionUpdate.from_mapping(update)
-        )
-        path = self.selection_path(recording_id, content_type)
-        with _process_lock(path.parent / f".{path.stem}.lock", self._lock):
-            current = self.get_for_execution(
-                recording_id, content_type, revision_cache=revision_cache
-            )
-            if current is None and (path.exists() or path.is_symlink()):
-                raise PipelineStoreError("The existing graph selection is invalid.")
-            current_revision = 0 if current is None else current.revision
-            if parsed.expected_revision != current_revision:
-                raise PipelineSelectionConflict(
-                    f"selection revision mismatch: expected {parsed.expected_revision}, "
-                    f"actual {current_revision}"
-                )
-            generated = self._node_reference(
-                parsed.selected_generated_revision_id, recording_id, content_type
-            )
-            completed = self._node_reference(
-                parsed.selected_completed_reference_revision_id, recording_id, content_type
-            )
-            record = {
-                "schema_version": "pipeline-node-selection/v1",
-                "recording_id": recording_id,
-                "content_type": content_type,
-                "revision": current_revision + 1,
-                "selected_generated": generated,
-                "selected_completed_reference": completed,
-                "updated_at": _canonical_timestamp(updated_at),
-            }
-            atomic_replace_json(path, canonical_json_bytes(record))
-            stored = self.get_for_execution(recording_id, content_type)
-            if stored is None:
-                raise PipelineStoreError("The updated graph selection failed validation.")
-            return stored
-
-    def update_execution_pointers(
-        self,
-        recording_id: str,
-        content_type: str,
-        *,
-        expected_revision: int,
-        selected_generated_revision_id: str | None,
-        selected_completed_reference_revision_id: str | None,
-        updated_at: datetime | str | None = None,
-        revision_cache: dict[str, Any] | None = None,
-    ) -> PipelineSelection:
-        return self.update_for_execution(
-            recording_id,
-            content_type,
-            PipelineSelectionUpdate(
-                expected_revision=expected_revision,
-                selected_generated_revision_id=selected_generated_revision_id,
-                selected_completed_reference_revision_id=selected_completed_reference_revision_id,
-            ),
-            updated_at=updated_at,
-            revision_cache=revision_cache,
-        )
-
-    def _node_reference(
-        self, revision_id: str | None, recording_id: str, content_type: str
-    ) -> dict[str, str] | None:
-        if revision_id is None:
-            return None
+    def reference_for_processor_output(
+        self, revision_id: str, recording_id: str, content_type: str
+    ) -> dict[str, str]:
+        """Resolve a newly published processor output to its exact graph revision."""
+        if self.lineage_writer is None:
+            raise PipelineStoreError("the processor lineage writer is unavailable")
         stored = self.revision_store.require(revision_id)
         if (
             stored.manifest.recording_id != recording_id
             or stored.manifest.content_type != content_type
         ):
             raise ValueError("selection revision does not match its recording or content type")
-        if self.lineage_writer is not None:
-            node_id, node_revision_id = self.lineage_writer.ensure_revision_node(stored)
-            return {"node_id": node_id, "revision_id": node_revision_id}
-        if self.lineage_writer is not None:
-            node_id, node_revision_id = self.lineage_writer.ensure_revision_node(stored)
-        else:
-            node_id, node_revision_id = None, None
-        if node_id is None:
-            for node in self.node_store.list_nodes():
-                if (
-                    node.content_type != content_type
-                    or node.source.get("recording_id") != recording_id
-                ):
-                    continue
-                for revision in self.node_store.history(node.node_id):
-                    if (
-                        revision.metadata.get("legacy_revision_id") == revision_id
-                        or revision.revision_id == revision_id
-                    ):
-                        node_id, node_revision_id = node.node_id, revision.revision_id
-                        break
-                if node_id is not None:
-                    break
-        if node_id is None:
-            raise ValueError("selection revision has no matching graph revision")
+        node_id, node_revision_id = self.lineage_writer.ensure_revision_node(stored)
         return {"node_id": node_id, "revision_id": node_revision_id}
 
     def _execution_revision_id(

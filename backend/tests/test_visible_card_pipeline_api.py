@@ -981,13 +981,17 @@ def _manual_event_revision(
         content=content,
     )
     stored, _ = app.state.pipeline_revision_store.publish(revision)
-    current = app.state.pipeline_selection_store.get_for_execution(RECORDING_ID, "events")
-    app.state.pipeline_selection_store.update_execution_pointers(
+    current = app.state.pipeline_selection_store.get_exact(RECORDING_ID, "events")
+    app.state.pipeline_selection_store.update_exact(
         RECORDING_ID,
         "events",
         expected_revision=0 if current is None else current.revision,
-        selected_generated_revision_id=base.manifest.revision_id,
-        selected_completed_reference_revision_id=stored.manifest.revision_id,
+        selected_generated=app.state.pipeline_selection_store.reference_for_processor_output(
+            base.manifest.revision_id, RECORDING_ID, "events"
+        ),
+        selected_completed_reference=app.state.pipeline_selection_store.reference_for_processor_output(
+            stored.manifest.revision_id, RECORDING_ID, "events"
+        ),
     )
     return stored.manifest.revision_id
 
@@ -1023,7 +1027,7 @@ def test_visible_card_run_requires_an_explicit_event_input_when_a_selection_exis
             json={"run_id": "visible-no-event-input"},
         )
 
-    assert app.state.pipeline_selection_store.get_for_execution(RECORDING_ID, "events") is not None
+    assert app.state.pipeline_selection_store.get_exact(RECORDING_ID, "events") is not None
     assert selected_revision_id == "events-manual-reference"
     assert response.status_code == 422
     assert "explicit event input" in response.json()["error"]["message"]
@@ -1170,7 +1174,7 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
         ).json()
         for _ in range(100):
             if (
-                selection["selection"]["selected_generated_revision_id"]
+                selection["selection"]["selected_generated"]["revision_id"]
                 == reference_result["state"]["output_revision_ids"][0]
             ):
                 break
@@ -1179,7 +1183,7 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
                 f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/selection"
             ).json()
         assert (
-            selection["selection"]["selected_generated_revision_id"]
+            selection["selection"]["selected_generated"]["revision_id"]
             == reference_result["state"]["output_revision_ids"][0]
         )
 

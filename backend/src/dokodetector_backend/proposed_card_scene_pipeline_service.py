@@ -38,12 +38,12 @@ from table_evidence_analyzer.pipeline_data import (
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
     PipelineRuntimeStorage,
-    PipelineSelectionStore,
     ProcessorRunStore,
     StoredPipelineRevision,
     StoredProcessorRun,
@@ -78,7 +78,7 @@ class ProposedCardScenePipelineService:
         *,
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
-        selection_store: PipelineSelectionStore,
+        selection_store: PipelineNodeSelectionStore,
         node_store: PipelineNodeStore | None = None,
     ) -> None:
         self.settings = settings
@@ -382,10 +382,7 @@ class ProposedCardScenePipelineService:
                 }
                 revision_id = exact.selected_generated["revision_id"]
             else:
-                selection = self.selection_store.get_for_execution(recording_id, "visible_cards")
-                revision_id = (
-                    None if selection is None else selection.selected_generated_revision_id
-                )
+                revision_id = None
         if not isinstance(revision_id, str) or not revision_id:
             raise ProposedCardScenePipelineInputError(
                 "no generated visible-card revision is selected"

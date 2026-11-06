@@ -312,7 +312,7 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         ).json()
         deadline = time.monotonic() + 5
         while (
-            selection["selection"]["selected_generated_revision_id"]
+            selection["selection"]["selected_generated"]["revision_id"]
             != second_body["state"]["output_revision_ids"][0]
             and time.monotonic() < deadline
         ):
@@ -321,7 +321,7 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
                 f"/api/recordings/{RECORDING_ID}/pipeline/observations/selection"
             ).json()
         assert (
-            selection["selection"]["selected_generated_revision_id"]
+            selection["selection"]["selected_generated"]["revision_id"]
             == second_body["state"]["output_revision_ids"][0]
         )
 

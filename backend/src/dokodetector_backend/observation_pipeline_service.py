@@ -12,7 +12,6 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 from doko_operations.pipeline_data import (
     DataRevision,
     EventData,
-    PipelineSelection,
     ProcessorProducer,
     ProcessorRunRequest,
     RecordingVideoSource,
@@ -35,13 +34,16 @@ from table_evidence_analyzer import (
 )
 
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.pipeline_node_selection_store import (
+    ExactNodeSelection,
+    PipelineNodeSelectionStore,
+)
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
     PipelineRuntimeStorage,
     PipelineSelectionConflict,
-    PipelineSelectionStore,
     PipelineStateError,
     ProcessorRunStore,
     StoredPipelineRevision,
@@ -68,7 +70,7 @@ class ObservationPipelineService:
         *,
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
-        selection_store: PipelineSelectionStore,
+        selection_store: PipelineNodeSelectionStore,
         recording_store: Any,
         runtime_root: Any,
         operations_root: Any,
@@ -310,28 +312,28 @@ class ObservationPipelineService:
             self._fail_safely(run_id, "assembly_failed", "The observation assembler failed.")
             raise
 
-    def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> PipelineSelection:
+    def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> ExactNodeSelection:
         expected_revision = payload.get("expected_revision")
-        selected = payload.get("selected_generated_revision_id")
+        selected = payload.get("selected_generated")
         if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
             raise ObservationPipelineInputError("expected_revision must be a non-negative integer.")
-        if selected is not None and not isinstance(selected, str):
+        if selected is not None and not isinstance(selected, Mapping):
             raise ObservationPipelineInputError(
-                "selected_generated_revision_id must be a string or null."
+                "selected_generated must be a node revision pointer or null."
             )
-        current = self.selection_store.get_for_execution(recording_id, "table_observations")
-        completed = None if current is None else current.selected_completed_reference_revision_id
+        current = self.selection_store.get_exact(recording_id, "table_observations")
+        completed = None if current is None else current.selected_completed_reference
         try:
-            return self.selection_store.update_execution_pointers(
+            return self.selection_store.update_exact(
                 recording_id,
                 "table_observations",
                 expected_revision=expected_revision,
-                selected_generated_revision_id=selected,
-                selected_completed_reference_revision_id=completed,
+                selected_generated=selected,
+                selected_completed_reference=completed,
             )
         except PipelineSelectionConflict:
             raise
-        except (PipelineNotFound, PipelineStateError) as error:
+        except (PipelineNotFound, PipelineStateError, ValueError, FileNotFoundError) as error:
             raise ObservationPipelineInputError(str(error)) from error
 
     def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
@@ -603,16 +605,19 @@ class ObservationPipelineService:
         return stored
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:
-        current = self.selection_store.get_for_execution(recording_id, "table_observations")
+        current = self.selection_store.get_exact(recording_id, "table_observations")
         expected = 0 if current is None else current.revision
-        completed = None if current is None else current.selected_completed_reference_revision_id
+        completed = None if current is None else current.selected_completed_reference
+        generated = self.selection_store.reference_for_processor_output(
+            revision_id, recording_id, "table_observations"
+        )
         try:
-            self.selection_store.update_execution_pointers(
+            self.selection_store.update_exact(
                 recording_id,
                 "table_observations",
                 expected_revision=expected,
-                selected_generated_revision_id=revision_id,
-                selected_completed_reference_revision_id=completed,
+                selected_generated=generated,
+                selected_completed_reference=completed,
             )
         except PipelineSelectionConflict:
             LOGGER.warning(

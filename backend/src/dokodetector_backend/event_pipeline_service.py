@@ -24,7 +24,6 @@ from doko_operations.pipeline_data import (
     ImplementationIdentity,
     ImportProducer,
     ModelIdentity,
-    PipelineSelection,
     ProcessorProducer,
     ProcessorRunRequest,
     RecordingVideoSource,
@@ -39,6 +38,14 @@ from doko_operations.pipeline_data import (
 from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.intake_contract import parse_proposal_generator_run
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.pipeline_lineage import PipelineLineage
+from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
+from dokodetector_backend.pipeline_node_selection_store import (
+    ExactNodeSelection,
+    PipelineNodeSelectionStore,
+)
+from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.pipeline_service_errors import (
     PipelineInputError,
     PipelineProviderError,
@@ -49,7 +56,6 @@ from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineRuntimeStorage,
     PipelineSelectionConflict,
-    PipelineSelectionStore,
     PipelineStateError,
     ProcessorRunStore,
     StoredProcessorRun,
@@ -299,7 +305,7 @@ class EventPipelineService:
         event_provider: EventProcessorProvider | None = None,
         revision_store: PipelineRevisionStore | None = None,
         run_store: ProcessorRunStore | None = None,
-        selection_store: PipelineSelectionStore | None = None,
+        selection_store: PipelineNodeSelectionStore | None = None,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
@@ -310,11 +316,25 @@ class EventPipelineService:
             self.storage,
             revision_store=self.revision_store,
         )
-        self.selection_store = selection_store or PipelineSelectionStore(
-            self.storage,
-            revision_store=self.revision_store,
-            run_store=self.run_store,
-        )
+        if selection_store is None:
+            lineage_writer = self.run_store.lineage_writer
+            node_store = (
+                lineage_writer.node_store
+                if lineage_writer is not None
+                else PipelineNodeStore(settings.operations_root / "pipeline-nodes")
+            )
+            if lineage_writer is None:
+                lineage_writer = PipelineLineageWriter(
+                    node_store,
+                    PipelineLineage(node_store),
+                    PipelineNodeUses(node_store),
+                    self.revision_store,
+                )
+                self.run_store.lineage_writer = lineage_writer
+            selection_store = PipelineNodeSelectionStore(
+                node_store, self.revision_store, lineage_writer
+            )
+        self.selection_store = selection_store
         self.event_provider = event_provider or CardEventFileProvider(
             settings.repository_root,
         )
@@ -416,26 +436,26 @@ class EventPipelineService:
         self,
         recording_id: str,
         payload: Mapping[str, Any],
-    ) -> PipelineSelection:
+    ) -> ExactNodeSelection:
         expected_revision = payload.get("expected_revision")
-        selected = payload.get("selected_generated_revision_id")
+        selected = payload.get("selected_generated")
         if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
             raise PipelineInputError("expected_revision must be a non-negative integer.")
-        if selected is not None and not isinstance(selected, str):
-            raise PipelineInputError("selected_generated_revision_id must be a string or null.")
-        current = self.selection_store.get_for_execution(recording_id, "events")
-        completed = None if current is None else current.selected_completed_reference_revision_id
+        if selected is not None and not isinstance(selected, Mapping):
+            raise PipelineInputError("selected_generated must be a node revision pointer or null.")
+        current = self.selection_store.get_exact(recording_id, "events")
+        completed = None if current is None else current.selected_completed_reference
         try:
-            return self.selection_store.update_execution_pointers(
+            return self.selection_store.update_exact(
                 recording_id,
                 "events",
                 expected_revision=expected_revision,
-                selected_generated_revision_id=selected,
-                selected_completed_reference_revision_id=completed,
+                selected_generated=selected,
+                selected_completed_reference=completed,
             )
         except PipelineSelectionConflict:
             raise
-        except (PipelineNotFound, PipelineStateError) as error:
+        except (PipelineNotFound, PipelineStateError, ValueError, FileNotFoundError) as error:
             raise PipelineInputError(str(error)) from error
 
     def _build_request(
@@ -997,16 +1017,19 @@ class EventPipelineService:
         return stored
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:
-        current = self.selection_store.get_for_execution(recording_id, "events")
+        current = self.selection_store.get_exact(recording_id, "events")
         expected = 0 if current is None else current.revision
-        completed = None if current is None else current.selected_completed_reference_revision_id
+        completed = None if current is None else current.selected_completed_reference
+        generated = self.selection_store.reference_for_processor_output(
+            revision_id, recording_id, "events"
+        )
         try:
-            self.selection_store.update_execution_pointers(
+            self.selection_store.update_exact(
                 recording_id,
                 "events",
                 expected_revision=expected,
-                selected_generated_revision_id=revision_id,
-                selected_completed_reference_revision_id=completed,
+                selected_generated=generated,
+                selected_completed_reference=completed,
             )
         except PipelineSelectionConflict:
             LOGGER.warning(

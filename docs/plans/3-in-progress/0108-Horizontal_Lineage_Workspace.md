@@ -797,6 +797,27 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
+- **Latest package — use exact node pointers for selection APIs and writes:** Selection GET and
+  update routes now read and return exact node/revision pointers. Users update those pointers
+  directly. Processor completion advances the generated pointer to the exact published graph
+  revision. The node selection store no longer has generic projected get/update methods. The old
+  `PipelineSelectionStore` and its tests were removed. The 0100 repair utility now validates its
+  frozen legacy selection inputs with its own offline parser and revision/run checks.
+- **Checks:** Eleven focused backend modules passed (97 tests), including old-data repair, migration,
+  exact selection, transaction recovery, and processor API tests. Ruff and format checks passed.
+  The web typecheck, focused ESLint, Prettier, 28 focused browser/API client tests, and generated API
+  verification passed.
+- **Known limit:** The workspace and round-analysis service still project exact selection pointers
+  to execution revision IDs. The round-analysis request still stores a revision ID instead of an
+  exact node pointer. Calibration still reconstructs reference-shaped working data, and processor
+  publication still stores legacy revisions before the lineage writer copies outputs into nodes.
+  M11 remains incomplete.
+- **Next:** Move the round-analysis input contract and remaining workspace execution readers to exact
+  references. Then replace calibration's reference-shaped working data and remove duplicate
+  processor output persistence. Preserve explicit processor-input choices.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and

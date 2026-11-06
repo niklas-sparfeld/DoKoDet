@@ -28,10 +28,10 @@ from table_evidence_analyzer.pipeline_data import (
 )
 
 from dokodetector_backend.filesystem import enumerate_resource_directories
+from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore, _read_json
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
-    PipelineSelectionStore,
     PipelineStoreError,
     ProcessorRunStatus,
     ProcessorRunStore,
@@ -105,7 +105,7 @@ class RecordingPipelineWorkspaceService:
         recording_source_provider: Callable[[str], RecordingVideoSource],
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
-        selection_store: PipelineSelectionStore,
+        selection_store: PipelineNodeSelectionStore,
         round_analysis_store: Any,
         node_store: PipelineNodeStore,
         lineage_service: Any,

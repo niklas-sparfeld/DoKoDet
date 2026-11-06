@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from doko_operations.pipeline_data import PipelineSelection, canonical_pipeline_selection_bytes
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/repair_0100_m5.py"
 spec = importlib.util.spec_from_file_location("repair_0100_m5", SCRIPT)
@@ -383,28 +384,24 @@ def test_reference_repair_rejects_a_concurrent_edit(tmp_path: Path) -> None:
 
 
 def test_selection_write_failure_restores_drafts_and_selection(tmp_path: Path, monkeypatch) -> None:
-    from dokodetector_backend.pipeline_store import PipelineSelectionStore
-
     repository, stage = tmp_path / "repository", tmp_path / "stage"
     row = _reference_fixture(repository, stage, "recording-0")
-    old_store = PipelineSelectionStore(repository / "data/operations")
-    new_store = PipelineSelectionStore(stage)
-    for store in (old_store, new_store):
-        store.update_pointers(
-            "recording-0",
-            "events",
-            expected_revision=0,
-            selected_generated_revision_id=None,
-            selected_completed_reference_revision_id=None,
+    old_path = repository / "data/operations/pipeline/selections/recording-0/events.json"
+    staged_path = stage / "pipeline/selections/recording-0/events.json"
+    for path, revision in ((old_path, 1), (staged_path, 2)):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(
+            canonical_pipeline_selection_bytes(
+                PipelineSelection(
+                    revision=revision,
+                    recording_id="recording-0",
+                    content_type="events",
+                    selected_generated_revision_id=None,
+                    selected_completed_reference_revision_id=None,
+                    updated_at="2026-11-06T00:00:00Z",
+                )
+            )
         )
-    new_store.update_pointers(
-        "recording-0",
-        "events",
-        expected_revision=1,
-        selected_generated_revision_id=None,
-        selected_completed_reference_revision_id=None,
-    )
-    old_path = old_store.selection_path("recording-0", "events")
     old_bytes = old_path.read_bytes()
     selected = {
         "path": old_path.relative_to(repository).as_posix(),

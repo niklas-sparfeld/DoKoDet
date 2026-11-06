@@ -281,19 +281,22 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
             PipelineRuntimeStorage(tmp_path / "runtime", package / "evidence/operations")
         ),
     )
-    selected = selection_store.get_for_execution("recording-01", "events")
+    selected = selection_store.get_exact("recording-01", "events")
     assert selected is not None
     assert selected.revision == 2
-    assert selected.selected_generated_revision_id == old_revision_id
-    updated = selection_store.update_execution_pointers(
+    assert selected.selected_generated == {
+        "node_id": node_id,
+        "revision_id": node_revision_id,
+    }
+    updated = selection_store.update_exact(
         "recording-01",
         "events",
         expected_revision=2,
-        selected_generated_revision_id=old_revision_id,
-        selected_completed_reference_revision_id=None,
+        selected_generated=selected.selected_generated,
+        selected_completed_reference=None,
     )
     assert updated.revision == 3
-    assert updated.selected_generated_revision_id == old_revision_id
+    assert updated.selected_generated == selected.selected_generated
     stored_graph_selection = json.loads(
         (store_root / ".pipeline-node-selections/recording-01/events.json").read_bytes()
     )

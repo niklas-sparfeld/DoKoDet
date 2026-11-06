@@ -331,9 +331,28 @@ export function RecordingPipelineWorkspace({
     setSelectionBusy(true);
     setNotice(null);
     const contentType = STAGE_CONTENT_TYPES[stage.key];
+    const selectedOption =
+      nextRevisionId === null
+        ? undefined
+        : stage.input_options.find(
+            (option) => option.revision_id === nextRevisionId,
+          );
+    if (nextRevisionId !== null && selectedOption === undefined) {
+      setSelectionBusy(false);
+      setNotice(
+        "That processor input is no longer available. Reload the workspace.",
+      );
+      return;
+    }
     const payload: PipelineSelectionUpdateRequest = {
       expected_revision: stage.selection_revision ?? 0,
-      selected_generated_revision_id: nextRevisionId,
+      selected_generated:
+        selectedOption === undefined
+          ? null
+          : {
+              node_id: selectedOption.node_id,
+              revision_id: selectedOption.node_revision_id,
+            },
     };
     try {
       const response = await client.updatePipelineSelection(
@@ -352,10 +371,29 @@ export function RecordingPipelineWorkspace({
                       ...candidate,
                       selection_revision: response.selection.revision,
                       selected_generated_revision_id:
-                        response.selection.selected_generated_revision_id,
+                        response.selection.selected_generated === null
+                          ? null
+                          : (candidate.input_options.find(
+                              (option) =>
+                                option.node_id ===
+                                  response.selection.selected_generated
+                                    ?.node_id &&
+                                option.node_revision_id ===
+                                  response.selection.selected_generated
+                                    ?.revision_id,
+                            )?.revision_id ?? null),
                       selected_completed_reference_revision_id:
-                        response.selection
-                          .selected_completed_reference_revision_id,
+                        response.selection.selected_completed_reference === null
+                          ? null
+                          : (candidate.input_options.find(
+                              (option) =>
+                                option.node_id ===
+                                  response.selection
+                                    .selected_completed_reference?.node_id &&
+                                option.node_revision_id ===
+                                  response.selection
+                                    .selected_completed_reference?.revision_id,
+                            )?.revision_id ?? null),
                     }
                   : candidate,
               ),

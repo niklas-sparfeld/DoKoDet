@@ -27,7 +27,6 @@ from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
     PipelineRuntimeStorage,
-    PipelineSelectionStore,
     ProcessorRunStore,
 )
 from dokodetector_backend.proposed_card_scene_jobs import ProposedCardSceneJobParticipant
@@ -198,7 +197,7 @@ def test_service_publishes_proposal_without_changing_detector_input(
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
     runs = ProcessorRunStore(runtime, revision_store=revisions)
-    selections = PipelineSelectionStore(runtime, revision_store=revisions, run_store=runs)
+    selections = Mock()
     source = RecordingVideoSource(
         recording_id="recording-0073",
         relative_path="recordings/recording-0073/video.mov",
@@ -318,7 +317,7 @@ def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
     runs = ProcessorRunStore(runtime, revision_store=revisions)
-    selections = PipelineSelectionStore(runtime, revision_store=revisions, run_store=runs)
+    selections = Mock()
     source = RecordingVideoSource(
         recording_id="recording-0073",
         relative_path="recordings/recording-0073/video.mov",
@@ -405,7 +404,7 @@ def test_cancelled_proposal_does_not_publish_a_completed_revision(tmp_path: Path
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
     runs = ProcessorRunStore(runtime, revision_store=revisions)
-    selections = PipelineSelectionStore(runtime, revision_store=revisions, run_store=runs)
+    selections = Mock()
     source = RecordingVideoSource(
         recording_id="recording-cancel",
         relative_path="recordings/recording-cancel/video.mov",
@@ -458,7 +457,7 @@ def test_service_rejects_non_local_visible_card_revisions(tmp_path: Path) -> Non
     runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
     revisions = PipelineRevisionStore(runtime)
     runs = ProcessorRunStore(runtime, revision_store=revisions)
-    selections = PipelineSelectionStore(runtime, revision_store=revisions, run_store=runs)
+    selections = Mock()
     source = RecordingVideoSource(
         recording_id="recording-0073",
         relative_path="recordings/recording-0073/video.mov",

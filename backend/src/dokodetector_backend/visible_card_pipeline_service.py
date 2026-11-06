@@ -28,7 +28,6 @@ from doko_operations.pipeline_data import (
     EventData,
     ImplementationIdentity,
     ModelIdentity,
-    PipelineSelection,
     ProcessorProducer,
     ProcessorRunRequest,
     RecordingVideoSource,
@@ -54,13 +53,16 @@ from table_evidence_analyzer.visible_cards import ProviderResult, VisibleCardReq
 from dokodetector_backend.config import Settings
 from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.pipeline_node_selection_store import (
+    ExactNodeSelection,
+    PipelineNodeSelectionStore,
+)
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
     PipelineRuntimeStorage,
     PipelineSelectionConflict,
-    PipelineSelectionStore,
     PipelineStateError,
     ProcessorRunStore,
     StoredPipelineRevision,
@@ -105,7 +107,7 @@ class VisibleCardPipelineService:
         frame_resolver: FrameResolver | None = None,
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
-        selection_store: PipelineSelectionStore,
+        selection_store: PipelineNodeSelectionStore,
         node_store: PipelineNodeStore,
     ) -> None:
         self.settings = settings
@@ -200,28 +202,28 @@ class VisibleCardPipelineService:
                 validate_source=False,
             )
 
-    def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> PipelineSelection:
+    def select_generated(self, recording_id: str, payload: Mapping[str, Any]) -> ExactNodeSelection:
         expected_revision = payload.get("expected_revision")
-        selected = payload.get("selected_generated_revision_id")
+        selected = payload.get("selected_generated")
         if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
             raise VisibleCardPipelineInputError("expected_revision must be a non-negative integer.")
-        if selected is not None and not isinstance(selected, str):
+        if selected is not None and not isinstance(selected, Mapping):
             raise VisibleCardPipelineInputError(
-                "selected_generated_revision_id must be a string or null."
+                "selected_generated must be a node revision pointer or null."
             )
-        current = self.selection_store.get_for_execution(recording_id, "visible_cards")
-        completed = None if current is None else current.selected_completed_reference_revision_id
+        current = self.selection_store.get_exact(recording_id, "visible_cards")
+        completed = None if current is None else current.selected_completed_reference
         try:
-            return self.selection_store.update_execution_pointers(
+            return self.selection_store.update_exact(
                 recording_id,
                 "visible_cards",
                 expected_revision=expected_revision,
-                selected_generated_revision_id=selected,
-                selected_completed_reference_revision_id=completed,
+                selected_generated=selected,
+                selected_completed_reference=completed,
             )
         except PipelineSelectionConflict:
             raise
-        except (PipelineNotFound, PipelineStateError) as error:
+        except (PipelineNotFound, PipelineStateError, ValueError, FileNotFoundError) as error:
             raise VisibleCardPipelineInputError(str(error)) from error
 
     def _build_request(self, recording_id: str, payload: Mapping[str, Any]) -> ProcessorRunRequest:
@@ -945,16 +947,19 @@ class VisibleCardPipelineService:
         return stored
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:
-        current = self.selection_store.get_for_execution(recording_id, "visible_cards")
+        current = self.selection_store.get_exact(recording_id, "visible_cards")
         expected = 0 if current is None else current.revision
-        completed = None if current is None else current.selected_completed_reference_revision_id
+        completed = None if current is None else current.selected_completed_reference
+        generated = self.selection_store.reference_for_processor_output(
+            revision_id, recording_id, "visible_cards"
+        )
         try:
-            self.selection_store.update_execution_pointers(
+            self.selection_store.update_exact(
                 recording_id,
                 "visible_cards",
                 expected_revision=expected,
-                selected_generated_revision_id=revision_id,
-                selected_completed_reference_revision_id=completed,
+                selected_generated=generated,
+                selected_completed_reference=completed,
             )
         except PipelineSelectionConflict:
             LOGGER.warning(

@@ -1,4 +1,4 @@
-"""Filesystem stores for recording-pipeline revisions, runs, and selections.
+"""Filesystem stores for processor revisions and run records.
 
 The stores keep no derived index.  A resource is visible only after its complete canonical
 directory has been published, and every read validates the files before returning the resource.
@@ -25,8 +25,6 @@ from doko_operations.pipeline_data import (
     HumanProducer,
     ImportProducer,
     PipelineDataContractError,
-    PipelineSelection,
-    PipelineSelectionUpdate,
     ProcessorProducer,
     ProcessorRunRequest,
     ProcessorRunState,
@@ -37,13 +35,11 @@ from doko_operations.pipeline_data import (
     canonical_data_revision_bytes,
     canonical_event_data_bytes,
     canonical_json_bytes,
-    canonical_pipeline_selection_bytes,
     canonical_processor_run_request_bytes,
     canonical_processor_run_state_bytes,
     parse_data_revision_bytes,
     parse_data_revision_manifest_bytes,
     parse_event_data_bytes,
-    parse_pipeline_selection_bytes,
     parse_processor_run_request_bytes,
     sha256_bytes,
     validate_event_revision_content,
@@ -1764,268 +1760,12 @@ class ProcessorRunStore:
         LOGGER.warning("processor_run_catalog_skipped path=%s reason=%s", path, error)
 
 
-class PipelineSelectionStore:
-    """Read and optimistically update current generated/reference selection pointers."""
-
-    def __init__(
-        self,
-        storage: PipelineRuntimeStorage | Path | str,
-        *,
-        revision_store: PipelineRevisionStore | None = None,
-        run_store: ProcessorRunStore | None = None,
-    ) -> None:
-        self.storage = _storage(storage)
-        self.root = self.storage.selections_root
-        self.revision_store = revision_store or PipelineRevisionStore(self.storage)
-        self.run_store = run_store or ProcessorRunStore(
-            self.storage,
-            revision_store=self.revision_store,
-        )
-        self._lock = RLock()
-
-    def selection_path(self, recording_id: str, content_type: str) -> Path:
-        _safe_id(recording_id, "recording_id")
-        _safe_content_type(content_type)
-        return contained_path(
-            self.root / recording_id,
-            f"{content_type}.json",
-        )
-
-    def get(
-        self,
-        recording_id: str,
-        content_type: str,
-        *,
-        revision_cache: dict[str, StoredPipelineRevision] | None = None,
-        revision_manifests: Mapping[str, DataRevision] | None = None,
-    ) -> PipelineSelection | None:
-        try:
-            path = self.selection_path(recording_id, content_type)
-        except (TypeError, ValueError):
-            return None
-        try:
-            return self._read_path(
-                path,
-                recording_id,
-                content_type,
-                revision_cache=revision_cache,
-                revision_manifests=revision_manifests,
-            )
-        except (OSError, TypeError, UnicodeError, ValueError) as error:
-            if path.exists() or path.is_symlink():
-                self._log_invalid(path, error)
-            return None
-
-    def list(self) -> tuple[PipelineSelection, ...]:
-        if self.root.is_symlink() or not self.root.is_dir():
-            return ()
-        selections: list[PipelineSelection] = []
-        for recording_directory in sorted(self.root.iterdir(), key=lambda path: path.name):
-            if recording_directory.name.startswith("."):
-                self._log_invalid(recording_directory, ValueError("staging directory ignored"))
-                continue
-            if recording_directory.is_symlink() or not recording_directory.is_dir():
-                continue
-            for path in sorted(recording_directory.glob("*.json"), key=lambda item: item.name):
-                content_type = path.stem
-                try:
-                    selections.append(self._read_path(path, recording_directory.name, content_type))
-                except (OSError, TypeError, UnicodeError, ValueError) as error:
-                    self._log_invalid(path, error)
-        return tuple(sorted(selections, key=lambda item: (item.recording_id, item.content_type)))
-
-    def list_for_recording(self, recording_id: str) -> tuple[PipelineSelection, ...]:
-        return tuple(item for item in self.list() if item.recording_id == recording_id)
-
-    def update(
-        self,
-        recording_id: str,
-        content_type: str,
-        update: PipelineSelectionUpdate | Mapping[str, Any],
-        *,
-        updated_at: datetime | str | None = None,
-        revision_cache: dict[str, StoredPipelineRevision] | None = None,
-    ) -> PipelineSelection:
-        if revision_cache is None:
-            revision_cache = {}
-        parsed_update = (
-            PipelineSelectionUpdate.from_mapping(update.to_mapping())
-            if isinstance(update, PipelineSelectionUpdate)
-            else PipelineSelectionUpdate.from_mapping(update)
-        )
-        path = self.selection_path(recording_id, content_type)
-        with _process_lock(
-            path.parent / f".{path.stem}.lock",
-            self._lock,
-        ):
-            current = (
-                None
-                if not path.exists() and not path.is_symlink()
-                else self._read_path(path, recording_id, content_type, validate_pointers=False)
-            )
-            current_revision = 0 if current is None else current.revision
-            if parsed_update.expected_revision != current_revision:
-                raise PipelineSelectionConflict(
-                    f"selection revision mismatch: expected {parsed_update.expected_revision}, "
-                    f"actual {current_revision}"
-                )
-            self._validate_pointer(
-                parsed_update.selected_generated_revision_id,
-                recording_id,
-                content_type,
-                role="generated",
-                revision_cache=revision_cache,
-            )
-            self._validate_pointer(
-                parsed_update.selected_completed_reference_revision_id,
-                recording_id,
-                content_type,
-                role="completed reference",
-                revision_cache=revision_cache,
-            )
-            selection = PipelineSelection(
-                revision=current_revision + 1,
-                recording_id=recording_id,
-                content_type=content_type,
-                selected_generated_revision_id=parsed_update.selected_generated_revision_id,
-                selected_completed_reference_revision_id=(
-                    parsed_update.selected_completed_reference_revision_id
-                ),
-                updated_at=_canonical_timestamp(updated_at),
-            )
-            payload = canonical_pipeline_selection_bytes(selection)
-            atomic_replace_json(
-                path,
-                payload,
-                validate=lambda raw: _strict_json_file(raw, payload, "pipeline selection"),
-            )
-            stored = self.get(recording_id, content_type, revision_cache=revision_cache)
-            if stored is None:
-                raise PipelineStoreError("The updated pipeline selection failed validation.")
-            return stored
-
-    def update_pointers(
-        self,
-        recording_id: str,
-        content_type: str,
-        *,
-        expected_revision: int,
-        selected_generated_revision_id: str | None,
-        selected_completed_reference_revision_id: str | None,
-        updated_at: datetime | str | None = None,
-        revision_cache: dict[str, StoredPipelineRevision] | None = None,
-    ) -> PipelineSelection:
-        return self.update(
-            recording_id,
-            content_type,
-            PipelineSelectionUpdate(
-                expected_revision=expected_revision,
-                selected_generated_revision_id=selected_generated_revision_id,
-                selected_completed_reference_revision_id=selected_completed_reference_revision_id,
-            ),
-            updated_at=updated_at,
-            revision_cache=revision_cache,
-        )
-
-    def _validate_pointer(
-        self,
-        revision_id: str | None,
-        recording_id: str,
-        content_type: str,
-        *,
-        role: str,
-        revision_cache: dict[str, StoredPipelineRevision] | None = None,
-        revision_manifests: Mapping[str, DataRevision] | None = None,
-    ) -> None:
-        if revision_id is None:
-            return
-        if revision_manifests is None:
-            revision = self.revision_store.require(revision_id, revision_cache=revision_cache)
-            manifest = revision.manifest
-        else:
-            manifest = revision_manifests.get(revision_id)
-            if manifest is None:
-                raise PipelineNotFound(f"The pipeline revision was not found: {revision_id}")
-        if (
-            manifest.recording_id != recording_id
-            or manifest.content_type != content_type
-            or not isinstance(manifest.source, RecordingVideoSource)
-        ):
-            raise PipelineStateError(
-                f"{role} selection points to a different recording or content type"
-            )
-        if role == "generated":
-            if manifest.origin != "processor" or not isinstance(
-                manifest.producer, (ProcessorProducer, ImportProducer)
-            ):
-                raise PipelineStateError("generated selection must point to processor output")
-            run = self.run_store.get(
-                manifest.producer.run_id,
-                revision_cache=revision_cache,
-                include_items=False,
-                validate_output_revisions=False,
-            )
-            if run is None or run.state.status != "complete":
-                raise PipelineStateError(
-                    "generated selection cannot point to a partial or failed run"
-                )
-            if revision_id not in run.state.output_revision_ids:
-                raise PipelineStateError("generated selection is not an output of its run")
-        elif manifest.origin not in {"manual", "corrected"} or not isinstance(
-            manifest.producer, HumanProducer
-        ):
-            raise PipelineStateError("completed reference selection must point to human output")
-
-    def _read_path(
-        self,
-        path: Path,
-        recording_id: str,
-        content_type: str,
-        *,
-        revision_cache: dict[str, StoredPipelineRevision] | None = None,
-        revision_manifests: Mapping[str, DataRevision] | None = None,
-        validate_pointers: bool = True,
-    ) -> PipelineSelection:
-        if path.is_symlink() or not path.is_file():
-            raise OSError("pipeline selection is unavailable")
-        raw = path.read_bytes()
-        selection = parse_pipeline_selection_bytes(raw)
-        _strict_json_file(raw, canonical_pipeline_selection_bytes(selection), "pipeline selection")
-        if selection.recording_id != recording_id or selection.content_type != content_type:
-            raise ValueError("selection identity differs from its path")
-        if path.name != f"{content_type}.json":
-            raise ValueError("selection content type differs from its path")
-        if validate_pointers:
-            self._validate_pointer(
-                selection.selected_generated_revision_id,
-                recording_id,
-                content_type,
-                role="generated",
-                revision_cache=revision_cache,
-                revision_manifests=revision_manifests,
-            )
-            self._validate_pointer(
-                selection.selected_completed_reference_revision_id,
-                recording_id,
-                content_type,
-                role="completed reference",
-                revision_cache=revision_cache,
-                revision_manifests=revision_manifests,
-            )
-        return selection
-
-    @staticmethod
-    def _log_invalid(path: Path, error: BaseException) -> None:
-        LOGGER.warning("pipeline_selection_catalog_skipped path=%s reason=%s", path, error)
-
-
 __all__ = [
     "PipelineConflict",
     "PipelineNotFound",
     "PipelineRevisionStore",
     "PipelineRuntimeStorage",
     "PipelineSelectionConflict",
-    "PipelineSelectionStore",
     "PipelineStateError",
     "PipelineStoreError",
     "ProcessorRunStatus",

@@ -16,14 +16,20 @@ from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import replace
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 from doko_operations.derived_view import DerivedViewCache, ExactEventRequest, frame_cache_key
 from doko_operations.pipeline_data import (
     DataRevision,
+    HumanProducer,
+    ImportProducer,
+    PipelineSelection,
+    ProcessorProducer,
     RecordingVideoSource,
     RunProgress,
     canonical_json_bytes,
+    canonical_pipeline_selection_bytes,
     parse_pipeline_selection_bytes,
 )
 from table_evidence_analyzer.card_scene_contract import CardSceneDraft
@@ -37,7 +43,6 @@ from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
 from dokodetector_backend.pipeline_store import (
     PipelineRevisionStore,
-    PipelineSelectionStore,
     ProcessorRunStore,
     _process_lock,
 )
@@ -741,7 +746,64 @@ def apply_targets(
     operations = repository / "data/operations"
     reference_store = PipelineReferenceStore(operations / "pipeline-references")
     staged_reference_store = PipelineReferenceStore(stage / "pipeline-references")
-    selection_store = PipelineSelectionStore(operations)
+    selection_revision_store = PipelineRevisionStore(operations)
+    selection_runs = ProcessorRunStore(operations, revision_store=selection_revision_store)
+    selection_lock = RLock()
+
+    def validate_selection_pointer(
+        revision_id: str | None, recording_id: str, content_type: str, role: str
+    ) -> None:
+        if revision_id is None:
+            return
+        revision = selection_revision_store.require(revision_id)
+        manifest = revision.manifest
+        if (
+            manifest.recording_id != recording_id
+            or manifest.content_type != content_type
+            or not isinstance(manifest.source, RecordingVideoSource)
+        ):
+            raise ValueError(f"{role} selection points to a different recording or content type")
+        if role == "generated":
+            if manifest.origin != "processor" or not isinstance(
+                manifest.producer, (ProcessorProducer, ImportProducer)
+            ):
+                raise ValueError("generated selection must point to processor output")
+            run = selection_runs.get(
+                manifest.producer.run_id,
+                include_items=False,
+                validate_output_revisions=False,
+            )
+            if (
+                run is None
+                or run.state.status != "complete"
+                or revision_id not in run.state.output_revision_ids
+            ):
+                raise ValueError("generated selection must point to a complete run output")
+        elif manifest.origin not in {"manual", "corrected"} or not isinstance(
+            manifest.producer, HumanProducer
+        ):
+            raise ValueError("completed reference selection must point to human output")
+
+    def validate_selection(raw: bytes, path: Path) -> PipelineSelection:
+        selection = parse_pipeline_selection_bytes(raw)
+        if canonical_pipeline_selection_bytes(selection) != raw:
+            raise ValueError(f"selection is not canonical JSON: {path}")
+        if selection.recording_id != path.parent.name or selection.content_type != path.stem:
+            raise ValueError(f"selection identity differs from its path: {path}")
+        validate_selection_pointer(
+            selection.selected_generated_revision_id,
+            selection.recording_id,
+            selection.content_type,
+            "generated",
+        )
+        validate_selection_pointer(
+            selection.selected_completed_reference_revision_id,
+            selection.recording_id,
+            selection.content_type,
+            "completed reference",
+        )
+        return selection
+
     references = sorted(drafts["records"], key=lambda row: (row["recording_id"], row["stage"]))
     selections = sorted(validation["selections"], key=lambda row: row["path"])
     original_bytes: dict[Path, bytes] = {}
@@ -750,9 +812,7 @@ def apply_targets(
             locks.enter_context(reference_store.locked(row["recording_id"], row["stage"]))
         for row in selections:
             path = repository / row["path"]
-            locks.enter_context(
-                _process_lock(path.parent / f".{path.stem}.lock", selection_store._lock)
-            )
+            locks.enter_context(_process_lock(path.parent / f".{path.stem}.lock", selection_lock))
         verify()
         for row in references:
             path = operations / "pipeline-references" / row["recording_id"] / row["stage"]
@@ -774,10 +834,10 @@ def apply_targets(
             raw = path.read_bytes()
             if hashlib.sha256(raw).hexdigest() != row["old_sha256"]:
                 raise ValueError(f"selection changed: {path}")
-            old = parse_pipeline_selection_bytes(raw)
+            old = validate_selection(raw, path)
             staged_path = stage / Path(row["path"]).relative_to("data/operations")
             staged_raw = staged_path.read_bytes()
-            new = parse_pipeline_selection_bytes(staged_raw)
+            new = validate_selection(staged_raw, staged_path)
             if (
                 old.revision != row["old_revision"]
                 or new.revision != row["new_revision"]
@@ -788,18 +848,6 @@ def apply_targets(
                 != row["selected_completed_reference_revision_id"]
             ):
                 raise ValueError(f"staged selection changed: {path}")
-            selection_store._validate_pointer(
-                new.selected_generated_revision_id,
-                new.recording_id,
-                new.content_type,
-                role="generated",
-            )
-            selection_store._validate_pointer(
-                new.selected_completed_reference_revision_id,
-                new.recording_id,
-                new.content_type,
-                role="completed reference",
-            )
             original_bytes[path] = raw
         if snapshot_path.exists():
             raise ValueError(f"snapshot already exists: {snapshot_path}")
@@ -830,7 +878,7 @@ def apply_targets(
                 reference_store.read_locked(row["recording_id"], row["stage"])
             for row in selections:
                 target = repository / row["path"]
-                selection_store._read_path(target, target.parent.name, target.stem)
+                validate_selection(target.read_bytes(), target)
         except BaseException:
             for path, payload in original_bytes.items():
                 if path.name != "commands.json":

@@ -333,9 +333,23 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
         assert body["revisions"][0]["manifest"]["producer"]["kind"] == "processor"
         selection = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/selection")
         assert (
-            selection.json()["selection"]["selected_generated_revision_id"]
+            selection.json()["selection"]["selected_generated"]["revision_id"]
             == (body["state"]["output_revision_ids"][0])
         )
+        exact_selection = selection.json()["selection"]
+        updated = client.put(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/selection",
+            json={
+                "expected_revision": exact_selection["revision"],
+                "selected_generated": exact_selection["selected_generated"],
+            },
+        )
+        assert updated.status_code == 200, updated.text
+        assert (
+            updated.json()["selection"]["selected_generated"]
+            == exact_selection["selected_generated"]
+        )
+        assert updated.json()["selection"]["revision"] == exact_selection["revision"] + 1
     assert len(provider.calls) == 1
 
 
@@ -679,7 +693,7 @@ def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
 
         selection_path = app.state.pipeline_selection_store.selection_path(RECORDING_ID, "events")
         selection = json.loads(selection_path.read_text(encoding="utf-8"))
-        selection["selected_generated_revision_id"] = "missing-revision"
+        selection["selected_generated"]["revision_id"] = "missing-revision"
         selection_path.write_text(
             json.dumps(selection, separators=(",", ":")),
             encoding="utf-8",

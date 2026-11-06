@@ -33,14 +33,14 @@ export type PipelineSelectableContentType = Exclude<
 >;
 export type PipelineSelectionUpdateRequest = {
   expected_revision: number;
-  selected_generated_revision_id: string | null;
+  selected_generated: { node_id: string; revision_id: string } | null;
 };
 export type PipelineSelection = {
   revision: number;
   recording_id: string;
   content_type: PipelineSelectableContentType;
-  selected_generated_revision_id: string | null;
-  selected_completed_reference_revision_id: string | null;
+  selected_generated: { node_id: string; revision_id: string } | null;
+  selected_completed_reference: { node_id: string; revision_id: string } | null;
   updated_at: string;
 };
 export type PipelineSelectionResponse = {
