@@ -737,6 +737,38 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
+- **Latest package — isolate draft migration and retire old active stores:** Offline draft
+  parsing, staged import, and migration verification now live in
+  `lineage_draft_migration.py`. Runtime projection code contains content transforms only. The
+  Virtual scenes transform no longer returns legacy review data. All active node heads no longer
+  contain `legacy_review` or `legacy_state`. The old reference and review stores, migrated-reader
+  directory, and legacy revision map were removed only after exact recovery-snapshot checks. The
+  511 reference files, 53 review files, 26 calibration draft inputs, and revision map have
+  hash-verified recovery copies. Retired reference/review service code and its superseded tests
+  were deleted. Workspace revision options now use processor/edit origin labels, while explicit
+  processor input choices remain available.
+- **Recovery evidence:** `data/operations-recovery/0108-m11-20261106/legacy-reference-review-removal.json`
+  records file counts, byte counts, tree hashes, recovery paths, and the removal time. The
+  `data/operations/pipeline-references`, `pipeline-reviews`, `.migrated-readers`, and
+  `.legacy-revision-map.json` paths are absent. Prior scene and node review migration receipts
+  record the active-head conversion and source hashes.
+- **Checks:** The migration import/apply/inventory, calibration refinement, exact selection,
+  pipeline API, visible-card API, visual-identity API, and observation API tests passed (89 tests).
+  Ruff check and format check passed. Earlier in this run, focused web browser, type, lint, and
+  format checks passed. `git diff --check` remains required before commit.
+- **Known limit:** M11 remains incomplete. `PipelineNodeSelectionStore.get/update` still project
+  exact node pointers to legacy revision IDs for execution APIs and processor consumers.
+  Calibration refinement still reconstructs `PipelineReferenceDraft` and
+  `PipelineReferenceState` in memory and uses reference reflow helpers. Processor persistence
+  still writes legacy revision records that the lineage writer adapts into nodes. These are active
+  adapters/duplicate persistence paths, so the no-adapter and no-dual-write acceptance is not met.
+  The retained calibration draft HTTP contract also still exposes a reference-shaped response.
+- **Next:** Replace the remaining execution projections and calibration reference adapter with
+  node-native inputs and working state, then verify processor publication has one canonical write
+  path. Preserve explicit execution input choices. Do not mark M11 complete until these audits pass.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and

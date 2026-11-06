@@ -611,7 +611,7 @@ class RecordingPipelineWorkspaceService:
     def _revision_option(revision: Any, stage_key: str) -> dict[str, Any]:
         manifest = RecordingPipelineWorkspaceService._manifest(revision)
         generated = manifest.origin == "processor"
-        label = "Generated" if generated else "Reviewed"
+        label = "Processor output" if generated else "Edited"
         if getattr(revision, "migrated_draft", False):
             label = "Imported draft"
         return {

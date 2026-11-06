@@ -139,7 +139,8 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
                 identity_revision_id,
             ],
             "display_label": (
-                "Generated events + Generated visible cards + Generated visual identities"
+                "Processor output events + Processor output visible cards + "
+                "Processor output visual identities"
             ),
         }
         assert compatible_input_set in workspace.json()["stages"][3]["compatible_input_sets"]
