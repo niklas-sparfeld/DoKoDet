@@ -166,6 +166,7 @@ def build_pipeline_composition(
         revision_store=revision_store,
         run_store=run_store,
         selection_store=selection_store,
+        node_store=node_store,
         reference_store=reference_store,
     )
     reference_service.annotation_crop_resolver = (
@@ -178,6 +179,7 @@ def build_pipeline_composition(
         recording_store=recording_store,
         runtime_root=settings.evidence_root,
         operations_root=settings.operations_root,
+        node_store=node_store,
     )
     workspace_service = RecordingPipelineWorkspaceService(
         recording_source_provider=event_service.get_recording_source,

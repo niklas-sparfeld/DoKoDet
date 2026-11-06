@@ -211,6 +211,8 @@ def test_visual_identity_classification_runs_as_a_managed_job(tmp_path: Any) -> 
     assert identity_job_record["inputs"][0]["id"] == visible_revision_id
     assert identity_run["state"]["status"] == "complete"
     assert identity_run["request"]["input_revision_ids"] == [visible_revision_id]
+    assert len(identity_run["request"]["input_node_refs"]) == 1
+    assert identity_run["request"]["input_node_refs"][0]["revision_id"]
 
 
 def _fixture_generated_visible_revision(

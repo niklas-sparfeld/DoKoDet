@@ -50,6 +50,7 @@ from doko_operations.pipeline_data import (
     RunFailure,
     RunItemOutcome,
     RunProgress,
+    canonical_json_bytes,
     sha256_bytes,
 )
 from table_evidence_analyzer.card_scene_contract import CardSceneDraft
@@ -71,6 +72,8 @@ from table_evidence_analyzer.pipeline_data import (
     canonical_proposed_card_scene_data_bytes,
     canonical_visible_card_data_bytes,
     canonical_visual_identity_data_bytes,
+    parse_proposed_card_scene_data_bytes,
+    parse_visible_card_data_bytes,
 )
 from table_evidence_analyzer.visual_identity import (
     CardIdentityClassifierProvider,
@@ -89,6 +92,7 @@ from table_evidence_analyzer.visual_identity_crop_input import (
 from dokodetector_backend.config import Settings
 from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
     PipelineRevisionStore,
@@ -207,6 +211,7 @@ class VisualIdentityPipelineService:
         revision_store: PipelineRevisionStore,
         run_store: ProcessorRunStore,
         selection_store: PipelineSelectionStore,
+        node_store: PipelineNodeStore | None = None,
         reference_store: Any | None = None,
     ) -> None:
         self.settings = settings
@@ -218,6 +223,7 @@ class VisualIdentityPipelineService:
         self.revision_store = revision_store
         self.run_store = run_store
         self.selection_store = selection_store
+        self.node_store = node_store
         self.reference_store = reference_store
         self.calibration_store = CalibrationRevisionStore(settings.operations_root)
         self.identity_classifiers = identity_classifiers
@@ -868,9 +874,7 @@ class VisualIdentityPipelineService:
             _, accepted_source = self._accepted_source(run.request.source.recording_id)
         if accepted_source != run.request.source:
             raise DerivedViewError("the identity crop input source changed")
-        input_revision = self.revision_store.require(
-            run.request.input_revision_ids[0], revision_cache=revision_cache
-        )
+        input_revision = self.canonical_input_revision(run.request)
         frozen_input = self._freeze_crop_input(
             run.request.source.recording_id,
             input_revision,
@@ -1024,6 +1028,9 @@ class VisualIdentityPipelineService:
         values.setdefault("processor_type", "visual-card-identity")
         values.setdefault("source", source.to_mapping())
         values["input_revision_ids"] = [visible_revision_id]
+        values["input_node_refs"] = [
+            self._canonical_input_node_ref(visible_revision_id, revision.manifest.content_type)
+        ]
         values.setdefault(
             "implementation",
             {"name": "visual-identity-classifier-adapter", "version": "v1"},
@@ -1090,6 +1097,75 @@ class VisualIdentityPipelineService:
                 "The request classifier identity does not match the configured classifier."
             )
         return request
+
+    def _canonical_input_node_ref(self, revision_id: str, content_type: str) -> dict[str, str]:
+        if self.node_store is None:
+            raise VisualIdentityPipelineInputError("Canonical node storage is unavailable.")
+        matches = []
+        for node in self.node_store.list_nodes():
+            if node.content_type != content_type:
+                continue
+            for revision in self.node_store.history(node.node_id):
+                if revision.metadata.get("legacy_revision_id") == revision_id:
+                    matches.append((node, revision))
+        if not matches:
+            writer = getattr(self.selection_store, "lineage_writer", None)
+            if writer is None:
+                raise VisualIdentityPipelineInputError(
+                    "The selected input has no canonical node revision."
+                )
+            stored = self.revision_store.require(revision_id)
+            node_id, node_revision_id = writer.ensure_revision_node(stored)
+            node = self.node_store.get(node_id)
+            matches.append((node, self.node_store.read_revision(node_id, node_revision_id)))
+        if len(matches) != 1:
+            raise VisualIdentityPipelineInputError(
+                "The selected input has no unique canonical node revision."
+            )
+        node, revision = matches[0]
+        return {
+            "node_id": node.node_id,
+            "revision_id": revision.revision_id,
+            "revision_policy": "historical",
+        }
+
+    def canonical_input_revision(self, request: ProcessorRunRequest) -> StoredPipelineRevision:
+        """Load identity input content from its exact node revision."""
+        refs = request.input_node_refs
+        if self.node_store is None or refs is None or len(refs) != 1:
+            raise VisualIdentityPipelineInputError("An exact canonical input is required.")
+        ref = refs[0]
+        try:
+            node = self.node_store.get(ref["node_id"])
+            revision = self.node_store.read_revision(node.node_id, ref["revision_id"])
+            manifest_source = self.revision_store.require(request.input_revision_ids[0])
+        except (FileNotFoundError, KeyError, ValueError) as error:
+            raise VisualIdentityPipelineInputError("The canonical input is unavailable.") from error
+        except PipelineNotFound as error:
+            raise VisualIdentityPipelineInputError(
+                "The input provenance is unavailable."
+            ) from error
+        if (
+            revision.metadata.get("legacy_revision_id") != request.input_revision_ids[0]
+            or node.source != request.source.to_mapping()
+            or (
+                ref["revision_policy"] == "current_head"
+                and node.head_revision_id != ref["revision_id"]
+            )
+        ):
+            raise VisualIdentityPipelineInputError("The canonical input no longer matches the run.")
+        raw = canonical_json_bytes(revision.content)
+        content = (
+            parse_proposed_card_scene_data_bytes(raw)
+            if node.content_type == "card_scene_proposals"
+            else parse_visible_card_data_bytes(raw)
+        )
+        content_digest = sha256_bytes(raw)
+        metadata = revision.metadata
+        if content_digest != manifest_source.manifest.content_sha256:
+            raise VisualIdentityPipelineInputError("The canonical input content digest changed.")
+        del metadata
+        return StoredPipelineRevision(manifest_source.manifest, content)
 
     def _freeze_crop_input(
         self,
@@ -1676,7 +1752,7 @@ class VisualIdentityPipelineService:
             run_id = job.id
             if len(run.request.input_revision_ids) != 1 or run.request.crop_input is None:
                 raise VisualIdentityPipelineError("The frozen crop input is unavailable.")
-            visible_revision = self.revision_store.require(run.request.input_revision_ids[0])
+            visible_revision = self.canonical_input_revision(run.request)
             _, source = self._accepted_source(run.request.source.recording_id)
             frozen_input = self._freeze_crop_input(
                 run.request.source.recording_id,
@@ -2234,7 +2310,7 @@ class VisualIdentityPipelineService:
             model_id=_model_id(run.request.model),
         )
         crop_policy = run.request.crop_policy or _default_crop_policy(
-            self.revision_store.require(run.request.input_revision_ids[0]).content
+            self.canonical_input_revision(run.request).content
         )
         manifest = DataRevision(
             revision_id=f"visual-identities-{_safe(run.run_id)}-attempt-{run.state.attempt}",

@@ -257,15 +257,25 @@ class PipelineLineageWriter:
                 "visible-card-scene-proposal": ("visible_cards",),
                 "visible-card-detection": ("events",),
             }.get(request.processor_type, ())
-            return [
-                {
-                    "kind": "revision",
-                    "node_id": ref["node_id"],
-                    "revision_id": ref["revision_id"],
-                    "role": roles[index] if index < len(roles) else "input",
-                }
-                for index, ref in enumerate(node_refs)
-            ]
+            refs = []
+            for index, ref in enumerate(node_refs):
+                role = roles[index] if index < len(roles) else "input"
+                if request.processor_type == "visual-card-identity":
+                    node = self.node_store.get(ref["node_id"])
+                    role = (
+                        "virtual_scenes"
+                        if node.content_type == "card_scene_proposals"
+                        else "visible_cards"
+                    )
+                refs.append(
+                    {
+                        "kind": "revision",
+                        "node_id": ref["node_id"],
+                        "revision_id": ref["revision_id"],
+                        "role": role,
+                    }
+                )
+            return refs
         refs = []
         for index, revision_id in enumerate(request.input_revision_ids):
             revision = self.revision_store.require(revision_id)

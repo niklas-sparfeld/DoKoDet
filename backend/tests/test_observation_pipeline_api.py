@@ -170,6 +170,11 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             visible_revision_id,
             identity_revision_id,
         ]
+        node_refs = first_body["request"]["input_node_refs"]
+        assert len(node_refs) == 3
+        assert len({ref["node_id"] for ref in node_refs}) == 3
+        assert all(ref["revision_id"] for ref in node_refs)
+        assert [ref["revision_policy"] for ref in node_refs] == ["historical"] * 3
         content = first_body["revisions"][0]["content"]
         assert content["observations"][0]["status"] == "observed"
         assert content["observations"][0]["schema_version"] == "table-observation/v2"

@@ -513,6 +513,25 @@ the visible-card head update and confirms restart recovery publishes both heads 
   worker fixtures for historical and current-head inputs. Then remove the old projection only when
   all selection consumers and storage recovery evidence pass.
 - **Run count:** Requested up to 10 Luna loops; completed 1 bounded package; remaining 9.
+- **Latest package — observation and identity execution:** Observation requests now freeze three
+  ordered node/revision references. They resolve exact node pointers from the selected node records
+  or from revision lineage. The observation worker parses event, visible-card, and identity content
+  from those node revisions. Visual-identity requests now freeze one exact node reference. The job
+  participant validates it before execution, and the classifier reads visible-card or proposal
+  content from the node revision. Legacy revision IDs remain in the processor request and manifest
+  for current provenance and result contracts. They provide manifest metadata during identity crop
+  validation; node content supplies the processed data.
+- **Checks:** The observation and visual-identity API modules passed (15 tests). Ruff check and
+  formatting passed for changed Python files. `git diff --check` passed. The tests use fixtures and
+  mocks; no processor model ran.
+- **Known limit:** The input freeze still uses legacy revision metadata to resolve an old revision
+  ID when no canonical node matches. Identity crop validation still reads legacy manifests. Other
+  runtime consumers and the migrated reader/reference/review storage remain. No old storage was
+  deleted. M11 is incomplete.
+- **Next:** Remove legacy identity from the two services' execution request and crop validation by
+  using canonical revision metadata throughout. Then audit all selection consumers, update exact
+  selection writers, and prove recovery before retiring `.migrated-readers` and old storage.
+- **Run count:** Requested up to 10 Luna loops; completed 2 bounded packages; remaining 8.
 
 ### M12 — Verify the complete workflow and close — Not started
 

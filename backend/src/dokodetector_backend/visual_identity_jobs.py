@@ -66,10 +66,12 @@ class VisualIdentityJobParticipant:
             run.source.recording_id != recording_id
             or run.processor_type != "visual-card-identity"
             or len(run.input_revision_ids) != 1
+            or run.input_node_refs is None
+            or len(run.input_node_refs) != 1
             or run.crop_input is None
         ):
             raise ValueError("the frozen visual-identity inputs are invalid")
-        revision = self.service.revision_store.require(run.input_revision_ids[0])
+        revision = self.service.canonical_input_revision(run)
         _, source = self.service._accepted_source(recording_id)
         if revision.manifest.source != source:
             raise ValueError("the identity input does not match the accepted recording")
@@ -105,7 +107,7 @@ class VisualIdentityJobParticipant:
     def job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
         run = ProcessorRunRequest.from_mapping(request["request"]["processor_request"])
         input_id = run.input_revision_ids[0]
-        input_revision = self.service.revision_store.require(input_id)
+        input_revision = self.service.canonical_input_revision(run)
         device = run.configuration.get("device")
         return {
             "label": "Classify visual identities",
