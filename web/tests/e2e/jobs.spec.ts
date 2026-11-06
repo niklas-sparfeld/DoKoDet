@@ -105,6 +105,83 @@ test("history pagination and browser navigation keep the exact job and result li
   ).toHaveAttribute("href", "/api/jobs/job-1/calibration-preview");
 });
 
+test("global Jobs drawer stays usable on desktop and narrow layouts", async ({
+  page,
+}) => {
+  await page.route("**/api/jobs?**", (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            ...job("queued-1", "Queued fixture"),
+            state: "queued",
+            capabilities: {
+              cancel: { allowed: true },
+              retry: { allowed: false },
+              reorder: { allowed: true },
+            },
+          },
+          {
+            ...job("running-1", "Running fixture"),
+            state: "running",
+            capabilities: {
+              cancel: { allowed: true },
+              retry: { allowed: false },
+              reorder: { allowed: false },
+            },
+          },
+          {
+            ...job("cancelling-1", "Cancelling fixture"),
+            state: "cancelling",
+            capabilities: {
+              cancel: { allowed: false },
+              retry: { allowed: false },
+              reorder: { allowed: false },
+            },
+          },
+        ],
+        next_cursor: null,
+        groups: ["queued-1", "running-1", "cancelling-1"].map((id) => ({
+          group_id: id,
+          child_job_ids: [id],
+        })),
+        queue_revision: 4,
+      },
+    }),
+  );
+  await page.route("**/v1/recordings", (route) =>
+    route.fulfill({ json: { recordings: [] } }),
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  const toggle = page.getByRole("button", { name: /Jobs/ });
+  await expect(toggle).toContainText("3");
+  await toggle.click();
+  await expect(
+    page.getByRole("link", { name: "Queued fixture" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "running" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "cancelling" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Enable queue reordering" }).click();
+  const drawer = page.getByRole("complementary", { name: "Jobs" });
+  const content = page.locator(".jobsAppContent");
+  const drawerBox = await drawer.boundingBox();
+  const contentBox = await content.boundingBox();
+  expect(
+    drawerBox && contentBox && contentBox.x + contentBox.width,
+  ).toBeLessThanOrEqual(drawerBox?.x ?? 0);
+  await page.keyboard.press("Escape");
+  await expect(toggle).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toggle.click();
+  await expect(drawer).toBeVisible();
+  expect((await drawer.boundingBox())?.width).toBeLessThanOrEqual(390);
+});
+
 test("detail loading recovers after disconnection and list polling resumes after hidden-page return", async ({
   page,
 }) => {
@@ -153,4 +230,44 @@ test("detail loading recovers after disconnection and list polling resumes after
     document.dispatchEvent(new Event("visibilitychange"));
   });
   await expect.poll(() => activeLists).toBeGreaterThan(beforeHidden);
+});
+
+test("drawer shows empty, disconnected, and failed job states", async ({
+  page,
+}) => {
+  let disconnected = false;
+  await page.route("**/api/jobs?**", async (route) => {
+    const scope = new URL(route.request().url()).searchParams.get("scope");
+    if (disconnected && scope === "active") return route.abort();
+    await route.fulfill({
+      json: {
+        items:
+          scope === "history"
+            ? [{ ...job("failed-1", "Failed fixture"), state: "failed" }]
+            : [],
+        next_cursor: null,
+        groups: [],
+        queue_revision: 1,
+      },
+    });
+  });
+  await page.route("**/v1/recordings", (route) =>
+    route.fulfill({ json: { recordings: [] } }),
+  );
+  await page.goto("/");
+  const toggle = page.getByRole("button", { name: /Jobs/ });
+  await toggle.click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "No active jobs" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "History" }).click();
+  await expect(
+    page.getByRole("link", { name: "Failed fixture" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "failed" }),
+  ).toBeVisible();
+  disconnected = true;
+  await page.getByRole("button", { name: "Active (0)" }).click();
+  await expect(page.getByRole("alert")).toContainText("Unable to load jobs");
 });

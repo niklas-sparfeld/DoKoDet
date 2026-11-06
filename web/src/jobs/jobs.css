@@ -1,0 +1,124 @@
+.jobsChrome {
+  position: sticky;
+  top: 0;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 3.25rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.jobsBrand {
+  color: var(--ink);
+  font-weight: 750;
+  text-decoration: none;
+}
+.jobsChrome button,
+.jobsDrawer button {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--panel-raised);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.jobsChrome button:focus-visible,
+.jobsDrawer button:focus-visible,
+.jobsDrawer a:focus-visible,
+.jobsFilter input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.jobsAppContent {
+  min-width: 0;
+}
+.jobsDrawer {
+  display: none;
+  position: fixed;
+  z-index: 33;
+  top: 3.25rem;
+  right: 0;
+  bottom: 0;
+  width: min(23rem, 100vw);
+  overflow: auto;
+  padding: 1rem;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1rem 2rem var(--shadow);
+}
+.jobsDrawer[data-open="true"] {
+  display: block;
+}
+.jobsDrawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.jobsDrawerHeader h2 {
+  font-size: 1rem;
+}
+.jobsDrawer nav,
+.jobsDrawerList li {
+  display: grid;
+  gap: 0.5rem;
+}
+.jobsDrawer nav {
+  grid-template-columns: 1fr 1fr;
+  margin: 0.75rem 0;
+}
+.jobsFilter {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+  font-size: 0.8rem;
+}
+.jobsFilter input {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.jobsDrawerList {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0.5rem 0;
+  padding: 0;
+  list-style: none;
+}
+.jobsDrawerList > li {
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  overflow-wrap: anywhere;
+}
+.jobsDrawerList ul {
+  display: grid;
+  gap: 0.4rem;
+  padding-left: 1rem;
+}
+.jobsScrim {
+  display: block;
+  position: fixed;
+  z-index: 32;
+  inset: 3.25rem 0 0;
+  border: 0;
+  background: rgb(0 0 0 / 28%);
+}
+@media (min-width: 900px) {
+  body:has(.jobsDrawer[data-open="true"]) .jobsAppContent {
+    margin-right: 23rem;
+  }
+}
+@media (max-width: 899px) {
+  .jobsDrawer {
+    width: min(23rem, 92vw);
+  }
+}

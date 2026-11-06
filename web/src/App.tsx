@@ -6,6 +6,8 @@ import { readRecordingPipelineRoute } from "./pipeline/recordingPipelineUrl";
 import { JobStateProvider } from "./jobs/JobState";
 import { JobDetailView } from "./jobs/JobDetailView";
 import { JobListView } from "./jobs/JobListView";
+import { JobsDrawer } from "./jobs/JobsDrawer";
+import "./jobs/jobs.css";
 
 export function App() {
   return (
@@ -18,30 +20,39 @@ export function App() {
 function AppRoutes() {
   const location = useAppLocation();
   const jobRoute = location.pathname.match(/^\/jobs\/([^/]+)\/?$/);
-  if (jobRoute)
-    return (
+  let page: React.ReactNode;
+  if (jobRoute) {
+    page = (
       <JobDetailView
         key={jobRoute[1]}
         jobId={decodeURIComponent(jobRoute[1])}
       />
     );
-  if (location.pathname === "/jobs" || location.pathname === "/jobs/")
-    return <JobListView />;
-  if (location.pathname === "/frame-reviews/0096-M4") {
-    return <FrameReviewQueueView />;
+  } else if (location.pathname === "/jobs" || location.pathname === "/jobs/") {
+    page = <JobListView />;
+  } else if (location.pathname === "/frame-reviews/0096-M4") {
+    page = <FrameReviewQueueView />;
+  } else {
+    const pipelineRoute = readRecordingPipelineRoute(location.pathname);
+    const recordingId =
+      pipelineRoute?.recordingId ?? readRecordingId(location.pathname);
+    page =
+      recordingId === null ? (
+        <RecordingListView />
+      ) : (
+        <RecordingDetailView
+          key={`${recordingId}:${pipelineRoute?.compare ? "compare" : ""}`}
+          recordingId={recordingId}
+          pipelineStage={pipelineRoute?.stage ?? null}
+          pipelineCompare={pipelineRoute?.compare ?? false}
+        />
+      );
   }
-  const pipelineRoute = readRecordingPipelineRoute(location.pathname);
-  const recordingId =
-    pipelineRoute?.recordingId ?? readRecordingId(location.pathname);
-  return recordingId === null ? (
-    <RecordingListView />
-  ) : (
-    <RecordingDetailView
-      key={`${recordingId}:${pipelineRoute?.compare ? "compare" : ""}`}
-      recordingId={recordingId}
-      pipelineStage={pipelineRoute?.stage ?? null}
-      pipelineCompare={pipelineRoute?.compare ?? false}
-    />
+  return (
+    <>
+      <JobsDrawer />
+      <div className="jobsAppContent">{page}</div>
+    </>
   );
 }
 

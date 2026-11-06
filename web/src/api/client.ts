@@ -285,6 +285,11 @@ export interface DokoDetectorClient {
     idempotencyKey: string,
     init?: RequestInit,
   ): Promise<JobDetail>;
+  moveJob(
+    groupId: string,
+    beforeGroupId: string | null,
+    expectedRevision: number,
+  ): Promise<components["schemas"]["QueueMoveResponse"]>;
   startAutomatedPipelineRun(
     recordingId: string,
     payload: AutomatedPipelineStartRequest,
@@ -582,6 +587,20 @@ export function createDokoDetectorClient(
         { ...init, method: "POST", headers, body: JSON.stringify({}) },
       );
     },
+    moveJob: (groupId, beforeGroupId, expectedRevision) =>
+      requestJson<components["schemas"]["QueueMoveResponse"]>(
+        fetchImplementation,
+        "/api/jobs/queue/move",
+        {
+          method: "POST",
+          headers: jsonHeaders(undefined),
+          body: JSON.stringify({
+            group_id: groupId,
+            before_group_id: beforeGroupId,
+            expected_revision: expectedRevision,
+          }),
+        },
+      ),
     startAutomatedPipelineRun: (recordingId, payload, init) =>
       requestJson<AutomatedPipelineRun>(
         fetchImplementation,

@@ -9,7 +9,7 @@
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](../3-in-progress/0108-Horizontal_Lineage_Workspace.md), or
   [0109](../4-blocked/0109-Working_Area_Interface_Unification.md).
-- **Outcome:** M0–M13 complete; M14–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
+- **Outcome:** M0–M14 complete; M15–M16 not started. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 
 ## Problem and inspected scope
@@ -427,7 +427,7 @@ history pagination, reload, and browser back/forward preserve correct job state 
 
 Result: [M13 browser job client and details](../../reports/0110-M13_Browser_Job_Client.md).
 
-### M14 — Add the global Jobs drawer — Not started
+### M14 — Add the global Jobs drawer — Complete
 
 Add persistent app chrome, counts, active/history lists, parent expansion, filters, management
 actions, accessible reorder, and narrow-layout behavior. Use the shared client and details route.
@@ -435,6 +435,8 @@ actions, accessible reorder, and narrow-layout behavior. Use the shared client a
 Acceptance: the drawer works on every existing app route. Keyboard/focus tests and desktop/narrow
 browser checks cover empty, queued, running, cancelling, disconnected, and failed states. The
 drawer can coexist with lineage navigation without covering central frame controls.
+
+Result: [M14 global Jobs drawer](../../reports/0110-M14_Global_Jobs_Drawer.md).
 
 ### M15 — Remove duplicate UI and execution contracts — Not started
 
@@ -457,6 +459,20 @@ phones, full training, or sealed evaluation. Record any baseline failures separa
 when every in-scope producer and UI path uses the shared manager.
 
 ## Execution handoff
+
+### Epic 0110 M14 — run count 2 of 4
+
+- Completed M14; 2 of 4 requested milestones remain for this run.
+- Added persistent Jobs chrome, active and history drawer lists, counts, filter, parent expansion,
+  shared actions, and revision-checked accessible queue reorder controls. Added wide and narrow
+  layout behavior plus Escape and focus return.
+- Verification: web typecheck, focused ESLint, 11 focused Vitest tests, production build, generated
+  API verification, and four focused Playwright checks passed. Evidence: [M14 drawer report](../../reports/0110-M14_Global_Jobs_Drawer.md).
+- Decision: wide screens reserve space beside the workspace; narrow screens use a scrim and drawer.
+  History in the drawer uses the first bounded page while `/jobs` keeps cursor pagination.
+- Limits: parent expansion shows child jobs currently loaded. Full producer workflows and stale
+  cross-client reorder races remain for M16.
+- Next: M15, remove duplicate UI and execution contracts.
 
 ### Epic 0110 M13 — run count 1 of 4
 
