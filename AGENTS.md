@@ -133,6 +133,82 @@ At the end of the run, give a final summary with completed milestones, commit ID
 all milestone statuses, and any blocker. The count limit ends this authorization; another run
 requires a new user instruction.
 
+### Optional Luna loop
+
+Invoke this mode with `luna loop epic 1234` to complete the remaining milestones, or
+`luna loop epic 1234 for N milestones` to complete at most `N` milestones. Start at the next
+incomplete milestone. These commands authorize sequential Luna subagents in the current chat.
+They do not change the behavior of `start epic`, `next phase`, or the persistent commands above.
+
+Use Terra at Medium reasoning as the orchestrator and `gpt-6-luna` at Medium reasoning for workers.
+Check the available model controls. If the requested configuration is unavailable, stop and
+explain. Do not silently substitute another model or claim to change the current chat's model.
+
+The orchestrator reads this file and the current epic, dependencies, handoff, and Git state.
+For an unbounded-count invocation, record the number of remaining planned milestones as this
+run's limit. Do not add milestones to extend the run. Use this loop:
+
+1. Assign one milestone to one fresh Luna worker. Use `fork_turns="none"` where supported.
+   Supply a compact assignment with the repository path, milestone, authoritative file paths,
+   acceptance criteria, relevant handoff, run count, and the worker rules below. Do not copy the
+   parent conversation. Only one worker can be active. Workers must not spawn agents.
+2. Wait for completion notifications or use blocking agent waits. Use the longest wait allowed
+   by the active instructions. After a timeout, wait again without requesting status, listing
+   agents, or reading intermediate output. Keep required user updates brief; do not wake a worker
+   to obtain an update. Workers must not send routine progress messages to the orchestrator.
+3. Read only the compact completion receipt. Confirm that its commit exists on `main`, its
+   changed-path summary fits the assignment, and the epic and handoff record completion and
+   checks. The receipt alone does not prove completion.
+4. If the completion gate passes, give a brief commentary summary with the commit and milestone
+   statuses. Completed earlier milestones can be grouped. Continue without asking the user.
+5. If a correction is clear, send it to the same worker. Allow at most two correction turns per
+   milestone. Stop for a persistent failure, required human decision, or unclear safe next step.
+
+Keep Terra's context small. Do not read worker transcripts, raw logs, ongoing implementation, or
+full diffs by default. Do not repeat source exploration or successful checks. Luna owns
+implementation and verification. After the initial read, read only relevant epic sections and
+handoff changes. Inspect additional source or evidence only for a specific missing field,
+contradiction, failure, or acceptance gap. Request bounded excerpts. Record token usage only
+when tools expose it. Do not claim measured savings without comparable measurements.
+
+Include these worker rules in every assignment:
+
+- Read applicable `AGENTS.md` files, the assigned milestone, relevant contracts and handoff, and
+  the glossary before changing domain terminology. Implement only the assigned milestone.
+- Work directly on `main` in the existing checkout. Do not create a branch or worktree. Inspect
+  Git state first. Preserve unrelated changes. Stop for ambiguous overlap or an existing Git
+  operation. Do not stage unrelated paths.
+- Run the milestone's relevant tests and required lint, format, type, generated API, link, and
+  browser checks. Resolve failures within scope. Record baseline failures separately; they do
+  not waive acceptance criteria. Do not mark incomplete acceptance criteria complete.
+- Update the epic and board. Maintain an `Execution handoff` with changes, checks and outcomes,
+  decisions, limits, next milestone, and this run's requested, completed, and remaining counts.
+  Keep detailed evidence in the handoff or a milestone report, not in the response.
+- Commit implementation, documentation, and plan updates together as one focused milestone
+  commit on `main`. For the final milestone, verify closure criteria, move the epic to the correct
+  folder, and repair links. Return only this receipt, at most 180 words:
+
+```text
+RESULT: COMPLETE | BLOCKED | NEEDS_USER
+MILESTONE:
+COMMIT: hash, or none
+CHANGES: at most three short bullets
+CHECKS: commands/check names and pass/fail; evidence path
+ACCEPTANCE_GAPS: none, or exact gaps
+HANDOFF: path and heading
+NEXT:
+DECISION_NEEDED: none, or one precise question
+```
+
+Use the persistent mode's handoff, compaction, interruption, and stop rules. In this mode, the
+current chat orchestrates the authorized workers; do not create another supervisor, chat, harness,
+or external continuation loop. After compaction, reconcile the handoff and actual Git state.
+Stop at the run limit, epic completion, a user stop request, or a blocker. Do not repeat an action
+with an unknown outcome. End with completed milestones, commits, verification, all milestone
+statuses, remaining work, and any blocker. Another run requires a new user instruction.
+
+### Epic maintenance
+
 When you add or edit an epic:
 
 * use the next unused four-digit epic number for a new file,
