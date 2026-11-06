@@ -94,6 +94,7 @@ from table_evidence_analyzer.visual_identity_crop_input import (
 from dokodetector_backend.config import Settings
 from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_store import (
     PipelineNotFound,
@@ -214,7 +215,6 @@ class VisualIdentityPipelineService:
         run_store: ProcessorRunStore,
         selection_store: PipelineSelectionStore,
         node_store: PipelineNodeStore | None = None,
-        reference_store: Any | None = None,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
@@ -226,7 +226,6 @@ class VisualIdentityPipelineService:
         self.run_store = run_store
         self.selection_store = selection_store
         self.node_store = node_store
-        self.reference_store = reference_store
         self.calibration_store = CalibrationRevisionStore(settings.operations_root)
         self.identity_classifiers = identity_classifiers
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
@@ -1448,24 +1447,14 @@ class VisualIdentityPipelineService:
             if kind == "reviewed_visible_card":
                 if not isinstance(producer, HumanProducer):
                     raise VisualIdentityCropInputError(
-                        "reviewed visible-card input needs a completed maintained reference"
+                        "reviewed visible-card input needs a completed node review"
                     )
-                if require_current_reference:
-                    reference = (
-                        None
-                        if self.reference_store is None
-                        else self.reference_store.get(recording_id, "visible_cards")
+                if require_current_reference and not self._is_selected_completed_node_revision(
+                    recording_id, source_node_id, source_node_revision_id
+                ):
+                    raise VisualIdentityCropInputError(
+                        "the selected revision is not the completed visible-card node"
                     )
-                    if (
-                        reference is None
-                        or reference.state.draft_state != "completed"
-                        or reference.state.selected_completed_revision_id
-                        != revision.manifest.revision_id
-                    ):
-                        raise VisualIdentityCropInputError(
-                            "the selected revision is not the completed maintained "
-                            "visible-card reference"
-                        )
                 items: list[VisualIdentityCropInputItem] = []
                 for outcome in revision.content.outcomes:
                     if outcome.status != "detected" or outcome.frame_identity is None:
@@ -1504,24 +1493,14 @@ class VisualIdentityPipelineService:
             if kind == "reviewed_virtual_card":
                 if not isinstance(producer, HumanProducer):
                     raise VisualIdentityCropInputError(
-                        "reviewed virtual-card geometry needs a completed maintained reference"
+                        "reviewed virtual-card geometry needs a completed node review"
                     )
-                if require_current_reference:
-                    reference = (
-                        None
-                        if self.reference_store is None
-                        else self.reference_store.get(recording_id, "visible_cards")
+                if require_current_reference and not self._is_selected_completed_node_revision(
+                    recording_id, source_node_id, source_node_revision_id
+                ):
+                    raise VisualIdentityCropInputError(
+                        "the selected revision is not the completed visible-card node"
                     )
-                    if (
-                        reference is None
-                        or reference.state.draft_state != "completed"
-                        or reference.state.selected_completed_revision_id
-                        != revision.manifest.revision_id
-                    ):
-                        raise VisualIdentityCropInputError(
-                            "the selected revision is not the completed maintained "
-                            "visible-card reference"
-                        )
                 self._validate_scene_derived_views(revision.content)
                 items, lineage = self._reviewed_virtual_card_items(
                     revision.content,
@@ -1586,6 +1565,31 @@ class VisualIdentityPipelineService:
             raise VisualIdentityPipelineInputError(
                 f"The selected visual identity crop input is invalid: {error}."
             ) from error
+
+    def _is_selected_completed_node_revision(
+        self, recording_id: str, node_id: str, revision_id: str
+    ) -> bool:
+        """Check the execution pointer and completion decision for one exact node revision."""
+        if self.node_store is None:
+            return False
+        try:
+            selection = self.selection_store.get_exact(recording_id, "visible_cards")
+            node = self.node_store.get(node_id)
+            self.node_store.read_revision(node_id, revision_id)
+            reviews = PipelineNodeReviews(self.node_store).list_for_revision(node_id, revision_id)
+        except (FileNotFoundError, KeyError, OSError, TypeError, ValueError):
+            return False
+        if (
+            selection is None
+            or selection.selected_completed_reference
+            != {"node_id": node_id, "revision_id": revision_id}
+            or node.content_type != "visible_cards"
+            or node.source.get("recording_id") != recording_id
+        ):
+            return False
+        return any(
+            review["kind"] == "overall" and review["decision"] == "complete" for review in reviews
+        )
 
     @staticmethod
     def _reviewed_virtual_card_items(

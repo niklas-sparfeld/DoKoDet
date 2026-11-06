@@ -167,7 +167,6 @@ def build_pipeline_composition(
         run_store=run_store,
         selection_store=selection_store,
         node_store=node_store,
-        reference_store=reference_store,
     )
     reference_service.annotation_crop_resolver = (
         visual_identity_service.resolve_reviewed_annotation_crops

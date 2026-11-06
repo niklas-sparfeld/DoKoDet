@@ -54,6 +54,7 @@ from dokodetector_backend import (
     visual_identity_pipeline_service as visual_identity_pipeline_service_module,
 )
 from dokodetector_backend.job_store import CancellationToken
+from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
 from dokodetector_backend.visual_identity_pipeline_service import (
     VisualIdentityPipelineError,
     VisualIdentityPipelineService,
@@ -1279,13 +1280,23 @@ def test_visual_identity_accepts_typed_card_scene_draft_views(tmp_path: Any) -> 
         created_at="2026-01-01T00:00:00Z",
     )
     stored, _ = service.revision_store.publish(manifest, content)
-    service.reference_store = SimpleNamespace(
-        get=lambda _recording_id, _content_type: SimpleNamespace(
-            state=SimpleNamespace(
-                draft_state="completed",
-                selected_completed_revision_id=stored.manifest.revision_id,
-            )
-        )
+    node_id, node_revision_id = service.selection_store.lineage_writer.ensure_revision_node(stored)
+    reviews = PipelineNodeReviews(service.node_store)
+    reviews.overall(
+        "completed-visible-review",
+        node_id,
+        node_revision_id,
+        "Retained data-set completion",
+        "complete",
+        {"kind": "not_recorded", "id": None},
+        {"policy": "test-visible-card-completion/v1", "revision_id": stored.manifest.revision_id},
+    )
+    service.selection_store.update_exact(
+        RECORDING_ID,
+        "visible_cards",
+        expected_revision=0,
+        selected_generated=None,
+        selected_completed_reference={"node_id": node_id, "revision_id": node_revision_id},
     )
     frozen = service._freeze_crop_input(
         RECORDING_ID,
@@ -1315,15 +1326,14 @@ def test_visual_identity_accepts_typed_card_scene_draft_views(tmp_path: Any) -> 
         ).to_mapping()
         == visible_input.to_mapping()
     )
-    service.reference_store = SimpleNamespace(
-        get=lambda _recording_id, _content_type: SimpleNamespace(
-            state=SimpleNamespace(
-                draft_state="completed",
-                selected_completed_revision_id="a-different-reference",
-            )
-        )
+    service.selection_store.update_exact(
+        RECORDING_ID,
+        "visible_cards",
+        expected_revision=1,
+        selected_generated=None,
+        selected_completed_reference=None,
     )
-    with pytest.raises(VisualIdentityPipelineError, match="completed maintained"):
+    with pytest.raises(VisualIdentityPipelineError, match="completed visible-card node"):
         service._freeze_crop_input(
             RECORDING_ID,
             stored,

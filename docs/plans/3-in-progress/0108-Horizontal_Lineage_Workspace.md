@@ -561,6 +561,23 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Next:** Continue the runtime selection and storage removal audit. Verify no caller depends on
   legacy crop digest fields before removing legacy manifest readers.
 - **Run count:** Requested up to 10 Luna workers; completed 4 bounded packages; remaining 6.
+- **Latest package — canonical identity completion selection:** Visual identity crop validation no
+  longer reads `PipelineReferenceStore`. It checks the exact completed-node pointer in
+  `PipelineNodeSelectionStore` and requires an exact overall `complete` decision in
+  `PipelineNodeReviews`. Runtime composition no longer passes the legacy reference store to the
+  identity service. The fixture now creates a canonical node, its review, and its exact execution
+  pointer, then confirms that removing the pointer rejects the input.
+- **Checks:** The full visual-identity API test module passed. Focused Ruff checks, format checks,
+  and `git diff --check` passed. No processor model ran.
+- **Known limit:** Calibration refinement still reads retained legacy review facts and calls the
+  legacy proposal seeding helper. `PipelineReferenceService` and `VisibleCardReviewService` remain
+  in runtime composition for calibration routes. Other execution services still project exact node
+  pointers to legacy revision IDs for processor input contracts. No old storage was deleted.
+- **Next:** Move calibration review validation and draft reflow to canonical node content and
+  revision-bound review records. Then audit the remaining selection projections and remove legacy
+  stores only after recovery and reconciliation checks pass.
+- **Run count:** Requested up to 20 bounded packages; completed 5; remaining 15. M11 remains
+  incomplete.
 
 ### M12 — Verify the complete workflow and close — Not started
 
