@@ -216,6 +216,7 @@ export function PipelineNodeVisualIdentityEditor({
         decision,
         reviewer: { kind: "human", id: reviewerId },
         evidence: {
+          policy: "visual-identity-review/v1",
           frame_identity: selected.frame_identity,
           crop_identity: selected.crop_identity ?? null,
         },
@@ -240,6 +241,7 @@ export function PipelineNodeVisualIdentityEditor({
         decision,
         reviewer: { kind: "human", id: reviewerId },
         evidence: {
+          policy: "visual-identity-review/v1",
           item_count: outcomes.length,
           inspected_item_ids: reviews
             .filter((r) => r.kind === "item")

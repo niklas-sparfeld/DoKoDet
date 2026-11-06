@@ -239,6 +239,7 @@ class PipelineNodeReviews:
                 "event-data/v1": ("events", "event_id"),
                 "visible-card-data/v1": ("outcomes", "event_id"),
                 "visible-card-data/v2": ("outcomes", "event_id"),
+                "visual-identity-data/v1": ("outcomes", "card_id"),
                 "visual-identity-data/v2": ("outcomes", "card_id"),
                 "virtual-scene-data/v1": ("frames", "frame_id"),
             }

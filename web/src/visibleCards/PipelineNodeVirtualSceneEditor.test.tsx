@@ -75,6 +75,76 @@ describe("PipelineNodeVirtualSceneEditor", () => {
     expect(screen.getByText("Frame unusable")).toBeInTheDocument();
   });
 
+  it("includes the review policy for frame, coverage, and data-set decisions", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/revisions/revision-1"))
+        return new Response(
+          JSON.stringify({
+            node_id: "scene-node",
+            name: "Scenes",
+            content_type: "virtual_scenes",
+            head_revision_id: "revision-1",
+            revision_id: "revision-1",
+            content: {
+              schema_version: "virtual-scene-data/v1",
+              frames: [
+                {
+                  frame_id: "frame-1",
+                  frame_identity: {},
+                  calibration: { revision_id: "cal-1", digest: "a".repeat(64) },
+                  scene: { poses: [] },
+                  pile_regions: [],
+                  ignore_regions: [],
+                },
+              ],
+            },
+            metadata: {},
+          }),
+          { status: 200 },
+        );
+      if (init?.method === "POST")
+        expect(JSON.parse(String(init.body)).evidence.policy).toBe(
+          "virtual-scene-review/v1",
+        );
+      return new Response(url.endsWith("/reviews") ? "[]" : "{}", {
+        status: 200,
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <PipelineNodeVirtualSceneEditor
+        recordingId="recording-1"
+        nodeId="scene-node"
+        revisionId="revision-1"
+        selectionItemId="frame-1"
+        onPositionChange={vi.fn()}
+        onRevisionChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Accept frame" }),
+    );
+    await screen.findByText("Review decision saved for this exact revision.");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mark frame inspected" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Record full scene coverage (1/1)" }),
+    );
+    await screen.findByText(
+      "Full scene-frame coverage saved for this exact revision.",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Accept scene data set" }),
+    );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+      ).toHaveLength(3),
+    );
+  });
+
   it("edits the selected scene revision and selects the protected copy", async () => {
     const content = {
       schema_version: "virtual-scene-data/v1",

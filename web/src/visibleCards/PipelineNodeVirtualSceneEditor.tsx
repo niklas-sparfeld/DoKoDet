@@ -281,7 +281,10 @@ export function PipelineNodeVirtualSceneEditor({
           question: "virtual-scene-review/v1",
           decision: decision.endsWith("accept") ? "accept" : "reject",
           reviewer: actor,
-          evidence: { frame_ids: frames.map((frame) => frame.frame_id) },
+          evidence: {
+            policy: "virtual-scene-review/v1",
+            frame_ids: frames.map((frame) => frame.frame_id),
+          },
         });
       } else {
         await reviewPipelineNodeItem(nodeId, {
@@ -292,6 +295,7 @@ export function PipelineNodeVirtualSceneEditor({
           decision,
           reviewer: actor,
           evidence: {
+            policy: "virtual-scene-review/v1",
             calibration_revision_id: selected.calibration.revision_id,
             calibration_digest: selected.calibration.digest,
           },
@@ -325,7 +329,10 @@ export function PipelineNodeVirtualSceneEditor({
           frame_ids: frames.map((frame) => frame.frame_id),
         },
         reviewer: { kind: "human", id: reviewer },
-        evidence: { frame_ids: frames.map((frame) => frame.frame_id) },
+        evidence: {
+          policy: "virtual-scene-review/v1",
+          frame_ids: frames.map((frame) => frame.frame_id),
+        },
       });
       setReviews(await listPipelineNodeReviews(nodeId, revision.revision_id));
       setMessage("Full scene-frame coverage saved for this exact revision.");

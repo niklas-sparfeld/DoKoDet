@@ -335,7 +335,8 @@ unavailable geometry; their original facts remain in node metadata. The active s
 changed. Processor services still use the old revision store, so imported drafts are not yet offered
 as execution inputs. Frame queue links now select exact lineage nodes. Queue receipts use exact
 node review IDs and check the original source and current review applicability. Item reviews can
-also bind directly to an unedited processor revision.
+also bind directly to an unedited processor revision. Virtual-scene and identity review requests
+now include the policy required by the node review service.
 
 ### M12 — Verify the complete workflow and close — Not started
 

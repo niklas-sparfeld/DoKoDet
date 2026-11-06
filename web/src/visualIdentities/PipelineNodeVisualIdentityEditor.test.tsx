@@ -43,6 +43,39 @@ describe("PipelineNodeVisualIdentityEditor", () => {
     vi.stubGlobal("fetch", vi.fn());
   });
 
+  it("includes the review policy for identity and data-set decisions", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(revision))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({}))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({}))
+      .mockResolvedValueOnce(jsonResponse([]));
+    render(
+      <PipelineNodeVisualIdentityEditor
+        recordingId="recording-1"
+        nodeId="identities"
+        revisionId="r1"
+        selectionItemId="card-1"
+        onPositionChange={vi.fn()}
+        onRevisionChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Accept identity" }),
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body)).evidence.policy,
+    ).toBe("visual-identity-review/v1");
+    fireEvent.click(screen.getByRole("button", { name: "Accept data set" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[4]?.[1]?.body)).evidence.policy,
+    ).toBe("visual-identity-review/v1");
+  });
+
   it("edits a classification without changing its crop source and selects the protected copy", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock
