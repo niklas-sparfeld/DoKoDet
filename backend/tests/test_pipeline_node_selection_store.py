@@ -43,7 +43,7 @@ def test_exact_selection_roundtrips_without_legacy_mapping(tmp_path: Path) -> No
 
     assert saved.revision == 1
     assert selections.get_exact("recording-01", "events") == saved
-    projected = selections.get("recording-01", "events")
+    projected = selections.get_for_execution("recording-01", "events")
     assert projected is not None
     assert projected.selected_generated_revision_id == revision.revision_id
 
@@ -68,7 +68,7 @@ def test_runtime_selection_does_not_read_legacy_revision_map(tmp_path: Path) -> 
     )
     (nodes.root / ".legacy-revision-map.json").write_text("not json")
 
-    projected = selections.get("recording-01", "events")
+    projected = selections.get_for_execution("recording-01", "events")
 
     assert projected is not None
     assert projected.selected_generated_revision_id == "old-event-revision"

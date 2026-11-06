@@ -382,7 +382,7 @@ class ProposedCardScenePipelineService:
                 }
                 revision_id = exact.selected_generated["revision_id"]
             else:
-                selection = self.selection_store.get(recording_id, "visible_cards")
+                selection = self.selection_store.get_for_execution(recording_id, "visible_cards")
                 revision_id = (
                     None if selection is None else selection.selected_generated_revision_id
                 )

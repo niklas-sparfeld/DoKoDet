@@ -93,7 +93,7 @@ def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Pat
         assert app.state.pipeline_workspace_service.selection_store is selection_store
         assert (
             selection_store.root
-            == app.state.pipeline_lineage_service.store.root / ".migrated-selections"
+            == app.state.pipeline_lineage_service.store.root / ".pipeline-node-selections"
         )
         assert not hasattr(app.state, "pipeline_reference_service")
         assert not hasattr(app.state, "pipeline_reference_store")
@@ -564,7 +564,7 @@ def test_recording_pipeline_workspace_reads_each_selection_once(
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
     selection_store = app.state.pipeline_selection_store
-    original_get = selection_store.get
+    original_get = selection_store.get_for_execution
     calls: list[tuple[str, str]] = []
 
     def traced_get(recording_id: str, content_type: str, **kwargs):
@@ -574,7 +574,7 @@ def test_recording_pipeline_workspace_reads_each_selection_once(
     def fail_full_lineage_snapshot(*_args, **_kwargs):
         raise AssertionError("workspace summaries must not rebuild the full lineage graph")
 
-    monkeypatch.setattr(selection_store, "get", traced_get)
+    monkeypatch.setattr(selection_store, "get_for_execution", traced_get)
     monkeypatch.setattr(app.state.pipeline_lineage_service, "snapshot", fail_full_lineage_snapshot)
 
     workspace = app.state.pipeline_workspace_service.get_workspace(RECORDING_ID)

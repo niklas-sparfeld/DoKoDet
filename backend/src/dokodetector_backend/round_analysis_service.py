@@ -397,7 +397,9 @@ class RoundAnalysisService:
     def _selected_table_observation_revision_id(self, recording_id: str) -> str | None:
         if self.pipeline_selection_store is None:
             return None
-        selection = self.pipeline_selection_store.get(recording_id, "table_observations")
+        selection = self.pipeline_selection_store.get_for_execution(
+            recording_id, "table_observations"
+        )
         if selection is None:
             return None
         return (

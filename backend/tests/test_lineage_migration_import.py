@@ -255,7 +255,9 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
     assert run["result"] == "empty"
     assert run["outputs"][0]["node_id"] == node_id
     assert run["outputs"][0]["revision_id"] == node_revision_id
-    migrated_selection = (store_root / ".migrated-selections/recording-01/events.json").read_bytes()
+    migrated_selection = (
+        store_root / ".pipeline-node-selections/recording-01/events.json"
+    ).read_bytes()
     assert (
         b'"selected_generated":{"node_id":"migrated-node-01",'
         b'"revision_id":"migrated-revision-01"}' in migrated_selection
@@ -279,11 +281,11 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
             PipelineRuntimeStorage(tmp_path / "runtime", package / "evidence/operations")
         ),
     )
-    selected = selection_store.get("recording-01", "events")
+    selected = selection_store.get_for_execution("recording-01", "events")
     assert selected is not None
     assert selected.revision == 2
     assert selected.selected_generated_revision_id == old_revision_id
-    updated = selection_store.update_pointers(
+    updated = selection_store.update_execution_pointers(
         "recording-01",
         "events",
         expected_revision=2,
@@ -293,7 +295,7 @@ def test_import_package_maps_revision_and_terminal_run_idempotently(tmp_path: Pa
     assert updated.revision == 3
     assert updated.selected_generated_revision_id == old_revision_id
     stored_graph_selection = json.loads(
-        (store_root / ".migrated-selections/recording-01/events.json").read_bytes()
+        (store_root / ".pipeline-node-selections/recording-01/events.json").read_bytes()
     )
     assert stored_graph_selection["selected_generated"] == {
         "node_id": node_id,

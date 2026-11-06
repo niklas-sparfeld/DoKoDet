@@ -587,7 +587,7 @@ class RecordingPipelineWorkspaceService:
         revision_manifests: Mapping[str, Any] | None = None,
     ) -> Any:
         try:
-            selection = self.selection_store.get(
+            selection = self.selection_store.get_for_execution(
                 recording_id,
                 content_type,
                 revision_cache=revision_cache,

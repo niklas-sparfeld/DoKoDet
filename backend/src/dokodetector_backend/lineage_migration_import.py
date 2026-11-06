@@ -526,7 +526,7 @@ def _import_selections(
     store: PipelineNodeStore,
 ) -> int:
     """Store migrated selection pointers as exact node and revision identities."""
-    root = store.root / ".migrated-selections"
+    root = store.root / ".pipeline-node-selections"
     imported = 0
     for item in resources:
         if item["kind"] != "selection":
@@ -562,7 +562,6 @@ def _import_selections(
             "selected_generated": mapped["generated"],
             "selected_completed_reference": mapped["completed_reference"],
             "updated_at": selection.updated_at,
-            "legacy_selection_id": item["old_id"],
         }
         path = contained_path(
             root / selection.recording_id,

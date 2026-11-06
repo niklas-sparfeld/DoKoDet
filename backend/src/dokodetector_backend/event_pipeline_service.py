@@ -423,10 +423,10 @@ class EventPipelineService:
             raise PipelineInputError("expected_revision must be a non-negative integer.")
         if selected is not None and not isinstance(selected, str):
             raise PipelineInputError("selected_generated_revision_id must be a string or null.")
-        current = self.selection_store.get(recording_id, "events")
+        current = self.selection_store.get_for_execution(recording_id, "events")
         completed = None if current is None else current.selected_completed_reference_revision_id
         try:
-            return self.selection_store.update_pointers(
+            return self.selection_store.update_execution_pointers(
                 recording_id,
                 "events",
                 expected_revision=expected_revision,
@@ -997,11 +997,11 @@ class EventPipelineService:
         return stored
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:
-        current = self.selection_store.get(recording_id, "events")
+        current = self.selection_store.get_for_execution(recording_id, "events")
         expected = 0 if current is None else current.revision
         completed = None if current is None else current.selected_completed_reference_revision_id
         try:
-            self.selection_store.update_pointers(
+            self.selection_store.update_execution_pointers(
                 recording_id,
                 "events",
                 expected_revision=expected,

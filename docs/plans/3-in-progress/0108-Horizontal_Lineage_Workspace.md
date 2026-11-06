@@ -769,6 +769,34 @@ the visible-card head update and confirms restart recovery publishes both heads 
 - **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
   complete. M11 remains in progress. Up to 19 worker loops remain if needed.
 
+- **Latest package — make graph selections the only stored selector:** The active selection
+  directory is now `.pipeline-node-selections`. The redundant `legacy_selection_id` field was
+  removed from all 136 selection records without changing any generated or completed-reference
+  node/revision pointer. The pre-cutover selections remain in the verified recovery snapshot and a
+  second local archive. The migration importer writes the canonical path. The generic projected
+  `get`/`update` calls are now explicit execution-selection methods; exact inspection uses
+  `get_exact` and `update_exact`.
+- **Recovery evidence:** `data/operations-recovery/0108-m11-20261106/selection-store-cutover.json`
+  records the 136-to-136 cutover and unchanged pointer check. The recovery copy in
+  `migrated-selections-before-cutover` matches the prior source hashes. A direct audit confirmed
+  all 187 stored node/revision pointers resolve to nodes with the expected recording and content
+  type, and to existing revision records.
+- **Checks:** Eight focused backend modules passed (62 tests), including selection concurrency,
+  transaction recovery, migration import, workspace APIs, processor APIs, and run APIs. Ruff and
+  format checks passed. The exact selection data audit passed. An initial audit through the full
+  runtime reader exceeded three minutes because each pointer read recovers the full transaction
+  store; it was stopped and replaced with the bounded direct pointer audit. This cost is recorded
+  as a runtime reader performance issue, not a test failure.
+- **Known limit:** Processor callers still need legacy revision IDs for their current request and
+  run contracts. `get_for_execution` and `update_execution_pointers` still translate exact node
+  pointers at that boundary. Calibration still uses reference-shaped working data and processor
+  publication still adapts old revision records into nodes. M11 remains incomplete.
+- **Next:** Change processor selection requests and frozen inputs to exact node/revision references,
+  then remove the execution-ID projection. Replace calibration's reference-shaped working data and
+  remove the remaining duplicate processor publication path. Keep explicit execution choices.
+- **Run count:** This request allows up to 20 worker loops. Worker 1 is active; 0 milestones are
+  complete. M11 remains in progress. Up to 19 worker loops remain if needed.
+
 ### M12 — Verify the complete workflow and close — Not started
 
 Run focused automated tests, web build/type/lint/format/API checks, relevant backend checks, and

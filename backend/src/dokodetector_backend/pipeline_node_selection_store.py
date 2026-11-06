@@ -61,7 +61,7 @@ class ExactNodeSelection:
 
 
 class PipelineNodeSelectionStore:
-    """Bridge existing pipeline callers to graph-backed selection records."""
+    """Store exact graph selections and expose explicit processor execution choices."""
 
     def __init__(
         self,
@@ -72,7 +72,7 @@ class PipelineNodeSelectionStore:
         self.node_store = node_store
         self.revision_store = revision_store
         self.lineage_writer = lineage_writer
-        self.root = node_store.root / ".migrated-selections"
+        self.root = node_store.root / ".pipeline-node-selections"
         self._lock = RLock()
 
     def selection_path(self, recording_id: str, content_type: str) -> Path:
@@ -133,7 +133,6 @@ class PipelineNodeSelectionStore:
                 "selected_generated": generated,
                 "selected_completed_reference": completed,
                 "updated_at": _canonical_timestamp(updated_at),
-                "legacy_selection_id": f"{recording_id}/{content_type}",
             }
             atomic_replace_json(path, canonical_json_bytes(raw))
             stored = self.get_exact(recording_id, content_type)
@@ -169,7 +168,6 @@ class PipelineNodeSelectionStore:
             "selected_generated",
             "selected_completed_reference",
             "updated_at",
-            "legacy_selection_id",
         }:
             raise ValueError("invalid exact node selection record")
         if (
@@ -179,7 +177,6 @@ class PipelineNodeSelectionStore:
             or isinstance(raw["revision"], bool)
             or not isinstance(raw["revision"], int)
             or raw["revision"] < 1
-            or raw["legacy_selection_id"] != f"{recording_id}/{content_type}"
             or not isinstance(raw["updated_at"], str)
         ):
             raise ValueError("exact node selection identity is invalid")
@@ -193,7 +190,7 @@ class PipelineNodeSelectionStore:
             recording_id, content_type, raw["revision"], generated, completed, raw["updated_at"]
         )
 
-    def get(
+    def get_for_execution(
         self,
         recording_id: str,
         content_type: str,
@@ -213,7 +210,6 @@ class PipelineNodeSelectionStore:
                 "selected_generated",
                 "selected_completed_reference",
                 "updated_at",
-                "legacy_selection_id",
             }:
                 raise ValueError("invalid node selection record")
             if (
@@ -222,15 +218,15 @@ class PipelineNodeSelectionStore:
                 or raw["content_type"] != content_type
             ):
                 raise ValueError("node selection identity mismatch")
-            legacy_ids = {
-                "generated": self._legacy_id(
+            execution_ids = {
+                "generated": self._execution_revision_id(
                     raw["selected_generated"],
                     recording_id,
                     content_type,
                     revision_cache=revision_cache,
                     revision_manifests=revision_manifests,
                 ),
-                "completed_reference": self._legacy_id(
+                "completed_reference": self._execution_revision_id(
                     raw["selected_completed_reference"],
                     recording_id,
                     content_type,
@@ -244,8 +240,10 @@ class PipelineNodeSelectionStore:
                     "revision": raw["revision"],
                     "recording_id": recording_id,
                     "content_type": content_type,
-                    "selected_generated_revision_id": legacy_ids["generated"],
-                    "selected_completed_reference_revision_id": legacy_ids["completed_reference"],
+                    "selected_generated_revision_id": execution_ids["generated"],
+                    "selected_completed_reference_revision_id": execution_ids[
+                        "completed_reference"
+                    ],
                     "updated_at": raw["updated_at"],
                 }
             )
@@ -254,7 +252,7 @@ class PipelineNodeSelectionStore:
         except (OSError, TypeError, UnicodeError, ValueError, KeyError):
             return None
 
-    def list(self) -> tuple[PipelineSelection, ...]:
+    def list_for_execution(self) -> tuple[PipelineSelection, ...]:
         if self.root.is_symlink() or not self.root.is_dir():
             return ()
         selections = []
@@ -263,15 +261,19 @@ class PipelineNodeSelectionStore:
             if directory.is_symlink() or not directory.is_dir() or directory.name.startswith("."):
                 continue
             for path in sorted(directory.glob("*.json"), key=lambda item: item.name):
-                selection = self.get(directory.name, path.stem, revision_cache=revision_cache)
+                selection = self.get_for_execution(
+                    directory.name, path.stem, revision_cache=revision_cache
+                )
                 if selection is not None:
                     selections.append(selection)
         return tuple(selections)
 
-    def list_for_recording(self, recording_id: str) -> tuple[PipelineSelection, ...]:
-        return tuple(item for item in self.list() if item.recording_id == recording_id)
+    def list_execution_for_recording(self, recording_id: str) -> tuple[PipelineSelection, ...]:
+        return tuple(
+            item for item in self.list_for_execution() if item.recording_id == recording_id
+        )
 
-    def update(
+    def update_for_execution(
         self,
         recording_id: str,
         content_type: str,
@@ -287,7 +289,9 @@ class PipelineNodeSelectionStore:
         )
         path = self.selection_path(recording_id, content_type)
         with _process_lock(path.parent / f".{path.stem}.lock", self._lock):
-            current = self.get(recording_id, content_type, revision_cache=revision_cache)
+            current = self.get_for_execution(
+                recording_id, content_type, revision_cache=revision_cache
+            )
             if current is None and (path.exists() or path.is_symlink()):
                 raise PipelineStoreError("The existing graph selection is invalid.")
             current_revision = 0 if current is None else current.revision
@@ -310,15 +314,14 @@ class PipelineNodeSelectionStore:
                 "selected_generated": generated,
                 "selected_completed_reference": completed,
                 "updated_at": _canonical_timestamp(updated_at),
-                "legacy_selection_id": f"{recording_id}/{content_type}",
             }
             atomic_replace_json(path, canonical_json_bytes(record))
-            stored = self.get(recording_id, content_type)
+            stored = self.get_for_execution(recording_id, content_type)
             if stored is None:
                 raise PipelineStoreError("The updated graph selection failed validation.")
             return stored
 
-    def update_pointers(
+    def update_execution_pointers(
         self,
         recording_id: str,
         content_type: str,
@@ -329,7 +332,7 @@ class PipelineNodeSelectionStore:
         updated_at: datetime | str | None = None,
         revision_cache: dict[str, Any] | None = None,
     ) -> PipelineSelection:
-        return self.update(
+        return self.update_for_execution(
             recording_id,
             content_type,
             PipelineSelectionUpdate(
@@ -379,7 +382,7 @@ class PipelineNodeSelectionStore:
             raise ValueError("selection revision has no matching graph revision")
         return {"node_id": node_id, "revision_id": node_revision_id}
 
-    def _legacy_id(
+    def _execution_revision_id(
         self,
         reference: Any,
         recording_id: str,
@@ -396,15 +399,15 @@ class PipelineNodeSelectionStore:
         revision_id = reference["revision_id"]
         node = self.node_store.get(node_id)
         record = self.node_store.read_revision_record(node_id, revision_id)
-        legacy_id = record.metadata.get("legacy_revision_id", revision_id)
+        execution_id = record.metadata.get("legacy_revision_id", revision_id)
         if (
             node.content_type != content_type
             or node.source.get("recording_id") != recording_id
-            or not isinstance(legacy_id, str)
+            or not isinstance(execution_id, str)
             or not self.node_store.has_revision(node_id, revision_id)
         ):
             raise ValueError("node selection points to an incompatible revision")
-        return legacy_id
+        return execution_id
 
 
 __all__ = ["PipelineNodeSelectionStore"]

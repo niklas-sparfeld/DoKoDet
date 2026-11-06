@@ -981,8 +981,8 @@ def _manual_event_revision(
         content=content,
     )
     stored, _ = app.state.pipeline_revision_store.publish(revision)
-    current = app.state.pipeline_selection_store.get(RECORDING_ID, "events")
-    app.state.pipeline_selection_store.update_pointers(
+    current = app.state.pipeline_selection_store.get_for_execution(RECORDING_ID, "events")
+    app.state.pipeline_selection_store.update_execution_pointers(
         RECORDING_ID,
         "events",
         expected_revision=0 if current is None else current.revision,
@@ -1023,7 +1023,7 @@ def test_visible_card_run_requires_an_explicit_event_input_when_a_selection_exis
             json={"run_id": "visible-no-event-input"},
         )
 
-    assert app.state.pipeline_selection_store.get(RECORDING_ID, "events") is not None
+    assert app.state.pipeline_selection_store.get_for_execution(RECORDING_ID, "events") is not None
     assert selected_revision_id == "events-manual-reference"
     assert response.status_code == 422
     assert "explicit event input" in response.json()["error"]["message"]

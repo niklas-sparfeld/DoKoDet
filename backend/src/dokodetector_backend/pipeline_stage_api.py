@@ -268,7 +268,7 @@ def get_generated_selection(recording_id: str, request: Request) -> dict[str, An
     """Return the current generated and completed-reference event pointers."""
 
     validate_recording_id(recording_id)
-    selection = _event_service(request).selection_store.get(recording_id, "events")
+    selection = _event_service(request).selection_store.get_for_execution(recording_id, "events")
     return {
         "recording_id": recording_id,
         "selection": None if selection is None else selection.to_mapping(),
@@ -358,7 +358,9 @@ def get_visible_card_selection(recording_id: str, request: Request) -> dict[str,
     """Return the current visible-card generated and reference pointers."""
 
     validate_recording_id(recording_id)
-    selection = _visible_service(request).selection_store.get(recording_id, "visible_cards")
+    selection = _visible_service(request).selection_store.get_for_execution(
+        recording_id, "visible_cards"
+    )
     return {
         "recording_id": recording_id,
         "selection": None if selection is None else selection.to_mapping(),
@@ -624,7 +626,7 @@ def get_visual_identity_selection(recording_id: str, request: Request) -> dict[s
     """Return the current visual identity generated and reference pointers."""
 
     validate_recording_id(recording_id)
-    selection = _visual_identity_service(request).selection_store.get(
+    selection = _visual_identity_service(request).selection_store.get_for_execution(
         recording_id, "visual_identities"
     )
     return {
@@ -707,7 +709,7 @@ def get_observation_selection(recording_id: str, request: Request) -> dict[str, 
     """Return the current table-observation generated and reference pointers."""
 
     validate_recording_id(recording_id)
-    selection = _observation_service(request).selection_store.get(
+    selection = _observation_service(request).selection_store.get_for_execution(
         recording_id, "table_observations"
     )
     return {

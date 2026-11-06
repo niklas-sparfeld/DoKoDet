@@ -209,10 +209,10 @@ class VisibleCardPipelineService:
             raise VisibleCardPipelineInputError(
                 "selected_generated_revision_id must be a string or null."
             )
-        current = self.selection_store.get(recording_id, "visible_cards")
+        current = self.selection_store.get_for_execution(recording_id, "visible_cards")
         completed = None if current is None else current.selected_completed_reference_revision_id
         try:
-            return self.selection_store.update_pointers(
+            return self.selection_store.update_execution_pointers(
                 recording_id,
                 "visible_cards",
                 expected_revision=expected_revision,
@@ -945,11 +945,11 @@ class VisibleCardPipelineService:
         return stored
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:
-        current = self.selection_store.get(recording_id, "visible_cards")
+        current = self.selection_store.get_for_execution(recording_id, "visible_cards")
         expected = 0 if current is None else current.revision
         completed = None if current is None else current.selected_completed_reference_revision_id
         try:
-            self.selection_store.update_pointers(
+            self.selection_store.update_execution_pointers(
                 recording_id,
                 "visible_cards",
                 expected_revision=expected,
