@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -203,243 +205,50 @@ def _python_imports_test_support(path: Path) -> bool:
     )
 
 
-_TS_IDENTIFIER = re.compile(r"[A-Za-z_$][\w$]*")
-_TS_NUMBER = re.compile(r"(?:0[xX][\da-fA-F]+|\d+(?:\.\d*)?)(?:[eE][+-]?\d+)?")
-_TS_REGEX_PREFIXES = {
-    "(",
-    "[",
-    "{",
-    ",",
-    ";",
-    ":",
-    "=",
-    "!",
-    "?",
-    "&",
-    "|",
-    "+",
-    "-",
-    "*",
-    "%",
-    "^",
-    "~",
-    "<",
-    ">",
-    "=>",
-    "return",
-    "case",
-    "throw",
-    "else",
-    "do",
-    "yield",
-    "await",
-    "typeof",
-    "void",
-    "delete",
-    "in",
-    "of",
+def _typescript_import_modules(sources: dict[str, str]) -> dict[str, list[str]]:
+    """Return static TypeScript module references found by the project's TS parser."""
+    parser = r"""
+const ts = require("./web/node_modules/typescript");
+const sources = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+const modules = node => {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  return undefined;
+};
+const result = {};
+for (const [name, source] of Object.entries(sources)) {
+  const file = ts.createSourceFile(name, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const found = [];
+  const visit = node => {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) {
+      const value = modules(node.moduleSpecifier);
+      if (value !== undefined) found.push(value);
+    } else if (ts.isCallExpression(node)) {
+      const isDynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
+      const isRequire = ts.isIdentifier(node.expression) && node.expression.text === "require";
+      if (isDynamicImport || isRequire) {
+        const value = modules(node.arguments[0]);
+        if (value !== undefined) found.push(value);
+      }
+    } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+      const value = modules(node.moduleReference.expression);
+      if (value !== undefined) found.push(value);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  result[name] = found;
 }
-
-
-def _typescript_tokens(source: str) -> list[tuple[str, str]]:
-    """Tokenize executable code, skipping comments, regexes, and template text."""
-    tokens: list[tuple[str, str]] = []
-
-    def scan_code(position: int, stop_at_brace: bool = False) -> int:
-        brace_depth = 0
-        while position < len(source):
-            char = source[position]
-            if char.isspace():
-                position += 1
-                continue
-            if source.startswith("//", position):
-                newline = source.find("\n", position + 2)
-                position = len(source) if newline == -1 else newline + 1
-                continue
-            if source.startswith("/*", position):
-                end = source.find("*/", position + 2)
-                position = len(source) if end == -1 else end + 2
-                continue
-            if stop_at_brace and char == "}":
-                if brace_depth == 0:
-                    return position + 1
-                brace_depth -= 1
-            elif char == "{":
-                brace_depth += 1
-
-            if char in "'\"":
-                quote = char
-                end = position + 1
-                value: list[str] = []
-                while end < len(source):
-                    current = source[end]
-                    if current == "\\" and end + 1 < len(source):
-                        value.extend((current, source[end + 1]))
-                        end += 2
-                        continue
-                    if current == quote:
-                        end += 1
-                        break
-                    value.append(current)
-                    end += 1
-                tokens.append(("string", "".join(value)))
-                position = end
-                continue
-
-            if char == "`":
-                end = position + 1
-                value: list[str] = []
-                has_interpolation = False
-                while end < len(source):
-                    current = source[end]
-                    if current == "\\" and end + 1 < len(source):
-                        value.extend((current, source[end + 1]))
-                        end += 2
-                        continue
-                    if current == "`":
-                        end += 1
-                        break
-                    if source.startswith("${", end):
-                        has_interpolation = True
-                        end = scan_code(end + 2, stop_at_brace=True)
-                        continue
-                    value.append(current)
-                    end += 1
-                # Keep a static template as a module literal. Its executable
-                # interpolations were already tokenized by scan_code.
-                if not has_interpolation:
-                    tokens.append(("template", "".join(value)))
-                else:
-                    tokens.append(("expression", "template"))
-                position = end
-                continue
-
-            if char == "/" and _can_start_typescript_regex(tokens):
-                end = position + 1
-                in_character_class = False
-                while end < len(source) and source[end] not in "\r\n":
-                    current = source[end]
-                    if current == "\\":
-                        end += 2
-                        continue
-                    if current == "[":
-                        in_character_class = True
-                    elif current == "]":
-                        in_character_class = False
-                    elif current == "/" and not in_character_class:
-                        end += 1
-                        while end < len(source) and source[end].isalpha():
-                            end += 1
-                        break
-                    end += 1
-                tokens.append(("expression", "regex"))
-                position = end
-                continue
-
-            identifier = _TS_IDENTIFIER.match(source, position)
-            if identifier:
-                tokens.append(("identifier", identifier.group()))
-                position = identifier.end()
-                continue
-            number = _TS_NUMBER.match(source, position)
-            if number:
-                tokens.append(("expression", "number"))
-                position = number.end()
-                continue
-
-            operator = next(
-                (
-                    item
-                    for item in ("=>", "?.", "==", "!=", "<=", ">=", "&&", "||", "??")
-                    if source.startswith(item, position)
-                ),
-                char,
-            )
-            tokens.append(("punct", operator))
-            position += len(operator)
-        return position
-
-    scan_code(0)
-    return tokens
-
-
-def _can_start_typescript_regex(tokens: list[tuple[str, str]]) -> bool:
-    if not tokens:
-        return True
-    kind, token = tokens[-1]
-    return (
-        kind == "punct"
-        and token in _TS_REGEX_PREFIXES
-        or (kind == "identifier" and token in _TS_REGEX_PREFIXES)
+process.stdout.write(JSON.stringify(result));
+"""
+    completed = subprocess.run(
+        ["node", "-e", parser],
+        cwd=ROOT,
+        input=json.dumps(sources),
+        capture_output=True,
+        text=True,
+        check=True,
     )
-
-
-def _typescript_import_modules(source: str) -> list[str]:
-    """Return statically named TypeScript imports without scanning comments or strings."""
-    tokens = _typescript_tokens(source)
-    modules: list[str] = []
-
-    def module_at(index: int) -> str | None:
-        if index >= len(tokens):
-            return None
-        kind, token = tokens[index]
-        if kind == "string":
-            return token
-        if kind == "template":
-            return token
-        return None
-
-    for index, (kind, token) in enumerate(tokens):
-        if kind != "identifier":
-            continue
-        if token == "require" and index + 2 < len(tokens):
-            if tokens[index + 1] == ("punct", "("):
-                module = module_at(index + 2)
-                if module is not None:
-                    modules.append(module)
-            continue
-        if token not in {"import", "export"}:
-            continue
-        if index + 1 < len(tokens) and tokens[index + 1][0] in {
-            "string",
-            "template",
-        }:
-            module = module_at(index + 1)
-            if module is not None:
-                modules.append(module)
-            continue
-        if token == "import" and index + 2 < len(tokens):
-            if tokens[index + 1] == ("punct", "("):
-                module = module_at(index + 2)
-                if module is not None:
-                    modules.append(module)
-                continue
-            if tokens[index + 1] == ("punct", "."):
-                continue
-        for cursor in range(index + 1, len(tokens)):
-            next_kind, next_token = tokens[cursor]
-            if next_kind == "punct" and next_token == ";":
-                break
-            if next_kind == "identifier" and next_token in {"import", "export"}:
-                break
-            if next_kind == "identifier" and next_token == "from":
-                module = module_at(cursor + 1)
-                if module is not None:
-                    modules.append(module)
-                break
-    return modules
-
-
-def _typescript_imports_test_support(path: Path) -> bool:
-    for module in _typescript_import_modules(path.read_text()):
-        parts = [part.lower() for part in module.split("/") if part not in {".", ".."}]
-        if any(
-            part in {"test", "tests", "__tests__", "test_support"} for part in parts
-        ):
-            return True
-        if parts and re.search(r"test.?fixtures?(?:\.tsx?)?$", parts[-1]):
-            return True
-    return False
+    return json.loads(completed.stdout)
 
 
 def production_test_support_imports(root: Path) -> list[str]:
@@ -451,23 +260,33 @@ def production_test_support_imports(root: Path) -> list[str]:
             violations.append(path.relative_to(root).as_posix())
 
     web_source = root / "web/src"
-    for base in (web_source,):
-        for path in (*base.rglob("*.ts"), *base.rglob("*.tsx")):
-            relative_parts = path.relative_to(base).parts
-            if any(
-                part.lower() in {"test", "tests", "__tests__"}
-                for part in relative_parts[:-1]
-            ):
-                continue
-            if path.name.lower().endswith(
-                (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")
-            ):
-                continue
-            if "testfixtures" in path.name.lower():
-                continue
-            if _typescript_imports_test_support(path):
-                violations.append(path.relative_to(root).as_posix())
+    web_sources: dict[str, str] = {}
+    for path in (*web_source.rglob("*.ts"), *web_source.rglob("*.tsx")):
+        relative_parts = path.relative_to(web_source).parts
+        if any(
+            part.lower() in {"test", "tests", "__tests__"}
+            for part in relative_parts[:-1]
+        ):
+            continue
+        if path.name.lower().endswith(
+            (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")
+        ):
+            continue
+        if "testfixtures" in path.name.lower():
+            continue
+        key = path.relative_to(root).as_posix()
+        web_sources[key] = path.read_text()
+    for filename, modules in _typescript_import_modules(web_sources).items():
+        if any(_module_is_test_support(module) for module in modules):
+            violations.append(filename)
     return sorted(violations)
+
+
+def _module_is_test_support(module: str) -> bool:
+    parts = [part.lower() for part in module.split("/") if part not in {".", ".."}]
+    if any(part in {"test", "tests", "__tests__", "test_support"} for part in parts):
+        return True
+    return bool(parts and re.search(r"test.?fixtures?(?:\.tsx?)?$", parts[-1]))
 
 
 def main() -> int:

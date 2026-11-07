@@ -26,7 +26,7 @@ also checks every extracted module and focused test in its explicit list.
 The old `pipeline_store.py` no longer exists. Its retained storage responsibilities have focused
 owners; the M4 report records the complete owner sizes and the migration-only legacy reader.
 
-## Open verification gap
+## Verification gap resolved
 
 Resolved by epic 0116 M0. The TypeScript guard now rejects fixture imports with explicit `.ts` and
 `.tsx` extensions and imports through `__tests__` paths. Regression coverage checks static imports,
@@ -124,19 +124,23 @@ production behavior or demonstrate speed gains.
 
 ## Epic 0116 M0 closeout
 
-The scanner tokenizes TypeScript code before matching imports. It inspects executable template
-interpolations and skips regex literals, comments, and ordinary string contents. It checks quoted
-and static template-literal module paths, and recognizes `.ts` and `.tsx` fixture suffixes and
-`__tests__` segments. Focused tests cover static imports, re-exports, quoted and template-literal
-dynamic imports, imports inside template interpolations, `require`, regex literals, valid production
-imports, and test-only files. The repository guard and Ruff checks pass. The correction was
-verified on integrated source revision `17163374c`; its implementation is committed in `36921cc7`.
+The guard uses the TypeScript compiler parser already declared by the web project to find static
+imports, re-exports, dynamic imports, and `require` calls. The parser distinguishes regex literals
+from executable code, including after an `if` condition, and visits nested template interpolations.
+Focused tests cover fixture imports, valid production imports, regex literals, and test-only files.
+The new false-positive regression and repository-wide guard pass. Ruff checks pass.
 
-## Remaining guard limitation
+## Resolved guard limitation
 
-A final read-only review found a false positive when a regular expression is an expression
-statement after an `if` condition. For example,
-`if (ready) /import("runControlsTestFixtures.ts")/.test(value);` is valid TypeScript, but the
-guard reports its regex contents as an import. Add a regression and correct regex recognition
-before claiming that all legitimate production source passes. The Luna run stopped after its
-two permitted correction turns.
+The TypeScript parser no longer reports the regex in
+`if (ready) /import("runControlsTestFixtures.ts")/.test(value);` as an import. Parser-backed
+regressions also confirm that actual static and dynamic imports remain detectable, including
+imports inside nested template interpolations. The focused checks pass on this source revision.
+
+Checks on this correction:
+
+- `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py` — 12 passed.
+- `python scripts/check_0112_boundaries.py` — passed explicit budgets and import directions.
+- `mise exec -- uv run --project backend ruff check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py` — passed.
+- `mise exec -- uv run --project backend ruff format --check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py` — passed.
+- `git diff --check` — passed.
