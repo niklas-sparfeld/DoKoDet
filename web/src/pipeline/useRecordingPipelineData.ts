@@ -41,7 +41,6 @@ export function useRecordingPipelineData(
     error: string;
   } | null>(null);
   const [lineageRefresh, setLineageRefresh] = useState(0);
-  const workspaceLoadIdentityRef = useRef<string | null>(null);
   const workspaceRequestRef = useRef(0);
 
   const loadWorkspace = useCallback(
@@ -87,12 +86,10 @@ export function useRecordingPipelineData(
       loadedStageKey === (stageKey ?? "events")
     )
       return;
-    const loadIdentity = `${recordingId}:${stageKey ?? "events"}`;
-    if (workspaceLoadIdentityRef.current === loadIdentity) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      if (workspaceLoadIdentityRef.current === loadIdentity) return;
-      workspaceLoadIdentityRef.current = loadIdentity;
+      setLoading(true);
+      setError(null);
       void loadWorkspace(controller.signal);
     }, 0);
     return () => {

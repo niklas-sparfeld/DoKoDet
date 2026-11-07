@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { ApiError } from "../api/transport";
 import type { DokoDetectorClient } from "../api/clientTypes";
@@ -59,7 +66,17 @@ export function useRecordingPipelineSelection({
   urlState: PipelineUrlState;
   setUrlState: (state: PipelineUrlState) => void;
 }) {
-  const [selectionBusy, setSelectionBusy] = useState(false);
+  const [busyRequest, setBusyRequest] = useState<{
+    owner: { recordingId: string };
+    requestId: number;
+  } | null>(null);
+  const recordingOwner = useMemo(() => ({ recordingId }), [recordingId]);
+  const recordingOwnerRef = useRef(recordingOwner);
+  const requestIdRef = useRef(0);
+  useLayoutEffect(() => {
+    recordingOwnerRef.current = recordingOwner;
+    requestIdRef.current += 1;
+  }, [recordingOwner]);
 
   const navigateTo = useCallback((path: string, replace = false): void => {
     if (replace) window.history.replaceState({}, "", path);
@@ -89,7 +106,11 @@ export function useRecordingPipelineSelection({
   const selectGeneratedRevision = useCallback(
     async (nextRevisionId: string | null): Promise<void> => {
       if (stage === undefined || stage.key === "round_analyses") return;
-      setSelectionBusy(true);
+      const requestId = ++requestIdRef.current;
+      const ownsRequest = () =>
+        recordingOwnerRef.current === recordingOwner &&
+        requestIdRef.current === requestId;
+      setBusyRequest({ owner: recordingOwner, requestId });
       setNotice(null);
       const contentType = STAGE_CONTENT_TYPES[stage.key];
       const selectedOption =
@@ -99,10 +120,12 @@ export function useRecordingPipelineSelection({
               (option) => option.node_revision_id === nextRevisionId,
             );
       if (nextRevisionId !== null && selectedOption === undefined) {
-        setSelectionBusy(false);
-        setNotice(
-          "That processor input is no longer available. Reload the workspace.",
-        );
+        if (ownsRequest()) {
+          setBusyRequest(null);
+          setNotice(
+            "That processor input is no longer available. Reload the workspace.",
+          );
+        }
         return;
       }
       const payload: PipelineSelectionUpdateRequest = {
@@ -121,8 +144,9 @@ export function useRecordingPipelineSelection({
           contentType,
           payload,
         );
+        if (!ownsRequest()) return;
         setWorkspace((current) =>
-          current === null
+          !ownsRequest() || current?.recording_id !== recordingId
             ? current
             : {
                 ...current,
@@ -142,24 +166,35 @@ export function useRecordingPipelineSelection({
         );
         setNotice("Processor input revision selected.");
       } catch (reason: unknown) {
+        if (!ownsRequest()) return;
         if (reason instanceof ApiError && reason.status === 409) {
           await loadWorkspace();
-          setNotice(
-            "The processor input changed elsewhere. The winning selection is shown.",
-          );
+          if (ownsRequest()) {
+            setNotice(
+              "The processor input changed elsewhere. The winning selection is shown.",
+            );
+          }
         } else {
-          setNotice(describeSelectionError(reason));
+          if (ownsRequest()) setNotice(describeSelectionError(reason));
         }
       } finally {
-        setSelectionBusy(false);
+        if (ownsRequest()) setBusyRequest(null);
       }
     },
-    [client, loadWorkspace, recordingId, setNotice, setWorkspace, stage],
+    [
+      client,
+      loadWorkspace,
+      recordingId,
+      recordingOwner,
+      setNotice,
+      setWorkspace,
+      stage,
+    ],
   );
 
   return {
     urlState,
-    selectionBusy,
+    selectionBusy: busyRequest?.owner === recordingOwner,
     navigateTo,
     replaceUrlState,
     selectGeneratedRevision,

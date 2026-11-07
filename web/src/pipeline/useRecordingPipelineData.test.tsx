@@ -63,8 +63,71 @@ function graphFetch(): void {
 
 describe("recording pipeline workspace data", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("starts a fresh A load after a scheduled B switch is canceled", async () => {
+    vi.useFakeTimers();
+    graphFetch();
+    const firstA = deferred<PipelineWorkspace>();
+    const secondA = deferred<PipelineWorkspace>();
+    const getRecordingPipeline = vi
+      .fn()
+      .mockReturnValueOnce(firstA.promise)
+      .mockReturnValueOnce(secondA.promise);
+    const client = { getRecordingPipeline } as never;
+    const { result, rerender } = renderHook(
+      ({ recordingId }: { recordingId: string }) =>
+        useRecordingPipelineData(recordingId, "events", null, client),
+      { initialProps: { recordingId: "A" } },
+    );
+
+    await act(async () => vi.runOnlyPendingTimers());
+    expect(getRecordingPipeline).toHaveBeenCalledTimes(1);
+    rerender({ recordingId: "B" });
+    rerender({ recordingId: "A" });
+    await act(async () => vi.runOnlyPendingTimers());
+
+    expect(getRecordingPipeline).toHaveBeenCalledTimes(2);
+    await act(async () => secondA.resolve(workspace("A", "replacement-A")));
+    expect(result.current.workspace?.diagnostics[0].code).toBe("replacement-A");
+    await act(async () => firstA.resolve(workspace("A", "aborted-A")));
+    expect(result.current.workspace?.diagnostics[0].code).toBe("replacement-A");
+  });
+
+  it("allows B to load again after a failed B load and return through A", async () => {
+    vi.useFakeTimers();
+    graphFetch();
+    const firstA = deferred<PipelineWorkspace>();
+    const failedB = deferred<PipelineWorkspace>();
+    const retriedB = deferred<PipelineWorkspace>();
+    const getRecordingPipeline = vi
+      .fn()
+      .mockReturnValueOnce(firstA.promise)
+      .mockReturnValueOnce(failedB.promise)
+      .mockReturnValueOnce(retriedB.promise);
+    const client = { getRecordingPipeline } as never;
+    const { result, rerender } = renderHook(
+      ({ recordingId }: { recordingId: string }) =>
+        useRecordingPipelineData(recordingId, "events", null, client),
+      { initialProps: { recordingId: "A" } },
+    );
+
+    await act(async () => vi.runOnlyPendingTimers());
+    await act(async () => firstA.resolve(workspace("A", "first-A")));
+    rerender({ recordingId: "B" });
+    await act(async () => vi.runOnlyPendingTimers());
+    await act(async () => failedB.reject(new Error("failed B")));
+    rerender({ recordingId: "A" });
+    await act(async () => vi.runOnlyPendingTimers());
+    rerender({ recordingId: "B" });
+    await act(async () => vi.runOnlyPendingTimers());
+
+    expect(getRecordingPipeline).toHaveBeenCalledTimes(3);
+    await act(async () => retriedB.resolve(workspace("B", "retried-B")));
+    expect(result.current.workspace?.diagnostics[0].code).toBe("retried-B");
   });
 
   it("ignores a late response after switching recordings", async () => {

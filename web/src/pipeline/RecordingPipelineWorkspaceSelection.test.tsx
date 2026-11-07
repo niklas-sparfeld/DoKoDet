@@ -21,6 +21,7 @@ import type {
 } from "../api/pipelineContracts";
 import { normalizeWorkspaceSelectionFixture } from "../test/normalizeWorkspaceSelectionFixture";
 import { resolvedStatus, resolvedTimeline } from "../test/roundAnalysisFixture";
+import { JobStateProvider } from "../jobs/JobState";
 vi.mock("./AutomatedPipelineControls", () => ({
   AutomatedPipelineControls: () => null,
 }));
@@ -698,11 +699,13 @@ describe("recording pipeline workspace", () => {
     );
 
     render(
-      <RecordingPipelineWorkspace
-        recordingId={RECORDING_ID}
-        stageKey="round_analyses"
-        compare={false}
-      />,
+      <JobStateProvider>
+        <RecordingPipelineWorkspace
+          recordingId={RECORDING_ID}
+          stageKey="round_analyses"
+          compare={false}
+        />
+      </JobStateProvider>,
     );
 
     await userEvent.click(
