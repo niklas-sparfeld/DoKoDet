@@ -291,6 +291,30 @@ Acceptance: composition root is at most 500 lines. Tests cover recording switche
 stage switches, graph errors, refresh, invalid/deleted nodes, URL restoration, and exact selection.
 Retain a small composition integration test. No second selection authority or shared job poller.
 
+### Remaining M7 work — recording-switch request ownership
+
+Observable result: switching recordings cannot leave a workspace load stuck or apply a prior
+recording's selection result, notice, busy state, or conflict reload to the current recording.
+Complete both changes as one M7 work commit; do not start M8 until they pass.
+
+1. In `useRecordingPipelineData.ts`, give each scheduled and active load an ownership lifecycle.
+   An abort, failure, or cleanup must not suppress a later request for the same recording and stage.
+   An older request must not clear or replace a newer request's ownership or result. Keep refresh
+   and stage-switch behavior. Add deterministic tests for pending A → B → A before B's timer runs,
+   and for a failed B load followed by a return to A and a new B attempt.
+2. In `useRecordingPipelineSelection.ts`, scope each selection attempt and its asynchronous
+   completion to its recording and current request. After a recording switch, an old success,
+   error, or 409 must not change the new workspace, notice, busy state, or trigger an old-recording
+   reload. Keep the same-recording 409 recovery. Add deferred-response tests for old success,
+   ordinary failure, and 409 after the new recording loads; verify the new recording's selection
+   and subsequent requests remain usable.
+
+Required checks: run the five focused workspace and data suites listed in the M7 report, including
+all new regressions; run web typecheck, ESLint, and Prettier for changed files. Recheck the 500-line
+root and 700/800-line module/test budgets. If integration changes UI composition, run the affected
+combined checks against the integrated revision. Record commands, results, and revision in the M7
+report and handoff. Update the board and commit implementation, tests, and plan status together.
+
 **Result:** In progress. Workspace and graph requests live in `useRecordingPipelineData.ts`. Pure URL
 sanitization and initial-stage choice live in `recordingPipelineSelection.ts`; URL state and
 selection commands live in `useRecordingPipelineSelection.ts`. Workspace requests ignore stale
@@ -401,5 +425,6 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   aborted workspace load identity set and suppress the replacement request. A delayed selection
   response for A can update B, and a delayed 409 can trigger an obsolete A reload. Add focused
   recording-switch regressions and scope or invalidate asynchronous completions before M7 completes.
-- Run stopped at the correction limit. Requested 10 milestones; completed 6, remaining 4. Resume
-  at M7. Coordinate M8 with 0113 before either launch-boundary implementation.
+- Previous run stopped at the correction limit: requested 10 milestones, completed 6, remaining 4.
+  M7 now has a bounded request-ownership plan and must pass its stated regressions before completion.
+  Coordinate M8 with 0113 before either launch-boundary implementation.

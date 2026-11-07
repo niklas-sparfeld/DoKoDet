@@ -2,7 +2,8 @@
 
 ## Result
 
-M7 is complete. `RecordingPipelineWorkspace.tsx` is a 469-line composition root. Workspace and
+M7 is in progress. Two recording-switch races remain; the active epic defines their fixes and
+required regression checks. `RecordingPipelineWorkspace.tsx` is a 469-line composition root. Workspace and
 lineage loading live in `useRecordingPipelineData.ts`. URL state and selection commands live in
 `useRecordingPipelineSelection.ts`; pure URL sanitization and initial-stage choice live in
 `recordingPipelineSelection.ts`. The workspace owns one URL selection state. No job polling moved
@@ -41,4 +42,4 @@ During integration with 0113, these workspace suites mock `AutomatedPipelineCont
 workspace loading and selection without the shared `JobStateProvider` required by the launch
 controls. The launch controls keep their own provider-wrapped tests.
 
-No API or persisted-data contract changed. M8 and M9 remain.
+No API or persisted-data contract changed. M7 remains incomplete; M8–M10 remain.
