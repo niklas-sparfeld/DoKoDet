@@ -1,15 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ApiError } from "../api/transport";
 import { createFrameReviewClient } from "../api/frameReviewClient";
 import { createPipelineProcessingClient } from "../api/pipelineProcessingClient";
-import {
-  type PipelineSelectionUpdateRequest,
-  type PipelineSelectableContentType,
-  type PipelineStageKey,
-  type PipelineWorkspace,
-  type PipelineWorkspaceStage,
-} from "../api/pipelineContracts";
 import styles from "../App.module.css";
 import { RecordingWorkspaceInspector } from "./RecordingWorkspaceInspector";
 import {
@@ -26,20 +18,23 @@ import {
   recordingPipelineNavigationPath,
   recordingPipelinePath,
   type PipelineNavigationStepKey,
-  type PipelineUrlState,
 } from "./recordingPipelineUrl";
-import {
-  decodeLineageSelection,
-  validateLineageSelection,
-  type PipelineLineageGraph,
-} from "./pipelineLineageSelection";
+import { decodeLineageSelection } from "./pipelineLineageSelection";
 import type { LineageStageKey } from "./pipelineLineageSelection";
 import {
-  PIPELINE_STAGE_KEYS,
   primaryActionForStage,
   buildRecordingWorkspacePresentation,
 } from "./recordingWorkspacePresentation";
 import { actionStateForStage } from "./recordingWorkspaceNavigation";
+import {
+  chooseInitialStage,
+  sanitizeUrlState,
+} from "./recordingPipelineSelection";
+import { useRecordingPipelineData } from "./useRecordingPipelineData";
+import {
+  useRecordingPipelineSelection,
+  useRecordingPipelineUrlState,
+} from "./useRecordingPipelineSelection";
 import {
   FrameReviewEditorNavigation,
   FrameReviewPinnedRevisionNotice,
@@ -58,16 +53,6 @@ export type {
 } from "./recordingWorkspacePresentation";
 export type { PipelineUrlState } from "./recordingPipelineUrl";
 
-const STAGE_CONTENT_TYPES: Record<
-  Exclude<PipelineStageKey, "round_analyses">,
-  PipelineSelectableContentType
-> = {
-  events: "events",
-  visible_cards: "visible_cards",
-  visual_identities: "visual_identities",
-  table_observations: "table_observations",
-};
-
 export function RecordingPipelineWorkspace({
   recordingId,
   stageKey,
@@ -84,147 +69,27 @@ export function RecordingPipelineWorkspace({
     }),
     [],
   );
-  const [workspace, setWorkspace] = useState<PipelineWorkspace | null>(null);
-  const [loadedStageKey, setLoadedStageKey] =
-    useState<PipelineNavigationStepKey | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [lineageValidation, setLineageValidation] = useState<{
-    lineage: string;
-    notice: string | null;
-  } | null>(null);
-  const [lineageGraph, setLineageGraph] = useState<PipelineLineageGraph | null>(
-    null,
-  );
-  const [lineageGraphError, setLineageGraphError] = useState<string | null>(
-    null,
-  );
-  const [lineageRefresh, setLineageRefresh] = useState(0);
-  const [urlState, setUrlState] = useState(() =>
-    readPipelineUrlState(window.location.search),
-  );
-  const [selectionBusy, setSelectionBusy] = useState(false);
-  const workspaceLoadIdentityRef = useRef<string | null>(null);
-
-  const loadWorkspace = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        const backendStageKey = stageKey === "virtual_scenes" ? null : stageKey;
-        const response = await client.getRecordingPipeline(
-          recordingId,
-          {
-            signal,
-          },
-          backendStageKey ?? "events",
-        );
-        if (!signal?.aborted) {
-          if (isPipelineWorkspace(response)) {
-            setWorkspace(response);
-            setLoadedStageKey(stageKey ?? "events");
-            setError(null);
-          } else {
-            setWorkspace(null);
-            if (stageKey !== null) {
-              setError(
-                "The backend returned an invalid recording pipeline workspace.",
-              );
-            }
-          }
-        }
-      } catch (reason: unknown) {
-        if (!signal?.aborted) {
-          setError(describePipelineError(reason));
-        }
-      } finally {
-        if (!signal?.aborted) {
-          setLoading(false);
-        }
-      }
-    },
-    [client, recordingId, stageKey],
+  const { urlState, setUrlState } = useRecordingPipelineUrlState();
+  const data = useRecordingPipelineData(
+    recordingId,
+    stageKey,
+    urlState.lineage,
+    client,
   );
 
-  useEffect(() => {
-    if (workspace !== null && loadedStageKey === (stageKey ?? "events")) {
-      return;
-    }
-    const loadIdentity = `${recordingId}:${stageKey ?? "events"}`;
-    if (workspaceLoadIdentityRef.current === loadIdentity) {
-      return;
-    }
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      if (workspaceLoadIdentityRef.current === loadIdentity) return;
-      workspaceLoadIdentityRef.current = loadIdentity;
-      void loadWorkspace(controller.signal);
-    }, 0);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [loadWorkspace, loadedStageKey, recordingId, stageKey, workspace]);
-
-  useEffect(() => {
-    const updateUrlState = () => {
-      setUrlState(readPipelineUrlState(window.location.search));
-    };
-    window.addEventListener("popstate", updateUrlState);
-    return () => window.removeEventListener("popstate", updateUrlState);
-  }, []);
-
-  useEffect(() => {
-    const selection =
-      urlState.lineage === null
-        ? null
-        : decodeLineageSelection(urlState.lineage);
-    const controller = new AbortController();
-    void fetch(
-      `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/lineage`,
-      {
-        signal: controller.signal,
-      },
-    )
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Lineage data could not be loaded.");
-        const graph: unknown = await response.json();
-        if (!isPipelineLineageGraph(graph)) {
-          throw new Error("The backend returned invalid lineage data.");
-        }
-        return graph;
-      })
-      .then((graph) => {
-        if (controller.signal.aborted) return;
-        setLineageGraph(graph);
-        setLineageGraphError(null);
-        if (selection === null || urlState.lineage === null) {
-          setLineageValidation(null);
-          return;
-        }
-        const missing = validateLineageSelection(selection, graph);
-        setLineageValidation({
-          lineage: urlState.lineage as string,
-          notice:
-            missing.length === 0
-              ? null
-              : "The saved lineage selection is unavailable. No other revision was selected.",
-        });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setLineageGraph(null);
-          setLineageGraphError("Lineage data could not be loaded.");
-          if (urlState.lineage !== null) {
-            setLineageValidation({
-              lineage: urlState.lineage,
-              notice:
-                "Lineage data could not be loaded. The saved selection was not changed.",
-            });
-          }
-        }
-      });
-    return () => controller.abort();
-  }, [lineageRefresh, recordingId, urlState.lineage]);
+  const {
+    workspace,
+    loadedStageKey,
+    loading,
+    error,
+    loadWorkspace,
+    lineageValidation,
+    lineageGraph,
+    lineageGraphError,
+    setWorkspace,
+    refreshLineage,
+  } = data;
 
   useEffect(() => {
     if (urlState.frameReviewQueue !== "0096-M4" || stageKey !== "visible_cards")
@@ -298,6 +163,26 @@ export function RecordingPipelineWorkspace({
       (stageKey === "virtual_scenes" ? "visible_cards" : backendStageKey),
   );
 
+  const selection = useRecordingPipelineSelection({
+    recordingId,
+    stageKey,
+    compare,
+    backendStageKey,
+    stage,
+    setWorkspace,
+    loadWorkspace,
+    client,
+    setNotice,
+    urlState,
+    setUrlState,
+  });
+  const {
+    selectionBusy,
+    navigateTo,
+    replaceUrlState,
+    selectGeneratedRevision,
+  } = selection;
+
   useEffect(() => {
     if (
       activeWorkspace === null ||
@@ -329,84 +214,6 @@ export function RecordingPipelineWorkspace({
     );
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, [activeWorkspace, compare, recordingId, stage, stageKey, urlState]);
-
-  async function selectGeneratedRevision(
-    nextRevisionId: string | null,
-  ): Promise<void> {
-    if (stage === undefined || stage.key === "round_analyses") return;
-    setSelectionBusy(true);
-    setNotice(null);
-    const contentType = STAGE_CONTENT_TYPES[stage.key];
-    const selectedOption =
-      nextRevisionId === null
-        ? undefined
-        : stage.input_options.find(
-            (option) => option.node_revision_id === nextRevisionId,
-          );
-    if (nextRevisionId !== null && selectedOption === undefined) {
-      setSelectionBusy(false);
-      setNotice(
-        "That processor input is no longer available. Reload the workspace.",
-      );
-      return;
-    }
-    const payload: PipelineSelectionUpdateRequest = {
-      expected_revision: stage.selection_revision ?? 0,
-      selected_generated:
-        selectedOption === undefined
-          ? null
-          : {
-              node_id: selectedOption.node_id,
-              revision_id: selectedOption.node_revision_id,
-            },
-    };
-    try {
-      const response = await client.updatePipelineSelection(
-        recordingId,
-        contentType,
-        payload,
-      );
-      setWorkspace((current) =>
-        current === null
-          ? current
-          : {
-              ...current,
-              stages: current.stages.map((candidate) =>
-                candidate.key === stage.key
-                  ? {
-                      ...candidate,
-                      selection_revision: response.selection.revision,
-                      selected_generated: response.selection.selected_generated,
-                      selected_completed_reference:
-                        response.selection.selected_completed_reference,
-                    }
-                  : candidate,
-              ),
-            },
-      );
-      setNotice("Processor input revision selected.");
-    } catch (reason: unknown) {
-      if (reason instanceof ApiError && reason.status === 409) {
-        await loadWorkspace();
-        setNotice(
-          "The processor input changed elsewhere. The winning selection is shown.",
-        );
-      } else {
-        setNotice(describePipelineError(reason));
-      }
-    } finally {
-      setSelectionBusy(false);
-    }
-  }
-
-  const navigateTo = useCallback((path: string, replace = false): void => {
-    if (replace) {
-      window.history.replaceState({}, "", path);
-    } else {
-      window.history.pushState({}, "", path);
-    }
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  }, []);
 
   const copyLineageNode = useCallback(
     async (
@@ -465,7 +272,7 @@ export function RecordingPipelineWorkspace({
       setNotice(
         `Created ${result.name} from ${sourceName}. You can return to the original in lineage.`,
       );
-      setLineageRefresh((value) => value + 1);
+      refreshLineage();
       navigateTo(
         recordingPipelineNavigationPath(recordingId, stageKey ?? "events", {
           ...urlState,
@@ -476,26 +283,7 @@ export function RecordingPipelineWorkspace({
         }),
       );
     },
-    [lineageGraph, navigateTo, recordingId, stageKey, urlState],
-  );
-
-  const replaceUrlState = useCallback(
-    (nextState: PipelineUrlState): void => {
-      const nextPath = compare
-        ? recordingPipelineComparePath(
-            recordingId,
-            backendStageKey ?? "events",
-            nextState,
-          )
-        : recordingPipelineNavigationPath(
-            recordingId,
-            stageKey ?? "events",
-            nextState,
-          );
-      window.history.replaceState({}, "", nextPath);
-      setUrlState(nextState);
-    },
-    [backendStageKey, compare, recordingId, stageKey],
+    [lineageGraph, navigateTo, recordingId, refreshLineage, stageKey, urlState],
   );
 
   const presentation = buildRecordingWorkspacePresentation({
@@ -677,169 +465,5 @@ export function RecordingPipelineWorkspace({
         />
       }
     </main>
-  );
-}
-
-function chooseInitialStage(
-  workspace: PipelineWorkspace,
-): PipelineWorkspaceStage {
-  return (
-    workspace.stages.find(
-      (stage) =>
-        stage.state !== "video-only" &&
-        stage.state !== "empty" &&
-        (stage.input_options.length > 0 ||
-          stage.runs.length > 0 ||
-          stage.analyses.length > 0),
-    ) ?? workspace.stages[0]
-  );
-}
-
-function sanitizeUrlState(
-  state: PipelineUrlState,
-  stage: PipelineWorkspaceStage,
-  durationUs: number,
-  compare: boolean,
-): PipelineUrlState {
-  const validRunIds = new Set(stage.runs.map((run) => run.run_id));
-  const validReferenceIds = new Set(
-    stage.input_options
-      .filter(
-        (option) => option.origin === "manual" || option.origin === "corrected",
-      )
-      .map((option) => option.node_revision_id),
-  );
-  const selectedReference = stage.selected_completed_reference?.revision_id;
-  return {
-    ...state,
-    item:
-      state.item !== null &&
-      (isKnownItem(stage, state.item) ||
-        (stage.key === "table_observations" &&
-          state.lineage !== null &&
-          decodeLineageSelection(state.lineage)?.selected.table_observations !==
-            undefined))
-        ? state.item
-        : null,
-    tUs:
-      state.tUs === null
-        ? null
-        : Math.min(Math.max(state.tUs, 0), Math.max(durationUs, 0)),
-    left:
-      compare && state.left !== null && validRunIds.has(state.left)
-        ? state.left
-        : null,
-    right:
-      compare && state.right !== null && validRunIds.has(state.right)
-        ? state.right
-        : null,
-    reference:
-      compare &&
-      state.reference !== null &&
-      (validReferenceIds.has(state.reference) ||
-        state.reference === selectedReference)
-        ? state.reference
-        : null,
-    analysis:
-      !compare && state.analysis !== null
-        ? stage.analyses.some(
-            (analysis) => analysis.analysis_id === state.analysis,
-          )
-          ? state.analysis
-          : null
-        : null,
-    row: compare ? null : state.row,
-    hypothesis: compare ? null : state.hypothesis,
-  };
-}
-
-function isKnownItem(stage: PipelineWorkspaceStage, itemId: string): boolean {
-  if (stage.key === "round_analyses") {
-    return false;
-  }
-  const knownItemIds = stage.runs.flatMap((run) => {
-    const items = run.state.items;
-    return Array.isArray(items)
-      ? items.flatMap((item) =>
-          typeof item === "object" &&
-          item !== null &&
-          "item_id" in item &&
-          typeof item.item_id === "string"
-            ? [item.item_id]
-            : [],
-        )
-      : [];
-  });
-  if (stage.key === "table_observations") {
-    return knownItemIds.includes(itemId);
-  }
-  return knownItemIds.length === 0 || knownItemIds.includes(itemId);
-}
-
-function describePipelineError(reason: unknown): string {
-  if (!(reason instanceof ApiError)) {
-    return "The backend could not be reached.";
-  }
-  const body =
-    typeof reason.body === "object" && reason.body !== null
-      ? (reason.body as Record<string, unknown>)
-      : null;
-  const detail =
-    typeof body?.detail === "object" && body.detail !== null
-      ? (body.detail as Record<string, unknown>)
-      : null;
-  const message =
-    typeof detail?.message === "string"
-      ? detail.message
-      : typeof body?.message === "string"
-        ? body.message
-        : null;
-  if (
-    message?.toLowerCase().includes("video") ||
-    message?.toLowerCase().includes("recording")
-  ) {
-    return `The accepted recording video is unavailable: ${message}`;
-  }
-  if (reason.status === 422) {
-    return message === null
-      ? "The selected pipeline input is incompatible with this stage."
-      : `The selected pipeline input is incompatible with this stage: ${message}`;
-  }
-  return message ?? `The backend returned HTTP ${reason.status}.`;
-}
-
-function isPipelineWorkspace(value: unknown): value is PipelineWorkspace {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "schema_version" in value &&
-    value.schema_version === "pipeline-workspace/v1" &&
-    "recording_id" in value &&
-    typeof value.recording_id === "string" &&
-    "video" in value &&
-    typeof value.video === "object" &&
-    value.video !== null &&
-    "stages" in value &&
-    Array.isArray(value.stages) &&
-    value.stages.length === PIPELINE_STAGE_KEYS.length
-  );
-}
-
-function isPipelineLineageGraph(value: unknown): value is PipelineLineageGraph {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "schema_version" in value &&
-    value.schema_version === "pipeline-lineage-graph/v1" &&
-    "nodes" in value &&
-    Array.isArray(value.nodes) &&
-    "revisions" in value &&
-    Array.isArray(value.revisions) &&
-    "runs" in value &&
-    Array.isArray(value.runs) &&
-    "artifacts" in value &&
-    Array.isArray(value.artifacts) &&
-    "edges" in value &&
-    Array.isArray(value.edges)
   );
 }

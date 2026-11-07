@@ -99,7 +99,7 @@ explicit plan change before the affected milestone is marked complete.
 | M4 | Split surviving pipeline persistence owners | Complete |
 | M5 | Extract API transport and feature contract types | Complete |
 | M6 | Split API methods and paths by feature | Complete |
-| M7 | Extract workspace loading and selection state | Not started |
+| M7 | Extract workspace loading and selection state | Complete |
 | M8 | Split processor launch controls from request construction | Not started |
 | M9 | Split job models and recovery from lifecycle management | Not started |
 | M10 | Enforce boundaries and verify the complete fixture workflow | Not started |
@@ -291,6 +291,13 @@ Acceptance: composition root is at most 500 lines. Tests cover recording switche
 stage switches, graph errors, refresh, invalid/deleted nodes, URL restoration, and exact selection.
 Retain a small composition integration test. No second selection authority or shared job poller.
 
+**Result:** Complete. Workspace and graph requests live in `useRecordingPipelineData.ts`. Pure URL
+sanitization and initial-stage choice live in `recordingPipelineSelection.ts`; URL state and
+selection commands live in `useRecordingPipelineSelection.ts`. Workspace requests ignore stale
+completion and reject a response for another recording. The 469-line composition root has no
+second selection authority or job poller. Loading, URL, selection, and composition tests pass
+(37 tests). See [`0112 M7 workspace loading and selection`](../../reports/0112-M7_Workspace_Loading_Selection.md).
+
 ## M8 — Split processor launch controls from request construction
 
 Start from the controls left after 0110 M15. Move `buildStartPayload`, crop options, model/provider
@@ -339,7 +346,7 @@ move it to `5-closed`, repair links, and update the board in the final milestone
 
 ## Execution handoff
 
-- Completed: M0, M1, M2, M3, M4, M5, M6. M1 moved crop-input freezing and source validation. The focused
+- Completed: M0, M1, M2, M3, M4, M5, M6, M7. M1 moved crop-input freezing and source validation. The focused
   source test is in `backend/tests/test_visual_identity_crop_sources.py`; details are in
   [`docs/reports/0112-M1_Crop_Input_Extraction.md`](../../reports/0112-M1_Crop_Input_Extraction.md).
   M2 moved provenance and crop resolution. Its details are in
@@ -371,5 +378,15 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   [`M6 report`](../../reports/0112-M6_API_Feature_Clients.md).
 - Decisions and limits: the existing tree had no standalone jobs client, so M6 added one and kept
   frame-review routes in their own focused client. No API contract or response behavior changed.
-- Next: M7, extract workspace loading and selection state. Requested 10 milestones, completed 6,
-  remaining 4. Coordinate M8 with 0113 before either launch-boundary implementation.
+- M7 moved workspace and graph loading, abort and stale-response checks, URL selection state,
+  sanitization, and generated-revision selection into focused modules. Workspace response sequence
+  checks reject older requests and responses for a different recording. Its focused tests cover
+  recording and stage switches, refresh races, and graph errors; the existing workspace suites cover
+  deleted nodes, URL restoration, exact selection, and composition. All 37 focused tests, typecheck,
+  ESLint, and Prettier checks passed. See the [M7 report](../../reports/0112-M7_Workspace_Loading_Selection.md).
+- Decisions and limits: keep one URL selection state in `useRecordingPipelineSelection.ts`; do not
+  add shared polling or a second selection store. Workspace suites mock `AutomatedPipelineControls`
+  to isolate loading and selection from its 0113 `JobStateProvider` dependency; its own tests keep
+  provider coverage.
+- Next: M8, split processor launch controls and request construction. Requested 10 milestones,
+  completed 7, remaining 3. Coordinate M8 with 0113 before either launch-boundary implementation.
