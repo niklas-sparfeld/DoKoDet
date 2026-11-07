@@ -172,7 +172,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M7:** Complete — add durable timing and correctness cases for interactive writes and controls.
 - **M8:** Complete — measure eight residual real-backend write routes and durable effects.
 - **M9:** Complete — add named real-backend media cases and verify cold/warm and saved-review, revision, and restart cache behavior.
-- **M10:** Not started — add six real-process Playwright workflows and bounded controlled-load workflows.
+- **M10:** Complete — seven real-process Playwright scenarios passed across 70 fresh contexts; 10 backend startup processes passed. See the [M10 report](../../reports/0114-M10_Real_Process_Browser_and_Load.md).
 - **M11:** Not started — run the complete corpus in three independent sessions and freeze budgets and regression gates.
 - **M12:** Not started — profile and rank candidates, then implement candidate cycle one.
 - **M13:** Not started — implement candidate cycle two, qualify the full suite, and close the epic.
@@ -308,6 +308,12 @@ Deferring startup cost to the first UI request is not an improvement unless both
   Focused browser, backend, lint, format, and applicable type checks pass. Samples remain
   preliminary until M11.
 
+**Complete.** Seven scenarios passed: the six requested browser workflows and controlled load.
+Each scenario ran in 10 fresh contexts. Ten fresh backend processes passed startup, readiness,
+catalog, and exact-workspace probes. The [M10 report](../../reports/0114-M10_Real_Process_Browser_and_Load.md)
+records all checks, distributions, cache distinctions, and limits. The fixture is compact and
+generated, so these samples do not replace M11's full-corpus runs or enable a baseline gate.
+
 ## M11 — Run the full corpus and freeze the baseline
 
 - Depends on: M9 media suite and M10 real-process browser and controlled-load suites.
@@ -355,9 +361,9 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-### Current state — M9 complete; M10 next
+### Current state — M10 complete; M11 next
 
-- M0–M5 are complete. Their reports and evidence remain linked in the board and prior milestone
+- M0–M10 are complete. Their reports and evidence remain linked in the board and prior milestone
   reports.
 - M6 adds focused read samples in
   `backend/scripts/run_interactive_ui_job_read_performance.py` and coverage checks in
@@ -414,9 +420,23 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - M9 uses the real route and cache handlers with a deterministic thumbnail renderer stub because
   the small local source recording is not decodable. Its range response is 55 bytes, below the
   65,536-byte cap. M11 must measure the frozen hard video asset before freezing transfer budgets.
-- Next milestone: M10. Add six real-process Playwright workflows with at least ten fresh contexts
-  per workflow and bounded controlled-load scenarios. Verify visible identity, usable controls,
-  request counts, waterfalls, startup, and browser/server cache behavior. M11 owns three independent
-  full-corpus sessions and baseline freeze.
-- Run authorization: 9 milestones requested, 5 completed, 4 remaining (M10–M13). This fixed run
+- M10 passed seven scenarios in 70 fresh contexts: the six browser workflows and controlled load.
+  It retained all request waterfalls, exact recording/revision/review/job identities, request counts,
+  browser cache events, derived-media ETags/cache-control, and actual 206 video-range bodies. Ten
+  fresh backend processes passed liveness, readiness, catalog, and exact workspace checks. See
+  `docs/reports/0114-M10_Real_Process_Browser_and_Load.md` and
+  `docs/reports/0114-M10_Real_Process_Browser_Samples.json`.
+- M10 used an isolated generated 64×64 recording with four identity outcomes, two identity
+  revisions, deterministic local processors, the production FastAPI app, real Uvicorn, and real
+  Vite. Its samples are preliminary. They do not qualify the frozen hard-data corpus or establish
+  production budgets. The hard asset returned a 1,554-byte range in this fixture; M11 must measure
+  the frozen hard video before it freezes transfer budgets.
+- M10 checks: the 7-scenario/70-context browser run and 10-process startup suite passed. Web
+  TypeScript, targeted Prettier, backend Ruff check, and backend Ruff format checks passed. HTTP
+  errors, failed requests, timeouts, incorrect identities, and invalid range responses fail the
+  runner. Intentional navigation cancellations are retained separately from request errors.
+- Next milestone: M11. Run the endpoint corpus, startup profiles, media routes, browser workflows,
+  and controlled load in three independent sessions. Freeze budgets and gates only after those
+  runs pass on the declared machine profile.
+- Run authorization: 9 milestones requested, 6 completed, 3 remaining (M11–M13). This fixed run
   limit does not authorize adding milestones.
