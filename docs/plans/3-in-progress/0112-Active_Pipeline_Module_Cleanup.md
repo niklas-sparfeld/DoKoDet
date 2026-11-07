@@ -8,9 +8,10 @@
 - **Depends on:** [0108 M11](../5-closed/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
   must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
-- **Outcome:** M0–M2 are complete. M1 moved visual identity crop-input freezing and source
+- **Outcome:** M0–M3 are complete. M1 moved visual identity crop-input freezing and source
   validation into focused modules. M2 moved crop provenance checks and exact-geometry resolution
-  into focused modules. M3–M10 remain.
+  into focused modules. M3 moved identity classification, execution, request construction, crop
+  queries, recording-source access, and approval planning into focused modules. M4–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
   complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
   candidate files remain. M0 must remap their current responsibilities before extraction.
@@ -92,7 +93,7 @@ explicit plan change before the affected milestone is marked complete.
 | M0 | Freeze surviving owners, contracts, and verification | Complete |
 | M1 | Extract visual-identity crop-input freezing | Complete |
 | M2 | Extract visual-identity crop resolution and provenance | Complete |
-| M3 | Separate identity execution and per-card classification | Not started |
+| M3 | Separate identity execution and per-card classification | Complete |
 | M4 | Split surviving pipeline persistence owners | Not started |
 | M5 | Extract API transport and feature contract types | Not started |
 | M6 | Split API methods and paths by feature | Not started |
@@ -194,12 +195,33 @@ compares the `ctime_ns` field, matching the validated identity lookup path.
 Move `_process_card`, timing/concurrency helpers, classifier selection, and result conversion into
 `visual_identity_classification.py`. Move `execute_job` orchestration into
 `visual_identity_job.py`. Give publication and auto-approval planning focused owners if needed to
-meet the M0 budgets. The service retains public operations and dependency composition.
+meet the M0 budgets. M1/M2 left request construction and crop-query orchestration in the service;
+move those responsibilities into `visual_identity_request.py` and `visual_identity_crop_queries.py`
+so the service root can meet its 500-line budget. Keep public entry points as short, typed service
+methods. Pass stores, source access, crop freezing, classifier access, and publication operations
+through explicit dependencies. Do not pass the former service into an extracted helper.
 
 Acceptance: service root is at most 500 lines. Keep bounded concurrency, safe cancellation,
 probability normalization, exact output provenance, failure recording, and publication arbitration.
-Auto-approval retains its existing authority rules. Split classification, job, approval, and HTTP
-tests; do not create a second scheduler or lifecycle model.
+Auto-approval retains its existing authority rules. Split classification, job, approval, request,
+crop-query, and HTTP tests. Focused tests cover finite normalized classifier probabilities and
+cancellation racing with publication. Do not create a second scheduler or lifecycle model.
+
+Boundary checks: request and crop-query modules each remain within 700 lines; the existing focused
+API suite keeps HTTP contracts only and stays within its 800-line budget after the M3 test split.
+
+**Result:** Complete. `VisualIdentityPipelineService` is a 411-line composition root. Per-card
+classification and classifier selection live in `visual_identity_classification.py`; shared job
+execution and result publication live in `visual_identity_job.py`; request construction and
+proposed-crop selection live in `visual_identity_request.py`; crop/result reads live in
+`visual_identity_crop_queries.py`; approval eligibility remains a plan in
+`visual_identity_approval.py`. `visual_identity_recording_access.py` owns accepted-video checks.
+The job executor uses the existing JobManager and passes the exact result digest and revision to its
+publication arbitration. Focused tests are split by HTTP, classification, job, approval, request,
+and crop-query owner. A persisted managed-job check verifies finite normalized probabilities. A
+cancellation/publication race check verifies cancellation wins before publication and leaves the
+generated selection unchanged. See
+[`0112 M3 identity execution extraction`](../../reports/0112-M3_Identity_Execution_Extraction.md).
 
 ## M4 — Split surviving pipeline persistence owners
 
@@ -297,17 +319,23 @@ move it to `5-closed`, repair links, and update the board in the final milestone
 
 ## Execution handoff
 
-- Completed: M0, M1, M2. M1 moved crop-input freezing and source validation. The focused source test
+- Completed: M0, M1, M2, M3. M1 moved crop-input freezing and source validation. The focused source test
   is in `backend/tests/test_visual_identity_crop_sources.py`; details are in
   [`docs/reports/0112-M1_Crop_Input_Extraction.md`](../../reports/0112-M1_Crop_Input_Extraction.md).
   M2 moved provenance and crop resolution. Its details are in
   [`docs/reports/0112-M2_Crop_Resolution_Extraction.md`](../../reports/0112-M2_Crop_Resolution_Extraction.md).
-- M2 checks passed: focused backend API, crop-source, and direct crop-resolution suites (13 tests),
-  Ruff lint, and Ruff format.
-- Decisions and limits: keep the retired `test_pipeline_reference.py` absent. Preserve
+- M3 moved classification, job execution, request construction, crop queries, recording-source
+  access, and approval planning into explicit components. See the
+  [`M3 report`](../../reports/0112-M3_Identity_Execution_Extraction.md) for owner boundaries,
+  budgets, and checks.
+- M3 checks passed: focused identity API, classification, job, approval, request, crop-query,
+  crop-source, and crop-resolution suites (17 tests); Ruff lint and format for all changed Python
+  files; all service and new module/test budgets.
+- Decisions and limits: use the shared JobManager as the only scheduler and cancellation/publication
+  authority. Auto-approval remains a plan and starts needed local work through the existing managed
+  classification operation. Keep the retired `test_pipeline_reference.py` absent. Preserve
   `LegacyProcessorRunStore` while `lineage_migration_inventory.py` calls it. M3/M7/M9 must add or
-  locate coverage for probability normalization, cancellation versus publication, and stale
-  workspace responses. M5 has no active timeout-configured client call; do not invent one without
-  an API contract decision.
-- Next: M3, separate identity execution and per-card classification. Requested 10 milestones,
-  completed 2, remaining 8. Coordinate M8 with 0113 before either launch-boundary implementation.
+  locate coverage for stale workspace responses. M5 has no active timeout-configured client call;
+  do not invent one without an API contract decision.
+- Next: M4, split surviving pipeline persistence owners. Requested 10 milestones, completed 3,
+  remaining 7. Coordinate M8 with 0113 before either launch-boundary implementation.

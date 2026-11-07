@@ -35,7 +35,7 @@ from test_visual_identity_pipeline_api import (
 )
 
 from dokodetector_backend import (
-    visual_identity_pipeline_service as visual_identity_pipeline_service_module,
+    visual_identity_classification as visual_identity_classification_module,
 )
 from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
 from dokodetector_backend.visual_identity_pipeline_service import (
@@ -305,9 +305,9 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
     _install_recording(tmp_path)
     resolve_calls: list[bool | None] = []
     crop_calls: list[str] = []
-    original_resolve_exact_event = visual_identity_pipeline_service_module.resolve_exact_event
+    original_resolve_exact_event = visual_identity_classification_module.resolve_exact_event
     original_resolve_visible_region_crop = (
-        visual_identity_pipeline_service_module.resolve_visible_region_crop
+        visual_identity_classification_module.resolve_visible_region_crop
     )
 
     def record_resolve_call(*args: object, **kwargs: object) -> object:
@@ -319,12 +319,12 @@ def test_visual_identity_reuses_run_source_validation_for_each_card(
         return original_resolve_visible_region_crop(*args, **kwargs)
 
     monkeypatch.setattr(
-        visual_identity_pipeline_service_module,
+        visual_identity_classification_module,
         "resolve_exact_event",
         record_resolve_call,
     )
     monkeypatch.setattr(
-        visual_identity_pipeline_service_module,
+        visual_identity_classification_module,
         "resolve_visible_region_crop",
         record_crop_call,
     )

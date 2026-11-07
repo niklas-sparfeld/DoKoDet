@@ -14,7 +14,7 @@ from dokodetector_backend.visual_identity_crop_provenance import (
     crop_input_provenance,
     validate_crop_outcome,
 )
-from dokodetector_backend.visual_identity_pipeline_service import VisualIdentityPipelineService
+from dokodetector_backend.visual_identity_crop_queries import VisualIdentityCropQueries
 
 
 def test_resolution_uses_exact_geometry_and_preserves_crop_fixture(monkeypatch, tmp_path: Path):
@@ -168,16 +168,18 @@ def test_reviewed_crop_context_caches_numeric_fingerprint_timestamp(tmp_path: Pa
         content=VisibleCardData(outcomes=()),
     )
     crop_input = SimpleNamespace(input_kind="reviewed_visible_card")
-    service = object.__new__(VisualIdentityPipelineService)
+    service = object.__new__(VisualIdentityCropQueries)
     service._crop_context_lock = RLock()
     service._crop_contexts = OrderedDict()
-    service._accepted_source = lambda _recording_id: (None, source)
-    service._canonical_input_node_ref = lambda *_args: {
-        "node_id": "node-1",
-        "revision_id": "revision-1",
-    }
+    service.recording_access = SimpleNamespace(accepted_source=lambda _recording_id: (None, source))
+    service.request_builder = SimpleNamespace(
+        _canonical_input_node_ref=lambda *_args: {
+            "node_id": "node-1",
+            "revision_id": "revision-1",
+        }
+    )
     service.selection_store = SimpleNamespace(read_node_revision=lambda *_args: revision)
-    service._freeze_crop_input = lambda *_args, **_kwargs: crop_input
+    service.request_builder._freeze_crop_input = lambda *_args, **_kwargs: crop_input
     service.repository_storage = SimpleNamespace(bundle_path=lambda _recording_id: bundle)
     service.node_store = SimpleNamespace(root=node_root)
     service.run_store = SimpleNamespace()
