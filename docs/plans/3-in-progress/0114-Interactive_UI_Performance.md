@@ -169,8 +169,8 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M4:** Complete — cover pipeline workspace, lineage, revision, review, and calibration reads.
 - **M5:** Complete — cover pipeline run, selection, result, and comparison reads.
 - **M6:** Complete — cover job history, polling, detail/status, logs, and calibration-preview reads.
-- **M7:** Not started — cover writes, media, and contention.
-- **M8:** Not started — measure real browser workflows.
+- **M7:** Complete — add durable timing and correctness cases for interactive writes and controls.
+- **M8:** Not started — measure remaining stage and analysis writes, media/cache/load, and browser workflows.
 - **M9:** Not started — establish the baseline and regression gates.
 - **M10:** Not started — profile and rank improvement candidates.
 - **M11:** Not started — implement and verify candidate cycle one.
@@ -252,24 +252,41 @@ Deferring startup cost to the first UI request is not an improvement unless both
   page content and cursors remain correct as unrelated records grow. Focused pytest and Ruff pass.
   Retain preliminary samples only.
 
-## M7 — Cover interactive writes, media, and contention
+## M7 — Cover interactive writes and controls
 
-- Add review edits/saves, selection changes, submission, cancellation/retry/queue controls, and
-  UI upload/import paths. Validate durable effects and isolation in resettable fixture storage.
-- Add frame/crop/thumbnail and video-range cases, cache invalidation, and the controlled load
-  profile. Include repeated saves and polling during simulated background work.
-- Acceptance: all remaining UI endpoint scenarios run. Compare exact content/lineage, write
-  effects, and media identity as well as speed. Focused tests, lint, format, and applicable type
-  checks pass; verify the generated API if API contracts change.
+- Measure pipeline node edit/copy/restore and item, coverage, and overall review writes; selection
+  changes; pipeline-run submission; job submit/cancel/retry/queue controls; frame-review save; and
+  calibration draft start/update/discard. Include the unregistered UI video URL as an explicit
+  not-found boundary case. These are the M7 write families; do not claim coverage for another
+  route without a named executable case.
+- Use resettable fixture storage. Measure the complete HTTP response for each write scenario, then
+  read back exact content, lineage, selection revision, queue state, job parent, or analysis identity.
+  Keep unrelated fixture state isolated. Record the known UI write routes not covered by M7 for M8.
+- The M0 browser URL `/api/recordings/{recording_id}/video` has no registered route or request
+  constructor. Measure its observable not-found response as an inventory boundary; do not create a
+  backend contract for it.
+- Acceptance: every M7 case has an executable named timing and durable correctness check. The
+  combined M7 and M8 gates cover all inventoried UI write and media routes. Focused tests, lint,
+  format, and applicable type checks pass; verify generated API output if contracts change. Retain
+  preliminary samples only.
 
 ## M8 — Add real browser workflow measurements
 
 - Add a dedicated Playwright configuration with isolated backend and web processes. Cover
   recordings-to-workspace, displayed revision switching, frame/crop navigation, review save,
   Jobs drawer/history, and job submission-to-visible-status. Include browser video-range traffic.
+- Add named real-backend API timing and durable readback cases for M7's remaining UI writes:
+  event, visible-card, proposed-card-scene, visual-identity, and observation stage submissions;
+  both round-analysis intake routes; and calibration apply. Build each request from exact upstream
+  revisions in resettable storage and verify its persisted run, analysis, calibration, and lineage.
+- Add frame/crop/thumbnail and bounded video-range timing cases; verify media identity, cache
+  invalidation after edits/revision changes/restart, and cold/warm derived-view behavior. Add
+  bounded polling and simulated background work while reads, writes, and media loads run. Keep
+  backend control and browser cache modes distinct.
 - Define useful completion with visible data identity and usable controls; do not time only a
   loading indicator or successful navigation. Collect actual UI requests and reconcile inventory.
-- Acceptance: hard fixtures work without mocked API routes. The report separates backend wait,
+- Acceptance: hard fixtures work without mocked API routes. Every inventoried UI write and media
+  route has a named speed and correctness case across M7 and M8. The report separates backend wait,
   frontend work, duplicate requests, cache behavior, and process startup. Relevant web checks pass.
 
 ## M9 — Freeze the baseline and enable regression gates
@@ -327,7 +344,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-### Current state — M6 complete
+### Current state — M7 complete; M8 residual scope revised
 
 - M0–M5 are complete. Their reports and evidence remain linked in the board and prior milestone
   reports.
@@ -352,6 +369,20 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - Known limit: one request per named read and per size is only a preliminary sample. M9 will
   establish repeated measurements and budgets. The successful preview uses a small deterministic
   fixture and does not represent a hard calibration payload.
-- Next milestone: M7, interactive writes, media, and contention.
-- Run authorization: 9 milestones requested, 2 completed, 7 remaining. M7–M13 are the seven
+- Decision: M7 covers only measured durable write/control families and the unregistered video URL
+  not-found boundary. M8 owns named real-backend scenarios for remaining stage submissions,
+  round-analysis intake, calibration apply, media, cache, contention, and browser workflows. A route
+  is not covered until an executable scenario measures it and verifies its durable effect.
+- M7 retains 36 passing response samples and 14 matching durable-effect comparisons for pipeline
+  node edit/copy/restore/reviews, four selection families, pipeline-run submission, job controls,
+  frame-review save, and calibration draft start/update/discard. The unregistered video URL returns
+  the measured 404 boundary response. See `docs/reports/0114-M7_Interactive_Writes_and_Controls.md`
+  and `docs/reports/0114-M7_Interactive_Writes_and_Controls_Samples.json`.
+- M7 checks: focused pytest, Ruff check and format, the 36-sample runner, inventory coverage check,
+  API generation, and API verification passed. The restore request model now declares optional
+  `base_pointers`, which its production handler already reads.
+- Next milestone: M8. Add named real-backend scenarios for remaining stage submissions, both
+  round-analysis intake routes, calibration apply, and all deferred media/cache/contention cases.
+  Then complete the browser workflows and verify every inventoried UI write and media route.
+- Run authorization: 9 milestones requested, 3 completed, 6 remaining. M8–M13 are the six
   planned incomplete milestones. This fixed run limit does not authorize adding milestones.

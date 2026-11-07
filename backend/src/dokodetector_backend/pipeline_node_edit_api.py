@@ -66,6 +66,7 @@ class PipelineNodeRestoreRequest(ContractModel):
     idempotency_key: str = Field(min_length=1)
     actor: dict[str, Any]
     pointers: dict[str, str] | None = None
+    base_pointers: dict[str, str] | None = None
     operations: list[dict[str, Any]] = Field(default_factory=list)
     evidence: Any = None
 

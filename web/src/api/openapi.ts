@@ -2397,6 +2397,10 @@ export interface components {
             actor: {
                 [key: string]: unknown;
             };
+            /** Base Pointers */
+            base_pointers?: {
+                [key: string]: string;
+            } | null;
             /** Evidence */
             evidence?: unknown;
             /** Expected Revision Id */
