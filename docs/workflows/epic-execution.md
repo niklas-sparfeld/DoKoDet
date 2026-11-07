@@ -28,8 +28,8 @@ or an external continuation loop for this mode.
 
 Stop when the count is reached, the epic is complete, the user asks to stop, or the next milestone
 cannot proceed safely. A blocked dependency, required user decision or approval, unresolved check
-failure, or ambiguous overlapping Git change ends the run early. Record the reason and remaining
-count in the handoff when possible. Do not skip a blocked milestone, expand the epic, or repeat a
+failure, or a Git integration problem that remains unsafe after following `AGENTS.md` ends the run
+early. Record the reason and remaining count in the handoff when possible. Do not skip a blocked milestone, expand the epic, or repeat a
 commit or action whose outcome is unknown. An interruption does not authorize an automatic restart;
 on an explicit resume, reconcile saved progress before doing more work.
 
@@ -91,7 +91,8 @@ Include these worker rules in every assignment:
   the glossary before changing domain terminology. Implement only the assigned milestone.
 - Use the existing checkout and follow the checkout and integration rules in `AGENTS.md`. Do not
   create a branch or worktree. Inspect Git state first. Preserve unrelated changes. Stop for
-  ambiguous overlap or an existing Git operation. Do not stage unrelated paths.
+  integration problems only after following the conflict resolution and coordination rules in
+  `AGENTS.md`. Do not stage unrelated paths.
 - Run the milestone's relevant tests and required lint, format, type, generated API, link, and
   browser checks. Resolve failures within scope. Record baseline failures separately; they do
   not waive acceptance criteria. Do not mark incomplete acceptance criteria complete.
@@ -100,9 +101,9 @@ Include these worker rules in every assignment:
   Replace stale handoff facts; keep detailed history and evidence in a milestone report.
 - Commit implementation, documentation, and plan updates together as one focused milestone
   commit. Integrate it into `main` before reporting completion. For the final milestone, verify
-  closure criteria, move the epic to the correct folder, and repair links. Use `INCOMPLETE` for ordinary unfinished work. Use `BLOCKED` only when
-  a concrete dependency, failed check, or unsafe overlap prevents further work. Return only this
-  receipt, at most 180 words:
+  closure criteria, move the epic to the correct folder, and repair links. Use `INCOMPLETE` for
+  ordinary unfinished work. Use `BLOCKED` only when a concrete dependency, failed check, or unresolved
+  integration problem prevents further work. Return only this receipt, at most 180 words:
 
 ```text
 RESULT: COMPLETE | INCOMPLETE | BLOCKED | NEEDS_USER

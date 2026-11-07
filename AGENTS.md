@@ -44,17 +44,20 @@ the latest `main` back into the secondary worktree before starting more work:
    not overlap with the incoming commits and the integration cannot overwrite, move, or otherwise
    affect them.
 4. Run `git -C <main-worktree-path> cherry-pick <commit>` for each completed commit, in order.
-5. If a cherry-pick conflicts, inspect the base, current, and incoming versions. Resolve the
-   conflict when the intended combined behavior is clear. Preserve valid changes from both sides.
-   For example, keep new logging around updated logic instead of choosing one side wholesale.
+5. If a cherry-pick conflicts, inspect the base, current, and incoming versions and the relevant
+   code, contracts, and tests. Integrate valid changes from both sides. Treat parallel agents' work
+   as expected input. For example, keep new logging around updated logic instead of choosing one
+   side wholesale. A conflict or a failed Git command is a reason to investigate and resolve it,
+   not a reason to stop.
 6. Run checks that cover the resolved paths and combined behavior. Continue the cherry-pick after
    the checks pass.
 7. Confirm that `main` contains the commits and that all pre-existing tracked and untracked changes
    remain intact.
 8. Inspect the secondary worktree status and confirm that no Git operation is in progress there.
-   Compare its uncommitted paths with the paths that the merge will change. Inspect overlap and
-   reconcile compatible changes from both sides. Preserve unrelated work. Stop only when the
-   intended combined behavior or safe integration is unclear.
+   Compare its uncommitted paths with the paths that the merge will change. Preserve unrelated
+   changes. If paths overlap, inspect the actual diff and reconcile compatible changes from both
+   sides before deciding whether integration is unsafe. Path overlap alone does not require user input. Do not overwrite or stage another
+   agent's uncommitted work.
 9. Run `git -C <secondary-worktree-path> merge main` to include the latest local `main`. Resolve
    conflicts with the same rules as above and run checks for the combined behavior. Confirm that
    the secondary worktree contains the merged `main` revision and all pre-existing local changes.
@@ -64,18 +67,25 @@ A merge commit created only to synchronize `main` does not trigger another integ
 
 Do not use push and pull to move commits between local worktrees. Do not update the `main` ref
 directly. Only one agent can run a Git integration operation in the main worktree at a time. Work
-by another agent does not by itself block integration. Proceed when its changes are unrelated or
-when a conflict has a small, clear resolution. Before integration, record the existing worktree
-status and compare all changed paths with every path changed by the incoming commits. Do not
+by another agent does not by itself block integration. Resolve conflicts and adapt the combined
+implementation when the intended behavior can be established from the changes, contracts, and tests.
+This includes changes to the same files, APIs, or data models and large diffs; size alone is not a
+reason to stop. Before integration, record the existing worktree status and compare all changed
+paths with every path changed by the incoming commits. Do not
 modify, add, move, stage, or discard unrelated worktree changes.
 
-Stop and report the problem only when safe integration is unclear. Overlap alone does not block
-integration; inspect and reconcile it when the combined behavior is clear. Examples that can block
-integration include ambiguous differences in intended behavior, incompatible API or data model
-changes, large rewrites of the same code, conflicts in generated or binary files, failing checks
-whose correct fix is unclear, or an in-progress Git operation owned by another agent. If a
-cherry-pick reaches such a conflict, preserve the evidence and describe the competing changes and
-the decision that needs human input.
+Do not ask the user to resolve ordinary parallel work. Investigate merge and cherry-pick failures,
+resolve the conflicts, run the relevant checks, and complete the integration. For generated files,
+use the project's generator when practical. Fix integration failures when the intended result is
+clear. Never discard another agent's valid work merely to make the checks pass.
+
+Ask for user input only when inspection gives concrete evidence of a genuine mistake or conflicting
+requirements and the correct combined behavior remains unclear. Describe the competing changes,
+the evidence, and the precise decision needed. A conflict marker, overlapping path, large rewrite,
+or failed check alone is not that evidence. If another agent owns an in-progress Git operation or
+overlapping uncommitted work prevents a safe merge, coordinate with that agent or wait for it to
+finish, then retry after checking the actual state. Do not take over its operation or discard its
+work. Report a blocker only if it cannot be resolved safely without user input.
 
 ### Worktree naming
 
