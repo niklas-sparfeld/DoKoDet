@@ -163,7 +163,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 ## Milestone status
 
 - **M0:** Complete — inventory registered routes, browser callers, and startup phases.
-- **M1:** Complete — freeze a hashed local hard example and seeded disposable workload profiles.
+- **M1:** Incomplete — fixture JSON is not application-schema valid, and hard-case dependencies are not closed.
 - **M2:** Not started — implement the timing and startup harness.
 - **M3:** Not started — cover UI JSON reads and job polling.
 - **M4:** Not started — cover writes, media, and contention.
@@ -302,25 +302,27 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - Run count: requested 11 milestones; completed 1; remaining 10. Continue only after explicit
   authorization under the persistent milestone command.
 
-### M1 — complete
+### M1 — incomplete after correction
 
-- Changes: added the bounded metadata report and source manifest at
-  `docs/reports/0114-M1_Hard_Data_and_Fixture_Freeze.md` and
-  `backend/fixtures/interactive-ui-performance/v1/manifest.json`. Added the seeded disposable
-  materializer, SHA-256 validation, exact hard-snapshot importer, and regression tests.
-- Checks: `mise exec -- uv run --project backend pytest backend/tests/test_interactive_ui_performance_fixtures.py`
-  passed (5 tests); scoped Ruff check passed. Two clean small-profile materializations were
-  byte-identical. The representative profile materialized and validated 805 assets. Hard snapshot
-  import and `--require-hard` passed against all six local content-addressed assets.
-- Decisions and limits: the metadata pass read 1,006 node manifests only. It selected the exact
-  1,061,930,405-byte source video and 40-frame, 2,641,025-byte revision. The cache is outside the
-  repository and uses a hard link on the current volume. The generated tier uses a fixed 64 KiB
-  media asset. Review-draft size, result fan-out, and additional lineage extremes still need bounded
-  discovery before those cases are frozen. No timings or speed claims were made.
-- Next: M2 timing and startup harness. The full qualification command must require the hard cache
-  and fail clearly when one of its six pinned assets is missing.
-- Run count: requested 11 milestones; completed 2; remaining 9.
+- Changes: added the report, hashed asset manifest, seeded materializer, and tests in commit
+  `ddf106224`. A correction pass added bounded revision, identity, polygon, draft, and branch-size
+  discovery. See `docs/reports/0114-M1_Hard_Data_and_Fixture_Freeze.md`.
+- Checks: five fixture-script tests and scoped Ruff pass. The generated files reproduce and the
+  pinned video bytes hash correctly. The application parsers accepted the selected identity,
+  visible-card, proposed-scene, and calibration-draft candidates. These checks do not validate the
+  generated fixture through the application stores.
+- Exact acceptance gap: generated node manifests, heads, revisions, and jobs fail the production
+  `PipelineNodeStore` or `Job` schemas. The selected identity, visible-card, and draft examples are
+  not pinned. The scene proposal references an unpinned detector and calibration revision; the
+  draft references an unpinned base calibration revision. The selected branch and media dependency
+  closures are not materialized or checked through production lineage readers.
+- Decision: M1 is not complete. Do not start M2 until the materializer uses production schemas or
+  stores, the selected examples and their media and lineage dependencies are hashed, and validation
+  passes through the application parsers, stores, and lineage readers.
+- Next: finish the M1 fixture correction. The bounded size findings and exact candidates are in the
+  M1 report. No timing baseline or speed claim was made.
+- Run count: requested 11 milestones; M0 complete (1); M1 incomplete; 10 milestones remain.
 
 The user requested interactive UI endpoint speed coverage and backend startup timings. This epic
 includes two bounded improvement cycles, not an open-ended optimization loop. No persistent run or
-This invocation authorizes the requested M1 milestone only. Preserve unrelated worktree changes.
+This invocation authorizes M1 only. M1 remains incomplete; preserve unrelated worktree changes.
