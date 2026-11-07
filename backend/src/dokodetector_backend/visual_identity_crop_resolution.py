@@ -21,6 +21,7 @@ from doko_operations.derived_view import (
     resolve_visible_region_crop,
 )
 from doko_operations.pipeline_data import ProcessorProducer, RecordingVideoSource
+from table_evidence_analyzer.visual_identity_crop_input import VisualIdentityCropInput
 
 from dokodetector_backend.pipeline_store import PipelineNotFound, StoredPipelineRevision
 from dokodetector_backend.visual_identity_crop_provenance import (
@@ -94,6 +95,45 @@ def resolve_identity_crop(
     )
     if crop_identity_mapping(crop) != crop_identity.to_mapping():
         raise DerivedViewError("the resolved identity crop changed")
+    return crop
+
+
+def resolve_reviewed_annotation_crop(
+    *,
+    crop_input: VisualIdentityCropInput,
+    item_id: str,
+    outcome: Mapping[str, Any],
+    source: RecordingVideoSource,
+    video_path: Path,
+    resolver: FrameResolver,
+    cache: Path,
+    lock: RLock,
+) -> ResolvedCrop:
+    """Resolve one annotation crop against exact frozen M1 geometry and identity."""
+    item = next((value for value in crop_input.items if value.card_id == item_id), None)
+    if item is None or outcome.get("card_id") != item_id:
+        raise DerivedViewError("the reviewed identity item is unavailable")
+    if (
+        outcome.get("frame_identity") != item.frame_identity.to_mapping()
+        or outcome.get("geometry") != item.geometry.to_mapping()
+    ):
+        raise DerivedViewError("the reviewed identity geometry changed")
+    crop_identity = outcome.get("crop_identity")
+    if not isinstance(crop_identity, Mapping) or crop_identity.get("status") != "usable":
+        raise DerivedViewError("the reviewed identity crop is unavailable")
+    crop = resolve_geometry_crop(
+        video_path=video_path,
+        source=source,
+        frame_identity=item.frame_identity.to_mapping(),
+        geometry=item.geometry.to_mapping(),
+        crop_policy=str(crop_identity["crop_policy"]),
+        output_encoding=str(crop_identity["output_encoding"]),
+        resolver=resolver,
+        cache=cache,
+        lock=lock,
+    )
+    if crop_identity_mapping(crop) != crop_identity:
+        raise DerivedViewError("the reviewed identity crop changed")
     return crop
 
 
@@ -198,5 +238,6 @@ __all__ = [
     "resolve_browser_preview",
     "resolve_geometry_crop",
     "resolve_identity_crop",
+    "resolve_reviewed_annotation_crop",
     "validated_identity_crop_outcome",
 ]

@@ -171,19 +171,23 @@ remains limited to its current supported crop input. Resolution tests run withou
 **Result:** Complete. `visual_identity_crop_provenance.py` owns validated crop context, dependency
 fingerprints, persisted run/input lineage checks, and outcome provenance checks. The checks consume
 the exact frozen M1 crop input. `visual_identity_crop_resolution.py` owns exact-frame and geometry
-resolution, crop identity mapping, browser preview resolution, and validated outcome lookup. Browser
-preview, reviewed annotation lookup, and canonical crop resolution use the shared geometry resolver.
-HTTP error conversion remains in the service/API boundary. Direct resolution tests use fixed crop
-bytes and do not start jobs; the API suite retains end-to-end crop digest, bytes, preview, restart,
-and stale dependency checks. Geometry refinement remains governed by the M1 frozen input policy.
+resolution, crop identity mapping, browser preview resolution, validated outcome lookup, and reviewed
+annotation crop lookup. The service retains reviewed input-context validation and API orchestration.
+Browser preview, reviewed annotation lookup, and canonical crop resolution use the shared geometry
+resolver. HTTP error conversion remains in the service/API boundary. Direct resolution tests use
+fixed crop bytes and do not start jobs; the API suite retains end-to-end crop digest, bytes, preview,
+restart, and stale dependency checks. Geometry refinement remains governed by the M1 frozen input
+policy.
 
 Checks passed:
 
-- `mise exec -- uv run --project backend pytest -q backend/tests/test_visual_identity_pipeline_api.py backend/tests/test_visual_identity_crop_sources.py backend/tests/test_visual_identity_crop_resolution.py` — 11 passed.
+- `mise exec -- uv run --project backend pytest -q backend/tests/test_visual_identity_pipeline_api.py backend/tests/test_visual_identity_crop_sources.py backend/tests/test_visual_identity_crop_resolution.py` — 13 passed, including direct reviewed-context cache and annotation lookup coverage.
 - `mise exec -- uv run --project backend ruff check backend/src/dokodetector_backend/visual_identity_crop_provenance.py backend/src/dokodetector_backend/visual_identity_crop_resolution.py backend/src/dokodetector_backend/visual_identity_pipeline_service.py backend/tests/test_visual_identity_crop_resolution.py` — passed.
 - `mise exec -- uv run --project backend ruff format --check backend/src/dokodetector_backend/visual_identity_crop_provenance.py backend/src/dokodetector_backend/visual_identity_crop_resolution.py backend/src/dokodetector_backend/visual_identity_pipeline_service.py backend/tests/test_visual_identity_crop_resolution.py` — passed.
 
-The tests report the existing Starlette `httpx` deprecation warning.
+The tests report the existing Starlette `httpx` deprecation warning. A direct reviewed-context test
+found that its cache warm-up compared the fingerprint digest string to a timestamp. The guard now
+compares the `ctime_ns` field, matching the validated identity lookup path.
 
 ## M3 — Separate identity execution and per-card classification
 

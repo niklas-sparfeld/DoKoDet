@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections import OrderedDict
 from pathlib import Path
 from threading import RLock
 from types import SimpleNamespace
@@ -13,6 +14,7 @@ from dokodetector_backend.visual_identity_crop_provenance import (
     crop_input_provenance,
     validate_crop_outcome,
 )
+from dokodetector_backend.visual_identity_pipeline_service import VisualIdentityPipelineService
 
 
 def test_resolution_uses_exact_geometry_and_preserves_crop_fixture(monkeypatch, tmp_path: Path):
@@ -98,3 +100,94 @@ def test_provenance_rejects_stale_input_and_geometry():
     outcome.geometry = SimpleNamespace(to_mapping=lambda: {"kind": "stale"})
     with pytest.raises(DerivedViewError, match="geometry changed"):
         validate_crop_outcome(expected, item, outcome)
+
+
+def test_reviewed_annotation_lookup_uses_frozen_geometry(monkeypatch, tmp_path: Path):
+    geometry = {"kind": "reviewed-geometry", "points": [[1, 2], [3, 4]]}
+    frame_identity = {"frame_index": 4, "requested_time_us": 8000}
+    item = SimpleNamespace(
+        card_id="card-1",
+        geometry=SimpleNamespace(to_mapping=lambda: geometry),
+        frame_identity=SimpleNamespace(to_mapping=lambda: frame_identity),
+    )
+    crop_input = SimpleNamespace(items=(item,))
+    crop_identity = {
+        "status": "usable",
+        "image_sha256": "a" * 64,
+        "crop_policy": "oracle_visible_region",
+        "output_encoding": "ppm",
+    }
+    crop = SimpleNamespace(
+        identity_mapping=lambda: {
+            **crop_identity,
+            "exclusion_inputs": [],
+        }
+    )
+    calls = []
+    monkeypatch.setattr(
+        resolution,
+        "resolve_geometry_crop",
+        lambda **kwargs: calls.append(kwargs) or crop,
+    )
+    resolved = resolution.resolve_reviewed_annotation_crop(
+        crop_input=crop_input,
+        item_id="card-1",
+        outcome={
+            "card_id": "card-1",
+            "frame_identity": frame_identity,
+            "geometry": geometry,
+            "crop_identity": crop_identity,
+        },
+        source=SimpleNamespace(),
+        video_path=tmp_path / "video.mp4",
+        resolver=SimpleNamespace(),
+        cache=tmp_path / "cache",
+        lock=RLock(),
+    )
+    assert resolved is crop
+    assert calls[0]["geometry"] == geometry
+    assert calls[0]["frame_identity"] == frame_identity
+
+
+def test_reviewed_crop_context_caches_numeric_fingerprint_timestamp(tmp_path: Path):
+    from table_evidence_analyzer.pipeline_data import VisibleCardData
+
+    recording_id = "recording-1"
+    bundle = tmp_path / "recording"
+    bundle.mkdir()
+    node_root = tmp_path / "nodes"
+    (node_root / "node-1").mkdir(parents=True)
+    source = SimpleNamespace(recording_id=recording_id)
+    revision = SimpleNamespace(
+        manifest=SimpleNamespace(
+            recording_id=recording_id,
+            content_type="visible_cards",
+            producer=None,
+            source=source,
+        ),
+        content=VisibleCardData(outcomes=()),
+    )
+    crop_input = SimpleNamespace(input_kind="reviewed_visible_card")
+    service = object.__new__(VisualIdentityPipelineService)
+    service._crop_context_lock = RLock()
+    service._crop_contexts = OrderedDict()
+    service._accepted_source = lambda _recording_id: (None, source)
+    service._canonical_input_node_ref = lambda *_args: {
+        "node_id": "node-1",
+        "revision_id": "revision-1",
+    }
+    service.selection_store = SimpleNamespace(read_node_revision=lambda *_args: revision)
+    service._freeze_crop_input = lambda *_args, **_kwargs: crop_input
+    service.repository_storage = SimpleNamespace(bundle_path=lambda _recording_id: bundle)
+    service.node_store = SimpleNamespace(root=node_root)
+    service.run_store = SimpleNamespace()
+
+    assert service._reviewed_crop_input_context(recording_id, "revision-1") == (
+        revision,
+        crop_input,
+    )
+    assert service._reviewed_crop_input_context(recording_id, "revision-1") == (
+        revision,
+        crop_input,
+    )
+    assert "reviewed:recording-1:revision-1" in service._crop_contexts
