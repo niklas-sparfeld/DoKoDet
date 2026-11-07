@@ -140,9 +140,9 @@ Invoke this mode with `luna loop epic 1234` to complete the remaining milestones
 incomplete milestone. These commands authorize sequential Luna subagents in the current chat.
 They do not change the behavior of `start epic`, `next phase`, or the persistent commands above.
 
-Use Terra at Medium reasoning as the orchestrator and `gpt-6-luna` at High reasoning for workers.
-Check the available model controls. If the requested configuration is unavailable, stop and
-explain. Do not silently substitute another model or claim to change the current chat's model.
+The current chat is the orchestrator, regardless of its model or reasoning level. Use
+`gpt-6-luna` at High reasoning for workers. Check the available worker model controls. If that
+configuration is unavailable, stop and explain. Do not silently substitute another worker model.
 
 The orchestrator reads this file and the current epic, dependencies, handoff, and Git state.
 For an unbounded-count invocation, record the number of remaining planned milestones as this
@@ -164,7 +164,7 @@ run's limit. Do not add milestones to extend the run. Use this loop:
 5. If a correction is clear, send it to the same worker. Allow at most two correction turns per
    milestone. Stop for a persistent failure, required human decision, or unclear safe next step.
 
-Keep Terra's context small. Do not read worker transcripts, raw logs, ongoing implementation, or
+Keep the orchestrator's context small. Do not read worker transcripts, raw logs, ongoing implementation, or
 full diffs by default. Do not repeat source exploration or successful checks. Luna owns
 implementation and verification. After the initial read, read only relevant epic sections and
 handoff changes. Inspect additional source or evidence only for a specific missing field,
