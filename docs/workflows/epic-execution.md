@@ -78,6 +78,12 @@ run's limit. Do not add milestones to extend the run. Use this loop:
    Corrections fix defects in the assigned result. Ordinary remaining work is not a blocker or
    a correction; if it exceeds the assignment, revise the milestone scope under the run limits.
 
+When a worker asks for advice, resolve the escalation within the existing authorization. Clarify
+its assignment, split the remaining work, or give a concrete next step. Keep the run and correction
+limits. A scope escalation is not a completed milestone or a correction turn. Record any revised
+scope in the epic before resuming implementation. Ask the user only when a decision exceeds the
+existing authorization or the intended behavior remains unclear.
+
 Keep the orchestrator's context small. Do not read worker transcripts, raw logs, ongoing
 implementation, or full diffs by default. Do not repeat source exploration or successful checks. Luna owns
 implementation and verification. After the initial read, read only relevant epic sections and
@@ -89,6 +95,12 @@ Include these worker rules in every assignment:
 
 - Read applicable `AGENTS.md` files, the assigned milestone, relevant contracts and handoff, and
   the glossary before changing domain terminology. Implement only the assigned milestone.
+- If new prerequisites substantially expand the assigned scope, the acceptance criteria require
+  work outside it, or two successive attempts do not reduce the remaining work, pause and ask the
+  orchestrator for advice. Report what is complete, what remains, the evidence, and a proposed
+  smaller next step. Preserve current work and identify any active operation. Ordinary complexity,
+  elapsed time, and resolvable integration conflicts alone are not reasons to pause. This advice
+  request is an allowed message before the final receipt; do not mark the milestone complete.
 - Use the existing checkout and follow the checkout and integration rules in `AGENTS.md`. Do not
   create a branch or worktree. Inspect Git state first. Preserve unrelated changes. Stop for
   integration problems only after following the conflict resolution and coordination rules in
