@@ -165,7 +165,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M0:** Complete — inventory registered routes, browser callers, and startup phases.
 - **M1:** Complete — bounded hard-data examples and seeded fixtures pass production schema and lineage validation.
 - **M2:** Complete — controlled endpoint and startup timing harness.
-- **M3:** Not started — cover catalog, recording, analysis, and evidence JSON reads.
+- **M3:** Complete — add named catalog and evidence JSON read cases with preliminary generated-empty and hard-snapshot samples.
 - **M4:** Not started — cover pipeline workspace, lineage, revision, review, and calibration reads.
 - **M5:** Not started — cover pipeline run, selection, result, and comparison reads.
 - **M6:** Not started — cover job history, polling, detail, and log reads.
@@ -327,28 +327,38 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-### Current state — M3 replanned before implementation
+### Current state — M3 complete
 
 - M0, M1, and M2 are complete. Their reports are `docs/reports/0114-M0_Interactive_UI_Performance_Inventory.md`,
   `docs/reports/0114-M1_Hard_Data_and_Fixture_Freeze.md`, and
   `docs/reports/0114-M2_Endpoint_and_Startup_Timing_Harness.md`. M2's controlled timing and three
   startup profiles passed its recorded protocol. Its comparator is advisory; no baseline gate is
   active.
-- The previous M3 attempt was stopped before a reviewable completion. Its four untracked artifacts
-  remain in the main worktree at `/Users/niklas.sparfeld/Developer/doko_detector`; they are not
-  present in this worktree and are not included in this planning change. Inspect and reuse valid
-  work only within its matching new milestone. Do not stage, move, or delete those files during
-  planning.
+- The previous M3 attempt's four untracked artifacts remain in the main worktree at
+  `/Users/niklas.sparfeld/Developer/doko_detector`. They were inspected read-only. The route-case
+  structure and deterministic job seed informed M3; pipeline revision, workspace, comparison, and
+  job-history cases remain for M4–M6. The artifacts were not changed, moved, or staged.
 - Decision: the preserved draft runner defines 38 UI JSON read scenarios across catalog, pipeline,
   result, and job families, plus generated/hard data, query variants, error paths, history scaling,
   and correctness checks. That scope is too large for one Luna phase. It is now M3–M6, each with an
   isolated route-family result and commit boundary. Later milestones retain their full original
   scope and are renumbered; no write, media, browser, baseline, or profiling work moved into M3–M6.
-- Checks for this planning change: `git diff --check` and the targeted Markdown local-link check
-  passed. No benchmark feature or measurement was run.
-- Next assignment: M3 only. Implement catalog and evidence reads as specified above, first inspecting
-  the four preserved artifacts in the main worktree and reusing only matching work. Do not implement
-  M4 or later in the same commit.
-- Run authorization: 8 milestones requested, 0 completed in this invocation, 8 remaining in its
-  fixed limit. The revised plan has 11 incomplete milestones (M3–M13); the limit does not increase
-  to match the expanded plan. A new authorization is required after this invocation reaches eight.
+- Replanning outcome: the broad preserved draft was split into four route-family packages. M3 now
+  contains only catalog and evidence JSON reads; its completed implementation and evidence follow.
+- M3 result: `backend/scripts/run_interactive_ui_catalog_read_performance.py` defines 11 named cases
+  for all 9 in-scope inventory routes. `--profile generated_empty` runs without local hard assets;
+  `--profile hard` validates and uses the frozen M1 snapshot. The report and raw sample export are
+  `docs/reports/0114-M3_Catalog_and_Evidence_Reads.md` and
+  `docs/reports/0114-M3_Catalog_Evidence_Read_Samples.json`. The generated-empty catalog, hard
+  catalog, recording details, repository bundle, and relevant missing-resource responses passed
+  their correctness oracles. The hard snapshot contains no analysis/evidence records, so those
+  routes have not-found cases only. No media routes were measured.
+- Checks: the focused pytest (2 tests), Ruff check, Ruff format check, and one-warmup/one-sample
+  preliminary run passed. The run has 36 valid samples. It is not a baseline. See the report for
+  the hard catalog's 11.066-second single sample and its limit. The generated-only run also passed
+  16/16 requests without the local hard cache. The full inventory checker has a new unlisted GET
+  calibration snapshot route in M4's scope; M4 must classify and cover it.
+- Next assignment: M4, pipeline workspace, lineage, revision, review, and calibration reads only.
+- Run authorization: 8 milestones requested, 1 completed, 7 remaining. The revised plan has
+  10 incomplete milestones (M4–M13); the fixed limit remains 8. A new authorization is required
+  after this invocation reaches eight.
