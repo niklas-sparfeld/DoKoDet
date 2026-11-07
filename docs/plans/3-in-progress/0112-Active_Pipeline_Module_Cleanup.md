@@ -343,6 +343,12 @@ exact input refs, proposed-scene crop choice, provider/model defaults, validatio
 payloads. A UI test verifies submission and shared job navigation. Keep existing workspace-backed
 run details only; do not restore private polling, retry controls, or removed input modes.
 
+Scoped test-budget exception: `RunControls.test.tsx` was 1,301 lines at the 0113-close base
+(`git show 39212aee1:web/src/pipeline/RunControls.test.tsx | wc -l`). It mixes event, visible-card,
+visual-identity, and retained-run coverage. M8 kept these existing cases together while extracting
+their shared composition, to preserve the characterized behavior without duplicating fixtures. This
+exception applies only to this file until M10; it does not waive the final test budget.
+
 Complete: [M8 launch request extraction](../../reports/0112-M8_Launch_Request_Extraction.md).
 
 ## M9 — Split job models and recovery from lifecycle management
@@ -361,9 +367,13 @@ the durable job schema. Split tests by lifecycle, persistence/recovery, and publ
 ## M10 — Enforce boundaries and verify the complete fixture workflow
 
 Add an automated source/test size check for this epic's explicit file list. Include all extracted
-modules and tests; exclude generated code and unrelated existing files. Add focused import checks
-for dependency direction, especially feature clients importing the aggregate root, service/helper
-cycles, and production imports of test support. Use the normal test tooling.
+modules and tests; exclude generated code and unrelated existing files. Split the M8
+`RunControls.test.tsx` suite into `RunControlsEventAndVisibleCard.test.tsx` and
+`RunControlsVisualIdentity.test.tsx`, with common builders in `runControlsTestFixtures.tsx` where
+needed. Preserve every existing launch and retained-run assertion. Keep each focused test file at
+or below 800 physical lines, including the extracted suites. This closes the scoped M8 exception.
+Add focused import checks for dependency direction, especially feature clients importing the
+aggregate root, service/helper cycles, and production imports of test support. Use normal tooling.
 
 Run the focused backend and web suites identified in M0, backend Ruff lint/format, web typecheck,
 lint/format, and generated API verification. Run a local fixture workflow from exact input selection
@@ -447,8 +457,8 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   polling or retry path. Exact inputs, proposed-scene crops, model/provider defaults, validation,
   submitted payloads, and job navigation passed in the focused UI suite. See the
   [M8 report](../../reports/0112-M8_Launch_Request_Extraction.md).
-- Decisions and limits: `RunControls.test.tsx` remains a pre-existing 1,301-line mixed suite; its
-  current selectors pass. Split it with the test-owner work in M10 rather than changing its test
-  ownership during this extraction.
-- Current run: requested 4 milestones, completed 3 (M6–M8), remaining 1 (M9–M10).
-  The next milestone is M9.
+- Decisions and limits: the pre-existing `RunControls.test.tsx` suite was 1,301 lines at commit
+  `39212aee1`. This is the scoped M8 exception recorded above. M10 must split it by stage, retain
+  its launch and run-history assertions, and reduce every focused test file to 800 lines or fewer.
+- Current run: requested 4 milestones, completed 2 (M7–M8), remaining 2 (M9–M10). M6 predates
+  this run. The next milestone is M9.

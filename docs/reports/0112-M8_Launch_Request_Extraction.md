@@ -23,5 +23,9 @@ extraction adds no feature poller, retry path, or second job lifecycle.
 - `cd web && npm test -- --run src/api/client.test.ts src/pipeline/RecordingPipelineWorkspace.test.tsx src/pipeline/RunControls.test.tsx` — 39 passed.
 
 The UI suite covers exact revision inputs, proposed-scene crop choice, provider/model defaults,
-validation, submitted payloads, and links to the shared job route. The existing `RunControls.test.tsx`
-is 1,301 lines and covers multiple launch and run-history concerns; M10 owns its test-size split.
+validation, submitted payloads, and links to the shared job route.
+
+The existing `RunControls.test.tsx` was 1,301 lines at the 0113-close base commit
+`39212aee1`. The epic records a scoped exception: M10 must split it into event/visible-card and
+visual-identity suites, preserve run-history assertions, and bring each focused test file to 800
+lines or fewer.
