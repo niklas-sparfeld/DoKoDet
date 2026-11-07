@@ -8,12 +8,13 @@
 - **Depends on:** [0108 M11](../5-closed/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
   must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
-- **Outcome:** M0–M6 are complete. M1 moved visual identity crop-input freezing and source
+- **Outcome:** M0–M8 are complete. M1 moved visual identity crop-input freezing and source
   validation into focused modules. M2 moved crop provenance checks and exact-geometry resolution
   into focused modules. M3 moved identity classification, execution, request construction, crop
   queries, recording-source access, and approval planning into focused modules. M5 moved shared API
   transport and feature contract types into focused modules. M6 split API methods and URL builders
-  by feature. M7–M10 remain.
+  by feature. M7 separated workspace loading and selection. M8 split launch request construction,
+  stage forms, and retained run presentation from the submission composition root. M9–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
   complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
   candidate files remain. M0 must remap their current responsibilities before extraction.
@@ -100,7 +101,7 @@ explicit plan change before the affected milestone is marked complete.
 | M5 | Extract API transport and feature contract types | Complete |
 | M6 | Split API methods and paths by feature | Complete |
 | M7 | Extract workspace loading and selection state | Complete |
-| M8 | Split processor launch controls from request construction | Not started |
+| M8 | Split processor launch controls from request construction | Complete |
 | M9 | Split job models and recovery from lifecycle management | Not started |
 | M10 | Enforce boundaries and verify the complete fixture workflow | Not started |
 
@@ -328,14 +329,21 @@ lineage results remain scoped to their recording while a new graph loads. Loads 
 
 ## M8 — Split processor launch controls from request construction
 
-Start from the controls left after 0110 M15. Move `buildStartPayload`, crop options, model/provider
-defaults, and input validation into `pipelineLaunchRequest.ts`. Move stage-specific form sections
-to `EventLaunchFields.tsx`, `VisibleCardLaunchFields.tsx`, and `VisualIdentityLaunchFields.tsx`
-where those sections survive. Keep one thin `RunControls` composition and submission owner.
+Start from the controls left after 0110 M15 and reconcile the closed 0113 cleanup. The three
+surviving event, visible-card, and visual-identity actions already use the shared modal and job
+submission flow. Keep that boundary. Move request construction, crop options, model/provider
+defaults, and validation helpers into `pipelineLaunchRequest.ts`. Move the stage sections to
+`EventLaunchFields.tsx`, `VisibleCardLaunchFields.tsx`, and `VisualIdentityLaunchFields.tsx`.
+Move retained run presentation to focused presentation modules. Keep `RunControls` as the single
+submission composition root at no more than 500 lines. Its retained run details come from the
+workspace response; do not add feature polling, retry, or a second job lifecycle.
 
-Acceptance: root is at most 500 lines. Focused tests cover exact input refs, proposed-scene crop
-choice, provider/model defaults, validation, and submitted payloads. A UI test verifies submission
-and shared job navigation. Do not restore private polling, retry/status UI, or removed input modes.
+Acceptance: root is at most 500 lines and each new module is at most 700 lines. Focused tests cover
+exact input refs, proposed-scene crop choice, provider/model defaults, validation, and submitted
+payloads. A UI test verifies submission and shared job navigation. Keep existing workspace-backed
+run details only; do not restore private polling, retry controls, or removed input modes.
+
+Complete: [M8 launch request extraction](../../reports/0112-M8_Launch_Request_Extraction.md).
 
 ## M9 — Split job models and recovery from lifecycle management
 
@@ -430,5 +438,17 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   signal-less conflict reloads. Selection completion is scoped to its recording and request,
   including busy cleanup and 409 recovery. The regression tests and check results are in the M7
   report.
-- Current run: requested 4 milestones, completed 1 (M7), remaining 3 (M8–M10).
-  The next milestone is M8. Coordinate its launch-boundary work with 0113 before implementation.
+- M8 extracted typed launch requests and crop choices into `pipelineLaunchRequest.ts`. It moved
+  stage forms into `EventLaunchFields.tsx`, `VisibleCardLaunchFields.tsx`, and
+  `VisualIdentityLaunchFields.tsx`; retained run details now live in `RunHistoryPresentation.tsx`
+  and `RunStatusPresentation.tsx`. `RunControls.tsx` remains the submission owner at 489 lines.
+  The client composition lives in `usePipelineLaunchClient.ts`. The 0113 close confirms these
+  actions use the shared modal and job route; retained details read workspace data and add no
+  polling or retry path. Exact inputs, proposed-scene crops, model/provider defaults, validation,
+  submitted payloads, and job navigation passed in the focused UI suite. See the
+  [M8 report](../../reports/0112-M8_Launch_Request_Extraction.md).
+- Decisions and limits: `RunControls.test.tsx` remains a pre-existing 1,301-line mixed suite; its
+  current selectors pass. Split it with the test-owner work in M10 rather than changing its test
+  ownership during this extraction.
+- Current run: requested 4 milestones, completed 3 (M6–M8), remaining 1 (M9–M10).
+  The next milestone is M9.
