@@ -1,0 +1,24 @@
+{
+  "schema_version": "interactive-performance-source-manifest/v1",
+  "seed": 11401,
+  "profiles": {
+    "small": {"recordings": 4, "nodes": 8, "revisions": 16, "jobs": 12, "items": 20},
+    "representative": {"recordings": 24, "nodes": 96, "revisions": 288, "jobs": 300, "items": 120},
+    "hard": {"recordings": 96, "nodes": 480, "revisions": 1920, "jobs": 2500, "items": 600},
+    "stress": {"recordings": 384, "nodes": 1920, "revisions": 9600, "jobs": 10000, "items": 1200}
+  },
+  "hard_example": {
+    "recording_id": "game-2026-08-20-01-005",
+    "node_id": "f3391fc3-049b-5fc2-ab40-30ea381d946e",
+    "revision_id": "bcf3f325-e35e-5bc0-b276-fa4e33aa874d",
+    "evidence": {"source_video_bytes": 1061930405, "source_duration_us": 80032000, "revision_bytes": 2641025, "frame_count": 40}
+  },
+  "assets": [
+    {"path": "data/intake/recordings/game-2026-08-20-01-005/manifest.json", "sha256": "7a8c27505b0ba0b0187fc072491e7d166e5dba930d8c88ff7295b08361475a8f"},
+    {"path": "data/intake/recordings/game-2026-08-20-01-005/source-record.json", "sha256": "f28b52b4b87d16535bed60f3a9868b58a1d64f77a91488abc9bb730ee36ca8d3"},
+    {"path": "data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov", "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73"},
+    {"path": "data/operations/pipeline-nodes/f3391fc3-049b-5fc2-ab40-30ea381d946e/manifest.json", "sha256": "4f07165b61f4bfd3f0b23cb043d3d03d8c684f7fd74f6c7329f14184d7fa3f62"},
+    {"path": "data/operations/pipeline-nodes/f3391fc3-049b-5fc2-ab40-30ea381d946e/head.json", "sha256": "532746042458c398016533ec7f9c0c17d07817130b70ab4746b1a3fac4825a23"},
+    {"path": "data/operations/pipeline-nodes/f3391fc3-049b-5fc2-ab40-30ea381d946e/revisions/bcf3f325-e35e-5bc0-b276-fa4e33aa874d/revision.json", "sha256": "f57d9a7230539f6023467979d055d6684d7aeb0ea3af23aa2ca42d6fec11f52b"}
+  ]
+}
