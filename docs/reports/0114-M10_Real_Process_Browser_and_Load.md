@@ -21,13 +21,13 @@ M10 runtime source files to identify the exact code used for the run.
 
 | Scenario | Samples | Action median / p90 (ms) | Requests per context | API requests per context | Duplicate samples | Browser cache event samples |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Recordings to workspace | 10 | 489 / 490 | 181 | 11 | 10 | 10 |
-| Displayed revision switch | 10 | 492 / 495 | 108–109 | 22–23 | 10 | 0 |
-| Frame and crop navigation | 10 | 511 / 561 | 104 | 18 | 10 | 0 |
-| Review save | 10 | 740 / 758 | 208–210 | 36–38 | 10 | 10 |
-| Jobs drawer and history | 10 | 571 / 577 | 274 | 19 | 10 | 10 |
-| Job submission to visible status | 10 | 2,164 / 2,203 | 212–213 | 42–43 | 10 | 10 |
-| Controlled load | 10 | 2,084 / 2,135 | 234–237 | 63–66 | 10 | 10 |
+| Recordings to workspace | 10 | 490 / 491 | 195 | 11 | 10 | 10 |
+| Displayed revision switch | 10 | 485 / 499 | 117–120 | 25–27 | 10 | 0 |
+| Frame and crop navigation | 10 | 528 / 545 | 114–116 | 21–23 | 10 | 0 |
+| Review save | 10 | 753 / 762 | 226–231 | 40–45 | 10 | 10 |
+| Jobs drawer and history | 10 | 571 / 589 | 295 | 19 | 10 | 10 |
+| Job submission to visible status | 10 | 2,173 / 2,192 | 226–227 | 42–43 | 10 | 10 |
+| Controlled load | 10 | 2,057 / 2,141 | 270–275 | 85–90 | 10 | 10 |
 
 The separate controlled-load scenario ran a single-flight active-job poll every 100 ms while a
 deterministic 1,500 ms worker job overlapped with an item review write, workspace and history reads,
@@ -39,7 +39,7 @@ writes completed. No poll, read, write, media request, or job status check faile
 Startup followed the M2 ten-fresh-process protocol against the same frozen generated storage
 snapshot. Each Uvicorn process had to pass liveness and readiness, return the exact recording from
 the catalog, and return the same recording identity from the workspace. All ten processes passed.
-Time from process launch through those probes was 974–1,113 ms (median 989 ms, p90 1,087 ms). The
+Time from process launch through those probes was 970–990 ms (median 983 ms, p90 990 ms). The
 Vite process returned HTTP 200 after 234 ms. These times describe this compact generated fixture
 only.
 
@@ -57,7 +57,7 @@ traffic and the 65,536-byte bound; it does not measure the larger hard video ass
 ## Fixture and limits
 
 The isolated fixture contains 106 files and 173,838 bytes, with manifest digest
-`d7c574781dbd262be6881e3decff28bb533fa6c16a212f34baec620de739ffb6`. It is built from the small
+`cc5f127fe936ce04d0b383ecb5df753a729ce1e321c1604ee4e78b4240113f8e`. It is built from the small
 local repository-bundle fixture through production storage and pipeline services. The browser uses
 the production FastAPI app and a real Uvicorn process, the real Vite server and same-origin API
 proxy, deterministic local event processing, and a deterministic local frame resolver. It contains
@@ -68,9 +68,13 @@ qualify the frozen hard-data corpus, larger video ranges, production performance
 budgets. M11 must run the full endpoint and startup corpus plus these browser workflows in three
 independent sessions before it freezes a baseline or enables gates. The M10 timings are preliminary.
 
+The report JSON and artifacts now record the post-integration rerun at
+`559f2e65878c4ce420e2c8f517e1b36280c07aa7`; all seven scenarios passed again across 70 fresh contexts,
+with ten fresh backend startup processes and zero error samples.
+
 ## Checks
 
-- `mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_browser_performance.py --output docs/reports/0114-M10_Real_Process_Browser_Samples.json` — PASS; 7 Playwright scenarios, 70 contexts, 10 startup processes.
+- `mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_browser_performance.py --output docs/reports/0114-M10_Real_Process_Browser_Samples.json` — PASS; 7 Playwright scenarios, 70 contexts, 10 startup processes; rerun after integration on `559f2e65878c4ce420e2c8f517e1b36280c07aa7` also passed.
 - `mise exec -- npm run typecheck` — PASS.
 - `mise exec -- npm run lint` — PASS.
 - `mise exec -- npm run format` — PASS.

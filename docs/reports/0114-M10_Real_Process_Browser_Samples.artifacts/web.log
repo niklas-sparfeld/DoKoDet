@@ -1,8 +1,8 @@
 
 > dokodetector-web@0.1.0 dev
-> vite --host 127.0.0.1 --port 62025 --strictPort
+> vite --host 127.0.0.1 --port 50379 --strictPort
 
 
-  VITE v8.3.5  ready in 70 ms
+  VITE v8.3.5  ready in 71 ms
 
-  ➜  Local:   http://127.0.0.1:62025/
+  ➜  Local:   http://127.0.0.1:50379/
