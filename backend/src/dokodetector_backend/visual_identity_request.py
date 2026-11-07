@@ -31,7 +31,7 @@ from table_evidence_analyzer.visual_identity_crop_input import (
 
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
-from dokodetector_backend.pipeline_store import PipelineNotFound
+from dokodetector_backend.pipeline_storage import PipelineNotFound
 from dokodetector_backend.visual_identity_crop_inputs import VisualIdentityCropInputFreezer
 from dokodetector_backend.visual_identity_crop_sources import (
     CropSourceError,

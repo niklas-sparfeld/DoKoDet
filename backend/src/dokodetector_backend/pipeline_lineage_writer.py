@@ -6,17 +6,21 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from doko_operations.pipeline_data import DataRevision, ProcessorRunRequest, canonical_json_bytes
+from doko_operations.pipeline_data import (
+    DataRevision,
+    ProcessorRunRequest,
+    ProcessorRunState,
+    canonical_json_bytes,
+)
 
 from dokodetector_backend.pipeline_lineage import PipelineLineage
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
-from dokodetector_backend.pipeline_store import (
-    PipelineNotFound,
+from dokodetector_backend.pipeline_revision_store import (
     PipelineRevisionStore,
-    ProcessorRunState,
     StoredPipelineRevision,
 )
+from dokodetector_backend.pipeline_storage import PipelineNotFound
 
 
 class PipelineLineageWriter:

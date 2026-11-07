@@ -42,20 +42,20 @@ from dokodetector_backend.pipeline_node_selection_store import (
     ExactNodeSelection,
     PipelineNodeSelectionStore,
 )
+from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
 from dokodetector_backend.pipeline_service_errors import (
     PipelineInputError,
     PipelineProviderError,
     PipelineServiceError,
 )
-from dokodetector_backend.pipeline_store import (
+from dokodetector_backend.pipeline_storage import (
     PipelineNotFound,
     PipelineRuntimeStorage,
     PipelineSelectionConflict,
     PipelineStateError,
-    ProcessorRunStore,
-    StoredPipelineRevision,
-    StoredProcessorRun,
 )
+from dokodetector_backend.processor_run_models import StoredProcessorRun
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 from dokodetector_backend.recording_bundle_store import (
     RecordingBundleStore,
     StoredRecordingBundle,

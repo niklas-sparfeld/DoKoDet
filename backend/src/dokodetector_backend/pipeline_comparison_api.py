@@ -14,7 +14,7 @@ from dokodetector_backend.pipeline_comparison_service import (
     PipelineComparisonError,
     PipelineComparisonInputError,
 )
-from dokodetector_backend.pipeline_store import PipelineNotFound
+from dokodetector_backend.pipeline_storage import PipelineNotFound
 
 router = APIRouter()
 COMPARISON_BASE = "/api/recordings/{recording_id}/pipeline/comparisons"

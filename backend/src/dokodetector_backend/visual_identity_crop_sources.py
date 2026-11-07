@@ -25,7 +25,8 @@ from table_evidence_analyzer.visual_identity_crop_input import (
 )
 
 from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
-from dokodetector_backend.pipeline_store import PipelineNotFound, StoredPipelineRevision
+from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
+from dokodetector_backend.pipeline_storage import PipelineNotFound
 
 
 class CropSourceError(ValueError):

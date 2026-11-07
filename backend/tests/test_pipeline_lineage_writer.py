@@ -16,12 +16,9 @@ from dokodetector_backend.pipeline_lineage import PipelineLineage
 from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
 from dokodetector_backend.pipeline_node_store import NodeUsed, PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
-from dokodetector_backend.pipeline_store import (
-    PipelineNotFound,
-    PipelineRevisionStore,
-    PipelineRuntimeStorage,
-    ProcessorRunStore,
-)
+from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
+from dokodetector_backend.pipeline_storage import PipelineNotFound, PipelineRuntimeStorage
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 
 SOURCE = {
     "schema_version": "recording-video/v1",

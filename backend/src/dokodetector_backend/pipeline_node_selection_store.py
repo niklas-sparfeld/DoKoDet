@@ -17,7 +17,7 @@ from doko_operations.pipeline_data import (
 from dokodetector_backend.filesystem import atomic_replace_json, contained_path
 from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
-from dokodetector_backend.pipeline_store import (
+from dokodetector_backend.pipeline_storage import (
     PipelineSelectionConflict,
     PipelineStoreError,
     _canonical_timestamp,

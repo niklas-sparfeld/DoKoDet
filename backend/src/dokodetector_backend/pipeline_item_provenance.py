@@ -13,7 +13,7 @@ from uuid import uuid4
 from doko_operations.pipeline_data import canonical_json_bytes, sha256_bytes
 
 from dokodetector_backend.pipeline_node_store import NodeRevision, PipelineNodeStore, _object
-from dokodetector_backend.pipeline_store import _canonical_timestamp, _safe_id
+from dokodetector_backend.pipeline_storage import _canonical_timestamp, _safe_id
 
 _KEY = "item_provenance"
 

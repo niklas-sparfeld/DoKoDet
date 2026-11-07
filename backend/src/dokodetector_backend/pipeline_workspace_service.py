@@ -30,11 +30,8 @@ from table_evidence_analyzer.pipeline_data import (
 from dokodetector_backend.filesystem import enumerate_resource_directories
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore, _read_json
-from dokodetector_backend.pipeline_store import (
-    ProcessorRunStatus,
-    ProcessorRunStore,
-    StoredProcessorRun,
-)
+from dokodetector_backend.processor_run_models import ProcessorRunStatus, StoredProcessorRun
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 from dokodetector_backend.round_analysis_contract import parse_round_analysis_create_request_bytes
 
 LOGGER = logging.getLogger(__name__)

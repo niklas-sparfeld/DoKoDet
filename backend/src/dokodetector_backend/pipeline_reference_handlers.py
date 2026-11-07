@@ -51,7 +51,7 @@ from dokodetector_backend.pipeline_reference_errors import (
     PipelineReferenceInputError,
     identifier,
 )
-from dokodetector_backend.pipeline_store import StoredPipelineRevision
+from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
 from dokodetector_backend.visible_card_reference_coverage import (
     frame_coverage_entries,
     frame_coverage_key,

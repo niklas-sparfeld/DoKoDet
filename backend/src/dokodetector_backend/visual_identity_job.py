@@ -30,13 +30,10 @@ from table_evidence_analyzer.visual_identity_crop_input import VisualIdentityCro
 
 from dokodetector_backend.job_store import Job, JobCancelled, JobManager
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
-from dokodetector_backend.pipeline_store import (
-    PipelineRuntimeStorage,
-    PipelineSelectionConflict,
-    ProcessorRunStore,
-    StoredPipelineRevision,
-    StoredProcessorRun,
-)
+from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
+from dokodetector_backend.pipeline_storage import PipelineRuntimeStorage, PipelineSelectionConflict
+from dokodetector_backend.processor_run_models import StoredProcessorRun
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 from dokodetector_backend.visual_identity_approval import _AUTO_APPROVAL_LOCAL_PURPOSE
 from dokodetector_backend.visual_identity_classification import (
     VisualIdentityClassification,

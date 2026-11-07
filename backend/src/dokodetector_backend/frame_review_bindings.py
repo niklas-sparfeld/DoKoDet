@@ -102,7 +102,7 @@ def write_frame_review_bindings(root: Any, bindings: Mapping[str, Any]) -> None:
     """Publish the migration result once without replacing an existing binding."""
     from dokodetector_backend.filesystem import atomic_write_json
     from dokodetector_backend.pipeline_node_store import PipelineNodeStore, _object, _read_json
-    from dokodetector_backend.pipeline_store import _process_lock
+    from dokodetector_backend.pipeline_storage import _process_lock
 
     store = PipelineNodeStore(root)
     path = _binding_path(store.root)

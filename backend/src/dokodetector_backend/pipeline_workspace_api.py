@@ -11,7 +11,7 @@ from dokodetector_backend.contract import ContractModel, Sha256
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.pipeline_api_contracts import validate_recording_id
 from dokodetector_backend.pipeline_service_errors import PipelineInputError, PipelineServiceError
-from dokodetector_backend.pipeline_store import PipelineNotFound
+from dokodetector_backend.pipeline_storage import PipelineNotFound
 
 router = APIRouter()
 WORKSPACE_BASE = "/api/recordings/{recording_id}/pipeline"

@@ -34,7 +34,8 @@ from table_evidence_analyzer.visual_identity import (
 from table_evidence_analyzer.visual_identity_crop_input import VisualIdentityCropInputItem
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.pipeline_store import PipelineRuntimeStorage, StoredProcessorRun
+from dokodetector_backend.pipeline_storage import PipelineRuntimeStorage
+from dokodetector_backend.processor_run_models import StoredProcessorRun
 from dokodetector_backend.visual_identity_crop_resolution import crop_identity_mapping
 from dokodetector_backend.visual_identity_pipeline_errors import (
     VisualIdentityPipelineError,

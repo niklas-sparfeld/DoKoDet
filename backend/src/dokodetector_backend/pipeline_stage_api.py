@@ -23,7 +23,7 @@ from dokodetector_backend.observation_pipeline_service import (
 )
 from dokodetector_backend.pipeline_api_contracts import run_response, validate_recording_id
 from dokodetector_backend.pipeline_service_errors import PipelineInputError, PipelineServiceError
-from dokodetector_backend.pipeline_store import (
+from dokodetector_backend.pipeline_storage import (
     PipelineConflict,
     PipelineNotFound,
     PipelineSelectionConflict,

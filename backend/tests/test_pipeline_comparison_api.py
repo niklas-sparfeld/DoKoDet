@@ -20,7 +20,8 @@ from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
-from dokodetector_backend.pipeline_store import PipelineRevisionStore, ProcessorRunStore
+from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 
 RECORDING_ID = "recording-1"
 VIDEO_DIGEST = "a" * 64

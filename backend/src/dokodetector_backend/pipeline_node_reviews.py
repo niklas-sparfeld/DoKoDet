@@ -14,7 +14,7 @@ from dokodetector_backend.pipeline_node_store import (
     _object,
     _read_json,
 )
-from dokodetector_backend.pipeline_store import _canonical_timestamp, _process_lock, _safe_id
+from dokodetector_backend.pipeline_storage import _canonical_timestamp, _process_lock, _safe_id
 
 
 class PipelineNodeReviews:

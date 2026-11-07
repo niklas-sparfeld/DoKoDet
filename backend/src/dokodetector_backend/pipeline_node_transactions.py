@@ -19,7 +19,7 @@ from dokodetector_backend.pipeline_node_store import (
     _object,
     _read_json,
 )
-from dokodetector_backend.pipeline_store import (
+from dokodetector_backend.pipeline_storage import (
     PipelineSelectionConflict,
     _canonical_timestamp,
     _process_lock,

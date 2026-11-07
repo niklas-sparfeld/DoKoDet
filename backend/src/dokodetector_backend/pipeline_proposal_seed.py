@@ -13,7 +13,7 @@ from table_evidence_analyzer.card_scene_contract import (
 from table_evidence_analyzer.pipeline_data import ProposedCardSceneData, VisibleCardData
 
 from dokodetector_backend.pipeline_reference_errors import PipelineReferenceInputError
-from dokodetector_backend.pipeline_store import StoredPipelineRevision
+from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
 from dokodetector_backend.visible_card_node_draft import VisibleCardNodeDraftItem
 
 

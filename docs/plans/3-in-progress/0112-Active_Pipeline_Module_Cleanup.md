@@ -11,7 +11,7 @@
 - **Outcome:** M0–M3 are complete. M1 moved visual identity crop-input freezing and source
   validation into focused modules. M2 moved crop provenance checks and exact-geometry resolution
   into focused modules. M3 moved identity classification, execution, request construction, crop
-  queries, recording-source access, and approval planning into focused modules. M4–M10 remain.
+  queries, recording-source access, and approval planning into focused modules. M0–M4 are complete. M5–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
   complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
   candidate files remain. M0 must remap their current responsibilities before extraction.
@@ -94,7 +94,7 @@ explicit plan change before the affected milestone is marked complete.
 | M1 | Extract visual-identity crop-input freezing | Complete |
 | M2 | Extract visual-identity crop resolution and provenance | Complete |
 | M3 | Separate identity execution and per-card classification | Complete |
-| M4 | Split surviving pipeline persistence owners | Not started |
+| M4 | Split surviving pipeline persistence owners | Complete |
 | M5 | Extract API transport and feature contract types | Not started |
 | M6 | Split API methods and paths by feature | Not started |
 | M7 | Extract workspace loading and selection state | Not started |
@@ -319,23 +319,25 @@ move it to `5-closed`, repair links, and update the board in the final milestone
 
 ## Execution handoff
 
-- Completed: M0, M1, M2, M3. M1 moved crop-input freezing and source validation. The focused source test
-  is in `backend/tests/test_visual_identity_crop_sources.py`; details are in
+- Completed: M0, M1, M2, M3, M4. M1 moved crop-input freezing and source validation. The focused
+  source test is in `backend/tests/test_visual_identity_crop_sources.py`; details are in
   [`docs/reports/0112-M1_Crop_Input_Extraction.md`](../../reports/0112-M1_Crop_Input_Extraction.md).
   M2 moved provenance and crop resolution. Its details are in
   [`docs/reports/0112-M2_Crop_Resolution_Extraction.md`](../../reports/0112-M2_Crop_Resolution_Extraction.md).
 - M3 moved classification, job execution, request construction, crop queries, recording-source
   access, and approval planning into explicit components. See the
   [`M3 report`](../../reports/0112-M3_Identity_Execution_Extraction.md) for owner boundaries,
-  budgets, and checks.
-- M3 checks passed: focused identity API, classification, job, approval, request, crop-query,
-  crop-source, and crop-resolution suites (17 tests); Ruff lint and format for all changed Python
-  files; all service and new module/test budgets.
+  budgets, and checks. Its focused suites passed (17 tests), as did changed-file Ruff lint/format
+  and module/test budgets.
+- M4 retired `pipeline_store.py`. Revision, processor-run, compact catalog, codec, and shared
+  filesystem owners now have focused modules. The migration-only reader and old state decoder live
+  in `legacy_processor_run_store.py` and `legacy_processor_run_codec.py`; only
+  `lineage_migration_inventory.py` imports that reader. Details and verification are in the
+  [`M4 report`](../../reports/0112-M4_Pipeline_Persistence_Extraction.md).
 - Decisions and limits: use the shared JobManager as the only scheduler and cancellation/publication
   authority. Auto-approval remains a plan and starts needed local work through the existing managed
-  classification operation. Keep the retired `test_pipeline_reference.py` absent. Preserve
-  `LegacyProcessorRunStore` while `lineage_migration_inventory.py` calls it. M3/M7/M9 must add or
-  locate coverage for stale workspace responses. M5 has no active timeout-configured client call;
+  classification operation. Keep the retired `test_pipeline_reference.py` absent. M3/M7/M9 must add
+  or locate coverage for stale workspace responses. M5 has no active timeout-configured client call;
   do not invent one without an API contract decision.
-- Next: M4, split surviving pipeline persistence owners. Requested 10 milestones, completed 3,
-  remaining 7. Coordinate M8 with 0113 before either launch-boundary implementation.
+- Next: M5, extract API transport and feature contract types. Requested 10 milestones, completed 4,
+  remaining 6. Coordinate M8 with 0113 before either launch-boundary implementation.

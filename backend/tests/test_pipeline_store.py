@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 
@@ -16,16 +17,16 @@ from doko_operations.pipeline_data import (
     sha256_bytes,
 )
 
-from dokodetector_backend.pipeline_store import (
-    LegacyProcessorRunStore,
+from dokodetector_backend.legacy_processor_run_store import LegacyProcessorRunStore
+from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
+from dokodetector_backend.pipeline_storage import (
     PipelineConflict,
     PipelineNotFound,
-    PipelineRevisionStore,
     PipelineRuntimeStorage,
     PipelineStateError,
     PipelineStoreError,
-    ProcessorRunStore,
 )
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 
 DIGEST = "a" * 64
 SOURCE = {
@@ -266,19 +267,22 @@ def test_run_store_publishes_request_and_state_together_and_supports_retry(tmp_p
     )
 
 
-def test_run_store_reads_legacy_state_without_metrics(tmp_path: Path) -> None:
-    run_store = ProcessorRunStore(tmp_path / "runtime")
-    stored, _ = run_store.create(request())
+def test_legacy_state_without_metrics_is_read_only_by_migration_store(tmp_path: Path) -> None:
+    revision_store = PipelineRevisionStore(tmp_path / "runtime")
+    runtime_store = ProcessorRunStore(tmp_path / "runtime")
+    stored, _ = runtime_store.create(request())
     legacy_state = stored.state.to_mapping()
     legacy_state["schema_version"] = "processor-run-state/v1"
     legacy_state.pop("metrics")
-    run_store.items_path("run-01").rmdir()
-    run_store.state_path("run-01").write_bytes(canonical_json_bytes(legacy_state))
+    runtime_store.items_path("run-01").rmdir()
+    runtime_store.state_path("run-01").write_bytes(canonical_json_bytes(legacy_state))
 
-    loaded = run_store.require("run-01")
+    assert runtime_store.get("run-01") is None
+    migration_store = LegacyProcessorRunStore(tmp_path / "runtime", revision_store=revision_store)
+    loaded = migration_store.require("run-01")
 
     assert loaded.state.metrics == {}
-    assert run_store.list() == (loaded,)
+    assert migration_store.list() == (loaded,)
 
 
 def test_processor_run_store_splits_item_outcomes_on_disk(tmp_path: Path) -> None:
@@ -301,8 +305,15 @@ def test_processor_run_store_splits_item_outcomes_on_disk(tmp_path: Path) -> Non
     state_document = json.loads(run_store.state_path("run-01").read_text(encoding="utf-8"))
     assert state_document["item_ids"] == ["event-01"]
     assert "items" not in state_document
-    assert (run_store.items_path("run-01") / "event-01.json").is_file()
-    assert run_store.require("run-01").state.items == (item,)
+    item_path = run_store.items_path("run-01") / "event-01.json"
+    assert item_path.is_file()
+    stored = run_store.require("run-01")
+    assert stored.state.items == (item,)
+    metadata = stored.state.to_mapping()
+    metadata.pop("items")
+    metadata["item_ids"] = ["event-01"]
+    assert run_store.state_path("run-01").read_bytes() == canonical_json_bytes(metadata)
+    assert item_path.read_bytes() == canonical_json_bytes(item.to_mapping())
 
 
 def test_processor_run_store_can_read_split_metadata_without_items(
@@ -509,3 +520,35 @@ def test_run_catalog_skips_run_with_unpublished_output_revision(tmp_path: Path) 
         )
         == 0
     )
+
+
+def test_run_store_file_lock_serializes_independent_store_instances(tmp_path: Path) -> None:
+    stores = [ProcessorRunStore(tmp_path / "runtime") for _ in range(2)]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = tuple(executor.map(lambda store: store.create(request()), stores))
+
+    assert sorted(created for _, created in results) == [False, True]
+    assert results[0][0] == results[1][0]
+    assert len(stores[0].list()) == 1
+
+
+def test_run_store_rejects_corrupted_item_file(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    run_store.create(request())
+    run_store.start("run-01")
+    run_store.record_item_progress(
+        "run-01",
+        progress=RunProgress(completed=1, total=1),
+        item=RunItemOutcome(
+            item_id="event-01",
+            status="succeeded",
+            result={"event_type": "card_state_changed"},
+            failure=None,
+        ),
+    )
+    (run_store.items_path("run-01") / "event-01.json").write_bytes(b"{}")
+
+    assert run_store.get("run-01") is None
+    assert "processor_run_catalog_skipped" in caplog.text

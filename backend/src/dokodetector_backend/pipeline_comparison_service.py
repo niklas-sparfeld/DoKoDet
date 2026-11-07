@@ -27,11 +27,9 @@ from doko_operations.pipeline_data import canonical_json_bytes
 
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_service_errors import PipelineServiceError
-from dokodetector_backend.pipeline_store import (
-    PipelineNotFound,
-    ProcessorRunStore,
-    StoredProcessorRun,
-)
+from dokodetector_backend.pipeline_storage import PipelineNotFound
+from dokodetector_backend.processor_run_models import StoredProcessorRun
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 
 
 class PipelineComparisonError(PipelineServiceError):

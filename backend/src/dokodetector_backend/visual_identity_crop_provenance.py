@@ -14,7 +14,7 @@ from table_evidence_analyzer.visual_identity_crop_input import (
     VisualIdentityCropInputItem,
 )
 
-from dokodetector_backend.pipeline_store import StoredPipelineRevision
+from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
 
 
 @dataclass(frozen=True)

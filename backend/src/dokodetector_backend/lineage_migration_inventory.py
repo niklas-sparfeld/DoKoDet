@@ -27,11 +27,9 @@ from table_evidence_analyzer.pipeline_data import parse_observation_bytes
 
 from dokodetector_backend.evidence_package_storage import EvidencePackageStorage
 from dokodetector_backend.evidence_package_store import EvidencePackageStore
+from dokodetector_backend.legacy_processor_run_store import LegacyProcessorRunStore
 from dokodetector_backend.pipeline_lineage import _acyclic
-from dokodetector_backend.pipeline_store import (
-    LegacyProcessorRunStore,
-    PipelineRevisionStore,
-)
+from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.visible_card_review_store import VisibleCardReviewStore

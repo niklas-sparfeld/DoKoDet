@@ -5,7 +5,7 @@ import pytest
 
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
-from dokodetector_backend.pipeline_store import PipelineSelectionConflict
+from dokodetector_backend.pipeline_storage import PipelineSelectionConflict
 
 SOURCE = {
     "schema_version": "recording-video/v1",

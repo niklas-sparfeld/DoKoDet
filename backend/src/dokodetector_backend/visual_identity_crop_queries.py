@@ -31,12 +31,9 @@ from table_evidence_analyzer.visual_identity_crop_input import (
 
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
-from dokodetector_backend.pipeline_store import (
-    PipelineNotFound,
-    PipelineRuntimeStorage,
-    ProcessorRunStore,
-    StoredPipelineRevision,
-)
+from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
+from dokodetector_backend.pipeline_storage import PipelineNotFound, PipelineRuntimeStorage
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.visual_identity_crop_provenance import (

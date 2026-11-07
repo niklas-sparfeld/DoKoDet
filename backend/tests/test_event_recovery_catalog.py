@@ -26,7 +26,8 @@ def test_recovery_reads_compact_statuses_and_only_loads_interrupted_runs(tmp_pat
 def test_recovery_marks_an_unlinked_queued_run_failed(tmp_path):
     from test_pipeline_lineage_writer import _request
 
-    from dokodetector_backend.pipeline_store import PipelineRuntimeStorage, ProcessorRunStore
+    from dokodetector_backend.pipeline_storage import PipelineRuntimeStorage
+    from dokodetector_backend.processor_run_store import ProcessorRunStore
 
     service = EventPipelineService.__new__(EventPipelineService)
     service.run_store = ProcessorRunStore(

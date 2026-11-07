@@ -40,12 +40,10 @@ from table_evidence_analyzer.pipeline_data import (
 )
 
 from dokodetector_backend.filesystem import atomic_replace_json
+from dokodetector_backend.legacy_processor_run_store import LegacyProcessorRunStore
 from dokodetector_backend.pipeline_reference_store import PipelineReferenceStore
-from dokodetector_backend.pipeline_store import (
-    LegacyProcessorRunStore,
-    PipelineRevisionStore,
-    _process_lock,
-)
+from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
+from dokodetector_backend.pipeline_storage import _process_lock
 
 
 def read_json(path: Path) -> Any:

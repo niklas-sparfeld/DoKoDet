@@ -17,7 +17,7 @@ from table_evidence_analyzer.pipeline_data import (
 from dokodetector_backend.filesystem import atomic_write_json, contained_path
 from dokodetector_backend.pipeline_lineage import PipelineLineage, _key, _reference
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
-from dokodetector_backend.pipeline_store import _canonical_timestamp, _safe_id
+from dokodetector_backend.pipeline_storage import _canonical_timestamp, _safe_id
 
 
 def _object(path: Path) -> dict[str, Any]:

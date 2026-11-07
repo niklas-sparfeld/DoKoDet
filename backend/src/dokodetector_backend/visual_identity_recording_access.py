@@ -10,7 +10,7 @@ from typing import Any
 from doko_operations.pipeline_data import RecordingVideoSource
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.pipeline_store import PipelineNotFound
+from dokodetector_backend.pipeline_storage import PipelineNotFound
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.visual_identity_pipeline_errors import VisualIdentityPipelineInputError

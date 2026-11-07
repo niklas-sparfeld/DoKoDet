@@ -530,10 +530,8 @@ def test_missing_legacy_frame_evidence_requires_matching_cache_bytes(tmp_path: P
 def test_publish_copy_records_a_repair_run_without_inference(tmp_path: Path) -> None:
     from test_pipeline_store import processor_producer, request, revision
 
-    from dokodetector_backend.pipeline_store import (
-        LegacyProcessorRunStore,
-        PipelineRevisionStore,
-    )
+    from dokodetector_backend.legacy_processor_run_store import LegacyProcessorRunStore
+    from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
 
     stage, target = tmp_path / "stage", tmp_path / "target"
     source_store = PipelineRevisionStore(stage)

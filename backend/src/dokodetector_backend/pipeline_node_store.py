@@ -34,7 +34,7 @@ from dokodetector_backend.filesystem import (
     contained_path,
     staging_directory,
 )
-from dokodetector_backend.pipeline_store import _canonical_timestamp, _process_lock, _safe_id
+from dokodetector_backend.pipeline_storage import _canonical_timestamp, _process_lock, _safe_id
 from dokodetector_backend.virtual_scene_data import validate_virtual_scenes
 
 

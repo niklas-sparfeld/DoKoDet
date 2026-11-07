@@ -11,10 +11,8 @@ from doko_operations.pipeline_data import ProcessorRunRequest, sha256_bytes
 from table_evidence_analyzer.pipeline_data import VisualIdentityData, VisualIdentityOutcome
 
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
-from dokodetector_backend.pipeline_store import (
-    ProcessorRunStore,
-    StoredProcessorRun,
-)
+from dokodetector_backend.processor_run_models import StoredProcessorRun
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 from dokodetector_backend.visual_identity_pipeline_errors import VisualIdentityPipelineInputError
 
 _AUTO_APPROVAL_LOCAL_PURPOSE = "auto_approval_comparison"

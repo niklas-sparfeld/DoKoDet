@@ -28,11 +28,9 @@ from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
-from dokodetector_backend.pipeline_store import (
-    PipelineRevisionStore,
-    PipelineRuntimeStorage,
-    ProcessorRunStore,
-)
+from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
+from dokodetector_backend.pipeline_storage import PipelineRuntimeStorage
+from dokodetector_backend.processor_run_store import ProcessorRunStore
 from dokodetector_backend.proposed_card_scene_jobs import ProposedCardSceneJobParticipant
 from dokodetector_backend.proposed_card_scene_pipeline_service import (
     ProposedCardScenePipelineInputError,

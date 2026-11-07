@@ -23,7 +23,8 @@ from doko_operations.derived_view import (
 from doko_operations.pipeline_data import ProcessorProducer, RecordingVideoSource
 from table_evidence_analyzer.visual_identity_crop_input import VisualIdentityCropInput
 
-from dokodetector_backend.pipeline_store import PipelineNotFound, StoredPipelineRevision
+from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
+from dokodetector_backend.pipeline_storage import PipelineNotFound
 from dokodetector_backend.visual_identity_crop_provenance import (
     ValidatedCropContext,
     crop_dependency_fingerprint,
