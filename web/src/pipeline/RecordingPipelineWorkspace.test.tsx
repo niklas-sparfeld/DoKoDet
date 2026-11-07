@@ -221,6 +221,7 @@ describe("recording pipeline workspace", () => {
       "progress",
       "automated-pipeline",
       "action",
+      "events",
       "save-state",
       "selection",
       "metadata",
@@ -233,7 +234,13 @@ describe("recording pipeline workspace", () => {
       screen
         .getByRole("region", { name: "Timeline Rail" })
         .querySelector("video"),
-    ).toHaveAttribute("preload", "none");
+    ).toBeNull();
+    expect(
+      within(screen.getByRole("region", { name: "Timeline Rail" })).queryByRole(
+        "button",
+        { name: "Play recording" },
+      ),
+    ).not.toBeInTheDocument();
     expect(
       within(inspector).getByText("Lineage, diagnostics, and history"),
     ).toBeInTheDocument();
@@ -277,9 +284,6 @@ describe("recording pipeline workspace", () => {
       screen.getByRole("combobox", { name: "Default generated revision" }),
     ).toHaveValue(generated.node_revision_id);
     expect(screen.queryByRole("button", { name: "Review" })).toBeNull();
-    expect(
-      screen.getByText("Select an Events data set in the lineage drawer."),
-    ).toBeInTheDocument();
 
     await userEvent
       .setup()
@@ -545,10 +549,10 @@ describe("recording pipeline workspace", () => {
     );
 
     expect(
-      await screen.findByText(
-        "Select an Events data set in the lineage drawer.",
-      ),
-    ).toBeInTheDocument();
+      await screen.findByRole("complementary", {
+        name: "Workspace inspector",
+      }),
+    ).toHaveTextContent("No data set selected");
     expect(
       screen.queryByRole("button", {
         name: "Card-state change, 0:02–0:03, succeeded",
@@ -967,10 +971,10 @@ describe("recording pipeline workspace", () => {
     );
 
     expect(
-      await screen.findByText(
-        "Select an Events data set in the lineage drawer.",
-      ),
-    ).toBeInTheDocument();
+      await screen.findByRole("complementary", {
+        name: "Workspace inspector",
+      }),
+    ).toHaveTextContent("No data set selected");
     expect(
       screen.queryByRole("complementary", {
         name: "CardEvent review controls",

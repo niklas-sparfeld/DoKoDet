@@ -4858,6 +4858,7 @@ export interface operations {
         parameters: {
             query?: {
                 preview?: "sampled_250ms" | null;
+                frame_index?: number | null;
             };
             header?: never;
             path: {

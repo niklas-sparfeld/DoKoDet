@@ -369,6 +369,8 @@ export function RecordingWorkspaceTaskSurface({
             nodeId={selectedEventNode.node_id}
             revisionId={selectedEventNode.revision_id}
             durationUs={workspace.video.duration_us}
+            sourceSha256={workspace.video.video_sha256}
+            portalToInspector
             selectionItemId={presentation.surface.selectedItemId ?? null}
             selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
             onRailItemsChange={onEventRailItemsChange}
@@ -425,7 +427,7 @@ export function RecordingWorkspaceTaskSurface({
         {stage.key === "events" &&
         !compare &&
         selectedEventNode === undefined ? (
-          <p role="status">Select an Events data set in the lineage drawer.</p>
+          <div aria-hidden="true" />
         ) : null}
         {stage.key === "visible_cards" &&
         !compare &&

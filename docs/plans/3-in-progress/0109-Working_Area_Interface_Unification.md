@@ -8,9 +8,10 @@
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0–M2 are complete. M1 adds a tested, selectable polygon surface for exact-frame
+- **Outcome:** M0–M3 are complete. M1 adds a tested, selectable polygon surface for exact-frame
   geometry. M2 adds shared still-frame loading and identity checks. Neither milestone restores or
-  claims the historical editing interactions. M3–M10 are not started. See the
+  claims the historical editing interactions. M3 connects Events to the still-frame surface. M4–M10
+  are not started. See the
   [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md) and the execution
   handoff below.
 
@@ -240,13 +241,19 @@ protection, and an exact-only mutation guard. The existing derived-frame endpoin
 source digest, frame index, dimensions, and request timing in documented identity headers. No video
 element or full-video buffer is used.
 
-### M3 — Connect Events to the shared surface — Not started
+### M3 — Connect Events to the shared surface — Complete
 
 Replace its frame/video renderer. Connect the rail cursor, exact event jumps, frame stepping, and
 existing event edits. Move time, loading, buffering replacement status, and errors outside center.
 
 Acceptance: event navigation and boundary editing retain behavior with still images. No independent
 media clock, source playback toggle, or event-specific frame chrome remains.
+
+Result: Events now loads the shared exact still frame from the accepted video identity. Event edits,
+loading and save errors, requested/resolved time, and review controls stay in the inspector or rail.
+The rail owns event jumps, the time cursor, and previous/next frame controls. Frame stepping resolves
+the requested frame index through the local frame service. Events has no video element, playback
+toggle, or media clock.
 
 ### M4 — Connect Visible cards and Virtual scenes — Not started
 
@@ -313,23 +320,25 @@ video elements, central text, and central command controls. No hardware or model
 ## Execution handoff
 
 - Completed: M0 — freeze layout and capability fixtures; M1 — add the common exact-frame geometry
-  surface foundation; M2 — add shared still-frame loading and source/frame identity state.
+  surface foundation; M2 — add shared still-frame loading and source/frame identity state; M3 —
+  connect Events to the exact still-frame surface.
 - Changes: `GeometrySurface` draws supplied exact-frame polygons over a still image, suppresses
   mismatched frame or calibration geometry, and supports accessible selection. `workingAreaFrame.ts`
   loads exact or sampled images, validates response identity and timing, keeps at most 32 object URLs,
-  ignores stale requests, and allows mutations only for exact frames. The derived-frame API documents
-  identity headers in OpenAPI and the generated TypeScript contract. Current node editors remain
-  unchanged. No old interaction behavior was restored or claimed preserved.
-- Checks: focused loader tests passed (3 tests); exact and sampled backend route tests passed (2
-  tests); `npm run check` passed (typecheck, lint, Prettier, generated API comparison, and 188
-  frontend tests); `npm run build` passed; `pipeline-lineage-workspace.spec.ts` passed. The browser
-  check covers the existing lineage workspace. Local links passed for this epic and the M0 report.
-  M0 evidence remains in
+  ignores stale requests, and allows mutations only for exact frames. The Events editor now uses that
+  loader and portals controls to the inspector. It reports requested and resolved time in the rail,
+  supports event selection and exact-frame stepping, and retains boundary edits, deletion, and review.
+  The Events rail has no media element or playback control.
+- Checks: `npm run check` passed (typecheck, lint, Prettier, generated API comparison, and 189
+  frontend tests); `npm run build` passed; focused node editor, workspace, and rail tests passed (39
+  tests); exact and sampled backend route tests passed (2 tests); `pipeline-lineage-workspace.spec.ts`
+  passed at 1440 × 900 and 390 × 844 with no center text, controls, inputs, or video. Local links
+  passed for this epic and the M0 report. M0 evidence remains in
   [0109-M0_Working_Area_Inventory.md](../../reports/0109-M0_Working_Area_Inventory.md).
-- Decisions: newer node-backed code is authoritative. Exact loads use source SHA and exact response
-  identity; sampled loads remain read-only. M3 owns Events integration. M4 owns visible-card and
-  virtual-scene integration and editing.
-- Limits: the loader is not connected to a step editor yet. The browser regression does not exercise
-  the new loader. The implementation loads still images only and does not buffer the recording.
-- Next: M3 — connect Events to the shared surface.
-- Run: requested 11 milestones, completed 3, remaining 8.
+- Decisions: newer node-backed code is authoritative. Exact loads use the accepted source SHA and
+  response identity. Sampled loads remain read-only. Event frame stepping requests the adjacent
+  frame index and updates the shared cursor to that frame's presentation timestamp.
+- Limits: event frame verification uses local browser fixtures; no live recording was inspected.
+  The other five steps remain on their current surfaces.
+- Next: M4 — connect Visible cards and Virtual scenes.
+- Run: requested 11 milestones, completed 4, remaining 7.

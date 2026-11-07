@@ -32,6 +32,7 @@ export type RecordingTimelineRailProps = {
   items: readonly RecordingTimelineRailItem[];
   onTimeChange: (timeUs: number) => void;
   onItemSelect: (item: RecordingTimelineRailItem) => void;
+  stillFrameMode?: boolean;
   videoSelector?: string;
 };
 
@@ -50,6 +51,7 @@ export function RecordingTimelineRail({
   items,
   onTimeChange,
   onItemSelect,
+  stillFrameMode = false,
   videoSelector = "video[data-recording-source-video]",
 }: RecordingTimelineRailProps) {
   const fallbackVideoRef = useRef<HTMLVideoElement>(null);
@@ -91,6 +93,7 @@ export function RecordingTimelineRail({
   );
 
   const getVideo = useCallback((): HTMLVideoElement | null => {
+    if (stillFrameMode) return null;
     if (typeof document === "undefined") return null;
     const candidates = Array.from(
       document.querySelectorAll<HTMLVideoElement>(videoSelector),
@@ -103,7 +106,7 @@ export function RecordingTimelineRail({
       (candidates.length === 1 ? candidates[0] : undefined) ??
       fallbackVideoRef.current
     );
-  }, [recordingId, videoSelector]);
+  }, [recordingId, stillFrameMode, videoSelector]);
 
   const commitTime = useCallback(
     (nextTimeUs: number) => {
@@ -363,13 +366,15 @@ export function RecordingTimelineRail({
         setHoveredTimeUs(null);
       }}
     >
-      <video
-        ref={fallbackVideoRef}
-        className={styles.visuallyHidden}
-        src={repositoryBundleVideoPath(recordingId)}
-        preload="none"
-        aria-hidden="true"
-      />
+      {stillFrameMode ? null : (
+        <video
+          ref={fallbackVideoRef}
+          className={styles.visuallyHidden}
+          src={repositoryBundleVideoPath(recordingId)}
+          preload="none"
+          aria-hidden="true"
+        />
+      )}
 
       <div className={styles.recordingTimelineRailHeader}>
         <div
@@ -382,17 +387,21 @@ export function RecordingTimelineRail({
         />
         <div
           className={styles.recordingTimelineTransport}
-          aria-label="Playback controls"
+          aria-label={
+            stillFrameMode ? "Timeline controls" : "Playback controls"
+          }
           role="group"
         >
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={togglePlayback}
-            aria-label={playing ? "Pause recording" : "Play recording"}
-          >
-            {playing ? "Pause" : "Play"}
-          </button>
+          {stillFrameMode ? null : (
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={togglePlayback}
+              aria-label={playing ? "Pause recording" : "Play recording"}
+            >
+              {playing ? "Pause" : "Play"}
+            </button>
+          )}
           <span className={styles.recordingTimelineTime} aria-live="polite">
             {formatTimeUs(displayTimeUs)} / {formatTimeUs(durationUs)}
           </span>

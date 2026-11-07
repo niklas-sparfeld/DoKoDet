@@ -23,6 +23,7 @@ from doko_operations.pipeline_data import (
     EventDataRevision,
     EventRecord,
     HumanProducer,
+    RecordingVideoSource,
     RunItemOutcome,
     RunProgress,
     canonical_event_data_bytes,
@@ -211,6 +212,17 @@ class _FrameResolver:
             transform_version=self.transform_version,
             output_encoding="jpeg",
             image_bytes=image_bytes,
+        )
+
+    def resolve_frame_index(
+        self, video_path: Path, source: RecordingVideoSource, frame_index: int, **_: object
+    ) -> ResolvedFrame:
+        return self.resolve(
+            ExactEventRequest(
+                source=source,
+                requested_time_us=frame_index * 100_000,
+            ),
+            video_path,
         )
 
 
@@ -1448,6 +1460,12 @@ def test_exact_event_derived_view_route_retrieves_a_cold_cache_frame(tmp_path: P
         assert first.headers["x-dokodetector-frame-height"] == "64"
         assert first.headers["x-dokodetector-requested-time-us"] == "400000"
         assert first.headers["x-dokodetector-frame-time-us"] == "400000"
+
+        previous = client.get(f"{path}?frame_index=3")
+        assert previous.status_code == 200
+        assert previous.headers["x-dokodetector-frame-index"] == "3"
+        assert previous.headers["x-dokodetector-requested-time-us"] == "400000"
+        assert previous.headers["x-dokodetector-frame-time-us"] == "300000"
 
         cache_root = tmp_path / "runtime" / "pipeline" / "derived-views"
         assert any(cache_root.rglob("*"))

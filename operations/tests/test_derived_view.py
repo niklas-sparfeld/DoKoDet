@@ -230,11 +230,14 @@ def test_ffmpeg_resolver_reuses_packet_probe_for_one_source(
     ):
         first = resolver.resolve(ExactEventRequest(source=source, requested_time_us=0), video)
         second = resolver.resolve(ExactEventRequest(source=source, requested_time_us=50_000), video)
+        previous = resolver.resolve_frame_index(video, source, 0)
 
     assert first.frame_index == 0
     assert second.frame_index == 1
+    assert previous.frame_index == 0
+    assert previous.presentation_timestamp_us == 0
     assert probe.call_count == 1
-    assert decode.call_count == 2
+    assert decode.call_count == 3
 
 
 def test_exact_event_uses_presentation_timestamps_and_warm_cache(tmp_path: Path) -> None:

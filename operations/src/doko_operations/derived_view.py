@@ -1215,6 +1215,42 @@ class FFmpegFrameResolver:
             image_bytes=image_bytes,
         )
 
+    def resolve_frame_index(
+        self,
+        video_path: Path,
+        source: RecordingVideoSource,
+        frame_index: int,
+        *,
+        output_encoding: str = "jpeg",
+    ) -> ResolvedFrame:
+        """Resolve one exact presentation frame by its zero-based frame index."""
+
+        _require_int(frame_index, "frame_index", minimum=0)
+        frames = self._cached_probe_frames(source.video_sha256, Path(video_path))
+        if frame_index >= len(frames):
+            raise DerivedViewMissingFrameError(
+                f"source video has no presentation frame at index {frame_index}"
+            )
+        timestamp_us, width, height = frames[frame_index]
+        image_bytes = self._decode_frame(
+            Path(video_path), frame_index, timestamp_us, output_encoding
+        )
+        actual_width, actual_height = _image_dimensions(image_bytes)
+        if (actual_width, actual_height) != (width, height):
+            raise DerivedViewProbeError("decoded frame dimensions do not match ffprobe")
+        return ResolvedFrame(
+            requested_time_us=timestamp_us,
+            frame_index=frame_index,
+            presentation_timestamp_us=timestamp_us,
+            source_video_sha256=source.video_sha256,
+            width=width,
+            height=height,
+            decoder_version=self.decoder_version,
+            transform_version=self.transform_version,
+            output_encoding=output_encoding,
+            image_bytes=image_bytes,
+        )
+
     def _cached_probe_frames(
         self, source_video_sha256: str, video_path: Path
     ) -> tuple[tuple[int, int, int], ...]:

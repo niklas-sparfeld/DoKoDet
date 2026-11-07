@@ -180,6 +180,22 @@ class VisibleCardPipelineService:
                 validate_source=False,
             )
 
+    def resolve_source_frame_index(self, recording_id: str, frame_index: int) -> ResolvedFrame:
+        """Resolve one exact recording frame by its presentation index."""
+
+        if isinstance(frame_index, bool) or frame_index < 0:
+            raise VisibleCardPipelineInputError("frame_index must be non-negative")
+        _, source = self._accepted_source(recording_id)
+        resolver = getattr(self.frame_resolver, "resolve_frame_index", None)
+        if not callable(resolver):
+            raise VisibleCardPipelineInputError(
+                "The configured frame resolver does not support frame stepping."
+            )
+        with self._derived_view_lock:
+            return resolver(
+                self._video_path(recording_id), source, frame_index, output_encoding="jpeg"
+            )
+
     def resolve_sampled_source_frame(
         self, recording_id: str, requested_time_us: int
     ) -> ResolvedFrame:

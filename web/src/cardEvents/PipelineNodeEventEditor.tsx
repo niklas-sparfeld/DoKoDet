@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import styles from "../App.module.css";
-import { repositoryBundleVideoPath } from "../api/client";
 import { useProfileName } from "../profile/profile";
 import { Toast } from "../Toast";
+import { GeometrySurface } from "../workingArea/GeometrySurface";
+import { useWorkingAreaFrame } from "../workingArea/workingAreaFrame";
+import {
+  TimelineRailSeekingPortal,
+  useTimelineRailReviewControlsSlot,
+  useTimelineRailSeekingSlot,
+} from "../pipeline/TimelineRailSeekingControls";
 import type { PipelineCardEventRailItem } from "./PipelineCardEventRailItem";
-import eventStyles from "./PipelineCardEventEditor.module.css";
 
 type EventRecord = {
   event_id: string;
@@ -48,6 +54,8 @@ export function PipelineNodeEventEditor({
   nodeId,
   revisionId,
   durationUs,
+  sourceSha256 = "",
+  portalToInspector = false,
   selectionItemId,
   selectionTimeUs,
   onRevisionChange,
@@ -59,6 +67,8 @@ export function PipelineNodeEventEditor({
   nodeId: string;
   revisionId: string;
   durationUs: number;
+  sourceSha256?: string;
+  portalToInspector?: boolean;
   selectionItemId: string | null;
   selectionTimeUs: number | null;
   onRevisionChange: (
@@ -74,8 +84,22 @@ export function PipelineNodeEventEditor({
   onNotice?: (message: string) => void;
 }) {
   const profileName = useProfileName();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const previousVideoTimeRef = useRef<number | null>(null);
+  const frameRequestTimeUs = selectionTimeUs ?? 0;
+  const [stepFrameIndex, setStepFrameIndex] = useState<number | null>(null);
+  const completedFrameStepRef = useRef<number | null>(null);
+  const frameState = useWorkingAreaFrame({
+    recordingId,
+    sourceId: `${nodeId}:${revisionId}`,
+    sourceSha256,
+    requestedTimeUs: frameRequestTimeUs,
+    mode: "exact",
+    ...(stepFrameIndex === null ? {} : { frameIndex: stepFrameIndex }),
+  });
+  const seekingSlot = useTimelineRailSeekingSlot();
+  const frameStatusSlot = useTimelineRailReviewControlsSlot();
+  const [inspectorTarget, setInspectorTarget] = useState<HTMLElement | null>(
+    null,
+  );
   const revisionRef = useRef({ nodeId, revisionId });
   const savedContentRef = useRef<EventData | null>(null);
   const pendingRef = useRef<{ content: EventData; key: string } | null>(null);
@@ -98,13 +122,14 @@ export function PipelineNodeEventEditor({
   const timeUs = timeState.value;
   const setTimeUs = (value: number) =>
     setTimeState((current) => ({ ...current, value }));
-  const [watchedThroughUs, setWatchedThroughUs] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [retryAvailable, setRetryAvailable] = useState(false);
+  const [watchedThroughUs, setWatchedThroughUs] = useState(0);
+  const previousFrameTimeRef = useRef<number | null>(null);
   const rejectedItems = useMemo(() => {
     const byId = new Map<string, { item_id: string }>();
     const excluded = node?.metadata?.excluded_items;
@@ -133,6 +158,40 @@ export function PipelineNodeEventEditor({
     return [...byId.values()];
   }, [node, reviews]);
   const savePendingRef = useRef<() => Promise<void>>(async () => undefined);
+  const previousSelectionTimeRef = useRef(selectionTimeUs);
+
+  useEffect(() => {
+    if (!portalToInspector) return;
+    const timer = window.setTimeout(
+      () =>
+        setInspectorTarget(
+          document.querySelector<HTMLElement>(
+            '[data-event-inspector-slot="action"]',
+          ),
+        ),
+      0,
+    );
+    return () => window.clearTimeout(timer);
+  }, [portalToInspector]);
+
+  useEffect(() => {
+    if (previousSelectionTimeRef.current === selectionTimeUs) return;
+    previousSelectionTimeRef.current = selectionTimeUs;
+    completedFrameStepRef.current = null;
+    setStepFrameIndex(null);
+  }, [selectionTimeUs]);
+
+  useEffect(() => {
+    if (
+      stepFrameIndex === null ||
+      frameState.state !== "ready" ||
+      completedFrameStepRef.current === stepFrameIndex
+    )
+      return;
+    completedFrameStepRef.current = stepFrameIndex;
+    setTimeUs(frameState.frame.resolvedTimeUs);
+    onPositionChange(null, frameState.frame.resolvedTimeUs);
+  }, [frameState, onPositionChange, stepFrameIndex]);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -154,6 +213,14 @@ export function PipelineNodeEventEditor({
         const rawReviews: unknown = await reviewsResponse.json();
         if (!isNodeRevision(rawNode) || !Array.isArray(rawReviews))
           throw new Error("The backend returned invalid event revision data.");
+        if (
+          sourceSha256 !== "" &&
+          rawNode.source.video_sha256 !== sourceSha256
+        ) {
+          throw new Error(
+            "The selected event revision belongs to a different source video.",
+          );
+        }
         if (signal?.aborted) return;
         revisionRef.current = { nodeId, revisionId };
         savedContentRef.current = rawNode.content;
@@ -182,7 +249,7 @@ export function PipelineNodeEventEditor({
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [nodeId, onRailItemsChange, revisionId],
+    [nodeId, onRailItemsChange, revisionId, sourceSha256],
   );
 
   useEffect(() => {
@@ -195,9 +262,19 @@ export function PipelineNodeEventEditor({
   }, [load]);
 
   useEffect(() => {
-    if (selectionTimeUs !== null && videoRef.current !== null)
-      videoRef.current.currentTime = selectionTimeUs / 1_000_000;
-  }, [selectionTimeUs]);
+    if (frameState.state !== "ready") return;
+    const currentUs = frameState.frame.resolvedTimeUs;
+    const previousUs = previousFrameTimeRef.current;
+    previousFrameTimeRef.current = currentUs;
+    if (
+      previousUs !== null &&
+      currentUs >= previousUs &&
+      currentUs - previousUs <= 500_000 &&
+      previousUs <= watchedThroughUs + 500_000
+    ) {
+      setWatchedThroughUs((current) => Math.max(current, currentUs));
+    }
+  }, [frameState, watchedThroughUs]);
 
   useEffect(() => {
     onRailItemsChange?.(
@@ -371,6 +448,20 @@ export function PipelineNodeEventEditor({
     queueSave([...events, event]);
   }, [durationUs, events, onPositionChange, queueSave, timeUs]);
 
+  const stepFrame = useCallback(
+    (direction: -1 | 1) => {
+      if (frameState.state !== "ready") return;
+      const currentFrameIndex = Number(
+        frameState.frame.identity.frameId.split("@")[0],
+      );
+      const nextFrameIndex = currentFrameIndex + direction;
+      if (nextFrameIndex < 0) return;
+      completedFrameStepRef.current = null;
+      setStepFrameIndex(nextFrameIndex);
+    },
+    [frameState],
+  );
+
   const deleteEvent = useCallback(
     (eventId: string) => {
       const next = events.filter((event) => event.event_id !== eventId);
@@ -470,11 +561,8 @@ export function PipelineNodeEventEditor({
       coversRecording(review.coverage, durationUs),
   );
 
-  return (
-    <section
-      aria-label="Event data set editor"
-      className={styles.pipelineEventTaskSurface}
-    >
+  const eventEditor = (
+    <section aria-label="Event data set editor">
       <header>
         <p className={styles.statusLabel}>{node?.name ?? "Event data"}</p>
         <h2>
@@ -497,6 +585,11 @@ export function PipelineNodeEventEditor({
           ) : null}
         </div>
       ) : null}
+      {frameState.state === "loading" ? (
+        <p role="status">Loading the exact source frame…</p>
+      ) : frameState.state === "failed" ? (
+        <p role="alert">{frameState.reason}</p>
+      ) : null}
       {node !== null ? (
         <div>
           {rejectedItems.length > 0 ? (
@@ -513,33 +606,6 @@ export function PipelineNodeEventEditor({
               </ul>
             </details>
           ) : null}
-          <video
-            aria-label="Recording video"
-            className={eventStyles.sourceVideo}
-            controls
-            preload="metadata"
-            src={repositoryBundleVideoPath(recordingId)}
-            onTimeUpdate={(event) => {
-              const currentUs = Math.round(
-                event.currentTarget.currentTime * 1_000_000,
-              );
-              setTimeUs(currentUs);
-              const previousUs = previousVideoTimeRef.current;
-              previousVideoTimeRef.current = currentUs;
-              if (
-                !event.currentTarget.paused &&
-                previousUs !== null &&
-                currentUs >= previousUs &&
-                currentUs - previousUs <= 2_000_000 &&
-                previousUs <= watchedThroughUs + 500_000
-              )
-                setWatchedThroughUs((current) => Math.max(current, currentUs));
-            }}
-            onSeeking={() => {
-              previousVideoTimeRef.current = null;
-            }}
-            ref={videoRef}
-          />
           <div>
             <label>
               Full-recording coverage
@@ -557,7 +623,7 @@ export function PipelineNodeEventEditor({
               onClick={addEvent}
               type="button"
             >
-              Add event at playhead
+              Add event at timeline cursor
             </button>
             <button
               disabled={
@@ -610,8 +676,6 @@ export function PipelineNodeEventEditor({
                     setLocalSelectedId(event.event_id);
                     setTimeUs(event.start_us);
                     onPositionChange(event.event_id, event.start_us);
-                    if (videoRef.current !== null)
-                      videoRef.current.currentTime = event.start_us / 1_000_000;
                   }}
                   type="button"
                 >
@@ -694,6 +758,60 @@ export function PipelineNodeEventEditor({
       ) : null}
       {notice !== null ? <Toast message={notice} /> : null}
     </section>
+  );
+  return (
+    <>
+      {frameState.state === "ready" &&
+      (node === null || node.source.video_sha256 === sourceSha256) ? (
+        <GeometrySurface
+          frame={frameState.frame.identity}
+          imageUrl={frameState.frame.imageUrl}
+          overlays={[]}
+        />
+      ) : null}
+      {!portalToInspector ? eventEditor : null}
+      {portalToInspector && inspectorTarget !== null
+        ? createPortal(eventEditor, inspectorTarget)
+        : null}
+      {seekingSlot !== null ? (
+        <TimelineRailSeekingPortal
+          slot={seekingSlot}
+          groups={[
+            {
+              label: "Frame stepping",
+              controls: [
+                {
+                  label: "Previous frame",
+                  symbol: "−|",
+                  shortcut: "Shift+ArrowLeft",
+                  disabled:
+                    frameState.state !== "ready" ||
+                    Number(frameState.frame.identity.frameId.split("@")[0]) <=
+                      0,
+                  onClick: () => stepFrame(-1),
+                },
+                {
+                  label: "Next frame",
+                  symbol: "|+",
+                  shortcut: "Shift+ArrowRight",
+                  disabled: frameState.state !== "ready",
+                  onClick: () => stepFrame(1),
+                },
+              ],
+            },
+          ]}
+        />
+      ) : null}
+      {frameStatusSlot !== null && frameState.state === "ready"
+        ? createPortal(
+            <span className={styles.recordingTimelineTime} role="status">
+              Requested {frameState.frame.requestedTimeUs} µs · exact frame{" "}
+              {frameState.frame.resolvedTimeUs} µs
+            </span>,
+            frameStatusSlot,
+          )
+        : null}
+    </>
   );
 }
 

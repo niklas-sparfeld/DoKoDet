@@ -174,7 +174,6 @@ export function RecordingWorkspaceInspector({
       >
         {usesEditorInspector ? (
           <div
-            data-event-inspector-slot="action"
             data-visible-card-inspector-slot="action"
             data-identity-inspector-slot="action"
           />
@@ -223,6 +222,16 @@ export function RecordingWorkspaceInspector({
           </>
         )}
       </section>
+
+      {!compare && stage.key === "events" ? (
+        <section
+          className={`${styles.pipelineInspectorSection} ${inspectorStyles.section}`}
+          data-inspector-section="events"
+          aria-label="Events editing"
+        >
+          <div data-event-inspector-slot="action" />
+        </section>
+      ) : null}
 
       <section
         className={`${styles.pipelineInspectorSection} ${inspectorStyles.section}`}

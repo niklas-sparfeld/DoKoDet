@@ -487,6 +487,7 @@ def get_recording_exact_event_frame(
     requested_time_us: int,
     request: Request,
     preview: Literal["sampled_250ms"] | None = None,
+    frame_index: int | None = None,
 ) -> Response:
     """Return one verified exact or sampled review frame from the accepted recording video."""
 
@@ -500,7 +501,9 @@ def get_recording_exact_event_frame(
     try:
         service = _visible_service(request)
         frame = (
-            service.resolve_sampled_source_frame(recording_id, requested_time_us)
+            service.resolve_source_frame_index(recording_id, frame_index)
+            if frame_index is not None and preview is None
+            else service.resolve_sampled_source_frame(recording_id, requested_time_us)
             if preview == "sampled_250ms"
             else service.resolve_source_frame(recording_id, requested_time_us)
         )
@@ -518,7 +521,7 @@ def get_recording_exact_event_frame(
             "X-DokoDetector-Frame-Index": str(frame.frame_index),
             "X-DokoDetector-Frame-Width": str(frame.width),
             "X-DokoDetector-Frame-Height": str(frame.height),
-            "X-DokoDetector-Requested-Time-Us": str(frame.requested_time_us),
+            "X-DokoDetector-Requested-Time-Us": str(requested_time_us),
             "X-DokoDetector-Frame-Time-Us": str(frame.presentation_timestamp_us),
             "X-DokoDetector-Frame-Interval-Us": (
                 str(SAMPLED_FRAME_INTERVAL_US) if preview == "sampled_250ms" else "0"

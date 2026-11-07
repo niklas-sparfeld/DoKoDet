@@ -177,6 +177,7 @@ export function RecordingWorkspaceTimelineRail({
           selectedItemId={rail.selectedItemId}
           lanes={rail.lanes}
           items={rail.items}
+          stillFrameMode={stage.key === "events" && !compare}
           onTimeChange={onTimeChange}
           onItemSelect={onItemSelect}
         />

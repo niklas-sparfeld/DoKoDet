@@ -78,7 +78,10 @@ describe("workingAreaFrame", () => {
   });
 
   it("retains requested and resolved identity and allows mutation only for exact frames", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(frameResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () => frameResponse()),
+    );
     const exact = await loadWorkingAreaFrame(request());
     expect(exact.requestedTimeUs).toBe(1_234_567);
     expect(exact.resolvedTimeUs).toBe(1_240_000);
@@ -90,6 +93,11 @@ describe("workingAreaFrame", () => {
       contentSha256: "b".repeat(64),
     });
     expect(workingAreaFrameCanMutate(exact)).toBe(true);
+
+    const indexedRequest = request({ frameIndex: 37 });
+    expect(workingAreaFramePath(indexedRequest)).toContain("frame_index=37");
+    const indexed = await loadWorkingAreaFrame(indexedRequest);
+    expect(indexed.identity.frameId).toBe("37@1240000");
 
     const sampledRequest = request({ mode: "sampled" });
     expect(workingAreaFramePath(sampledRequest)).toContain(

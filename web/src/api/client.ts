@@ -958,8 +958,12 @@ export const SAMPLED_FRAME_INTERVAL_US = 250_000;
 export function pipelineDerivedFramePath(
   recordingId: string,
   requestedTimeUs: number,
+  frameIndex?: number,
 ): string {
-  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/exact-event/${encodeURIComponent(String(Math.max(0, Math.round(requestedTimeUs))))}`;
+  const path = `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/derived-views/exact-event/${encodeURIComponent(String(Math.max(0, Math.round(requestedTimeUs))))}`;
+  return frameIndex === undefined
+    ? path
+    : `${path}?frame_index=${encodeURIComponent(String(frameIndex))}`;
 }
 
 /** Snap to the same 250 ms ceiling the sampled-frame provider uses. */

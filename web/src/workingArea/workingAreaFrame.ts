@@ -15,6 +15,7 @@ export type WorkingAreaFrameRequest = {
   sourceSha256: string;
   requestedTimeUs: number;
   mode: WorkingAreaFrameMode;
+  frameIndex?: number;
 };
 
 export type WorkingAreaFrame = {
@@ -42,7 +43,11 @@ const inFlight = new Map<string, Promise<string>>();
 export function workingAreaFramePath(request: WorkingAreaFrameRequest): string {
   return request.mode === "sampled"
     ? pipelineReviewFramePath(request.recordingId, request.requestedTimeUs)
-    : pipelineDerivedFramePath(request.recordingId, request.requestedTimeUs);
+    : pipelineDerivedFramePath(
+        request.recordingId,
+        request.requestedTimeUs,
+        request.frameIndex,
+      );
 }
 
 export function workingAreaFrameRequestKey(
@@ -53,6 +58,7 @@ export function workingAreaFrameRequestKey(
     request.sourceId,
     request.sourceSha256,
     request.mode,
+    request.frameIndex ?? "time",
     Math.max(0, Math.round(request.requestedTimeUs)),
   ].join(":");
 }
@@ -166,6 +172,11 @@ async function fetchFrame(
       "The source frame response has incomplete identity metadata.",
     );
   }
+  if (request.frameIndex !== undefined && frameIndex !== request.frameIndex) {
+    throw new Error(
+      "The source frame response does not match the requested frame index.",
+    );
+  }
   const expectedTime =
     request.mode === "sampled"
       ? snapSampledFrameTimeUs(request.requestedTimeUs)
@@ -256,11 +267,24 @@ export function useWorkingAreaFrame(
   request: WorkingAreaFrameRequest,
 ): WorkingAreaFrameState {
   const key = workingAreaFrameRequestKey(request);
-  const { mode, recordingId, requestedTimeUs, sourceId, sourceSha256 } =
-    request;
+  const {
+    frameIndex,
+    mode,
+    recordingId,
+    requestedTimeUs,
+    sourceId,
+    sourceSha256,
+  } = request;
   const requestValue = useMemo(
-    () => ({ mode, recordingId, requestedTimeUs, sourceId, sourceSha256 }),
-    [mode, recordingId, requestedTimeUs, sourceId, sourceSha256],
+    () => ({
+      frameIndex,
+      mode,
+      recordingId,
+      requestedTimeUs,
+      sourceId,
+      sourceSha256,
+    }),
+    [frameIndex, mode, recordingId, requestedTimeUs, sourceId, sourceSha256],
   );
   const generation = useRef(0);
   const [stored, setStored] = useState<WorkingAreaFrameState | null>(null);

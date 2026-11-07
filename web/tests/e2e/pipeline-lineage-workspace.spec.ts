@@ -1,6 +1,10 @@
 import { expect, test, type Route } from "@playwright/test";
 
 const RECORDING_ID = "recording-lineage-browser-fixture";
+const FRAME_BYTES = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
 const EVENT_NODE = "events-first-pass";
 const OBSERVATION_NODE = "observations-assembly";
 const ANALYSIS_ID = "analysis-all-sources";
@@ -211,6 +215,30 @@ test("lineage drawer preserves exact revisions, reviews, and all analysis source
       ]);
       return;
     }
+    if (path.includes("/pipeline/derived-views/exact-event/")) {
+      const requestedTimeUs = path.split("/").at(-1) ?? "0";
+      const frameUrl = new URL(route.request().url());
+      const frameIndex =
+        frameUrl.searchParams.get("frame_index") ??
+        String(Math.ceil(Number(requestedTimeUs) / 100_000));
+      const resolvedTimeUs = String(Number(frameIndex) * 100_000);
+      await route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: FRAME_BYTES,
+        headers: {
+          ETag: `"${"b".repeat(64)}"`,
+          "X-DokoDetector-Source-Sha256": "a".repeat(64),
+          "X-DokoDetector-Frame-Index": frameIndex,
+          "X-DokoDetector-Frame-Width": "640",
+          "X-DokoDetector-Frame-Height": "360",
+          "X-DokoDetector-Requested-Time-Us": requestedTimeUs,
+          "X-DokoDetector-Frame-Time-Us": resolvedTimeUs,
+          "X-DokoDetector-Frame-Interval-Us": "0",
+        },
+      });
+      return;
+    }
     if (path.endsWith("/video")) {
       await route.fulfill({ status: 200, contentType: "video/mp4", body: "" });
       return;
@@ -259,6 +287,7 @@ test("lineage drawer preserves exact revisions, reviews, and all analysis source
           ),
         ).map((link) => link.textContent?.trim()),
         centerHasVideo: center?.querySelector("video") !== null,
+        centerText: center?.textContent?.trim() ?? "",
         centerButtons: Array.from(center?.querySelectorAll("button") ?? []).map(
           (button) => button.innerText.trim(),
         ),
@@ -271,7 +300,7 @@ test("lineage drawer preserves exact revisions, reviews, and all analysis source
 
   await page.setViewportSize({ width: 1440, height: 900 });
   const desktopLayout = await measureLayout();
-  console.log("M0_DESKTOP_LAYOUT", JSON.stringify(desktopLayout));
+  console.log("M3_DESKTOP_LAYOUT", JSON.stringify(desktopLayout));
   expect(desktopLayout.stepLabels).toEqual([
     "Events",
     "Visible cards",
@@ -280,26 +309,45 @@ test("lineage drawer preserves exact revisions, reviews, and all analysis source
     "Table observations",
     "Round analysis",
   ]);
-  expect(desktopLayout.centerHasVideo).toBe(true);
-  expect(desktopLayout.centerButtons).toContain("Add event at playhead");
+  expect(desktopLayout.centerHasVideo).toBe(false);
+  expect(desktopLayout.centerText).toBe("");
+  expect(desktopLayout.centerButtons).toEqual([]);
+  expect(desktopLayout.centerInputs).toEqual([]);
+  await expect(page.getByRole("img", { name: "Source frame" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add event at timeline cursor" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Play recording" }),
+  ).toHaveCount(0);
   await page.screenshot({
-    path: testInfo.outputPath("0109-m0-current-events-desktop.png"),
+    path: testInfo.outputPath("0109-m3-events-still-desktop.png"),
     fullPage: true,
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
   const narrowLayout = await measureLayout();
-  console.log("M0_NARROW_LAYOUT", JSON.stringify(narrowLayout));
+  console.log("M3_NARROW_LAYOUT", JSON.stringify(narrowLayout));
   expect(narrowLayout.viewport).toEqual({ width: 390, height: 844 });
   expect(narrowLayout.stepLabels).toEqual(desktopLayout.stepLabels);
-  expect(narrowLayout.centerHasVideo).toBe(true);
-  expect(narrowLayout.centerButtons).toContain("Add event at playhead");
+  expect(narrowLayout.centerHasVideo).toBe(false);
+  expect(narrowLayout.centerText).toBe("");
+  expect(narrowLayout.centerButtons).toEqual([]);
+  expect(narrowLayout.centerInputs).toEqual([]);
   expect(narrowLayout.pageScrollWidth).toBe(390);
   await page.screenshot({
-    path: testInfo.outputPath("0109-m0-current-events-narrow.png"),
+    path: testInfo.outputPath("0109-m3-events-still-narrow.png"),
     fullPage: true,
   });
   await page.setViewportSize({ width: 1440, height: 900 });
+
+  await page.getByRole("button", { name: "event-1" }).click();
+  await expect(page).toHaveURL(/t_us=100/);
+  await expect(
+    page.getByRole("region", { name: "Timeline Rail" }),
+  ).toContainText("Requested 100 µs · exact frame 100000 µs");
+  await page.getByRole("button", { name: /Next frame/ }).click();
+  await expect(page).toHaveURL(/t_us=200/);
 
   await page.getByRole("button", { name: "Show lineage" }).click();
   const drawer = page.getByRole("region", { name: "Pipeline lineage" });

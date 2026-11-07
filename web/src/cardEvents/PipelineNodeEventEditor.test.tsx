@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PipelineNodeEventEditor } from "./PipelineNodeEventEditor";
+import { resetWorkingAreaFrameCacheForTests } from "../workingArea/workingAreaFrame";
 
 const revision = {
   node_id: "events",
@@ -32,6 +33,109 @@ describe("PipelineNodeEventEditor", () => {
         .mockReturnValueOnce("edit-key")
         .mockReturnValueOnce("review-key"),
     });
+  });
+
+  it("shows exact still frames and keeps event controls outside the surface", async () => {
+    resetWorkingAreaFrameCacheForTests();
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:exact-frame");
+    const sourceSha256 = "a".repeat(64);
+    const requestedFrames: string[] = [];
+    const fetchMock = vi.fn(
+      async (input: string | URL | Request, init?: RequestInit) => {
+        const path = String(input);
+        if (path.includes("/derived-views/exact-event/")) {
+          requestedFrames.push(path);
+          const requestedTimeUs = Number(path.split("?")[0]?.split("/").at(-1));
+          const frameIndex =
+            new URL(path, "http://localhost").searchParams.get("frame_index") ??
+            "4";
+          return new Response(new Blob(["still"]), {
+            status: 200,
+            headers: {
+              ETag: `"${"b".repeat(64)}"`,
+              "X-DokoDetector-Source-Sha256": sourceSha256,
+              "X-DokoDetector-Frame-Index": frameIndex,
+              "X-DokoDetector-Frame-Width": "640",
+              "X-DokoDetector-Frame-Height": "360",
+              "X-DokoDetector-Requested-Time-Us": String(requestedTimeUs),
+              "X-DokoDetector-Frame-Time-Us": String(requestedTimeUs),
+            },
+          });
+        }
+        if (path.endsWith("/reviews")) return jsonResponse([]);
+        if (path.endsWith("/edit"))
+          return jsonResponse({
+            node_id: "events",
+            revision_id: "r2",
+            copied: false,
+            name: "First pass",
+          });
+        if (path.endsWith("/revisions/r1")) return jsonResponse(revision);
+        throw new Error(`Unexpected fetch ${path} ${String(init?.method)}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const onPositionChange = vi.fn();
+    const editor = (selectionTimeUs: number | null) => (
+      <>
+        <div data-event-inspector-slot="action" />
+        <div data-timeline-seeking-slot="true" />
+        <PipelineNodeEventEditor
+          recordingId="recording-1"
+          nodeId="events"
+          revisionId="r1"
+          durationUs={1_000_000}
+          sourceSha256={sourceSha256}
+          portalToInspector
+          selectionItemId="event-1"
+          selectionTimeUs={selectionTimeUs}
+          onRevisionChange={vi.fn()}
+          onPositionChange={onPositionChange}
+        />
+      </>
+    );
+    const { rerender } = render(editor(400_000));
+
+    const surface = await screen.findByRole("region", {
+      name: "Spatial evidence surface",
+    });
+    expect(
+      await screen.findByRole("img", { name: "Source frame" }),
+    ).toHaveAttribute("src", "blob:exact-frame");
+    expect(surface.querySelector("video")).toBeNull();
+    expect(surface.textContent).toBe("");
+    expect(requestedFrames).toContain(
+      "/api/recordings/recording-1/pipeline/derived-views/exact-event/400000",
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Next frame/ }));
+    await waitFor(() =>
+      expect(requestedFrames).toContain(
+        "/api/recordings/recording-1/pipeline/derived-views/exact-event/400000?frame_index=5",
+      ),
+    );
+    await waitFor(() =>
+      expect(onPositionChange).toHaveBeenCalledWith(null, 400_000),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "event-1" }));
+    expect(onPositionChange).toHaveBeenCalledWith("event-1", 100);
+    rerender(editor(100));
+    await waitFor(() =>
+      expect(requestedFrames).toContain(
+        "/api/recordings/recording-1/pipeline/derived-views/exact-event/100",
+      ),
+    );
+
+    fireEvent.change(await screen.findByLabelText("Start (µs)"), {
+      target: { value: "150" },
+    });
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/pipeline/nodes/events/edit",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
   });
 
   it("shows retained rejected events without adding them to the event content", async () => {
@@ -223,7 +327,7 @@ describe("PipelineNodeEventEditor", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Start (µs)")).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Add event at playhead" }),
+      screen.getByRole("button", { name: "Add event at timeline cursor" }),
     ).toBeDisabled();
   });
 
@@ -336,7 +440,9 @@ describe("PipelineNodeEventEditor", () => {
     );
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Add event at playhead" }),
+      await screen.findByRole("button", {
+        name: "Add event at timeline cursor",
+      }),
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     const request = fetchMock.mock.calls[2]?.[1] as RequestInit;
