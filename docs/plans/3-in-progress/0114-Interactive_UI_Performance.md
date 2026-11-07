@@ -2,7 +2,7 @@
 
 ## Plan status
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Existing local backend, web UI, and filesystem storage. No unmet epic dependency.
 - **Outcome:** Every endpoint used by the interactive UI has repeatable speed coverage. Backend
   startup has repeatable process measurements. A frozen hard-data corpus, baseline, regression
@@ -162,7 +162,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Milestone status
 
-- **M0:** Not started — inventory UI routes and startup phases.
+- **M0:** Complete — inventory registered routes, browser callers, and startup phases.
 - **M1:** Not started — discover and freeze hard data.
 - **M2:** Not started — implement the timing and startup harness.
 - **M3:** Not started — cover UI JSON reads and job polling.
@@ -286,7 +286,22 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-Planning only. M0 is next. No measurements or implementation milestones are complete. The user
-requested both interactive UI endpoint speed coverage and backend startup timings. This plan
-includes two bounded candidate cycles, not an open-ended optimization loop. No persistent run or
-Luna loop is authorized. Preserve the existing unrelated web working-tree changes.
+### M0 — complete
+
+- Changes: added the checked route inventory at `docs/reports/0114-M0_Interactive_UI_Performance_Inventory.json`
+  and the startup/browser report at `docs/reports/0114-M0_Interactive_UI_Performance_Inventory.md`.
+  The inventory covers registered OpenAPI operations and records the unregistered UI video URL as
+  a route discrepancy.
+- Checks: inventory checker passed for registered operations and one unregistered UI URL;
+  `npx playwright test jobs.spec.ts --trace on` passed 4 tests. Those browser responses are
+  intercepted and are call-path evidence only.
+- Decisions and limits: `/api/recordings/{recording_id}/video` is emitted by a UI video element
+  but is not registered by the backend. Resolve that contract before measuring it. No backend
+  latency baseline or performance fix was selected. No full baseline suite was run.
+- Next: M1 hard-data discovery and frozen fixture setup.
+- Run count: requested 11 milestones; completed 1; remaining 10. Continue only after explicit
+  authorization under the persistent milestone command.
+
+The user requested interactive UI endpoint speed coverage and backend startup timings. This epic
+includes two bounded improvement cycles, not an open-ended optimization loop. No persistent run or
+Luna loop is authorized by this M0 invocation. Preserve unrelated worktree changes.
