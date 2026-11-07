@@ -4,12 +4,14 @@
 
 - **Summary:** Give all long-running actions one start flow: a consistent button in the right
   sidebar opens a modal that explains the work and collects its required inputs.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** [0110 — Global Job Manager](../5-closed/0110-Global_Job_Manager.md), complete,
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** M0–M9 complete. M10 remains.
+- **Outcome:** M0–M10 complete. All seven current browser starts use the shared Actions/modal flow.
+  Jobs owns status, polling, retry and exact result links. No superseded launch path remains.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
   M15–M16 are complete; both epics are closed. M3–M8 moved all seven active browser starts to
   shared modals. M9 removed superseded launch client methods and compact-form scaffolding. The M0
@@ -55,7 +57,7 @@ This epic owns launch placement, explanations, forms, input selection and obsole
 [0109](../5-closed/0109-Working_Area_Interface_Unification.md) owns the shared working area and inspector
 layout. Reuse its sidebar slots if available. It is not a completion dependency: add the smallest
 right-sidebar slot needed in the current layout if it has not started. Do not redesign the center.
-[Active module cleanup](0112-Active_Pipeline_Module_Cleanup.md) owns code extraction, including
+[Active module cleanup](../3-in-progress/0112-Active_Pipeline_Module_Cleanup.md) owns code extraction, including
 launch request construction. M3 and M4 integrate 0113 callers first; 0112 M8 later extracts the
 request builders and callers adapt to them. Keep modal form state and shared submission in each
 caller. Neither epic blocks the other. Do not restore removed modules.
@@ -141,7 +143,7 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 | M7        | Integrate complete-pipeline launch                    | Complete    |
 | M8        | Integrate the active counterfactual calculation launch | Complete    |
 | M9        | Remove replaced launch controls                       | Complete    |
-| M10       | Verify the complete workflow and close                | Not started |
+| M10       | Verify the complete workflow and close                | Complete    |
 
 ## M0 — Freeze launch inventory and interaction contract
 
@@ -152,18 +154,21 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M9 completed. Its final browser-start map, caller audit, removal decisions and verification are
-  in [`0113-M9_Launch_Cleanup.md`](../../reports/0113-M9_Launch_Cleanup.md).
+- M10 completed and closed this epic. The final verification and operator handoff are in
+  [`0113-M10_Verification_and_Closure.md`](../../reports/0113-M10_Verification_and_Closure.md).
+- M9's final browser-start map, caller audit, removal decisions and verification are in
+  [`0113-M9_Launch_Cleanup.md`](../../reports/0113-M9_Launch_Cleanup.md).
 - All seven current browser starts use the shared modal. Jobs owns status, polling and retry.
   Counterfactual editing, pipeline review/editing, calibration evidence editing and apply remain
   separate actions. No browser caller exists for `event_import`,
   `proposed_card_scene_creation` or `calibration_preview`; their backend/agent capabilities remain.
-- Checks: focused component/API tests, caller source audit, browser route checks, typecheck, lint,
-  formatting, generated API verification, local Markdown links and `git diff --check` are recorded
-  in the M9 report.
-- Limits: M10 still needs the full workflow verification and closure review.
-- Next: M10, verify the complete workflow and close.
-- Run counts: requested 11 milestones, completed 10, remaining 1.
+- Checks: eight focused component/API test files passed (59 tests); six browser route checks passed;
+  typecheck, lint, generated API verification and local Markdown links passed. See the M10 report
+  for exact commands and coverage. Existing optional `processor_run_catalog_skipped` notice only.
+- Limits: none within this epic's scope. No live cloud, phone, training, or sealed evaluation was
+  needed.
+- Next: none. No further milestone is planned.
+- Run counts: requested 11 milestones, completed 11, remaining 0.
 
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision
@@ -284,7 +289,7 @@ Acceptance: every inventoried browser start uses the sidebar/modal flow, with do
 semantics. No duplicate active launch path or separate feature job poller remains. Inspection and
 editing controls do not accidentally become launch defaults.
 
-## M10 — Verify the complete workflow and close
+## M10 — Verify the complete workflow and close — Complete
 
 Run a local fixture workflow across all action families. Verify keyboard/focus behavior, desktop
 and narrow layouts, empty stages, missing prerequisites, multi-input branches, navigation races,
@@ -294,6 +299,8 @@ Acceptance: relevant component/API tests, applicable lint/format/type checks, ge
 verification and focused browser checks pass. Run backend checks for any changed server contracts.
 Publish the launch/removal inventory and operator handoff. Close only when all action families and
 cleanup gates pass. No cloud, phone, training run or sealed evaluation is required.
+
+Complete: [M10 verification and closure](../../reports/0113-M10_Verification_and_Closure.md).
 
 ## Scope limits
 
