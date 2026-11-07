@@ -4,13 +4,15 @@
 
 - **Summary:** Use one current-frame surface across all processing steps. Extend the visible-card
   surface. Keep controls, text, crops, and result details outside the central working area.
-- **Status:** Ready
+- **Status:** Blocked
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0 is complete. M1–M10 are not started. The 0107 and 0108 dependencies are complete.
-  This epic owns shared frame rendering and the placement of existing inspection and editing
-  functions. See the [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md).
+- **Outcome:** M0 is complete. M1 is blocked because the visible-card renderer and its interaction
+  tests were removed during the 0108 cutover. The current node editors do not provide an equivalent
+  geometry surface. M2–M10 are not started. The user must decide whether to restore the historical
+  interaction stack or revise M1 scope before work can continue. See the [M0 inventory and
+  contract](../../reports/0109-M0_Working_Area_Inventory.md).
 
 ## Problem and inspection
 
@@ -204,7 +206,7 @@ function placement, typed frame/selection contract, fixture coverage, and deskto
 Contract fixtures specify missing-calibration, interval-only, and untimed-action behavior without
 changing application behavior. Existing functions remain in place for the later surface migrations.
 
-### M1 — Extract the common geometry surface — Not started
+### M1 — Extract the common geometry surface — Blocked
 
 Extract the visible-card renderer with source image, layers, viewport, hit testing, selection, and
 edit handles. Keep domain commands in adapters. Remove geometry diagnostic text from the surface
@@ -212,6 +214,11 @@ and render the same details in the inspector.
 
 Acceptance: existing region/pose/mapping interactions pass focused tests. Surface tests show no
 visible text, tooltip, button, or toolbar. Accessible names and focus still work.
+
+Blocker: the named renderer and these interaction tests were removed by the 0108 cutover. The
+current node-backed editors use video and JSON views. Restoring the historical stack would also
+restore its deleted data, state, calibration, command, and inspector adapters. Do not mark M1
+complete until the user selects this restoration or a revised scope.
 
 ### M2 — Implement shared exact-frame loading — Not started
 
@@ -295,9 +302,20 @@ video elements, central text, and central command controls. No hardware or model
 ## Execution handoff
 
 - Completed: M0 — freeze layout and capability fixtures.
-- Changes: added the [M0 inventory and surface contract](../../reports/0109-M0_Working_Area_Inventory.md), test-only capability fixtures, and assertions. Added desktop/narrow browser measurements and screenshots of the current Events layout. Updated the epic and board to Ready; repaired inbound links after the move. No application behavior changed.
-- Checks: `npm run check` passed (typecheck, lint, format, generated API comparison, and 182 Vitest tests); focused Playwright viewport regression passed and verified six navigation labels, the central video and event controls, and no narrow page overflow. Local Markdown link check and `git diff --check` passed. New epic/report formatting passed. The broader Markdown Prettier check reports the same warnings on the board and three inbound documents at HEAD, so those historical/unrelated formats were left intact.
-- Decisions: preserve all current functions; 0108 retains exact data selection; overlays require exact frame and calibration correspondence; intervals and untimed inferred actions do not invent frame seeks.
-- Limits: browser screenshots cover Events only; the six-step responsive screenshot sweep remains for M10. Missing-calibration behavior is a contract fixture; current components do not yet support it. The current Events layout still places controls in the center.
-- Next: M1 — extract the common geometry surface.
+- Blocked: M1 — the planned source renderer, region/pose/mapping interaction modules, diagnostic
+  component, and focused interaction tests are absent from the current checkout. Commit `e22644d90`
+  removed 57 visible-card and identity files (28,214 lines), including the 1,358-line historical
+  surface. Current visible-card and virtual-scene node editors use video plus JSON fields and do not
+  mount equivalent geometry interactions. Calibration diagnostic text is also no longer present in
+  the current surface, so there are no details to relocate to the inspector.
+- Changes: no application code changed. The temporary generic renderer prototype was removed because
+  it did not satisfy the existing-interaction acceptance. Epic moved to Blocked; inbound links and
+  board entry updated.
+- Checks: inspected the current node editors and `e22644d90` deletion summary. Existing focused
+  visible-card and virtual-scene tests passed (9 tests) during assessment. No full suite, browser,
+  lint, format, or API check was run because M1 cannot proceed without a scope decision.
+- Decision needed: restore/adapt the historical renderer and its deleted interaction/data adapters,
+  or revise M1 to establish a generic surface without the prior interaction-preservation requirement.
+- Limits: no implementation is committed; M2–M10 remain unstarted.
+- Next: wait for a scope decision, then resume M1.
 - Run count: requested 11 milestones, completed 1, remaining 10.
