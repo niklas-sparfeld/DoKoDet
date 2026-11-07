@@ -3,9 +3,10 @@
 ## Plan status
 
 - **Summary:** Complete the remaining import-direction verification from epic 0112.
-- **Status:** Ready
+- **Status:** Closed
 - **Depends on:** [0112 cleanup](../5-closed/0112-Active_Pipeline_Module_Cleanup.md) complete.
-- **Outcome:** M0 remains. Fix and verify the identified test-support import guard gaps.
+- **Outcome:** M0 complete. The guard rejects extension-qualified fixture imports and imports from `__tests__` directories. Focused regressions and repository checks pass; see the [0112 cleanup handoff](../../reports/0112-Cleanup_Handoff.md#epic-0116-m0-closeout).
+- **Closure reason:** Complete
 
 ## Evidence and scope
 
@@ -27,7 +28,13 @@ repository; run applicable Ruff lint and format checks. Record exact commands, r
 verified revision in the cleanup handoff. Update the board and close this follow-up only when its
 acceptance passes. Commit the implementation, tests, and plan updates together.
 
-## Execution handoff
+## M0 result
 
-- Next: M0. This run requests one milestone; completed 0, remaining 1.
-- Preserve the closed 0112 plan. Update its cleanup handoff to report the actual verification.
+The guard detects static imports, re-exports, dynamic imports, and `require` references to
+test-only fixture modules. It accepts normal production imports and excludes test-only source
+files from production violations.
+
+Checks passed: `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py`
+(7 passed), `python scripts/check_0112_boundaries.py`, and Ruff check and format checks for both
+guard files. See the [0112 cleanup handoff](../../reports/0112-Cleanup_Handoff.md#epic-0116-m0-closeout)
+for exact commands and the verified source revision.

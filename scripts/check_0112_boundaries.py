@@ -211,9 +211,11 @@ _TS_IMPORT = re.compile(
 def _typescript_imports_test_support(path: Path) -> bool:
     for module in _TS_IMPORT.findall(path.read_text()):
         parts = [part.lower() for part in module.split("/") if part not in {".", ".."}]
-        if any(part in {"test", "tests", "test_support"} for part in parts):
+        if any(
+            part in {"test", "tests", "__tests__", "test_support"} for part in parts
+        ):
             return True
-        if parts and re.search(r"test.?fixtures?$", parts[-1]):
+        if parts and re.search(r"test.?fixtures?(?:\.tsx?)?$", parts[-1]):
             return True
     return False
 

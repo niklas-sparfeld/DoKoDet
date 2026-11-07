@@ -28,11 +28,10 @@ owners; the M4 report records the complete owner sizes and the migration-only le
 
 ## Open verification gap
 
-A final read-only review found that the TypeScript import guard does not reject test-fixture
-imports with explicit `.ts` or `.tsx` extensions or imports from `__tests__` directories. The
-source/test import boundary is not fully enforced. Add regression cases and fix the guard before
-claiming that this acceptance check is complete. The Luna loop stopped after its two correction
-turns; the closed epic remains an immutable record.
+Resolved by epic 0116 M0. The TypeScript guard now rejects fixture imports with explicit `.ts` and
+`.tsx` extensions and imports through `__tests__` paths. Regression coverage checks static imports,
+re-exports, dynamic imports, and `require`; it also checks that normal production imports and
+test-only source files remain outside the violation list. The closed 0112 epic remains unchanged.
 
 ## Owner and import map
 
@@ -92,6 +91,12 @@ Three examples show the files needed for a change:
 - `mise exec -- uv run --project backend ruff check backend/src backend/tests scripts/check_0112_boundaries.py`
   and `mise exec -- uv run --project backend ruff format --check backend/src backend/tests scripts/check_0112_boundaries.py`
   — passed (215 files formatted).
+- Epic 0116 M0, verified on source revision `a31a2fa14` plus the M0 working-tree changes:
+  `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py` — 7 passed;
+  `python scripts/check_0112_boundaries.py` — passed all explicit budgets and import directions;
+  `mise exec -- uv run --project backend ruff check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
+  — passed; `mise exec -- uv run --project backend ruff format --check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
+  — passed.
 - In `web/`, `npm test -- --run src/api/client.test.ts src/api/transport.test.ts src/api/analysisClient.test.ts src/api/calibrationClient.test.ts src/api/pipelineProcessingClient.test.ts src/api/recordingsClient.test.ts src/pipeline/RecordingPipelineWorkspace.test.tsx src/pipeline/RecordingPipelineWorkspaceSelection.test.tsx src/pipeline/RecordingPipelineWorkspacePresentation.test.tsx src/pipeline/useRecordingPipelineData.test.tsx src/pipeline/useRecordingPipelineSelection.test.tsx src/pipeline/RunControlsEventAndVisibleCard.test.tsx src/pipeline/RunControlsVisualIdentity.test.tsx` — 13 files and 87 tests passed.
 - `npm run typecheck`, `npm run lint`, `npm run format`, and `npm run verify:api` — passed. API verification regenerated OpenAPI into a temporary file and matched the checked-in generated client.
 - `npx playwright test tests/e2e/pipeline-cutover.spec.ts tests/e2e/job-start-actions.spec.ts -g 'opens fresh accepted video|starts a fact-complete pipeline|job start actions fixture'` — 4 browser checks passed for recording selection, launch, and shared Jobs navigation.
@@ -110,3 +115,10 @@ they verify UI behavior only. The backend fixture test covers persisted processi
 No cloud service, phone, training job, sealed evaluation, production deployment, or performance
 benchmark was used. The checks show fixture correctness and source boundaries. They do not qualify
 production behavior or demonstrate speed gains.
+
+## Epic 0116 M0 closeout
+
+The scanner normalizes `.ts` and `.tsx` fixture module suffixes and recognizes `__tests__` path
+segments. Focused tests cover static import, re-export, dynamic `import()`, and `require` forms.
+The repository guard and Ruff checks pass. Verified source revision: `a31a2fa14` plus the M0
+working-tree changes; the implementation and closeout are committed together in the 0116 M0 commit.
