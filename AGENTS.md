@@ -154,10 +154,15 @@ run's limit. Do not add milestones to extend the run. Use this loop:
    parent conversation. Only one worker can be active. Workers must not spawn agents.
 2. After assigning the milestone, wait for the worker's completion notification. Use a blocking
    agent wait with the longest timeout allowed by the active instructions. If the wait times out,
-   wait again; a timeout is not a reason to check on the worker. Do not use short waits, status
-   requests, agent listings, messages, transcript reads, or worktree inspection to monitor progress.
-   A user update does not require a worker check. Respond to user instructions and genuine worker
-   messages when they arrive. Workers must not send routine progress messages to the orchestrator.
+   wait again; a timeout is not a reason to check on the worker. After 10 minutes without a worker
+   message or completion, make one status check using the agent listing. If it is still running,
+   resume waiting and allow at least 10 more minutes before another check. Elapsed time alone does
+   not prove a stall. Do not interrupt or message the worker based only on elapsed time. If the
+   status shows a failure or another concrete problem, inspect only the evidence needed to decide
+   the next step. Do not use short waits, status requests, messages, transcript reads, or worktree
+   inspection for routine monitoring. A user update does not require a worker check. Respond to user
+   instructions and genuine worker messages when they arrive. Workers must not send routine progress
+   messages to the orchestrator.
 3. Read only the compact completion receipt. Confirm that its commit exists on `main`, its
    changed-path summary fits the assignment, and the epic and handoff record completion and
    checks. The receipt alone does not prove completion.
