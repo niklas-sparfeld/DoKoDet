@@ -4,12 +4,12 @@
 
 - **Summary:** Split large, frequently changed pipeline modules by responsibility. Move focused
   tests with each owner. Reduce the source and test context needed for a normal change.
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** [0108 M11](../5-closed/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
   must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
-- **Outcome:** Six active code paths have small composition roots, explicit owners, focused test
-  entry points, and size checks. All milestones are not started.
+- **Outcome:** M0 is complete. Six active code paths have small composition roots, explicit
+  owners, focused test entry points, and size checks. M1–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
   complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
   candidate files remain. M0 must remap their current responsibilities before extraction.
