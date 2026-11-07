@@ -40,7 +40,7 @@ not establish current timings, select a fix, or claim that a hard-data corpus al
 
 Coordinate with active 0109 working-area changes, 0112 module cleanup, and 0113 launch UX. Record
 coverage changes as those paths change. They do not block measurement of the current application.
-The board currently has two 0112 files; this epic does not renumber unrelated plans.
+Coordinate measurement coverage with the surviving 0112 cleanup plan.
 
 ## Scope
 
