@@ -152,7 +152,7 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M0 complete at `21a1146b0`. The inventory and current interaction contract are in
+- M0 complete at `8b54f6a91`. The inventory and current interaction contract are in
   [`0113-M0_Launch_Inventory.md`](../../reports/0113-M0_Launch_Inventory.md).
 - Checks passed: registry/caller source inventory; desktop inspector and local workspace fixture
   inspection; responsive CSS review at 900 px and 600 px; local Markdown links in the changed plan,
@@ -270,9 +270,3 @@ cleanup gates pass. No cloud, phone, training run or sealed evaluation is requir
 No new scheduler, job lifecycle, model algorithm, training UI, automatic cascading execution,
 automatic source refresh, automatic human review, or iOS launch redesign. Small shared components
 and feature-owned forms are sufficient. Do not turn this work into a generic workflow builder.
-
-## Execution handoff
-
-- Planning only. No implementation milestone has started.
-- The readiness gate passed. Next: implement M0 when instructed.
-- No milestone execution count was requested.
