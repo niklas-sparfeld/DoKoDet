@@ -1,18 +1,17 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   createDokoDetectorClient,
-  type PipelineRunResponse,
+  type EnqueueJobBody,
   type PipelineWorkspaceStage,
 } from "../api/client";
 import styles from "../App.module.css";
+import { JobStartActions } from "../jobs/JobStartActions";
+import { AcceptedJobReceipt, useJobSubmission } from "../jobs/useJobSubmission";
 import {
   buildObservationRequest,
-  describePipelineError,
-  toRunFacts,
+  formatValue,
 } from "./ObservationRunFormatting";
-import { PipelineRunStatus, RunHistory } from "./ObservationRunPresentation";
-import { PipelineControlStatusBadge } from "./PipelineControlStatusBadge";
 
 export type ObservationRunControlsProps = {
   recordingId: string;
@@ -22,213 +21,199 @@ export type ObservationRunControlsProps = {
   compact?: boolean;
 };
 
+const INPUT_ROLES = ["events", "visible_cards", "visual_identities"] as const;
+
 export function ObservationRunControls({
   recordingId,
   stage,
   stages,
   onRefresh,
-  compact = false,
 }: ObservationRunControlsProps) {
   const client = useMemo(() => createDokoDetectorClient(), []);
-  const compatibleSets = useMemo(
-    () => stage.compatible_input_sets ?? [],
-    [stage.compatible_input_sets],
+  const compatibleSets = stage.compatible_input_sets ?? [];
+  const selectedDefaults = INPUT_ROLES.map((key) => {
+    const upstream = stages.find((candidate) => candidate.key === key);
+    return (
+      upstream?.selected_completed_reference ??
+      upstream?.selected_generated ??
+      null
+    );
+  });
+  const matchingDefaults = compatibleSets.filter((candidate) =>
+    candidate.input_node_refs.every(
+      (reference, index) =>
+        reference.node_id === selectedDefaults[index]?.node_id &&
+        reference.revision_id === selectedDefaults[index]?.revision_id,
+    ),
   );
-  const selectedDefaults = useMemo(
-    () =>
-      ["events", "visible_cards", "visual_identities"].map((key) => {
-        const upstream = stages.find((candidate) => candidate.key === key);
-        return (
-          upstream?.selected_completed_reference ??
-          upstream?.selected_generated ??
-          null
-        );
-      }),
-    [stages],
-  );
-  const defaultSet = useMemo(
-    () =>
-      compatibleSets.find((candidate) =>
-        candidate.input_node_refs.every(
-          (reference, index) =>
-            reference.node_id === selectedDefaults[index]?.node_id &&
-            reference.revision_id === selectedDefaults[index]?.revision_id,
-        ),
-      ) ??
-      compatibleSets[0] ??
-      null,
-    [compatibleSets, selectedDefaults],
-  );
+  const defaultSet =
+    matchingDefaults.length === 1
+      ? matchingDefaults[0]
+      : matchingDefaults.length === 0 && compatibleSets.length === 1
+        ? compatibleSets[0]
+        : null;
   const [selectedSetKey, setSelectedSetKey] = useState("");
-  const [trackedRunId, setTrackedRunId] = useState<string | null>(
-    () =>
-      stage.runs.find(
-        (run) => run.status === "queued" || run.status === "running",
-      )?.run_id ?? null,
+  const [pendingRequest, setPendingRequest] = useState<EnqueueJobBody | null>(
+    null,
   );
-  const [liveRun, setLiveRun] = useState<PipelineRunResponse | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const selectedSet =
-    compatibleSets.find(
-      (candidate) =>
-        JSON.stringify(candidate.input_node_refs) === selectedSetKey,
-    ) ?? defaultSet;
-  const selectedRun = useMemo(
-    () =>
-      liveRun !== null && liveRun.run_id === trackedRunId
-        ? toRunFacts(liveRun)
-        : trackedRunId === null
-          ? null
-          : toRunFacts(
-              stage.runs.find((run) => run.run_id === trackedRunId) ?? null,
-            ),
-    [liveRun, stage.runs, trackedRunId],
+  const selectedSet = selectedSetKey
+    ? (compatibleSets.find(
+        (candidate) =>
+          JSON.stringify(candidate.input_node_refs) === selectedSetKey,
+      ) ?? null)
+    : defaultSet;
+  const validSet =
+    selectedSet !== null &&
+    selectedSet.input_node_refs.length === INPUT_ROLES.length &&
+    new Set(selectedSet.input_node_refs.map((reference) => reference.node_id))
+      .size === INPUT_ROLES.length &&
+    new Set(
+      selectedSet.input_node_refs.map((reference) => reference.revision_id),
+    ).size === INPUT_ROLES.length;
+  const enqueue = useCallback(
+    (payload: EnqueueJobBody, key: string) => client.enqueueJob(payload, key),
+    [client],
   );
+  const submission = useJobSubmission(enqueue);
+  const uncertain =
+    submission.error?.startsWith("Acceptance is uncertain") ?? false;
   const latestRun = stage.runs[0] ?? null;
-
-  async function startRun() {
-    if (selectedSet === null) {
-      setMessage(
-        "No compatible event, visible-card, and identity revision set is available.",
-      );
-      return;
-    }
-    setBusy(true);
-    setMessage(null);
-    const runId = createId("observation");
-    try {
-      const response = await client.startObservationRun(
-        recordingId,
-        buildObservationRequest(runId, selectedSet.input_node_refs, latestRun),
-      );
-      setLiveRun(response);
-      setTrackedRunId(response.run_id);
-      await onRefresh();
-    } catch (reason: unknown) {
-      setMessage(describePipelineError(reason));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const action = {
+    id: "assemble-table-observations",
+    label: "Assemble table observations",
+    description:
+      "Create a fresh table-observation revision from one compatible set of exact event, visible-card, and visual-identity revisions.",
+    expectedOutput:
+      "A new table-observation data revision with all three exact input revisions retained in its lineage.",
+    sections: [
+      {
+        title: "Exact input revisions",
+        content: (
+          <>
+            <label className={styles.pipelineRunSelector}>
+              <span>Compatible input set</span>
+              <select
+                aria-label="Compatible input set"
+                value={
+                  selectedSet ? JSON.stringify(selectedSet.input_node_refs) : ""
+                }
+                disabled={uncertain}
+                onChange={(event) => setSelectedSetKey(event.target.value)}
+              >
+                <option value="">Select a compatible input set</option>
+                {compatibleSets.map((candidate) => (
+                  <option
+                    key={JSON.stringify(candidate.input_node_refs)}
+                    value={JSON.stringify(candidate.input_node_refs)}
+                  >
+                    {candidate.display_label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedSet ? (
+              <dl>
+                {selectedSet.input_node_refs.map((reference, index) => (
+                  <div key={`${reference.node_id}:${reference.revision_id}`}>
+                    <dt>{INPUT_ROLES[index] ?? `Input ${index + 1}`}</dt>
+                    <dd>
+                      {reference.node_id}@{reference.revision_id} ·{" "}
+                      {reference.revision_policy}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p>No compatible three-role input set is available.</p>
+            )}
+          </>
+        ),
+      },
+      {
+        title: "Assembly configuration",
+        content: (
+          <dl>
+            <div>
+              <dt>Implementation</dt>
+              <dd>
+                {latestRun?.implementation.name ?? "observation-assembler"} ·{" "}
+                {latestRun?.implementation.version ?? "v1"}
+              </dd>
+            </div>
+            <div>
+              <dt>Model</dt>
+              <dd>{formatValue(latestRun?.model ?? null)}</dd>
+            </div>
+            <div>
+              <dt>Configuration</dt>
+              <dd>{formatValue(latestRun?.configuration ?? {})}</dd>
+            </div>
+            <div>
+              <dt>Extraction policy</dt>
+              <dd>
+                {formatValue(
+                  latestRun?.extraction_policy ?? {
+                    policy_id: "exact-event/v1",
+                  },
+                )}
+              </dd>
+            </div>
+          </dl>
+        ),
+      },
+    ],
+  };
+  const errors = [
+    ...(submission.error ? [submission.error] : []),
+    ...stage.run_blockers,
+    ...(!validSet
+      ? [
+          "Select a compatible event, visible-card, and visual-identity revision set.",
+        ]
+      : []),
+  ];
 
   return (
     <section
-      className={`${styles.pipelineRunControls} ${compact ? styles.pipelineRunControlsCompact : ""}`}
-      aria-labelledby={compact ? undefined : "observation-controls-heading"}
+      className={styles.pipelineRunControls}
+      aria-label="Table observation actions"
     >
-      {!compact ? (
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Processor controls</p>
-            <h3 id="observation-controls-heading">
-              Assemble table observations
-            </h3>
-          </div>
-          {selectedRun !== null ? (
-            <PipelineControlStatusBadge value={selectedRun.status} />
-          ) : null}
-        </div>
-      ) : null}
-      {stage.run_blockers.length > 0 && compatibleSets.length === 0 ? (
-        <p className={styles.detailBlocker}>{stage.run_blockers[0]}</p>
-      ) : (
-        <>
-          <div className={styles.pipelineRunForm}>
-            <label className={styles.pipelineRunSelector}>
-              <span>Compatible revision set</span>
-              <select
-                aria-label="Compatible revision set"
-                value={
-                  selectedSet === null
-                    ? ""
-                    : JSON.stringify(selectedSet.input_node_refs)
-                }
-                disabled={busy || compatibleSets.length === 0}
-                onChange={(event) => setSelectedSetKey(event.target.value)}
-              >
-                {compatibleSets.length === 0 ? (
-                  <option value="">No compatible revision set</option>
-                ) : (
-                  compatibleSets.map((candidate) => (
-                    <option
-                      key={JSON.stringify(candidate.input_node_refs)}
-                      value={JSON.stringify(candidate.input_node_refs)}
-                    >
-                      {candidate.display_label}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              disabled={!stage.can_run || selectedSet === null || busy}
-              onClick={() => void startRun()}
-            >
-              {busy
-                ? "Starting…"
-                : latestRun === null
-                  ? "Assemble observations"
-                  : "Run again"}
-            </button>
-          </div>
-          {selectedSet !== null ? (
-            <p className={styles.pipelineRunInputValue}>
-              Exact inputs:{" "}
-              {selectedSet.input_node_refs
-                .map(
-                  (reference) =>
-                    `${reference.node_id}@${reference.revision_id}`,
-                )
-                .join(", ")}
-            </p>
-          ) : null}
-        </>
-      )}
-      {message !== null ? (
-        <p className={styles.pipelineRunMessage} role="alert">
-          {message}
-        </p>
-      ) : null}
-      {selectedRun !== null ? (
-        <>
-          {selectedRun.job_id ? (
-            <p>
-              <a href={`/jobs/${encodeURIComponent(selectedRun.job_id)}`}>
-                View job {selectedRun.job_id}
-              </a>
-            </p>
-          ) : null}
-          <PipelineRunStatus run={selectedRun} />
-        </>
-      ) : null}
-      {stage.runs.length > 0 ? (
-        <details className={styles.pipelineRunHistory}>
-          <summary>Retained assembly runs and actual inputs</summary>
-          <RunHistory
-            runs={stage.runs}
-            trackedRunId={trackedRunId}
-            onSelect={(runId) => {
-              setTrackedRunId(runId);
-              setLiveRun(null);
-              setMessage(null);
-            }}
-          />
-        </details>
-      ) : null}
+      <JobStartActions
+        actions={[action]}
+        submitting={submission.submitting}
+        validationErrors={errors}
+        canSubmit={validSet && stage.can_run && stage.run_blockers.length === 0}
+        onStart={async () => {
+          if (uncertain && pendingRequest !== null) {
+            const accepted = await submission.submit(pendingRequest);
+            if (!accepted) return false;
+            setPendingRequest(null);
+            await onRefresh();
+            return true;
+          }
+          if (!selectedSet || !validSet) return false;
+          const request: EnqueueJobBody = {
+            type: "table_observation_assembly",
+            context: { recording_id: recordingId },
+            request: buildObservationRequest(
+              createId(),
+              selectedSet.input_node_refs,
+              latestRun,
+            ).request as Record<string, unknown>,
+          };
+          setPendingRequest(request);
+          const accepted = await submission.submit(request);
+          if (!accepted) return false;
+          setPendingRequest(null);
+          await onRefresh();
+          return true;
+        }}
+      />
+      {submission.job ? <AcceptedJobReceipt job={submission.job} /> : null}
     </section>
   );
 }
 
-function createUuid(): string {
-  return typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `${Date.now()}-0000-4000-8000-${Math.random().toString(16).slice(2, 14)}`;
-}
-
-function createId(prefix: string): string {
-  return `${prefix}-run-${createUuid().slice(0, 12)}`;
+function createId(): string {
+  return `observation-run-${crypto.randomUUID()}`;
 }

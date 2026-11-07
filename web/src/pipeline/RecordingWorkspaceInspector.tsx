@@ -81,6 +81,7 @@ export function RecordingWorkspaceInspector({
     <>
       {stage.key === "table_observations" ? (
         <ObservationRunControls
+          key={recordingId}
           compact
           recordingId={recordingId}
           stage={stage}
@@ -90,6 +91,7 @@ export function RecordingWorkspaceInspector({
       ) : null}
       {stage.key === "round_analyses" ? (
         <RoundAnalysisControls
+          key={recordingId}
           compact
           recordingId={recordingId}
           stage={stage}

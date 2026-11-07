@@ -1278,6 +1278,8 @@ test("round analysis uses the shared frame, rail, inspector, and saved selection
       path.includes("/assets/") ||
       path.startsWith("/recordings/") ||
       path.startsWith("/src/") ||
+      path.startsWith("/@vite/") ||
+      path.startsWith("/@react-refresh") ||
       path.startsWith("/node_modules/") ||
       path === "/"
     ) {

@@ -9,7 +9,7 @@
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** M0–M5 complete. M6–M10 remain.
+- **Outcome:** M0–M6 complete. M7–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
   M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
   pipeline launch controls remain in `RecordingWorkspaceInspector`; counterfactual controls are
@@ -137,7 +137,7 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 | M3        | Integrate event processing                            | Complete    |
 | M4        | Integrate visible-card processing                     | Complete    |
 | M5        | Integrate visual identities                           | Complete    |
-| M6        | Integrate observations and round analysis             | Not started |
+| M6        | Integrate observations and round analysis             | Complete    |
 | M7        | Integrate complete-pipeline launch                    | Not started |
 | M8        | Integrate calibration and counterfactual calculations | Not started |
 | M9        | Remove replaced launch controls                       | Not started |
@@ -152,26 +152,30 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M5 completed. Its result and checks are in
-  [`0113-M5_Visual_Identity_Launch.md`](../../reports/0113-M5_Visual_Identity_Launch.md).
-- Changes: visual identity classification now opens from the Actions modal. It shows exact supported
-  crop revisions, provider and service-selected model, availability behavior, compatible crop
-  policies, processing settings and blockers. It keeps the existing visual identity route and request
-  contract. Proposal-derived virtual cards force the local classifier. Classification does not write
-  a review decision. The shared modal refreshes action content when inputs change while it is open.
-- M4 history and decisions are in
-  [`0113-M4_Visible_Card_Launch.md`](../../reports/0113-M4_Visible_Card_Launch.md). M0 found no
-  browser caller for `event_import` or `proposed_card_scene_creation`; retain agent/API support and
-  add no launch action. Keep virtual scene editing and identity review decisions in their owners.
-- 0112 coordination: M8 remains unstarted and owns later extraction of processor request construction
-  from `RunControls`. Callers own modal state, request construction and submission. Adapt callers to
-  the extracted builders when M8 lands. This milestone did not edit 0112-owned files.
-- Limits: model availability is not returned by the current browser API. The modal shows the local
-  default and provider choices; the service validates availability on acceptance and returns an
-  actionable error without closing the form. No browser caller starts classification inside approval.
-- Next: M6, integrate observations and round analysis. Requested 11 milestones, completed 6,
-  remaining 5.
-
+- M6 completed. Its result and checks are in
+  [`0113-M6_Observation_and_Analysis_Launch.md`](../../reports/0113-M6_Observation_and_Analysis_Launch.md).
+- Changes: observation assembly and round analysis now start from the shared modal. Assembly shows
+  the exact event, visible-card, and visual-identity refs in a compatible set, plus implementation,
+  model, configuration, and extraction policy. It blocks sets that do not contain three unique refs.
+  Round analysis shows one exact observation node revision, all required round facts, explicit rules,
+  search limits, and optional correction refs. Round facts start blank and incomplete or invalid input
+  blocks submission. Both requests retain the displayed exact refs and facts. After uncertain
+  acceptance, the modal freezes inputs and retries the same request with the same idempotency key.
+- API decision: no endpoint change was needed. `table_observation_assembly` freezes and validates
+  exact input node refs through its Job Manager participant. `round_analysis` validates the exact
+  observation ref and explicit context through its participant. The existing `/api/jobs` enqueue API
+  supplies an idempotency key and `JobDetail` receipt; the shared submission hook preserves the key
+  and payload after an uncertain response. The existing Jobs state owns polling. The direct feature
+  endpoints do not return the shared job receipt, so M6 submits their existing request payloads through
+  the registered shared job types.
+- Checks: component fixtures cover exact multi-input refs, incomplete sets, missing round facts, four
+  distinct players, valid facts, same-key uncertain retry, and the accepted job link. The relevant browser test verifies the
+  saved round-analysis workspace. Its route fixture now passes Vite client modules through.
+- M5 and earlier decisions remain in their milestone reports. 0112 M6 client extraction and M8
+  `RunControls` extraction remain unstarted; this milestone changed no 0112-owned files.
+- Limits: none known for M6. M7–M10 remain.
+- Next: M7, integrate complete-pipeline launch. Requested 11 milestones, completed 7,
+  remaining 4.
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision
 prevents the remaining milestones. This inventory does not count as UI integration.
@@ -247,6 +251,8 @@ required round facts and expose exact observations, rules and search limits. Rem
 
 Acceptance: multi-input fixtures cannot submit incomplete/incompatible roles. Missing round facts
 prevent submission. Requests retain all selected revisions and explicit facts.
+
+Complete: [M6 observation and analysis launch](../../reports/0113-M6_Observation_and_Analysis_Launch.md).
 
 ## M7 — Integrate complete-pipeline launch
 
