@@ -167,7 +167,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M2:** Complete — controlled endpoint and startup timing harness.
 - **M3:** Complete — add named catalog and evidence JSON read cases with preliminary generated-empty and hard-snapshot samples.
 - **M4:** Complete — cover pipeline workspace, lineage, revision, review, and calibration reads.
-- **M5:** Not started — cover pipeline run, selection, result, and comparison reads.
+- **M5:** Complete — cover pipeline run, selection, result, and comparison reads.
 - **M6:** Not started — cover job history, polling, detail, and log reads.
 - **M7:** Not started — cover writes, media, and contention.
 - **M8:** Not started — measure real browser workflows.
@@ -327,31 +327,33 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-### Current state — M4 complete
+### Current state — M5 complete
 
-- M0–M3 are complete. Their reports and evidence remain listed above and in the M3 handoff history.
-- M4 adds `backend/scripts/run_interactive_ui_pipeline_read_performance.py` with 15 named speed
-  and correctness cases across six UI GET routes. Cases cover full and stage-filtered workspace
-  reads, exact lineage, maximum identity and polygon revisions, review reads, calibration-refinement
-  validation, published calibration snapshots, and missing or stale reads. A current-schema draft
-  fixture uses exact frozen detector/proposal content through production stores in disposable
-  storage; the original legacy draft remains an expected 422 case. Each case measures a first cold
-  app request and a warm request after one warmup. All cases use real storage, production
-  validation, full response serialization, and exact fixture identity checks.
-- M4 adds 15 hashed hard-fixture dependency assets. The fixture manifest now names 57 assets. The
-  new lineage parent records make both exact copied parent revisions available to the lineage read.
-  The new published-calibration GET route is classified in the M0 inventory.
-- The hard calibration-refinement draft predates current node lineage metadata. Its GET returns the
-  expected 422 `invalid_calibration_refinement` response. A second scenario seeds current-schema
-  detector and proposal revisions through production stores in disposable storage; its exact draft
-  GET succeeds. The published calibration snapshot route also succeeds with exact identities.
-- The preliminary sample export contains 45 samples and is not a baseline. The full workspace and
-  lineage reads are slow on the current fixture: about 20 seconds and 29 seconds per request.
-  Initial 30-second experiments timed out on lineage. The retained run uses a finite 180-second
-  timeout. No performance budget or baseline gate is active.
-- Checks: focused pytest, Ruff check and formatting, hard-fixture validation, inventory check, and
-  the 45-sample runner passed. Details and machine profile are in
-  `docs/reports/0114-M4_Pipeline_Workspace_and_Revision_Reads.md`.
-- Next milestone: M5, pipeline run and result reads.
-- Run authorization: 10 milestones requested, 1 completed, 9 remaining. M5–M13 are the nine
+- M0–M4 are complete. Their reports and evidence remain listed above and in the M4 report.
+- M5 adds run-list, exact selection, run-detail, stage-result, and comparison cases to
+  `backend/scripts/run_interactive_ui_pipeline_read_performance.py`. The runner checks all 17 M5
+  inventory operations, including all stage result routes and the comparison POST route. It uses
+  real HTTP handlers, production storage, validation, response serialization, and exact identity
+  checks. Run and reference records are seeded in disposable storage. No review records or derived
+  media are written or read.
+- M5 covers valid empty lists and selections, exact event run and revision identities, an exact
+  selected run, exact automated run detail, a successful event comparison, missing run detail,
+  missing comparison inputs, and missing results for all five stages. The frozen hard fixture has no
+  stage run records, so the generated event case supplies a successful result; other result routes
+  use their relevant missing-run cases. The proposed-crop inputs route returns a valid empty list.
+- The retained sample file has 20 process-cold requests: 20 passed correctness checks. These are
+  preliminary single samples, not a baseline. The comparison response is the slowest named case at
+  about 20.4 seconds; the proposed-crop input read took about 0.55 seconds. No performance budget
+  or baseline gate is active.
+- Checks: focused pytest, Ruff check and formatting, inventory coverage check, hard-fixture
+  validation, and the 20-sample M5 runner passed. Details and retained samples are in
+  `docs/reports/0114-M5_Pipeline_Run_Reads.md` and
+  `docs/reports/0114-M5_Pipeline_Run_Read_Samples.json`.
+- Decision: keep the M5 event result generated and small because the frozen hard snapshot contains
+  no result records. Use successful large stage results when they become available in later frozen
+  fixture work.
+- Known limit: M5 samples cover one cold request per scenario. M9 will run the full timing protocol
+  and set budgets. No successful hard stage-result payload was available for M5.
+- Next milestone: M6, job history and polling reads.
+- Run authorization: 9 milestones requested, 1 completed, 8 remaining. M6–M13 are the eight
   planned incomplete milestones. This fixed run limit does not authorize adding milestones.

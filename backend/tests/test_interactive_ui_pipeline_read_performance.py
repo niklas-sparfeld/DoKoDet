@@ -14,7 +14,7 @@ from run_interactive_ui_pipeline_read_performance import _check, scenarios  # no
 def test_named_pipeline_cases_cover_inventory_and_hard_dimensions() -> None:
     cases = scenarios()
     assert len(cases) == len({case.name for case in cases})
-    assert len({case.route for case in cases}) == 6
+    assert len({(case.method, case.route) for case in cases}) == 23
     assert {case.name for case in cases} == {
         "workspace_full_hard",
         "workspace_stage_visual_identities_hard",
@@ -31,7 +31,63 @@ def test_named_pipeline_cases_cover_inventory_and_hard_dimensions() -> None:
         "calibration_draft_missing",
         "calibration_published_snapshot",
         "calibration_published_missing",
+        "event_runs_exact",
+        "event_result_exact",
+        "event_result_missing",
+        "observation_result_missing",
+        "proposed_scene_result_missing",
+        "visible_card_result_missing",
+        "visual_identity_result_missing",
+        "observation_runs_empty",
+        "proposed_scene_runs_empty",
+        "visible_card_runs_empty",
+        "visual_identity_runs_empty",
+        "event_selection_exact",
+        "observation_selection_empty",
+        "visible_card_selection_empty",
+        "visual_identity_selection_empty",
+        "visual_identity_proposed_inputs_empty",
+        "automated_run_missing",
+        "automated_run_exact",
+        "comparison_missing_inputs",
+        "comparison_exact_runs",
     }
+
+
+def test_pipeline_read_cases_check_empty_identity() -> None:
+    cases = {case.name: case for case in scenarios()}
+    assert (
+        _check(
+            cases["observation_runs_empty"],
+            httpx.Response(200, json={"recording_id": "game-2026-08-20-01-001", "runs": []}),
+        )
+        is None
+    )
+    assert (
+        _check(
+            cases["observation_runs_empty"],
+            httpx.Response(200, json={"recording_id": "other-recording", "runs": []}),
+        )
+        == "pipeline run list identity or sparse content mismatch"
+    )
+
+
+def test_run_and_comparison_missing_cases_check_exact_error_codes() -> None:
+    cases = {case.name: case for case in scenarios()}
+    assert (
+        _check(
+            cases["automated_run_missing"],
+            httpx.Response(404, json={"error": {"code": "pipeline_run_not_found"}}),
+        )
+        is None
+    )
+    assert (
+        _check(
+            cases["comparison_missing_inputs"],
+            httpx.Response(404, json={"error": {"code": "comparison_input_not_found"}}),
+        )
+        is None
+    )
 
 
 def test_revision_correctness_checks_exact_fixture_identity_and_stale_errors() -> None:

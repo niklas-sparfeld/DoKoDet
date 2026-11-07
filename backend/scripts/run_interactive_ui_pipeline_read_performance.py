@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run correctness and preliminary speed cases for pipeline workspace and revision reads."""
+"""Run correctness and preliminary speed cases for pipeline reads."""
 
 from __future__ import annotations
 
@@ -43,6 +43,25 @@ DRAFT_ID = (
     "retry-65bb8ec7-attempt-1"
 )
 UNKNOWN = "22222222-2222-5222-8222-222222222222"
+M5_OPERATIONS = {
+    ("GET", "/api/recordings/{recording_id}/pipeline/events"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/events/selection"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/events/{run_id}/result"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/observations"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/observations/selection"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/observations/{run_id}/result"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/proposed-card-scenes"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/proposed-card-scenes/{run_id}/result"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/runs/{run_id}"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/visible-cards"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/visible-cards/selection"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/visible-cards/{run_id}/result"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/visual-identities"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/visual-identities/proposed-crop-inputs"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/visual-identities/selection"),
+    ("GET", "/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}/result"),
+    ("POST", "/api/recordings/{recording_id}/pipeline/comparisons"),
+}
 
 
 @dataclass(frozen=True)
@@ -52,6 +71,8 @@ class Scenario:
     path: str
     status: int
     check: str
+    method: str = "GET"
+    body: dict[str, Any] | None = None
 
 
 def scenarios() -> list[Scenario]:
@@ -161,20 +182,162 @@ def scenarios() -> list[Scenario]:
             404,
             "calibration_missing",
         ),
+        Scenario(
+            "event_runs_exact",
+            "/api/recordings/{recording_id}/pipeline/events",
+            f"/api/recordings/{RECORDING}/pipeline/events",
+            200,
+            "runs_exact",
+        ),
+        Scenario(
+            "event_result_exact",
+            "/api/recordings/{recording_id}/pipeline/events/{run_id}/result",
+            f"/api/recordings/{RECORDING}/pipeline/events/m5-event-run/result",
+            200,
+            "event_result_exact",
+        ),
+        *[
+            Scenario(
+                f"{stage}_result_missing",
+                f"/api/recordings/{{recording_id}}/pipeline/{path}/{{run_id}}/result",
+                f"/api/recordings/{RECORDING}/pipeline/{path}/missing-m5-result/result",
+                404,
+                "stage_result_missing",
+            )
+            for stage, path in (
+                ("event", "events"),
+                ("observation", "observations"),
+                ("proposed_scene", "proposed-card-scenes"),
+                ("visible_card", "visible-cards"),
+                ("visual_identity", "visual-identities"),
+            )
+        ],
+        Scenario(
+            "event_selection_exact",
+            "/api/recordings/{recording_id}/pipeline/events/selection",
+            f"/api/recordings/{RECORDING}/pipeline/events/selection",
+            200,
+            "selection_exact",
+        ),
+        Scenario(
+            "observation_runs_empty",
+            "/api/recordings/{recording_id}/pipeline/observations",
+            f"/api/recordings/{RECORDING}/pipeline/observations",
+            200,
+            "runs_empty",
+        ),
+        Scenario(
+            "proposed_scene_runs_empty",
+            "/api/recordings/{recording_id}/pipeline/proposed-card-scenes",
+            f"/api/recordings/{RECORDING}/pipeline/proposed-card-scenes",
+            200,
+            "runs_empty",
+        ),
+        Scenario(
+            "visible_card_runs_empty",
+            "/api/recordings/{recording_id}/pipeline/visible-cards",
+            f"/api/recordings/{RECORDING}/pipeline/visible-cards",
+            200,
+            "runs_empty",
+        ),
+        Scenario(
+            "visual_identity_runs_empty",
+            "/api/recordings/{recording_id}/pipeline/visual-identities",
+            f"/api/recordings/{RECORDING}/pipeline/visual-identities",
+            200,
+            "runs_empty",
+        ),
+        *[
+            Scenario(
+                f"{stage}_selection_empty",
+                f"/api/recordings/{{recording_id}}/pipeline/{path}/selection",
+                f"/api/recordings/{RECORDING}/pipeline/{path}/selection",
+                200,
+                "selection_empty",
+            )
+            for stage, path in (
+                ("observation", "observations"),
+                ("visible_card", "visible-cards"),
+                ("visual_identity", "visual-identities"),
+            )
+        ],
+        Scenario(
+            "visual_identity_proposed_inputs_empty",
+            "/api/recordings/{recording_id}/pipeline/visual-identities/proposed-crop-inputs",
+            f"/api/recordings/{RECORDING}/pipeline/visual-identities/proposed-crop-inputs",
+            200,
+            "inputs_empty",
+        ),
+        Scenario(
+            "automated_run_missing",
+            "/api/recordings/{recording_id}/pipeline/runs/{run_id}",
+            f"/api/recordings/{RECORDING}/pipeline/runs/missing-m5-run",
+            404,
+            "automated_run_missing",
+        ),
+        Scenario(
+            "automated_run_exact",
+            "/api/recordings/{recording_id}/pipeline/runs/{run_id}",
+            f"/api/recordings/{RECORDING}/pipeline/runs/m5-automated-run",
+            200,
+            "automated_run_exact",
+        ),
+        Scenario(
+            "comparison_missing_inputs",
+            "/api/recordings/{recording_id}/pipeline/comparisons",
+            f"/api/recordings/{RECORDING}/pipeline/comparisons",
+            404,
+            "comparison_missing",
+            "POST",
+            {
+                "schema_version": "pipeline-comparison-request/v1",
+                "recording_id": RECORDING,
+                "content_type": "events",
+                "left_run_id": "missing-m5-left",
+                "right_run_id": "missing-m5-right",
+                "reference_revision_id": "missing-m5-reference",
+                "matching_policy": {
+                    "policy_id": "event-timing/v1",
+                    "anchor": "start_us",
+                    "tolerance_us": 1,
+                },
+            },
+        ),
+        Scenario(
+            "comparison_exact_runs",
+            "/api/recordings/{recording_id}/pipeline/comparisons",
+            f"/api/recordings/{RECORDING}/pipeline/comparisons",
+            200,
+            "comparison_exact",
+            "POST",
+            {
+                "schema_version": "pipeline-comparison-request/v1",
+                "recording_id": RECORDING,
+                "content_type": "events",
+                "left_run_id": "m5-event-run",
+                "right_run_id": "m5-event-run-right",
+                "reference_revision_id": "m5-event-reference",
+                "matching_policy": {
+                    "policy_id": "event-timing/v1",
+                    "anchor": "start_us",
+                    "tolerance_us": 1,
+                },
+            },
+        ),
     ]
     inventory = json.loads(INVENTORY.read_text())
-    expected = {
-        item["route"]
+    inventory_operations = {
+        (item["method"], item["route"])
         for item in inventory["operations"]
-        if item["method"] == "GET"
-        and item["classification"] == "ui"
-        and item["route"] in {case.route for case in cases}
+        if item["classification"] == "ui"
     }
-    covered = {case.route for case in cases}
-    if expected != covered:
+    expected = M5_OPERATIONS & inventory_operations
+    covered = {(case.method, case.route) for case in cases} & M5_OPERATIONS
+    if expected != M5_OPERATIONS or covered != expected:
         raise ValueError(
             "pipeline-read inventory mismatch: "
-            f"missing={sorted(expected - covered)}, extra={sorted(covered - expected)}"
+            f"missing={sorted(expected - covered)}, "
+            f"unregistered={sorted(M5_OPERATIONS - inventory_operations)}"
         )
     return cases
 
@@ -224,6 +387,9 @@ def _check(case: Scenario, response: httpx.Response) -> str | None:
         "review_missing",
         "draft_missing",
         "calibration_missing",
+        "automated_run_missing",
+        "comparison_missing",
+        "stage_result_missing",
     }:
         expected = {
             "recording_missing": "recording_not_found",
@@ -231,6 +397,9 @@ def _check(case: Scenario, response: httpx.Response) -> str | None:
             "review_missing": "pipeline_node_review_unavailable",
             "draft_missing": "calibration_refinement_not_found",
             "calibration_missing": "calibration_revision_not_found",
+            "automated_run_missing": "pipeline_run_not_found",
+            "comparison_missing": "comparison_input_not_found",
+            "stage_result_missing": "pipeline_run_not_found",
         }[check]
         if payload.get("error", {}).get("code") != expected:
             return f"expected error code {expected}; got {payload.get('error')}"
@@ -299,7 +468,282 @@ def _check(case: Scenario, response: httpx.Response) -> str | None:
             or payload.get("recording_id") != CALIBRATION_RECORDING
         ):
             return "published calibration identity mismatch"
+    elif check == "runs_empty":
+        if payload.get("recording_id") != RECORDING or payload.get("runs") != []:
+            return "pipeline run list identity or sparse content mismatch"
+    elif check == "runs_exact":
+        runs = payload.get("runs", [])
+        if payload.get("recording_id") != RECORDING or len(runs) != 1:
+            return "pipeline run list identity or count mismatch"
+        if runs[0].get("run_id") != "m5-event-run":
+            return "pipeline run list omitted the exact selected run"
+    elif check == "selection_empty":
+        if payload.get("recording_id") != RECORDING or payload.get("selection") is not None:
+            return "empty pipeline selection identity or value mismatch"
+    elif check == "selection_exact":
+        selection = payload.get("selection") or {}
+        if payload.get("recording_id") != RECORDING:
+            return "pipeline selection recording identity mismatch"
+        if selection.get("selected_generated") != {
+            "node_id": "data-" + hashlib.sha256(b"m5-event-revision").hexdigest()[:32],
+            "revision_id": "m5-event-revision",
+        }:
+            return "pipeline selection omitted the exact generated revision"
+    elif check == "inputs_empty":
+        if payload.get("recording_id") != RECORDING or payload.get("inputs") != []:
+            return "empty proposed-crop input identity or content mismatch"
+    elif check == "event_result_exact":
+        if (
+            payload.get("run_id"),
+            payload.get("recording_id"),
+            payload.get("processor_type"),
+        ) != (
+            "m5-event-run",
+            RECORDING,
+            "event-detection",
+        ):
+            return "event result run or recording identity mismatch"
+        revisions = payload.get("revisions", [])
+        if (
+            len(revisions) != 1
+            or revisions[0].get("manifest", {}).get("revision_id") != "m5-event-revision"
+        ):
+            return "event result omitted the exact output revision"
+    elif check == "comparison_exact":
+        if (
+            payload.get("recording_id") != RECORDING
+            or payload.get("content_type") != "events"
+            or payload.get("left", {}).get("run_id") != "m5-event-run"
+            or payload.get("right", {}).get("run_id") != "m5-event-run-right"
+            or payload.get("reference", {}).get("revision_id") != "m5-event-reference"
+        ):
+            return "comparison omitted exact run or reference identities"
+    elif check == "automated_run_exact":
+        if payload.get("run_id") != "m5-automated-run" or payload.get("recording_id") != RECORDING:
+            return "automated pipeline run identity mismatch"
     return None
+
+
+def _seed_event_result(app: Any, *, include_comparison: bool = False) -> None:
+    """Seed a small valid event run through production stores in disposable storage."""
+    runs = app.state.pipeline_run_store
+    node_id = "data-" + hashlib.sha256(b"m5-event-revision").hexdigest()[:32]
+    if runs.get("m5-event-run") is None:
+        _create_event_run(runs, source_id=node_id)
+        _create_event_reference(
+            runs, source_id="data-" + hashlib.sha256(b"m5-event-reference").hexdigest()[:32]
+        )
+    if include_comparison and runs.get("m5-event-run-right") is None:
+        _create_event_run(
+            runs,
+            source_id="data-" + hashlib.sha256(b"m5-event-revision-right").hexdigest()[:32],
+            run_id="m5-event-run-right",
+            revision_id="m5-event-revision-right",
+        )
+    selection_store = app.state.event_pipeline_service.selection_store
+    if selection_store.get_exact(RECORDING, "events") is None:
+        selection_store.update_exact(
+            RECORDING,
+            "events",
+            expected_revision=0,
+            selected_generated={"node_id": node_id, "revision_id": "m5-event-revision"},
+            selected_completed_reference=None,
+            updated_at="2026-11-07T00:00:04Z",
+        )
+
+
+def _create_event_reference(runs: Any, *, source_id: str) -> None:
+    from doko_operations.pipeline_data import (
+        DataRevision,
+        EventData,
+        HumanProducer,
+        RecordingVideoSource,
+        canonical_event_data_bytes,
+        sha256_bytes,
+    )
+
+    from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+
+    source = RecordingVideoSource(
+        recording_id=RECORDING,
+        relative_path="recordings/m5-event/video.mov",
+        video_sha256="a" * 64,
+        byte_length=100,
+        duration_us=1_000_000,
+    )
+    content = EventData.from_mapping(
+        {
+            "schema_version": "event-data/v1",
+            "events": [
+                {
+                    "event_id": "m5-reference-event",
+                    "event_type": "card_state_changed",
+                    "start_us": 100_000,
+                    "end_us": 110_000,
+                }
+            ],
+        }
+    )
+    manifest = DataRevision(
+        revision_id="m5-event-reference",
+        content_type="events",
+        content_schema="event-data/v1",
+        recording_id=RECORDING,
+        source=source,
+        content_sha256=sha256_bytes(canonical_event_data_bytes(content)),
+        input_revision_ids=(),
+        origin="manual",
+        producer=HumanProducer(review_id="m5-fixture-review", operator_id="fixture"),
+        coverage={
+            "kind": "event_intervals",
+            "intervals": [{"start_us": 0, "end_us": 1_000_000}],
+        },
+        created_at="2026-11-07T00:00:05Z",
+    )
+    PipelineNodeStore(runs.storage.operations_root / "pipeline-nodes").create(
+        source_id,
+        "M5 event reference fixture",
+        "events",
+        source.to_mapping(),
+        content.to_mapping(),
+        {
+            "origin": manifest.origin,
+            "input_revision_ids": [],
+            "producer": manifest.producer.to_mapping(),
+            "coverage": manifest.coverage,
+            "data_revision": manifest.to_mapping(),
+        },
+        revision_id="m5-event-reference",
+    )
+
+
+def _seed_automated_run(app: Any) -> None:
+    stages = (
+        "event_proposals",
+        "visible_card_and_pile_proposals",
+        "card_scene_and_calibration",
+        "visual_identity_proposals",
+        "table_observations",
+        "reconstruction",
+    )
+    app.state.automated_pipeline_run_service.store.create(
+        {
+            "schema_version": "automated-pipeline-run/v1",
+            "run_id": "m5-automated-run",
+            "job_id": None,
+            "recording_id": RECORDING,
+            "status": "complete",
+            "created_at": "2026-11-07T00:00:00Z",
+            "updated_at": "2026-11-07T00:00:03Z",
+            "source": {"recording_id": RECORDING, "video_sha256": "a" * 64},
+            "request_sha256": "b" * 64,
+            "client_request_sha256": "c" * 64,
+            "request": {},
+            "resolved_providers": {},
+            "failure": None,
+            "stages": [
+                {
+                    "name": name,
+                    "status": "complete",
+                    "run_id": None,
+                    "child_job_id": None,
+                    "input_revision_ids": [],
+                    "output_revision_ids": [],
+                    "failure": None,
+                }
+                for name in stages
+            ],
+        }
+    )
+
+
+def _create_event_run(
+    runs: Any,
+    *,
+    source_id: str,
+    run_id: str = "m5-event-run",
+    revision_id: str = "m5-event-revision",
+) -> None:
+    from doko_operations.pipeline_data import (
+        DataRevision,
+        EventData,
+        ProcessorProducer,
+        ProcessorRunRequest,
+        RecordingVideoSource,
+        canonical_event_data_bytes,
+        sha256_bytes,
+    )
+
+    from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+
+    source = RecordingVideoSource(
+        recording_id=RECORDING,
+        relative_path="recordings/m5-event/video.mov",
+        video_sha256="a" * 64,
+        byte_length=100,
+        duration_us=1_000_000,
+    )
+    content = EventData.from_mapping(
+        {
+            "schema_version": "event-data/v1",
+            "events": [
+                {
+                    "event_id": "m5-event",
+                    "event_type": "card_state_changed",
+                    "start_us": 100_000,
+                    "end_us": 110_000,
+                }
+            ],
+        }
+    )
+    request = ProcessorRunRequest.from_mapping(
+        {
+            "schema_version": "processor-run-request/v1",
+            "run_id": run_id,
+            "processor_type": "event-detection",
+            "source": source.to_mapping(),
+            "input_revision_ids": [],
+            "implementation": {"name": "m5-fixture", "version": "1"},
+            "configuration": {"fixture": True},
+            "extraction_policy": {"policy_id": "event-extract/v1"},
+            "crop_policy": None,
+        }
+    )
+    runs.create(request, created_at="2026-11-07T00:00:00Z")
+    runs.start(run_id, started_at="2026-11-07T00:00:01Z")
+    manifest = DataRevision(
+        revision_id=revision_id,
+        content_type="events",
+        content_schema="event-data/v1",
+        recording_id=RECORDING,
+        source=source,
+        content_sha256=sha256_bytes(canonical_event_data_bytes(content)),
+        input_revision_ids=(),
+        origin="processor",
+        producer=ProcessorProducer(
+            run_id=run_id,
+            processor_type="event-detection",
+            implementation_id="m5-fixture/1",
+        ),
+        coverage={"kind": "full-recording"},
+        created_at="2026-11-07T00:00:02Z",
+    )
+    PipelineNodeStore(runs.storage.operations_root / "pipeline-nodes").create(
+        source_id,
+        "M5 event fixture",
+        "events",
+        source.to_mapping(),
+        content.to_mapping(),
+        {
+            "origin": "processor",
+            "input_revision_ids": [],
+            "producer": manifest.producer.to_mapping(),
+            "coverage": manifest.coverage,
+            "data_revision": manifest.to_mapping(),
+        },
+        revision_id=revision_id,
+    )
+    runs.complete(run_id, [revision_id], completed_at="2026-11-07T00:00:03Z")
 
 
 async def _exercise(
@@ -322,7 +766,9 @@ async def _exercise(
         async def sample(*, cache_state: str, warmup: bool, iteration: int) -> None:
             started = time.perf_counter_ns()
             try:
-                response = await asyncio.wait_for(client.get(case.path), timeout=timeout)
+                response = await asyncio.wait_for(
+                    client.request(case.method, case.path, json=case.body), timeout=timeout
+                )
                 error = _check(case, response)
                 row = {
                     "case": case.name,
@@ -435,6 +881,15 @@ def run(
             _prepare_current_calibration_draft_fixture(root)
             for case in cases:
                 app = create_app(_settings(root))
+                if case.name in {
+                    "event_runs_exact",
+                    "event_result_exact",
+                    "event_selection_exact",
+                    "comparison_exact_runs",
+                }:
+                    _seed_event_result(app, include_comparison=case.name == "comparison_exact_runs")
+                if case.name == "automated_run_exact":
+                    _seed_automated_run(app)
                 asyncio.run(_exercise(app, case, warmups, repeats, timeout, samples, "hard", batch))
     distributions = []
     groups: dict[str, list[int]] = {}
