@@ -135,7 +135,7 @@ not dropped timing samples. Verify cache invalidation after revision changes, sa
 
 ### Regression policy and candidate selection
 
-Keep a versioned baseline with raw results and per-scenario budgets. M9 derives absolute ceilings
+Keep a versioned baseline with raw results and per-scenario budgets. M11 derives absolute ceilings
 and relative regression tolerances from repeated measurements and user-visible delay. Use both
 relative change and an absolute noise allowance, so a tiny endpoint does not fail for negligible
 jitter. Set separate budgets for JSON/control paths, cold derived media, transfers, browser actions,
@@ -171,11 +171,11 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M6:** Complete — cover job history, polling, detail/status, logs, and calibration-preview reads.
 - **M7:** Complete — add durable timing and correctness cases for interactive writes and controls.
 - **M8:** Complete — measure eight residual real-backend write routes and durable effects.
-- **M9:** Not started — establish the baseline and regression gates.
-- **M10:** Not started — profile and rank improvement candidates.
-- **M11:** Not started — implement and verify candidate cycle one.
-- **M12:** Not started — implement and verify candidate cycle two.
-- **M13:** Not started — qualify the full suite and close the epic.
+- **M9:** Complete — add named real-backend media cases and verify cold/warm and saved-review, revision, and restart cache behavior.
+- **M10:** Not started — add six real-process Playwright workflows and bounded controlled-load workflows.
+- **M11:** Not started — run the complete corpus in three independent sessions and freeze budgets and regression gates.
+- **M12:** Not started — profile and rank candidates, then implement candidate cycle one.
+- **M13:** Not started — implement candidate cycle two, qualify the full suite, and close the epic.
 
 ## M0 — Inventory routes and startup phases
 
@@ -280,22 +280,40 @@ Deferring startup cost to the first UI request is not an improvement unless both
   round-analysis intake route, and calibration apply has a named speed and durable readback case.
   Focused checks pass. Retain preliminary samples only; do not call them a baseline.
 
-## M9 — Freeze the baseline and enable regression gates
+## M9 — Cover media routes and cache invalidation
 
-- Add the dedicated real-process Playwright configuration and workflows for recordings-to-workspace,
+- Depends on: M0–M8 route inventory, frozen fixture and timing harness, and existing read/write cases.
+- Add named real-backend timing and correctness cases for every inventoried media route: frame, crop,
+  thumbnail, video snippet, bounded video range, and media identity reads. Include the registered
+  source-video route and document the unregistered `/api/recordings/{recording_id}/video` UI URL as
+  an explicit 404 boundary; do not use that 404 as a media performance result.
+- Verify cold and warm server derived-view behavior and invalidation after saved edits, revision
+  changes, and backend restart. Keep browser cache out of these API checks; M10 measures it.
+- Acceptance: each inventoried media route has named real-backend speed and identity/correctness
+  coverage. Cold/warm, save, revision, and restart cases verify exact returned media identity and
+  cache behavior. Focused tests, lint, and format checks pass. Retain preliminary samples only.
+
+## M10 — Cover real-process browser workflows and controlled load
+
+- Depends on: M9 media identities and cache behavior.
+- Add a dedicated real-process Playwright configuration and workflows for recordings-to-workspace,
   displayed revision switching, frame/crop navigation, review save, Jobs drawer/history, and job
-  submission-to-visible-status. Include real video-range traffic. Validate visible data identity,
-  usable controls, actual request counts, waterfalls, startup, and browser/server cache behavior.
-- Add named real-backend timing and correctness cases for all inventoried media routes: frame, crop,
-  thumbnail, video snippet, bounded video range, and related media identity reads. Verify cold/warm
-  derived-view behavior and cache invalidation after edits, revision changes, and restart. Keep
-  backend cache modes distinct from browser cache modes.
-- Add bounded polling and simulated background work while reads, writes, and media loads run. Keep
-  uncontended and controlled-load measurements separate. M9 cannot freeze the baseline until every
-  named media route, cold/warm and invalidation check, browser workflow, and controlled-load case
-  passes.
-- Run the complete corpus and all startup profiles in three independent sessions on the declared
-  local machine profile. Keep uncontended and controlled-load results separate.
+  submission-to-visible-status. Run each workflow at least 10 times with fresh browser contexts.
+  Include real video-range traffic. Verify visible data identity, usable controls, actual request
+  counts, waterfalls, startup, and browser/server cache behavior.
+- Add bounded polling and deterministic background work while reads, writes, and media loads run.
+  Keep uncontended and controlled-load results separate.
+- Acceptance: all six workflows and controlled-load cases pass against an isolated real backend;
+  their visible identities, controls, request counts, waterfalls, and cache modes are retained.
+  Focused browser, backend, lint, format, and applicable type checks pass. Samples remain
+  preliminary until M11.
+
+## M11 — Run the full corpus and freeze the baseline
+
+- Depends on: M9 media suite and M10 real-process browser and controlled-load suites.
+- Run the complete endpoint corpus, all startup profiles, media routes, browser workflows, and
+  controlled-load suite in three independent sessions on the declared local machine profile.
+  Keep uncontended and controlled-load results separate.
 - Publish raw samples, a readable baseline table, measured noise, absolute ceilings, relative
   tolerances, finite suite runtime, and explicit slow-case debt. Enable the comparator and coverage
   gates. Confirm an injected slowdown fails through the real suite command.
@@ -303,38 +321,28 @@ Deferring startup cost to the first UI request is not an improvement unless both
   Missing cases/assets, invalid responses, timeouts, and incompatible profiles cannot return a
   passing qualification result. Separate environment failures from measured regressions.
 
-## M10 — Profile and select bounded candidates
+## M12 — Profile candidates and candidate cycle one
 
+- Depends on: M11 frozen baseline and regression gates.
 - Profile the highest-cost measured cases, including startup. Attribute time to specific work;
   retain bounded traces and operation counts. Create a ranked candidate table with baseline,
   affected routes, expected gain, risk, verification command, and stop condition.
-- Select at most two small changes for M11/M12. Select a startup change if startup is a leading
+- Select at most two small changes for M12/M13. Select a startup change if startup is a leading
   measured source of delay; do not force a startup rewrite without evidence. Freeze a numeric
-  improvement target per cycle before implementation. Reserve one untouched hard case per
-  affected family to check that improvements generalize beyond the profiled input.
-- Acceptance: candidates have concrete code scope and correctness oracles. A candidate too large
-  for one milestone becomes later work; it does not expand this epic into an architecture rewrite.
+  improvement target for cycle one before implementation. Reserve one untouched hard case per
+  affected family.
+- Add a targeted regression case, implement cycle one, then rerun the same cold/warm, startup, and
+  affected browser scenarios on the frozen corpus and machine profile.
+- Acceptance: cycle one meets its predeclared gain and all correctness/budget gates on affected and
+  reserved cases. Verify restart and invalidation for cache changes. Revert unsuccessful changes
+  and record evidence. Update the ranking and select or confirm cycle two.
 
-## M11 — Candidate cycle one
+## M13 — Candidate cycle two, full qualification, and closure
 
-- Add the targeted regression case, implement one selected change, then rerun the same cold/warm,
-  startup, and affected browser scenarios on the frozen corpus and machine profile.
-- Acceptance: meet the predeclared gain and all correctness/budget gates on affected and reserved
-  cases. Verify restart and invalidation behavior for any caching change. Revert unsuccessful
-  changes and record evidence; do not retain complexity without measured benefit. Run applicable
-  tests, lint, format, types, generated API, and browser checks for changed paths. Update the
-  ranking from measurements and select or confirm the next candidate before M12.
-
-## M12 — Candidate cycle two
-
-- Repeat the M11 procedure for the next highest-value bounded candidate using the current ranking.
-  Compare with both the original baseline and the result after cycle one.
-- Acceptance: retain only a verified gain with unchanged correctness. If no safe candidate remains,
-  publish measurements and the exact stop reason instead of implementing an unmeasured change.
-  An unsuccessful cycle may complete as a documented experiment; it cannot be called a speedup.
-
-## M13 — Full qualification and closure
-
+- Depends on: M12 candidate ranking and cycle one results.
+- Implement the next highest-value bounded candidate using the current ranking. Compare with both
+  the original baseline and the result after cycle one. If no safe candidate remains, publish the
+  measurements and exact stop reason instead of implementing an unmeasured change.
 - Run the complete endpoint, startup, contention, and browser suite from the documented setup.
   Reconcile route coverage after concurrent UI work. Run applicable backend/web checks and local
   Markdown link checks. Record unrelated baseline failures separately.
@@ -347,7 +355,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-### Current state — M8 complete; M9 scope revised
+### Current state — M9 complete; M10 next
 
 - M0–M5 are complete. Their reports and evidence remain linked in the board and prior milestone
   reports.
@@ -369,15 +377,17 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - Decision: compare the same filtered target jobs against 12 and 300 unrelated-history sizes.
   This verifies page and cursor correctness as unrelated records grow; no latency claim beyond
   these preliminary samples is made.
-- Known limit: one request per named read and per size is only a preliminary sample. M9 will
+- Known limit: one request per named read and per size is only a preliminary sample. M11 will
   establish repeated measurements and budgets. The successful preview uses a small deterministic
   fixture and does not represent a hard calibration payload.
-- Decision: M7 covers measured durable write/control families and the unregistered video URL
+- Decisions: M7 covers measured durable write/control families and the unregistered video URL
   not-found boundary. M8 completes named real-backend scenarios for the five residual stage
-  submissions, both round-analysis intake routes, and calibration apply. M9 owns media API timing
-  and cache invalidation, real-process Playwright workflows, and controlled-load qualification.
-  M9 must complete every named media route, cold/warm and save/revision/restart invalidation check,
-  browser workflow, and controlled-load case before it can freeze the baseline.
+  submissions, both round-analysis intake routes, and calibration apply. The revised sequence keeps
+  M9 on media API timing and cache invalidation; M10 on six real-process Playwright workflows and
+  bounded controlled load; M11 on three independent full-corpus sessions and baseline gates; M12
+  on profiling and candidate cycle one; and M13 on candidate cycle two and final qualification.
+  The `/api/recordings/{recording_id}/video` URL remains an explicit unregistered 404 boundary.
+  It is not a media timing case.
 - M7 retains 36 passing response samples and 14 matching durable-effect comparisons for pipeline
   node edit/copy/restore/reviews, four selection families, pipeline-run submission, job controls,
   frame-review save, and calibration draft start/update/discard. The unregistered video URL returns
@@ -394,8 +404,19 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - See `docs/reports/0114-M8_Residual_Writes.md` and
   `docs/reports/0114-M8_Residual_Write_Samples.json`. M8 samples are preliminary, one response per
   case, and are not a baseline.
-- Next milestone: M9. Complete all inventoried media route timing and identity cases, cold/warm and
-  save/revision/restart cache invalidation, real-process browser workflows, and controlled load.
-  These are explicit prerequisites for baseline freeze.
-- Run authorization: 9 milestones requested, 4 completed, 5 remaining (M9–M13). This fixed run
+- M9 completed named real-backend API cases for evidence frame and snippet, recording video and
+  bounded range, thumbnail, derived event frame, and identity crop. Cold/warm responses retained
+  exact bytes and identity. A persisted new identity revision was read through its own crop path;
+  a saved review did not alter that immutable crop; and the saved crop remained readable after app
+  restart. The unregistered UI video URL remains a 404 boundary. These are preliminary samples, not
+  a baseline. See `docs/reports/0114-M9_Media_Routes_and_Cache.md` and
+  `docs/reports/0114-M9_Media_Samples.json`.
+- M9 uses the real route and cache handlers with a deterministic thumbnail renderer stub because
+  the small local source recording is not decodable. Its range response is 55 bytes, below the
+  65,536-byte cap. M11 must measure the frozen hard video asset before freezing transfer budgets.
+- Next milestone: M10. Add six real-process Playwright workflows with at least ten fresh contexts
+  per workflow and bounded controlled-load scenarios. Verify visible identity, usable controls,
+  request counts, waterfalls, startup, and browser/server cache behavior. M11 owns three independent
+  full-corpus sessions and baseline freeze.
+- Run authorization: 9 milestones requested, 5 completed, 4 remaining (M10–M13). This fixed run
   limit does not authorize adding milestones.
