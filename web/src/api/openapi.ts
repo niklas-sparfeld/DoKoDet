@@ -4868,9 +4868,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description JPEG frame with exact source, frame, and timing identity headers. */
             200: {
                 headers: {
+                    ETag?: string;
+                    "X-DokoDetector-Frame-Height"?: string;
+                    "X-DokoDetector-Frame-Index"?: string;
+                    "X-DokoDetector-Frame-Interval-Us"?: string;
+                    "X-DokoDetector-Frame-Time-Us"?: string;
+                    "X-DokoDetector-Frame-Width"?: string;
+                    "X-DokoDetector-Requested-Time-Us"?: string;
+                    "X-DokoDetector-Source-Sha256"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;

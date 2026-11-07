@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import queue
+import re
 import shutil
 import subprocess
 import threading
@@ -1441,6 +1442,12 @@ def test_exact_event_derived_view_route_retrieves_a_cold_cache_frame(tmp_path: P
         assert first.headers["content-type"] == "image/jpeg"
         assert first.headers["cache-control"] == "private, max-age=31536000, immutable"
         assert first.headers["etag"].startswith('"')
+        assert re.fullmatch(r"[a-f0-9]{64}", first.headers["x-dokodetector-source-sha256"])
+        assert first.headers["x-dokodetector-frame-index"] == "4"
+        assert first.headers["x-dokodetector-frame-width"] == "64"
+        assert first.headers["x-dokodetector-frame-height"] == "64"
+        assert first.headers["x-dokodetector-requested-time-us"] == "400000"
+        assert first.headers["x-dokodetector-frame-time-us"] == "400000"
 
         cache_root = tmp_path / "runtime" / "pipeline" / "derived-views"
         assert any(cache_root.rglob("*"))
@@ -1474,7 +1481,10 @@ def test_sampled_event_frame_route_reuses_one_250_ms_cache(tmp_path: Path) -> No
     assert first.status_code == 200
     assert second.status_code == 200
     assert first.headers["x-dokodetector-frame-interval-us"] == "250000"
+    assert first.headers["x-dokodetector-requested-time-us"] == "100000"
     assert first.headers["x-dokodetector-frame-time-us"] == "250000"
+    assert first.headers["x-dokodetector-frame-width"] == "64"
+    assert first.headers["x-dokodetector-frame-height"] == "64"
     assert second.headers["x-dokodetector-frame-time-us"] == "500000"
     cache_root = tmp_path / "runtime" / "pipeline" / "derived-views" / "sampled-frames"
     assert len(list(cache_root.rglob("manifest.json"))) == 1

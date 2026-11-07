@@ -8,10 +8,11 @@
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0 and M1 are complete. M1 adds a tested, selectable polygon surface for exact-frame
-  geometry. It does not restore or claim the historical editing interactions. M2–M10 are not
-  started. See the [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md)
-  and the M1 handoff below.
+- **Outcome:** M0–M2 are complete. M1 adds a tested, selectable polygon surface for exact-frame
+  geometry. M2 adds shared still-frame loading and identity checks. Neither milestone restores or
+  claims the historical editing interactions. M3–M10 are not started. See the
+  [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md) and the execution
+  handoff below.
 
 ## Problem and inspection
 
@@ -224,7 +225,7 @@ step-specific editing adapters while preserving current node and revision contra
 Result: `web/src/workingArea/GeometrySurface.tsx` provides the foundation. Current editors remain
 unchanged in this milestone and continue to use video and JSON editing.
 
-### M2 — Implement shared exact-frame loading — Not started
+### M2 — Implement shared exact-frame loading — Complete
 
 Provide shared still-frame loading and requested/resolved identity state. Reuse bounded frame
 caching. Extend the local frame API only if existing endpoints cannot prove the required identity;
@@ -232,6 +233,12 @@ update generated API types if changed. Add race and sample/exact mutation guards
 
 Acceptance: rapid scrub and step switches cannot restore stale frames or overlays; failures,
 source changes, and variable frame timing are explicit. No video element or full-video buffer.
+
+Result: `workingAreaFrame.ts` provides shared exact and sampled still-frame loading, a bounded
+32-frame object-URL cache, requested/resolved timing, source/frame identity validation, stale-request
+protection, and an exact-only mutation guard. The existing derived-frame endpoint now returns the
+source digest, frame index, dimensions, and request timing in documented identity headers. No video
+element or full-video buffer is used.
 
 ### M3 — Connect Events to the shared surface — Not started
 
@@ -306,20 +313,23 @@ video elements, central text, and central command controls. No hardware or model
 ## Execution handoff
 
 - Completed: M0 — freeze layout and capability fixtures; M1 — add the common exact-frame geometry
-  surface foundation and focused render/selection tests.
+  surface foundation; M2 — add shared still-frame loading and source/frame identity state.
 - Changes: `GeometrySurface` draws supplied exact-frame polygons over a still image, suppresses
-  mismatched frame or calibration geometry, and supports accessible selection. The current node
-  editors were not changed. No old interaction behavior was restored or claimed preserved.
-- Checks: focused `GeometrySurface.test.tsx` passed (3 tests); final `npm run check` passed
-  (typecheck, lint, Prettier, generated API comparison, and all 185 frontend tests); `npm run build`
-  passed;
-  `npx playwright test tests/e2e/pipeline-lineage-workspace.spec.ts --reporter=line` passed. The
-  browser test verifies the existing lineage workspace only; M1 does not connect the new surface to
-  an editor. Local links passed for the board, epic, and three inbound plans. M0 evidence remains in
+  mismatched frame or calibration geometry, and supports accessible selection. `workingAreaFrame.ts`
+  loads exact or sampled images, validates response identity and timing, keeps at most 32 object URLs,
+  ignores stale requests, and allows mutations only for exact frames. The derived-frame API documents
+  identity headers in OpenAPI and the generated TypeScript contract. Current node editors remain
+  unchanged. No old interaction behavior was restored or claimed preserved.
+- Checks: focused loader tests passed (3 tests); exact and sampled backend route tests passed (2
+  tests); `npm run check` passed (typecheck, lint, Prettier, generated API comparison, and 188
+  frontend tests); `npm run build` passed; `pipeline-lineage-workspace.spec.ts` passed. The browser
+  check covers the existing lineage workspace. Local links passed for this epic and the M0 report.
+  M0 evidence remains in
   [0109-M0_Working_Area_Inventory.md](../../reports/0109-M0_Working_Area_Inventory.md).
-- Decisions: newer node-backed code is authoritative. M2 owns exact-frame loading. M4 owns adapting
-  visible-card and virtual-scene contracts and implementing step-specific editing.
-- Limits: M1 supports polygon display and selection only. It does not load frames, transform
-  calibrated pose geometry, edit geometry, or move visible-card/virtual-scene controls.
-- Next: M2 — implement shared exact-frame loading.
-- Run: requested 11 milestones, completed 2, remaining 9.
+- Decisions: newer node-backed code is authoritative. Exact loads use source SHA and exact response
+  identity; sampled loads remain read-only. M3 owns Events integration. M4 owns visible-card and
+  virtual-scene integration and editing.
+- Limits: the loader is not connected to a step editor yet. The browser regression does not exercise
+  the new loader. The implementation loads still images only and does not buffer the recording.
+- Next: M3 — connect Events to the shared surface.
+- Run: requested 11 milestones, completed 3, remaining 8.

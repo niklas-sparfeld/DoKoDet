@@ -463,7 +463,25 @@ def get_proposed_card_scene_result(
     }
 
 
-@router.get(DERIVED_FRAME_BASE, response_class=Response)
+@router.get(
+    DERIVED_FRAME_BASE,
+    response_class=Response,
+    responses={
+        200: {
+            "description": "JPEG frame with exact source, frame, and timing identity headers.",
+            "headers": {
+                "ETag": {"schema": {"type": "string"}},
+                "X-DokoDetector-Source-Sha256": {"schema": {"type": "string"}},
+                "X-DokoDetector-Frame-Index": {"schema": {"type": "string"}},
+                "X-DokoDetector-Frame-Width": {"schema": {"type": "string"}},
+                "X-DokoDetector-Frame-Height": {"schema": {"type": "string"}},
+                "X-DokoDetector-Requested-Time-Us": {"schema": {"type": "string"}},
+                "X-DokoDetector-Frame-Time-Us": {"schema": {"type": "string"}},
+                "X-DokoDetector-Frame-Interval-Us": {"schema": {"type": "string"}},
+            },
+        }
+    },
+)
 def get_recording_exact_event_frame(
     recording_id: str,
     requested_time_us: int,
@@ -496,6 +514,11 @@ def get_recording_exact_event_frame(
         headers={
             "Cache-Control": "private, max-age=31536000, immutable",
             "ETag": f'"{frame.image_sha256}"',
+            "X-DokoDetector-Source-Sha256": frame.source_video_sha256,
+            "X-DokoDetector-Frame-Index": str(frame.frame_index),
+            "X-DokoDetector-Frame-Width": str(frame.width),
+            "X-DokoDetector-Frame-Height": str(frame.height),
+            "X-DokoDetector-Requested-Time-Us": str(frame.requested_time_us),
             "X-DokoDetector-Frame-Time-Us": str(frame.presentation_timestamp_us),
             "X-DokoDetector-Frame-Interval-Us": (
                 str(SAMPLED_FRAME_INTERVAL_US) if preview == "sampled_250ms" else "0"
