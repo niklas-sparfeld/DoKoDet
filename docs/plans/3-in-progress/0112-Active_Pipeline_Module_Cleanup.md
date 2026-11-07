@@ -8,10 +8,11 @@
 - **Depends on:** [0108 M11](../5-closed/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
   must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
-- **Outcome:** M0–M3 are complete. M1 moved visual identity crop-input freezing and source
+- **Outcome:** M0–M5 are complete. M1 moved visual identity crop-input freezing and source
   validation into focused modules. M2 moved crop provenance checks and exact-geometry resolution
   into focused modules. M3 moved identity classification, execution, request construction, crop
-  queries, recording-source access, and approval planning into focused modules. M0–M4 are complete. M5–M10 remain.
+  queries, recording-source access, and approval planning into focused modules. M5 moved shared API
+  transport and feature contract types into focused modules. M6–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
   complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
   candidate files remain. M0 must remap their current responsibilities before extraction.
@@ -95,7 +96,7 @@ explicit plan change before the affected milestone is marked complete.
 | M2 | Extract visual-identity crop resolution and provenance | Complete |
 | M3 | Separate identity execution and per-card classification | Complete |
 | M4 | Split surviving pipeline persistence owners | Complete |
-| M5 | Extract API transport and feature contract types | Not started |
+| M5 | Extract API transport and feature contract types | Complete |
 | M6 | Split API methods and paths by feature | Not started |
 | M7 | Extract workspace loading and selection state | Not started |
 | M8 | Split processor launch controls from request construction | Not started |
@@ -248,6 +249,16 @@ Acceptance: one shared transport owns HTTP errors and cancellation. Transport te
 text/empty errors, timeout, caller abort, and listener/timer cleanup. Typecheck and generated API
 verification pass. Existing callers work while M6 moves feature methods; no contract redesign.
 
+**Result:** Complete. `transport.ts` owns `ApiError`, JSON requests and error-body decoding,
+headers, timeout handling, and caller abort forwarding. Retained hand-written types now live in
+`recordingContracts.ts`, `pipelineContracts.ts`, `calibrationContracts.ts`, and
+`analysisContracts.ts`; job contracts use the existing generated OpenAPI schemas in
+`jobsContracts.ts`. Existing `client.ts` imports continue to work while M6 moves feature methods.
+Transport tests cover JSON responses, JSON/text/empty HTTP errors, timeout conversion, caller abort
+reason propagation, abort-listener cleanup, and timer cleanup. No active caller configures a
+timeout; M5 adds direct transport coverage and does not add a timeout-configured client call. See
+[`0112 M5 API transport and contracts`](../../reports/0112-M5_API_Transport_Contracts.md).
+
 ## M6 — Split API methods and paths by feature
 
 Move client methods and URL builders into recording, pipeline-processing, calibration, and analysis
@@ -319,7 +330,7 @@ move it to `5-closed`, repair links, and update the board in the final milestone
 
 ## Execution handoff
 
-- Completed: M0, M1, M2, M3, M4. M1 moved crop-input freezing and source validation. The focused
+- Completed: M0, M1, M2, M3, M4, M5. M1 moved crop-input freezing and source validation. The focused
   source test is in `backend/tests/test_visual_identity_crop_sources.py`; details are in
   [`docs/reports/0112-M1_Crop_Input_Extraction.md`](../../reports/0112-M1_Crop_Input_Extraction.md).
   M2 moved provenance and crop resolution. Its details are in
@@ -331,13 +342,18 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   and module/test budgets.
 - M4 retired `pipeline_store.py`. Revision, processor-run, compact catalog, codec, and shared
   filesystem owners now have focused modules. The migration-only reader and old state decoder live
-  in `legacy_processor_run_store.py` and `legacy_processor_run_codec.py`; only
-  `lineage_migration_inventory.py` imports that reader. Details and verification are in the
+  in `legacy_processor_run_store.py` and `legacy_processor_run_codec.py`. Its only consumers are
+  `lineage_migration_inventory.py` and the offline `backend/scripts/repair_0100_m5.py` tool.
+  Details and verification are in the
   [`M4 report`](../../reports/0112-M4_Pipeline_Persistence_Extraction.md).
+- M5 moved shared request transport and retained contracts into focused modules. `client.ts`
+  continues to import these types until M6 moves the feature methods. Its focused tests, typecheck,
+  generated API verification, and changed-file formatting passed. Details and checks are in the
+  [`M5 report`](../../reports/0112-M5_API_Transport_Contracts.md).
 - Decisions and limits: use the shared JobManager as the only scheduler and cancellation/publication
   authority. Auto-approval remains a plan and starts needed local work through the existing managed
   classification operation. Keep the retired `test_pipeline_reference.py` absent. M3/M7/M9 must add
-  or locate coverage for stale workspace responses. M5 has no active timeout-configured client call;
-  do not invent one without an API contract decision.
-- Next: M5, extract API transport and feature contract types. Requested 10 milestones, completed 4,
-  remaining 6. Coordinate M8 with 0113 before either launch-boundary implementation.
+  or locate coverage for stale workspace responses. No active client configures a timeout; do not
+  invent a timeout-configured caller without an API contract decision.
+- Next: M6, split API methods and paths by feature. Requested 10 milestones, completed 5,
+  remaining 5. Coordinate M8 with 0113 before either launch-boundary implementation.

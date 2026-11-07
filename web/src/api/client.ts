@@ -1,231 +1,72 @@
-import type { components, paths } from "./openapi";
-
-type JsonResponse<Response> = Response extends { content: infer Content }
-  ? Content extends { "application/json": infer Payload }
-    ? Payload
-    : never
-  : never;
-
-export type RoundAnalysisStatus = JsonResponse<
-  paths["/v1/round-analyses/{analysis_id}"]["get"]["responses"][200]
->;
-export type RecordingListResponse = JsonResponse<
-  paths["/v1/recordings"]["get"]["responses"][200]
->;
-export type RecordingDetail = JsonResponse<
-  paths["/v1/recordings/{recording_id}"]["get"]["responses"][200]
->;
-export type JobDetail = components["schemas"]["JobDetail"];
-export type JobListResponse = components["schemas"]["JobListResponse"];
-export type JobLogPage = components["schemas"]["JobLogPage"];
-export type EnqueueJobBody = components["schemas"]["EnqueueBody"];
-export type PipelineWorkspace = JsonResponse<
-  paths["/api/recordings/{recording_id}/pipeline"]["get"]["responses"][200]
->;
-export type PipelineWorkspaceStage = PipelineWorkspace["stages"][number];
-export type PipelineRun = PipelineWorkspaceStage["runs"][number];
-export type PipelineCompatibleInputSet =
-  PipelineWorkspaceStage["compatible_input_sets"][number];
-export type PipelineWorkspaceProcessorInputReference =
-  PipelineCompatibleInputSet["input_node_refs"][number];
-export type PipelineStageKey = PipelineWorkspaceStage["key"];
-export type PipelineSelectableContentType = Exclude<
+import type { components } from "./openapi";
+import type {
+  CalibrationRefinementApplyResponse,
+  CalibrationRefinementResponse,
+  PipelineCalibration,
+} from "./calibrationContracts";
+import type {
+  RoundAnalysisCreateRequest,
+  RoundAnalysisStatus,
+  RoundAnalysisTimeline,
+  RoundCounterfactualResponse,
+} from "./analysisContracts";
+import type {
+  AutomatedPipelineRun,
+  AutomatedPipelineStartRequest,
+  FrameReviewPageResponse,
+  FrameReviewWorkflowResponse,
+  PipelineComparisonRequest,
+  PipelineComparisonResponse,
+  PipelineEventResult,
+  PipelineProposalResultResponse,
+  PipelineProposalRunResponse,
+  PipelineRunResponse,
+  PipelineRunStartRequest,
+  PipelineSelectableContentType,
+  PipelineSelectionResponse,
+  PipelineSelectionUpdateRequest,
   PipelineStageKey,
-  "round_analyses"
->;
-export type PipelineSelectionUpdateRequest = {
-  expected_revision: number;
-  selected_generated: { node_id: string; revision_id: string } | null;
-};
-export type PipelineSelection = {
-  revision: number;
-  recording_id: string;
-  content_type: PipelineSelectableContentType;
-  selected_generated: { node_id: string; revision_id: string } | null;
-  selected_completed_reference: { node_id: string; revision_id: string } | null;
-  updated_at: string;
-};
-export type PipelineSelectionResponse = {
-  recording_id: string;
-  selection: PipelineSelection;
-};
-export type PipelineRunStartRequest = {
-  request: {
-    run_id: string;
-    input_node_refs?: PipelineWorkspaceProcessorInputReference[];
-    input_node_ref?: {
-      node_id: string;
-      revision_id: string;
-      revision_policy: "current_head" | "historical";
-    };
-    crop_input_kind?:
-      | "gemini_polygon"
-      | "rfdetr_segment"
-      | "proposed_virtual_cards"
-      | "reviewed_virtual_card"
-      | "reviewed_visible_card";
-    processor_type?: string;
-    implementation?: { name: string; version: string };
-    model?: Record<string, unknown> | null;
-    configuration?: Record<string, unknown>;
-    extraction_policy?: Record<string, unknown>;
-    crop_policy?: Record<string, unknown> | null;
-  };
-};
-export type PipelineRunResponse = {
-  run_id: string;
-  job_id: string | null;
-  recording_id: string;
-  processor_type: string;
-  status: string;
-  attempt: number;
-  request: Record<string, unknown>;
-  state: Record<string, unknown>;
-};
-export type AutomatedPipelineRun = {
-  schema_version: "automated-pipeline-run/v1";
-  run_id: string;
-  job_id?: string | null;
-  recording_id: string;
-  status:
-    "accepted" | "queued" | "running" | "complete" | "failed" | "cancelled";
-  failure: Record<string, unknown> | null;
-  request: Record<string, unknown>;
-  stages: Array<{
-    name: string;
-    status:
-      "pending" | "queued" | "running" | "complete" | "partial" | "failed";
-    run_id: string | null;
-    child_job_id?: string | null;
-    input_revision_ids: string[];
-    output_revision_ids: string[];
-    failure: Record<string, unknown> | null;
-  }>;
-};
-export type AutomatedPipelineStartRequest = {
-  idempotency_key: string;
-  rules_version: "v1";
-  search: {
-    max_missing_plays: number;
-    max_hypotheses: number;
-    max_search_nodes: number;
-  };
-  stage_requests: Record<
-    string,
-    { configuration: Record<string, unknown>; [key: string]: unknown }
-  >;
-};
-export type PipelineProposalRunResponse = PipelineRunResponse;
-export type PipelineProposalResultResponse = PipelineRunResponse & {
-  revisions: Array<{
-    manifest: Record<string, unknown>;
-    content: Record<string, unknown>;
-  }>;
-};
-export type CalibrationRefinementResponse = {
-  schema_version: "table-plane-calibration-refinement/v1";
-  recording_id: string;
-  proposal_revision_id: string;
-  /** False when the draft has quick anchor-fit data but no recording-wide preview. */
-  preview_complete?: boolean;
-  draft: Record<string, unknown>;
-  preview: {
-    status: "pass" | "blocked";
-    candidate_calibration: {
-      table_to_image: number[][];
-      card_short_size: number;
-      card_long_size: number;
-    } | null;
-    accepted_anchor_count: number;
-    rejected_candidate_count: number;
-    fit_residual: number;
-    held_out_alignment_change_px: number;
-    changed_frame_ids: string[];
-    changed_card_ids: string[];
-    max_source_pixel_displacement: number;
-    most_affected_frame_ids: string[];
-    gates: Array<{
-      gate_id: string;
-      passed: boolean;
-      observed: number;
-      threshold: number;
-      message: string;
-    }>;
-    failure: { code: string; message: string; action: string } | null;
-    preview_digest: string;
-  };
-  anchor_contributions: Array<Record<string, unknown>>;
-};
-export type CalibrationRefinementApplyResponse = {
-  schema_version: "table-plane-calibration-refinement/v1";
-  action: "applied";
-  recording_id: string;
-  source_proposal_revision_id: string;
-  proposal_revision_id: string;
-  calibration_revision_id: string;
-  receipt: Record<string, unknown>;
-  visible_card_node_ref: { node_id: string; revision_id: string };
-};
-export type PipelineCalibration = JsonResponse<
-  paths["/api/recordings/{recording_id}/pipeline/calibrations/{calibration_revision_id}"]["get"]["responses"][200]
->;
-export type RoundAnalysisCreateRequest =
-  components["schemas"]["RoundAnalysisCreateRequest"];
-export type PipelineComparisonRequest =
-  components["schemas"]["PipelineComparisonRequest"];
-export type PipelineComparisonResponse = JsonResponse<
-  paths["/api/recordings/{recording_id}/pipeline/comparisons"]["post"]["responses"][200]
->;
-export type FrameReviewPageResponse = JsonResponse<
-  paths["/api/frame-reviews/0096-M4"]["get"]["responses"][200]
->;
-export type FrameReviewWorkflowResponse = JsonResponse<
-  paths["/api/frame-reviews/0096-M4/items/{recording_id}/{item_id}/workflow"]["put"]["responses"][200]
->;
-export type PipelineEventResult = {
-  run_id: string;
-  recording_id: string;
-  processor_type: string;
-  status: string;
-  attempt: number;
-  request: Record<string, unknown>;
-  state: Record<string, unknown>;
-  revisions: Array<{
-    manifest: Record<string, unknown>;
-    content: {
-      schema_version?: string;
-      events?: Array<Record<string, unknown>>;
-    };
-  }>;
-};
-export type PipelineVisibleCardResult = JsonResponse<
-  paths["/api/recordings/{recording_id}/pipeline/visible-cards/{run_id}/result"]["get"]["responses"][200]
->;
-export type PipelineVisualIdentityResult = JsonResponse<
-  paths["/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}/result"]["get"]["responses"][200]
->;
-export type RecordingSummary = RecordingListResponse["recordings"][number];
-export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
-export type RoundAnalysisTimeline = JsonResponse<
-  paths["/v1/round-analyses/{analysis_id}/timeline"]["get"]["responses"][200]
->;
-export type RoundCounterfactualCreateRequest =
-  components["schemas"]["RoundCounterfactualCreateRequest"];
-export type RoundCounterfactualResponse = JsonResponse<
-  paths["/v1/round-analyses/{analysis_id}/counterfactuals/{counterfactual_id}"]["get"]["responses"][200]
->;
+  PipelineVisibleCardResult,
+  PipelineVisualIdentityResult,
+  PipelineWorkspace,
+} from "./pipelineContracts";
+import type {
+  RecordingDetail,
+  RecordingListResponse,
+} from "./recordingContracts";
+import {
+  ApiError,
+  jsonHeaders,
+  readResponseBody,
+  requestJson,
+} from "./transport";
+import type {
+  EnqueueJobBody,
+  JobDetail,
+  JobListResponse,
+  JobLogPage,
+} from "./jobsContracts";
 
-export class ApiError extends Error {
-  readonly status: number;
-  readonly body: unknown;
-
-  constructor(status: number, body: unknown) {
-    super(`DokoDetector API request failed with status ${status}.`);
-    this.name = "ApiError";
-    this.status = status;
-    this.body = body;
-  }
-}
+export { ApiError } from "./transport";
+export type * from "./recordingContracts";
+export type * from "./pipelineContracts";
+export type * from "./calibrationContracts";
+export type * from "./analysisContracts";
+export type {
+  AutomatedPipelineRun,
+  AutomatedPipelineStartRequest,
+  PipelineWorkspaceStage,
+  PipelineRun,
+  PipelineCompatibleInputSet,
+  PipelineWorkspaceProcessorInputReference,
+  PipelineSelection,
+} from "./pipelineContracts";
+export type {
+  EnqueueJobBody,
+  JobDetail,
+  JobListResponse,
+  JobLogPage,
+} from "./jobsContracts";
 
 export interface DokoDetectorClient {
   listJobs(options?: {
@@ -1031,69 +872,4 @@ export function roundCounterfactualReadPath(
   counterfactualId: string,
 ): string {
   return `${roundCounterfactualPath(analysisId)}/${encodeURIComponent(counterfactualId)}`;
-}
-
-async function requestJson<Response>(
-  fetchImplementation: typeof fetch,
-  path: string,
-  init?: RequestInit,
-  timeoutMs?: number,
-): Promise<Response> {
-  const headers = new Headers(init?.headers);
-  headers.set("Accept", "application/json");
-  const timeoutController =
-    timeoutMs === undefined ? null : new AbortController();
-  const callerSignal = init?.signal;
-  const abortFromCaller = () => timeoutController?.abort(callerSignal?.reason);
-  if (callerSignal?.aborted) {
-    abortFromCaller();
-  } else {
-    callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
-  }
-  const timeoutHandle =
-    timeoutController === null
-      ? null
-      : globalThis.setTimeout(() => timeoutController.abort(), timeoutMs);
-  try {
-    const response = await fetchImplementation(path, {
-      ...init,
-      headers,
-      ...(timeoutController === null
-        ? {}
-        : { signal: timeoutController.signal }),
-    });
-    if (!response.ok) {
-      throw new ApiError(response.status, await readResponseBody(response));
-    }
-    return (await response.json()) as Response;
-  } catch (error) {
-    if (timeoutController?.signal.aborted && !callerSignal?.aborted) {
-      throw new ApiError(408, {
-        message: `The request timed out after ${timeoutMs} ms.`,
-      });
-    }
-    throw error;
-  } finally {
-    if (timeoutHandle !== null) globalThis.clearTimeout(timeoutHandle);
-    callerSignal?.removeEventListener("abort", abortFromCaller);
-  }
-}
-
-function jsonHeaders(headers: HeadersInit | undefined): Headers {
-  const result = new Headers(headers);
-  result.set("Accept", "application/json");
-  result.set("Content-Type", "application/json");
-  return result;
-}
-
-async function readResponseBody(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (!text) {
-    return null;
-  }
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return text;
-  }
 }
