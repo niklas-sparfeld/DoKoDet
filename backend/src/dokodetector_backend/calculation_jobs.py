@@ -22,8 +22,9 @@ from doko_operations.pipeline_data import canonical_json_bytes
 from table_evidence_analyzer.card_scene_contract import CalibrationDraft, anchor_fit_contributions
 
 from dokodetector_backend.filesystem import atomic_replace_json
+from dokodetector_backend.job_models import Job, JobStorageError
 from dokodetector_backend.job_scheduler import Claims
-from dokodetector_backend.job_store import Job, JobManager, JobStorageError
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.round_analysis_contract import RoundCounterfactualCreateRequest
 
 

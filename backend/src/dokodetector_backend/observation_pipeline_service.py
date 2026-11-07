@@ -33,7 +33,8 @@ from table_evidence_analyzer import (
     parse_visual_identity_data_bytes,
 )
 
-from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.job_models import Job, JobCancelled
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import (
     ExactNodeSelection,
     PipelineNodeSelectionStore,

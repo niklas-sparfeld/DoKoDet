@@ -19,7 +19,8 @@ from table_evidence_analyzer.visual_identity_crop_input import (
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
-from dokodetector_backend.job_store import Job, JobManager
+from dokodetector_backend.job_models import Job
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import (
     ExactNodeSelection,
     PipelineNodeSelectionStore,

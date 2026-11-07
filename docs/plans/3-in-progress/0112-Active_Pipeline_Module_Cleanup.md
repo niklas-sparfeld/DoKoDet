@@ -8,13 +8,13 @@
 - **Depends on:** [0108 M11](../5-closed/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
   must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
-- **Outcome:** M0–M8 are complete. M1 moved visual identity crop-input freezing and source
+- **Outcome:** M0–M9 are complete. M1 moved visual identity crop-input freezing and source
   validation into focused modules. M2 moved crop provenance checks and exact-geometry resolution
   into focused modules. M3 moved identity classification, execution, request construction, crop
   queries, recording-source access, and approval planning into focused modules. M5 moved shared API
   transport and feature contract types into focused modules. M6 split API methods and URL builders
   by feature. M7 separated workspace loading and selection. M8 split launch request construction,
-  stage forms, and retained run presentation from the submission composition root. M9–M10 remain.
+  stage forms, and retained run presentation from the submission composition root. M10 remains.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
   complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
   candidate files remain. M0 must remap their current responsibilities before extraction.
@@ -102,7 +102,7 @@ explicit plan change before the affected milestone is marked complete.
 | M6 | Split API methods and paths by feature | Complete |
 | M7 | Extract workspace loading and selection state | Complete |
 | M8 | Split processor launch controls from request construction | Complete |
-| M9 | Split job models and recovery from lifecycle management | Not started |
+| M9 | Split job models and recovery from lifecycle management | Complete |
 | M10 | Enforce boundaries and verify the complete fixture workflow | Not started |
 
 ## M0 — Freeze surviving owners, contracts, and verification
@@ -364,6 +364,8 @@ cancellation, retry linkage, partial-write recovery, parent-child, and publicati
 Recovery cannot mutate outside the manager's ownership lock. Do not add another journal or alter
 the durable job schema. Split tests by lifecycle, persistence/recovery, and publication ownership.
 
+**Result:** Complete. The 499-line `JobManager` composes `job_models.py`, `job_persistence.py`, and `job_recovery.py`. Recovery uses named persistence operations and checks manager ownership before recovery or reconciliation. The unchanged durable job, intent, queue, and publication schemas are covered by partial-write, restart, retry, parent-child, cancellation, queue-order, idempotency, and publication-race tests. `FakeParticipant` moved to test support. See the [M9 report](../../reports/0112-M9_Job_Recovery_Extraction.md) for owner sizes, checks, and limits.
+
 ## M10 — Enforce boundaries and verify the complete fixture workflow
 
 Add an automated source/test size check for this epic's explicit file list. Include all extracted
@@ -414,9 +416,9 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   [`M5 report`](../../reports/0112-M5_API_Transport_Contracts.md).
 - Decisions and limits: use the shared JobManager as the only scheduler and cancellation/publication
   authority. Auto-approval remains a plan and starts needed local work through the existing managed
-  classification operation. Keep the retired `test_pipeline_reference.py` absent. M3/M7/M9 must add
-  or locate coverage for stale workspace responses. No active client configures a timeout; do not
-  invent a timeout-configured caller without an API contract decision.
+  classification operation. Keep the retired `test_pipeline_reference.py` absent. M3 and M7 cover stale workspace responses. No
+  active client configures a timeout; do not invent a timeout-configured caller without an API
+  contract decision.
 - M6 split the API client by recordings, pipeline processing, calibration, analysis, jobs, and frame
   review. `client.ts` only composes these clients. `clientTypes.ts` contains shared typed method
   contracts. Consumers now import feature factories, contracts, and URL helpers directly. Focused
@@ -460,5 +462,6 @@ move it to `5-closed`, repair links, and update the board in the final milestone
 - Decisions and limits: the pre-existing `RunControls.test.tsx` suite was 1,301 lines at commit
   `39212aee1`. This is the scoped M8 exception recorded above. M10 must split it by stage, retain
   its launch and run-history assertions, and reduce every focused test file to 800 lines or fewer.
-- Current run: requested 4 milestones, completed 2 (M7–M8), remaining 2 (M9–M10). M6 predates
-  this run. The next milestone is M9.
+- M9 split job records into `job_models.py`, durable operations into `job_persistence.py`, and intent replay/reconciliation into `job_recovery.py`. `JobManager` is 499 lines. Recovery uses explicit persistence callbacks and checks manager ownership before it reads or writes. `FakeParticipant` is in test support, with no production imports. The focused recovery and publication suites are separate from lifecycle and scheduler tests. See the [M9 report](../../reports/0112-M9_Job_Recovery_Extraction.md).
+- Decisions and limits: keep one manager ownership lock, one intent journal, and the existing durable schemas. `register_fake` now receives its test participant from test setup. No durable migration or API schema change was made.
+- Current run: requested 4 milestones, completed 3 (M7–M9), remaining 1 (M10). M6 predates this run. The next milestone is M10. Tests passed: 44 focused job tests and 45 job-consumer tests; Ruff, formatting, compileall, and diff checks passed. The Starlette `httpx` deprecation warning remains.

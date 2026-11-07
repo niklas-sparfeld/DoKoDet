@@ -37,7 +37,8 @@ from doko_operations.pipeline_data import (
 
 from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.intake_contract import parse_proposal_generator_run
-from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.job_models import Job, JobCancelled
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import (
     ExactNodeSelection,
     PipelineNodeSelectionStore,

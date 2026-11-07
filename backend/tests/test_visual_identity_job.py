@@ -26,7 +26,7 @@ from test_visual_identity_pipeline_api import (
     _wait_identity,
 )
 
-from dokodetector_backend.job_store import CancellationToken
+from dokodetector_backend.job_models import CancellationToken
 
 
 def test_visual_identity_pipeline_retry_resumes_retained_items(tmp_path: Any) -> None:

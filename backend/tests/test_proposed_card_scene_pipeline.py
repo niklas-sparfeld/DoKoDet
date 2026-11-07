@@ -20,8 +20,9 @@ from table_evidence_analyzer.pipeline_data import (
     canonical_visible_card_data_bytes,
 )
 
+from dokodetector_backend.job_models import JobCancelled
 from dokodetector_backend.job_scheduler import Claims
-from dokodetector_backend.job_store import JobCancelled, JobManager
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.jobs_api import JobTypeRegistry
 from dokodetector_backend.pipeline_lineage import PipelineLineage
 from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter

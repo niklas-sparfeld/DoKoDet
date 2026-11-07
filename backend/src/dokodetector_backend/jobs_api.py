@@ -15,15 +15,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from dokodetector_backend.errors import APIErrorDetail, ContractError
-from dokodetector_backend.job_scheduler import Budget, Claims, JobScheduler, QueueRevisionConflict
-from dokodetector_backend.job_store import (
+from dokodetector_backend.job_models import (
     CancellationToken,
-    FakeParticipant,
     Job,
     JobCancelled,
     JobConflict,
     JobLogEntry,
-    JobManager,
     JobNotFound,
     JobOwnershipError,
     JobStateError,
@@ -32,6 +29,8 @@ from dokodetector_backend.job_store import (
     State,
     Step,
 )
+from dokodetector_backend.job_scheduler import Budget, Claims, JobScheduler, QueueRevisionConflict
+from dokodetector_backend.job_store import JobManager
 
 
 class APIModel(BaseModel):
@@ -134,16 +133,17 @@ class JobTypeRegistry:
     """Closed request and handler registry used by job acceptance and execution."""
 
     def __init__(self, root: Path) -> None:
-        self._fake_participant = FakeParticipant(root / "job-domain")
         self._validators: dict[str, Callable[[dict[str, Any]], None]] = {}
         self._participants: dict[str, Any] = {}
         self._handlers: dict[str, Callable[[Job, Claims, Any], None]] = {}
         self._claims: dict[str, Claims] = {}
 
-    def register_fake(self, name: Literal["fake", "automated_pipeline"] = "fake") -> None:
+    def register_fake(
+        self, participant: Any, name: Literal["fake", "automated_pipeline"] = "fake"
+    ) -> None:
         """Register one closed fake request type for API fixtures."""
         self._validators[name] = self._validate_fake
-        self._participants[name] = self._fake_participant
+        self._participants[name] = participant
 
     def register(
         self,

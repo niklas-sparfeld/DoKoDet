@@ -114,7 +114,7 @@ def start_automated_pipeline_run(
             str(document["request"]["idempotency_key"]), job_request
         )
     except Exception as error:
-        from dokodetector_backend.job_store import JobOwnershipError
+        from dokodetector_backend.job_models import JobOwnershipError
 
         if not isinstance(error, JobOwnershipError):
             raise

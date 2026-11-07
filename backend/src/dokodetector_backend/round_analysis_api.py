@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from dokodetector_backend.errors import ContractError
-from dokodetector_backend.job_store import JobConflict, JobOwnershipError
+from dokodetector_backend.job_models import JobConflict, JobOwnershipError
 from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.round_analysis_contract import (
     CounterfactualArtifact,

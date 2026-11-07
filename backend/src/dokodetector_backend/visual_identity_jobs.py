@@ -6,8 +6,9 @@ from typing import Any
 
 from doko_operations.pipeline_data import ProcessorRunRequest, RunFailure
 
+from dokodetector_backend.job_models import Job
 from dokodetector_backend.job_scheduler import Claims
-from dokodetector_backend.job_store import Job, JobManager
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_storage import PipelineNotFound
 from dokodetector_backend.visual_identity_pipeline_service import (
     VisualIdentityPipelineService,

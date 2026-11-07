@@ -52,7 +52,8 @@ from table_evidence_analyzer.visible_cards import ProviderResult, VisibleCardReq
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
-from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.job_models import Job, JobCancelled
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import (
     ExactNodeSelection,
     PipelineNodeSelectionStore,

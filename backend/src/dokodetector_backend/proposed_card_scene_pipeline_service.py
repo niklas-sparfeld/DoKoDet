@@ -37,7 +37,8 @@ from table_evidence_analyzer.pipeline_data import (
 )
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.job_models import Job, JobCancelled
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision

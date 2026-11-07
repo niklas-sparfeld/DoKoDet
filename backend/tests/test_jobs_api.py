@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app_factory import create_test_app
 from fastapi.testclient import TestClient
+from support.job_participants import FakeParticipant
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.filesystem import atomic_replace_json
@@ -26,7 +27,9 @@ def make_app(tmp_path: Path):
         pending_video_root=tmp_path / "pending",
     )
     app = create_test_app(settings)
-    app.state.job_type_registry.register_fake()
+    app.state.job_type_registry.register_fake(
+        FakeParticipant(settings.operations_root / "job-domain")
+    )
     return app
 
 

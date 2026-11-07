@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
+from dokodetector_backend.job_models import Job
 from dokodetector_backend.job_scheduler import Claims
-from dokodetector_backend.job_store import Job, JobManager
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.round_analysis_service import RoundAnalysisService
 
 

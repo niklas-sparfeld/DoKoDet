@@ -42,7 +42,8 @@ from dokodetector_backend.intake_contract import (
     parse_evidence_package_lineage,
     parse_source_record,
 )
-from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.job_models import Job, JobCancelled
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.logging_config import log_event
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import Node, NodeRevision

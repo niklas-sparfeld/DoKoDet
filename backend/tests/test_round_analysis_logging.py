@@ -16,7 +16,7 @@ from test_round_analysis_api import (
 )
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.job_store import Job
+from dokodetector_backend.job_models import Job
 from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
 from dokodetector_backend.round_analysis_storage import RoundAnalysisArtifactStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore

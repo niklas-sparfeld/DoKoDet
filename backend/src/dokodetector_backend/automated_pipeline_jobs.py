@@ -10,8 +10,9 @@ from dokodetector_backend.automated_pipeline_contracts import (
     StageDefinition,
     frozen_pilot_stage_plan,
 )
+from dokodetector_backend.job_models import Job, Step
 from dokodetector_backend.job_scheduler import Claims
-from dokodetector_backend.job_store import Job, JobManager, Step
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
 
 

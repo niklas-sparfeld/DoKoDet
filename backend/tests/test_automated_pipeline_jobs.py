@@ -6,8 +6,9 @@ from pathlib import Path
 from uuid import uuid4
 
 from dokodetector_backend.automated_pipeline_jobs import AutomatedPipelineJobParticipant
+from dokodetector_backend.job_models import Job
 from dokodetector_backend.job_scheduler import Claims, JobScheduler
-from dokodetector_backend.job_store import Job, JobManager
+from dokodetector_backend.job_store import JobManager
 
 
 class _RunStore:

@@ -8,15 +8,15 @@ from dataclasses import dataclass
 from time import monotonic
 from typing import Callable
 
-from dokodetector_backend.job_store import (
+from dokodetector_backend.job_models import (
     CancellationToken,
     Job,
     JobCancelled,
-    JobManager,
     JobStateError,
     Queue,
     _now,
 )
+from dokodetector_backend.job_store import JobManager
 
 
 @dataclass(frozen=True)

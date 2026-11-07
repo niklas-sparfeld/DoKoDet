@@ -14,9 +14,10 @@ from run_interactive_ui_read_performance import (  # noqa: E402
     _seed_jobs,
     read_scenarios,
 )
+from support.job_participants import FakeParticipant  # noqa: E402
 
 from dokodetector_backend.config import Settings  # noqa: E402
-from dokodetector_backend.job_store import FakeParticipant, JobManager  # noqa: E402
+from dokodetector_backend.job_store import JobManager  # noqa: E402
 
 
 def test_read_scenarios_cover_every_inventoried_ui_json_get() -> None:

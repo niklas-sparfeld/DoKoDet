@@ -890,7 +890,7 @@ def test_counterfactual_create_read_is_idempotent_and_restart_safe(
 
     changed = dict(payload)
     changed["excluded_observation_ids"] = [f"{package_ids[1]}-observation"]
-    from dokodetector_backend.job_store import JobConflict
+    from dokodetector_backend.job_models import JobConflict
 
     with pytest.raises(JobConflict):
         app.state.job_manager_service.run_inline(key, {**envelope, "request": changed})
@@ -1018,7 +1018,8 @@ def test_counterfactual_failed_publication_can_be_retried(
         == []
     )
 
-    from dokodetector_backend.job_store import CancellationToken, JobManager
+    from dokodetector_backend.job_models import CancellationToken
+    from dokodetector_backend.job_store import JobManager
 
     registry = app.state.job_type_registry
     with JobManager(

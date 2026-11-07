@@ -100,7 +100,8 @@ def test_cancelled_preview_does_not_publish(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from dokodetector_backend import calculation_jobs
-    from dokodetector_backend.job_store import CancellationToken, JobCancelled, JobManager
+    from dokodetector_backend.job_models import CancellationToken, JobCancelled
+    from dokodetector_backend.job_store import JobManager
 
     app, _ = _preview_fixture(tmp_path)
     registry = app.state.job_type_registry

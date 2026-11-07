@@ -28,7 +28,8 @@ from table_evidence_analyzer.pipeline_data import (
 )
 from table_evidence_analyzer.visual_identity_crop_input import VisualIdentityCropInputItem
 
-from dokodetector_backend.job_store import Job, JobCancelled, JobManager
+from dokodetector_backend.job_models import Job, JobCancelled
+from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
 from dokodetector_backend.pipeline_storage import PipelineRuntimeStorage, PipelineSelectionConflict

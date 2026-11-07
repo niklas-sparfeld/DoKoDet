@@ -1,292 +1,37 @@
-"""Durable job acceptance and lifecycle foundations.
-
-This module does not start workers or register real processor types.
-"""
+"""Durable job lifecycle management and persistence."""
 
 from __future__ import annotations
 
 import fcntl
-import hashlib
-import json
 from collections.abc import Callable, Mapping
-from datetime import datetime, timezone
 from pathlib import Path
-from threading import Event, RLock
-from typing import Any, Literal, Protocol
-from uuid import UUID, uuid4
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from dokodetector_backend.filesystem import atomic_replace_json
-
-
-class JobError(RuntimeError):
-    """Base error for job storage."""
-
-
-class JobConflict(JobError):
-    """An idempotency key has a different request."""
-
-
-class JobStateError(JobError):
-    """A lifecycle transition is not valid."""
-
-
-class JobOwnershipError(JobError):
-    """Another manager owns this operations root."""
-
-
-class JobStorageError(JobError):
-    """A durable record cannot be safely used."""
-
-
-class JobNotFound(JobStorageError):
-    """A job identity is valid but does not exist."""
-
-
-class CancellationToken:
-    """Cooperative stop signal for one running handler."""
-
-    def __init__(self) -> None:
-        self._event = Event()
-
-    @property
-    def cancelled(self) -> bool:
-        return self._event.is_set()
-
-    def request(self) -> None:
-        self._event.set()
-
-    def check(self) -> None:
-        if self.cancelled:
-            raise JobCancelled("job cancellation requested")
-
-
-class JobCancelled(JobError):
-    """A cooperative handler stopped after a cancellation request."""
-
-
-class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-
-State = Literal[
-    "queued", "running", "waiting", "cancelling", "succeeded", "failed", "cancelled", "interrupted"
-]
-
-
-class JobRequest(Model):
-    type: str = Field(min_length=1)
-    context: dict[str, Any]
-    request: dict[str, Any]
-    parent_id: str | None = None
-    parent_step_id: str | None = None
-
-    @model_validator(mode="after")
-    def validate_parent(self) -> JobRequest:
-        if (self.parent_id is None) != (self.parent_step_id is None):
-            raise ValueError("parent ID and step ID must be supplied together")
-        if self.parent_id is not None:
-            _uuid(self.parent_id)
-            if not self.parent_step_id:
-                raise ValueError("parent step ID cannot be empty")
-        return self
-
-
-class Step(Model):
-    id: str = Field(min_length=1)
-    label: str = Field(min_length=1)
-    state: Literal["pending", "running", "succeeded", "failed", "cancelled", "skipped"] = "pending"
-    started_at: str | None = None
-    finished_at: str | None = None
-    completed: int | None = Field(default=None, ge=0)
-    total: int | None = Field(default=None, ge=0)
-    unit: str | None = None
-    message: str | None = None
-    failure: dict[str, Any] | None = None
-    child_job_id: str | None = None
-
-    @model_validator(mode="after")
-    def validate_progress(self) -> Step:
-        if (self.completed is None) != (self.total is None):
-            raise ValueError("progress needs both completed and total")
-        if self.completed is not None and self.total is not None and self.completed > self.total:
-            raise ValueError("completed progress exceeds total")
-        return self
-
-
-class Job(Model):
-    schema_version: Literal["backend-job/v1"] = "backend-job/v1"
-    id: str
-    type: str
-    label: str
-    context: dict[str, Any]
-    request: dict[str, Any]
-    idempotency_key: str
-    request_hash: str
-    state: State = "queued"
-    revision: int = Field(default=1, ge=1)
-    created_at: str
-    updated_at: str
-    started_at: str | None = None
-    finished_at: str | None = None
-    parent_id: str | None = None
-    parent_step_id: str | None = None
-    retry_of: str | None = None
-    steps: list[Step] = Field(default_factory=list)
-    inputs: list[dict[str, Any]] = Field(default_factory=list)
-    results: list[dict[str, Any]] = Field(default_factory=list)
-    failure: dict[str, Any] | None = None
-    implementation: dict[str, Any] = Field(default_factory=dict)
-    creator: str | None = None
-    correlation_id: str | None = None
-    worker_owner: str | None = None
-    phase: str | None = None
-    waiting_reason: str | None = None
-    warnings: list[dict[str, Any]] = Field(default_factory=list)
-    coverage: dict[str, Any] | None = None
-
-    @model_validator(mode="after")
-    def validate_job(self) -> Job:
-        if len({step.id for step in self.steps}) != len(self.steps):
-            raise ValueError("step IDs must be unique")
-        if (self.state in {"succeeded", "failed", "cancelled", "interrupted"}) != (
-            self.finished_at is not None
-        ):
-            raise ValueError("terminal state and finish time must agree")
-        return self
-
-
-class Intent(Model):
-    schema_version: Literal["backend-job-intent/v1"] = "backend-job-intent/v1"
-    sequence: int = Field(ge=1)
-    job: Job
-    submitted_request: dict[str, Any]
-    submitted_hash: str
-    committed: bool = False
-
-
-class Publication(Model):
-    schema_version: Literal["backend-job-publication/v1"] = "backend-job-publication/v1"
-    job_id: str
-    results: list[dict[str, Any]]
-    state: Literal["prepared", "committed"]
-
-
-class JobLogEntry(Model):
-    sequence: int = Field(ge=1)
-    timestamp: str
-    level: Literal["debug", "info", "warning", "error"]
-    code: str
-    message: str
-
-
-class QueueGroup(Model):
-    group_id: str
-    child_job_ids: list[str] = Field(default_factory=list)
-
-
-class Queue(Model):
-    schema_version: Literal["backend-job-queue/v1"] = "backend-job-queue/v1"
-    revision: int = Field(default=0, ge=0)
-    groups: list[QueueGroup] = Field(default_factory=list)
-
-    @property
-    def job_ids(self) -> list[str]:
-        return [group.group_id for group in self.groups]
-
-
-class Participant(Protocol):
-    def validate(self, request: dict[str, Any]) -> None: ...
-
-    def prepare(
-        self, job_id: str, request: dict[str, Any], after_write: Callable[[str], None]
-    ) -> None: ...
-
-    def verify(self, job_id: str, request: dict[str, Any]) -> bool: ...
-
-
-class FakeParticipant:
-    """A deterministic domain run and input-protection fixture."""
-
-    def __init__(self, root: Path) -> None:
-        self.root = Path(root)
-
-    def validate(self, request: dict[str, Any]) -> None:
-        if (
-            request["type"] not in {"fake", "automated_pipeline"}
-            or set(request["context"]) != {"recording_id"}
-            or not isinstance(request["context"]["recording_id"], str)
-            or set(request["request"]) != {"input"}
-            or not isinstance(request["request"]["input"], str)
-        ):
-            raise ValueError("invalid fake participant request")
-
-    def prepare(
-        self, job_id: str, request: dict[str, Any], after_write: Callable[[str], None]
-    ) -> None:
-        records = (
-            (self.root / f"{job_id}.json", {"job_id": job_id, "request": request}, "domain_run"),
-            (
-                self.root / f"{job_id}.use.json",
-                {"job_id": job_id, "input": request["request"]["input"]},
-                "accepted_use",
-            ),
-        )
-        for path, expected, point in records:
-            if path.exists():
-                if json.loads(path.read_text()) != expected:
-                    raise JobStorageError("participant identity conflict")
-            else:
-                atomic_replace_json(path, expected)
-                after_write(point)
-
-    def verify(self, job_id: str, request: dict[str, Any]) -> bool:
-        try:
-            return json.loads((self.root / f"{job_id}.json").read_text()) == {
-                "job_id": job_id,
-                "request": request,
-            } and json.loads((self.root / f"{job_id}.use.json").read_text()) == {
-                "job_id": job_id,
-                "input": request["request"]["input"],
-            }
-        except (OSError, ValueError):
-            return False
-
-
-_TRANSITIONS: dict[str, set[str]] = {
-    "queued": {"running", "cancelled"},
-    "running": {"waiting", "cancelling", "succeeded", "failed", "interrupted"},
-    "waiting": {"queued", "cancelling", "failed", "interrupted"},
-    "cancelling": {"cancelled", "succeeded", "failed", "interrupted"},
-}
-_TERMINAL = {"succeeded", "failed", "cancelled", "interrupted"}
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _digest(request: JobRequest) -> str:
-    raw = json.dumps(
-        request.model_dump(exclude_none=True),
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    )
-    return hashlib.sha256(raw.encode()).hexdigest()
-
-
-def _mapping_digest(value: Mapping[str, Any]) -> str:
-    raw = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
-    return hashlib.sha256(raw.encode()).hexdigest()
-
-
-def _uuid(value: str) -> str:
-    try:
-        return str(UUID(value))
-    except (ValueError, AttributeError) as error:
-        raise ValueError("expected a UUID") from error
+from threading import RLock
+from typing import Any
+from uuid import uuid4
+
+from dokodetector_backend.job_models import (
+    _TERMINAL,
+    _TRANSITIONS,
+    Intent,
+    Job,
+    JobConflict,
+    JobLogEntry,
+    JobOwnershipError,
+    JobRequest,
+    JobStateError,
+    JobStorageError,
+    Participant,
+    Publication,
+    Queue,
+    State,
+    Step,
+    _digest,
+    _mapping_digest,
+    _now,
+    _uuid,
+)
+from dokodetector_backend.job_persistence import JobPersistence
+from dokodetector_backend.job_recovery import JobRecovery
 
 
 class JobManager:
@@ -305,8 +50,17 @@ class JobManager:
         self.after_write = after_write or (lambda _: None)
         self.verify_publication = verify_publication or (lambda _job, _results: False)
         self.diagnostics: list[str] = []
-        self._lock = RLock()
         self._owner: Any = None
+        self._lock = RLock()
+        self.persistence = JobPersistence(
+            self.root,
+            participant,
+            self.after_write,
+            self.verify_publication,
+            self.diagnostics,
+            self._lock,
+            self._owned,
+        )
         self._scheduler: object | None = None
 
     def __enter__(self) -> JobManager:
@@ -336,119 +90,60 @@ class JobManager:
             raise JobOwnershipError("job manager does not own the root")
 
     def _intents(self) -> list[Intent]:
-        path = self.root / "intents"
-        result = []
-        for item in sorted(path.glob("*.json")):
-            try:
-                intent = Intent.model_validate_json(item.read_bytes())
-                if item.stem != _uuid(intent.job.id):
-                    raise ValueError("intent ID mismatch")
-                _uuid(intent.job.idempotency_key)
-                parsed = JobRequest(
-                    type=intent.job.type,
-                    context=intent.job.context,
-                    request=intent.job.request,
-                    parent_id=intent.job.parent_id,
-                    parent_step_id=intent.job.parent_step_id,
-                )
-                if _digest(parsed) != intent.job.request_hash:
-                    raise ValueError("intent request hash mismatch")
-                if _mapping_digest(intent.submitted_request) != intent.submitted_hash:
-                    raise ValueError("submitted request hash mismatch")
-                result.append(intent)
-            except (OSError, ValueError) as error:
-                self.diagnostics.append(f"invalid intent {item.name}: {error}")
-                raise JobStorageError("invalid intent blocks acceptance and dispatch") from error
-        if len({i.sequence for i in result}) != len(result) or len(
-            {i.job.idempotency_key for i in result}
-        ) != len(result):
-            raise JobStorageError("duplicate intent sequence or key")
-        return sorted(result, key=lambda i: i.sequence)
+        self._owned()
+        return self.persistence._intents()
 
     def _write_intent(self, intent: Intent) -> None:
-        atomic_replace_json(self.root / "intents" / f"{intent.job.id}.json", intent.model_dump())
+        self._owned()
+        self.persistence._write_intent(intent)
 
     def _write_job(self, job: Job) -> None:
-        atomic_replace_json(self.root / job.id / "job.json", job.model_dump())
+        self._owned()
+        self.persistence._write_job(job)
 
     def get(self, job_id: str) -> Job:
         self._owned()
-        job_id = _uuid(job_id)
-        try:
-            job = Job.model_validate_json((self.root / job_id / "job.json").read_bytes())
-            if job.id != job_id:
-                raise ValueError("job ID mismatch")
-            return job
-        except FileNotFoundError as error:
-            raise JobNotFound(f"job {job_id} was not found") from error
-        except (OSError, ValueError) as error:
-            raise JobStorageError(f"invalid job {job_id}") from error
+        return self.persistence.get(job_id)
 
     def list_jobs(self) -> list[Job]:
-        """Return readable jobs in durable acceptance order."""
         self._owned()
-        jobs = []
-        for intent in self._intents():
-            if not intent.committed:
-                continue
-            try:
-                jobs.append(self.get(intent.job.id))
-            except JobStorageError as error:
-                self.diagnostics.append(str(error))
-        return jobs
+        return self.persistence.list_jobs()
 
     def has_active_children(self, parent_id: str) -> bool:
-        """Return whether an automated parent still owns non-terminal child work."""
-        return any(
-            job.parent_id == parent_id and job.state not in _TERMINAL for job in self.list_jobs()
-        )
-
-    def append_log(
-        self,
-        job_id: str,
-        code: str,
-        message: str,
-        *,
-        level: Literal["debug", "info", "warning", "error"] = "info",
-    ) -> JobLogEntry:
-        """Append one bounded durable diagnostic entry for a job."""
-        with self._lock:
-            self._owned()
-            self.get(job_id)
-            path = self.root / _uuid(job_id) / "logs.json"
-            entries = self.logs(job_id, after=0, limit=1000)["entries"]
-            sequence = entries[-1].sequence + 1 if entries else 1
-            entry = JobLogEntry(
-                sequence=sequence,
-                timestamp=_now(),
-                level=level,
-                code=code,
-                message=message,
-            )
-            entries.append(entry)
-            atomic_replace_json(path, [item.model_dump() for item in entries[-1000:]])
-            return entry
-
-    def logs(self, job_id: str, *, after: int = 0, limit: int = 100) -> dict[str, Any]:
-        """Read a bounded sequence page and report whether older entries were trimmed."""
         self._owned()
-        self.get(job_id)
-        path = self.root / _uuid(job_id) / "logs.json"
-        if not path.exists():
-            return {"entries": [], "next_after": after, "truncated_before": 0}
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            entries = [JobLogEntry.model_validate(item) for item in raw]
-        except (OSError, ValueError, TypeError) as error:
-            raise JobStorageError(f"invalid job log for {job_id}") from error
-        truncated_before = max(0, entries[0].sequence - 1) if entries else 0
-        selected = [item for item in entries if item.sequence > after][:limit]
-        next_after = selected[-1].sequence if selected else max(after, truncated_before)
-        return {
-            "entries": selected,
-            "next_after": next_after,
-            "truncated_before": truncated_before,
-        }
+        return self.persistence.has_active_children(parent_id)
+
+    def append_log(self, *args: Any, **kwargs: Any) -> JobLogEntry:
+        self._owned()
+        return self.persistence.append_log(*args, **kwargs)
+
+    def logs(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        self._owned()
+        return self.persistence.logs(*args, **kwargs)
+
+    def queue(self) -> Queue:
+        self._owned()
+        return self.persistence.queue()
+
+    def _set_queue(self, queue: Queue) -> None:
+        self._owned()
+        self.persistence._set_queue(queue)
+
+    def _finish_intent(self, intent: Intent) -> None:
+        self._owned()
+        self.persistence._finish_intent(intent)
+
+    def _read_publication(self, job_id: str) -> Publication | None:
+        self._owned()
+        return self.persistence._read_publication(job_id)
+
+    def _write_publication(self, publication: Publication) -> None:
+        self._owned()
+        self.persistence._write_publication(publication)
+
+    def _unknown_job_directories(self, known_ids: set[str]) -> list[str]:
+        self._owned()
+        return self.persistence._unknown_job_directories(known_ids)
 
     def report_progress(
         self,
@@ -494,242 +189,13 @@ class JobManager:
             self._write_job(job)
             return job
 
-    def queue(self) -> Queue:
-        self._owned()
-        path = self.root / "queue.json"
-        if not path.exists():
-            return Queue()
-        try:
-            queue = Queue.model_validate_json(path.read_bytes())
-            if len(set(queue.job_ids)) != len(queue.job_ids):
-                raise ValueError("duplicate queue member")
-            members = [member for group in queue.groups for member in group.child_job_ids]
-            if len(set(members + queue.job_ids)) != len(members) + len(queue.job_ids):
-                raise ValueError("duplicate queue member")
-            for member in members:
-                if _uuid(member) != member:
-                    raise ValueError("invalid child queue member")
-            for job_id in queue.job_ids:
-                if _uuid(job_id) != job_id:
-                    raise ValueError("invalid queue member")
-            return queue
-        except (OSError, ValueError) as error:
-            self.diagnostics.append(f"invalid queue: {error}")
-            raise JobStorageError("invalid queue blocks dispatch") from error
-
-    def _set_queue(self, queue: Queue) -> None:
-        atomic_replace_json(self.root / "queue.json", queue.model_dump())
-
-    def _finish_intent(self, intent: Intent) -> None:
-        job = intent.job
-        request = {"type": job.type, "context": job.context, "request": job.request}
-        self.participant.validate(request)
-        if not intent.committed:
-            self.participant.prepare(job.id, request, self.after_write)
-        if not self.participant.verify(job.id, request):
-            raise JobStorageError("participant verification failed")
-        self.after_write("participant")
-        path = self.root / job.id / "job.json"
-        if path.exists():
-            existing = self.get(job.id)
-            if (
-                existing.request_hash != job.request_hash
-                or existing.idempotency_key != job.idempotency_key
-            ):
-                raise JobStorageError("job identity conflict")
-        else:
-            if intent.committed:
-                raise JobStorageError("committed job record is missing")
-            self._write_job(job)
-            self.after_write("job")
-            self.append_log(job.id, "job_accepted", "Job accepted and queued.")
-        queue = self.queue()
-        current = self.get(job.id)
-        if current.state == "queued":
-            if job.parent_id is None and job.id not in queue.job_ids:
-                queue.groups.append(QueueGroup(group_id=job.id))
-                queue.revision += 1
-                self._set_queue(queue)
-                self.after_write("queue")
-            elif job.parent_id is not None:
-                group = next((g for g in queue.groups if g.group_id == job.parent_id), None)
-                if group is None:
-                    raise JobStorageError("parent queue group is missing")
-                if job.id not in group.child_job_ids:
-                    group.child_job_ids.append(job.id)
-                    queue.revision += 1
-                    self._set_queue(queue)
-                    self.after_write("queue")
-        if not intent.committed:
-            intent.committed = True
-            self._write_intent(intent)
-            self.after_write("commit")
-
     def _recover(self) -> None:
-        intents = self._intents()
-        known = {intent.job.id for intent in intents}
-        for path in self.root.iterdir():
-            if path.is_dir() and path.name != "intents" and path.name not in known:
-                self.diagnostics.append(f"unknown job directory {path.name}")
-        self._reconcile(intents)
-        for intent in intents:
-            try:
-                self._finish_intent(intent)
-            except (OSError, ValueError, JobStorageError) as error:
-                self.diagnostics.append(f"intent {intent.job.id}: {error}")
-        for intent in intents:
-            if not intent.committed:
-                continue
-            try:
-                job = self.get(intent.job.id)
-            except JobStorageError as error:
-                self.diagnostics.append(str(error))
-                continue
-            if job.state in {"running", "cancelling"}:
-                publication_path = self.root / job.id / "publication.json"
-                publication: Publication | None = None
-                if publication_path.exists():
-                    try:
-                        publication = Publication.model_validate_json(publication_path.read_bytes())
-                        if publication.job_id != job.id:
-                            raise ValueError("publication job ID mismatch")
-                    except (OSError, ValueError) as error:
-                        self.diagnostics.append(f"invalid publication for {job.id}: {error}")
-                if publication is not None and self.verify_publication(job, publication.results):
-                    job.results = publication.results
-                    job.state = "succeeded"
-                    job.finished_at = _now()
-                    job.updated_at = job.finished_at
-                    job.revision += 1
-                    job.worker_owner = None
-                    self._write_job(job)
-                    if publication.state != "committed":
-                        publication.state = "committed"
-                        atomic_replace_json(publication_path, publication.model_dump())
-                    continue
-                if job.type == "automated_pipeline":
-                    if job.state == "running":
-                        job.state = "queued"
-                        job.finished_at = None
-                    job.updated_at = _now()
-                    job.revision += 1
-                    job.worker_owner = None
-                    job.waiting_reason = None
-                    self._write_job(job)
-                    continue
-                job.state = "interrupted"
-                job.finished_at = _now()
-                job.updated_at = job.finished_at
-                job.revision += 1
-                job.worker_owner = None
-                job.waiting_reason = "worker stopped before completion was recorded"
-                for step in job.steps:
-                    if step.state == "running":
-                        step.state = "cancelled"
-                        step.finished_at = job.finished_at
-                        step.message = "interrupted during restart; recorded progress is retained"
-                self._write_job(job)
-        for intent in intents:
-            if not intent.committed:
-                continue
-            try:
-                parent = self.get(intent.job.id)
-            except JobStorageError:
-                continue
-            if parent.type != "automated_pipeline" or parent.state != "cancelling":
-                continue
-            children = [item.job for item in intents if item.job.parent_id == parent.id]
-            for child_intent in children:
-                child = self.get(child_intent.id)
-                if child.state == "queued":
-                    child.state = "cancelled"
-                    child.finished_at = _now()
-                    child.updated_at = child.finished_at
-                    child.revision += 1
-                    self._write_job(child)
-            if all(self.get(child.id).state in _TERMINAL for child in children):
-                parent.state = "cancelled"
-                parent.finished_at = _now()
-                parent.updated_at = parent.finished_at
-                parent.revision += 1
-                self._write_job(parent)
-        self._reconcile(intents)
-        for intent in intents:
-            if not intent.committed:
-                continue
-            try:
-                parent = self.get(intent.job.id)
-            except JobStorageError:
-                continue
-            if (
-                parent.type != "automated_pipeline"
-                or not isinstance(parent.request.get("run_id"), str)
-                or parent.state != "waiting"
-            ):
-                continue
-            children = [item.job for item in intents if item.job.parent_id == parent.id]
-            if not any(self.get(child.id).state not in _TERMINAL for child in children):
-                parent.state = "queued"
-                parent.finished_at = None
-                parent.updated_at = _now()
-                parent.revision += 1
-                self._write_job(parent)
-        self._reconcile(intents)
+        self._owned()
+        JobRecovery(self.persistence.recovery_operations()).recover()
 
     def _reconcile(self, intents: list[Intent]) -> None:
-        queue = self.queue()
-        valid = {i.job.id: i for i in intents if i.committed}
-        jobs: dict[str, Job] = {}
-        for job_id in valid:
-            try:
-                jobs[job_id] = self.get(job_id)
-            except JobStorageError as error:
-                self.diagnostics.append(str(error))
-        groups: list[QueueGroup] = []
-        seen: set[str] = set()
-        for group in queue.groups:
-            job = jobs.get(group.group_id)
-            if job is None or job.parent_id is not None:
-                self.diagnostics.append(f"invalid queue group {group.group_id}")
-                continue
-            if (job.type == "automated_pipeline" and job.state in _TERMINAL) or (
-                job.type != "automated_pipeline" and job.state != "queued"
-            ):
-                continue
-            children = []
-            for child_id in group.child_job_ids:
-                child = jobs.get(child_id)
-                if child is None or child.parent_id != job.id:
-                    self.diagnostics.append(f"invalid queue child {child_id}")
-                elif child.state == "queued":
-                    children.append(child_id)
-                    seen.add(child_id)
-            groups.append(QueueGroup(group_id=job.id, child_job_ids=children))
-            seen.add(job.id)
-        for intent in intents:
-            job = jobs.get(intent.job.id)
-            if job is None or job.id in seen or job.parent_id is not None:
-                continue
-            if job.state == "queued" or (
-                job.type == "automated_pipeline" and job.state not in _TERMINAL
-            ):
-                groups.append(QueueGroup(group_id=job.id))
-                seen.add(job.id)
-        for intent in intents:
-            job = jobs.get(intent.job.id)
-            if job is None or job.id in seen or job.parent_id is None or job.state != "queued":
-                continue
-            group = next((g for g in groups if g.group_id == job.parent_id), None)
-            if group is None:
-                self.diagnostics.append(f"missing parent queue group for {job.id}")
-            else:
-                group.child_job_ids.append(job.id)
-                seen.add(job.id)
-        sequence = {intent.job.id: intent.sequence for intent in intents}
-        for group in groups:
-            group.child_job_ids.sort(key=lambda child_id: sequence[child_id])
-        if groups != queue.groups:
-            self._set_queue(Queue(revision=queue.revision + 1, groups=groups))
+        self._owned()
+        JobRecovery(self.persistence.recovery_operations()).reconcile(intents)
 
     def accept(
         self,
@@ -894,13 +360,12 @@ class JobManager:
             if job.state != "running":
                 raise JobStateError("only a running job can publish results")
             publication = Publication(job_id=job.id, results=results, state="prepared")
-            path = self.root / job.id / "publication.json"
-            atomic_replace_json(path, publication.model_dump())
+            self.persistence._write_publication(publication)
             self.after_write("publication_prepared")
             commit()
             self.after_write("publication_domain_commit")
             publication.state = "committed"
-            atomic_replace_json(path, publication.model_dump())
+            self.persistence._write_publication(publication)
             self.after_write("publication_committed")
             job.results = results
             self._write_job(job)
