@@ -203,13 +203,76 @@ def _python_imports_test_support(path: Path) -> bool:
     )
 
 
-_TS_IMPORT = re.compile(
-    r"\b(?:from\s*|import\s*(?:\(\s*)?|require\s*\(\s*)[\"']([^\"']+)[\"']"
+_TS_TOKEN = re.compile(
+    r"(?P<comment>//[^\n]*|/\*[\s\S]*?\*/)|"
+    r"(?P<string>'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\")|"
+    r"(?P<template>`(?:\\.|[^`\\])*`)|"
+    r"(?P<identifier>[A-Za-z_$][\w$]*)|(?P<punct>[^\s])|(?P<space>\s+)"
 )
 
 
+def _typescript_import_modules(source: str) -> list[str]:
+    """Return statically named TypeScript imports without scanning comments or strings."""
+    tokens = [
+        (match.lastgroup, match.group())
+        for match in _TS_TOKEN.finditer(source)
+        if match.lastgroup not in {"comment", "space"}
+    ]
+    modules: list[str] = []
+
+    def module_at(index: int) -> str | None:
+        if index >= len(tokens):
+            return None
+        kind, token = tokens[index]
+        if kind == "string":
+            return token[1:-1]
+        if kind == "template" and "${" not in token:
+            return token[1:-1]
+        return None
+
+    for index, (kind, token) in enumerate(tokens):
+        if kind != "identifier":
+            continue
+        if token == "require" and index + 2 < len(tokens):
+            if tokens[index + 1] == ("punct", "("):
+                module = module_at(index + 2)
+                if module is not None:
+                    modules.append(module)
+            continue
+        if token not in {"import", "export"}:
+            continue
+        if index + 1 < len(tokens) and tokens[index + 1][0] in {
+            "string",
+            "template",
+        }:
+            module = module_at(index + 1)
+            if module is not None:
+                modules.append(module)
+            continue
+        if token == "import" and index + 2 < len(tokens):
+            if tokens[index + 1] == ("punct", "("):
+                module = module_at(index + 2)
+                if module is not None:
+                    modules.append(module)
+                continue
+            if tokens[index + 1] == ("punct", "."):
+                continue
+        for cursor in range(index + 1, len(tokens)):
+            next_kind, next_token = tokens[cursor]
+            if next_kind == "punct" and next_token == ";":
+                break
+            if next_kind == "identifier" and next_token in {"import", "export"}:
+                break
+            if next_kind == "identifier" and next_token == "from":
+                module = module_at(cursor + 1)
+                if module is not None:
+                    modules.append(module)
+                break
+    return modules
+
+
 def _typescript_imports_test_support(path: Path) -> bool:
-    for module in _TS_IMPORT.findall(path.read_text()):
+    for module in _typescript_import_modules(path.read_text()):
         parts = [part.lower() for part in module.split("/") if part not in {".", ".."}]
         if any(
             part in {"test", "tests", "__tests__", "test_support"} for part in parts

@@ -76,6 +76,20 @@ class ProductionImportGuardTests(unittest.TestCase):
                     ["web/src/pipeline/consumer.tsx"],
                 )
 
+    def test_rejects_template_literal_dynamic_fixture_imports(self) -> None:
+        for module in (
+            "./runControlsTestFixtures.ts",
+            "./runControlsTestFixtures.tsx",
+            "./__tests__/fixtures",
+        ):
+            with self.subTest(module=module):
+                self.assertEqual(
+                    self._scan_web_import(
+                        f"export const load = () => import(`{module}`);\n"
+                    ),
+                    ["web/src/pipeline/consumer.tsx"],
+                )
+
     def test_rejects_imports_from_tests_directories(self) -> None:
         for statement in (
             'import { fixture } from "./__tests__/fixtures";\n',
@@ -104,6 +118,15 @@ class ProductionImportGuardTests(unittest.TestCase):
             )
             fixture_source.write_text("export const fixture = {};\n")
             self.assertEqual(production_test_support_imports(root), [])
+
+    def test_ignores_comments_and_ordinary_strings(self) -> None:
+        source = """
+// import "./runControlsTestFixtures.ts";
+/* export { fixture } from "./__tests__/fixtures"; */
+const example = 'import("./runControlsTestFixtures.tsx")';
+const template = `import("./__tests__/fixtures")`;
+"""
+        self.assertEqual(self._scan_web_import(source), [])
 
 
 if __name__ == "__main__":
