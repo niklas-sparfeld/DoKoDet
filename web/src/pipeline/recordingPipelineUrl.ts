@@ -28,6 +28,8 @@ export type PipelineUrlState = {
   right: string | null;
   reference: string | null;
   analysis: string | null;
+  row?: string | null;
+  hypothesis?: number | null;
   frameReviewQueue?: string | null;
 };
 
@@ -86,6 +88,8 @@ export function readPipelineUrlState(search: string): PipelineUrlState {
     right: readOptionalParameter(params.get("right")),
     reference: readOptionalParameter(params.get("reference")),
     analysis: readOptionalParameter(params.get("analysis")),
+    row: readOptionalParameter(params.get("row")),
+    hypothesis: readOptionalInteger(params.get("hypothesis")),
     frameReviewQueue:
       params.get("frame_review") === "0096-M4" ? "0096-M4" : null,
   };
@@ -144,6 +148,14 @@ function pipelineSearch(
   ) {
     params.set("analysis", state.analysis);
   }
+  if (!includeCompare && state.row !== null && state.row !== undefined)
+    params.set("row", state.row);
+  if (
+    !includeCompare &&
+    state.hypothesis !== null &&
+    state.hypothesis !== undefined
+  )
+    params.set("hypothesis", String(state.hypothesis));
   if (state.frameReviewQueue === "0096-M4")
     params.set("frame_review", state.frameReviewQueue);
   const query = params.toString();
@@ -163,6 +175,14 @@ function recordingPagePath(recordingId: string): string {
 
 function readOptionalParameter(value: string | null): string | null {
   return value === null || value === "" ? null : value;
+}
+
+function readOptionalInteger(value: string | null): number | null {
+  return value !== null &&
+    /^\d+$/.test(value) &&
+    Number.isSafeInteger(Number(value))
+    ? Number(value)
+    : null;
 }
 
 function decodePathPart(value: string): string | null {

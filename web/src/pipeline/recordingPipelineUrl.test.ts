@@ -68,6 +68,8 @@ describe("recording pipeline URL helpers", () => {
       right: "run/2",
       reference: "ref/1",
       analysis: "analysis-1",
+      row: null,
+      hypothesis: null,
       frameReviewQueue: null,
     });
   });
@@ -85,6 +87,8 @@ describe("recording pipeline URL helpers", () => {
       right: null,
       reference: null,
       analysis: null,
+      row: null,
+      hypothesis: null,
       frameReviewQueue: null,
     });
   });

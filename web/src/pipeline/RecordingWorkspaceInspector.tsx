@@ -363,6 +363,15 @@ export function RecordingWorkspaceInspector({
         ) : null}
       </section>
 
+      {stage.key === "round_analyses" ? (
+        <section
+          className={`${styles.pipelineInspectorSection} ${inspectorStyles.section}`}
+          data-inspector-section="analysis-details"
+          aria-label="Analysis details"
+          data-analysis-inspector-slot="details"
+        />
+      ) : null}
+
       {recording !== null ? (
         <section
           className={`${styles.pipelineInspectorSection} ${inspectorStyles.section}`}

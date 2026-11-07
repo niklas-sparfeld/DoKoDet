@@ -179,6 +179,8 @@ const EMPTY_URL_STATE: PipelineUrlState = {
   right: null,
   reference: null,
   analysis: null,
+  row: null,
+  hypothesis: null,
 };
 
 const RAIL_LANES: Record<

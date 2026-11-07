@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ResolvedTimeline } from "./AnalysisTimelinePresentation";
@@ -30,38 +30,66 @@ describe("analysis timeline presentation", () => {
     expect(screen.getByText("Selected observation-001")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Next row →" }));
 
-    expect(window.location.search).toBe("?hypothesis=1&row=observation-002");
+    expect(window.location.search).toBe(
+      "?hypothesis=1&row=observation-002&t_us=2000000",
+    );
     expect(screen.getByText("Selected observation-002")).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Hypothesis"), "2");
 
-    expect(window.location.search).toBe("?hypothesis=2&row=observation-002");
+    expect(window.location.search).toBe(
+      "?t_us=2000000&hypothesis=2&row=observation-002",
+    );
     expect(
       screen.getByText("Selected hypothesis").parentElement,
     ).toHaveTextContent("Rank 2");
   });
 
-  it("opens evidence details with the source recording and evidence media", async () => {
+  it("selects exact evidence time and leaves inferred play time unchanged", async () => {
     const user = userEvent.setup();
+
+    const timeline = {
+      ...resolvedTimeline,
+      inferred_plays: [
+        {
+          play_index: 1,
+          player: "player-01",
+          card: "CLUBS_NINE",
+          position: "before" as const,
+          before_observation_id: null,
+          after_observation_id: "observation-001",
+        },
+      ],
+    };
+    render(<ResolvedTimeline timeline={timeline} />);
+    await user.click(
+      screen.getByRole("button", {
+        name: /Evidence · observation-002/,
+      }),
+    );
+    expect(window.location.search).toContain("t_us=2000000");
+    await user.click(
+      screen.getByRole("button", { name: /Inferred play .* time unknown/ }),
+    );
+    expect(window.location.search).toContain("row=inferred-1");
+    expect(window.location.search).toContain("t_us=2000000");
+    expect(screen.queryByRole("video")).not.toBeInTheDocument();
+  });
+
+  it("restores the selected row and hypothesis from the URL", () => {
+    window.history.pushState(
+      {},
+      "",
+      "/recordings/recording-0033?row=observation-002&hypothesis=2&t_us=2000000",
+    );
 
     render(<ResolvedTimeline timeline={resolvedTimeline} />);
 
-    await user.click(
-      screen.getByRole("button", { name: "Open event details for event 1" }),
-    );
-
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveTextContent("Event 1 · 1.000 s");
-    expect(dialog).toHaveTextContent("Full recording");
-    expect(dialog).toHaveTextContent("Evidence video");
+    expect(screen.getByText("Selected observation-002")).toBeInTheDocument();
+    expect(screen.getByLabelText("Hypothesis")).toHaveValue("2");
     expect(
-      within(dialog).getByRole("button", { name: "Close event details" }),
-    ).toBeInTheDocument();
-
-    await user.click(
-      within(dialog).getByRole("button", { name: "Close event details" }),
-    );
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      screen.getByRole("button", { name: /Evidence · observation-002/ }),
+    ).toHaveAttribute("aria-current", "true");
   });
 
   it("keeps counterfactual inputs attached to the selected observation", async () => {

@@ -16,6 +16,7 @@ import { RecordingPipelineWorkspace } from "./RecordingPipelineWorkspace";
 import { App } from "../App";
 import type { PipelineWorkspace, PipelineWorkspaceStage } from "../api/client";
 import { normalizeWorkspaceSelectionFixture } from "../test/normalizeWorkspaceSelectionFixture";
+import { resolvedStatus, resolvedTimeline } from "../test/roundAnalysisFixture";
 
 const RECORDING_ID = "recording-shell";
 
@@ -1058,6 +1059,8 @@ describe("recording pipeline workspace", () => {
       right: null,
       reference: null,
       analysis: null,
+      row: null,
+      hypothesis: null,
       frameReviewQueue: null,
     });
     expect(
@@ -1427,8 +1430,25 @@ describe("recording pipeline workspace", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>((input) =>
-        Promise.resolve(
+      vi.fn<typeof fetch>((input) => {
+        const url = String(input);
+        if (url.includes("/v1/round-analyses/") && url.endsWith("/timeline")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(resolvedTimeline), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }),
+          );
+        }
+        if (url.includes("/v1/round-analyses/")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(resolvedStatus), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }),
+          );
+        }
+        return Promise.resolve(
           new Response(
             JSON.stringify(
               String(input).endsWith(`/recordings/${RECORDING_ID}`)
@@ -1448,8 +1468,8 @@ describe("recording pipeline workspace", () => {
               headers: { "Content-Type": "application/json" },
             },
           ),
-        ),
-      ),
+        );
+      }),
     );
 
     render(
@@ -1460,23 +1480,21 @@ describe("recording pipeline workspace", () => {
       />,
     );
 
-    expect(
-      await screen.findByLabelText(
-        `Round-analysis source video ${RECORDING_ID}`,
-      ),
-    ).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("button", { name: /round-rail-1, 0:18.*complete/i }),
+      await screen.findByRole("button", {
+        name: /round-rail-1, 0:18.*complete/i,
+      }),
     );
+    expect(document.querySelector("[data-analysis-frame]")).toBeInTheDocument();
     expect(window.location.search).toContain(`analysis=${analysisId}`);
     expect(window.location.search).toContain("t_us=18000000");
-    expect(screen.getByText("Selected round analysis")).toBeInTheDocument();
-    expect(screen.getByText("observations-rail-1")).toBeInTheDocument();
+    expect(screen.getByText("Selected analysis")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", {
-        name: "Open evidence and counterfactual workbench",
-      }),
+      document.querySelector('[data-analysis-inspector-slot="details"]'),
     ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="center"] video'),
+    ).not.toBeInTheDocument();
   });
 
   it("reloads the winning selection after an optimistic conflict", async () => {

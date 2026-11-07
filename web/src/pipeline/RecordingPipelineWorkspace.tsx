@@ -741,6 +741,8 @@ function sanitizeUrlState(
           ? state.analysis
           : null
         : null,
+    row: compare ? null : state.row,
+    hypothesis: compare ? null : state.hypothesis,
   };
 }
 

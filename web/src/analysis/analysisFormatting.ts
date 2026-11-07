@@ -284,7 +284,11 @@ export function readInitialHypothesisRank(ranks: number[]): number | null {
     : (ranks[0] ?? null);
 }
 
-export function writeSelection(rowId: string, hypothesisRank: number | null) {
+export function writeSelection(
+  rowId: string,
+  hypothesisRank: number | null,
+  timeUs?: number,
+) {
   const params = new URLSearchParams(window.location.search);
   params.delete("row");
   params.delete("hypothesis");
@@ -294,12 +298,14 @@ export function writeSelection(rowId: string, hypothesisRank: number | null) {
   if (rowId !== "") {
     params.set("row", rowId);
   }
+  if (timeUs !== undefined) params.set("t_us", String(timeUs));
   const query = params.toString();
   window.history.replaceState(
     window.history.state,
     "",
     `${window.location.pathname}${query === "" ? "" : `?${query}`}${window.location.hash}`,
   );
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 export function formatTrickProgress(

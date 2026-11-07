@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 
 import {
   createDokoDetectorClient,
@@ -194,7 +195,12 @@ export function ResolvedTimeline({
 
   function selectRow(rowId: string) {
     setSelectedRowId(rowId);
-    writeSelection(rowId, selectedHypothesis?.rank ?? null);
+    const row = displayRows.find((candidate) => candidate.id === rowId);
+    writeSelection(
+      rowId,
+      selectedHypothesis?.rank ?? null,
+      row?.kind === "evidence" ? row.row.event_time_ms * 1000 : undefined,
+    );
   }
 
   function selectHypothesis(rank: number) {
@@ -326,67 +332,97 @@ export function ResolvedTimeline({
               </button>
             </div>
 
-            <div className={styles.timelineWorkspace}>
-              <div className={styles.timelineContent}>
-                <div className={styles.timelineHeader}>
-                  <h2>Evidence</h2>
-                  <h2>Table observation</h2>
-                  <h2>Reconstruction hypothesis</h2>
-                </div>
-                <ol
-                  className={styles.timeline}
-                  aria-label="Synchronized round timeline"
-                  role="listbox"
-                >
+            <section aria-label="Selected analysis row details">
+              {selectedRow?.kind === "evidence" ? (
+                <>
+                  <p>
+                    Event {selectedRow.row.event_sequence} ·{" "}
+                    {formatMilliseconds(selectedRow.row.event_time_ms)} ·{" "}
+                    Observation {selectedRow.row.observation_id}
+                  </p>
+                  <ObservationCell
+                    row={selectedRow.row}
+                    counterfactual={counterfactual}
+                  />
+                  <InterpretationCell
+                    actions={actionsForObservation(
+                      selectedHypothesis,
+                      selectedRow.row.observation_id,
+                    )}
+                  />
+                </>
+              ) : selectedRow?.kind === "inferred" ? (
+                <>
+                  <InferenceEvidenceCell play={selectedRow.play} />
+                  <InferenceObservationCell />
+                  <InterpretationCell
+                    actions={actionsForInferredPlay(
+                      selectedHypothesis,
+                      selectedRow.play.play_index,
+                    )}
+                  />
+                </>
+              ) : (
+                <p>No analysis row is selected.</p>
+              )}
+            </section>
+
+            {createPortal(
+              <nav aria-label="Analysis evidence and observation rows">
+                <ol className={styles.timeline}>
                   {displayRows.map((row, index) => (
-                    <TimelineRowView
-                      key={row.id}
-                      row={row}
-                      index={index}
-                      selected={row.id === selectedRow?.id}
-                      hypothesis={selectedHypothesis}
-                      counterfactual={counterfactual}
-                      onOpenDetails={setExpandedEvidence}
-                      onSelect={() => selectRow(row.id)}
-                      onKeyDown={(event) => {
-                        if (event.target !== event.currentTarget) {
-                          return;
+                    <li key={row.id}>
+                      <button
+                        type="button"
+                        aria-current={
+                          row.id === selectedRow?.id ? "true" : undefined
                         }
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          selectRow(row.id);
-                        } else if (event.key === "ArrowDown") {
-                          event.preventDefault();
-                          moveRow(index + 1);
-                        } else if (event.key === "ArrowUp") {
-                          event.preventDefault();
-                          moveRow(index - 1);
-                        } else if (event.key === "Home") {
-                          event.preventDefault();
-                          moveRow(0);
-                        } else if (event.key === "End") {
-                          event.preventDefault();
-                          moveRow(displayRows.length - 1);
-                        }
-                      }}
-                    />
+                        onClick={() => selectRow(row.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "ArrowDown") {
+                            event.preventDefault();
+                            moveRow(index + 1);
+                          } else if (event.key === "ArrowUp") {
+                            event.preventDefault();
+                            moveRow(index - 1);
+                          }
+                        }}
+                      >
+                        {row.kind === "evidence"
+                          ? `Evidence · ${row.row.observation_id} · ${formatMilliseconds(row.row.event_time_ms)}`
+                          : `Inferred play · ${row.play.player} · ${formatCardIdentity(row.play.card)} · time unknown`}
+                      </button>
+                    </li>
                   ))}
                 </ol>
+                <section aria-label="Reconstruction hypotheses">
+                  <h2>Hypotheses</h2>
+                  <ul>
+                    {timeline.hypotheses.map((hypothesis) => (
+                      <li key={hypothesis.rank}>
+                        <button
+                          type="button"
+                          aria-pressed={
+                            hypothesis.rank === selectedHypothesis?.rank
+                          }
+                          onClick={() => selectHypothesis(hypothesis.rank)}
+                        >
+                          Rank {hypothesis.rank} ·{" "}
+                          {formatScore(hypothesis.total_score)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
                 {displayRows.length === 0 ? (
                   <p className={styles.emptyState}>
                     No evidence rows are available.
                   </p>
                 ) : null}
-                <p className={styles.keyboardHint}>
-                  Select a row, then use ↑ and ↓ to move through the timeline.
-                </p>
-              </div>
-              <SelectedRecordingVideo
-                row={selectedRow}
-                recordingUrl={recordingUrl}
-                onOpenDetails={setExpandedEvidence}
-              />
-            </div>
+              </nav>,
+              document.querySelector("[data-analysis-rail-slot]") ??
+                document.body,
+            )}
             <span className={styles.visuallyHidden} aria-live="polite">
               {selectedRow === undefined
                 ? "No row selected"
@@ -754,162 +790,6 @@ function FailureDetails({ timeline }: { timeline: RoundAnalysisTimeline }) {
         <p>Rejected branches: {rejectedBranches.join("; ")}.</p>
       ) : null}
     </div>
-  );
-}
-
-function TimelineRowView({
-  row,
-  index,
-  selected,
-  hypothesis,
-  counterfactual,
-  onOpenDetails,
-  onSelect,
-  onKeyDown,
-}: {
-  row: DisplayRow;
-  index: number;
-  selected: boolean;
-  hypothesis: RoundAnalysisTimeline["hypotheses"][number] | undefined;
-  counterfactual: CounterfactualController;
-  onOpenDetails: (row: TimelineEvidenceRow) => void;
-  onSelect: () => void;
-  onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
-}) {
-  return (
-    <li>
-      <div
-        className={`${styles.timelineRow} ${selected ? styles.selectedRow : ""}`}
-        aria-label={`${row.id} timeline row`}
-        aria-selected={selected}
-        role="option"
-        tabIndex={selected ? 0 : -1}
-        onClick={onSelect}
-        onKeyDown={onKeyDown}
-      >
-        {row.kind === "evidence" ? (
-          <EvidenceCell row={row.row} onOpenDetails={onOpenDetails} />
-        ) : (
-          <InferenceEvidenceCell play={row.play} />
-        )}
-        {row.kind === "evidence" ? (
-          <ObservationCell row={row.row} counterfactual={counterfactual} />
-        ) : (
-          <InferenceObservationCell />
-        )}
-        {row.kind === "evidence" ? (
-          <InterpretationCell
-            actions={actionsForObservation(hypothesis, row.row.observation_id)}
-          />
-        ) : (
-          <InterpretationCell
-            actions={actionsForInferredPlay(hypothesis, row.play.play_index)}
-          />
-        )}
-      </div>
-      <span className={styles.visuallyHidden}>
-        Timeline position {index + 1}
-      </span>
-    </li>
-  );
-}
-
-function EvidenceCell({
-  row,
-  onOpenDetails,
-}: {
-  row: TimelineEvidenceRow;
-  onOpenDetails: (row: TimelineEvidenceRow) => void;
-}) {
-  const frame = row.central_frame;
-
-  return (
-    <div className={styles.cell}>
-      <div className={styles.cellEyebrow}>
-        Event {row.event_sequence} · {formatMilliseconds(row.event_time_ms)}
-      </div>
-      {frame === null ? (
-        <div className={styles.missingFrame}>No central frame available</div>
-      ) : (
-        <button
-          type="button"
-          className={styles.frameButton}
-          aria-label={`Open event details for event ${row.event_sequence}`}
-          onClick={() => onOpenDetails(row)}
-        >
-          <img
-            className={styles.frame}
-            src={frame.url}
-            alt={`Evidence frame for event ${row.event_sequence}`}
-            loading="lazy"
-          />
-        </button>
-      )}
-      <dl className={styles.cellMeta}>
-        <div>
-          <dt>Observation</dt>
-          <dd>{row.observation_id}</dd>
-        </div>
-        <div>
-          <dt>Package</dt>
-          <dd>{row.package_id}</dd>
-        </div>
-      </dl>
-    </div>
-  );
-}
-
-function SelectedRecordingVideo({
-  row,
-  recordingUrl,
-  onOpenDetails,
-}: {
-  row: DisplayRow | undefined;
-  recordingUrl: string;
-  onOpenDetails: (row: TimelineEvidenceRow) => void;
-}) {
-  if (row === undefined) {
-    return null;
-  }
-  if (row.kind === "inferred") {
-    return (
-      <aside className={styles.videoPanel} aria-label="Selected event media">
-        <h2>Full recording</h2>
-        <SeekableVideo
-          className={styles.recordingVideo}
-          src={recordingUrl}
-          ariaLabel="Full recording"
-        />
-        <p className={styles.videoUnavailable}>
-          An inferred card play has no exact recording time.
-        </p>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className={styles.videoPanel} aria-label="Selected event media">
-      <div className={styles.videoHeading}>
-        <h2>Full recording</h2>
-        <span>
-          Event {row.row.event_sequence} ·{" "}
-          {formatMilliseconds(row.row.event_time_ms)}
-        </span>
-      </div>
-      <SeekableVideo
-        className={styles.recordingVideo}
-        src={recordingUrl}
-        seekSeconds={row.row.event_time_ms / 1000}
-        ariaLabel={`Full recording for event ${row.row.event_sequence}`}
-      />
-      <button
-        type="button"
-        className={styles.detailButton}
-        onClick={() => onOpenDetails(row.row)}
-      >
-        Open event details
-      </button>
-    </aside>
   );
 }
 

@@ -371,6 +371,7 @@ export function RecordingWorkspaceTaskSurface({
         {stage.key === "round_analyses" && !compare ? (
           <PipelineRoundAnalysisWorkbench
             recordingId={recordingId}
+            sourceSha256={workspace.video.video_sha256}
             stage={stage}
             selectedAnalysisId={
               presentation.inspector.selection?.analysisId ?? null

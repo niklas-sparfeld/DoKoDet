@@ -8,12 +8,13 @@
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0–M6 are complete. M1 adds a tested, selectable polygon surface for exact-frame
+- **Outcome:** M0–M7 are complete. M1 adds a tested, selectable polygon surface for exact-frame
   geometry. M2 adds shared still-frame loading and identity checks. Neither milestone restores or
   claims the historical editing interactions. M3 connects Events to the still-frame surface. M4
   connects Visible cards and Virtual scenes. M5 connects Visual identities and the frozen crop
   preview. M6 connects Table observations to the exact still-frame surface, observation interval
-  selection, and read-only source-linked geometry. M7–M10 are not started. See the
+  selection, and read-only source-linked geometry. M7 integrates round-analysis evidence and
+  hypotheses into the rail and inspector. M8–M10 are not started. See the
   [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md), the
   [M6 integration report](../../reports/0109-M6_Table_Observation_Integration.md), and the execution
   handoff below.
@@ -306,14 +307,20 @@ only geometry from an exact linked visible-card revision with a matching source 
 an interval without an exact source frame preserves the workspace cursor. See the
 [M6 integration report](../../reports/0109-M6_Table_Observation_Integration.md).
 
-### M7 — Integrate analysis evidence and hypotheses — Not started
+### M7 — Integrate analysis evidence and hypotheses — Complete
 
-Keep the frame surface mounted. Move existing evidence/observation/hypothesis rows into the rail
-and result detail into inspector sections. Unify analysis, row, hypothesis, and source selection
-with workspace navigation; remove the central source/workbench toggle.
+Keep the shared frame surface mounted. Move evidence, observation, inferred-play, and hypothesis
+rows into the rail. Move analysis result details into the inspector. Unify analysis, row, hypothesis,
+and source selection with workspace navigation. Remove the central source/workbench toggle.
 
 Acceptance: selecting linked evidence seeks/highlights the exact source; untimed inferred plays
 remain readable without fabricated pixels or time. Reload restores analysis and hypothesis choice.
+
+Result: the analysis step keeps a still-frame surface in the center. Evidence, inferred-play, and
+hypothesis rows appear in the Timeline Rail. The inspector owns analysis results and selected-row
+details. Selecting evidence writes its event time to the workspace URL and selects the row. Selecting
+an untimed inferred play preserves the current time. Analysis, row, and hypothesis choices survive
+reload. See the [M7 integration report](../../reports/0109-M7_Analysis_Integration.md).
 
 ### M8 — Relocate counterfactual and comparison functions — Not started
 
@@ -347,26 +354,21 @@ video elements, central text, and central command controls. No hardware or model
 
 - Completed: M0 — freeze the layout and capability fixtures; M1 — add the shared geometry surface;
   M2 — add still-frame loading and identity state; M3 — connect Events; M4 — connect Visible cards
-  and Virtual scenes; M5 — connect Visual identities; M6 — connect Table observations.
-- Changes: M6 replaces the observation video and central summary with the shared still-frame surface.
-  The rail selects observation intervals. The inspector shows cards, candidates, capabilities,
-  status, and exact source links. It loads visible-card revisions on exact lineage edges and draws
-  geometry only when event, card, source digest, requested and resolved times, frame index,
-  dimensions, and image digest match. Selection changes view state only. The URL retains an item
-  within its exact node revision so the inspector can report a missing item without substituting
-  data from another revision.
+  and Virtual scenes; M5 — connect Visual identities; M6 — connect Table observations; M7 —
+  integrate analysis evidence and hypotheses.
+- Changes: M7 replaces the central round-analysis video/workbench toggle with the shared still-frame
+  surface. Evidence, inferred-play, and hypothesis choices appear in the rail. Analysis result and
+  selected-row details appear in the inspector. URL state stores the selected analysis, row,
+  hypothesis, and source time.
 - Checks: `cd web && npm run check` passed: typecheck, ESLint, Prettier, generated API comparison,
-  and 195 frontend tests. `cd web && npm run build` passed with the existing bundle-size warning.
+  and 196 frontend tests. `cd web && npm run build` passed with the existing bundle-size warning.
   `cd web && npx playwright test tests/e2e/pipeline-lineage-workspace.spec.ts --reporter=line`
-  passed. The browser regression checked the shared workspace layout at desktop and narrow widths.
-  At desktop size it also checked the observation inspector, interval selection, exact linked
-  geometry, and a center with no video, text, or controls.
-  Local links in the changed plan, board, and report passed.
-- Decisions: Node-backed revisions remain authoritative. Exact lineage inputs define spatial
-  sources. Multiple visible-card sources are selectable. Observed zero-card, failed, missing,
-  insufficient-evidence, and interval-only results remain distinct. Interval-only selection keeps
-  the workspace cursor. No geometry is fabricated when correspondence is absent or mismatched.
-- Limits: No observation source can be edited. This milestone changes browser view selection only;
-  it adds no persisted write or backend contract, so no disposable persistence workflow applies.
-- Next: M7 — integrate analysis evidence and hypotheses.
-- Run: requested 5 milestones, completed 1, remaining 4.
+  passed. Browser checks covered M7 frame, rail, inspector, evidence time selection, hypothesis
+  selection, reload, and no center video. Local Markdown links in the epic, board, and report passed.
+- Decisions: Evidence event time is the source cursor. Inferred plays have no time or geometry and
+  do not move the source cursor. URL state is the saved source for analysis, row, and hypothesis
+  selection. Analysis has no exact geometry contract, so the center does not draw card polygons.
+- Limits: M7 changes browser view selection only. It adds no persisted write or backend contract, so
+  no disposable persistence workflow applies.
+- Next: M8 — relocate counterfactual and comparison functions.
+- Run: requested 5 milestones, completed 2, remaining 3.

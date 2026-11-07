@@ -1,4 +1,8 @@
 import { expect, test, type Route } from "@playwright/test";
+import {
+  resolvedStatus,
+  resolvedTimeline,
+} from "../../src/test/roundAnalysisFixture";
 
 const RECORDING_ID = "recording-lineage-browser-fixture";
 const FRAME_BYTES = Buffer.from(
@@ -1010,4 +1014,159 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
     "Exact spatial source links",
   );
   expect(observationMutations).toBe(0);
+});
+
+test("round analysis uses the shared frame, rail, inspector, and saved selection", async ({
+  page,
+}) => {
+  const recordingId = "analysis-workspace-browser-fixture";
+  const analysisId = "analysis-workspace-1";
+  const analysisStage = stage("round_analyses");
+  analysisStage.state = "complete";
+  analysisStage.analyses = [
+    {
+      analysis_id: analysisId,
+      recording_id: recordingId,
+      round_id: "round-analysis-fixture",
+      session_id: "session-analysis-fixture",
+      state: "complete",
+      progress: { completed: 2, total: 2 },
+      input_revision_ids: ["observations-r1"],
+      request: { rules_version: "fixture/v1", requested_time_us: 1_000_000 },
+      created_at: "2026-11-07T00:00:00Z",
+      started_at: null,
+      completed_at: "2026-11-07T00:00:01Z",
+      failure: null,
+    },
+  ];
+  const timeline = {
+    ...resolvedTimeline,
+    recording_id: recordingId,
+    analysis_id: analysisId,
+    inferred_plays: [
+      {
+        play_index: 1,
+        player: "player-01",
+        card: "CLUBS_NINE",
+        position: "before" as const,
+        before_observation_id: null,
+        after_observation_id: "observation-001",
+      },
+    ],
+  };
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    const json = (value: unknown) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(value),
+      });
+    if (path === `/api/recordings/${recordingId}/pipeline`) {
+      await json({
+        schema_version: "pipeline-workspace/v1",
+        recording_id: recordingId,
+        video: {
+          schema_version: "recording-video/v1",
+          recording_id: recordingId,
+          relative_path: `recordings/${recordingId}/video.mp4`,
+          video_sha256: "a".repeat(64),
+          byte_length: 1,
+          duration_us: 20_000_000,
+        },
+        stages: [
+          stage("events"),
+          stage("visible_cards"),
+          stage("visual_identities"),
+          stage("table_observations"),
+          analysisStage,
+        ],
+        diagnostics: [],
+      });
+      return;
+    }
+    if (path === `/api/recordings/${recordingId}/pipeline/lineage`) {
+      await json(graph(false));
+      return;
+    }
+    if (path === `/api/recordings/${recordingId}`) {
+      await json({
+        recording_id: recordingId,
+        source: {},
+        session_id: "session-analysis-fixture",
+      });
+      return;
+    }
+    if (path === `/v1/round-analyses/${analysisId}`) {
+      await json({
+        ...resolvedStatus,
+        analysis_id: analysisId,
+        recording_id: recordingId,
+      });
+      return;
+    }
+    if (path === `/v1/round-analyses/${analysisId}/timeline`) {
+      await json(timeline);
+      return;
+    }
+    if (path.includes("/derived-views/exact-event/")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/jpeg",
+        body: FRAME_BYTES,
+        headers: {
+          "X-DokoDetector-Source-Sha256": "a".repeat(64),
+          "X-DokoDetector-Frame-Index": "4",
+          "X-DokoDetector-Frame-Width": "1",
+          "X-DokoDetector-Frame-Height": "1",
+          "X-DokoDetector-Requested-Time-Us":
+            url.pathname.split("/").at(-1) ?? "0",
+          "X-DokoDetector-Frame-Time-Us": url.pathname.split("/").at(-1) ?? "0",
+          ETag: `"${"b".repeat(64)}"`,
+        },
+      });
+      return;
+    }
+    if (path.includes("/repository-bundles/")) {
+      await route.fulfill({ status: 200, contentType: "video/mp4", body: "" });
+      return;
+    }
+    if (
+      path.includes("/assets/") ||
+      path.startsWith("/recordings/") ||
+      path.startsWith("/src/") ||
+      path.startsWith("/node_modules/") ||
+      path === "/"
+    ) {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({ status: 404, body: `Unmocked route: ${path}` });
+  });
+
+  await page.goto(`/recordings/${recordingId}/pipeline/round_analyses`);
+  await page
+    .getByRole("button", { name: /round-analysis-fixture, 0:01/ })
+    .first()
+    .click();
+  await expect(
+    page.locator('[data-slot="center"] img[alt="Source frame"]'),
+  ).toBeVisible();
+  await expect(page.locator('[data-slot="center"] video')).toHaveCount(0);
+  const evidence = page.getByRole("button", {
+    name: /Evidence · observation-002/,
+  });
+  await evidence.click();
+  await expect(page).toHaveURL(/t_us=2000000/);
+  await expect(evidence).toHaveAttribute("aria-current", "true");
+  await page.getByRole("button", { name: /Rank 2 ·/ }).click();
+  await page.reload();
+  await expect(page).toHaveURL(/analysis=analysis-workspace-1/);
+  await expect(page).toHaveURL(/row=observation-002/);
+  await expect(page).toHaveURL(/hypothesis=2/);
+  await expect(page.getByRole("combobox", { name: "Hypothesis" })).toHaveValue(
+    "2",
+  );
+  await expect(page.locator('[data-slot="center"] video')).toHaveCount(0);
 });

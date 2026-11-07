@@ -200,6 +200,12 @@ export function RecordingWorkspaceTimelineRail({
           aria-label="Observation interval selection"
         />
       ) : null}
+      {navigationStep === "round_analyses" && !compare ? (
+        <div
+          data-analysis-rail-slot
+          aria-label="Analysis evidence and observations"
+        />
+      ) : null}
     </section>
   );
 }
