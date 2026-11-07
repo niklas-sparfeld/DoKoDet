@@ -8,13 +8,15 @@
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0–M7 are complete. M1 adds a tested, selectable polygon surface for exact-frame
+- **Outcome:** M0–M8 are complete. M1 adds a tested, selectable polygon surface for exact-frame
   geometry. M2 adds shared still-frame loading and identity checks. Neither milestone restores or
   claims the historical editing interactions. M3 connects Events to the still-frame surface. M4
   connects Visible cards and Virtual scenes. M5 connects Visual identities and the frozen crop
   preview. M6 connects Table observations to the exact still-frame surface, observation interval
   selection, and read-only source-linked geometry. M7 integrates round-analysis evidence and
-  hypotheses into the rail and inspector. M8–M10 are not started. See the
+  hypotheses into the rail and inspector. M8 moves exact comparison onto the shared still-frame
+  surface and keeps counterfactual and comparison details outside the center. M9–M10 are not
+  started. See the
   [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md), the
   [M6 integration report](../../reports/0109-M6_Table_Observation_Integration.md), and the execution
   handoff below.
@@ -322,13 +324,18 @@ details. Selecting evidence writes its event time to the workspace URL and selec
 an untimed inferred play preserves the current time. Analysis, row, and hypothesis choices survive
 reload. See the [M7 integration report](../../reports/0109-M7_Analysis_Integration.md).
 
-### M8 — Relocate counterfactual and comparison functions — Not started
+### M8 — Relocate counterfactual and comparison functions — Complete
 
 Move existing counterfactual controls/results outside center. Use the shared renderer in exact
 revision comparison. Preserve immutable run selection and explicit pair controls.
 
 Acceptance: existing correction and comparison fixtures retain behavior, failures, and source
 references. No video or alternate central analysis page returns through these nested flows.
+
+Result: exact comparison loads two shared still-frame surfaces at the selected outcome's exact
+source time. Run-pair and completed-reference selectors, result facts, failures, and exact source
+references stay in the inspector. Counterfactual controls and immutable results stay in the analysis
+inspector. See the [M8 integration report](../../reports/0109-M8_Counterfactual_Comparison_Integration.md).
 
 ### M9 — Complete accessibility and layout cleanup — Not started
 
@@ -355,20 +362,20 @@ video elements, central text, and central command controls. No hardware or model
 - Completed: M0 — freeze the layout and capability fixtures; M1 — add the shared geometry surface;
   M2 — add still-frame loading and identity state; M3 — connect Events; M4 — connect Visible cards
   and Virtual scenes; M5 — connect Visual identities; M6 — connect Table observations; M7 —
-  integrate analysis evidence and hypotheses.
-- Changes: M7 replaces the central round-analysis video/workbench toggle with the shared still-frame
-  surface. Evidence, inferred-play, and hypothesis choices appear in the rail. Analysis result and
-  selected-row details appear in the inspector. URL state stores the selected analysis, row,
-  hypothesis, and source time.
-- Checks: `cd web && npm run check` passed: typecheck, ESLint, Prettier, generated API comparison,
-  and 196 frontend tests. `cd web && npm run build` passed with the existing bundle-size warning.
-  `cd web && npx playwright test tests/e2e/pipeline-lineage-workspace.spec.ts --reporter=line`
-  passed. Browser checks covered M7 frame, rail, inspector, evidence time selection, hypothesis
-  selection, reload, and no center video. Local Markdown links in the epic, board, and report passed.
-- Decisions: Evidence event time is the source cursor. Inferred plays have no time or geometry and
-  do not move the source cursor. URL state is the saved source for analysis, row, and hypothesis
-  selection. Analysis has no exact geometry contract, so the center does not draw card polygons.
-- Limits: M7 changes browser view selection only. It adds no persisted write or backend contract, so
-  no disposable persistence workflow applies.
-- Next: M8 — relocate counterfactual and comparison functions.
-- Run: requested 5 milestones, completed 2, remaining 3.
+  integrate analysis evidence and hypotheses; M8 — relocate counterfactual and comparison functions.
+- Changes: M8 replaces the comparison source video with two instances of the shared exact still-frame
+  renderer. The selected item's frame time drives both surfaces. Pair selectors, immutable run and
+  reference facts, outcome failures, and exact source frame references remain in the inspector.
+  Counterfactual controls and results remain in the analysis inspector.
+- Checks: `cd web && npm run check` passed: TypeScript, ESLint, Prettier, generated API comparison,
+  and 196 frontend tests. Focused comparison/workspace tests passed (27 tests). `cd web && npm run
+  build` passed with the existing bundle-size warning. The pipeline workspace Playwright suite passed
+  (3 tests), including exact comparison surfaces, no center video or controls, and M7 reload and
+  selection behavior. Local Markdown links in the epic, board, and M8 report resolve.
+- Decisions: URL state selects the immutable left run, right run, and completed reference. The exact
+  selected outcome time supplies the source frame. Comparison does not change source data.
+- Limits: The comparison workflow is read-only. It adds no backend contract or persisted write, so no
+  disposable persistence workflow applies. The shared renderer validates source digest and exact
+  response identity. Geometry remains limited to evidence returned by the existing comparison.
+- Next: M9 — complete accessibility and layout cleanup.
+- Run: requested 5 milestones, completed 3, remaining 2.

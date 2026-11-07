@@ -1,4 +1,5 @@
 import { expect, test, type Route } from "@playwright/test";
+import type { PipelineWorkspaceStage } from "../../src/api/client";
 import {
   resolvedStatus,
   resolvedTimeline,
@@ -1168,5 +1169,276 @@ test("round analysis uses the shared frame, rail, inspector, and saved selection
   await expect(page.getByRole("combobox", { name: "Hypothesis" })).toHaveValue(
     "2",
   );
+  await expect(page.getByLabel("Counterfactual analysis")).toBeVisible();
+  await expect(page.locator('[data-slot="center"] button')).toHaveCount(0);
   await expect(page.locator('[data-slot="center"] video')).toHaveCount(0);
+});
+
+test("exact run comparison uses two shared still-frame surfaces", async ({
+  page,
+}) => {
+  const recordingId = "comparison-workspace-browser-fixture";
+  const comparisonStage = stage("events") as unknown as PipelineWorkspaceStage;
+  comparisonStage.state = "complete";
+  comparisonStage.can_run = false;
+  comparisonStage.input_options = [
+    {
+      revision_id: "reference-r1",
+      node_id: "reference-node",
+      node_revision_id: "reference-r1",
+      is_current_head: true,
+      content_type: "events",
+      origin: "manual",
+      completion_state: "complete",
+      coverage_state: "full-recording",
+      display_label: "Reviewed events",
+      content_sha256: "e".repeat(64),
+      input_revision_ids: [],
+      producer: {},
+      coverage: {},
+      created_at: "2026-11-07T00:00:00Z",
+    },
+  ];
+  comparisonStage.selected_completed_reference = {
+    node_id: "reference-node",
+    revision_id: "reference-r1",
+  };
+  comparisonStage.comparable_run_ids = ["run-left", "run-right"];
+  comparisonStage.runs = ["run-left", "run-right"].map((runId) => ({
+    run_id: runId,
+    status: "complete",
+    attempt: 1,
+    request: {},
+    state: {},
+    input_revision_ids: ["events-r1"],
+    implementation: { name: "fixture", version: "v1" },
+    model: null,
+    configuration: {},
+    extraction_policy: {},
+    crop_policy: null,
+    output_revision_ids: [`${runId}-output`],
+    created_at: "2026-11-07T00:00:00Z",
+    started_at: null,
+    completed_at: null,
+    updated_at: "2026-11-07T00:00:00Z",
+    progress: { completed: 1, total: 1 },
+    failure: null,
+    failed_item_count: 0,
+  }));
+
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    const json = (value: unknown) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(value),
+      });
+    if (path === `/api/recordings/${recordingId}/pipeline`) {
+      await json({
+        schema_version: "pipeline-workspace/v1",
+        recording_id: recordingId,
+        video: {
+          schema_version: "recording-video/v1",
+          recording_id: recordingId,
+          relative_path: `recordings/${recordingId}/video.mp4`,
+          video_sha256: "a".repeat(64),
+          byte_length: 1,
+          duration_us: 20_000_000,
+        },
+        stages: [
+          comparisonStage,
+          stage("visible_cards"),
+          stage("visual_identities"),
+          stage("table_observations"),
+          stage("round_analyses"),
+        ],
+        diagnostics: [],
+      });
+      return;
+    }
+    if (path === `/api/recordings/${recordingId}`) {
+      await json({
+        recording_id: recordingId,
+        source: {},
+        session_id: "session-compare",
+      });
+      return;
+    }
+    if (path.includes("/pipeline/comparisons")) {
+      const request = route.request().postDataJSON() as {
+        left_run_id: string;
+        right_run_id: string;
+      };
+      await json({
+        schema_version: "pipeline-comparison/v1",
+        comparison_id: "comparison-browser-1",
+        recording_id: recordingId,
+        content_type: "events",
+        mode: "paired_processor",
+        algorithm_version: "pipeline-comparison.v2",
+        left: {
+          run_id: request.left_run_id,
+          revision_id: `${request.left_run_id}-output`,
+          status: "complete",
+          input_revision_ids: ["events-r1"],
+          content_sha256: "b".repeat(64),
+          implementation: { name: "fixture", version: "v1" },
+          model: null,
+          configuration: {},
+          extraction_policy: {},
+          failure: null,
+        },
+        right: {
+          run_id: request.right_run_id,
+          revision_id: `${request.right_run_id}-output`,
+          status: "complete",
+          input_revision_ids: ["events-r1"],
+          content_sha256: "c".repeat(64),
+          implementation: { name: "fixture", version: "v1" },
+          model: null,
+          configuration: {},
+          extraction_policy: {},
+          failure: null,
+        },
+        reference: {
+          revision_id: "reference-r1",
+          input_revision_ids: [],
+          content_sha256: "e".repeat(64),
+          origin: "manual",
+        },
+        scope: {
+          reviewed: [{ start_us: 0, end_us: 2_000_000 }],
+          common_covered: [{ start_us: 0, end_us: 2_000_000 }],
+          left_only: [],
+          right_only: [],
+          reviewed_frame_identities: [],
+          common_frame_identities: [],
+          left_only_frame_identities: [],
+          right_only_frame_identities: [],
+        },
+        matching_policy: {
+          policy_id: "event-timing/v1",
+          kind: "event_timing",
+          anchor: "start_us",
+          tolerance_us: 50000,
+        },
+        counts: {
+          left: {
+            reference_events: 1,
+            run_events: 1,
+            matches: 0,
+            misses: 1,
+            extras: 0,
+            failures: 0,
+            not_reviewed: 0,
+            unpaired_input: 0,
+            neutralized_predictions: 0,
+            ignored_regions: 0,
+            ignored_pixels: 0,
+          },
+          right: {
+            reference_events: 1,
+            run_events: 1,
+            matches: 0,
+            misses: 1,
+            extras: 0,
+            failures: 0,
+            not_reviewed: 0,
+            unpaired_input: 0,
+            neutralized_predictions: 0,
+            ignored_regions: 0,
+            ignored_pixels: 0,
+          },
+        },
+        metrics: {
+          left: {
+            precision: null,
+            recall: null,
+            f1: null,
+            mean_error_us: null,
+            max_error_us: null,
+          },
+          right: {
+            precision: null,
+            recall: null,
+            f1: null,
+            mean_error_us: null,
+            max_error_us: null,
+          },
+        },
+        paired_delta: null,
+        items: [
+          {
+            item_id: "comparison-item-1",
+            side: "left",
+            outcome: "miss",
+            source_time_us: 1000000,
+            event_type: "card_state_changed",
+            reference_event_id: null,
+            run_event_id: null,
+            reference_event: null,
+            run_event: null,
+            delta_us: null,
+            source_links: {
+              derived_view: `/api/recordings/${recordingId}/pipeline/derived-views/exact-event/1000000`,
+            },
+            frame_identity: null,
+            reference_frame_identity: null,
+            run_frame_identity: null,
+            reference_card_id: null,
+            run_card_id: null,
+            reference_card: null,
+            run_card: null,
+            iou: null,
+            reference_identity: null,
+            run_identity: null,
+            reference_candidates: null,
+            run_candidates: null,
+          },
+        ],
+      });
+      return;
+    }
+    if (path.includes("/derived-views/exact-event/")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/jpeg",
+        body: FRAME_BYTES,
+        headers: {
+          "X-DokoDetector-Source-Sha256": "a".repeat(64),
+          "X-DokoDetector-Frame-Index": "4",
+          "X-DokoDetector-Frame-Width": "1",
+          "X-DokoDetector-Frame-Height": "1",
+          "X-DokoDetector-Requested-Time-Us": path.split("/").at(-1) ?? "0",
+          "X-DokoDetector-Frame-Time-Us": path.split("/").at(-1) ?? "0",
+          ETag: `"${"b".repeat(64)}"`,
+        },
+      });
+      return;
+    }
+    if (
+      path.startsWith("/recordings/") ||
+      path === "/" ||
+      path.includes("/assets/")
+    )
+      return route.continue();
+    await route.fulfill({ status: 404, body: `Unmocked route: ${path}` });
+  });
+
+  await page.goto(`/recordings/${recordingId}/pipeline/events/compare`);
+  await expect(
+    page.getByRole("combobox", { name: "Left terminal run" }),
+  ).toHaveValue("run-right");
+  await page.getByRole("button", { name: /miss.*0:01/i }).click();
+  const center = page.locator('[data-slot="center"]');
+  await expect(center.locator("img[alt='Source frame']")).toHaveCount(2);
+  await expect(center.locator("video")).toHaveCount(0);
+  await expect(center.locator("button, input, select, textarea")).toHaveCount(
+    0,
+  );
+  await expect(page.getByLabel("Selected comparison outcome")).toContainText(
+    "comparison-item-1",
+  );
 });

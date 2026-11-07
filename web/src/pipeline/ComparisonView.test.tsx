@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor } from "@testing-library/react";
 import { useCallback, useEffect, useState } from "react";
+import { afterEach, beforeEach, vi } from "vitest";
 
 import type {
   PipelineComparisonResponse,
@@ -240,6 +241,39 @@ function metrics(): PipelineComparisonResponse["metrics"]["left"] {
   };
 }
 
+function comparisonFetchResponse(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  payload: unknown,
+  status = 200,
+): Response {
+  const url =
+    typeof input === "string"
+      ? input
+      : input instanceof Request
+        ? input.url
+        : input.href;
+  if (url.includes("/exact-event/")) {
+    const requestedTimeUs = Number(url.split("/").at(-1));
+    return new Response("frame", {
+      status: 200,
+      headers: {
+        ETag: `"${"b".repeat(64)}"`,
+        "X-DokoDetector-Source-Sha256": "a".repeat(64),
+        "X-DokoDetector-Frame-Index": "4",
+        "X-DokoDetector-Frame-Width": "640",
+        "X-DokoDetector-Frame-Height": "360",
+        "X-DokoDetector-Requested-Time-Us": String(requestedTimeUs),
+        "X-DokoDetector-Frame-Time-Us": String(requestedTimeUs),
+      },
+    });
+  }
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 function Harness({ stageValue }: { stageValue: PipelineWorkspaceStage }) {
   const [urlState, setUrlState] = useState<PipelineUrlState>(() =>
     readPipelineUrlState(window.location.search),
@@ -261,6 +295,7 @@ function Harness({ stageValue }: { stageValue: PipelineWorkspaceStage }) {
   }, []);
   return (
     <>
+      <div data-comparison-inspector-status />
       <ComparisonInspectorControls
         recordingId={RECORDING_ID}
         stage={stageValue}
@@ -270,8 +305,8 @@ function Harness({ stageValue }: { stageValue: PipelineWorkspaceStage }) {
       />
       <ComparisonView
         recordingId={RECORDING_ID}
+        sourceSha256={"a".repeat(64)}
         stage={stageValue}
-        durationUs={2_000_000}
         urlState={urlState}
         onNavigate={navigate}
         onComparisonChange={setComparison}
@@ -304,8 +339,14 @@ function Harness({ stageValue }: { stageValue: PipelineWorkspaceStage }) {
 }
 
 describe("ComparisonView", () => {
+  beforeEach(() => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:comparison-frame");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     window.history.pushState({}, "", "/");
   });
 
@@ -315,13 +356,8 @@ describe("ComparisonView", () => {
       const response = comparison(contentType);
       vi.stubGlobal(
         "fetch",
-        vi.fn<typeof fetch>(() =>
-          Promise.resolve(
-            new Response(JSON.stringify(response), {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            }),
-          ),
+        vi.fn<typeof fetch>((input, init) =>
+          Promise.resolve(comparisonFetchResponse(input, init, response)),
         ),
       );
       const user = userEvent.setup();
@@ -340,7 +376,10 @@ describe("ComparisonView", () => {
         screen.getByRole("button", { name: `Inspect ${contentType}-item-0` }),
       );
       expect(
-        screen.getByRole("link", { name: "Open derived frame" }),
+        await screen.findAllByLabelText("Spatial evidence surface"),
+      ).toHaveLength(2);
+      expect(
+        screen.getByRole("link", { name: "Open derived evidence" }),
       ).toHaveAttribute("href", response.items[0].source_links.derived_view);
       if (contentType === "visual_identities") {
         expect(
@@ -358,13 +397,8 @@ describe("ComparisonView", () => {
     const response = comparison("events", "upstream_experiment");
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>(() =>
-        Promise.resolve(
-          new Response(JSON.stringify(response), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }),
-        ),
+      vi.fn<typeof fetch>((input, init) =>
+        Promise.resolve(comparisonFetchResponse(input, init, response)),
       ),
     );
     render(<Harness stageValue={stage("events")} />);
@@ -379,16 +413,13 @@ describe("ComparisonView", () => {
   it("keeps inspector selectors available when comparison fails", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>(() =>
+      vi.fn<typeof fetch>((input, init) =>
         Promise.resolve(
-          new Response(
-            JSON.stringify({
-              detail: { message: "The comparison fixture failed." },
-            }),
-            {
-              status: 503,
-              headers: { "Content-Type": "application/json" },
-            },
+          comparisonFetchResponse(
+            input,
+            init,
+            { detail: { message: "The comparison fixture failed." } },
+            503,
           ),
         ),
       ),
@@ -408,13 +439,8 @@ describe("ComparisonView", () => {
 
   it("updates only comparison URL selections and restores them with history", async () => {
     const response = comparison("events");
-    const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(
-        new Response(JSON.stringify(response), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      ),
+    const fetchMock = vi.fn<typeof fetch>((input, init) =>
+      Promise.resolve(comparisonFetchResponse(input, init, response)),
     );
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();

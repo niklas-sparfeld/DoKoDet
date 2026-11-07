@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import {
   ApiError,
   createDokoDetectorClient,
-  pipelineDerivedFramePath,
   pipelineIdentityCropPath,
-  repositoryBundleVideoPath,
   type PipelineComparisonRequest,
   type PipelineComparisonResponse,
   type PipelineRun,
@@ -15,6 +14,8 @@ import {
 import styles from "../App.module.css";
 import type { PipelineUrlState } from "./recordingPipelineUrl";
 import type { RecordingTimelineRailItem } from "./recordingWorkspacePresentation";
+import { GeometrySurface } from "../workingArea/GeometrySurface";
+import { useWorkingAreaFrame } from "../workingArea/workingAreaFrame";
 
 type ComparisonContentType = PipelineComparisonRequest["content_type"];
 type ComparisonItem = PipelineComparisonResponse["items"][number];
@@ -55,26 +56,23 @@ const POLICIES: Record<ComparisonContentType, ComparisonPolicy> = {
 
 export function ComparisonView({
   recordingId,
+  sourceSha256,
   stage,
-  durationUs,
   urlState,
   onNavigate,
   onRailItemsChange,
-  onTimeChange,
   onComparisonChange,
 }: {
   recordingId: string;
+  sourceSha256: string;
   stage: PipelineWorkspaceStage;
-  durationUs: number;
   urlState: PipelineUrlState;
   onNavigate: (path: string, replace?: boolean) => void;
   onRailItemsChange?: (items: RecordingTimelineRailItem[]) => void;
-  onTimeChange?: (timeUs: number) => void;
   onComparisonChange?: (comparison: PipelineComparisonResponse) => void;
 }) {
   const contentType = comparisonContentType(stage.key);
   const client = useMemo(() => createDokoDetectorClient(), []);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [comparison, setComparison] =
     useState<PipelineComparisonResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,6 +128,11 @@ export function ComparisonView({
       ? comparison
       : null;
   const activeError = errorKey === selectionKey ? error : null;
+  const statusSlot = useSyncExternalStore(
+    subscribeComparisonStatusSlot,
+    getComparisonStatusSlot,
+    () => null,
+  );
   const selectionReady =
     contentType !== null &&
     selection.left !== null &&
@@ -232,71 +235,157 @@ export function ComparisonView({
     null;
   const selectedTimeUs = selectedItem?.source_time_us ?? urlState.tUs;
 
-  useEffect(() => {
-    const video = videoRef.current;
-    if (
-      video === null ||
-      selectedTimeUs === null ||
-      selectedTimeUs === undefined ||
-      !video.paused
-    ) {
-      return;
-    }
-    if (video.readyState >= 1) {
-      video.currentTime = clampTime(selectedTimeUs, durationUs) / 1_000_000;
-    }
-  }, [durationUs, selectedTimeUs]);
-
   if (contentType === null) {
-    return (
-      <p className={styles.detailEmptyState} role="status">
-        This stage does not support run comparison.
-      </p>
-    );
+    return statusSlot === null
+      ? null
+      : createPortal(
+          <p className={styles.detailEmptyState} role="status">
+            This stage does not support run comparison.
+          </p>,
+          statusSlot,
+        );
   }
 
   if (runs.length < 2 || referenceOptions.length === 0) {
-    return (
-      <p className={styles.detailEmptyState}>
-        Select two terminal runs and one completed reference before comparing.
-      </p>
-    );
+    return statusSlot === null
+      ? null
+      : createPortal(
+          <p className={styles.detailEmptyState}>
+            Select two terminal runs and one completed reference before
+            comparing.
+          </p>,
+          statusSlot,
+        );
   }
   if (activeError !== null || selectionError !== null) {
-    return (
-      <p className={styles.errorMessage} role="alert">
-        {activeError ?? selectionError}
-      </p>
-    );
+    return statusSlot === null
+      ? null
+      : createPortal(
+          <p className={styles.errorMessage} role="alert">
+            {activeError ?? selectionError}
+          </p>,
+          statusSlot,
+        );
   }
   if (loading) {
-    return (
-      <p className={styles.loading} role="status">
-        Loading comparison…
-      </p>
-    );
+    return statusSlot === null
+      ? null
+      : createPortal(
+          <p className={styles.loading} role="status">
+            Loading comparison…
+          </p>,
+          statusSlot,
+        );
   }
   if (activeComparison === null) return null;
-  return (
-    <ComparisonSourcePanel
+  const frameTimeUs = selectedItem?.source_time_us ?? selectedTimeUs;
+  return frameTimeUs === null || frameTimeUs === undefined ? null : (
+    <ComparisonFramePair
       recordingId={recordingId}
-      comparison={activeComparison}
-      contentType={contentType}
-      item={selectedItem}
-      videoRef={videoRef}
-      durationUs={durationUs}
-      onTimeChange={onTimeChange}
-      onLoadedMetadata={() => {
-        const video = videoRef.current;
-        if (
-          video !== null &&
-          selectedTimeUs !== null &&
-          selectedTimeUs !== undefined
-        ) {
-          video.currentTime = clampTime(selectedTimeUs, durationUs) / 1_000_000;
-        }
-      }}
+      sourceSha256={sourceSha256}
+      timeUs={frameTimeUs}
+      statusSlot={statusSlot}
+      leftRunId={activeComparison.left.run_id}
+      rightRunId={activeComparison.right.run_id}
     />
+  );
+}
+
+function ComparisonFramePair({
+  recordingId,
+  sourceSha256,
+  timeUs,
+  statusSlot,
+  leftRunId,
+  rightRunId,
+}: {
+  recordingId: string;
+  sourceSha256: string;
+  timeUs: number;
+  statusSlot: HTMLElement | null;
+  leftRunId: string;
+  rightRunId: string;
+}) {
+  return (
+    <div
+      className={styles.comparisonFramePair}
+      aria-label="Exact comparison frames"
+    >
+      <ComparisonFrame
+        recordingId={recordingId}
+        sourceSha256={sourceSha256}
+        timeUs={timeUs}
+        side="left"
+        runId={leftRunId}
+        statusSlot={statusSlot}
+      />
+      <ComparisonFrame
+        recordingId={recordingId}
+        sourceSha256={sourceSha256}
+        timeUs={timeUs}
+        side="right"
+        runId={rightRunId}
+        statusSlot={statusSlot}
+      />
+    </div>
+  );
+}
+
+function ComparisonFrame({
+  recordingId,
+  sourceSha256,
+  timeUs,
+  side,
+  runId,
+  statusSlot,
+}: {
+  recordingId: string;
+  sourceSha256: string;
+  timeUs: number;
+  side: "left" | "right";
+  runId: string;
+  statusSlot: HTMLElement | null;
+}) {
+  const frameState = useWorkingAreaFrame({
+    recordingId,
+    sourceId: recordingId,
+    sourceSha256,
+    requestedTimeUs: timeUs,
+    mode: "exact",
+  });
+  const notice =
+    frameState.state === "loading"
+      ? `Loading ${side} source frame for ${runId}.`
+      : frameState.state === "failed"
+        ? `${side} source frame for ${runId} failed: ${frameState.reason}`
+        : null;
+  return (
+    <>
+      {frameState.state === "ready" ? (
+        <div
+          data-comparison-frame={side}
+          data-frame-id={frameState.frame.identity.frameId}
+          role="group"
+          aria-label={`${side} comparison source for ${runId}`}
+        >
+          <GeometrySurface
+            frame={frameState.frame.identity}
+            imageUrl={frameState.frame.imageUrl}
+            overlays={[]}
+          />
+        </div>
+      ) : (
+        <div data-comparison-frame={side} data-frame-state={frameState.state} />
+      )}
+      {notice !== null && statusSlot !== null
+        ? createPortal(
+            <p role={frameState.state === "failed" ? "alert" : "status"}>
+              {notice}
+            </p>,
+            statusSlot,
+          )
+        : null}
+    </>
   );
 }
 
@@ -332,6 +421,9 @@ export function ComparisonInspectorControls({
       ? urlState.reference
       : defaults.reference,
   };
+  const selectedItem = comparison?.items.find(
+    (item) => item.item_id === urlState.item,
+  );
   if (contentType === null || runs.length < 2 || references.length === 0) {
     return (
       <p className={styles.detailEmptyState}>
@@ -409,7 +501,111 @@ export function ComparisonInspectorControls({
           ?.input_revision_ids.join(", ") || "none"}
       </p>
       {comparison !== null ? <ComparisonFacts comparison={comparison} /> : null}
+      {comparison !== null ? (
+        <ComparisonSelectedOutcome
+          recordingId={recordingId}
+          contentType={contentType}
+          comparison={comparison}
+          item={selectedItem ?? null}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function ComparisonSelectedOutcome({
+  recordingId,
+  contentType,
+  comparison,
+  item,
+}: {
+  recordingId: string;
+  contentType: ComparisonContentType;
+  comparison: PipelineComparisonResponse;
+  item: ComparisonItem | null;
+}) {
+  if (item === null) {
+    return (
+      <p className={styles.detailEmptyState}>
+        Select an outcome in the Timeline Rail.
+      </p>
+    );
+  }
+  const run = item.side === "left" ? comparison.left : comparison.right;
+  const derivedHref = item.source_links.derived_view ?? null;
+  const cropHref =
+    contentType === "visual_identities"
+      ? pipelineIdentityCropPath(
+          recordingId,
+          run.revision_id,
+          item.run_card_id ?? item.item_id,
+        )
+      : null;
+  return (
+    <section
+      className={styles.comparisonSelectedOutcome}
+      aria-label="Selected comparison outcome"
+    >
+      <h3>{OUTCOME_TEXT[item.outcome]}</h3>
+      <dl className={styles.comparisonSelectedFacts}>
+        <div>
+          <dt>Item</dt>
+          <dd>{item.item_id}</dd>
+        </div>
+        <div>
+          <dt>Run side</dt>
+          <dd>
+            {formatIdentifier(item.side)} · {run.run_id} · {run.revision_id}
+          </dd>
+        </div>
+        <div>
+          <dt>Source time</dt>
+          <dd>
+            {item.source_time_us === null
+              ? "No exact source time"
+              : formatMicroseconds(item.source_time_us)}
+          </dd>
+        </div>
+        <div>
+          <dt>Reference frame</dt>
+          <dd>{formatJsonValue(item.reference_frame_identity)}</dd>
+        </div>
+        <div>
+          <dt>Run frame</dt>
+          <dd>{formatJsonValue(item.run_frame_identity)}</dd>
+        </div>
+        {item.reference_identity !== null || item.run_identity !== null ? (
+          <div>
+            <dt>Identity</dt>
+            <dd>
+              Reference {item.reference_identity ?? "none"} · Run{" "}
+              {item.run_identity ?? "none"}
+            </dd>
+          </div>
+        ) : null}
+        {item.iou !== null ? (
+          <div>
+            <dt>IoU</dt>
+            <dd>{item.iou}</dd>
+          </div>
+        ) : null}
+      </dl>
+      <div className={styles.comparisonSourceLinks}>
+        {derivedHref !== null ? (
+          <a href={derivedHref} target="_blank" rel="noreferrer">
+            Open derived evidence
+          </a>
+        ) : null}
+        {cropHref !== null ? (
+          <a href={cropHref} target="_blank" rel="noreferrer">
+            Open identity crop
+          </a>
+        ) : null}
+        {derivedHref === null && cropHref === null ? (
+          <span>No derived source is available.</span>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -582,132 +778,6 @@ function ComparisonFacts({
   );
 }
 
-function ComparisonSourcePanel({
-  recordingId,
-  comparison,
-  contentType,
-  item,
-  videoRef,
-  durationUs,
-  onLoadedMetadata,
-  onTimeChange,
-}: {
-  recordingId: string;
-  comparison: PipelineComparisonResponse;
-  contentType: ComparisonContentType;
-  item: ComparisonItem | null;
-  videoRef: RefObject<HTMLVideoElement | null>;
-  durationUs: number;
-  onLoadedMetadata: () => void;
-  onTimeChange?: (timeUs: number) => void;
-}) {
-  if (item === null) {
-    return (
-      <aside
-        className={styles.comparisonSourcePanel}
-        aria-label="Comparison source"
-      >
-        <h4>Source context</h4>
-        <p className={styles.detailEmptyState}>
-          Select an outcome to inspect its source.
-        </p>
-      </aside>
-    );
-  }
-  const run = item.side === "left" ? comparison.left : comparison.right;
-  const derivedHref =
-    item.source_links.derived_view ??
-    (item.source_time_us === null
-      ? null
-      : pipelineDerivedFramePath(recordingId, item.source_time_us));
-  const cropId = item.run_card_id ?? item.item_id;
-  const cropHref =
-    contentType === "visual_identities"
-      ? pipelineIdentityCropPath(recordingId, run.revision_id, cropId)
-      : null;
-  return (
-    <aside
-      className={styles.comparisonSourcePanel}
-      aria-label="Comparison source"
-    >
-      <div className={styles.comparisonSourceHeading}>
-        <div>
-          <p className={styles.statusLabel}>Selected outcome</p>
-          <h4>{OUTCOME_TEXT[item.outcome]}</h4>
-        </div>
-        <span
-          className={styles.status}
-          data-state={item.outcome === "failure" ? "failed" : "complete"}
-        >
-          {formatIdentifier(item.outcome)}
-        </span>
-      </div>
-      <video
-        ref={videoRef}
-        className={styles.comparisonVideo}
-        data-recording-source-video={recordingId}
-        src={repositoryBundleVideoPath(recordingId)}
-        controls
-        preload="none"
-        aria-label={`Comparison source video ${recordingId}`}
-        onLoadedMetadata={onLoadedMetadata}
-        onTimeUpdate={(event) =>
-          onTimeChange?.(
-            Math.round(event.currentTarget.currentTime * 1_000_000),
-          )
-        }
-      />
-      <p className={styles.comparisonSourceMeta}>
-        {item.source_time_us === null
-          ? "This outcome has no exact source time."
-          : `Source position ${formatMicroseconds(clampTime(item.source_time_us, durationUs))}.`}
-      </p>
-      <div className={styles.comparisonSourceLinks}>
-        {derivedHref !== null ? (
-          <a href={derivedHref} target="_blank" rel="noreferrer">
-            Open derived frame
-          </a>
-        ) : null}
-        {cropHref !== null ? (
-          <a href={cropHref} target="_blank" rel="noreferrer">
-            Open identity crop
-          </a>
-        ) : null}
-        {derivedHref === null && cropHref === null ? (
-          <span>No derived source is available.</span>
-        ) : null}
-      </div>
-      <dl className={styles.comparisonSelectedFacts}>
-        <div>
-          <dt>Item</dt>
-          <dd>{item.item_id}</dd>
-        </div>
-        <div>
-          <dt>Run side</dt>
-          <dd>
-            {formatIdentifier(item.side)} · {run.run_id}
-          </dd>
-        </div>
-        {item.reference_identity !== null || item.run_identity !== null ? (
-          <div>
-            <dt>Identity</dt>
-            <dd>
-              Reference {item.reference_identity ?? "none"} · Run{" "}
-              {item.run_identity ?? "none"}
-            </dd>
-          </div>
-        ) : null}
-        {item.iou !== null ? (
-          <div>
-            <dt>IoU</dt>
-            <dd>{item.iou}</dd>
-          </div>
-        ) : null}
-      </dl>
-    </aside>
-  );
-}
-
 function comparisonContentType(
   stageKey: PipelineStageKey,
 ): ComparisonContentType | null {
@@ -830,10 +900,9 @@ function formatIntervals(
     .join(", ");
 }
 
-function clampTime(value: number, durationUs: number): number {
-  return Math.min(Math.max(value, 0), Math.max(durationUs, 0));
+function formatJsonValue(value: Record<string, unknown> | null): string {
+  return value === null ? "Unavailable" : JSON.stringify(value);
 }
-
 function formatIdentifier(value: string): string {
   return value
     .replaceAll("_", " ")
@@ -864,4 +933,16 @@ function describeComparisonError(reason: unknown): string {
         ? body.message
         : null;
   return message ?? `The backend returned HTTP ${reason.status}.`;
+}
+
+function getComparisonStatusSlot(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(
+    "[data-comparison-inspector-status]",
+  );
+}
+
+function subscribeComparisonStatusSlot(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
 }

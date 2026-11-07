@@ -359,12 +359,11 @@ export function RecordingWorkspaceTaskSurface({
         {compare ? (
           <ComparisonView
             recordingId={recordingId}
+            sourceSha256={workspace.video.video_sha256}
             stage={stage}
-            durationUs={workspace.video.duration_us}
             urlState={urlState}
             onNavigate={onNavigate}
             onRailItemsChange={onComparisonRailItemsChange}
-            onTimeChange={onTimeChange}
             onComparisonChange={onComparisonChange}
           />
         ) : null}

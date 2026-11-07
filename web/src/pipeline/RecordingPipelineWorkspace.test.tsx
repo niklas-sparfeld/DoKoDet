@@ -1217,6 +1217,8 @@ describe("recording pipeline workspace", () => {
   });
 
   it("uses the shared source surface, inspector, and rail for comparisons", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:comparison-frame");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
     window.history.pushState(
       {},
       "",
@@ -1362,14 +1364,37 @@ describe("recording pipeline workspace", () => {
     };
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>((_input, init) =>
-        Promise.resolve(
+      vi.fn<typeof fetch>((input, init) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof Request
+              ? input.url
+              : input.href;
+        if (url.includes("/exact-event/")) {
+          const requestedTimeUs = Number(url.split("/").at(-1));
+          return Promise.resolve(
+            new Response("frame", {
+              status: 200,
+              headers: {
+                ETag: `"${"c".repeat(64)}"`,
+                "X-DokoDetector-Source-Sha256": "a".repeat(64),
+                "X-DokoDetector-Frame-Index": "4",
+                "X-DokoDetector-Frame-Width": "640",
+                "X-DokoDetector-Frame-Height": "360",
+                "X-DokoDetector-Requested-Time-Us": String(requestedTimeUs),
+                "X-DokoDetector-Frame-Time-Us": String(requestedTimeUs),
+              },
+            }),
+          );
+        }
+        return Promise.resolve(
           new Response(
             JSON.stringify(init?.method === "POST" ? comparison : body),
             { status: 200, headers: { "Content-Type": "application/json" } },
           ),
-        ),
-      ),
+        );
+      }),
     );
 
     render(
@@ -1395,8 +1420,11 @@ describe("recording pipeline workspace", () => {
     expect(window.location.search).toContain("item=comparison-outcome-1");
     expect(window.location.search).toContain("t_us=12000000");
     expect(
-      await screen.findByLabelText(`Comparison source video ${RECORDING_ID}`),
-    ).toBeInTheDocument();
+      await screen.findAllByLabelText("Spatial evidence surface"),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByLabelText(`Comparison source video ${RECORDING_ID}`),
+    ).not.toBeInTheDocument();
     expect(
       within(inspector).getByText(/Matching policy: event-timing/),
     ).toBeInTheDocument();

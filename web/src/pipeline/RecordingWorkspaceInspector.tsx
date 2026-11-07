@@ -321,13 +321,16 @@ export function RecordingWorkspaceInspector({
           ) : null}
         </div>
         {compare ? (
-          <ComparisonInspectorControls
-            recordingId={recordingId}
-            stage={stage}
-            urlState={urlState}
-            onNavigate={onNavigate}
-            comparison={comparison}
-          />
+          <>
+            <div data-comparison-inspector-status />
+            <ComparisonInspectorControls
+              recordingId={recordingId}
+              stage={stage}
+              urlState={urlState}
+              onNavigate={onNavigate}
+              comparison={comparison}
+            />
+          </>
         ) : stage.key === "round_analyses" ? null : (
           <label className={styles.pipelineSelector}>
             <span>Default generated revision</span>
