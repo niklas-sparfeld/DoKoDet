@@ -206,6 +206,112 @@ describe("recording pipeline workspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("chooses the root route stage from the current recording workspace", async () => {
+    const workspaceFor = (recordingId: string, hasObservations: boolean) => {
+      const base = workspace();
+      return {
+        ...base,
+        recording_id: recordingId,
+        video: { ...base.video, recording_id: recordingId },
+        stages: base.stages.map((currentStage) =>
+          currentStage.key === "table_observations" && hasObservations
+            ? {
+                ...currentStage,
+                state: "data-available" as const,
+                input_options: [
+                  {
+                    origin: "processor",
+                    node_revision_id: "observations-r1",
+                  },
+                ],
+              }
+            : currentStage,
+        ),
+      };
+    };
+    let resolveSecond!: (response: Response) => void;
+    const secondWorkspace = new Promise<Response>((resolve) => {
+      resolveSecond = resolve;
+    });
+    const fetchMock = vi.fn<typeof fetch>((input) => {
+      const url = String(input);
+      if (url.endsWith("/pipeline/lineage")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              schema_version: "pipeline-lineage-graph/v1",
+              nodes: [],
+              revisions: [],
+              runs: [],
+              artifacts: [],
+              edges: [],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      if (url === "/api/recordings/first-recording/pipeline?stage=events") {
+        return Promise.resolve(
+          new Response(JSON.stringify(workspaceFor("first-recording", false)), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      if (url === "/api/recordings/second-recording/pipeline?stage=events")
+        return secondWorkspace;
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(URL, "createObjectURL").mockReturnValue(
+      "blob:workspace-root-switch",
+    );
+    window.history.pushState({}, "", "/recordings/first-recording/pipeline");
+
+    const view = render(
+      <RecordingPipelineWorkspace
+        recordingId="first-recording"
+        stageKey={null}
+        compare={false}
+      />,
+    );
+    await waitFor(() =>
+      expect(window.location.pathname).toBe(
+        "/recordings/first-recording/pipeline/events",
+      ),
+    );
+
+    window.history.pushState({}, "", "/recordings/second-recording/pipeline");
+    view.rerender(
+      <RecordingPipelineWorkspace
+        recordingId="second-recording"
+        stageKey={null}
+        compare={false}
+      />,
+    );
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/recordings/second-recording/pipeline?stage=events",
+        expect.anything(),
+      ),
+    );
+    expect(window.location.pathname).toBe(
+      "/recordings/second-recording/pipeline",
+    );
+
+    resolveSecond(
+      new Response(JSON.stringify(workspaceFor("second-recording", true)), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    await waitFor(() =>
+      expect(window.location.pathname).toBe(
+        "/recordings/second-recording/pipeline/table_observations",
+      ),
+    );
+  });
+
   it("renders the compact workspace shell and two-row navigation", async () => {
     const generated = {
       revision_id: "events-2",

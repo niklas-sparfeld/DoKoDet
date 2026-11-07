@@ -27,16 +27,19 @@ export function useRecordingPipelineData(
     useState<PipelineNavigationStepKey | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lineageValidation, setLineageValidation] = useState<{
+  const [lineageValidationState, setLineageValidationState] = useState<{
+    recordingId: string;
     lineage: string;
     notice: string | null;
   } | null>(null);
-  const [lineageGraph, setLineageGraph] = useState<PipelineLineageGraph | null>(
-    null,
-  );
-  const [lineageGraphError, setLineageGraphError] = useState<string | null>(
-    null,
-  );
+  const [lineageGraphState, setLineageGraphState] = useState<{
+    recordingId: string;
+    graph: PipelineLineageGraph;
+  } | null>(null);
+  const [lineageGraphErrorState, setLineageGraphErrorState] = useState<{
+    recordingId: string;
+    error: string;
+  } | null>(null);
   const [lineageRefresh, setLineageRefresh] = useState(0);
   const workspaceLoadIdentityRef = useRef<string | null>(null);
   const workspaceRequestRef = useRef(0);
@@ -115,13 +118,14 @@ export function useRecordingPipelineData(
       })
       .then((graph) => {
         if (controller.signal.aborted) return;
-        setLineageGraph(graph);
-        setLineageGraphError(null);
+        setLineageGraphState({ recordingId, graph });
+        setLineageGraphErrorState(null);
         if (selection === null || lineage === null) {
-          setLineageValidation(null);
+          setLineageValidationState(null);
         } else {
           const missing = validateLineageSelection(selection, graph);
-          setLineageValidation({
+          setLineageValidationState({
+            recordingId,
             lineage,
             notice:
               missing.length === 0
@@ -132,10 +136,14 @@ export function useRecordingPipelineData(
       })
       .catch(() => {
         if (controller.signal.aborted) return;
-        setLineageGraph(null);
-        setLineageGraphError("Lineage data could not be loaded.");
+        setLineageGraphState(null);
+        setLineageGraphErrorState({
+          recordingId,
+          error: "Lineage data could not be loaded.",
+        });
         if (lineage !== null) {
-          setLineageValidation({
+          setLineageValidationState({
+            recordingId,
             lineage,
             notice:
               "Lineage data could not be loaded. The saved selection was not changed.",
@@ -149,6 +157,13 @@ export function useRecordingPipelineData(
     () => setLineageRefresh((value) => value + 1),
     [],
   );
+  const lineageValidation =
+    lineageValidationState?.recordingId === recordingId
+      ? {
+          lineage: lineageValidationState.lineage,
+          notice: lineageValidationState.notice,
+        }
+      : null;
   return {
     workspace,
     setWorkspace,
@@ -158,8 +173,14 @@ export function useRecordingPipelineData(
     setError,
     loadWorkspace,
     lineageValidation,
-    lineageGraph,
-    lineageGraphError,
+    lineageGraph:
+      lineageGraphState?.recordingId === recordingId
+        ? lineageGraphState.graph
+        : null,
+    lineageGraphError:
+      lineageGraphErrorState?.recordingId === recordingId
+        ? lineageGraphErrorState.error
+        : null,
     refreshLineage,
   };
 }

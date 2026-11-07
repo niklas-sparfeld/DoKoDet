@@ -126,6 +126,54 @@ describe("recording pipeline workspace data", () => {
     );
   });
 
+  it("does not expose the prior recording graph while the new graph loads", async () => {
+    const firstGraph = deferred<Response>();
+    const secondGraph = deferred<Response>();
+    const fetchMock = vi.fn<typeof fetch>((input) =>
+      String(input).includes("/first/pipeline/lineage")
+        ? firstGraph.promise
+        : secondGraph.promise,
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const getRecordingPipeline = vi.fn(() =>
+      Promise.resolve(workspace("recording", "ok")),
+    );
+    const client = { getRecordingPipeline } as never;
+    const { result, rerender } = renderHook(
+      ({ recordingId }: { recordingId: string }) =>
+        useRecordingPipelineData(recordingId, "events", null, client),
+      { initialProps: { recordingId: "first" } },
+    );
+    const graphResponse = (recordingId: string) =>
+      new Response(
+        JSON.stringify({
+          schema_version: "pipeline-lineage-graph/v1",
+          nodes: [{ node_id: `${recordingId}-node` }],
+          revisions: [],
+          runs: [],
+          artifacts: [],
+          edges: [],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await act(async () => firstGraph.resolve(graphResponse("first")));
+    await waitFor(() =>
+      expect(result.current.lineageGraph?.nodes[0].node_id).toBe("first-node"),
+    );
+
+    rerender({ recordingId: "second" });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(result.current.lineageGraph).toBeNull();
+    expect(result.current.lineageGraphError).toBeNull();
+
+    await act(async () => secondGraph.resolve(graphResponse("second")));
+    await waitFor(() =>
+      expect(result.current.lineageGraph?.nodes[0].node_id).toBe("second-node"),
+    );
+  });
+
   it("ignores a late response after switching stages", async () => {
     graphFetch();
     const events = deferred<PipelineWorkspace>();

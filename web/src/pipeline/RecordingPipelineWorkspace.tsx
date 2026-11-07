@@ -138,7 +138,12 @@ export function RecordingPipelineWorkspace({
   }, [client, loadWorkspace, recordingId, stageKey, urlState.frameReviewQueue]);
 
   useEffect(() => {
-    if (workspace === null || stageKey !== null || compare) {
+    if (
+      workspace === null ||
+      workspace.recording_id !== recordingId ||
+      stageKey !== null ||
+      compare
+    ) {
       return;
     }
     const selectedStage = chooseInitialStage(workspace);
