@@ -203,7 +203,9 @@ def _python_imports_test_support(path: Path) -> bool:
     )
 
 
-_TS_IMPORT = re.compile(r"\b(?:from\s*|import\s*)[\"']([^\"']+)[\"']")
+_TS_IMPORT = re.compile(
+    r"\b(?:from\s*|import\s*(?:\(\s*)?|require\s*\(\s*)[\"']([^\"']+)[\"']"
+)
 
 
 def _typescript_imports_test_support(path: Path) -> bool:
@@ -224,9 +226,18 @@ def production_test_support_imports(root: Path) -> list[str]:
         if _python_imports_test_support(path):
             violations.append(path.relative_to(root).as_posix())
 
-    for base in (root / "web/src/api", root / "web/src/pipeline"):
+    web_source = root / "web/src"
+    for base in (web_source,):
         for path in (*base.rglob("*.ts"), *base.rglob("*.tsx")):
-            if path.name.endswith((".test.ts", ".test.tsx")):
+            relative_parts = path.relative_to(base).parts
+            if any(
+                part.lower() in {"test", "tests", "__tests__"}
+                for part in relative_parts[:-1]
+            ):
+                continue
+            if path.name.lower().endswith(
+                (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")
+            ):
                 continue
             if "testfixtures" in path.name.lower():
                 continue

@@ -32,6 +32,20 @@ class ProductionImportGuardTests(unittest.TestCase):
                 ["web/src/pipeline/RunControls.tsx"],
             )
 
+    def test_rejects_dynamic_import_outside_feature_folders(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "web/src/analysis/loader.ts"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                'export const load = () => import("./runControlsTestFixtures");\n'
+            )
+
+            self.assertEqual(
+                production_test_support_imports(root),
+                ["web/src/analysis/loader.ts"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
