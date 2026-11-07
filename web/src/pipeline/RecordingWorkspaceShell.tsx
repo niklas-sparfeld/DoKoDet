@@ -633,13 +633,6 @@ export function RecordingWorkspaceTaskSurface({
             }}
           />
         ) : null}
-        {stage.key === "visual_identities" &&
-        !compare &&
-        selectedVisualIdentityNode === undefined ? (
-          <p role="status">
-            Select a Visual identities data set in the lineage drawer.
-          </p>
-        ) : null}
         {stage.key === "table_observations" && !compare ? (
           <PipelineObservationWorkbench
             recordingId={recordingId}

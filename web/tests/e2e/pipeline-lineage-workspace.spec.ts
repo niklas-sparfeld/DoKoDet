@@ -859,6 +859,41 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
     controls: 0,
     polygons: 1,
   });
+  await page.getByRole("button", { name: "Focus crop" }).click();
+  await expect(
+    page.getByRole("button", { name: "Show all inspector sections" }),
+  ).toBeVisible();
+  const assertSourceAndInspectorDoNotOverlap = async () => {
+    const layout = await page.evaluate(() => {
+      const center = document.querySelector('[data-slot="center"]');
+      const inspector = document.querySelector('[data-slot="inspector"]');
+      if (center === null || inspector === null) return null;
+      const source = center.getBoundingClientRect();
+      const details = inspector.getBoundingClientRect();
+      return {
+        overlaps:
+          source.left < details.right &&
+          source.right > details.left &&
+          source.top < details.bottom &&
+          source.bottom > details.top,
+        viewportWidth: window.innerWidth,
+        centerLeft: source.left,
+        inspectorRight: details.right,
+      };
+    });
+    expect(layout).not.toBeNull();
+    expect(layout!.overlaps).toBe(false);
+    expect(layout!.centerLeft).toBeGreaterThanOrEqual(0);
+    expect(layout!.inspectorRight).toBeLessThanOrEqual(layout!.viewportWidth);
+  };
+  await assertSourceAndInspectorDoNotOverlap();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await assertSourceAndInspectorDoNotOverlap();
+  await expect(page.getByRole("img", { name: "Source frame" })).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page
+    .getByRole("button", { name: "Show all inspector sections" })
+    .click();
   const classificationChoices = identityEditor.getByRole("region", {
     name: "Identity classification choices",
   });
@@ -1172,6 +1207,7 @@ test("round analysis uses the shared frame, rail, inspector, and saved selection
   await expect(page.getByLabel("Counterfactual analysis")).toBeVisible();
   await expect(page.locator('[data-slot="center"] button')).toHaveCount(0);
   await expect(page.locator('[data-slot="center"] video')).toHaveCount(0);
+  await expect(page.locator('[data-slot="center"]')).toHaveText("");
 });
 
 test("exact run comparison uses two shared still-frame surfaces", async ({

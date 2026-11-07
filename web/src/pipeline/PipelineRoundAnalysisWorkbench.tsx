@@ -47,37 +47,49 @@ export function PipelineRoundAnalysisWorkbench({
           imageUrl={frameState.frame.imageUrl}
           overlays={[]}
         />
-      ) : (
-        <p role={frameState.state === "failed" ? "alert" : "status"}>
-          {frameState.state === "failed"
-            ? frameState.reason
-            : "Loading source frame…"}
-        </p>
-      )}
-      {analysis === null ? (
-        <p className={styles.detailEmptyState}>
-          {stage.analyses.length === 0
-            ? "Choose an exact table-observation revision and rules version in the inspector."
-            : "Select a reconstruction from the Timeline Rail."}
-        </p>
-      ) : analysis.state === "complete" && inspector !== null ? (
-        createPortal(
-          <RecordingAnalysisView
-            analysisId={analysis.analysis_id}
-            recordingId={recordingId}
-          />,
-          inspector,
-        )
-      ) : (
-        <section className={styles.analysisWorkbenchSummary}>
-          <p className={styles.statusLabel}>Selected round analysis</p>
-          <h2>{analysis.round_id}</h2>
-          <p>{analysis.state.replaceAll("_", " ")}</p>
-          {analysis.failure !== null ? (
-            <p className={styles.detailBlocker}>{analysis.failure}</p>
-          ) : null}
-        </section>
-      )}
+      ) : null}
+      {frameState.state !== "ready" && inspector !== null
+        ? createPortal(
+            <p role={frameState.state === "failed" ? "alert" : "status"}>
+              {frameState.state === "failed"
+                ? `Source frame unavailable: ${frameState.reason}`
+                : "Loading source frame…"}
+            </p>,
+            inspector,
+          )
+        : null}
+      {analysis === null
+        ? inspector === null
+          ? null
+          : createPortal(
+              <p className={styles.detailEmptyState}>
+                {stage.analyses.length === 0
+                  ? "Choose an exact table-observation revision and rules version in the inspector."
+                  : "Select a reconstruction from the Timeline Rail."}
+              </p>,
+              inspector,
+            )
+        : analysis.state === "complete" && inspector !== null
+          ? createPortal(
+              <RecordingAnalysisView
+                analysisId={analysis.analysis_id}
+                recordingId={recordingId}
+              />,
+              inspector,
+            )
+          : inspector === null
+            ? null
+            : createPortal(
+                <section className={styles.analysisWorkbenchSummary}>
+                  <p className={styles.statusLabel}>Selected round analysis</p>
+                  <h2>{analysis.round_id}</h2>
+                  <p>{analysis.state.replaceAll("_", " ")}</p>
+                  {analysis.failure !== null ? (
+                    <p className={styles.detailBlocker}>{analysis.failure}</p>
+                  ) : null}
+                </section>,
+                inspector,
+              )}
     </div>
   );
 }

@@ -448,14 +448,18 @@ export function PipelineObservationWorkbench({
               setSelectedCard({ itemId: selectedItemId ?? "", cardId })
             }
           />
-        ) : (
-          <p role={frameState.state === "failed" ? "alert" : "status"}>
-            {frameState.state === "failed"
-              ? frameState.reason
-              : "Loading exact source frame…"}
-          </p>
-        )}
+        ) : null}
       </section>
+      {portalTargets.inspector !== null && frameState.state !== "ready"
+        ? createPortal(
+            <p role={frameState.state === "failed" ? "alert" : "status"}>
+              {frameState.state === "failed"
+                ? `Source frame unavailable: ${frameState.reason}`
+                : "Loading exact source frame…"}
+            </p>,
+            portalTargets.inspector,
+          )
+        : null}
       {portalTargets.inspector === null
         ? null
         : createPortal(inspector, portalTargets.inspector)}
@@ -559,6 +563,7 @@ function observedCardOverlays(
       {
         id: candidate.card_id,
         label: "Observed card source",
+        pattern: "dashed",
         frame,
         calibration: null,
         geometry: { kind: "polygon" as const, points },

@@ -21,6 +21,7 @@ export type GeometryPolygon = {
 export type GeometryOverlay = {
   id: string;
   label: string;
+  pattern?: "solid" | "dashed" | "dotted";
   frame: GeometryFrameIdentity;
   calibration: GeometryCalibrationIdentity | null;
   requiresCalibration?: boolean;
@@ -124,7 +125,8 @@ export function GeometrySurface({
             return (
               <polygon
                 key={overlay.id}
-                className={selected ? styles.selected : styles.polygon}
+                className={`${selected ? styles.selected : styles.polygon} ${styles[overlay.pattern ?? "solid"]}`}
+                data-pattern={overlay.pattern ?? "solid"}
                 points={overlay.geometry.points
                   .map(([x, y]) => `${x},${y}`)
                   .join(" ")}

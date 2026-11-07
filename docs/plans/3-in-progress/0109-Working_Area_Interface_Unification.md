@@ -8,15 +8,16 @@
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0–M8 are complete. M1 adds a tested, selectable polygon surface for exact-frame
+- **Outcome:** M0–M9 are complete. M1 adds a tested, selectable polygon surface for exact-frame
   geometry. M2 adds shared still-frame loading and identity checks. Neither milestone restores or
   claims the historical editing interactions. M3 connects Events to the still-frame surface. M4
   connects Visible cards and Virtual scenes. M5 connects Visual identities and the frozen crop
   preview. M6 connects Table observations to the exact still-frame surface, observation interval
   selection, and read-only source-linked geometry. M7 integrates round-analysis evidence and
   hypotheses into the rail and inspector. M8 moves exact comparison onto the shared still-frame
-  surface and keeps counterfactual and comparison details outside the center. M9–M10 are not
-  started. See the
+  surface and keeps counterfactual and comparison details outside the center. M9 adds keyboard and
+  focus checks, layer line patterns, outer frame-state messages, crop layout verification, and
+  removes the unused Events video surface and caches. M10 remains. See the
   [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md), the
   [M6 integration report](../../reports/0109-M6_Table_Observation_Integration.md), and the execution
   handoff below.
@@ -337,7 +338,7 @@ source time. Run-pair and completed-reference selectors, result facts, failures,
 references stay in the inspector. Counterfactual controls and immutable results stay in the analysis
 inspector. See the [M8 integration report](../../reports/0109-M8_Counterfactual_Comparison_Integration.md).
 
-### M9 — Complete accessibility and layout cleanup — Not started
+### M9 — Complete accessibility and layout cleanup — Complete
 
 Verify keyboard equivalents, focus, external announcements, layer patterns, inspector crop sizing,
 and narrow layouts. Remove replaced components, mode state, CSS, video caches, and handlers only
@@ -345,6 +346,12 @@ when their remaining consumers are gone. Retain unrelated source-video uses outs
 
 Acceptance: no supported workspace state puts controls, labels, tooltips, or descriptions in center.
 Every blank/loading/error state has an outer explanation. Inspector expansion never covers source.
+
+Result: geometry selection keeps keyboard activation and visible focus. Geometry layers use solid,
+dashed, and dotted strokes as well as color. Observation and round-analysis frame loading and errors
+appear in the inspector. The unused Events video surface, its caches, tests, and styles are removed.
+Browser checks confirm that crop focus does not cover the source at desktop and narrow widths. See
+the [M9 report](../../reports/0109-M9_Accessibility_and_Layout_Cleanup.md).
 
 ### M10 — Verify all steps and close — Not started
 
@@ -362,20 +369,18 @@ video elements, central text, and central command controls. No hardware or model
 - Completed: M0 — freeze the layout and capability fixtures; M1 — add the shared geometry surface;
   M2 — add still-frame loading and identity state; M3 — connect Events; M4 — connect Visible cards
   and Virtual scenes; M5 — connect Visual identities; M6 — connect Table observations; M7 —
-  integrate analysis evidence and hypotheses; M8 — relocate counterfactual and comparison functions.
-- Changes: M8 replaces the comparison source video with two instances of the shared exact still-frame
-  renderer. The selected item's frame time drives both surfaces. Pair selectors, immutable run and
-  reference facts, outcome failures, and exact source frame references remain in the inspector.
-  Counterfactual controls and results remain in the analysis inspector.
-- Checks: `cd web && npm run check` passed: TypeScript, ESLint, Prettier, generated API comparison,
-  and 196 frontend tests. Focused comparison/workspace tests passed (27 tests). `cd web && npm run
-  build` passed with the existing bundle-size warning. The pipeline workspace Playwright suite passed
-  (3 tests), including exact comparison surfaces, no center video or controls, and M7 reload and
-  selection behavior. Local Markdown links in the epic, board, and M8 report resolve.
-- Decisions: URL state selects the immutable left run, right run, and completed reference. The exact
-  selected outcome time supplies the source frame. Comparison does not change source data.
-- Limits: The comparison workflow is read-only. It adds no backend contract or persisted write, so no
-  disposable persistence workflow applies. The shared renderer validates source digest and exact
-  response identity. Geometry remains limited to evidence returned by the existing comparison.
-- Next: M9 — complete accessibility and layout cleanup.
-- Run: requested 5 milestones, completed 3, remaining 2.
+  integrate analysis evidence and hypotheses; M8 — relocate counterfactual and comparison functions;
+  M9 — complete accessibility and layout cleanup.
+- Changes: M9 adds visible keyboard focus and line patterns for geometry layers, moves observation
+  and analysis frame states outside the center, verifies crop focus at desktop and narrow layouts,
+  and removes the unused Events video surface and caches. See the [M9 report](../../reports/0109-M9_Accessibility_and_Layout_Cleanup.md).
+- Checks: `cd web && npm run check` passed, including 187 frontend tests and generated API comparison.
+  `cd web && npm run build` passed with the existing 518 kB bundle warning. The pipeline workspace
+  Playwright suite passed (3 tests), including center-content, crop-focus, and narrow-layout checks.
+- Decisions: Keep the step navigation horizontally scrollable on narrow screens. Keep exact source
+  explanations in the inspector while the center shows only source frames and geometry.
+- Limits: No full assistive-technology audit was run. API generation logged that the temporary
+  processor-run catalog root was unavailable, but the generated API comparison passed. M10 owns the
+  all-step browser regression and closeout checks.
+- Next: M10 — verify all steps and close.
+- Run: requested 2 milestones, completed 1, remaining 1.

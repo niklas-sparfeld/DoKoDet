@@ -136,6 +136,7 @@ function virtualSceneOverlays(
     overlays.push({
       id: pose.card_id,
       label: `Card pose ${pose.card_id}`,
+      pattern: "dashed",
       frame: identity,
       calibration: {
         revisionId: calibration.calibration_revision_id,

@@ -727,6 +727,8 @@ function visibleCardOverlays(
       values.push({
         id: `${kind}-${index}`,
         label: `${colorLabel} ${index + 1}`,
+        pattern:
+          kind === "pile" ? "dashed" : kind === "ignore" ? "dotted" : "solid",
         frame,
         calibration: null,
         geometry: { kind: "polygon", points: converted },

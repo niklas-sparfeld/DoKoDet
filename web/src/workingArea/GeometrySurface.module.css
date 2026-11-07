@@ -34,6 +34,19 @@
   vector-effect: non-scaling-stroke;
 }
 
+.dashed {
+  stroke-dasharray: 9 5;
+}
+
+.dotted {
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+}
+
+.solid {
+  stroke-dasharray: none;
+}
+
 .polygon[role="button"],
 .selected[role="button"] {
   cursor: pointer;
@@ -50,4 +63,5 @@
   outline: none;
   stroke: #fff;
   stroke-width: 5;
+  stroke-dasharray: 2 2;
 }

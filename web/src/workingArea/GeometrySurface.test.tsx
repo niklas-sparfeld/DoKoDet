@@ -117,4 +117,39 @@ describe("GeometrySurface", () => {
     expect(onSelect).toHaveBeenCalledTimes(3);
     expect(onSelect).toHaveBeenCalledWith("region-1");
   });
+
+  it("shows layer patterns and a visible keyboard focus treatment", () => {
+    render(
+      <GeometrySurface
+        frame={frame}
+        imageUrl="/frame.jpg"
+        overlays={[
+          region,
+          {
+            ...region,
+            id: "pile-1",
+            label: "Pile region 1",
+            pattern: "dashed",
+          },
+          {
+            ...region,
+            id: "ignore-1",
+            label: "Ignore region 1",
+            pattern: "dotted",
+          },
+        ]}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const shapes = screen.getAllByRole("button");
+    expect(shapes.map((shape) => shape.getAttribute("data-pattern"))).toEqual([
+      "solid",
+      "dashed",
+      "dotted",
+    ]);
+    expect(shapes[1].getAttribute("class")).toContain("dashed");
+    expect(shapes[2].getAttribute("class")).toContain("dotted");
+    expect(shapes[0]).toHaveAttribute("tabindex", "0");
+  });
 });

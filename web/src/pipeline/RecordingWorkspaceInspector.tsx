@@ -184,6 +184,8 @@ export function RecordingWorkspaceInspector({
             data-visible-card-inspector-slot="action"
             data-identity-inspector-slot="action"
             data-observation-inspector-slot
+            data-observation-status-slot
+            data-identity-status-slot
           >
             {navigationStep === "virtual_scenes" &&
             decodeLineageSelection(urlState.lineage ?? "")?.selected
@@ -372,7 +374,9 @@ export function RecordingWorkspaceInspector({
           data-inspector-section="analysis-details"
           aria-label="Analysis details"
           data-analysis-inspector-slot="details"
-        />
+        >
+          <div data-analysis-inspector-slot="status" />
+        </section>
       ) : null}
 
       {recording !== null ? (
