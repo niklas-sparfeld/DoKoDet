@@ -1,0 +1,53 @@
+.surface {
+  min-width: 0;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.viewport {
+  position: relative;
+  display: grid;
+  width: 100%;
+  place-items: center;
+}
+
+.frame {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.geometry {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.polygon,
+.selected {
+  fill: rgb(14 165 233 / 16%);
+  stroke: #38bdf8;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.polygon[role="button"],
+.selected[role="button"] {
+  cursor: pointer;
+}
+
+.selected {
+  fill: rgb(250 204 21 / 20%);
+  stroke: #facc15;
+  stroke-width: 4;
+}
+
+.polygon:focus-visible,
+.selected:focus-visible {
+  outline: none;
+  stroke: #fff;
+  stroke-width: 5;
+}

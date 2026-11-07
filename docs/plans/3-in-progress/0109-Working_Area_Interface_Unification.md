@@ -2,30 +2,30 @@
 
 ## Plan status
 
-- **Summary:** Use one current-frame surface across all processing steps. Extend the visible-card
-  surface. Keep controls, text, crops, and result details outside the central working area.
-- **Status:** Blocked
+- **Summary:** Build one current-frame geometry surface for all processing steps. Adapt the current
+  node-backed editors to use it. Keep controls, text, crops, and result details outside the center.
+- **Status:** In Progress
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0 is complete. M1 is blocked because the visible-card renderer and its interaction
-  tests were removed during the 0108 cutover. The current node editors do not provide an equivalent
-  geometry surface. M2–M10 are not started. The user must decide whether to restore the historical
-  interaction stack or revise M1 scope before work can continue. See the [M0 inventory and
-  contract](../../reports/0109-M0_Working_Area_Inventory.md).
+- **Outcome:** M0 and M1 are complete. M1 adds a tested, selectable polygon surface for exact-frame
+  geometry. It does not restore or claim the historical editing interactions. M2–M10 are not
+  started. See the [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md)
+  and the M1 handoff below.
 
 ## Problem and inspection
 
 The current tabs use different source surfaces and place controls and descriptions in different
 areas. Inspection of the current code found these differences:
 
-| Step               | Current implementation                                                                                                                                                                                                                                     | Change required                                                                                                                   |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Events             | `CardEventFrameSurface` switches between derived JPEGs and a video element. Its frame chrome contains time, loading, and error descriptions.                                                                                                               | Shared still frame; all time and status information outside the center.                                                           |
-| Visible cards      | `WorkbenchSurface` supports source images, regions, virtual cards, calibration, camera/rectified viewpoints, pan, zoom, and edit handles. Its parent adds a command bar, status text, and a proposal column. Calibration diagnostics draw text in the SVG. | Extend this renderer; move surrounding controls and proposals to shared outer slots; remove diagnostic text from the image.       |
-| Visual identities  | `IdentitySourceSurface` shows crop and frame panels, separate geometry rendering, and identity decision buttons.                                                                                                                                           | Shared selectable regions; crop, candidates, and classification controls in the inspector.                                        |
-| Table observations | `PipelineObservationWorkbench` shows a native video player and a textual observation summary.                                                                                                                                                              | Shared source frame with exact spatial evidence when available; interval and summary outside the center.                          |
-| Round analysis     | `PipelineRoundAnalysisWorkbench` shows a native video player, a summary, and a button that replaces the center with `RecordingAnalysisView`. That view has its own selection, evidence rows, hypotheses, and counterfactual controls.                      | Shared source frame at all times; integrate existing results with the rail and inspector. Remove the alternate central workbench. |
+| Step               | Current implementation                                                                                                                                                                                                                | Change required                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Events             | `CardEventFrameSurface` switches between derived JPEGs and a video element. Its frame chrome contains time, loading, and error descriptions.                                                                                          | Shared still frame; all time and status information outside the center.                                                                               |
+| Visible cards      | The current node-backed editor loads an exact visible-card revision, selects outcomes, shows the recording video, and edits region, pile, and ignore arrays as JSON. It has no geometry renderer or direct geometry editing.          | Add the common frame geometry surface; later connect exact still frames and geometry adapters. Keep JSON editing until a geometry editor replaces it. |
+| Virtual scenes     | The current node-backed editor loads an exact virtual-scene revision, selects frames, shows the recording video, and edits scene JSON. It has no pose renderer or direct pose editing.                                                | Add calibrated pose outlines and editing through later step integration; keep scene and calibration details in the inspector.                         |
+| Visual identities  | `PipelineNodeVisualIdentityEditor` displays exact crop/source details and identity review controls.                                                                                                                                   | Shared selectable source regions; crop, candidates, and classification controls in the inspector.                                                     |
+| Table observations | `PipelineObservationWorkbench` shows a native video player and a textual observation summary.                                                                                                                                         | Shared source frame with exact spatial evidence when available; interval and summary outside the center.                                              |
+| Round analysis     | `PipelineRoundAnalysisWorkbench` shows a native video player, a summary, and a button that replaces the center with `RecordingAnalysisView`. That view has its own selection, evidence rows, hypotheses, and counterfactual controls. | Shared source frame at all times; integrate existing results with the rail and inspector. Remove the alternate central workbench.                     |
 
 These are source-code findings, not a completed browser usability study. M0 verifies the rendered
 layout with local fixtures. Use the domain meanings in the [glossary](../../glossary.md).
@@ -42,8 +42,9 @@ switch that combines these tasks inside Visible cards. Keep camera/rectified vie
 visibility, and active drawing tools as independent controls. They do not select a data set or
 change its authority. No additional top-level "view modes" selector is needed.
 
-0108 can complete with its integrated existing renderers. This epic replaces those renderers and
-moves their existing functions into shared slots. It does not block 0108 or expand its cutover.
+0108 completed its cutover with node-backed editors. This epic builds on those current contracts
+and replaces their video and JSON-only geometry views as each step is connected. It does not restore
+deleted historical renderers or block 0108.
 
 ## Shared layout and interaction
 
@@ -206,19 +207,22 @@ function placement, typed frame/selection contract, fixture coverage, and deskto
 Contract fixtures specify missing-calibration, interval-only, and untimed-action behavior without
 changing application behavior. Existing functions remain in place for the later surface migrations.
 
-### M1 — Extract the common geometry surface — Blocked
+### M1 — Build the common geometry surface foundation — Complete
 
-Extract the visible-card renderer with source image, layers, viewport, hit testing, selection, and
-edit handles. Keep domain commands in adapters. Remove geometry diagnostic text from the surface
-and render the same details in the inspector.
+Add a reusable surface that displays a supplied still image and exact-frame polygon overlays.
+Reject overlays whose source, frame, dimensions, or image digest differ. Draw calibration-bound
+geometry only when the active calibration revision and digest match. Support accessible shape
+selection by pointer and keyboard. Keep all visible labels, controls, diagnostics, and commands
+outside the surface. This milestone is a rendering and selection foundation; it does not claim to
+restore prior region, pose, mapping, or calibration editing interactions.
 
-Acceptance: existing region/pose/mapping interactions pass focused tests. Surface tests show no
-visible text, tooltip, button, or toolbar. Accessible names and focus still work.
+Acceptance: focused tests prove frame and calibration mismatch suppression, stable image aspect
+ratio, selectable accessible polygons, and no visible text or controls inside the surface. M2 adds
+the shared exact-frame loader. M4 connects visible-card and virtual-scene data and builds the
+step-specific editing adapters while preserving current node and revision contracts.
 
-Blocker: the named renderer and these interaction tests were removed by the 0108 cutover. The
-current node-backed editors use video and JSON views. Restoring the historical stack would also
-restore its deleted data, state, calibration, command, and inspector adapters. Do not mark M1
-complete until the user selects this restoration or a revised scope.
+Result: `web/src/workingArea/GeometrySurface.tsx` provides the foundation. Current editors remain
+unchanged in this milestone and continue to use video and JSON editing.
 
 ### M2 — Implement shared exact-frame loading — Not started
 
@@ -239,9 +243,9 @@ media clock, source playback toggle, or event-specific frame chrome remains.
 
 ### M4 — Connect Visible cards and Virtual scenes — Not started
 
-Use step configurations instead of the old combined edit-mode switch. Move command/status and
-proposal controls into outer slots. Preserve region, pile, ignore, pose, stacking, and calibration
-operations. Offer other exact-source geometry as read-only context only.
+Connect the separate node-backed steps to the common still-frame surface. Move editing and review
+controls into the inspector and navigation into the rail. Preserve region, pile, ignore, pose,
+stacking, and calibration operations. Offer other exact-source geometry as read-only context only.
 
 Acceptance: each step edits only its own content; source/calibration mismatch blocks edits. Pan,
 zoom, viewpoint, review, copy-on-change, and calibration diagnostics remain available.
@@ -301,21 +305,21 @@ video elements, central text, and central command controls. No hardware or model
 
 ## Execution handoff
 
-- Completed: M0 — freeze layout and capability fixtures.
-- Blocked: M1 — the planned source renderer, region/pose/mapping interaction modules, diagnostic
-  component, and focused interaction tests are absent from the current checkout. Commit `e22644d90`
-  removed 57 visible-card and identity files (28,214 lines), including the 1,358-line historical
-  surface. Current visible-card and virtual-scene node editors use video plus JSON fields and do not
-  mount equivalent geometry interactions. Calibration diagnostic text is also no longer present in
-  the current surface, so there are no details to relocate to the inspector.
-- Changes: no application code changed. The temporary generic renderer prototype was removed because
-  it did not satisfy the existing-interaction acceptance. Epic moved to Blocked; inbound links and
-  board entry updated.
-- Checks: inspected the current node editors and `e22644d90` deletion summary. Existing focused
-  visible-card and virtual-scene tests passed (9 tests) during assessment. No full suite, browser,
-  lint, format, or API check was run because M1 cannot proceed without a scope decision.
-- Decision needed: restore/adapt the historical renderer and its deleted interaction/data adapters,
-  or revise M1 to establish a generic surface without the prior interaction-preservation requirement.
-- Limits: no implementation is committed; M2–M10 remain unstarted.
-- Next: wait for a scope decision, then resume M1.
-- Run count: requested 11 milestones, completed 1, remaining 10.
+- Completed: M0 — freeze layout and capability fixtures; M1 — add the common exact-frame geometry
+  surface foundation and focused render/selection tests.
+- Changes: `GeometrySurface` draws supplied exact-frame polygons over a still image, suppresses
+  mismatched frame or calibration geometry, and supports accessible selection. The current node
+  editors were not changed. No old interaction behavior was restored or claimed preserved.
+- Checks: focused `GeometrySurface.test.tsx` passed (3 tests); final `npm run check` passed
+  (typecheck, lint, Prettier, generated API comparison, and all 185 frontend tests); `npm run build`
+  passed;
+  `npx playwright test tests/e2e/pipeline-lineage-workspace.spec.ts --reporter=line` passed. The
+  browser test verifies the existing lineage workspace only; M1 does not connect the new surface to
+  an editor. Local links passed for the board, epic, and three inbound plans. M0 evidence remains in
+  [0109-M0_Working_Area_Inventory.md](../../reports/0109-M0_Working_Area_Inventory.md).
+- Decisions: newer node-backed code is authoritative. M2 owns exact-frame loading. M4 owns adapting
+  visible-card and virtual-scene contracts and implementing step-specific editing.
+- Limits: M1 supports polygon display and selection only. It does not load frames, transform
+  calibrated pose geometry, edit geometry, or move visible-card/virtual-scene controls.
+- Next: M2 — implement shared exact-frame loading.
+- Run: requested 11 milestones, completed 2, remaining 9.
