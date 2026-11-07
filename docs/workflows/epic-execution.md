@@ -68,15 +68,29 @@ run's limit. Do not add milestones to extend the run. Use this loop:
    inspection for routine monitoring. A user update does not require a worker check. Respond to user
    instructions and genuine worker messages when they arrive. Workers must not send routine progress
    messages to the orchestrator.
-3. Read only the compact completion receipt. Confirm that its commit exists on `main`, its
-   changed-path summary fits the assignment, and the epic and handoff record completion and
-   checks. The receipt alone does not prove completion.
-4. If the completion gate passes, give a brief commentary summary with the commit and milestone
-   statuses. Completed earlier milestones can be grouped. Continue without asking the user.
-5. If a correction is clear, send it to the same worker. Allow at most two correction turns per
-   milestone. Stop for a persistent failure, required human decision, or unclear safe next step.
-   Corrections fix defects in the assigned result. Ordinary remaining work is not a blocker or
-   a correction; if it exceeds the assignment, revise the milestone scope under the run limits.
+3. For each milestone submission, spawn a fresh review agent after the implementing worker
+   completes. The reviewer is read-only. Give it the milestone acceptance criteria, relevant plan
+   and handoff sections, the worker receipt, and the changed-path summary. It checks only whether
+   the work follows the plan, appears obviously wrong or incomplete, or exposes a mistaken plan.
+   This is a sanity check, not a test run, broad code review, or second implementation. Ask for a
+   compact result: `PASS`, `IMPLEMENTATION_FIX`, or `PLAN_FIX`, with specific evidence and a short
+   handover note. The reviewer must not run tests, change files, or commit.
+4. Read only the compact worker and reviewer receipts. Confirm that the worker's commit exists on
+   `main`, its changed paths fit the assignment, and the epic and handoff record completion and
+   checks. The receipts alone do not prove completion. A reviewer `PASS` proceeds through the
+   normal completion gate; it does not replace required checks.
+5. For `IMPLEMENTATION_FIX`, send the milestone back to an implementing subagent with the
+   reviewer's handover note. Prefer the same worker; if it is unavailable, use a fresh worker and
+   include the original assignment and note. The worker makes only the needed correction and
+   returns a new compact receipt. Run the sanity review again for that submission. Allow at most
+   two correction turns per milestone. Stop for a persistent failure, required human decision, or
+   unclear safe next step.
+6. For `PLAN_FIX`, revise the milestone plan within the existing run authorization when the
+   evidence shows that its acceptance criteria or approach is wrong. Hand the revised assignment
+   and reviewer's note to an implementing subagent, then review its next submission as above. If
+   the correct plan remains unclear or exceeds the authorization, stop and report the decision
+   needed. Ordinary remaining work is not a correction; if it exceeds the assignment, revise the
+   milestone scope under the run limits.
 
 When a worker asks for advice, resolve the escalation within the existing authorization. Clarify
 its assignment, split the remaining work, or give a concrete next step. Keep the run and correction
