@@ -22,7 +22,19 @@ const revision = {
         card_id: "card-1",
         frame_identity: { requested_time_us: 250_000, frame_index: 1 },
         geometry: { x: 1 },
-        crop_identity: { status: "usable", image_sha256: "a".repeat(64) },
+        crop_input_provenance: {
+          input_kind: "reviewed_visible_card",
+          manifest_digest: "b".repeat(64),
+          source_revision_id: "visible-r3",
+          source_revision_digest: "c".repeat(64),
+          source_node_id: "visible-node",
+          source_node_revision_id: "visible-r3",
+        },
+        crop_identity: {
+          status: "usable",
+          image_sha256: "a".repeat(64),
+          crop_policy: "oracle_visible_region",
+        },
         candidates: [{ identity: "CLUBS_ACE", probability: 0.8 }],
         status: "classified",
       },
@@ -58,6 +70,8 @@ describe("PipelineNodeVisualIdentityEditor", () => {
         nodeId="identities"
         revisionId="r1"
         selectionItemId="card-1"
+        selectionTimeUs={250_000}
+        sourceSha256={"d".repeat(64)}
         onPositionChange={vi.fn()}
         onRevisionChange={vi.fn()}
       />,
@@ -96,6 +110,8 @@ describe("PipelineNodeVisualIdentityEditor", () => {
         nodeId="identities"
         revisionId="r1"
         selectionItemId="card-1"
+        selectionTimeUs={250_000}
+        sourceSha256={"d".repeat(64)}
         onPositionChange={vi.fn()}
         onRevisionChange={onRevisionChange}
       />,
@@ -122,6 +138,9 @@ describe("PipelineNodeVisualIdentityEditor", () => {
     expect(body.content.outcomes[0]?.crop_identity).toEqual(
       revision.content.outcomes[0]?.crop_identity,
     );
+    expect(body.content.outcomes[0]?.crop_input_provenance).toEqual(
+      revision.content.outcomes[0]?.crop_input_provenance,
+    );
     expect(onRevisionChange).toHaveBeenCalledWith(
       "identities",
       "r1",
@@ -130,5 +149,83 @@ describe("PipelineNodeVisualIdentityEditor", () => {
       "card-1",
       250_000,
     );
+  });
+
+  it("shows frozen crop lineage and supports keyboard candidate classification", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(revision))
+      .mockResolvedValueOnce(jsonResponse([]));
+    render(
+      <PipelineNodeVisualIdentityEditor
+        recordingId="recording-1"
+        nodeId="identities"
+        revisionId="r1"
+        selectionItemId="card-1"
+        selectionTimeUs={250_000}
+        sourceSha256={"d".repeat(64)}
+        onPositionChange={vi.fn()}
+        onRevisionChange={vi.fn()}
+      />,
+    );
+    expect(
+      await screen.findByText("oracle_visible_region"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("visible-r3")).toHaveLength(2);
+    const choices = screen.getByRole("region", {
+      name: "Identity classification choices",
+    });
+    fireEvent.keyDown(choices, { key: "1" });
+    const editor = screen.getByLabelText(
+      "Identity outcome JSON",
+    ) as HTMLTextAreaElement;
+    expect(JSON.parse(editor.value).candidates).toEqual([
+      { identity: "CLUBS_ACE", probability: 1 },
+    ]);
+  });
+
+  it("does not reveal a previous crop when selection changes before the new crop loads", async () => {
+    const second = {
+      ...revision.content.outcomes[0]!,
+      card_id: "card-2",
+      frame_identity: { requested_time_us: 500_000, frame_index: 2 },
+      crop_identity: {
+        status: "usable",
+        image_sha256: "e".repeat(64),
+        crop_policy: "raw_rectangular",
+      },
+    };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...revision,
+          content: {
+            ...revision.content,
+            outcomes: [...revision.content.outcomes, second],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse([]));
+    render(
+      <PipelineNodeVisualIdentityEditor
+        recordingId="recording-1"
+        nodeId="identities"
+        revisionId="r1"
+        selectionItemId="card-1"
+        selectionTimeUs={250_000}
+        sourceSha256={"d".repeat(64)}
+        onPositionChange={vi.fn()}
+        onRevisionChange={vi.fn()}
+      />,
+    );
+    const oldCrop = await screen.findByAltText(
+      "Frozen processor input crop for card-1",
+    );
+    fireEvent.load(oldCrop);
+    fireEvent.click(screen.getByRole("button", { name: /card-2/ }));
+    const currentCrop = await screen.findByAltText(
+      "Frozen processor input crop for card-2",
+    );
+    fireEvent.load(oldCrop);
+    expect(currentCrop).not.toHaveStyle({ display: "block" });
   });
 });

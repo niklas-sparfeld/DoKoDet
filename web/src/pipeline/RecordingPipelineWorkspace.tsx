@@ -560,13 +560,8 @@ export function RecordingPipelineWorkspace({
   }
 
   const usesReviewCardRail =
-    stageKey !== "virtual_scenes" &&
-    (stage.key === "visible_cards" || stage.key === "visual_identities") &&
-    !compare;
-  const cardRailLabel =
-    stage.key === "visual_identities"
-      ? "Visual identity cards"
-      : "Visible-card proposals";
+    stageKey !== "virtual_scenes" && stage.key === "visible_cards" && !compare;
+  const cardRailLabel = "Visible-card proposals";
   const currentLineageNotice =
     urlState.lineage !== null &&
     decodeLineageSelection(urlState.lineage) === null
@@ -616,11 +611,7 @@ export function RecordingPipelineWorkspace({
             aria-label={cardRailLabel}
             data-slot="proposals"
           >
-            {stage.key === "visual_identities" ? (
-              <div data-identity-card-list-slot="cards" />
-            ) : (
-              <div data-visible-card-proposal-slot="proposals" />
-            )}
+            <div data-visible-card-proposal-slot="proposals" />
           </aside>
         ) : null}
         <RecordingWorkspaceTaskSurface

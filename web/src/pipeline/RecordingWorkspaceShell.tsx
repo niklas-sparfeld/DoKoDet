@@ -587,6 +587,8 @@ export function RecordingWorkspaceTaskSurface({
             nodeId={selectedVisualIdentity.node_id}
             revisionId={selectedVisualIdentity.revision_id}
             selectionItemId={presentation.surface.selectedItemId ?? null}
+            selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
+            sourceSha256={workspace.video.video_sha256}
             onPositionChange={(itemId, timeUs) =>
               onNavigate(
                 recordingPipelineNavigationPath(recordingId, stage.key, {

@@ -2464,6 +2464,11 @@ progress {
   overflow: hidden;
 }
 
+.pipelineInspectorSlot[data-crop-focused="true"]
+  > [data-inspector-section]:not([data-inspector-section="action"]) {
+  display: none;
+}
+
 .pipelineVisibleCardWorkspaceGrid {
   grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) minmax(
       18rem,

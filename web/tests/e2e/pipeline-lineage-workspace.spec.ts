@@ -9,6 +9,7 @@ const EVENT_NODE = "events-first-pass";
 const OBSERVATION_NODE = "observations-assembly";
 const ANALYSIS_ID = "analysis-all-sources";
 const VISIBLE_NODE = "visible-card-review";
+const IDENTITY_NODE = "visual-identity-review";
 const SCENE_NODE = "virtual-scene-review";
 const CALIBRATION_ID = "calibration-r1";
 
@@ -111,6 +112,13 @@ function graph(copyCreated: boolean) {
       head_revision_id: "visible-r1",
     },
     {
+      node_id: IDENTITY_NODE,
+      name: "Reviewed visual identities",
+      content_type: "visual_identities",
+      source: { recording_id: RECORDING_ID, video_sha256: "a".repeat(64) },
+      head_revision_id: "identity-r1",
+    },
+    {
       node_id: SCENE_NODE,
       name: "Reviewed virtual scenes",
       content_type: "virtual_scenes",
@@ -123,6 +131,7 @@ function graph(copyCreated: boolean) {
     revision(EVENT_NODE, "events-r2", "2026-11-02T10:00:00Z"),
     revision(OBSERVATION_NODE, "observations-r1", "2026-11-03T10:00:00Z"),
     revision(VISIBLE_NODE, "visible-r1", "2026-11-03T11:00:00Z"),
+    revision(IDENTITY_NODE, "identity-r1", "2026-11-03T11:30:00Z"),
     revision(SCENE_NODE, "scene-r1", "2026-11-03T12:00:00Z"),
   ];
   const edges = [
@@ -340,6 +349,60 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
         });
         return;
       }
+      if (nodeId === IDENTITY_NODE) {
+        await json({
+          node_id: nodeId,
+          name: "Reviewed visual identities",
+          content_type: "visual_identities",
+          source: { video_sha256: "a".repeat(64) },
+          head_revision_id: "identity-r1",
+          revision_id: revisionId,
+          metadata: {},
+          content: {
+            schema_version: "visual-identity-data/v2",
+            outcomes: [
+              {
+                card_id: "identity-card-1",
+                frame_identity: exactFrameIdentity(),
+                geometry: {
+                  polygons: [
+                    [
+                      { x: 100, y: 100 },
+                      { x: 300, y: 100 },
+                      { x: 300, y: 400 },
+                      { x: 100, y: 400 },
+                    ],
+                  ],
+                },
+                crop_input_provenance: {
+                  input_kind: "reviewed_visible_card",
+                  manifest_digest: "f".repeat(64),
+                  source_revision_id: "visible-r1",
+                  source_revision_digest: "d".repeat(64),
+                  source_node_id: VISIBLE_NODE,
+                  source_node_revision_id: "visible-r1",
+                },
+                crop_identity: {
+                  status: "usable",
+                  image_sha256: "e".repeat(64),
+                  crop_policy: "oracle_visible_region",
+                },
+                candidates: [
+                  {
+                    identity: "CLUBS_ACE",
+                    score: 0.8,
+                    score_meaning: "probability",
+                  },
+                ],
+                status: "classified",
+                error: null,
+                unusable_reason: null,
+              },
+            ],
+          },
+        });
+        return;
+      }
       if (nodeId === SCENE_NODE || nodeId === "virtual-scene-copy") {
         const sceneContent =
           nodeId === "virtual-scene-copy" && copiedSceneContent !== null
@@ -440,6 +503,14 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
           "X-DokoDetector-Frame-Time-Us": resolvedTimeUs,
           "X-DokoDetector-Frame-Interval-Us": "0",
         },
+      });
+      return;
+    }
+    if (path.includes("/pipeline/derived-views/identity-crops/")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: FRAME_BYTES,
       });
       return;
     }
@@ -664,6 +735,58 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
   await expect(
     page.getByRole("region", { name: "Spatial evidence surface" }),
   ).toBeVisible();
+
+  const identityLineage = JSON.parse(
+    new URL(page.url()).searchParams.get("lineage") ?? "{}",
+  ) as { selected?: Record<string, unknown> };
+  identityLineage.selected = {
+    ...identityLineage.selected,
+    visual_identities: {
+      node_id: IDENTITY_NODE,
+      revision_id: "identity-r1",
+    },
+  };
+  await page.goto(
+    `/recordings/${RECORDING_ID}/pipeline/visual_identities?lineage=${encodeURIComponent(JSON.stringify(identityLineage))}&item=identity-card-1&t_us=250000`,
+  );
+  const identityEditor = page.getByRole("region", {
+    name: "Visual identity data",
+  });
+  await expect(
+    identityEditor.getByText("oracle_visible_region", { exact: true }),
+  ).toBeVisible();
+  await expect(identityEditor.getByText("visible-r1").first()).toBeVisible();
+  await expect(
+    identityEditor.getByRole("img", {
+      name: "Frozen processor input crop for identity-card-1",
+    }),
+  ).toBeVisible();
+  const identityCenter = await page
+    .getByRole("region", { name: "Spatial evidence surface" })
+    .evaluate((element) => ({
+      video: element.querySelector("video") !== null,
+      text: element.textContent?.trim() ?? "",
+      controls: element.querySelectorAll("button, input, textarea, select")
+        .length,
+      polygons: element.querySelectorAll("svg polygon").length,
+    }));
+  expect(identityCenter).toEqual({
+    video: false,
+    text: "",
+    controls: 0,
+    polygons: 1,
+  });
+  const classificationChoices = identityEditor.getByRole("region", {
+    name: "Identity classification choices",
+  });
+  await classificationChoices.focus();
+  await page.keyboard.press("1");
+  await expect(
+    identityEditor.getByLabel("Identity outcome JSON"),
+  ).toContainText('"score": 1');
+  await expect(
+    page.locator('[data-identity-card-list-slot="cards"]'),
+  ).toHaveCount(0);
 
   await page.getByRole("link", { name: "Virtual scenes" }).click();
   await page.getByRole("button", { name: "Show lineage" }).click();
