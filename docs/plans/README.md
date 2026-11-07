@@ -26,7 +26,7 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Active epics: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**, **[0106 — iOS end-to-end proof of concept](3-in-progress/0106-iOS_End_to_End_PoC.md)**, **[0112 — Active pipeline module cleanup](3-in-progress/0112-Active_Pipeline_Module_Cleanup.md)**, and **[0114 — Interactive UI and backend startup performance](3-in-progress/0114-Interactive_UI_Performance.md)**. Epic 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) handoff reported all 165 targets unavailable in its checkout. The 0100 M5 checks resolved all exact detector targets and reproduced their frame identities. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md) and [0100 M0 inventory](../reports/0100-M0_Compatibility_Inventory.md).
+Active epics: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**, **[0106 — iOS end-to-end proof of concept](3-in-progress/0106-iOS_End_to_End_PoC.md)**, **[0112 — Active pipeline module cleanup](3-in-progress/0112-Active_Pipeline_Module_Cleanup.md)**, **[0113 — Unified job start UX](3-in-progress/0113-Unified_Job_Start_UX.md)**, and **[0114 — Interactive UI and backend startup performance](3-in-progress/0114-Interactive_UI_Performance.md)**. Epic 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) handoff reported all 165 targets unavailable in its checkout. The 0100 M5 checks resolved all exact detector targets and reproduced their frame identities. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md) and [0100 M0 inventory](../reports/0100-M0_Compatibility_Inventory.md).
 
 Epic **0100 — Local pipeline compatibility** is closed. M0–M6 are complete. M6 verified the
 fixture workflow, ran bounded CPU probes with the three frozen models, and published a direct
@@ -105,7 +105,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0113 — Unified job start UX](2-ready/0113-Unified_Job_Start_UX.md) | 0110 complete; 0108 runtime cleanup and final verification | M0–M10 not started. Consistent right-sidebar action buttons open a shared modal that explains the work and collects exact input revisions, models and required configuration. Replace superseded launch forms; retain shared Jobs management. |
+| [0113 — Unified job start UX](3-in-progress/0113-Unified_Job_Start_UX.md) | 0110 complete; 0108 runtime cleanup and final verification | M0 complete; M1–M10 not started. M0 inventory is in [the launch report](../reports/0113-M0_Launch_Inventory.md). Consistent right-sidebar action buttons open a shared modal that explains the work and collects exact inputs, models and required configuration. Replace superseded launch forms; retain shared Jobs management. |
 
 
 ### In Progress
