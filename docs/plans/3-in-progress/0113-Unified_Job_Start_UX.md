@@ -156,10 +156,10 @@ the M1 desktop/narrow fixture checks.
   [`0113-M1_Actions_Shell.md`](../../reports/0113-M1_Actions_Shell.md). M0's launch inventory is in
   [`0113-M0_Launch_Inventory.md`](../../reports/0113-M0_Launch_Inventory.md).
 - Checks passed: focused Vitest component tests (3); `npm run typecheck`; `npm run lint
-  -- --no-warn-ignored`; local Playwright fixture tests for desktop/narrow layouts, keyboard focus,
-  long forms, lineage and Jobs drawer controls (2); production build; Prettier; and `git diff
-  --check`. Build emitted a chunk-size advisory. The local browser fixture tests drawer controls,
-  not the production drawer implementations.
+  -- --no-warn-ignored`; local Playwright fixture tests (2) mounting the production lineage and Jobs
+  drawers with deterministic data; production build; Prettier; and `git diff --check`. Browser
+  coverage checks desktop/narrow layouts, long forms, keyboard focus return with both drawers open,
+  and no job submission on open or cancel. Build emitted a chunk-size advisory.
 - Decisions: the Actions group accepts caller-provided action content. M1 does not mount feature
   launches, submit jobs, or change request/API contracts. No job starts on open or cancel. The
   center remains usable after dismissal. 0112 M8 remains unstarted; coordinate its surviving

@@ -16,16 +16,17 @@ integration.
   and workspace/drawer availability after dismissal.
 - `npm run typecheck` — passed.
 - `npm run lint -- --no-warn-ignored` — passed.
-- `npm run test:e2e -- --grep "job start actions fixture"` — passed, 2 browser tests. The local
-  fixture checks the desktop layout, narrow sheet width, keyboard interaction, long content, and
-  return to the workspace alongside lineage and Jobs drawer controls.
+- `npm run test:e2e -- --grep "job start actions fixture"` — 2 browser tests. The local fixture
+  mounts the production `PipelineLineageDrawer` and `JobsDrawer` with deterministic data. It checks
+  desktop and narrow layouts, keyboard interaction, long content, both open drawers remaining
+  available after modal dismissal, focus return, and zero job submissions on open or cancel.
 - Production build passed. Vite reported the existing 500 kB chunk-size advisory; it did not fail
   the build.
 - Prettier check and `git diff --check` passed.
 
-The browser fixture uses drawer controls to test coexistence and focus return. It does not mount the
-production lineage or Jobs drawer implementations. Feature actions are not mounted in the real
-inspector yet; those integrations belong to later milestones.
+Feature actions are not mounted in the real inspector yet; those integrations belong to later
+milestones. Escape is contained by the launch modal so an open Jobs drawer does not also close or
+take focus from the modal's invoking action.
 
 ## Handoff
 
