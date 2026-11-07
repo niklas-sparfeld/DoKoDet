@@ -6,7 +6,6 @@ import {
   pipelineDerivedFramePath,
   pipelineIdentityCropPath,
   pipelineReviewFramePath,
-  pipelineObservationRunsPath,
   pipelineProposedCardSceneResultPath,
   pipelineProposedCardSceneRunsPath,
   pipelineVisibleCardResultPath,
@@ -20,7 +19,6 @@ import {
   repositoryBundleVideoPath,
 } from "./recordingsClient";
 import {
-  recordingAnalysisPath,
   roundAnalysisFramePath,
   roundCounterfactualReadPath,
 } from "./analysisClient";
@@ -35,7 +33,7 @@ function jsonResponse(value: unknown, status = 200) {
 }
 
 describe("DokoDetector API client", () => {
-  it("lists recordings and starts reconstruction through recording routes", async () => {
+  it("lists recordings and loads recording details", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse({ recordings: [] })),
     );
@@ -43,14 +41,10 @@ describe("DokoDetector API client", () => {
 
     await client.listRecordings();
     await client.getRecording("recording/1");
-    await client.startRecordingAnalysis("recording/1");
-
     expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
       "/v1/recordings",
       recordingDetailPath("recording/1"),
-      recordingAnalysisPath("recording/1"),
     ]);
-    expect(fetchImplementation.mock.calls[2]?.[1]?.method).toBe("POST");
   });
 
   it("loads pipeline results and recording-owned derived views", async () => {
@@ -79,45 +73,26 @@ describe("DokoDetector API client", () => {
     );
   });
 
-  it("starts, lists, and reads proposed card-scene results", async () => {
+  it("lists and reads proposed card-scene results", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse({ status: "complete", state: {} })),
     );
     const client = createDokoDetectorClient(fetchImplementation);
 
-    await client.startProposedCardSceneRun("recording/1", {
-      run_id: "proposal/run",
-      input_node_ref: {
-        node_id: "visible-node-1",
-        revision_id: "visible-revision-1",
-        revision_policy: "current_head",
-      },
-    });
     await client.listProposedCardSceneRuns("recording/1");
     await client.getProposedCardSceneResult("recording/1", "proposal/run");
 
     expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
       pipelineProposedCardSceneRunsPath("recording/1"),
-      pipelineProposedCardSceneRunsPath("recording/1"),
       pipelineProposedCardSceneResultPath("recording/1", "proposal/run"),
     ]);
-    expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
-    expect(fetchImplementation.mock.calls[0]?.[1]?.body).toContain(
-      "input_node_ref",
-    );
   });
 
-  it("runs observation assembly and explicit round analysis", async () => {
+  it("creates explicit round analysis", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(() =>
       Promise.resolve(jsonResponse({})),
     );
     const client = createDokoDetectorClient(fetchImplementation);
-    const runPayload = {
-      request: {
-        run_id: "observation-run-1",
-        input_revision_ids: ["events-1", "visible-1", "identity-1"],
-      },
-    };
     const analysisPayload = {
       analysis_id: "550e8400-e29b-41d4-a716-446655440033",
       recording_id: "recording-1",
@@ -143,15 +118,13 @@ describe("DokoDetector API client", () => {
       },
     } satisfies RoundAnalysisCreateRequest;
 
-    await client.startObservationRun("recording/1", runPayload);
     await client.createRoundAnalysis(analysisPayload);
 
     expect(fetchImplementation.mock.calls.map(([path]) => path)).toEqual([
-      pipelineObservationRunsPath("recording/1"),
       "/v1/round-analyses",
     ]);
     expect(fetchImplementation.mock.calls[0]?.[1]?.method).toBe("POST");
-    expect(fetchImplementation.mock.calls[1]?.[1]?.body).toContain(
+    expect(fetchImplementation.mock.calls[0]?.[1]?.body).toContain(
       "table_observation_node_ref",
     );
   });

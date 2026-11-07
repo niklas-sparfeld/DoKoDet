@@ -11,7 +11,6 @@ export function createCalibrationClient(
   fetchImplementation: typeof fetch = fetch,
 ): Pick<
   DokoDetectorClient,
-  | "startCalibrationRefinement"
   | "getCalibrationRefinement"
   | "getPipelineCalibration"
   | "updateCalibrationRefinement"
@@ -19,17 +18,6 @@ export function createCalibrationClient(
   | "applyCalibrationRefinement"
 > {
   return {
-    startCalibrationRefinement: (recordingId, payload, init) =>
-      requestJson<CalibrationRefinementResponse>(
-        fetchImplementation,
-        pipelineCalibrationRefinementPath(recordingId),
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
     getCalibrationRefinement: (
       recordingId,
       proposalRevisionId,

@@ -12,7 +12,6 @@ export function createAnalysisClient(
   fetchImplementation: typeof fetch = fetch,
 ): Pick<
   DokoDetectorClient,
-  | "startRecordingAnalysis"
   | "createRoundAnalysis"
   | "getRoundAnalysisStatus"
   | "getRoundAnalysisTimeline"
@@ -20,12 +19,6 @@ export function createAnalysisClient(
   | "getRoundCounterfactual"
 > {
   return {
-    startRecordingAnalysis: (recordingId, init) =>
-      requestJson<RoundAnalysisStatus>(
-        fetchImplementation,
-        recordingAnalysisPath(recordingId),
-        { ...init, method: "POST" },
-      ),
     createRoundAnalysis: (payload, init) =>
       requestJson<RoundAnalysisStatus>(
         fetchImplementation,
@@ -67,10 +60,6 @@ export function createAnalysisClient(
       ),
   };
 }
-export function recordingAnalysisPath(recordingId: string): string {
-  return `/v1/recordings/${encodeURIComponent(recordingId)}/round-analyses`;
-}
-
 export function roundAnalysisFramePath(
   analysisId: string,
   packageId: string,

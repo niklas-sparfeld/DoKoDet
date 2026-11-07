@@ -78,11 +78,6 @@ export interface DokoDetectorClient {
     payload: AutomatedPipelineStartRequest,
     init?: RequestInit,
   ): Promise<AutomatedPipelineRun>;
-  getAutomatedPipelineRun(
-    recordingId: string,
-    runId: string,
-    init?: RequestInit,
-  ): Promise<AutomatedPipelineRun>;
   getFrameReviewPage(options?: {
     cursor?: number;
     limit?: number;
@@ -122,23 +117,6 @@ export interface DokoDetectorClient {
     payload: PipelineComparisonRequest,
     init?: RequestInit,
   ): Promise<PipelineComparisonResponse>;
-  startVisibleCardRun(
-    recordingId: string,
-    payload: PipelineRunStartRequest,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
-  startProposedCardSceneRun(
-    recordingId: string,
-    payload: {
-      run_id: string;
-      input_node_ref: {
-        node_id: string;
-        revision_id: string;
-        revision_policy: "current_head" | "historical";
-      };
-    },
-    init?: RequestInit,
-  ): Promise<PipelineProposalRunResponse>;
   listProposedCardSceneRuns(
     recordingId: string,
     init?: RequestInit,
@@ -148,11 +126,6 @@ export interface DokoDetectorClient {
     runId: string,
     init?: RequestInit,
   ): Promise<PipelineProposalResultResponse>;
-  startCalibrationRefinement(
-    recordingId: string,
-    payload: { proposal_revision_id: string; draft_id?: string },
-    init?: RequestInit,
-  ): Promise<CalibrationRefinementResponse>;
   getCalibrationRefinement(
     recordingId: string,
     proposalRevisionId: string,
@@ -212,11 +185,6 @@ export interface DokoDetectorClient {
       unsupported_frame_count: number;
     }>;
   }>;
-  startObservationRun(
-    recordingId: string,
-    payload: PipelineRunStartRequest,
-    init?: RequestInit,
-  ): Promise<PipelineRunResponse>;
   getEventResult(
     recordingId: string,
     runId: string,
@@ -232,10 +200,6 @@ export interface DokoDetectorClient {
     runId: string,
     init?: RequestInit,
   ): Promise<PipelineVisualIdentityResult>;
-  startRecordingAnalysis(
-    recordingId: string,
-    init?: RequestInit,
-  ): Promise<RoundAnalysisStatus>;
   createRoundAnalysis(
     payload: RoundAnalysisCreateRequest,
     init?: RequestInit,

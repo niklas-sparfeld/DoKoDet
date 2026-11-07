@@ -9,12 +9,11 @@
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** M0–M7 complete. M8–M10 remain.
+- **Outcome:** M0–M9 complete. M10 remains.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
-  M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
-  pipeline launch controls remain in `RecordingWorkspaceInspector`; the active counterfactual
-  launch is owned by `web/src/analysis/CounterfactualWorkbench.tsx`. The M0 inventory records no
-  browser caller for `calibration_preview`.
+  M15–M16 are complete; both epics are closed. M3–M8 moved all seven active browser starts to
+  shared modals. M9 removed superseded launch client methods and compact-form scaffolding. The M0
+  inventory records no browser caller for `calibration_preview`.
 
 ## User outcome
 
@@ -141,7 +140,7 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 | M6        | Integrate observations and round analysis             | Complete    |
 | M7        | Integrate complete-pipeline launch                    | Complete    |
 | M8        | Integrate the active counterfactual calculation launch | Complete    |
-| M9        | Remove replaced launch controls                       | Not started |
+| M9        | Remove replaced launch controls                       | Complete    |
 | M10       | Verify the complete workflow and close                | Not started |
 
 ## M0 — Freeze launch inventory and interaction contract
@@ -153,40 +152,18 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M8 completed. Its result and checks are in
-  [`0113-M8_Counterfactual_Launch.md`](../../reports/0113-M8_Counterfactual_Launch.md).
-- The active counterfactual launch now opens from the round-analysis inspector's Actions group.
-  The modal shows the exact source analysis hashes, frozen search settings and submitted
-  correction constraints. It uses shared idempotent submission and the shared Jobs receipt. The
-  old inline launch controls are removed; editing corrections and restoring the baseline remain
-  separate. `calibration_preview` has no browser submitter and remains available to agent tooling;
-  calibration evidence editing and the apply-validity gate are unchanged. M9 must re-audit callers
-  before removing unused client facades.
-- Checks: focused counterfactual component tests, typecheck, lint, formatting, API generation and
-  links are recorded in the M8 report.
-- Limits: no browser calibration launch was added because the inventory has no current caller.
-- Next: M9, re-audit inventory callers and remove obsolete launch paths/facades.
-- Run counts: requested 11 milestones, completed 9, remaining 2.
-
-- M7 completed. Its result and checks are in
-  [`0113-M7_Complete_Pipeline_Launch.md`](../../reports/0113-M7_Complete_Pipeline_Launch.md).
-- Changes: the complete-pipeline action now uses the shared modal and the existing preflight API.
-  It shows the exact accepted video context, all six stage model/configuration objects, required
-  round facts, fixed rules/search limits, and expected outputs. It submits one fresh run request,
-  retains values after rejection, retries uncertain acceptance with the same key and payload, and
-  links the parent job through Jobs. The backend validates explicit round facts and rejects a
-  recording/session mismatch before it writes a run or accepts a parent job. The page no longer
-  restores a prior run or polls the pipeline endpoint; Jobs owns polling. Parent stage records
-  retain exact child job and revision lineage.
-- Checks: backend preflight, API, and job tests: 16 passed; modal fixture tests: 2 passed; frontend
-  typecheck, generated API verification, changed-file Ruff check and format passed. The pipeline
-  cutover Playwright suite passed 4/4 after its API fixture route was narrowed so it no longer
-  intercepts Vite module imports. See the M7 report.
-- Limits: model and configuration objects use JSON editors because the current API provides no
-  browser inventory of supported per-stage models. Existing preflight validates availability.
-- Next after M7: M8, move the active counterfactual launch into the analysis workspace Actions
-  group.
-- Run counts at M7: requested 11 milestones, completed 8, remaining 3.
+- M9 completed. Its final browser-start map, caller audit, removal decisions and verification are
+  in [`0113-M9_Launch_Cleanup.md`](../../reports/0113-M9_Launch_Cleanup.md).
+- All seven current browser starts use the shared modal. Jobs owns status, polling and retry.
+  Counterfactual editing, pipeline review/editing, calibration evidence editing and apply remain
+  separate actions. No browser caller exists for `event_import`,
+  `proposed_card_scene_creation` or `calibration_preview`; their backend/agent capabilities remain.
+- Checks: focused component/API tests, caller source audit, browser route checks, typecheck, lint,
+  formatting, generated API verification, local Markdown links and `git diff --check` are recorded
+  in the M9 report.
+- Limits: M10 still needs the full workflow verification and closure review.
+- Next: M10, verify the complete workflow and close.
+- Run counts: requested 11 milestones, completed 10, remaining 1.
 
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision

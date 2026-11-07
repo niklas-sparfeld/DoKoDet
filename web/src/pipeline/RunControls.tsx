@@ -75,12 +75,6 @@ const RUN_STAGE_KEYS: readonly RunStageKey[] = [
   "visual_identities",
 ];
 
-const RUN_STAGE_LABELS: Record<RunStageKey, string> = {
-  events: "event detection",
-  visible_cards: "visible-card detection",
-  visual_identities: "visual identity classification",
-};
-
 const UPSTREAM_STAGE: Record<Exclude<RunStageKey, "events">, RunStageKey> = {
   visible_cards: "events",
   visual_identities: "visible_cards",
@@ -91,7 +85,6 @@ type RunControlsProps = {
   stage: PipelineWorkspaceStage;
   stages: PipelineWorkspaceStage[];
   onRefresh: () => Promise<void>;
-  compact?: boolean;
 };
 
 type RunFacts = {
@@ -108,7 +101,6 @@ export function RunControls({
   stage,
   stages,
   onRefresh,
-  compact = false,
 }: RunControlsProps) {
   const client = useMemo(
     () => ({ ...createJobsClient(), ...createPipelineProcessingClient() }),
@@ -717,21 +709,9 @@ export function RunControls({
 
   return (
     <section
-      className={`${styles.pipelineRunControls} ${compact ? styles.pipelineRunControlsCompact : ""}`}
-      aria-labelledby={compact ? undefined : "run-controls-heading"}
+      className={styles.pipelineRunControls}
+      aria-label="Processor actions"
     >
-      {!compact ? (
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.statusLabel}>Processor controls</p>
-            <h3 id="run-controls-heading">Run {RUN_STAGE_LABELS[runStage]}</h3>
-          </div>
-          {selectedRun !== null ? (
-            <StatusBadge value={selectedRun.status} />
-          ) : null}
-        </div>
-      ) : null}
-
       {stage.run_blockers.length > 0 &&
       runStage !== "events" &&
       runStage !== "visible_cards" &&

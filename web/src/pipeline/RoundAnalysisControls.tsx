@@ -16,7 +16,6 @@ export type RoundAnalysisControlsProps = {
   selectedAnalysisId: string | null;
   onRefresh: () => Promise<void>;
   onSelectAnalysis: (analysisId: string | null) => void;
-  compact?: boolean;
 };
 
 export function RoundAnalysisControls({

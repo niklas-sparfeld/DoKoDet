@@ -16,7 +16,6 @@ export type ObservationRunControlsProps = {
   stage: PipelineWorkspaceStage;
   stages: PipelineWorkspaceStage[];
   onRefresh: () => Promise<void>;
-  compact?: boolean;
 };
 
 const INPUT_ROLES = ["events", "visible_cards", "visual_identities"] as const;

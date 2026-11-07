@@ -21,17 +21,13 @@ export function createPipelineProcessingClient(
 ): Pick<
   DokoDetectorClient,
   | "startAutomatedPipelineRun"
-  | "getAutomatedPipelineRun"
   | "getRecordingPipeline"
   | "updatePipelineSelection"
   | "comparePipelineRuns"
-  | "startVisibleCardRun"
-  | "startProposedCardSceneRun"
   | "listProposedCardSceneRuns"
   | "getProposedCardSceneResult"
   | "startVisualIdentityRun"
   | "listVisualIdentityProposedCropInputs"
-  | "startObservationRun"
   | "getEventResult"
   | "getVisibleCardResult"
   | "getVisualIdentityResult"
@@ -47,12 +43,6 @@ export function createPipelineProcessingClient(
           headers: jsonHeaders(init?.headers),
           body: JSON.stringify(payload),
         },
-      ),
-    getAutomatedPipelineRun: (recordingId, runId, init) =>
-      requestJson<AutomatedPipelineRun>(
-        fetchImplementation,
-        `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/runs/${encodeURIComponent(runId)}`,
-        init,
       ),
     getRecordingPipeline: (recordingId, init, stageKey) =>
       requestJson<PipelineWorkspace>(
@@ -75,28 +65,6 @@ export function createPipelineProcessingClient(
       requestJson<PipelineComparisonResponse>(
         fetchImplementation,
         pipelineComparisonPath(recordingId),
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
-    startVisibleCardRun: (recordingId, payload, init) =>
-      requestJson<PipelineRunResponse>(
-        fetchImplementation,
-        pipelineVisibleCardRunsPath(recordingId),
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
-      ),
-    startProposedCardSceneRun: (recordingId, payload, init) =>
-      requestJson<PipelineProposalRunResponse>(
-        fetchImplementation,
-        pipelineProposedCardSceneRunsPath(recordingId),
         {
           ...init,
           method: "POST",
@@ -135,17 +103,6 @@ export function createPipelineProcessingClient(
         fetchImplementation,
         `${pipelineVisualIdentityRunsPath(recordingId)}/proposed-crop-inputs`,
         init,
-      ),
-    startObservationRun: (recordingId, payload, init) =>
-      requestJson<PipelineRunResponse>(
-        fetchImplementation,
-        pipelineObservationRunsPath(recordingId),
-        {
-          ...init,
-          method: "POST",
-          headers: jsonHeaders(init?.headers),
-          body: JSON.stringify(payload),
-        },
       ),
     getEventResult: (recordingId, runId, init) =>
       requestJson<PipelineEventResult>(
@@ -203,10 +160,6 @@ export function pipelineEventResultPath(
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/events/${encodeURIComponent(runId)}/result`;
 }
 
-export function pipelineVisibleCardRunsPath(recordingId: string): string {
-  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visible-cards`;
-}
-
 export function pipelineProposedCardSceneRunsPath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/proposed-card-scenes`;
 }
@@ -227,10 +180,6 @@ export function pipelineProposedCardSceneResultPath(
 
 export function pipelineVisualIdentityRunsPath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/visual-identities`;
-}
-
-export function pipelineObservationRunsPath(recordingId: string): string {
-  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/observations`;
 }
 
 export function pipelineVisibleCardResultPath(
