@@ -1,0 +1,90 @@
+{
+  "artifacts": {},
+  "created_at": "2026-11-07T09:32:24.635849+00:00",
+  "kind": "controlled_http",
+  "metadata": {
+    "fixture": {
+      "profile": "hard",
+      "source_manifest_sha256": "12932553c300d7d1b9da111920ebaad02425b1cdd4955c8d366b833886e694c1"
+    },
+    "machine": {
+      "cpu_count": 12,
+      "machine": "arm64",
+      "processor": "arm",
+      "python": "3.13.18",
+      "release": "27.2.0",
+      "system": "Darwin"
+    }
+  },
+  "protocol": {
+    "cache_reset": "fresh isolated app per invocation; in-app caches persist across samples",
+    "media_max_bytes": 65536,
+    "repeats": 3,
+    "timeout_seconds": 30.0,
+    "warmups": 1
+  },
+  "run_id": "10792c0c-3e36-4125-9dbf-50f82fef9178",
+  "samples": [
+    {
+      "case": "jobs_json",
+      "duration_ns": 670875,
+      "error": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200
+    },
+    {
+      "case": "video_range",
+      "duration_ns": 505707708,
+      "error": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 65536,
+      "response_sha256": "c2f9d24cf86f2fa72f7aff301b76109948d85d4d110ec09da795b490434ca94b",
+      "status_code": 206
+    },
+    {
+      "case": "jobs_json",
+      "duration_ns": 782583,
+      "error": null,
+      "iteration": 1,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200
+    },
+    {
+      "case": "video_range",
+      "duration_ns": 507510250,
+      "error": null,
+      "iteration": 1,
+      "ok": true,
+      "response_bytes": 65536,
+      "response_sha256": "c2f9d24cf86f2fa72f7aff301b76109948d85d4d110ec09da795b490434ca94b",
+      "status_code": 206
+    },
+    {
+      "case": "jobs_json",
+      "duration_ns": 732708,
+      "error": null,
+      "iteration": 2,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200
+    },
+    {
+      "case": "video_range",
+      "duration_ns": 509184250,
+      "error": null,
+      "iteration": 2,
+      "ok": true,
+      "response_bytes": 65536,
+      "response_sha256": "c2f9d24cf86f2fa72f7aff301b76109948d85d4d110ec09da795b490434ca94b",
+      "status_code": 206
+    }
+  ],
+  "schema_version": "interactive-ui-performance-result/v1"
+}

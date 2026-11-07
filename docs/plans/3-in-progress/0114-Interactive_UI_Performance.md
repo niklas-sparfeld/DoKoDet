@@ -321,6 +321,27 @@ Deferring startup cost to the first UI request is not an improvement unless both
   pinned local hard asset is absent. Generated profiles run without developer data.
 - Run count: requested 11 milestones; completed 2; remaining 9.
 
+### M2 — complete
+
+- Changes: added `backend/scripts/run_interactive_ui_performance.py` with controlled ASGI HTTP,
+  isolated loopback process profiles (`empty`, `hard_populated`, and `interrupted_recovery`), raw
+  JSON/CSV export, machine and fixture metadata, bounded video ranges, and an advisory result
+  comparator. The hard process profile reaches both recordings and workspace responses. The
+  recovery profile creates a valid running job and checks that startup marks it interrupted.
+  Detailed protocol and measured examples are in
+  `docs/reports/0114-M2_Endpoint_and_Startup_Timing_Harness.md`; raw exports are beside it.
+- Checks: seven focused pytest cases pass; scoped Ruff and formatting pass. Three repeated empty
+  startup and interrupted recovery runs pass. Three controlled JSON and 64 KiB media samples pass.
+  One hard startup run passes and records 3.03 s to recordings and 4.76 s to workspace. Timeout
+  cleanup is covered by a process test. Comparator tests catch slowdown, incompatible profiles,
+  and invalid responses.
+- Decisions and limits: the controlled runner uses an in-process ASGI transport so it can isolate
+  app storage and cache policy. The startup runner uses real loopback HTTP. The comparator remains
+  advisory; no baseline or regression gate is enabled. The hard startup measurement is one sample,
+  not a stable baseline.
+- Next: M3 executable coverage for inventoried UI JSON reads and polling.
+- Run count: requested 11 milestones; completed 3; remaining 8.
+
 The user requested interactive UI endpoint speed coverage and backend startup timings. This epic
 includes two bounded improvement cycles, not an open-ended optimization loop. No persistent run or
-This invocation authorizes M1 only. Preserve unrelated worktree changes.
+This invocation authorizes M2 only. Preserve unrelated worktree changes.

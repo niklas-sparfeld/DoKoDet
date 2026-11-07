@@ -1,0 +1,106 @@
+{
+  "artifacts": {
+    "trial_logs": [
+      "docs/reports/0114-M2_Hard_Startup_Samples.artifacts/hard_populated/trial-00/backend-output.log"
+    ]
+  },
+  "created_at": "2026-11-07T09:26:15.301670+00:00",
+  "kind": "loopback_startup",
+  "metadata": {
+    "fixture": {
+      "profile": "hard_populated",
+      "source_manifest_sha256": "12932553c300d7d1b9da111920ebaad02425b1cdd4955c8d366b833886e694c1"
+    },
+    "machine": {
+      "cpu_count": 12,
+      "machine": "arm64",
+      "processor": "arm",
+      "python": "3.13.18",
+      "release": "27.2.0",
+      "system": "Darwin"
+    }
+  },
+  "protocol": {
+    "cache_reset": "fresh process and temporary roots for every cold trial",
+    "process_runs": [
+      {
+        "environment": "isolated temporary roots",
+        "launch_command": [
+          "/Users/niklas.sparfeld/Developer/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "startup_to_useful_ns": 8388786167,
+        "timeout_seconds": 30.0
+      }
+    ],
+    "repeats": 1,
+    "timeout_seconds_per_trial": 30.0,
+    "warmups": 0
+  },
+  "run_id": "16d2713c-24a7-49e3-9c2b-4c6d1b10c4a6",
+  "runs": [
+    "0d675cae-10bb-411c-b53d-4c53af898c04"
+  ],
+  "samples": [
+    {
+      "case": "health_live",
+      "duration_ns": 593550667,
+      "error": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200
+    },
+    {
+      "case": "health_ready",
+      "duration_ns": 3536334,
+      "error": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200
+    },
+    {
+      "case": "recordings_first_use",
+      "duration_ns": 3031955500,
+      "error": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 817,
+      "response_sha256": "238e26bcbcb6092fc42164d111120c7da10fa59f446258407ef0e88022ec7766",
+      "status_code": 200
+    },
+    {
+      "case": "workspace_first_use",
+      "duration_ns": 4759670459,
+      "error": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 47943,
+      "response_sha256": "ca703f89764fe9fd2873be542cb7d99d1fee708cd9ee4c6bbbd54b0da0517b51",
+      "status_code": 200
+    },
+    {
+      "case": "jobs_json",
+      "duration_ns": 1683000,
+      "error": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200
+    }
+  ],
+  "schema_version": "interactive-ui-performance-result/v1"
+}
