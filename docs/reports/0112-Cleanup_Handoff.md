@@ -97,8 +97,8 @@ Three examples show the files needed for a change:
   `mise exec -- uv run --project backend ruff check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
   — passed; `mise exec -- uv run --project backend ruff format --check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
   — passed.
-- Epic 0116 M0 correction, verified on integrated source revision `acd64c41e`:
-  `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py` — 9 passed;
+- Epic 0116 M0 final correction, verified on integrated source revision `17163374c`:
+  `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py` — 10 passed;
   `python scripts/check_0112_boundaries.py` — passed all explicit budgets and import directions;
   `mise exec -- uv run --project backend ruff check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
   — passed; `mise exec -- uv run --project backend ruff format --check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
@@ -124,9 +124,10 @@ production behavior or demonstrate speed gains.
 
 ## Epic 0116 M0 closeout
 
-The scanner tokenizes TypeScript code before matching imports. It ignores comments and ordinary
-string contents, checks quoted and static template-literal module paths, and recognizes `.ts` and
-`.tsx` fixture suffixes and `__tests__` segments. Focused tests cover static imports, re-exports,
-quoted and template-literal dynamic imports, `require`, valid production imports, and test-only
-files. The repository guard and Ruff checks pass. The correction was verified on integrated source
-revision `acd64c41e`; its implementation is committed in `57d8e6b2`.
+The scanner tokenizes TypeScript code before matching imports. It inspects executable template
+interpolations and skips regex literals, comments, and ordinary string contents. It checks quoted
+and static template-literal module paths, and recognizes `.ts` and `.tsx` fixture suffixes and
+`__tests__` segments. Focused tests cover static imports, re-exports, quoted and template-literal
+dynamic imports, imports inside template interpolations, `require`, regex literals, valid production
+imports, and test-only files. The repository guard and Ruff checks pass. The correction was
+verified on integrated source revision `17163374c`; its implementation is committed in `36921cc7`.
