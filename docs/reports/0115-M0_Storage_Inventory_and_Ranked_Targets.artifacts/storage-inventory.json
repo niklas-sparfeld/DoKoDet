@@ -1,0 +1,1186 @@
+{
+  "head": "682dcb7baafdf0f089a5ee3b33e093808419bf54",
+  "ignore_samples": [
+    {
+      "ignored": true,
+      "path": "data/operations/pipeline-nodes",
+      "rule": ".gitignore:32:/data/operations/*\tdata/operations/pipeline-nodes"
+    },
+    {
+      "ignored": true,
+      "path": "data/models",
+      "rule": ".gitignore:25:/data/*\tdata/models"
+    },
+    {
+      "ignored": false,
+      "path": ".runtime",
+      "rule": ""
+    },
+    {
+      "ignored": true,
+      "path": "data/operations-recovery",
+      "rule": ".gitignore:25:/data/*\tdata/operations-recovery"
+    }
+  ],
+  "other_worktree_summaries": [
+    {
+      "allocated_kib_du": 18865176,
+      "branch": null,
+      "detached": true,
+      "head": "aea12a9cdcf2a14513e3ea0d0ab5d9f0ceb9e7cd",
+      "locked": null,
+      "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-06bcc178-643c-45ee-97b0-ef0164590b88/doko_detector",
+      "summary": {
+        "allocated_kib_du": 18865176,
+        "extensions": [
+          {
+            "extension": ".json",
+            "files": 32590
+          },
+          {
+            "extension": ".h",
+            "files": 9077
+          },
+          {
+            "extension": ".py",
+            "files": 8875
+          },
+          {
+            "extension": ".js",
+            "files": 5397
+          },
+          {
+            "extension": ".ts",
+            "files": 3168
+          },
+          {
+            "extension": "[none]",
+            "files": 1469
+          },
+          {
+            "extension": ".pyc",
+            "files": 995
+          },
+          {
+            "extension": ".map",
+            "files": 975
+          }
+        ],
+        "hard_link_paths": 0,
+        "largest": [
+          {
+            "bytes": 1061930405,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-06bcc178-643c-45ee-97b0-ef0164590b88/doko_detector/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov"
+          },
+          {
+            "bytes": 869798284,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-06bcc178-643c-45ee-97b0-ef0164590b88/doko_detector/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov"
+          },
+          {
+            "bytes": 708244420,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-06bcc178-643c-45ee-97b0-ef0164590b88/doko_detector/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov"
+          },
+          {
+            "bytes": 678222998,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-06bcc178-643c-45ee-97b0-ef0164590b88/doko_detector/data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov"
+          },
+          {
+            "bytes": 637371800,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-06bcc178-643c-45ee-97b0-ef0164590b88/doko_detector/data/intake/recordings/game-2026-08-20-01-004/videos/game-2026-08-20-01-004-video.mov"
+          }
+        ],
+        "logical_bytes": 19144534924,
+        "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-06bcc178-643c-45ee-97b0-ef0164590b88/doko_detector",
+        "path_allocated_bytes": 19317940224,
+        "regular_files": 67354,
+        "symlinks": 32
+      }
+    },
+    {
+      "allocated_kib_du": 18634444,
+      "branch": null,
+      "detached": true,
+      "head": "89ad7f9b1ae70b8d9f6c62bd3b2aed3bed7d5300",
+      "locked": null,
+      "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector",
+      "summary": {
+        "allocated_kib_du": 18634444,
+        "extensions": [
+          {
+            "extension": ".json",
+            "files": 32585
+          },
+          {
+            "extension": ".h",
+            "files": 9049
+          },
+          {
+            "extension": ".py",
+            "files": 7752
+          },
+          {
+            "extension": ".js",
+            "files": 5396
+          },
+          {
+            "extension": ".ts",
+            "files": 3172
+          },
+          {
+            "extension": ".pyc",
+            "files": 1514
+          },
+          {
+            "extension": "[none]",
+            "files": 1341
+          },
+          {
+            "extension": ".map",
+            "files": 975
+          }
+        ],
+        "hard_link_paths": 0,
+        "largest": [
+          {
+            "bytes": 1061930405,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov"
+          },
+          {
+            "bytes": 869798284,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov"
+          },
+          {
+            "bytes": 708244420,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov"
+          },
+          {
+            "bytes": 678222998,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov"
+          },
+          {
+            "bytes": 637371800,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/data/intake/recordings/game-2026-08-20-01-004/videos/game-2026-08-20-01-004-video.mov"
+          }
+        ],
+        "logical_bytes": 18914005057,
+        "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector",
+        "path_allocated_bytes": 19081670656,
+        "regular_files": 65737,
+        "symlinks": 29
+      }
+    },
+    {
+      "allocated_kib_du": 18633988,
+      "branch": null,
+      "detached": true,
+      "head": "f643586f2b57262545255828dcb77867f94e8059",
+      "locked": null,
+      "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-8302f3d2-911c-4776-9e7d-90ada947d4c0/doko_detector",
+      "summary": {
+        "allocated_kib_du": 18633988,
+        "extensions": [
+          {
+            "extension": ".json",
+            "files": 32583
+          },
+          {
+            "extension": ".h",
+            "files": 9049
+          },
+          {
+            "extension": ".py",
+            "files": 7752
+          },
+          {
+            "extension": ".js",
+            "files": 5396
+          },
+          {
+            "extension": ".ts",
+            "files": 3172
+          },
+          {
+            "extension": ".pyc",
+            "files": 1523
+          },
+          {
+            "extension": "[none]",
+            "files": 1344
+          },
+          {
+            "extension": ".map",
+            "files": 975
+          }
+        ],
+        "hard_link_paths": 0,
+        "largest": [
+          {
+            "bytes": 1061930405,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-8302f3d2-911c-4776-9e7d-90ada947d4c0/doko_detector/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov"
+          },
+          {
+            "bytes": 869798284,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-8302f3d2-911c-4776-9e7d-90ada947d4c0/doko_detector/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov"
+          },
+          {
+            "bytes": 708244420,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-8302f3d2-911c-4776-9e7d-90ada947d4c0/doko_detector/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov"
+          },
+          {
+            "bytes": 678222998,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-8302f3d2-911c-4776-9e7d-90ada947d4c0/doko_detector/data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov"
+          },
+          {
+            "bytes": 637371800,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-8302f3d2-911c-4776-9e7d-90ada947d4c0/doko_detector/data/intake/recordings/game-2026-08-20-01-004/videos/game-2026-08-20-01-004-video.mov"
+          }
+        ],
+        "logical_bytes": 18913645073,
+        "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-8302f3d2-911c-4776-9e7d-90ada947d4c0/doko_detector",
+        "path_allocated_bytes": 19081203712,
+        "regular_files": 65710,
+        "symlinks": 29
+      }
+    },
+    {
+      "allocated_kib_du": 14480640,
+      "branch": null,
+      "detached": true,
+      "head": "80e755c0b28f19babebf0c88814750600a4a30d3",
+      "locked": "initializing",
+      "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4/doko_detector",
+      "summary": {
+        "allocated_kib_du": 14480640,
+        "extensions": [
+          {
+            "extension": ".py",
+            "files": 254
+          },
+          {
+            "extension": ".json",
+            "files": 192
+          },
+          {
+            "extension": ".mov",
+            "files": 54
+          },
+          {
+            "extension": ".md",
+            "files": 9
+          },
+          {
+            "extension": "[none]",
+            "files": 4
+          },
+          {
+            "extension": ".toml",
+            "files": 4
+          },
+          {
+            "extension": ".yaml",
+            "files": 4
+          },
+          {
+            "extension": ".pth",
+            "files": 3
+          }
+        ],
+        "hard_link_paths": 0,
+        "largest": [
+          {
+            "bytes": 869798284,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4/doko_detector/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov"
+          },
+          {
+            "bytes": 708244420,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4/doko_detector/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov"
+          },
+          {
+            "bytes": 678222998,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4/doko_detector/data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov"
+          },
+          {
+            "bytes": 637371800,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4/doko_detector/data/intake/recordings/game-2026-08-20-01-004/videos/game-2026-08-20-01-004-video.mov"
+          },
+          {
+            "bytes": 625609570,
+            "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4/doko_detector/data/intake/recordings/game-2026-08-20-01-002/videos/game-2026-08-20-01-002-video.mov"
+          }
+        ],
+        "logical_bytes": 14826874020,
+        "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4/doko_detector",
+        "path_allocated_bytes": 14828175360,
+        "regular_files": 530,
+        "symlinks": 0
+      }
+    }
+  ],
+  "registered_worktrees": [
+    {
+      "HEAD": "682dcb7baafdf0f089a5ee3b33e093808419bf54",
+      "branch": "refs/heads/main",
+      "worktree": "/Users/niklas.sparfeld/Developer/doko_detector"
+    },
+    {
+      "HEAD": "aea12a9cdcf2a14513e3ea0d0ab5d9f0ceb9e7cd",
+      "detached": true,
+      "worktree": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-06bcc178-643c-45ee-97b0-ef0164590b88/doko_detector"
+    },
+    {
+      "HEAD": "89ad7f9b1ae70b8d9f6c62bd3b2aed3bed7d5300",
+      "detached": true,
+      "worktree": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector"
+    },
+    {
+      "HEAD": "f643586f2b57262545255828dcb77867f94e8059",
+      "detached": true,
+      "worktree": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-8302f3d2-911c-4776-9e7d-90ada947d4c0/doko_detector"
+    },
+    {
+      "HEAD": "80e755c0b28f19babebf0c88814750600a4a30d3",
+      "detached": true,
+      "locked": "initializing",
+      "worktree": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4/doko_detector"
+    }
+  ],
+  "repository": "/Users/niklas.sparfeld/Developer/doko_detector",
+  "roots": {
+    ".runtime": {
+      "allocated_kib_du": 44710832,
+      "extensions": [
+        {
+          "extension": ".jpg",
+          "files": 129063
+        },
+        {
+          "extension": ".json",
+          "files": 52962
+        },
+        {
+          "extension": ".bin",
+          "files": 30290
+        },
+        {
+          "extension": ".ppm",
+          "files": 9947
+        },
+        {
+          "extension": ".png",
+          "files": 9790
+        },
+        {
+          "extension": ".pgm",
+          "files": 4238
+        },
+        {
+          "extension": ".pth",
+          "files": 66
+        },
+        {
+          "extension": ".log",
+          "files": 39
+        }
+      ],
+      "hard_link_paths": 10254,
+      "largest": [
+        {
+          "bytes": 567065703,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_9.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_39.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_29.ckpt"
+        }
+      ],
+      "logical_bytes": 46326581638,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime",
+      "path_allocated_bytes": 46856118272,
+      "regular_files": 236521,
+      "symlinks": 9094
+    },
+    ".runtime/gemini-cache": {
+      "allocated_kib_du": 2864432,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 18655
+        }
+      ],
+      "hard_link_paths": 0,
+      "largest": [
+        {
+          "bytes": 2535108,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/gemini-cache/visible-cards/84/84221d85d542d73c0014425bc8d2852cb0ce9c5c14a7436b0acc7768f315f037.json"
+        },
+        {
+          "bytes": 2467859,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/gemini-cache/visible-cards/b7/b7a599e964c997fdc266685b16fc082dd10589beec447a3ecef3212140464c66.json"
+        },
+        {
+          "bytes": 2467845,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/gemini-cache/visible-cards/ae/aefd25a3e864f480fd9c5a94a1f47c291786c9835eddf44d05a7eeb33b881a6b.json"
+        },
+        {
+          "bytes": 2418459,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/gemini-cache/visible-cards/bc/bc84b3689aaf883e5f41eb4e211761df9d9649832f192311844562892d069cd0.json"
+        },
+        {
+          "bytes": 2408157,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/gemini-cache/visible-cards/ca/ca9881d59b1fb57304b73cfe49a097ac8b521357caa8dee653cabf46f045e743.json"
+        }
+      ],
+      "logical_bytes": 2896399193,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/gemini-cache",
+      "path_allocated_bytes": 2933178368,
+      "regular_files": 18655,
+      "symlinks": 0
+    },
+    ".runtime/pipeline/derived-views": {
+      "allocated_kib_du": 6832632,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 30131
+        },
+        {
+          "extension": ".bin",
+          "files": 30082
+        },
+        {
+          "extension": ".jpg",
+          "files": 11590
+        },
+        {
+          "extension": "[none]",
+          "files": 1
+        }
+      ],
+      "hard_link_paths": 0,
+      "largest": [
+        {
+          "bytes": 2926444,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/pipeline/derived-views/9de359af693b56fd3f35157142733363e19b555ef09eac1c7652fd643e9cb6c7/content.bin"
+        },
+        {
+          "bytes": 2926444,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/pipeline/derived-views/8d9a57612f501597f01c46c8c3d10f6eefefcf91f8950bc0e0efc2daab362d5a/content.bin"
+        },
+        {
+          "bytes": 2919694,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/pipeline/derived-views/933312cb1d613d0ae3e237d9a0d47f226ab708ea71c2c3e317bbafc1cc515302/content.bin"
+        },
+        {
+          "bytes": 2918146,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/pipeline/derived-views/ab54b2f6a196b4a4af981a1a32feee6773c424053ce6b3149a98e862cc5e605a/content.bin"
+        },
+        {
+          "bytes": 2904316,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/pipeline/derived-views/f264db11d8db7ce3246841d49db4fd90e4527c92f66f684fd968a1ddbb66b599/content.bin"
+        }
+      ],
+      "logical_bytes": 6820761966,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/pipeline/derived-views",
+      "path_allocated_bytes": 6996615168,
+      "regular_files": 71804,
+      "symlinks": 0
+    },
+    ".runtime/rfdetr-segmentation-0092-m4": {
+      "allocated_kib_du": 3632944,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 10
+        },
+        {
+          "extension": ".pth",
+          "files": 5
+        },
+        {
+          "extension": ".ckpt",
+          "files": 5
+        },
+        {
+          "extension": ".jsonl",
+          "files": 3
+        },
+        {
+          "extension": ".csv",
+          "files": 3
+        },
+        {
+          "extension": ".log",
+          "files": 1
+        },
+        {
+          "extension": ".zsh",
+          "files": 1
+        },
+        {
+          "extension": ".png",
+          "files": 1
+        }
+      ],
+      "hard_link_paths": 0,
+      "largest": [
+        {
+          "bytes": 567065639,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_9.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_39.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_29.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_19.ckpt"
+        }
+      ],
+      "logical_bytes": 3720076995,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4",
+      "path_allocated_bytes": 3720134656,
+      "regular_files": 29,
+      "symlinks": 1748
+    },
+    ".runtime/synthetic-visible-region-0070-all-recordings-training-v2": {
+      "allocated_kib_du": 1941580,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 6
+        },
+        {
+          "extension": ".pth",
+          "files": 5
+        },
+        {
+          "extension": ".ckpt",
+          "files": 2
+        },
+        {
+          "extension": ".csv",
+          "files": 1
+        },
+        {
+          "extension": ".jsonl",
+          "files": 1
+        }
+      ],
+      "hard_link_paths": 0,
+      "largest": [
+        {
+          "bytes": 567008551,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567008423,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/checkpoint_9.ckpt"
+        },
+        {
+          "bytes": 283525416,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/checkpoint_best_regular.pth"
+        },
+        {
+          "bytes": 141830939,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/checkpoint_best_ema.pth"
+        },
+        {
+          "bytes": 141824923,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/checkpoint_best_total.pth"
+        }
+      ],
+      "logical_bytes": 1988142489,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-all-recordings-training-v2",
+      "path_allocated_bytes": 1988177920,
+      "regular_files": 15,
+      "symlinks": 718
+    },
+    ".runtime/synthetic-visible-region-0070-m4-50-50": {
+      "allocated_kib_du": 3919360,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 18
+        },
+        {
+          "extension": ".pth",
+          "files": 10
+        },
+        {
+          "extension": ".log",
+          "files": 9
+        },
+        {
+          "extension": ".ckpt",
+          "files": 4
+        },
+        {
+          "extension": ".csv",
+          "files": 2
+        },
+        {
+          "extension": ".jsonl",
+          "files": 2
+        },
+        {
+          "extension": ".pid",
+          "files": 1
+        },
+        {
+          "extension": ".exit",
+          "files": 1
+        }
+      ],
+      "hard_link_paths": 0,
+      "largest": [
+        {
+          "bytes": 567008615,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567008551,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-m4-50-50/control/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567008487,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/rfdetr/checkpoint_9.ckpt"
+        },
+        {
+          "bytes": 567008359,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-m4-50-50/control/rfdetr/checkpoint_9.ckpt"
+        },
+        {
+          "bytes": 283525544,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/rfdetr/checkpoint_best_regular.pth"
+        }
+      ],
+      "logical_bytes": 4013318184,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-m4-50-50",
+      "path_allocated_bytes": 4013424640,
+      "regular_files": 48,
+      "symlinks": 1901
+    },
+    "data": {
+      "allocated_kib_du": 52599556,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 240209
+        },
+        {
+          "extension": ".lock",
+          "files": 8499
+        },
+        {
+          "extension": ".jpg",
+          "files": 5031
+        },
+        {
+          "extension": ".ppm",
+          "files": 1706
+        },
+        {
+          "extension": ".mp4",
+          "files": 741
+        },
+        {
+          "extension": ".jpeg",
+          "files": 672
+        },
+        {
+          "extension": ".png",
+          "files": 174
+        },
+        {
+          "extension": ".mov",
+          "files": 109
+        }
+      ],
+      "hard_link_paths": 60,
+      "largest": [
+        {
+          "bytes": 1061930405,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov"
+        },
+        {
+          "bytes": 1061930405,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov"
+        },
+        {
+          "bytes": 869798284,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov"
+        },
+        {
+          "bytes": 869798284,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov"
+        },
+        {
+          "bytes": 708244420,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov"
+        }
+      ],
+      "logical_bytes": 53241325059,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/data",
+      "path_allocated_bytes": 53861945344,
+      "regular_files": 257463,
+      "symlinks": 0
+    },
+    "data/intake": {
+      "allocated_kib_du": 15952700,
+      "extensions": [
+        {
+          "extension": ".jpg",
+          "files": 1175
+        },
+        {
+          "extension": ".json",
+          "files": 1096
+        },
+        {
+          "extension": ".mp4",
+          "files": 195
+        },
+        {
+          "extension": ".mov",
+          "files": 58
+        },
+        {
+          "extension": "[none]",
+          "files": 6
+        }
+      ],
+      "hard_link_paths": 16,
+      "largest": [
+        {
+          "bytes": 1061930405,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov"
+        },
+        {
+          "bytes": 869798284,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov"
+        },
+        {
+          "bytes": 708244420,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov"
+        },
+        {
+          "bytes": 678222998,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov"
+        },
+        {
+          "bytes": 637371800,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings/game-2026-08-20-01-004/videos/game-2026-08-20-01-004-video.mov"
+        }
+      ],
+      "logical_bytes": 16329218751,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake",
+      "path_allocated_bytes": 16335564800,
+      "regular_files": 2530,
+      "symlinks": 0
+    },
+    "data/models": {
+      "allocated_kib_du": 84440,
+      "extensions": [
+        {
+          "extension": "[none]",
+          "files": 3
+        },
+        {
+          "extension": ".json",
+          "files": 3
+        },
+        {
+          "extension": ".md",
+          "files": 2
+        },
+        {
+          "extension": ".safetensors",
+          "files": 1
+        }
+      ],
+      "hard_link_paths": 0,
+      "largest": [
+        {
+          "bytes": 86406384,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/models/dinov3-vits16-pretrain-lvd1689m/model.safetensors"
+        },
+        {
+          "bytes": 14519,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/models/dinov3-vits16-pretrain-lvd1689m/README.md"
+        },
+        {
+          "bytes": 8196,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/models/.DS_Store"
+        },
+        {
+          "bytes": 7503,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/models/dinov3-vits16-pretrain-lvd1689m/LICENSE.md"
+        },
+        {
+          "bytes": 743,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/models/dinov3-vits16-pretrain-lvd1689m/config.json"
+        }
+      ],
+      "logical_bytes": 86438483,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/models",
+      "path_allocated_bytes": 86466560,
+      "regular_files": 9,
+      "symlinks": 0
+    },
+    "data/operations": {
+      "allocated_kib_du": 4473724,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 58757
+        },
+        {
+          "extension": ".lock",
+          "files": 2513
+        },
+        {
+          "extension": ".ppm",
+          "files": 853
+        },
+        {
+          "extension": ".jpeg",
+          "files": 336
+        },
+        {
+          "extension": ".jpg",
+          "files": 155
+        },
+        {
+          "extension": ".yaml",
+          "files": 6
+        },
+        {
+          "extension": "[none]",
+          "files": 4
+        },
+        {
+          "extension": ".pt",
+          "files": 3
+        }
+      ],
+      "hard_link_paths": 44,
+      "largest": [
+        {
+          "bytes": 86577863,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/dinov3-identity-campaigns/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/candidate-run/checkpoint-last.pt"
+        },
+        {
+          "bytes": 86577863,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/dinov3-identity-campaigns/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/candidate-run/checkpoint-best.pt"
+        },
+        {
+          "bytes": 86406384,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/dinov3-identity-bundles/0043-m1-dinov3-identity-75000a5eec53a52f088f9e6e/model.safetensors"
+        },
+        {
+          "bytes": 45514205,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-nodes/.coordinated-transactions/m11-remove-review-metadata-visual_identities-20261106.json"
+        },
+        {
+          "bytes": 33318370,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-nodes/.coordinated-transactions/m11-remove-review-metadata-visible_cards-20261106.json"
+        }
+      ],
+      "logical_bytes": 4421649221,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations",
+      "path_allocated_bytes": 4581093376,
+      "regular_files": 62629,
+      "symlinks": 0
+    },
+    "data/operations-recovery": {
+      "allocated_kib_du": 31611548,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 180116
+        },
+        {
+          "extension": ".lock",
+          "files": 5986
+        },
+        {
+          "extension": ".jpg",
+          "files": 3446
+        },
+        {
+          "extension": ".ppm",
+          "files": 853
+        },
+        {
+          "extension": ".mp4",
+          "files": 546
+        },
+        {
+          "extension": ".jpeg",
+          "files": 336
+        },
+        {
+          "extension": ".mov",
+          "files": 51
+        },
+        {
+          "extension": "[none]",
+          "files": 19
+        }
+      ],
+      "hard_link_paths": 0,
+      "largest": [
+        {
+          "bytes": 1061930405,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov"
+        },
+        {
+          "bytes": 869798284,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov"
+        },
+        {
+          "bytes": 708244420,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov"
+        },
+        {
+          "bytes": 678222998,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov"
+        },
+        {
+          "bytes": 625609570,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-002/videos/game-2026-08-20-01-002-video.mov"
+        }
+      ],
+      "logical_bytes": 31917249608,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery",
+      "path_allocated_bytes": 32370225152,
+      "regular_files": 191373,
+      "symlinks": 0
+    },
+    "data/operations-recovery/0108-m10-20261105": {
+      "allocated_kib_du": 25308248,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 135813
+        },
+        {
+          "extension": ".jpg",
+          "files": 3446
+        },
+        {
+          "extension": ".lock",
+          "files": 1667
+        },
+        {
+          "extension": ".ppm",
+          "files": 853
+        },
+        {
+          "extension": ".mp4",
+          "files": 546
+        },
+        {
+          "extension": ".jpeg",
+          "files": 336
+        },
+        {
+          "extension": ".mov",
+          "files": 51
+        },
+        {
+          "extension": "[none]",
+          "files": 19
+        }
+      ],
+      "hard_link_paths": 0,
+      "largest": [
+        {
+          "bytes": 1061930405,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov"
+        },
+        {
+          "bytes": 869798284,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov"
+        },
+        {
+          "bytes": 708244420,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov"
+        },
+        {
+          "bytes": 678222998,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov"
+        },
+        {
+          "bytes": 625609570,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-002/videos/game-2026-08-20-01-002-video.mov"
+        }
+      ],
+      "logical_bytes": 25608373607,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105",
+      "path_allocated_bytes": 25915645952,
+      "regular_files": 142746,
+      "symlinks": 0
+    },
+    "data/operations/pipeline": {
+      "allocated_kib_du": 1727312,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 31536
+        },
+        {
+          "extension": ".lock",
+          "files": 1505
+        }
+      ],
+      "hard_link_paths": 0,
+      "largest": [
+        {
+          "bytes": 8019951,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline/revisions/visual-identities-visual_identities-run-debcf221-570-attempt-1/content.json"
+        },
+        {
+          "bytes": 8019951,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline/revisions/repair-0100-m5-a9500f1b171bf6ce5d03ca0f84513ed8/content.json"
+        },
+        {
+          "bytes": 7802732,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline/revisions/repair-0100-m5-9054cab791669fe4847fb2cc83bf44ce/content.json"
+        },
+        {
+          "bytes": 7800821,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline/revisions/reference-visible_cards-25c56fb38af9a5604283bbc57789e690/content.json"
+        },
+        {
+          "bytes": 7112031,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline/revisions/visual-identities-visual_identities-run-fix-1574-attempt-1/content.json"
+        }
+      ],
+      "logical_bytes": 1701103564,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline",
+      "path_allocated_bytes": 1768767488,
+      "regular_files": 33041,
+      "symlinks": 0
+    },
+    "data/operations/pipeline-nodes": {
+      "allocated_kib_du": 1746496,
+      "extensions": [
+        {
+          "extension": ".json",
+          "files": 26647
+        },
+        {
+          "extension": ".lock",
+          "files": 1007
+        }
+      ],
+      "hard_link_paths": 42,
+      "largest": [
+        {
+          "bytes": 45514205,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-nodes/.coordinated-transactions/m11-remove-review-metadata-visual_identities-20261106.json"
+        },
+        {
+          "bytes": 33318370,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-nodes/.coordinated-transactions/m11-remove-review-metadata-visible_cards-20261106.json"
+        },
+        {
+          "bytes": 24271104,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-nodes/.coordinated-transactions/m11-scene-only-metadata-20261106.json"
+        },
+        {
+          "bytes": 16005605,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-nodes/e0d2e2fb-53ab-59c5-8991-3aba74f828ae/revisions/f78c1e0a-2c0f-5312-98d6-b0b9b6650c0e/revision.json"
+        },
+        {
+          "bytes": 12136454,
+          "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-nodes/b5090a82-d8ba-5714-a66b-6ee4e4e707f1/revisions/dd8b1436-cf47-5104-87c6-6b2b0cc4c572/revision.json"
+        }
+      ],
+      "logical_bytes": 1700808685,
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-nodes",
+      "path_allocated_bytes": 1788411904,
+      "regular_files": 27654,
+      "symlinks": 0
+    },
+    "shared-hard-fixture-cache": {
+      "allocated_kib_du": 1925620,
+      "extensions": [
+        {
+          "extension": "[none]",
+          "files": 60
+        }
+      ],
+      "hard_link_paths": 60,
+      "largest": [
+        {
+          "bytes": 1061930405,
+          "path": "/Users/niklas.sparfeld/.cache/doko-detector/interactive-performance/sha256/b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73"
+        },
+        {
+          "bytes": 557067308,
+          "path": "/Users/niklas.sparfeld/.cache/doko-detector/interactive-performance/sha256/2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa"
+        },
+        {
+          "bytes": 147455393,
+          "path": "/Users/niklas.sparfeld/.cache/doko-detector/interactive-performance/sha256/0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d"
+        },
+        {
+          "bytes": 127322550,
+          "path": "/Users/niklas.sparfeld/.cache/doko-detector/interactive-performance/sha256/8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b"
+        },
+        {
+          "bytes": 16005605,
+          "path": "/Users/niklas.sparfeld/.cache/doko-detector/interactive-performance/sha256/2371a1e08f4b61b7f067e3022c337ebe3b830ffc29c3a34fd94d1a1ed294a8f3"
+        }
+      ],
+      "logical_bytes": 1971647910,
+      "path": "/Users/niklas.sparfeld/.cache/doko-detector",
+      "path_allocated_bytes": 1971834880,
+      "regular_files": 60,
+      "symlinks": 0
+    }
+  },
+  "schema_version": "0115-storage-inventory/v1",
+  "shared_git": {
+    "allocated_kib_du": 32348188,
+    "count_objects": [
+      "count: 56",
+      "size: 388.00 KiB",
+      "in-pack: 128295",
+      "packs: 5",
+      "size-pack: 11.35 GiB",
+      "prune-packable: 0",
+      "garbage: 10",
+      "size-garbage: 2.65 GiB"
+    ],
+    "lfs_file_count": 63,
+    "path": "/Users/niklas.sparfeld/Developer/doko_detector/.git"
+  },
+  "tracked_file_count_data_runtime": 32044,
+  "tracked_file_counts_by_root": {
+    "data/operations/pipeline": 31536,
+    "other": 508
+  }
+}

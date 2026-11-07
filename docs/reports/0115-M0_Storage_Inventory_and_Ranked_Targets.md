@@ -6,13 +6,33 @@ Scope: bounded inventory and target freeze. No retained data was removed.
 
 ## Method and repeatability
 
-The worktree was clean before measurement. The inventory read path metadata and selected manifests.
-It did not parse all retained payloads or inspect sealed test content. Root sizes came from
-`du -k -d 1 data .runtime .git`; the command was run twice with no output differences. The
-`data`, `.runtime`, and `~/.cache/doko-detector` metadata walk was also run twice with identical
-file, byte, extension, link, and largest-file summaries. `du` is allocated directory size. The
-metadata walk totals path sizes and `st_blocks`; it can count APFS clones or hard links more than
-once. Neither result is unique physical space or guaranteed reclaimable space.
+The initial root-size baseline ran from a clean worktree at source revision
+`a17d1d8f34f1441482da9cf1d3f4fb0c6b95de6a`. The repeatable inventory command and application
+profiler ran later at `682dcb7baafdf0f089a5ee3b33e093808419bf54` while only M0 documentation and
+measurement tools were uncommitted. Neither pass changed retained data or runtime code. The
+inventory read path metadata and selected manifests. It did not parse all retained payloads or
+inspect sealed test content. Root sizes came from `du -k -d 1 data .runtime .git`; the command was
+run twice with no output differences. The
+repeatable metadata walk is implemented in [`scripts/inventory_0115_storage.py`](../../scripts/inventory_0115_storage.py).
+It inventories the main roots, shared `.git`, the external content-addressed cache, and each
+registered worktree. It records `du` allocation, logical/path allocation, file counts, extensions,
+largest files, symlinks, hard-link paths, tracked/LFS counts, ignore samples, and worktree state.
+Two runs with unchanged inputs produced byte-identical JSON. `du` is allocated directory size.
+The metadata walk totals path sizes and `st_blocks`; it can count APFS clones or hard links more
+than once. Neither result is unique physical space or guaranteed reclaimable space.
+
+Reproduce it from the repository root:
+
+```sh
+mise exec -- uv run --project backend python scripts/inventory_0115_storage.py --top 5 > /tmp/0115-inventory-a.json
+mise exec -- uv run --project backend python scripts/inventory_0115_storage.py --top 5 > /tmp/0115-inventory-b.json
+cmp /tmp/0115-inventory-a.json /tmp/0115-inventory-b.json
+```
+
+The [retained inventory JSON](0115-M0_Storage_Inventory_and_Ranked_Targets.artifacts/storage-inventory.json)
+is one complete command result. The report tables summarize it. This repeat was captured at
+`682dcb7baafdf0f089a5ee3b33e093808419bf54`; the earlier directory-size baseline remains tied to
+the source revision shown above.
 
 The registered-worktree and shared-object baseline used:
 
@@ -33,7 +53,7 @@ were registered; none was changed.
 | Registered detached worktree | Allocated bytes | Regular files / symlinks | `data` bytes | Largest file | Most common extensions by count |
 | --- | ---: | ---: | ---: | --- | --- |
 | `ios-06bcc178-643c-45ee-97b0-ef0164590b88` | 18,865,176 KiB | 67,354 / 32 | 17,146,848 KiB | 1,061,930,405-byte source video | `.json` 32,590; `.h` 9,077; `.py` 8,875; `.js` 5,397; `.ts` 3,168 |
-| `ios-3e34d68c-fc82-4647-8565-e12e996798ef` | 18,634,436 KiB | 65,736 / 29 | 17,146,848 KiB | 1,061,930,405-byte source video | `.json` 32,585; `.h` 9,049; `.py` 7,752; `.js` 5,396; `.ts` 3,172 |
+| `ios-3e34d68c-fc82-4647-8565-e12e996798ef` | 18,634,444 KiB | 65,737 / 29 | 17,146,848 KiB | 1,061,930,405-byte source video | `.json` 32,585; `.h` 9,049; `.py` 7,752; `.js` 5,396; `.ts` 3,172 |
 | `ios-8302f3d2-911c-4776-9e7d-90ada947d4c0` | 18,633,988 KiB | 65,710 / 29 | 17,146,848 KiB | 1,061,930,405-byte source video | `.json` 32,583; `.h` 9,049; `.py` 7,752; `.js` 5,396; `.ts` 3,172 |
 | `ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4` | 14,480,640 KiB | 530 / 0 | 14,069,188 KiB | 869,798,284-byte source video | `.py` 254; `.json` 192; `.mov` 54; `.md` 9 |
 
@@ -42,7 +62,8 @@ the same top video files and similar `.json`, `.h`, `.py`, `.js`, and `.ts` coun
 still marked `locked initializing` by Git and has a smaller checkout. These are path-level
 allocations. The same source-video paths recur, but no deduplicated-space claim follows without
 filesystem clone or shared-object accounting. `.git` remains shared and is not included in these
-per-worktree totals.
+per-worktree totals. Between the initial snapshot and the reproducible inventory, the `ios-3e34`
+worktree changed by 8 KiB and one regular file. The two scripted passes then matched exactly.
 
 ## Storage inventory
 
@@ -117,9 +138,9 @@ preliminary rather than a stable regression baseline:
 
 | Measure | Existing evidence | Frozen M0 target |
 | --- | --- | --- |
-| Hard application resources | 57 exact assets, four bundles, seven nodes; manifest digest `e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294`. The live corpus has 1,006 node manifests and 1,223 revision files. | Instrument M11 hard cases. A request must read no more than the exact 57-asset fixture and must not read the live corpus. Record manifest and revision parse counts. |
+| Hard application resources | 57 exact assets, four bundles, seven nodes; manifest digest `e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294`. The live corpus has 1,006 node manifests and 1,223 revision files. | Keep the exact 57-asset fixture and record per-request reads and parses. No request may read the live corpus. |
 | HTTP/read cases | Current one-batch M3 hard run: 20/20 samples correct; hard catalog 18.312 s and 3,212 response bytes with four expected IDs. Current M4 hard run: 105/105 samples correct; workspace cold/warm 21.190/21.137 s, lineage 30.040/29.735 s, maximum identity revision 5.176/5.168 s, and maximum polygon revision 3.597/3.565 s. | Keep the 26 named M3/M4 cases and exact identity checks. M11 must record file reads and parses with each latency sample; no new unrelated-data scans may exceed the exact fixture membership. |
-| Media and browser cases | Current M9 media runner: 13/13 correct cold/warm and restart samples. M10 has 7 browser/load scenarios, 70 contexts, and 10 startup processes; all passed. Generated-fixture startup-to-use median is 983 ms. | Keep all 7 M10 workflows and 10 startup processes. Full hard-corpus timing and read/parse counters remain M11 work. |
+| Media and browser cases | Current M9 media runner: 13/13 correct cold/warm and restart samples. M10 has 7 browser/load scenarios, 70 contexts, and 10 startup processes; all passed. Generated-fixture startup-to-use median is 983 ms. | Keep all 7 M10 workflows and 10 startup processes. Full hard-corpus timing and counters beyond these four cases remain M11 work. |
 | Agent lookup | Four exact source/report queries returned 4/4 expected resources in 10 lines and 764 output bytes total. Largest query: 389 bytes and 6 lines. | Keep 4/4 exact-resource lookup success. Bound these four discovery outputs to 10 lines and 764 bytes until a compact entrypoint replaces them. |
 | Worktree | 61.280 s and 17.75 GiB allocated through backend/web readiness. | M5 target: ready in at most 30 seconds and at most 2.0 GiB new per-worktree allocation, with required exact assets available from a verified shared source. Count `.git` separately. |
 
@@ -132,10 +153,38 @@ The four agent lookup tasks were bounded to exact outputs:
 | Find the node schema reader | `rg -n 'schema_version' backend/src/dokodetector_backend/pipeline_node_store.py` | 6 lines, 389 bytes; current schema checks found |
 | Find derived-view cache users | `rg -n 'DerivedViewCache|derived_view_cache' backend/src/dokodetector_backend` | 2 lines, 293 bytes; service owners found |
 
-The application read/parse counters do not exist in the retained 0114 samples. M0 therefore freezes
-the exact 57-file fixture boundary and requires M11 to add counters before making a measured
-read/parse reduction claim. The hard catalog result is one sample and is not a latency budget.
-Agent lookup numbers are command-output measures, not token savings.
+The retained 0114 samples do not contain read/parse counters. M0 now records representative
+counters for four hard M4 cases; M11 must repeat them in the full hard-corpus qualification before
+making a reduction claim. The hard catalog result is one sample and is not a latency budget. Agent
+lookup numbers are command-output measures, not token savings.
+
+### Measured application reads and numeric ceilings
+
+[`backend/scripts/profile_0115_application_io.py`](../../backend/scripts/profile_0115_application_io.py)
+reuses the 0114 hard M4 cases with a fresh disposable fixture and app per request. A Python audit
+hook counts read-open events under that fixture root. The profiler also counts `json.loads`,
+`BaseModel.model_validate_json`, and loaded `parse_*_data_bytes` calls. Setup, fixture materialization,
+and app startup are outside the counter window. These counters describe Python read-open and decoder
+calls; they do not count reads by native code or operating-system cache hits. No request read the
+live corpus. The run used the 57-asset manifest digest above at source commit
+`682dcb7baafdf0f089a5ee3b33e093808419bf54`.
+
+| Hard M4 case | Read opens | Unique fixture paths | Unique JSON paths | `json.loads` calls | Domain data parser calls | Frozen M11 ceiling |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Full workspace | 63 | 38 | 38 | 586 | 14 (8 visible-card, 6 visual-identity) | At most 63 opens, 38 paths, 586 JSON decodes, 14 domain parser calls; 0 live-root reads |
+| Lineage | 63 | 35 | 34 | 596 | 14 (8 visible-card, 6 visual-identity) | At most 63 opens, 35 paths, 596 JSON decodes, 14 domain parser calls; 0 live-root reads |
+| Maximum identity revision | 6 | 4 | 4 | 12 | 2 visual-identity | At most 6 opens, 4 paths, 12 JSON decodes, 2 domain parser calls; 0 live-root reads |
+| Maximum polygon revision | 6 | 4 | 4 | 12 | 2 visible-card | At most 6 opens, 4 paths, 12 JSON decodes, 2 domain parser calls; 0 live-root reads |
+
+All four responses passed the existing M4 identity and correctness checks. The [measured counters](0115-M0_Storage_Inventory_and_Ranked_Targets.artifacts/application-io.json)
+retain exact fixture paths, decoder counts, response identities, and status. These are no-regression
+ceilings set before any 0115 storage or application changes; they do not claim a speedup.
+
+Reproduce the count run from the repository root:
+
+```sh
+mise exec -- uv run --project backend python backend/scripts/profile_0115_application_io.py --output /tmp/0115-io-profile.json
+```
 
 The current 0114 samples used one warmup, one measured request, and one batch for each hard case;
 they are correctness and initial baseline evidence, not stable latency distributions. The raw
@@ -173,7 +222,7 @@ reader. The shared `.git` and LFS object store remain outside per-worktree bytes
 ## Commands and results
 
 - `du -k -d 1 data .runtime .git` and `du -k -d 1 data/operations-recovery data/operations .runtime/pipeline`, repeated twice — PASS; exact output matched.
-- Bounded metadata walk of `data`, `.runtime`, and `~/.cache/doko-detector`, repeated twice — PASS; file, byte, extension, symlink, and largest-file summaries matched.
+- `mise exec -- uv run --project backend python scripts/inventory_0115_storage.py --top 5` repeated with unchanged inputs and compared using `cmp` — PASS; 41,345-byte JSON outputs matched. The output includes all four registered worktrees and shared `.git` separately.
 - `git worktree list --porcelain`, `git count-objects -vH`, `git ls-files data .runtime`, and `git lfs ls-files` — PASS; counts recorded above. Git reported 10 garbage objects totaling 2.65 GiB; no maintenance was run.
 - Four bounded exact-resource lookup commands — PASS, 4/4 resources; 10 lines and 764 output bytes.
 - Disposable worktree setup: `mise install`; `mise exec -- uv sync --project backend`; `mise exec -- npm ci`; `mise exec -- npm run build`; `mise exec -- uv run --project backend python -c 'from dokodetector_backend.app import create_app'` — PASS. The temporary worktree was removed; the original four detached worktrees remain registered.
@@ -181,6 +230,8 @@ reader. The shared `.git` and LFS object store remain outside per-worktree bytes
 - `mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_catalog_read_performance.py --profile hard --warmups 1 --repeats 1 --batches 1 --timeout 180 --output /tmp/0115-m0-current-catalog.json` — PASS, 20/20 samples.
 - `mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_pipeline_read_performance.py --warmups 1 --repeats 1 --batches 1 --timeout 180 --output /tmp/0115-m0-current-pipeline.json` — PASS, 105/105 samples.
 - `mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_media_performance.py --output /tmp/0115-m0-current-media.json` — PASS, 13/13 samples.
+- `mise exec -- uv run --project backend python backend/scripts/profile_0115_application_io.py --output /tmp/0115-io-profile.json` — PASS; full workspace, lineage, identity revision, and polygon revision passed exact response checks. The run recorded 0 live-root reads and the per-case read/parse counts above.
+- `mise exec -- uv run --project backend ruff check scripts/inventory_0115_storage.py backend/scripts/profile_0115_application_io.py` and `mise exec -- uv run --project backend ruff format --check scripts/inventory_0115_storage.py backend/scripts/profile_0115_application_io.py` — PASS.
 - Existing 0114 M10 real-process evidence: 7 workflows, 70 contexts, and 10 startup processes — PASS as recorded by that report. All current M3/M4/M9 samples are preliminary and not a stable latency distribution.
 - Filtered SHA-256 checks on five sampled large node revisions, the same-size duplicate source/recovery video pair, and the five 567,065,639-byte 0092 M4 checkpoints — PASS; revision and checkpoint digests differ, and the two video digests match. No broad video or checkpoint hashing was done.
 - `git diff --check` and local Markdown link validation — PASS after the plan move.
@@ -189,7 +240,7 @@ reader. The shared `.git` and LFS object store remain outside per-worktree bytes
 
 This inventory establishes directory sizes and candidate metadata, not recoverable bytes. It does
 not prove every snapshot duplicate, regeneration cost, complete storage reader/writer graph, or
-provider-cache monetary cost. It does not establish read/parse counters or stable 0114 latency
-budgets. M1 owns exact recovery verification; M4 owns one old training-input family; M5 owns the
-worktree data contract; M9 owns cache limits and expiry; M11 owns hard-corpus performance and
-read/parse counters.
+provider-cache monetary cost. The four application counters are representative, not a full-corpus
+baseline; the one-sample latency results are not stable budgets. M1 owns exact recovery
+verification; M4 owns one old training-input family; M5 owns the worktree data contract; M9 owns
+cache limits and expiry; M11 owns full hard-corpus performance and counter qualification.
