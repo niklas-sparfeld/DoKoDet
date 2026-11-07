@@ -9,7 +9,7 @@
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** M0–M1 complete. M2–M10 are not started.
+- **Outcome:** M0–M2 complete. M3–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
   M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
   pipeline launch controls remain in `RecordingWorkspaceInspector`; counterfactual controls are
@@ -133,7 +133,7 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 | --- | --- | --- |
 | M0 | Freeze launch inventory and interaction contract | Complete |
 | M1 | Build shared sidebar action and modal shell | Complete |
-| M2 | Add exact input selection and submission handling | Not started |
+| M2 | Add exact input selection and submission handling | Complete |
 | M3 | Integrate event processing and import | Not started |
 | M4 | Integrate visible-card and scene processing | Not started |
 | M5 | Integrate visual identities | Not started |
@@ -152,22 +152,19 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M1 completed at the commit recorded by the M1 implementation. Its result is in
-  [`0113-M1_Actions_Shell.md`](../../reports/0113-M1_Actions_Shell.md). M0's launch inventory is in
-  [`0113-M0_Launch_Inventory.md`](../../reports/0113-M0_Launch_Inventory.md).
-- Checks passed: focused Vitest component tests (3); `npm run typecheck`; `npm run lint
-  -- --no-warn-ignored`; local Playwright fixture tests (2) mounting the production lineage and Jobs
-  drawers with deterministic data; production build; Prettier; and `git diff --check`. Browser
-  coverage checks desktop/narrow layouts, long forms, keyboard focus return with both drawers open,
-  and no job submission on open or cancel. Build emitted a chunk-size advisory.
-- Decisions: the Actions group accepts caller-provided action content. M1 does not mount feature
-  launches, submit jobs, or change request/API contracts. No job starts on open or cancel. The
-  center remains usable after dismissal. 0112 M8 remains unstarted; coordinate its surviving
-  request owner with 0113 M4/M5 before crossing that boundary.
-- Limits: exact input selection and shared acceptance handling are not implemented. Feature actions
-  are not mounted in the production inspector; later milestones own those integrations.
-- Next: M2, add exact input selection and submission handling. Requested 11 milestones, completed
-  2, remaining 9.
+- M2 completed. Its result and focused checks are in
+  [`0113-M2_Selection_and_Submission.md`](../../reports/0113-M2_Selection_and_Submission.md).
+- Decisions: reusable exact revision and model fields do not construct action requests. Dependent
+  choice loading is keyed by caller context and drops stale responses. One shared submit hook owns
+  in-flight exclusion, idempotency keys, rejection errors, and same-payload retry after an uncertain
+  response. Accepted jobs use the app-owned Jobs state refresh and link; no feature polling was added.
+  Existing `/api/jobs` acceptance validates frozen request inputs, so no server or generated API
+  changes were needed.
+- Limits: feature callers are not migrated, by design. 0112 M8 remains unstarted; this milestone
+  added no `RunControls` or feature launch edits. Recording navigation must key dependent choice
+  requests to the current recording, and each later action still owns its request construction.
+- Next: M3, integrate event processing and import. Requested 11 milestones, completed 3, remaining
+  8.
 
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision
