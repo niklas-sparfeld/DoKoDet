@@ -2,7 +2,7 @@
 
 ## Plan status
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0108 and 0110 complete. No unmet dependency for M0. Coordinate storage changes
   with 0112 and performance checks with 0114 before changing their shared boundaries.
 - **Outcome:** Reduce retained disk bytes, worktree cost, application overhead from data growth,
@@ -153,7 +153,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 
 | Milestone | Observable result / commit boundary | State |
 | --- | --- | --- |
-| M0 | Storage inventory, cost baseline, retention roots, and ranked targets | Not started |
+| M0 | Storage inventory, cost baseline, retention roots, and ranked targets | Complete |
 | M1 | Tested recovery of retained authority and an exact cleanup manifest | Not started |
 | M2 | Bounded cleanup planner and apply mechanism | Not started |
 | M3 | Retire verified redundant migration and recovery trees | Not started |
@@ -165,6 +165,27 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 | M9 | Bound cache, log, and future recovery-copy growth | Not started |
 | M10 | Add compact agent discovery and data-authority guidance | Not started |
 | M11 | Verify savings, workflows, performance, and recovery; close | Not started |
+
+## Execution handoff
+
+- **Run:** requested 1 milestone; completed 1; remaining 0.
+- **Completed:** M0 — storage inventory and ranked targets. The report records repeated root and
+  metadata measurements, the disposable worktree setup, the 0114 application cases, exact agent
+  lookups, retained roots, and ranked cleanup candidates. Three current 0114 sample files are in
+  the linked report artifact folder.
+- **Changes:** Added [the M0 inventory and target report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
+  No retained data or runtime code changed. The temporary benchmark worktree was removed.
+- **Checks:** Repeated directory and metadata inventory outputs matched. Backend and web setup and
+  the backend import check passed in the disposable worktree. The current 0114 hard fixture passed
+  `--require-hard` (57 assets); M3 passed 20/20 samples, M4 passed 105/105 samples, and M9 passed
+  13/13 samples. Existing M10 evidence covers 7 workflows, 70 contexts, and 10 startup processes.
+  `git diff --check` and local Markdown links passed.
+- **Decisions and limits:** No deletion is approved. The 24.1 GiB recovery tree is a conditional
+  upper bound until M1 proves recovery and exact redundancy. 0114 read/parse counters are absent;
+  M0 freezes the 57-asset fixture boundary and assigns counters to M11. Cache expiry limits remain
+  provisional until M9 verifies regeneration and active consumers.
+- **Next:** M1 — prove recovery for retained authority and prepare an exact cleanup plan.
+- **Commit boundary:** M0 report, epic status/handoff, and board update in one commit.
 
 ## M0 — Inventory and rank
 
