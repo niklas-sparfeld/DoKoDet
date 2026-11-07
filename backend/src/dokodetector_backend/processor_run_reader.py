@@ -28,10 +28,6 @@ class ProcessorRunReader:
         del raw, include_items
         raise ValueError("processor run state uses the legacy single-file format")
 
-    def _parse_legacy_state(self, raw: bytes, *, include_items: bool) -> ProcessorRunState:
-        del raw, include_items
-        raise ValueError("processor run state uses the legacy single-file format")
-
     def _read_path(
         self,
         path: Path,

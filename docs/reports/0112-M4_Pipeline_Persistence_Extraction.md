@@ -39,6 +39,6 @@ remain with the current store owner.
 
 ## Limits
 
-The migration inventory remains the only caller of the legacy processor-run reader. M5 onward is
-unchanged. The next milestone is M5. This execution requested 10 milestones; four are complete and
-six remain.
+The migration inventory and offline `repair_0100_m5.py` tool are the only callers of the legacy
+processor-run reader. M5 onward is unchanged. The next milestone is M5. This execution requested
+10 milestones; four are complete and six remain.
