@@ -414,10 +414,10 @@ describe("RunControls", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("defaults to reviewed upstream input and permits an exact historical revision", async () => {
+  it("submits the exact event revision selected in the visible-card modal", async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(
-        new Response(JSON.stringify(runResponse("visible-run-1")), {
+        new Response(JSON.stringify(jobResponse("visible-run-1")), {
           status: 202,
           headers: { "Content-Type": "application/json" },
         }),
@@ -425,15 +425,16 @@ describe("RunControls", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const events = stage("events", {
-      selected_generated_revision_id: "events-generated",
-      selected_completed_reference_revision_id: "events-reviewed",
       input_options: [
         option("events-generated", "Generated events"),
         option("events-reviewed", "Reviewed events"),
         option("events-old", "Older events"),
       ],
     });
-    const visible = stage("visible_cards");
+    const visible = stage("visible_cards", {
+      can_run: false,
+      run_blockers: ["Select a complete events revision first."],
+    });
 
     render(
       <RunControls
@@ -444,20 +445,18 @@ describe("RunControls", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Reviewed" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
     expect(
-      screen.getByText("Reviewed · node-revision-events-reviewed"),
+      screen.getByRole("button", { name: "Detect visible cards…" }),
     ).toBeInTheDocument();
-    await userEvent.click(screen.getByText("Use another retained revision"));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Detect visible cards…" }),
+    );
     await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Exact input revision" }),
+      screen.getByRole("combobox", { name: "Exact event revision" }),
       "node-revision-events-old",
     );
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Start detect visible cards" }),
     );
 
     await waitFor(() =>
@@ -479,31 +478,58 @@ describe("RunControls", () => {
         },
       },
     });
+    expect(
+      await screen.findByRole("link", { name: /View job visible-run-1/ }),
+    ).toHaveAttribute("href", "/jobs/visible-run-1");
   });
 
-  it("starts a visible-card run with the selectable fine-frame refinement provider", async () => {
-    const fetchMock = vi.fn<typeof fetch>((input) => {
-      const url = String(input);
-      const body = url.endsWith("/api/jobs")
-        ? { id: "visible-run-fine-frame" }
-        : url.includes("/api/jobs/")
-          ? {
-              id: "visible-run-fine-frame",
-              state: "running",
-              request: {
-                processor_request: { processor_type: "visible-card-detection" },
-              },
-              steps: [],
-              failure: null,
-            }
-          : runResponse("visible-run-fine-frame");
-      return Promise.resolve(
-        new Response(JSON.stringify(body), {
+  it("keeps visible-card launch available and blocks missing or incompatible inputs", async () => {
+    const visible = stage("visible_cards", {
+      can_run: false,
+      run_blockers: [
+        "The selected calibration is incompatible with this input.",
+      ],
+    });
+    const events = stage("events");
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={visible}
+        stages={[events, visible]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    const action = screen.getByRole("button", {
+      name: "Detect visible cards…",
+    });
+    expect(action).toBeInTheDocument();
+    await userEvent.click(action);
+    expect(
+      screen.getByRole("combobox", { name: "Exact event revision" }),
+    ).toHaveValue("");
+    expect(
+      screen.getByText("No compatible event revision is available."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "The selected calibration is incompatible with this input.",
+      ),
+    ).toHaveLength(2);
+    expect(
+      screen.getByRole("button", { name: "Start detect visible cards" }),
+    ).toBeDisabled();
+  });
+
+  it("starts visible-card processing with the selected detector and model", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(jobResponse("visible-run-fine-frame")), {
           status: 202,
           headers: { "Content-Type": "application/json" },
         }),
-      );
-    });
+      ),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const events = stage("events", {
       selected_generated_revision_id: "events-generated",
@@ -520,8 +546,11 @@ describe("RunControls", () => {
       />,
     );
 
+    await userEvent.click(
+      screen.getByRole("button", { name: "Detect visible cards…" }),
+    );
     const modelSelector = screen.getByRole("combobox", {
-      name: "Model variant",
+      name: "Detector and model",
     });
     expect(
       within(modelSelector).getByRole("option", {
@@ -530,7 +559,7 @@ describe("RunControls", () => {
     ).toBeInTheDocument();
     await userEvent.selectOptions(modelSelector, "local-rfdetr-fine-frame");
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Start detect visible cards" }),
     );
 
     await waitFor(() =>
@@ -557,10 +586,10 @@ describe("RunControls", () => {
     });
   });
 
-  it("starts a visible-card crop refinement review run", async () => {
+  it("starts visible-card crop refinement from the shared modal", async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(
-        new Response(JSON.stringify(runResponse("visible-run-crop-review")), {
+        new Response(JSON.stringify(jobResponse("visible-run-crop-review")), {
           status: 202,
           headers: { "Content-Type": "application/json" },
         }),
@@ -580,12 +609,15 @@ describe("RunControls", () => {
         onRefresh={async () => undefined}
       />,
     );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Detect visible cards…" }),
+    );
     await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Model variant" }),
+      screen.getByRole("combobox", { name: "Detector and model" }),
       "local-rfdetr-crop-review",
     );
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Start detect visible cards" }),
     );
     await waitFor(() =>
       expect(

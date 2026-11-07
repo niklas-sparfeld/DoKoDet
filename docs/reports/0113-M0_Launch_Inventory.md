@@ -57,4 +57,4 @@ Focused checks for this milestone: registered-type vs report reconciliation; bro
 
 ## 0112 coordination
 
-0112 remains In Progress and M8 is not started. Its M8 owns extraction of processor launch request construction from `RunControls`; 0113 M4/M5 own launch integration. Before either launch-boundary implementation begins, compare the surviving component/request owner and agree the boundary. 0113 M0 is inventory only and made no implementation change to 0112-owned paths. Keep the 0112 handoff and work unchanged until that sequencing point.
+0112 remains In Progress and M8 is not started. Its M8 owns extraction of processor launch request construction from `RunControls`; 0113 M3/M4/M5 own launch integration. M3 and M4 integrated the callers first: each caller owns modal form state, request construction, and shared submission. When 0112 M8 runs, each caller keeps that form and submission path and adapts its request construction to the extracted builder. This sequencing leaves 0112-owned code and handoff unchanged. M0 made no implementation change to 0112-owned paths.

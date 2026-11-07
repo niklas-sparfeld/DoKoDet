@@ -9,7 +9,7 @@
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** M0–M3 complete. M4–M10 remain.
+- **Outcome:** M0–M4 complete. M5–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
   M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
   pipeline launch controls remain in `RecordingWorkspaceInspector`; counterfactual controls are
@@ -31,17 +31,17 @@ flow must preserve these distinctions.
 Cover every existing browser action that starts long-running backend work. Use the registered
 job types and browser call sites as the inventory, rather than a duration threshold. This includes:
 
-| Action family | Inputs the modal must expose or explain |
-| --- | --- |
-| Event processing | Accepted source video, processor/model and configuration. `event_import` has no browser entry point and remains agent/import tooling. |
-| Visible-card processing | Exact event/frame inputs, detector/model, extraction and processing options |
-| Proposed card scenes | Exact visible-card and calibration inputs, processor and fitting options |
-| Visual identities | Exact crop geometry inputs, model/provider, crop policy and processing options |
-| Table observations | All exact input revisions and assembly options |
-| Round analysis | Exact observations, required round facts, rules and search limits |
-| Complete recording pipeline | Required source inputs, stage models/configuration, round facts and stage/output summary |
-| Calibration preview | Exact working-state/evidence snapshot and calculation options |
-| Counterfactual calculation | Exact analysis result, correction constraints and calculation options |
+| Action family               | Inputs the modal must expose or explain                                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Event processing            | Accepted source video, processor/model and configuration. `event_import` has no browser entry point and remains agent/import tooling. |
+| Visible-card processing     | Exact event/frame inputs, detector/model, extraction and processing options                                                           |
+| Proposed card scenes        | Exact visible-card and calibration inputs, processor and fitting options                                                              |
+| Visual identities           | Exact crop geometry inputs, model/provider, crop policy and processing options                                                        |
+| Table observations          | All exact input revisions and assembly options                                                                                        |
+| Round analysis              | Exact observations, required round facts, rules and search limits                                                                     |
+| Complete recording pipeline | Required source inputs, stage models/configuration, round facts and stage/output summary                                              |
+| Calibration preview         | Exact working-state/evidence snapshot and calculation options                                                                         |
+| Counterfactual calculation  | Exact analysis result, correction constraints and calculation options                                                                 |
 
 M0 must reconcile this list against the completed prerequisites. Include any surviving browser
 command that starts classification as part of an approval workflow. Keep its human decision
@@ -56,9 +56,9 @@ This epic owns launch placement, explanations, forms, input selection and obsole
 layout. Reuse its sidebar slots if available. It is not a completion dependency: add the smallest
 right-sidebar slot needed in the current layout if it has not started. Do not redesign the center.
 [Active module cleanup](0112-Active_Pipeline_Module_Cleanup.md) owns code extraction, including
-launch request construction. Use its surviving owners if it lands first. Neither epic blocks the
-other. Sequence 0112 M8 and overlapping 0113 launch integration; reconcile the surviving launch
-owner and contract before either overlapping milestone. Do not restore removed modules.
+launch request construction. M3 and M4 integrate 0113 callers first; 0112 M8 later extracts the
+request builders and callers adapt to them. Keep modal form state and shared submission in each
+caller. Neither epic blocks the other. Do not restore removed modules.
 
 ## Launch interaction
 
@@ -129,19 +129,19 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 
 ## Milestone status
 
-| Milestone | Work | State |
-| --- | --- | --- |
-| M0 | Freeze launch inventory and interaction contract | Complete |
-| M1 | Build shared sidebar action and modal shell | Complete |
-| M2 | Add exact input selection and submission handling | Complete |
-| M3 | Integrate event processing | Complete |
-| M4 | Integrate visible-card and scene processing | Not started |
-| M5 | Integrate visual identities | Not started |
-| M6 | Integrate observations and round analysis | Not started |
-| M7 | Integrate complete-pipeline launch | Not started |
-| M8 | Integrate calibration and counterfactual calculations | Not started |
-| M9 | Remove replaced launch controls | Not started |
-| M10 | Verify the complete workflow and close | Not started |
+| Milestone | Work                                                  | State       |
+| --------- | ----------------------------------------------------- | ----------- |
+| M0        | Freeze launch inventory and interaction contract      | Complete    |
+| M1        | Build shared sidebar action and modal shell           | Complete    |
+| M2        | Add exact input selection and submission handling     | Complete    |
+| M3        | Integrate event processing                            | Complete    |
+| M4        | Integrate visible-card processing                     | Complete    |
+| M5        | Integrate visual identities                           | Not started |
+| M6        | Integrate observations and round analysis             | Not started |
+| M7        | Integrate complete-pipeline launch                    | Not started |
+| M8        | Integrate calibration and counterfactual calculations | Not started |
+| M9        | Remove replaced launch controls                       | Not started |
+| M10       | Verify the complete workflow and close                | Not started |
 
 ## M0 — Freeze launch inventory and interaction contract
 
@@ -152,22 +152,27 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M3 completed. Its result and focused checks are in
-  [`0113-M3_Event_Processing_Launch.md`](../../reports/0113-M3_Event_Processing_Launch.md).
-- Decisions: `event_import` has no browser submitter and remains registered for agent/import tooling;
-  this epic adds no import UI. M3 moves the event processing action into the shared modal. The
-  `RunControls` action handler owns event request construction and uses shared idempotent submission.
-  It displays the accepted video, processor, model, configuration and extraction policy. Missing or
-  invalid accepted video keeps the action visible and blocks submission.
-- 0112 coordination: M8 remains unstarted and owns later extraction of launch request construction
-  from `RunControls`. M3 leaves the request builder with the event action caller. When 0112 M8 lands,
-  keep modal form state and submission in this caller and have it call the extracted request builder;
-  do not restore the inline event launch form. Reconcile the exact boundary before 0112 M8 edits.
-- Limits: event import has no surviving browser entry point. M9 must repeat the caller audit before
-  removing any unused import client facade or changing registry support. Results and review decisions
+- M4 completed. Its result and focused checks are in
+  [`0113-M4_Visible_Card_Launch.md`](../../reports/0113-M4_Visible_Card_Launch.md).
+- Decisions: M0 found no browser caller for `proposed_card_scene_creation`. Keep virtual scene
+  review and editing, retain the scene API and agent capability, and add no scene launch action.
+  M4 moves the active visible-card detection action into the shared modal. Its caller owns exact
+  request construction and uses the shared idempotent submission behavior. The modal shows the exact
+  event branch, detector/model, implementation, configuration, extraction policy, and server-reported
+  blockers. Missing or incompatible inputs leave the action visible and block submission. The
+  visible-card detection request has no calibration field; calibration belongs to the scene API, which
+  has no browser caller. M9 must repeat the caller audit before removing its unused client facade.
+- 0112 coordination: M8 remains unstarted and owns later extraction of processor launch request
+  construction from `RunControls`. M3 and M4 callers own modal form state, request construction, and
+  shared submission. When 0112 M8 lands, keep those forms and submit paths in their callers and have
+  each caller use the extracted request builder. Do not restore inline launch UI. M4 leaves the 0112
+  plan and source unchanged; this sequence supersedes only the stale M0 coordination wording about
+  agreeing before the first launch integration.
+- Limits: `event_import` and `proposed_card_scene_creation` have no surviving browser submitter.
+  Keep both registered for agent/import use. M9 repeats the caller audit before removing any unused
+  client facade or changing registry support. Existing results, scene editing, and review decisions
   remain in their existing owners.
-- Next: M4, integrate visible-card and scene processing. Requested 11 milestones, completed 4,
-  remaining 7.
+- Next: M5, integrate visual identities. Requested 11 milestones, completed 5, remaining 6.
 
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision
@@ -207,13 +212,21 @@ inspectable.
 
 Complete: [M3 event processing launch](../../reports/0113-M3_Event_Processing_Launch.md).
 
-## M4 — Integrate visible-card and scene processing
+## M4 — Integrate visible-card processing
 
-Give Visible cards and Virtual scenes their own sidebar actions. Move their exact input,
-calibration, detector/model and processing options into the modal. Remove replaced launch controls.
+Move the active Visible cards detector action into the shared modal. Collect the exact selected event
+revision and detector/model there. Show the request's implementation, configuration, extraction policy,
+and current blockers. Keep the action visible if inputs are missing or incompatible. Remove the old
+inline launch controls. Keep Virtual scenes review and edit controls in place. M0 found no browser
+caller for scene creation, so do not add a scene launch action. The scene API and client facade remain
+agent/API capability until M9 repeats the caller audit.
 
-Acceptance: fixtures cover valid and missing input branches, incompatible calibration, stage-specific
-configuration and exact job links. A launch never substitutes another branch to satisfy prerequisites.
+Acceptance: fixtures cover a valid exact event branch, missing and incompatible input blockers,
+stage-specific detector/model configuration, and a shared job link. A launch never substitutes another
+branch to satisfy prerequisites. Calibration is not an input to visible-card detection; proposal-scene
+calibration remains an agent/API concern without a browser launch caller.
+
+Complete: [M4 visible-card launch](../../reports/0113-M4_Visible_Card_Launch.md).
 
 ## M5 — Integrate visual identities
 
