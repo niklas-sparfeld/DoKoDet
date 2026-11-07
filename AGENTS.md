@@ -152,10 +152,12 @@ run's limit. Do not add milestones to extend the run. Use this loop:
    Supply a compact assignment with the repository path, milestone, authoritative file paths,
    acceptance criteria, relevant handoff, run count, and the worker rules below. Do not copy the
    parent conversation. Only one worker can be active. Workers must not spawn agents.
-2. Wait for completion notifications or use blocking agent waits. Use the longest wait allowed
-   by the active instructions. After a timeout, wait again without requesting status, listing
-   agents, or reading intermediate output. Keep required user updates brief; do not wake a worker
-   to obtain an update. Workers must not send routine progress messages to the orchestrator.
+2. After assigning the milestone, wait for the worker's completion notification. Use a blocking
+   agent wait with the longest timeout allowed by the active instructions. If the wait times out,
+   wait again; a timeout is not a reason to check on the worker. Do not use short waits, status
+   requests, agent listings, messages, transcript reads, or worktree inspection to monitor progress.
+   A user update does not require a worker check. Respond to user instructions and genuine worker
+   messages when they arrive. Workers must not send routine progress messages to the orchestrator.
 3. Read only the compact completion receipt. Confirm that its commit exists on `main`, its
    changed-path summary fits the assignment, and the epic and handoff record completion and
    checks. The receipt alone does not prove completion.
