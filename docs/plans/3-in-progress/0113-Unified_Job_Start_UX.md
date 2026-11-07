@@ -9,7 +9,7 @@
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** M0–M2 complete. M3–M10 remain.
+- **Outcome:** M0–M3 complete. M4–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
   M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
   pipeline launch controls remain in `RecordingWorkspaceInspector`; counterfactual controls are
@@ -33,7 +33,7 @@ job types and browser call sites as the inventory, rather than a duration thresh
 
 | Action family | Inputs the modal must expose or explain |
 | --- | --- |
-| Event processing and prediction import | Source recording, processor/model and configuration, or imported prediction source |
+| Event processing | Accepted source video, processor/model and configuration. `event_import` has no browser entry point and remains agent/import tooling. |
 | Visible-card processing | Exact event/frame inputs, detector/model, extraction and processing options |
 | Proposed card scenes | Exact visible-card and calibration inputs, processor and fitting options |
 | Visual identities | Exact crop geometry inputs, model/provider, crop policy and processing options |
@@ -134,7 +134,7 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 | M0 | Freeze launch inventory and interaction contract | Complete |
 | M1 | Build shared sidebar action and modal shell | Complete |
 | M2 | Add exact input selection and submission handling | Complete |
-| M3 | Integrate event processing and import | Not started |
+| M3 | Integrate event processing | Complete |
 | M4 | Integrate visible-card and scene processing | Not started |
 | M5 | Integrate visual identities | Not started |
 | M6 | Integrate observations and round analysis | Not started |
@@ -152,19 +152,22 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M2 completed. Its result and focused checks are in
-  [`0113-M2_Selection_and_Submission.md`](../../reports/0113-M2_Selection_and_Submission.md).
-- Decisions: reusable exact revision and model fields do not construct action requests. Dependent
-  choice loading is keyed by caller context and drops stale responses. One shared submit hook owns
-  in-flight exclusion, idempotency keys, rejection errors, and same-payload retry after an uncertain
-  response. Accepted jobs use the app-owned Jobs state refresh and link; no feature polling was added.
-  Existing `/api/jobs` acceptance validates frozen request inputs, so no server or generated API
-  changes were needed.
-- Limits: feature callers are not migrated, by design. 0112 M8 remains unstarted; this milestone
-  added no `RunControls` or feature launch edits. Recording navigation must key dependent choice
-  requests to the current recording, and each later action still owns its request construction.
-- Next: M3, integrate event processing and import. Requested 11 milestones, completed 3, remaining
-  8.
+- M3 completed. Its result and focused checks are in
+  [`0113-M3_Event_Processing_Launch.md`](../../reports/0113-M3_Event_Processing_Launch.md).
+- Decisions: `event_import` has no browser submitter and remains registered for agent/import tooling;
+  this epic adds no import UI. M3 moves the event processing action into the shared modal. The
+  `RunControls` action handler owns event request construction and uses shared idempotent submission.
+  It displays the accepted video, processor, model, configuration and extraction policy. Missing or
+  invalid accepted video keeps the action visible and blocks submission.
+- 0112 coordination: M8 remains unstarted and owns later extraction of launch request construction
+  from `RunControls`. M3 leaves the request builder with the event action caller. When 0112 M8 lands,
+  keep modal form state and submission in this caller and have it call the extracted request builder;
+  do not restore the inline event launch form. Reconcile the exact boundary before 0112 M8 edits.
+- Limits: event import has no surviving browser entry point. M9 must repeat the caller audit before
+  removing any unused import client facade or changing registry support. Results and review decisions
+  remain in their existing owners.
+- Next: M4, integrate visible-card and scene processing. Requested 11 milestones, completed 4,
+  remaining 7.
 
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision
@@ -191,14 +194,18 @@ Acceptance: fixture tests cover ambiguous branches, multi-input revisions, unava
 changed inputs during loading, recording navigation, double click, rejected requests and a lost
 acceptance response. Accepted work links to one job without a second polling owner.
 
-## M3 — Integrate event processing and import
+## M3 — Integrate event processing
 
-Move event launch configuration into the modal. Include the surviving prediction-import entry point
-and exact import-source validation. Place launch buttons in the right sidebar and remove replaced
-event launch fields and buttons in the same milestone.
+Move event launch configuration into the shared modal. Place its action in the right sidebar and
+remove the replaced event launch fields and button in the same milestone. The M0 audit found no
+browser prediction-import entry point: retain `event_import` as agent/import tooling and add no import
+UI. M9 repeats this caller audit before removing any unused facade.
 
-Acceptance: fixtures submit the expected frozen processing/import requests. Missing/invalid sources
-stay in the form. Existing results and review decisions remain inspectable.
+Acceptance: fixtures submit the expected frozen processing request. Missing or invalid accepted video
+stays visible in the form and blocks submission. Existing results and review decisions remain
+inspectable.
+
+Complete: [M3 event processing launch](../../reports/0113-M3_Event_Processing_Launch.md).
 
 ## M4 — Integrate visible-card and scene processing
 

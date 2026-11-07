@@ -8,8 +8,11 @@ import {
   type PipelineRunStartRequest,
   type PipelineStageKey,
   type PipelineWorkspaceStage,
+  type EnqueueJobBody,
 } from "../api/client";
 import styles from "../App.module.css";
+import { JobStartActions } from "../jobs/JobStartActions";
+import { useJobSubmission } from "../jobs/useJobSubmission";
 import {
   ProbabilityOverlay,
   readProbabilityMetrics,
@@ -150,6 +153,11 @@ export function RunControls({
   const [liveRun, setLiveRun] = useState<PipelineRunResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const enqueue = useCallback(
+    (payload: EnqueueJobBody, key: string) => client.enqueueJob(payload, key),
+    [client],
+  );
+  const eventSubmission = useJobSubmission(enqueue);
   useEffect(() => {
     if (runStage !== "visual_identities") return;
     const controller = new AbortController();
@@ -231,7 +239,8 @@ export function RunControls({
   const startRun = async () => {
     if (
       runStage === null ||
-      (runStage !== "events" && selectedRevisionId === null) ||
+      runStage === "events" ||
+      selectedRevisionId === null ||
       (runStage === "visible_cards" && selectedEventOption === null)
     ) {
       setMessage(
@@ -286,6 +295,64 @@ export function RunControls({
     (runStage !== "visible_cards" || selectedEventOption !== null) &&
     (runStage !== "visual_identities" ||
       proposedCropInputsLoadedFor === recordingId);
+  const eventRunRequest = buildRunRequest(
+    "events",
+    "preview",
+    null,
+    latestRun,
+    inputOrigin,
+  ).request;
+
+  const eventAction = {
+    id: "event-processing",
+    label: "Detect events",
+    description:
+      "Create a fresh event result from the accepted recording video. This starts queued processing and does not change review decisions.",
+    expectedOutput:
+      "A new event data revision that remains available for inspection and review.",
+    sections: [
+      {
+        title: "Source",
+        content: (
+          <>
+            <p>Recording: {recordingId}</p>
+            <p>Source: accepted recording video</p>
+            {stage.run_blockers.map((blocker) => (
+              <p className={styles.detailBlocker} key={blocker} role="alert">
+                {blocker}
+              </p>
+            ))}
+          </>
+        ),
+      },
+      {
+        title: "Processor",
+        content: (
+          <dl>
+            <div>
+              <dt>Implementation</dt>
+              <dd>
+                {eventRunRequest.implementation?.name ?? "cardeventnet"} ·{" "}
+                {eventRunRequest.implementation?.version ?? "file-v1"}
+              </dd>
+            </div>
+            <div>
+              <dt>Model</dt>
+              <dd>{formatValue(eventRunRequest.model ?? null)}</dd>
+            </div>
+            <div>
+              <dt>Configuration</dt>
+              <dd>{formatValue(eventRunRequest.configuration)}</dd>
+            </div>
+            <div>
+              <dt>Extraction policy</dt>
+              <dd>{formatValue(eventRunRequest.extraction_policy)}</dd>
+            </div>
+          </dl>
+        ),
+      },
+    ],
+  };
 
   return (
     <section
@@ -304,197 +371,233 @@ export function RunControls({
         </div>
       ) : null}
 
-      {stage.run_blockers.length > 0 ? (
+      {stage.run_blockers.length > 0 && runStage !== "events" ? (
         <p className={styles.detailBlocker}>{stage.run_blockers[0]}</p>
       ) : (
         <>
-          <div className={styles.pipelineRunForm}>
-            <div>
-              <span className={styles.statusLabel}>
-                Input used by the next run
-              </span>
-              {runStage === "events" ? (
-                <p className={styles.pipelineRunInputValue}>
-                  Accepted recording video
-                </p>
-              ) : runStage === "visual_identities" ? (
-                <>
-                  <label className={styles.pipelineRunSelector}>
-                    <span>Crop geometry input</span>
-                    <select
-                      aria-label="Crop geometry input"
-                      value={
-                        selectedCropInput ? cropInputKey(selectedCropInput) : ""
+          {runStage === "events" ? (
+            <JobStartActions
+              actions={[eventAction]}
+              submitting={eventSubmission.submitting}
+              validationErrors={
+                eventSubmission.error ? [eventSubmission.error] : []
+              }
+              canSubmit={stage.can_run && stage.run_blockers.length === 0}
+              onStart={async () => {
+                const runId = createRunId("events");
+                const runRequest = buildRunRequest(
+                  "events",
+                  runId,
+                  null,
+                  latestRun,
+                  inputOrigin,
+                );
+                const accepted = await eventSubmission.submit({
+                  type: "event_processing",
+                  context: { recording_id: recordingId },
+                  request: runRequest as unknown as Record<string, unknown>,
+                });
+                if (accepted === null) return false;
+                const run = pipelineRunFromJob(
+                  accepted,
+                  recordingId,
+                  "event-detection",
+                );
+                setLiveRun(run);
+                setTrackedRunId(run.run_id);
+                setMessage(null);
+                await onRefresh();
+                return true;
+              }}
+            />
+          ) : (
+            <div className={styles.pipelineRunForm}>
+              <div>
+                <span className={styles.statusLabel}>
+                  Input used by the next run
+                </span>
+                {runStage === "visual_identities" ? (
+                  <>
+                    <label className={styles.pipelineRunSelector}>
+                      <span>Crop geometry input</span>
+                      <select
+                        aria-label="Crop geometry input"
+                        value={
+                          selectedCropInput
+                            ? cropInputKey(selectedCropInput)
+                            : ""
+                        }
+                        disabled={busy || cropInputOptions.length === 0}
+                        onChange={(event) => {
+                          setCropInputSelection(event.target.value);
+                          setMessage(null);
+                        }}
+                      >
+                        {cropInputOptions.length !== 1 ? (
+                          <option value="">Select one exact crop input</option>
+                        ) : null}
+                        {cropInputOptions.map((option) => (
+                          <option
+                            key={cropInputKey(option)}
+                            value={cropInputKey(option)}
+                          >
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {selectedCropInput !== null ? (
+                      <p className={styles.pipelineRunInputValue}>
+                        Exact source revision · {selectedCropInput.revisionId}
+                      </p>
+                    ) : (
+                      <p className={styles.pipelineRunInputValue}>
+                        {proposedCropInputsLoadedFor !== recordingId
+                          ? "Loading proposed scene revisions…"
+                          : cropInputOptions.length === 0
+                            ? "No compatible crop inputs are available."
+                            : "Choose an input. Multiple crop inputs are available; none is selected automatically."}
+                      </p>
+                    )}
+                    {selectedCropInput?.kind === "proposed_virtual_cards" ? (
+                      <p className={styles.pipelineRunInputValue}>
+                        Uses the local classifier. The crop geometry is
+                        proposal-derived, not reviewed ground truth or training
+                        authority.
+                      </p>
+                    ) : null}
+                    {reviewedRevisionId === null ? (
+                      <p className={styles.pipelineRunInputValue}>
+                        Reviewed virtual-card input unavailable: complete a
+                        maintained visible-card reference.
+                      </p>
+                    ) : !reviewedInputListed ? (
+                      <p className={styles.pipelineRunInputValue}>
+                        Reviewed virtual-card input unavailable: the completed
+                        reference revision is not present in the workspace
+                        inputs.
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <div
+                    className={styles.pipelineToggleGroup}
+                    role="group"
+                    aria-label="Input origin"
+                  >
+                    <button
+                      className={
+                        inputOrigin === "generated"
+                          ? styles.pipelineToggleActive
+                          : styles.pipelineToggle
                       }
-                      disabled={busy || cropInputOptions.length === 0}
+                      type="button"
+                      aria-pressed={inputOrigin === "generated"}
+                      disabled={!hasGenerated || busy}
+                      onClick={() => setOrigin("generated")}
+                    >
+                      Generated
+                    </button>
+                    <button
+                      className={
+                        inputOrigin === "reviewed"
+                          ? styles.pipelineToggleActive
+                          : styles.pipelineToggle
+                      }
+                      type="button"
+                      aria-pressed={inputOrigin === "reviewed"}
+                      disabled={!hasReviewed || busy}
+                      onClick={() => setOrigin("reviewed")}
+                    >
+                      Reviewed
+                    </button>
+                  </div>
+                )}
+                {runStage === "visible_cards" ? (
+                  <p className={styles.pipelineRunInputValue}>
+                    {selectedRevisionId === null
+                      ? "No compatible revision selected"
+                      : `${inputOrigin === "reviewed" && !historicalRevisionId ? "Reviewed" : "Exact historical"} · ${selectedRevisionId}`}
+                  </p>
+                ) : null}
+                {runStage === "visible_cards" ? (
+                  <label className={styles.pipelineRunSelector}>
+                    <span>Model variant used by the next run</span>
+                    <select
+                      aria-label="Model variant"
+                      value={visibleCardModelVariant}
+                      disabled={busy}
                       onChange={(event) => {
-                        setCropInputSelection(event.target.value);
+                        setVisibleCardModelVariant(
+                          event.target.value as VisibleCardModelVariant,
+                        );
                         setMessage(null);
                       }}
                     >
-                      {cropInputOptions.length !== 1 ? (
-                        <option value="">Select one exact crop input</option>
-                      ) : null}
-                      {cropInputOptions.map((option) => (
-                        <option
-                          key={cropInputKey(option)}
-                          value={cropInputKey(option)}
-                        >
-                          {option.label}
+                      {VISIBLE_CARD_MODEL_VARIANTS.map((variant) => (
+                        <option key={variant.value} value={variant.value}>
+                          {variant.label}
                         </option>
                       ))}
                     </select>
                   </label>
-                  {selectedCropInput !== null ? (
-                    <p className={styles.pipelineRunInputValue}>
-                      Exact source revision · {selectedCropInput.revisionId}
-                    </p>
-                  ) : (
-                    <p className={styles.pipelineRunInputValue}>
-                      {proposedCropInputsLoadedFor !== recordingId
-                        ? "Loading proposed scene revisions…"
-                        : cropInputOptions.length === 0
-                          ? "No compatible crop inputs are available."
-                          : "Choose an input. Multiple crop inputs are available; none is selected automatically."}
-                    </p>
-                  )}
-                  {selectedCropInput?.kind === "proposed_virtual_cards" ? (
-                    <p className={styles.pipelineRunInputValue}>
-                      Uses the local classifier. The crop geometry is
-                      proposal-derived, not reviewed ground truth or training
-                      authority.
-                    </p>
-                  ) : null}
-                  {reviewedRevisionId === null ? (
-                    <p className={styles.pipelineRunInputValue}>
-                      Reviewed virtual-card input unavailable: complete a
-                      maintained visible-card reference.
-                    </p>
-                  ) : !reviewedInputListed ? (
-                    <p className={styles.pipelineRunInputValue}>
-                      Reviewed virtual-card input unavailable: the completed
-                      reference revision is not present in the workspace inputs.
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <div
-                  className={styles.pipelineToggleGroup}
-                  role="group"
-                  aria-label="Input origin"
-                >
-                  <button
-                    className={
-                      inputOrigin === "generated"
-                        ? styles.pipelineToggleActive
-                        : styles.pipelineToggle
-                    }
-                    type="button"
-                    aria-pressed={inputOrigin === "generated"}
-                    disabled={!hasGenerated || busy}
-                    onClick={() => setOrigin("generated")}
-                  >
-                    Generated
-                  </button>
-                  <button
-                    className={
-                      inputOrigin === "reviewed"
-                        ? styles.pipelineToggleActive
-                        : styles.pipelineToggle
-                    }
-                    type="button"
-                    aria-pressed={inputOrigin === "reviewed"}
-                    disabled={!hasReviewed || busy}
-                    onClick={() => setOrigin("reviewed")}
-                  >
-                    Reviewed
-                  </button>
-                </div>
-              )}
-              {runStage !== "events" && runStage !== "visual_identities" ? (
-                <p className={styles.pipelineRunInputValue}>
-                  {selectedRevisionId === null
-                    ? "No compatible revision selected"
-                    : `${inputOrigin === "reviewed" && !historicalRevisionId ? "Reviewed" : "Exact historical"} · ${selectedRevisionId}`}
-                </p>
-              ) : null}
-              {runStage === "visible_cards" ? (
-                <label className={styles.pipelineRunSelector}>
-                  <span>Model variant used by the next run</span>
-                  <select
-                    aria-label="Model variant"
-                    value={visibleCardModelVariant}
-                    disabled={busy}
-                    onChange={(event) => {
-                      setVisibleCardModelVariant(
-                        event.target.value as VisibleCardModelVariant,
-                      );
-                      setMessage(null);
-                    }}
-                  >
-                    {VISIBLE_CARD_MODEL_VARIANTS.map((variant) => (
-                      <option key={variant.value} value={variant.value}>
-                        {variant.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : runStage === "visual_identities" ? (
-                <div className={styles.pipelineRunProcessorChoice}>
-                  <span className={styles.statusLabel}>
-                    Processor used by the next run
-                  </span>
-                  <div
-                    className={styles.pipelineToggleGroup}
-                    role="group"
-                    aria-label="Processor provider"
-                  >
-                    <button
-                      className={
-                        selectedProcessorOrigin === "cloud"
-                          ? styles.pipelineToggleActive
-                          : styles.pipelineToggle
-                      }
-                      type="button"
-                      aria-pressed={selectedProcessorOrigin === "cloud"}
-                      disabled={
-                        busy ||
-                        selectedCropInput?.kind === "proposed_virtual_cards"
-                      }
-                      onClick={() => setProcessorOrigin("cloud")}
+                ) : runStage === "visual_identities" ? (
+                  <div className={styles.pipelineRunProcessorChoice}>
+                    <span className={styles.statusLabel}>
+                      Processor used by the next run
+                    </span>
+                    <div
+                      className={styles.pipelineToggleGroup}
+                      role="group"
+                      aria-label="Processor provider"
                     >
-                      Cloud
-                    </button>
-                    <button
-                      className={
-                        selectedProcessorOrigin === "local"
-                          ? styles.pipelineToggleActive
-                          : styles.pipelineToggle
-                      }
-                      type="button"
-                      aria-pressed={selectedProcessorOrigin === "local"}
-                      disabled={busy}
-                      onClick={() => setProcessorOrigin("local")}
-                    >
-                      Local
-                    </button>
+                      <button
+                        className={
+                          selectedProcessorOrigin === "cloud"
+                            ? styles.pipelineToggleActive
+                            : styles.pipelineToggle
+                        }
+                        type="button"
+                        aria-pressed={selectedProcessorOrigin === "cloud"}
+                        disabled={
+                          busy ||
+                          selectedCropInput?.kind === "proposed_virtual_cards"
+                        }
+                        onClick={() => setProcessorOrigin("cloud")}
+                      >
+                        Cloud
+                      </button>
+                      <button
+                        className={
+                          selectedProcessorOrigin === "local"
+                            ? styles.pipelineToggleActive
+                            : styles.pipelineToggle
+                        }
+                        type="button"
+                        aria-pressed={selectedProcessorOrigin === "local"}
+                        disabled={busy}
+                        onClick={() => setProcessorOrigin("local")}
+                      >
+                        Local
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
+              <button
+                className={styles.primaryButton}
+                type="button"
+                disabled={!canStart || busy}
+                onClick={() => void startRun()}
+              >
+                {busy
+                  ? "Starting…"
+                  : latestRun === null
+                    ? "Run processor"
+                    : "Run again"}
+              </button>
             </div>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              disabled={!canStart || busy}
-              onClick={() => void startRun()}
-            >
-              {busy
-                ? "Starting…"
-                : latestRun === null
-                  ? "Run processor"
-                  : "Run again"}
-            </button>
-          </div>
+          )}
 
           {runStage !== "events" && runStage !== "visual_identities" ? (
             <details className={styles.pipelineRunHistory}>
@@ -715,20 +818,9 @@ function RunStatus({
 async function startProcessorRun(
   client: ReturnType<typeof createDokoDetectorClient>,
   recordingId: string,
-  stage: RunStageKey,
+  stage: Exclude<RunStageKey, "events">,
   payload: PipelineRunStartRequest,
 ): Promise<PipelineRunResponse> {
-  if (stage === "events") {
-    const job = await client.enqueueJob(
-      {
-        type: "event_processing",
-        context: { recording_id: recordingId },
-        request: payload as unknown as Record<string, unknown>,
-      },
-      crypto.randomUUID(),
-    );
-    return pipelineRunFromJob(job, recordingId, "event-detection");
-  }
   if (stage === "visible_cards") {
     const job = await client.enqueueJob(
       {

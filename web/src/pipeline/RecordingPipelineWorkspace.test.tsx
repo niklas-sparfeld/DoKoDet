@@ -257,7 +257,7 @@ describe("recording pipeline workspace", () => {
       }),
     ).toHaveValue(generated.node_revision_id);
     expect(
-      within(inspector).getByRole("button", { name: "Run processor" }),
+      within(inspector).getByRole("button", { name: "Detect events…" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Next action")).not.toBeInTheDocument();
     expect(

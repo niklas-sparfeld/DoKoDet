@@ -20,7 +20,11 @@ type Props = {
   loading?: boolean;
   submitting?: boolean;
   validationErrors?: string[];
-  onStart?: (action: JobStartAction, event: FormEvent<HTMLFormElement>) => void;
+  canSubmit?: boolean;
+  onStart?: (
+    action: JobStartAction,
+    event: FormEvent<HTMLFormElement>,
+  ) => boolean | Promise<boolean> | void | Promise<void>;
 };
 
 const FOCUSABLE =
@@ -31,6 +35,7 @@ export function JobStartActions({
   loading = false,
   submitting = false,
   validationErrors = [],
+  canSubmit = true,
   onStart,
 }: Props) {
   const [active, setActive] = useState<JobStartAction | null>(null);
@@ -109,7 +114,13 @@ export function JobStartActions({
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                if (!submitting) onStart?.(active, event);
+                if (!submitting && canSubmit) {
+                  void Promise.resolve(onStart?.(active, event)).then(
+                    (accepted) => {
+                      if (accepted === true) setActive(null);
+                    },
+                  );
+                }
               }}
             >
               <header className={styles.header}>
@@ -172,7 +183,10 @@ export function JobStartActions({
                 <button type="button" disabled={submitting} onClick={close}>
                   Cancel
                 </button>
-                <button type="submit" disabled={loading || submitting}>
+                <button
+                  type="submit"
+                  disabled={loading || submitting || !canSubmit}
+                >
                   {submitting
                     ? "Starting…"
                     : `Start ${active.label.toLowerCase()}`}

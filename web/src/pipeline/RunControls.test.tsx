@@ -126,7 +126,11 @@ describe("RunControls", () => {
     );
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Detect events…" }),
+    );
+    expect(screen.getByText("Source: accepted recording video")).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start detect events" }),
     );
 
     await waitFor(() =>
@@ -157,8 +161,34 @@ describe("RunControls", () => {
       },
     });
     expect(
-      screen.getAllByText("Accepted recording video").length,
-    ).toBeGreaterThan(0);
+      screen.getByRole("link", { name: "View job events-job-1" }),
+    ).toHaveAttribute("href", "/jobs/events-job-1");
+  });
+
+  it("keeps an unavailable event source visible and blocks submission", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={stage("events", {
+          can_run: false,
+          run_blockers: ["The accepted recording video is unavailable."],
+        })}
+        stages={[stage("events", { can_run: false })]}
+        onRefresh={async () => undefined}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Detect events…" }),
+    );
+    expect(
+      screen.getByText("The accepted recording video is unavailable."),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Start detect events" }),
+    ).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("shows processor progress, activity steps, and log messages", () => {
@@ -233,7 +263,7 @@ describe("RunControls", () => {
 
   it("shows the checkpoint configuration error when a run cannot start", async () => {
     const message =
-      "The CardEventNet checkpoint is not configured. Set CARD_EVENT_CHECKPOINT_PATH.";
+      "The request was rejected. Correct the inputs and try again.";
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(
         new Response(
@@ -263,7 +293,10 @@ describe("RunControls", () => {
     );
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Detect events…" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start detect events" }),
     );
 
     expect(await screen.findByText(message)).toBeInTheDocument();
@@ -368,7 +401,10 @@ describe("RunControls", () => {
     );
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Detect events…" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start detect events" }),
     );
     expect(
       await screen.findByRole("link", { name: /View job/ }),
