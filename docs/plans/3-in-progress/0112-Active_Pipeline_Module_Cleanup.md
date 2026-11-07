@@ -99,7 +99,7 @@ explicit plan change before the affected milestone is marked complete.
 | M4 | Split surviving pipeline persistence owners | Complete |
 | M5 | Extract API transport and feature contract types | Complete |
 | M6 | Split API methods and paths by feature | Complete |
-| M7 | Extract workspace loading and selection state | Complete |
+| M7 | Extract workspace loading and selection state | In progress |
 | M8 | Split processor launch controls from request construction | Not started |
 | M9 | Split job models and recovery from lifecycle management | Not started |
 | M10 | Enforce boundaries and verify the complete fixture workflow | Not started |
@@ -291,7 +291,7 @@ Acceptance: composition root is at most 500 lines. Tests cover recording switche
 stage switches, graph errors, refresh, invalid/deleted nodes, URL restoration, and exact selection.
 Retain a small composition integration test. No second selection authority or shared job poller.
 
-**Result:** Complete. Workspace and graph requests live in `useRecordingPipelineData.ts`. Pure URL
+**Result:** In progress. Workspace and graph requests live in `useRecordingPipelineData.ts`. Pure URL
 sanitization and initial-stage choice live in `recordingPipelineSelection.ts`; URL state and
 selection commands live in `useRecordingPipelineSelection.ts`. Workspace requests ignore stale
 completion and reject a response for another recording. A completed workspace for one recording
@@ -299,7 +299,7 @@ does not satisfy a same-stage request for another recording; the workspace shows
 until the new recording loads. Root-route stage selection waits for the matching recording, and
 lineage results remain scoped to their recording while a new graph loads. The 469-line composition
 root has no second selection authority or job poller. Loading, URL, selection, and composition tests
-pass (41 tests). See
+pass (41 tests), but the recording-switch races in the execution handoff remain. See
 [`0112 M7 workspace loading and selection`](../../reports/0112-M7_Workspace_Loading_Selection.md).
 
 ## M8 — Split processor launch controls from request construction
@@ -350,7 +350,7 @@ move it to `5-closed`, repair links, and update the board in the final milestone
 
 ## Execution handoff
 
-- Completed: M0, M1, M2, M3, M4, M5, M6, M7. M1 moved crop-input freezing and source validation. The focused
+- Completed: M0, M1, M2, M3, M4, M5, M6. M1 moved crop-input freezing and source validation. The focused
   source test is in `backend/tests/test_visual_identity_crop_sources.py`; details are in
   [`docs/reports/0112-M1_Crop_Input_Extraction.md`](../../reports/0112-M1_Crop_Input_Extraction.md).
   M2 moved provenance and crop resolution. Its details are in
@@ -397,5 +397,9 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   add shared polling or a second selection store. Workspace suites mock `AutomatedPipelineControls`
   to isolate loading and selection from its 0113 `JobStateProvider` dependency; its own tests keep
   provider coverage.
-- Next: M8, split processor launch controls and request construction. Requested 10 milestones,
-  completed 7, remaining 3. Coordinate M8 with 0113 before either launch-boundary implementation.
+- M7 remains incomplete after two correction turns. A quick A → B → A switch can leave an
+  aborted workspace load identity set and suppress the replacement request. A delayed selection
+  response for A can update B, and a delayed 409 can trigger an obsolete A reload. Add focused
+  recording-switch regressions and scope or invalidate asynchronous completions before M7 completes.
+- Run stopped at the correction limit. Requested 10 milestones; completed 6, remaining 4. Resume
+  at M7. Coordinate M8 with 0113 before either launch-boundary implementation.
