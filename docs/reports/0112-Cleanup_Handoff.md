@@ -91,12 +91,18 @@ Three examples show the files needed for a change:
 - `mise exec -- uv run --project backend ruff check backend/src backend/tests scripts/check_0112_boundaries.py`
   and `mise exec -- uv run --project backend ruff format --check backend/src backend/tests scripts/check_0112_boundaries.py`
   — passed (215 files formatted).
-- Epic 0116 M0, verified on integrated source revision `4f8fff4fb`:
+- Epic 0116 M0 initial verification on integrated source revision `4f8fff4fb`:
   `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py` — 7 passed;
   `python scripts/check_0112_boundaries.py` — passed all explicit budgets and import directions;
   `mise exec -- uv run --project backend ruff check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
   — passed; `mise exec -- uv run --project backend ruff format --check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
   — passed.
+- Epic 0116 M0 correction, verified on integrated source revision `acd64c41e`:
+  `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py` — 9 passed;
+  `python scripts/check_0112_boundaries.py` — passed all explicit budgets and import directions;
+  `mise exec -- uv run --project backend ruff check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
+  — passed; `mise exec -- uv run --project backend ruff format --check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py`
+  — passed; `git diff --check` — passed.
 - In `web/`, `npm test -- --run src/api/client.test.ts src/api/transport.test.ts src/api/analysisClient.test.ts src/api/calibrationClient.test.ts src/api/pipelineProcessingClient.test.ts src/api/recordingsClient.test.ts src/pipeline/RecordingPipelineWorkspace.test.tsx src/pipeline/RecordingPipelineWorkspaceSelection.test.tsx src/pipeline/RecordingPipelineWorkspacePresentation.test.tsx src/pipeline/useRecordingPipelineData.test.tsx src/pipeline/useRecordingPipelineSelection.test.tsx src/pipeline/RunControlsEventAndVisibleCard.test.tsx src/pipeline/RunControlsVisualIdentity.test.tsx` — 13 files and 87 tests passed.
 - `npm run typecheck`, `npm run lint`, `npm run format`, and `npm run verify:api` — passed. API verification regenerated OpenAPI into a temporary file and matched the checked-in generated client.
 - `npx playwright test tests/e2e/pipeline-cutover.spec.ts tests/e2e/job-start-actions.spec.ts -g 'opens fresh accepted video|starts a fact-complete pipeline|job start actions fixture'` — 4 browser checks passed for recording selection, launch, and shared Jobs navigation.
@@ -118,7 +124,9 @@ production behavior or demonstrate speed gains.
 
 ## Epic 0116 M0 closeout
 
-The scanner normalizes `.ts` and `.tsx` fixture module suffixes and recognizes `__tests__` path
-segments. Focused tests cover static import, re-export, dynamic `import()`, and `require` forms.
-The repository guard and Ruff checks pass. Verified integrated source revision: `4f8fff4fb`.
-The implementation and closeout are committed together in the 0116 M0 commit.
+The scanner tokenizes TypeScript code before matching imports. It ignores comments and ordinary
+string contents, checks quoted and static template-literal module paths, and recognizes `.ts` and
+`.tsx` fixture suffixes and `__tests__` segments. Focused tests cover static imports, re-exports,
+quoted and template-literal dynamic imports, `require`, valid production imports, and test-only
+files. The repository guard and Ruff checks pass. The correction was verified on integrated source
+revision `acd64c41e`; its implementation is committed in `57d8e6b2`.
