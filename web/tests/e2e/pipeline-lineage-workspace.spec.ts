@@ -132,7 +132,7 @@ function graph(copyCreated: boolean) {
 
 test("lineage drawer preserves exact revisions, reviews, and all analysis sources", async ({
   page,
-}) => {
+}, testInfo) => {
   let copied = false;
   await page.route("**/api/**", async (route: Route) => {
     const url = new URL(route.request().url());
@@ -233,6 +233,73 @@ test("lineage drawer preserves exact revisions, reviews, and all analysis source
   );
   await expect(page.getByLabel("Start (µs)")).toHaveValue("100");
   await expect(page.getByText("corrected", { exact: true })).toBeVisible();
+
+  const measureLayout = () =>
+    page.evaluate(() => {
+      const bounds = (selector: string) => {
+        const element = document.querySelector(selector);
+        if (element === null) return null;
+        const rect = element.getBoundingClientRect();
+        return {
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        };
+      };
+      const center = document.querySelector('[data-slot="center"]');
+      return {
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        center: bounds('[data-slot="center"]'),
+        inspector: bounds('[aria-label="Workspace inspector"]'),
+        rail: bounds('[aria-label="Timeline Rail"]'),
+        stepLabels: Array.from(
+          document.querySelectorAll(
+            '[aria-label="Recording pipeline steps"] a',
+          ),
+        ).map((link) => link.textContent?.trim()),
+        centerHasVideo: center?.querySelector("video") !== null,
+        centerButtons: Array.from(center?.querySelectorAll("button") ?? []).map(
+          (button) => button.innerText.trim(),
+        ),
+        centerInputs: Array.from(
+          center?.querySelectorAll("input, textarea, select") ?? [],
+        ).map((input) => input.getAttribute("aria-label") ?? input.tagName),
+        pageScrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const desktopLayout = await measureLayout();
+  console.log("M0_DESKTOP_LAYOUT", JSON.stringify(desktopLayout));
+  expect(desktopLayout.stepLabels).toEqual([
+    "Events",
+    "Visible cards",
+    "Virtual scenes",
+    "Visual identities",
+    "Table observations",
+    "Round analysis",
+  ]);
+  expect(desktopLayout.centerHasVideo).toBe(true);
+  expect(desktopLayout.centerButtons).toContain("Add event at playhead");
+  await page.screenshot({
+    path: testInfo.outputPath("0109-m0-current-events-desktop.png"),
+    fullPage: true,
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrowLayout = await measureLayout();
+  console.log("M0_NARROW_LAYOUT", JSON.stringify(narrowLayout));
+  expect(narrowLayout.viewport).toEqual({ width: 390, height: 844 });
+  expect(narrowLayout.stepLabels).toEqual(desktopLayout.stepLabels);
+  expect(narrowLayout.centerHasVideo).toBe(true);
+  expect(narrowLayout.centerButtons).toContain("Add event at playhead");
+  expect(narrowLayout.pageScrollWidth).toBe(390);
+  await page.screenshot({
+    path: testInfo.outputPath("0109-m0-current-events-narrow.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await page.getByRole("button", { name: "Show lineage" }).click();
   const drawer = page.getByRole("region", { name: "Pipeline lineage" });

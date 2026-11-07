@@ -295,9 +295,9 @@ video elements, central text, and central command controls. No hardware or model
 ## Execution handoff
 
 - Completed: M0 — freeze layout and capability fixtures.
-- Changes: added the [M0 inventory and surface contract](../../reports/0109-M0_Working_Area_Inventory.md), test-only capability fixtures, and assertions. Updated the epic and board to Ready; repaired inbound links after the move. No application behavior changed.
-- Checks: `npm run check` passed (typecheck, lint, format, generated API comparison, and 182 Vitest tests); focused Playwright lineage workspace test passed; local Markdown link check and `git diff --check` passed. New epic/report formatting passed. The broader Markdown Prettier check reports the same warnings on the board and three inbound documents at HEAD, so those historical/unrelated formats were left intact.
+- Changes: added the [M0 inventory and surface contract](../../reports/0109-M0_Working_Area_Inventory.md), test-only capability fixtures, and assertions. Added desktop/narrow browser measurements and screenshots of the current Events layout. Updated the epic and board to Ready; repaired inbound links after the move. No application behavior changed.
+- Checks: `npm run check` passed (typecheck, lint, format, generated API comparison, and 182 Vitest tests); focused Playwright viewport regression passed and verified six navigation labels, the central video and event controls, and no narrow page overflow. Local Markdown link check and `git diff --check` passed. New epic/report formatting passed. The broader Markdown Prettier check reports the same warnings on the board and three inbound documents at HEAD, so those historical/unrelated formats were left intact.
 - Decisions: preserve all current functions; 0108 retains exact data selection; overlays require exact frame and calibration correspondence; intervals and untimed inferred actions do not invent frame seeks.
-- Limits: no usability study or full six-step screenshot sweep. Missing-calibration behavior is a contract fixture; current components do not yet support it.
+- Limits: browser screenshots cover Events only; the six-step responsive screenshot sweep remains for M10. Missing-calibration behavior is a contract fixture; current components do not yet support it. The current Events layout still places controls in the center.
 - Next: M1 — extract the common geometry surface.
 - Run count: requested 11 milestones, completed 1, remaining 10.

@@ -16,10 +16,11 @@ rendered-fixture verification, not a usability study.
 
 ## Function placement inventory
 
-The center is the source-frame surface. The inspector holds commands, state,
-descriptions, selected-item details, crop previews, and diagnostics. The
-Timeline Rail holds the one workspace time cursor, frame movement, intervals,
-and analysis rows. Existing functions stay available when their controls move.
+The placement column below records the target contract. It does not describe
+the current renderer. Current rendered behavior appears in the browser evidence
+section below. The 0109 target keeps source pixels and geometry in the center,
+commands and explanations in the inspector, and time/evidence navigation in the
+Timeline Rail. Existing functions stay available when their controls move.
 
 | Step or view              | Existing commands, selection, crops, analysis, and diagnostics                                                                                                                                                                                                                                                                                                                  | Target slot                                                                                                                                                                                                                                                                                               |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -121,33 +122,54 @@ and `ComparisonView.test.tsx`. The browser fixture is
 Contract-only cases are asserted by `workingAreaFixtures.test.ts`; they specify
 future behavior and do not claim that the current components support it.
 
-## Rendered layout examples
+## Rendered browser evidence
 
-Desktop example: at 1440 px, the top row retains all six aligned step columns;
-the main workspace uses the existing center/inspector/rail slots. The center
-keeps source aspect ratio. Selection, progress, controls, and errors are outside
-the image.
+The local Playwright fixture in
+`web/tests/e2e/pipeline-lineage-workspace.spec.ts` rendered the Events editor at
+1440 × 900 and 390 × 844. It used the exact `events-first-pass/events-r2`
+selection and a local fixture video response. The video bytes are empty, so the
+video element is visible but its frame is blank.
 
-Narrow example: at 390 px, the step row scrolls horizontally and the inspector
-and rail reflow below the source surface. Expanded crop/details remain in the
-inspector flow and do not cover the image. These examples describe existing
-CSS breakpoints and the target contract; the 0108 browser test did not record a
-full six-step screenshot sweep at these sizes.
+At 1440 × 900, the center starts at `(58, 329)` and measures `945 × 362` px. The
+inspector is beside it at `(1014, 329)` and measures `368 × 362` px. The rail is
+below both at `(58, 703)` and measures `1325 × 233` px. The center contains a
+video, two inputs, and these buttons: Add event at playhead; Record
+full-recording coverage; Record overall acceptance; event selection; Accept;
+Reject; Delete event. The top header's recording context text overlaps. There
+is no page-level horizontal overflow.
+
+At 390 × 844, the center measures `366 × 525` px at `(12, 340)`. It still
+contains the video, two inputs, and the same event controls. The inspector is
+below the center at y=878 and measures `366 × 1314` px. The rail follows it at
+y=2204 and measures `366 × 245` px. The step navigation shows about three
+columns at once and scrolls internally; the page itself does not overflow
+horizontally. Several event controls and fields wrap tightly and overlap. The
+recording-context header also wraps at this width.
+
+These screenshots show the current layout, including center controls and text;
+they do not show the 0109 target. The full local component suite separately
+renders each step's current component. It does not provide a six-step browser
+screenshot sweep or verify all six steps at both viewport sizes.
+
+- [Desktop, 1440 × 900](assets/0109-m0-current-events-desktop.png)
+- [Narrow, 390 × 844](assets/0109-m0-current-events-narrow.png)
 
 ## Limits and next work
 
 No application behavior changed in M0. Existing components still render video
 elements and central text/actions in several steps. The missing-calibration
-fixture is specified but not accepted as current behavior. M1 extracts the
-geometry surface; later milestones connect each step and move its functions to
-the agreed slots. The 0107 and 0108 dependencies are complete.
+fixture is specified but not accepted as current behavior. The browser evidence
+covers Events at two widths; the other steps have component-test evidence, not
+responsive browser captures. M1 extracts the geometry surface; later milestones
+connect each step and move its functions to the agreed slots. The 0107 and 0108
+dependencies are complete.
 
 ## Execution handoff
 
 - Completed: M0, freeze layout, inventory, typed contract, and fixture matrix.
-- Changes: this report and test-only fixtures; epic and board updated to Ready; inbound links repaired after the epic move; no application behavior changed.
-- Checks: `npm run check` passed (typecheck, lint, format, generated API comparison, 182 Vitest tests); `npx playwright test tests/e2e/pipeline-lineage-workspace.spec.ts` passed; local Markdown links passed. New epic/report formatting passed. The broad Markdown Prettier check warns on the board and three inbound documents at HEAD; the baseline also warns, so those existing styles remain intact.
+- Changes: this report, test-only fixtures, and current Events screenshots at both widths; epic and board updated to Ready; inbound links repaired after the epic move; no application behavior changed.
+- Checks: `npm run check` passed (typecheck, lint, format, generated API comparison, 182 Vitest tests); `npx playwright test tests/e2e/pipeline-lineage-workspace.spec.ts --reporter=line` passed and logged both viewport measurements; local Markdown links passed. New epic/report formatting passed. The broad Markdown Prettier check warns on the board and three inbound documents at HEAD; the baseline also warns, so those existing styles remain intact.
 - Decisions: preserve every current function; source selection remains 0108-owned; calibration mismatch blocks overlay edits; untimed evidence does not seek.
-- Limits: no usability study or full six-step screenshot sweep; missing-calibration behavior remains future work.
+- Limits: no usability study or full six-step responsive screenshot sweep; missing-calibration behavior remains future work.
 - Next: M1, extract the common geometry surface.
 - Run: requested 11 milestones, completed 1, remaining 10.
