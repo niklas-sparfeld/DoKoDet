@@ -302,7 +302,7 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   [`docs/reports/0112-M1_Crop_Input_Extraction.md`](../../reports/0112-M1_Crop_Input_Extraction.md).
   M2 moved provenance and crop resolution. Its details are in
   [`docs/reports/0112-M2_Crop_Resolution_Extraction.md`](../../reports/0112-M2_Crop_Resolution_Extraction.md).
-- M2 checks passed: focused backend API, crop-source, and direct crop-resolution suites (11 tests),
+- M2 checks passed: focused backend API, crop-source, and direct crop-resolution suites (13 tests),
   Ruff lint, and Ruff format.
 - Decisions and limits: keep the retired `test_pipeline_reference.py` absent. Preserve
   `LegacyProcessorRunStore` while `lineage_migration_inventory.py` calls it. M3/M7/M9 must add or
