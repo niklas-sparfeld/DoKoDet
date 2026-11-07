@@ -163,9 +163,9 @@ the M1 desktop/narrow fixture checks.
   restores a prior run or polls the pipeline endpoint; Jobs owns polling. Parent stage records
   retain exact child job and revision lineage.
 - Checks: backend preflight, API, and job tests: 16 passed; modal fixture tests: 2 passed; frontend
-  typecheck, generated API verification, changed-file Ruff check and format passed. Playwright
-  launch check and the existing pipeline-cutover smoke test did not reach the rendered app; see the
-  M7 report. Browser acceptance remains part of M10.
+  typecheck, generated API verification, changed-file Ruff check and format passed. The pipeline
+  cutover Playwright suite passed 4/4 after its API fixture route was narrowed so it no longer
+  intercepts Vite module imports. See the M7 report.
 - Limits: model and configuration objects use JSON editors because the current API provides no
   browser inventory of supported per-stage models. Existing preflight validates availability.
 - Next: M8, integrate calibration and counterfactual calculations.

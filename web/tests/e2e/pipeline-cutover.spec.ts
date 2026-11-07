@@ -344,7 +344,7 @@ async function stubPipeline(
     (_, index) => reviewEventItem(reviewState, index + 1, reviewShape),
   );
   let reviewRevision = 1;
-  await page.route("**/api/**", async (route: Route) => {
+  const apiRouteHandler = async (route: Route) => {
     const url = new URL(route.request().url());
     requestedPaths.push(url.pathname);
     if (RETIRED_ROUTE_MARKERS.some((marker) => url.pathname.includes(marker))) {
@@ -503,7 +503,8 @@ async function stubPipeline(
       return;
     }
     await route.fulfill(json({ error: "unmocked fixture route" }, 404));
-  });
+  };
+  await page.route((url) => url.pathname.startsWith("/api/"), apiRouteHandler);
   await page.route("**/v1/recordings", async (route) => {
     await route.fulfill(json({ recordings: [] }));
   });
@@ -534,7 +535,10 @@ test("opens fresh accepted video in the recording-owned pipeline", async ({
     page.getByRole("region", { name: "Timeline Rail" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Run processor" }),
+    page.getByRole("button", { name: "Detect events…" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Run complete pipeline…" }),
   ).toBeVisible();
   await expect(page).toHaveURL(
     new RegExp(`/recordings/${RECORDING_ID}/pipeline/events$`),

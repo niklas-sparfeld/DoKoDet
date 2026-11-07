@@ -13,7 +13,9 @@ The dialog retains its values after a preflight error. An uncertain response ret
 - `npm run typecheck` — passed.
 - `npm run verify:api` — passed after generating the request schema.
 - Ruff checks and format on changed backend files — passed.
-- Playwright `pipeline-cutover.spec.ts -g "starts a fact-complete pipeline"` — could not reach the app UI: the page body stayed empty and the action was absent. The existing “opens fresh accepted video” smoke test also failed before its first UI assertion because the banner was absent. Direct HTTP checks to the local Vite root and route returned 200. Browser acceptance remains to verify in M10.
+- `npm run test:e2e -- pipeline-cutover.spec.ts` — 4 passed, including the fact-complete complete-pipeline launch and the existing pipeline workspace smoke checks.
+
+The first browser attempt exposed a fixture route bug after 0112 M6 split the API clients. The fixture matched `**/api/**`, which also matched Vite source imports such as `/src/api/transport.ts`; those modules received JSON 404 responses and the page stayed empty. The fixture now matches only URL paths that start with `/api/`. The workspace smoke test also expected the removed `Run processor` button; it now checks the shared `Detect events…` action and the complete-pipeline action.
 
 The API export printed the existing optional `processor_run_catalog_skipped` notice because the temporary data root is not available. The API type verification passed.
 
