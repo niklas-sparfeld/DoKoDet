@@ -10,7 +10,6 @@ import time
 from collections import OrderedDict
 from collections.abc import Mapping
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
@@ -27,9 +26,6 @@ from doko_operations.derived_view import (
     FrameResolver,
     ResolvedCrop,
     ResolvedCropJpegPreview,
-    parse_geometry,
-    resolve_crop_jpeg_preview,
-    resolve_crop_jpeg_preview_from_cache,
     resolve_exact_event,
     resolve_visible_region_crop,
 )
@@ -67,7 +63,6 @@ from table_evidence_analyzer.visual_identity import (
     VisualIdentityRequest,
 )
 from table_evidence_analyzer.visual_identity_crop_input import (
-    VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION,
     VisualIdentityCropInput,
     VisualIdentityCropInputError,
     VisualIdentityCropInputItem,
@@ -94,6 +89,22 @@ from dokodetector_backend.pipeline_store import (
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.visual_identity_crop_inputs import VisualIdentityCropInputFreezer
+from dokodetector_backend.visual_identity_crop_provenance import (
+    ValidatedCropContext,
+    crop_dependency_fingerprint,
+    crop_input_provenance,
+    validate_crop_outcome,
+    validate_run_crop_provenance,
+)
+from dokodetector_backend.visual_identity_crop_resolution import (
+    crop_identity_mapping,
+    resolve_browser_preview,
+    resolve_geometry_crop,
+    validated_identity_crop_outcome,
+)
+from dokodetector_backend.visual_identity_crop_resolution import (
+    resolve_identity_crop as resolve_frozen_identity_crop,
+)
 from dokodetector_backend.visual_identity_crop_sources import (
     CropSourceError,
     VisualIdentityCropSources,
@@ -156,41 +167,6 @@ class VisualIdentityPipelineInputError(VisualIdentityPipelineError, ValueError):
     """The visual identity pipeline request is invalid."""
 
 
-@dataclass(frozen=True)
-class _ValidatedCropContext:
-    revision: StoredPipelineRevision
-    crop_input: VisualIdentityCropInput
-    roots: tuple[Path, ...]
-    fingerprint: tuple[tuple[str, int, int, int, int, int, str], ...]
-
-
-def _crop_dependency_fingerprint(
-    roots: tuple[Path, ...],
-) -> tuple[tuple[str, int, int, int, int, int, str], ...]:
-    """Detect edits, replacements, removals, and added members without reading video bytes."""
-
-    entries = []
-    for root in roots:
-        for path in (root, *sorted(root.rglob("*"))):
-            stat = path.lstat()
-            if path.is_symlink():
-                raise OSError("crop validation dependency must not be a symlink")
-            entries.append(
-                (
-                    str(path),
-                    stat.st_ino,
-                    stat.st_mode,
-                    stat.st_size,
-                    stat.st_mtime_ns,
-                    stat.st_ctime_ns,
-                    hashlib.sha256(path.read_bytes()).hexdigest()
-                    if path.is_file() and root.parent.name == "revisions"
-                    else "",
-                )
-            )
-    return tuple(entries)
-
-
 class VisualIdentityPipelineService:
     """Freeze visible-card inputs, classify their crops, and retain the result."""
 
@@ -248,7 +224,7 @@ class VisualIdentityPipelineService:
         self._lock = RLock()
         # One cold validation per revision, shared by foreground and prewarm requests.
         self._crop_context_lock = RLock()
-        self._crop_contexts: OrderedDict[str, _ValidatedCropContext] = OrderedDict()
+        self._crop_contexts: OrderedDict[str, ValidatedCropContext] = OrderedDict()
 
     async def start(self) -> None:
         """Keep the service lifecycle symmetrical with the other pipeline services."""
@@ -592,78 +568,21 @@ class VisualIdentityPipelineService:
     def _validated_identity_crop_outcome(
         self, recording_id: str, revision_id: str, item_id: str
     ) -> tuple[StoredPipelineRevision, VisualIdentityOutcome]:
-        with self._crop_context_lock:
-            context = self._crop_contexts.get(revision_id)
-            if context is not None:
-                try:
-                    current_revision = self._require_identity_revision(recording_id, revision_id)
-                    unchanged = _crop_dependency_fingerprint(context.roots) == context.fingerprint
-                except (OSError, ValueError):
-                    unchanged = False
-                    current_revision = None
-                if (
-                    unchanged
-                    and current_revision is not None
-                    and current_revision.manifest.content_sha256
-                    == context.revision.manifest.content_sha256
-                    and context.revision.manifest.source.recording_id == recording_id
-                ):
-                    outcome = self._require_identity_outcome(context.revision, item_id)
-                    self._validate_frozen_crop_outcome(context.crop_input, outcome)
-                    self._crop_contexts.move_to_end(revision_id)
-                    return context.revision, outcome
-                self._crop_contexts.pop(revision_id)
-
-            validation_started_ns = time.time_ns()
-            bundle = self.recording_store.get_metadata(recording_id)
-            if bundle is None:
-                raise PipelineNotFound(f"The recording was not found: {recording_id}")
-            revision_cache: dict[str, StoredPipelineRevision] = {}
-            revision = self._require_identity_revision(
-                recording_id, revision_id, revision_cache=revision_cache
-            )
-            source = revision.manifest.source
-            if (
-                source.recording_id != recording_id
-                or source.video_sha256 != bundle.source_sha256
-                or source.byte_length != bundle.video_byte_length
-            ):
-                raise VisualIdentityPipelineInputError(
-                    "The selected visual identity revision does not match "
-                    "the accepted recording video."
-                )
-            outcome = self._require_identity_outcome(revision, item_id)
-            frozen_input = self._validate_crop_input_provenance(
-                revision, outcome, revision_cache=revision_cache
-            )
-            roots = {self.repository_storage.bundle_path(recording_id)}
-            for dependency_id, dependency in revision_cache.items():
-                try:
-                    dependency_node, dependency_revision = self.node_store.find_revision(
-                        dependency_id
-                    )
-                except FileNotFoundError as error:
-                    raise DerivedViewError("a canonical crop dependency is unavailable") from error
-                roots.add(
-                    self.node_store.revision_path(
-                        dependency_node.node_id, dependency_revision.revision_id
-                    )
-                )
-                if isinstance(dependency.manifest.producer, ProcessorProducer):
-                    roots.add(self.run_store.run_path(dependency.manifest.producer.run_id))
-            dependency_roots = tuple(sorted(roots))
-            try:
-                fingerprint = _crop_dependency_fingerprint(dependency_roots)
-            except OSError:
-                fingerprint = ()
-            # Do not reuse a validation if a dependency changed while it was being read.
-            if fingerprint and all(entry[5] < validation_started_ns for entry in fingerprint):
-                self._crop_contexts[revision_id] = _ValidatedCropContext(
-                    revision, frozen_input, dependency_roots, fingerprint
-                )
-                while len(self._crop_contexts) > 8:
-                    self._crop_contexts.popitem(last=False)
-            return revision, outcome
+        return validated_identity_crop_outcome(
+            recording_id,
+            revision_id,
+            item_id,
+            contexts=self._crop_contexts,
+            context_lock=self._crop_context_lock,
+            require_revision=self._require_identity_revision,
+            require_outcome=self._require_identity_outcome,
+            validate_outcome=self._validate_frozen_crop_outcome,
+            validate_provenance=self._validate_crop_input_provenance,
+            recording_store=self.recording_store,
+            node_store=self.node_store,
+            run_store=self.run_store,
+            repository_storage=self.repository_storage,
+        )
 
     @staticmethod
     def _usable_crop_identity(outcome: VisualIdentityOutcome) -> VisualIdentityCropIdentity:
@@ -676,11 +595,7 @@ class VisualIdentityPipelineService:
         self, frozen_input: VisualIdentityCropInput, outcome: VisualIdentityOutcome
     ) -> None:
         item = self._identity_crop_item_for_outcome(frozen_input, outcome)
-        expected = self._crop_input_provenance(frozen_input, item)
-        if expected is None or outcome.crop_input_provenance != expected:
-            raise DerivedViewError("the identity crop input lineage changed")
-        if item is None or item.geometry.to_mapping() != outcome.geometry.to_mapping():
-            raise DerivedViewError("the identity crop geometry changed")
+        validate_crop_outcome(frozen_input, item, outcome)
 
     def resolve_reviewed_annotation_crops(
         self, recording_id: str, visible_revision_id: str
@@ -703,26 +618,18 @@ class VisualIdentityPipelineService:
         resolved: dict[str, dict[str, Any] | str] = {}
         for item in crop_input.items:
             try:
-                with self._derived_view_lock:
-                    frame = resolve_exact_event(
-                        self._video_path(recording_id),
-                        source=source,
-                        requested_time_us=item.frame_identity.requested_time_us,
-                        cache=self.storage.derived_views_root,
-                        resolver=self.frame_resolver,
-                        output_encoding=item.frame_identity.output_encoding,
-                    )
-                if frame.identity_mapping() != item.frame_identity.to_mapping():
-                    raise DerivedViewError("the resolved reviewed frame changed")
-                with self._derived_view_lock:
-                    crop = resolve_visible_region_crop(
-                        frame,
-                        item.geometry.to_mapping(),
-                        crop_policy="oracle_visible_region",
-                        output_encoding="ppm",
-                        cache=self.storage.derived_views_root,
-                    )
-                resolved[item.card_id] = _pipeline_crop_identity_mapping(crop)
+                crop = resolve_geometry_crop(
+                    video_path=self._video_path(recording_id),
+                    source=source,
+                    frame_identity=item.frame_identity.to_mapping(),
+                    geometry=item.geometry.to_mapping(),
+                    crop_policy="oracle_visible_region",
+                    output_encoding="ppm",
+                    resolver=self.frame_resolver,
+                    cache=self.storage.derived_views_root,
+                    lock=self._derived_view_lock,
+                )
+                resolved[item.card_id] = crop_identity_mapping(crop)
             except (DerivedViewError, OSError, RuntimeError, ValueError) as error:
                 resolved[item.card_id] = str(error) or "The reviewed crop is unavailable."
         return resolved
@@ -751,25 +658,18 @@ class VisualIdentityPipelineService:
         crop_identity = outcome.get("crop_identity")
         if not isinstance(crop_identity, Mapping) or crop_identity.get("status") != "usable":
             raise DerivedViewError("the reviewed identity crop is unavailable")
-        with self._derived_view_lock:
-            frame = resolve_exact_event(
-                self._video_path(recording_id),
-                source=source,
-                requested_time_us=item.frame_identity.requested_time_us,
-                cache=self.storage.derived_views_root,
-                resolver=self.frame_resolver,
-                output_encoding=item.frame_identity.output_encoding,
-            )
-            if frame.identity_mapping() != item.frame_identity.to_mapping():
-                raise DerivedViewError("the reviewed identity frame changed")
-            crop = resolve_visible_region_crop(
-                frame,
-                item.geometry.to_mapping(),
-                crop_policy=str(crop_identity["crop_policy"]),
-                output_encoding=str(crop_identity["output_encoding"]),
-                cache=self.storage.derived_views_root,
-            )
-        if _pipeline_crop_identity_mapping(crop) != crop_identity:
+        crop = resolve_geometry_crop(
+            video_path=self._video_path(recording_id),
+            source=source,
+            frame_identity=item.frame_identity.to_mapping(),
+            geometry=item.geometry.to_mapping(),
+            crop_policy=str(crop_identity["crop_policy"]),
+            output_encoding=str(crop_identity["output_encoding"]),
+            resolver=self.frame_resolver,
+            cache=self.storage.derived_views_root,
+            lock=self._derived_view_lock,
+        )
+        if crop_identity_mapping(crop) != crop_identity:
             raise DerivedViewError("the reviewed identity crop changed")
         return crop
 
@@ -783,7 +683,7 @@ class VisualIdentityPipelineService:
             context = self._crop_contexts.get(context_id)
             if context is not None:
                 try:
-                    unchanged = _crop_dependency_fingerprint(context.roots) == context.fingerprint
+                    unchanged = crop_dependency_fingerprint(context.roots) == context.fingerprint
                 except OSError:
                     unchanged = False
                 if (
@@ -823,11 +723,11 @@ class VisualIdentityPipelineService:
                 roots.add(self.run_store.run_path(revision.manifest.producer.run_id))
             dependency_roots = tuple(sorted(roots))
             try:
-                fingerprint = _crop_dependency_fingerprint(dependency_roots)
+                fingerprint = crop_dependency_fingerprint(dependency_roots)
             except OSError:
                 fingerprint = ()
             if fingerprint and all(entry[-1] < validation_started_ns for entry in fingerprint):
-                self._crop_contexts[context_id] = _ValidatedCropContext(
+                self._crop_contexts[context_id] = ValidatedCropContext(
                     revision,
                     crop_input,
                     dependency_roots,
@@ -855,30 +755,15 @@ class VisualIdentityPipelineService:
     ) -> ResolvedCrop:
         """Resolve a crop after its revision lineage and source have been checked."""
 
-        source = revision.manifest.source
-        crop_identity = self._usable_crop_identity(outcome)
-        with self._derived_view_lock:
-            frame = resolve_exact_event(
-                self._video_path(recording_id),
-                source=source,
-                requested_time_us=outcome.frame_identity.requested_time_us,
-                cache=self.storage.derived_views_root,
-                resolver=self.frame_resolver,
-                output_encoding=outcome.frame_identity.output_encoding,
-            )
-        if frame.identity_mapping() != outcome.frame_identity.to_mapping():
-            raise DerivedViewError("the resolved identity frame changed")
-        with self._derived_view_lock:
-            crop = resolve_visible_region_crop(
-                frame,
-                parse_geometry(outcome.geometry.to_mapping()),
-                crop_policy=crop_identity.crop_policy,
-                output_encoding=crop_identity.output_encoding,
-                cache=self.storage.derived_views_root,
-            )
-        if _pipeline_crop_identity_mapping(crop) != crop_identity.to_mapping():
-            raise DerivedViewError("the resolved identity crop changed")
-        return crop
+        return resolve_frozen_identity_crop(
+            video_path=self._video_path(recording_id),
+            source=revision.manifest.source,
+            outcome=outcome,
+            crop_identity=self._usable_crop_identity(outcome),
+            resolver=self.frame_resolver,
+            cache=self.storage.derived_views_root,
+            lock=self._derived_view_lock,
+        )
 
     def _validate_crop_input_provenance(
         self,
@@ -889,68 +774,33 @@ class VisualIdentityPipelineService:
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> VisualIdentityCropInput:
         """Reject a stored crop whose run, source item, or manifest lineage has changed."""
-
-        provenance = outcome.crop_input_provenance
-        run_id = getattr(output_revision.manifest.producer, "run_id", None)
-        if provenance is None or not isinstance(run_id, str):
-            raise DerivedViewError("the identity crop input provenance is unavailable")
-        if revision_cache is None:
-            revision_cache = {}
-        revision_cache[output_revision.manifest.revision_id] = output_revision
-        run = self.run_store.require(run_id, revision_cache=revision_cache)
-        if run.request.crop_input is None or len(run.request.input_revision_ids) != 1:
-            raise DerivedViewError("the identity crop input manifest is unavailable")
-        accepted_source = source
-        if accepted_source is None:
-            _, accepted_source = self._accepted_source(run.request.source.recording_id)
-        if accepted_source != run.request.source:
-            raise DerivedViewError("the identity crop input source changed")
-        input_revision = self.canonical_input_revision(run.request)
-        input_refs = run.request.input_node_refs or ()
-        if len(input_refs) == 1:
-            input_ref = input_refs[0]
-            revision_cache[input_ref["revision_id"]] = self.selection_store.read_node_revision(
-                input_ref["node_id"], input_ref["revision_id"]
-            )
-        frozen_input = self._freeze_crop_input(
-            run.request.source.recording_id,
-            input_revision,
-            source=accepted_source,
-            requested=run.request.crop_input,
-            revision_cache=revision_cache,
-            input_node_ref=(run.request.input_node_refs or [None])[0],
-        )
-        self._validate_frozen_crop_outcome(frozen_input, outcome)
         try:
-            validate_crop_policy_compatibility(
-                frozen_input,
-                str((run.request.crop_policy or {}).get("policy_id", "")),
+            if source is not None:
+
+                def accepted_source(_recording_id):
+                    return None, source
+            else:
+                accepted_source = self._accepted_source
+            return validate_run_crop_provenance(
+                output_revision,
+                outcome,
+                run_store=self.run_store,
+                selection_store=self.selection_store,
+                accepted_source=accepted_source,
+                canonical_input_revision=self.canonical_input_revision,
+                freeze_crop_input=self._freeze_crop_input,
+                validate_frozen_outcome=self._validate_frozen_crop_outcome,
+                revision_cache=revision_cache,
             )
         except VisualIdentityCropInputError as error:
-            raise DerivedViewError("the identity crop policy is incompatible") from error
-        return frozen_input
+            raise DerivedViewError("the identity crop input is invalid") from error
 
     @staticmethod
     def _crop_input_provenance(
         crop_input: VisualIdentityCropInput,
         item: VisualIdentityCropInputItem | None,
     ) -> VisualIdentityCropInputProvenance | None:
-        if item is None:
-            return None
-        return VisualIdentityCropInputProvenance(
-            input_kind=crop_input.input_kind,
-            manifest_digest=crop_input.computed_manifest_digest,
-            source_revision_id=crop_input.source_revision_id,
-            source_revision_digest=crop_input.source_revision_digest,
-            source_view_digest=crop_input.source_view_digest,
-            source_node_id=crop_input.source_node_id,
-            source_node_revision_id=crop_input.source_node_revision_id,
-            schema_version=(
-                "visual-identity-crop-input-provenance/v3"
-                if crop_input.schema_version == VISUAL_IDENTITY_CROP_INPUT_SCHEMA_VERSION
-                else "visual-identity-crop-input-provenance/v2"
-            ),
-        )
+        return crop_input_provenance(crop_input, item)
 
     def _canonical_crop_source(self, revision, input_node_ref=None):
         return self.crop_sources._canonical_crop_source(revision, input_node_ref)
@@ -967,20 +817,12 @@ class VisualIdentityPipelineService:
             recording_id, revision_id, item_id
         )
         crop_identity = self._usable_crop_identity(outcome)
-        if crop_identity.content_type != "image/x-portable-pixmap":
-            return None
         with self._derived_view_lock:
-            cached = resolve_crop_jpeg_preview_from_cache(
-                crop_identity.image_sha256,
-                cache=self.storage.derived_views_root,
-            )
-            if cached is not None:
-                return cached
-            crop = self._resolve_identity_crop_from_validated(recording_id, revision, outcome)
-            if crop.image_sha256 != crop_identity.image_sha256:
-                raise DerivedViewError("the resolved identity crop changed")
-            return resolve_crop_jpeg_preview(
-                crop,
+            return resolve_browser_preview(
+                crop_identity=crop_identity,
+                crop_resolver=lambda: self._resolve_identity_crop_from_validated(
+                    recording_id, revision, outcome
+                ),
                 cache=self.storage.derived_views_root,
             )
 
@@ -2061,11 +1903,7 @@ def _file_identity(path: Path) -> tuple[int, str]:
 
 def _pipeline_crop_identity_mapping(crop: ResolvedCrop) -> dict[str, Any]:
     """Adapt the derived-view crop identity to the stored pipeline contract."""
-
-    mapping = crop.identity_mapping()
-    for field in ("exclusion_inputs", "exclusion_decisions", "exclusion_policy"):
-        mapping.pop(field, None)
-    return mapping
+    return crop_identity_mapping(crop)
 
 
 def _now() -> str:
