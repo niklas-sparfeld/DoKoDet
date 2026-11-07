@@ -4,14 +4,15 @@
 
 - **Summary:** Split large, frequently changed pipeline modules by responsibility. Move focused
   tests with each owner. Reduce the source and test context needed for a normal change.
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** [0108 M11](../5-closed/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
   must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
 - **Outcome:** Six active code paths have small composition roots, explicit owners, focused test
   entry points, and size checks. All milestones are not started.
-- **Readiness gate:** Verify both prerequisite milestones in their current files and Git history.
-  Then move this epic to Ready and update the board. Full closure of 0106, 0108, or 0110 is not required.
+- **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
+  complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
+  candidate files remain. M0 must remap their current responsibilities before extraction.
 
 ## Evidence and selection
 
@@ -87,7 +88,7 @@ explicit plan change before the affected milestone is marked complete.
 
 | Milestone | Work | State |
 | --- | --- | --- |
-| M0 | Freeze surviving owners, contracts, and verification | Not started |
+| M0 | Freeze surviving owners, contracts, and verification | Complete |
 | M1 | Extract visual-identity crop-input freezing | Not started |
 | M2 | Extract visual-identity crop resolution and provenance | Not started |
 | M3 | Separate identity execution and per-card classification | Not started |
@@ -115,6 +116,13 @@ abort behavior. Add only missing characterization tests needed for the planned m
 
 Acceptance: each later milestone has named source symbols, typed boundaries, focused checks, and
 budgets. Record baseline check failures separately. No implementation extraction belongs to M0.
+
+**Result:** Complete. The readiness gate passed at `2cf915b83`. The report records current symbol
+owners and callers, typed destination boundaries, exact focused suites, current line and activity
+counts, the removed reference test target, budgets, and behavior gates. One caller-abort test was
+added to the client suite. No production code was extracted. The report records missing direct tests
+for probability normalization, cancellation/publication races, stale workspace responses, and the
+absence of a configured timeout caller.
 
 ## M1 — Extract visual-identity crop-input freezing
 
@@ -248,8 +256,19 @@ move it to `5-closed`, repair links, and update the board in the final milestone
 
 ## Execution handoff
 
-- Planning only. No implementation milestone has started.
-- Current blocker: 0108 M11 and 0110 M15 have not completed at the inspection baseline.
-- Next: verify prerequisite completion, move to Ready, then execute M0.
+- M0 complete. The module map and checks are in
+  [`docs/reports/0112-M0_Module_Map.md`](../../reports/0112-M0_Module_Map.md).
+- Checks passed: five focused backend suites (45 tests); three focused web suites (45 tests),
+  web typecheck, and Prettier on the changed client test. The backend run has an existing Starlette
+  `httpx` deprecation warning.
+- Decisions and limits: keep the retired `test_pipeline_reference.py` absent. Preserve
+  `LegacyProcessorRunStore` while `lineage_migration_inventory.py` calls it. M3/M7/M9 must add or
+  locate coverage for probability normalization, cancellation versus publication, and stale
+  workspace responses. M5 has no active timeout-configured client call; do not invent one without
+  an API contract decision.
+- Next: M1, extract visual-identity crop-input freezing. Requested 11 milestones, completed 1,
+  remaining 10. Coordinate M8 with 0113 before either launch-boundary implementation.
+- Coordinate M8 with 0113 launch integration. Do not change the same launch boundary concurrently;
+  reconcile the surviving owner and contract before starting either overlapping milestone.
 - Preserve concurrent changes. The inspection found work in visual identity, app chrome, API client,
   and the Jobs drawer. No such implementation files belong to this planning change.

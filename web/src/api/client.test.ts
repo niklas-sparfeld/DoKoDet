@@ -208,6 +208,30 @@ describe("DokoDetector API client", () => {
     });
   });
 
+  it("forwards caller aborts through the request transport", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(init.signal?.reason),
+            { once: true },
+          );
+        }),
+    );
+    const client = createDokoDetectorClient(fetchImplementation);
+    const controller = new AbortController();
+    const reason = new Error("workspace changed");
+
+    const request = client.listJobs({ signal: controller.signal });
+    controller.abort(reason);
+
+    await expect(request).rejects.toBe(reason);
+    expect(fetchImplementation.mock.calls[0]?.[1]?.signal).toBe(
+      controller.signal,
+    );
+  });
+
   it("encodes source and counterfactual paths", async () => {
     expect(repositoryBundleVideoPath("recording/1")).toBe(
       "/v1/repository-bundles/recording%2F1/video",
