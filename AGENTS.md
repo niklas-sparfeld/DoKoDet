@@ -80,6 +80,12 @@ epic. The file can contain both the specification and its work items.
 Structure each epic into small implementation milestones named `M0`, `M1`, and so on. Each
 milestone must be small enough for Luna to implement in one phase.
 
+Before starting a milestone, name its observable result, required checks, and commit boundary.
+Split oversized milestones before assignment. New storage, transaction, or processor contracts are
+implementation work; give them explicit milestones instead of hiding them in migration or cleanup.
+If two successive attempts discover new prerequisites or do not reduce the remaining scope,
+revise the plan before another attempt. Keep the existing authorization and run limits.
+
 Implement an epic one milestone at a time. When the user says `start epic 1234`, begin with `M0`
 of epic 1234. When the user says `next phase`, implement the next incomplete milestone. Do not
 require the user to repeat the commit rules, request a status overview, or specify a milestone
@@ -93,6 +99,24 @@ After each completed milestone:
 * include a current status overview with one line for each milestone.
 
 After the summary, compact the working context before the next milestone.
+
+### Architecture replacements and migrations
+
+Apply these checks when replacing an existing runtime path or migrating retained data. Record the
+results in the existing epic or report; no separate process document is required.
+
+* Inspect representative persisted resource kinds and schema versions before implementation.
+  List active readers and writers with their replacement and verification check. Keep this list
+  current until removal is complete.
+* Establish one complete replacement workflow through real APIs/services and persistence before
+  converting the remaining paths. Disable the old path in that check. Use deterministic processor
+  stubs where practical.
+* Rehearse migration in disposable storage before activation. Verify usable content, review
+  decisions, exact dependencies, editing, and restart. File copies and counts alone do not prove
+  runtime cutover. Freeze and verify the activation snapshot and retain recovery evidence.
+* Sequence concurrent epics that change the same API, data contract, or runtime composition.
+  Stabilize that boundary before converting its consumers. Separate worktrees do not resolve
+  conflicting contract changes; unrelated work can continue.
 
 ### Optional persistent milestone execution
 
@@ -109,7 +133,8 @@ Keep each milestone as a separate work package. For each milestone:
 3. Update the epic and board. Add or update an `Execution handoff` section in the active epic.
    Record the completed milestone, changes, checks and results, decisions, known limits, next
    milestone, and the requested count with the completed and remaining counts for this run.
-   Keep information needed to continue in this section rather than only in chat history.
+   Keep one current handoff and replace stale next steps and counts. Put detailed history in a
+   milestone report. Keep continuation facts here rather than only in chat history.
 4. Commit the milestone's implementation, plan updates, and handoff together directly to `main`.
    Preserve unrelated changes. Do not combine several milestones into one commit.
 5. Give a concise progress summary in commentary. Include the commit ID and one status line for
@@ -170,6 +195,8 @@ run's limit. Do not add milestones to extend the run. Use this loop:
    statuses. Completed earlier milestones can be grouped. Continue without asking the user.
 5. If a correction is clear, send it to the same worker. Allow at most two correction turns per
    milestone. Stop for a persistent failure, required human decision, or unclear safe next step.
+   Corrections fix defects in the assigned result. Ordinary remaining work is not a blocker or
+   a correction; if it exceeds the assignment, revise the milestone scope under the run limits.
 
 Keep the orchestrator's context small. Do not read worker transcripts, raw logs, ongoing implementation, or
 full diffs by default. Do not repeat source exploration or successful checks. Luna owns
@@ -190,13 +217,15 @@ Include these worker rules in every assignment:
   not waive acceptance criteria. Do not mark incomplete acceptance criteria complete.
 - Update the epic and board. Maintain an `Execution handoff` with changes, checks and outcomes,
   decisions, limits, next milestone, and this run's requested, completed, and remaining counts.
-  Keep detailed evidence in the handoff or a milestone report, not in the response.
+  Replace stale handoff facts; keep detailed history and evidence in a milestone report.
 - Commit implementation, documentation, and plan updates together as one focused milestone
   commit on `main`. For the final milestone, verify closure criteria, move the epic to the correct
-  folder, and repair links. Return only this receipt, at most 180 words:
+  folder, and repair links. Use `INCOMPLETE` for ordinary unfinished work. Use `BLOCKED` only when
+  a concrete dependency, failed check, or unsafe overlap prevents further work. Return only this
+  receipt, at most 180 words:
 
 ```text
-RESULT: COMPLETE | BLOCKED | NEEDS_USER
+RESULT: COMPLETE | INCOMPLETE | BLOCKED | NEEDS_USER
 MILESTONE:
 COMMIT: hash, or none
 CHANGES: at most three short bullets
@@ -277,3 +306,13 @@ Before considering a change complete:
 * run applicable linting, formatting, type, or static checks,
 * verify that the change is reproducible locally,
 * add a regression test for a fixed bug when practical.
+
+Match evidence to the completion claim. Mocked browser APIs verify UI behavior. For changes across
+the UI and persistence, include one real-backend workflow with disposable persisted data; processor
+stubs are allowed. Verify durable effects and restart when those behaviors change. For coordinated
+writes or concurrency changes, test concurrent readers/writers separately from crash recovery.
+
+Record check results against the relevant code revision and data snapshot. Repeat affected checks
+after changes, then run the combined completion checks. Do not repeat successful broad audits
+without a new change, failure, or unresolved concern. Give each remaining baseline failure a named
+owner or follow-up and evidence for its origin; it does not waive an acceptance criterion.
