@@ -34,10 +34,15 @@ def _app(tmp_path: Path) -> FastAPI:
         },
         round_session_provider=lambda _recording_id: "session-1",
     )
+    accepted: list[dict[str, object]] = []
+
+    def accept(_key: str, request: dict[str, object]):
+        accepted.append(request)
+        return SimpleNamespace(id="managed-parent-job")
+
+    app.state.accepted_jobs = accepted
     app.state.job_manager_service = SimpleNamespace(
-        get_manager=lambda: SimpleNamespace(
-            accept=lambda _key, _request: SimpleNamespace(id="managed-parent-job")
-        )
+        get_manager=lambda: SimpleNamespace(accept=accept)
     )
     return app
 
@@ -45,6 +50,14 @@ def _app(tmp_path: Path) -> FastAPI:
 def _payload() -> dict[str, object]:
     return {
         "idempotency_key": str(uuid4()),
+        "session_id": "session-1",
+        "round_context": {
+            "game_id": "game-1",
+            "round_id": "round-1",
+            "active_players": ["p1", "p2", "p3", "p4"],
+            "dealer": "p1",
+            "first_trick_leader": "p2",
+        },
         "rules_version": "v1",
         "search": {
             "max_missing_plays": 1,
@@ -88,22 +101,29 @@ def test_start_retry_returns_existing_run(tmp_path: Path) -> None:
     assert first.json()["job_id"] == "managed-parent-job"
 
 
-def test_start_generates_round_context_from_recording(tmp_path: Path) -> None:
+def test_start_freezes_explicit_round_context_and_source_digest(tmp_path: Path) -> None:
     with TestClient(_app(tmp_path)) as client:
         response = client.post("/api/recordings/recording-1/pipeline/runs", json=_payload())
 
     assert response.status_code == 202, response.text
     request = response.json()["request"]
     assert request["session_id"] == "session-1"
-    assert request["round_id"].startswith("round-")
+    assert request["round_id"] == "round-1"
     context = request["round_context"]
-    assert context["game_id"].startswith("game-")
+    assert context["game_id"] == "game-1"
     assert context["round_id"] == request["round_id"]
-    assert context["active_players"] == [
-        "player-1",
-        "player-2",
-        "player-3",
-        "player-4",
-    ]
-    assert context["dealer"] == "dealer-unspecified"
-    assert context["first_trick_leader"] == "player-1"
+    assert context["active_players"] == ["p1", "p2", "p3", "p4"]
+    assert context["dealer"] == "p1"
+    assert context["first_trick_leader"] == "p2"
+    assert response.json()["source"]["video_sha256"] == "a" * 64
+
+
+def test_invalid_round_facts_create_no_run_or_parent_job(tmp_path: Path) -> None:
+    payload = _payload()
+    payload["round_context"] = {"game_id": "game-1"}
+    with TestClient(_app(tmp_path)) as client:
+        response = client.post("/api/recordings/recording-1/pipeline/runs", json=payload)
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "pipeline_preflight_failed"
+        assert client.app.state.accepted_jobs == []
+    assert list((tmp_path / "runs").glob("*.json")) == []

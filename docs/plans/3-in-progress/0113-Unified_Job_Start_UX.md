@@ -9,7 +9,7 @@
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** M0–M6 complete. M7–M10 remain.
+- **Outcome:** M0–M7 complete. M8–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
   M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
   pipeline launch controls remain in `RecordingWorkspaceInspector`; counterfactual controls are
@@ -138,7 +138,7 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 | M4        | Integrate visible-card processing                     | Complete    |
 | M5        | Integrate visual identities                           | Complete    |
 | M6        | Integrate observations and round analysis             | Complete    |
-| M7        | Integrate complete-pipeline launch                    | Not started |
+| M7        | Integrate complete-pipeline launch                    | Complete    |
 | M8        | Integrate calibration and counterfactual calculations | Not started |
 | M9        | Remove replaced launch controls                       | Not started |
 | M10       | Verify the complete workflow and close                | Not started |
@@ -152,30 +152,25 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M6 completed. Its result and checks are in
-  [`0113-M6_Observation_and_Analysis_Launch.md`](../../reports/0113-M6_Observation_and_Analysis_Launch.md).
-- Changes: observation assembly and round analysis now start from the shared modal. Assembly shows
-  the exact event, visible-card, and visual-identity refs in a compatible set, plus implementation,
-  model, configuration, and extraction policy. It blocks sets that do not contain three unique refs.
-  Round analysis shows one exact observation node revision, all required round facts, explicit rules,
-  search limits, and optional correction refs. Round facts start blank and incomplete or invalid input
-  blocks submission. Both requests retain the displayed exact refs and facts. After uncertain
-  acceptance, the modal freezes inputs and retries the same request with the same idempotency key.
-- API decision: no endpoint change was needed. `table_observation_assembly` freezes and validates
-  exact input node refs through its Job Manager participant. `round_analysis` validates the exact
-  observation ref and explicit context through its participant. The existing `/api/jobs` enqueue API
-  supplies an idempotency key and `JobDetail` receipt; the shared submission hook preserves the key
-  and payload after an uncertain response. The existing Jobs state owns polling. The direct feature
-  endpoints do not return the shared job receipt, so M6 submits their existing request payloads through
-  the registered shared job types.
-- Checks: component fixtures cover exact multi-input refs, incomplete sets, missing round facts, four
-  distinct players, valid facts, same-key uncertain retry, and the accepted job link. The relevant browser test verifies the
-  saved round-analysis workspace. Its route fixture now passes Vite client modules through.
-- M5 and earlier decisions remain in their milestone reports. 0112 M6 client extraction and M8
-  `RunControls` extraction remain unstarted; this milestone changed no 0112-owned files.
-- Limits: none known for M6. M7–M10 remain.
-- Next: M7, integrate complete-pipeline launch. Requested 11 milestones, completed 7,
-  remaining 4.
+- M7 completed. Its result and checks are in
+  [`0113-M7_Complete_Pipeline_Launch.md`](../../reports/0113-M7_Complete_Pipeline_Launch.md).
+- Changes: the complete-pipeline action now uses the shared modal and the existing preflight API.
+  It shows the exact accepted video context, all six stage model/configuration objects, required
+  round facts, fixed rules/search limits, and expected outputs. It submits one fresh run request,
+  retains values after rejection, retries uncertain acceptance with the same key and payload, and
+  links the parent job through Jobs. The backend validates explicit round facts and rejects a
+  recording/session mismatch before it writes a run or accepts a parent job. The page no longer
+  restores a prior run or polls the pipeline endpoint; Jobs owns polling. Parent stage records
+  retain exact child job and revision lineage.
+- Checks: backend preflight, API, and job tests: 16 passed; modal fixture tests: 2 passed; frontend
+  typecheck, generated API verification, changed-file Ruff check and format passed. Playwright
+  launch check and the existing pipeline-cutover smoke test did not reach the rendered app; see the
+  M7 report. Browser acceptance remains part of M10.
+- Limits: model and configuration objects use JSON editors because the current API provides no
+  browser inventory of supported per-stage models. Existing preflight validates availability.
+- Next: M8, integrate calibration and counterfactual calculations.
+- Run counts: requested 11 milestones, completed 8, remaining 3.
+
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision
 prevents the remaining milestones. This inventory does not count as UI integration.
@@ -263,6 +258,8 @@ Replace its old launch/preflight flow and link the accepted parent through Jobs.
 Acceptance: a local fake pipeline starts once with the displayed settings and facts. Invalid
 preflight starts nothing and preserves entered values. Parent/child results retain exact lineage;
 a new launch does not resume an earlier completed run.
+
+Complete: [M7 complete-pipeline launch](../../reports/0113-M7_Complete_Pipeline_Launch.md).
 
 ## M8 — Integrate calibration and counterfactual calculations
 

@@ -206,6 +206,24 @@ def test_mixed_recording_pipeline_yields_to_an_independent_leaf_job(tmp_path: Pa
         assert manager.get(independent.id).state == "succeeded"
         assert manager.get(parent.id).context["recording_id"] == "recording-1"
         assert manager.get(independent.id).context["recording_id"] == "recording-2"
+        revisions_by_stage = {
+            child.parent_step_id: str(child.results[0]["id"])
+            for child in children
+            if child.parent_step_id is not None and child.results
+        }
+        stages_by_name = {row["name"]: row for row in document["stages"]}
+        assert stages_by_name["visible_card_and_pile_proposals"]["input_revision_ids"] == [
+            revisions_by_stage["event_proposals"]
+        ]
+        assert stages_by_name["table_observations"]["input_revision_ids"] == [
+            revisions_by_stage["event_proposals"],
+            revisions_by_stage["visible_card_and_pile_proposals"],
+            revisions_by_stage["visual_identity_proposals"],
+        ]
+        assert stages_by_name["reconstruction"]["input_revision_ids"] == [
+            revisions_by_stage["table_observations"]
+        ]
+        assert all(stages_by_name[name]["child_job_id"] for name in stages_by_name)
         assert document["status"] == "complete"
 
 

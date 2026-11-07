@@ -547,6 +547,97 @@ test("opens fresh accepted video in the recording-owned pipeline", async ({
   expect(requests.workspaceRequestCount()).toBeGreaterThan(0);
 });
 
+test("starts a fact-complete pipeline from the shared launch modal", async ({
+  page,
+}) => {
+  await stubPipeline(page, "fresh");
+  let startPayload: Record<string, unknown> | null = null;
+  await page.route(`**/v1/recordings/${RECORDING_ID}`, (route) =>
+    route.fulfill(
+      json({
+        recording_id: RECORDING_ID,
+        session_id: "session-fixture",
+        round_id: "round-fixture",
+        source_sha256: "c".repeat(64),
+        source: { game_id: "game-source" },
+        video: {
+          url: "/source.mp4",
+          content_type: "video/mp4",
+          media_facts: null,
+        },
+      }),
+    ),
+  );
+  await page.route("**/api/jobs?*", (route) =>
+    route.fulfill(
+      json({ items: [], next_cursor: null, groups: [], queue_revision: 1 }),
+    ),
+  );
+  await page.route(
+    `**/api/recordings/${RECORDING_ID}/pipeline/runs`,
+    async (route) => {
+      startPayload = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill(
+        json(
+          {
+            schema_version: "automated-pipeline-run/v1",
+            run_id: "pipeline-run-fresh",
+            job_id: "pipeline-job-parent",
+            recording_id: RECORDING_ID,
+            status: "accepted",
+            failure: null,
+            request: startPayload,
+            stages: [
+              "event_proposals",
+              "visible_card_and_pile_proposals",
+              "card_scene_and_calibration",
+              "visual_identity_proposals",
+              "table_observations",
+              "reconstruction",
+            ].map((name) => ({
+              name,
+              status: "pending",
+              run_id: null,
+              child_job_id: null,
+              input_revision_ids: [],
+              output_revision_ids: [],
+              failure: null,
+            })),
+          },
+          202,
+        ),
+      );
+    },
+  );
+
+  await page.goto(`/recordings/${RECORDING_ID}/pipeline/events`);
+  await page.getByRole("button", { name: "Run complete pipeline…" }).click();
+  await expect(
+    page.getByRole("region", { name: "Source context" }),
+  ).toContainText("a".repeat(64));
+  await page.getByLabel("Game ID").fill("game-fixture");
+  await page.getByLabel("Four active player IDs").fill("p1, p2, p3, p4");
+  await page.getByLabel("Dealer ID").fill("p1");
+  await page.getByLabel("First-trick leader ID").fill("p2");
+  await page
+    .getByRole("button", { name: "Start run complete pipeline" })
+    .click();
+
+  await expect(
+    page.getByRole("link", { name: "View parent job in Jobs" }),
+  ).toHaveAttribute("href", "/jobs/pipeline-job-parent");
+  expect(startPayload).toMatchObject({
+    session_id: "session-fixture",
+    round_context: {
+      game_id: "game-fixture",
+      round_id: "round-fixture",
+      active_players: ["p1", "p2", "p3", "p4"],
+      dealer: "p1",
+      first_trick_leader: "p2",
+    },
+  });
+});
+
 test("keeps the workspace shell within desktop bounds and preserves task order on mobile", async ({
   page,
 }) => {

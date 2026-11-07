@@ -5,6 +5,7 @@ import type {
   AutomatedPipelineRun,
   PipelineWorkspace,
 } from "../api/pipelineContracts";
+import { JobStateProvider } from "../jobs/JobState";
 import { AutomatedPipelineControls } from "./AutomatedPipelineControls";
 
 const workspace = {
@@ -25,41 +26,35 @@ const workspace = {
   ].map((key) => ({ key, runs: [] })),
 } as unknown as PipelineWorkspace;
 
-const run: AutomatedPipelineRun = {
+const run = (runId: string, jobId: string): AutomatedPipelineRun => ({
   schema_version: "automated-pipeline-run/v1",
-  run_id: "run-1",
+  run_id: runId,
+  job_id: jobId,
   recording_id: "recording-1",
-  status: "running",
+  status: "complete",
   failure: null,
   request: {},
   stages: [
-    "event_proposals",
-    "visible_card_and_pile_proposals",
-    "card_scene_and_calibration",
-    "visual_identity_proposals",
-    "table_observations",
-    "reconstruction",
-  ].map((name) => ({
-    name,
-    status: "running",
+    ["event_proposals", [], ["events-r1"]],
+    ["visible_card_and_pile_proposals", ["events-r1"], ["cards-r1"]],
+    ["card_scene_and_calibration", ["cards-r1"], ["scenes-r1"]],
+    ["visual_identity_proposals", ["scenes-r1"], ["identities-r1"]],
+    [
+      "table_observations",
+      ["events-r1", "cards-r1", "identities-r1"],
+      ["observations-r1"],
+    ],
+    ["reconstruction", ["observations-r1"], ["analysis-r1"]],
+  ].map(([name, input_revision_ids, output_revision_ids]) => ({
+    name: String(name),
+    status: "complete" as const,
     run_id: null,
-    input_revision_ids: [],
-    output_revision_ids: [],
+    child_job_id: `child-${String(name)}`,
+    input_revision_ids: input_revision_ids as string[],
+    output_revision_ids: output_revision_ids as string[],
     failure: null,
   })),
-};
-const completedRun: AutomatedPipelineRun = {
-  ...run,
-  status: "complete",
-  stages: run.stages.map((stage) => ({
-    ...stage,
-    status: "complete",
-    output_revision_ids:
-      stage.name === "reconstruction"
-        ? ["analysis-1"]
-        : [`${stage.name}-revision`],
-  })),
-};
+});
 
 function jsonResponse(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), {
@@ -68,156 +63,222 @@ function jsonResponse(value: unknown, status = 200) {
   });
 }
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-  window.localStorage.clear();
-});
+function renderControls(onRefresh = vi.fn(async () => undefined)) {
+  return render(
+    <JobStateProvider>
+      <AutomatedPipelineControls
+        recordingId="recording-1"
+        workspace={workspace}
+        onRefresh={onRefresh}
+      />
+    </JobStateProvider>,
+  );
+}
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("AutomatedPipelineControls", () => {
-  it("starts without round metadata and restores every completed stage and analysis after reload", async () => {
+  it("starts fresh runs with the displayed source, facts, stage settings, and shared Jobs links", async () => {
+    let count = 0;
     const fetch = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url.endsWith("/v1/recordings/recording-1")) {
+        if (url.endsWith("/api/jobs?scope=active&limit=50"))
+          return jsonResponse({
+            items: [],
+            next_cursor: null,
+            groups: [],
+            queue_revision: 1,
+          });
+        if (url.endsWith("/v1/recordings/recording-1"))
           return jsonResponse({
             recording_id: "recording-1",
             session_id: "session-1",
             round_id: "round-1",
-            source: { game_id: "game-1", round_id: "round-1" },
-            video: { path: "video.mp4" },
+            source_sha256: "b".repeat(64),
+            source: { game_id: "game-stored" },
+            video: { path: "video.mp4", video_sha256: "a".repeat(64) },
           });
+        if (url.endsWith("/pipeline/runs") && init?.method === "POST") {
+          count += 1;
+          return jsonResponse(run(`run-${count}`, `parent-${count}`), 202);
         }
-        if (url.endsWith("/pipeline/runs") && init?.method === "POST")
-          return jsonResponse(run, 202);
-        if (url.endsWith("/pipeline/runs/run-1"))
-          return jsonResponse(completedRun);
         throw new Error(`Unexpected request: ${url}`);
       },
     );
     vi.stubGlobal("fetch", fetch);
     const onRefresh = vi.fn(async () => undefined);
-    const view = render(
-      <AutomatedPipelineControls
-        recordingId="recording-1"
-        workspace={workspace}
-        onRefresh={onRefresh}
-      />,
+    renderControls(onRefresh);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Run complete pipeline…" }),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Game ID" }), {
+      target: { value: "game-1" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Four active player IDs" }),
+      { target: { value: "p1, p2, p3, p4" } },
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Dealer ID" }), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "First-trick leader ID" }),
+      { target: { value: "p2" } },
+    );
+    fireEvent.change(
+      screen.getAllByRole("textbox", { name: "Configuration JSON" })[1],
+      {
+        target: {
+          value: '{"provider":"local-rfdetr-segmentation","fixture":"kept"}',
+        },
+      },
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Start complete pipeline" }),
+      screen.getByRole("button", { name: "Start run complete pipeline" }),
     );
     expect(
-      await screen.findByRole("link", { name: "View job" }),
-    ).toHaveAttribute("href", "/jobs/run-1");
-    expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/pipeline/runs"),
-      expect.objectContaining({ method: "POST" }),
-    );
-    const startCall = fetch.mock.calls.find(
+      await screen.findByRole("link", { name: "View parent job in Jobs" }),
+    ).toHaveAttribute("href", "/jobs/parent-1");
+    const post = fetch.mock.calls.find(
       ([url, init]) =>
         String(url).endsWith("/pipeline/runs") && init?.method === "POST",
     );
-    const startPayload = JSON.parse(String(startCall?.[1]?.body));
-    expect(startPayload).toMatchObject({
+    const payload = JSON.parse(String(post?.[1]?.body));
+    expect(payload).toMatchObject({
+      session_id: "session-1",
+      round_context: {
+        game_id: "game-1",
+        round_id: "round-1",
+        active_players: ["p1", "p2", "p3", "p4"],
+        dealer: "p1",
+        first_trick_leader: "p2",
+      },
+      rules_version: "v1",
+      search: {
+        max_missing_plays: 1,
+        max_hypotheses: 256,
+        max_search_nodes: 250000,
+      },
       stage_requests: {
         visible_card_and_pile_proposals: {
-          configuration: { provider: "local-rfdetr-segmentation" },
+          model: {},
+          configuration: {
+            provider: "local-rfdetr-segmentation",
+            fixture: "kept",
+          },
         },
-        visual_identity_proposals: { configuration: { provider: "local" } },
+        visual_identity_proposals: {
+          model: {},
+          configuration: { provider: "local" },
+        },
       },
     });
-    for (const field of [
-      "session_id",
-      "game_id",
-      "round_id",
-      "round_context",
-      "dealer",
-      "first_trick_leader",
-    ])
-      expect(startPayload).not.toHaveProperty(field);
+    expect(screen.getAllByText(/inputs events-r1/)).toHaveLength(2);
+    expect(screen.getByText(/outputs analysis-r1/)).toBeInTheDocument();
     expect(
-      screen.queryByLabelText(
-        /Game ID|Round ID|Session ID|Dealer|leader|player/i,
-      ),
-    ).not.toBeInTheDocument();
-
-    view.unmount();
-    render(
-      <AutomatedPipelineControls
-        recordingId="recording-1"
-        workspace={workspace}
-        onRefresh={onRefresh}
-      />,
+      screen.getByText(/child job child-reconstruction/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run complete pipeline…" }),
     );
-    await waitFor(() =>
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/pipeline/runs/run-1"),
-        expect.objectContaining({ headers: expect.any(Headers) }),
-      ),
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start run complete pipeline" }),
     );
-    expect(
-      await screen.findByRole("link", { name: "View job" }),
-    ).toHaveAttribute("href", "/jobs/run-1");
-    expect(screen.getAllByRole("link")).toHaveLength(7);
-    expect(screen.getByRole("link", { name: "View job" })).toHaveAttribute(
-      "href",
-      "/jobs/run-1",
+    await waitFor(() => expect(count).toBe(2));
+    const posts = fetch.mock.calls.filter(
+      ([url, init]) =>
+        String(url).endsWith("/pipeline/runs") && init?.method === "POST",
     );
-    expect(
-      screen.getByRole("link", { name: /Event proposals/ }),
-    ).toHaveAttribute("href", expect.stringContaining("/pipeline/events"));
-    expect(
-      screen.getByRole("link", { name: /Round analysis/ }),
-    ).toHaveAttribute("href", expect.stringContaining("analysis=analysis-1"));
+    expect(JSON.parse(String(posts[0]?.[1]?.body)).idempotency_key).not.toBe(
+      JSON.parse(String(posts[1]?.[1]?.body)).idempotency_key,
+    );
+    expect(onRefresh).toHaveBeenCalledTimes(2);
   });
 
-  it("shows the failed stage and its cause after restoring a run", async () => {
-    window.localStorage.setItem("automated-pipeline-run:recording-1", "run-1");
-    const failed: AutomatedPipelineRun = {
-      ...run,
-      status: "failed",
-      failure: { message: "Visible-card provider failed." },
-      stages: run.stages.map((stage) =>
-        stage.name === "visible_card_and_pile_proposals"
-          ? {
-              ...stage,
-              status: "failed",
-              failure: { message: "Checkpoint is missing." },
-            }
-          : stage,
-      ),
-    };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
+  it("keeps entered facts and settings after invalid preflight and starts no job", async () => {
+    let posts = 0;
+    const fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url.endsWith("/v1/recordings/recording-1")) {
+        if (url.endsWith("/api/jobs?scope=active&limit=50"))
+          return jsonResponse({
+            items: [],
+            next_cursor: null,
+            groups: [],
+            queue_revision: 1,
+          });
+        if (url.endsWith("/v1/recordings/recording-1"))
           return jsonResponse({
             recording_id: "recording-1",
             session_id: "session-1",
             round_id: "round-1",
-            source: {},
+            source_sha256: "a".repeat(64),
             video: { path: "video.mp4" },
           });
+        if (url.endsWith("/pipeline/runs") && init?.method === "POST") {
+          posts += 1;
+          return jsonResponse(
+            {
+              error: {
+                details: [
+                  {
+                    field: "preflight",
+                    message: "Missing accepted source revision.",
+                  },
+                ],
+              },
+            },
+            422,
+          );
         }
-        if (url.endsWith("/pipeline/runs/run-1")) return jsonResponse(failed);
         throw new Error(`Unexpected request: ${url}`);
-      }),
+      },
     );
-    render(
-      <AutomatedPipelineControls
-        recordingId="recording-1"
-        workspace={workspace}
-        onRefresh={async () => undefined}
-      />,
+    vi.stubGlobal("fetch", fetch);
+    const onRefresh = vi.fn(async () => undefined);
+    renderControls(onRefresh);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Run complete pipeline…" }),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Game ID" }), {
+      target: { value: "game-kept" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Four active player IDs" }),
+      { target: { value: "p1, p2, p3, p4" } },
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Dealer ID" }), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "First-trick leader ID" }),
+      { target: { value: "p2" } },
+    );
+    fireEvent.change(
+      screen.getAllByRole("textbox", { name: "Configuration JSON" })[1],
+      {
+        target: {
+          value: '{"provider":"local-rfdetr-segmentation","fixture":"kept"}',
+        },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start run complete pipeline" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Missing accepted source revision",
+    );
+    expect(screen.getByRole("textbox", { name: "Game ID" })).toHaveValue(
+      "game-kept",
     );
     expect(
-      await screen.findByText(/Visible-card provider failed/),
-    ).toBeInTheDocument();
+      screen.getByRole("textbox", { name: "Four active player IDs" }),
+    ).toHaveValue("p1, p2, p3, p4");
     expect(
-      screen
-        .getAllByRole("listitem")
-        .find((item) => item.textContent?.includes("Checkpoint is missing")),
-    ).toBeInTheDocument();
+      screen.getAllByRole("textbox", { name: "Configuration JSON" })[1],
+    ).toHaveValue('{"provider":"local-rfdetr-segmentation","fixture":"kept"}');
+    expect(posts).toBe(1);
+    expect(onRefresh).not.toHaveBeenCalled();
   });
 });

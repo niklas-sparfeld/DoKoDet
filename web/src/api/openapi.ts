@@ -1435,7 +1435,7 @@ export interface components {
         };
         /**
          * AutomatedPipelineRunStartRequest
-         * @description Stage settings needed before the six-stage run can be accepted.
+         * @description Exact round context and stage settings needed before acceptance.
          */
         AutomatedPipelineRunStartRequest: {
             /**
@@ -1443,12 +1443,18 @@ export interface components {
              * Format: uuid
              */
             idempotency_key: string;
+            /** Round Context */
+            round_context: {
+                [key: string]: unknown;
+            };
             /**
              * Rules Version
              * @constant
              */
             rules_version: "v1";
             search: components["schemas"]["AnalysisSearchLimits"];
+            /** Session Id */
+            session_id: string;
             /** Stage Requests */
             stage_requests: {
                 [key: string]: {

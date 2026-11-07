@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from doko_operations.pipeline_data import RecordingVideoSource
 
-from dokodetector_backend.round_analysis_contract import AnalysisSearchLimits
+from dokodetector_backend.round_analysis_contract import AnalysisRoundContext, AnalysisSearchLimits
 
 try:
     from fcntl import LOCK_EX, LOCK_UN, flock
@@ -204,7 +204,18 @@ class AutomatedPipelineRunService:
                 session_id = self.round_session_provider(recording_id)
             except (LookupError, OSError, RuntimeError, TypeError, ValueError) as error:
                 raise AutomatedPipelinePreflightError([str(error)]) from error
-            normalized.update(_automatic_round_context(recording_id, session_id))
+            if normalized["session_id"] != session_id:
+                raise AutomatedPipelinePreflightError(
+                    ["The selected session does not match this recording."]
+                )
+            try:
+                context = AnalysisRoundContext.model_validate(normalized["round_context"])
+            except Exception as error:
+                raise AutomatedPipelinePreflightError(
+                    [f"Round facts are missing or invalid: {error}"]
+                ) from error
+            normalized["round_context"] = context.model_dump(mode="json")
+            normalized["round_id"] = context.round_id
             try:
                 validated = self.recording_provider_validator(
                     recording_id, normalized["stage_requests"]
@@ -281,6 +292,10 @@ class AutomatedPipelineRunService:
             limits = None
         if request.get("rules_version") != "v1":
             blockers.append("Rules version must be v1.")
+        if not isinstance(request.get("session_id"), str) or not request["session_id"].strip():
+            blockers.append("Provide the recording session ID.")
+        if not isinstance(request.get("round_context"), Mapping):
+            blockers.append("Provide the required round facts.")
         try:
             UUID(str(request.get("idempotency_key")))
         except (ValueError, TypeError, AttributeError):
@@ -296,24 +311,6 @@ class AutomatedPipelineRunService:
             name: _json_value(stage_requests[name]) for name in sorted(required)
         }
         return _json_value(frozen)
-
-
-def _automatic_round_context(recording_id: str, session_id: str) -> dict[str, Any]:
-    """Build stable analysis identifiers and generic seats without operator input."""
-
-    suffix = hashlib.sha256(recording_id.encode()).hexdigest()[:16]
-    round_id = f"round-{suffix}"
-    return {
-        "session_id": session_id,
-        "round_id": round_id,
-        "round_context": {
-            "game_id": f"game-{suffix}",
-            "round_id": round_id,
-            "active_players": ["player-1", "player-2", "player-3", "player-4"],
-            "dealer": "dealer-unspecified",
-            "first_trick_leader": "player-1",
-        },
-    }
 
 
 def _json_value(value: Any) -> Any:

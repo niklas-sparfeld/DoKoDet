@@ -24,9 +24,11 @@ BASE = "/api/recordings/{recording_id}/pipeline/runs"
 
 
 class AutomatedPipelineRunStartRequest(ContractModel):
-    """Stage settings needed before the six-stage run can be accepted."""
+    """Exact round context and stage settings needed before acceptance."""
 
     idempotency_key: UUID
+    session_id: str
+    round_context: dict[str, Any]
     rules_version: Literal["v1"]
     search: AnalysisSearchLimits
     stage_requests: dict[str, dict[str, Any]]
