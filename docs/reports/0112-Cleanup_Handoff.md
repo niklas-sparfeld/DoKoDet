@@ -131,3 +131,12 @@ and static template-literal module paths, and recognizes `.ts` and `.tsx` fixtur
 dynamic imports, imports inside template interpolations, `require`, regex literals, valid production
 imports, and test-only files. The repository guard and Ruff checks pass. The correction was
 verified on integrated source revision `17163374c`; its implementation is committed in `36921cc7`.
+
+## Remaining guard limitation
+
+A final read-only review found a false positive when a regular expression is an expression
+statement after an `if` condition. For example,
+`if (ready) /import("runControlsTestFixtures.ts")/.test(value);` is valid TypeScript, but the
+guard reports its regex contents as an import. Add a regression and correct regex recognition
+before claiming that all legitimate production source passes. The Luna run stopped after its
+two permitted correction turns.
