@@ -8,7 +8,7 @@
     "timeout_seconds": 180.0,
     "cache_policy": "fresh isolated app per batch; first measured request is process-cold, subsequent requests are warm; OS filesystem cache not flushed"
   },
-  "fixture_manifest_sha256": "3e3dcf9719c64250e17749584c2f31dbfd20a94af01a29f374b6ef6446a9766a",
+  "fixture_manifest_sha256": "e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294",
   "samples": [
     {
       "case": "workspace_full_hard",
@@ -17,7 +17,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 20387053083,
+      "duration_ns": 20301746500,
       "status_code": 200,
       "response_bytes": 49286,
       "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
@@ -31,7 +31,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 20290619959,
+      "duration_ns": 20282995292,
       "status_code": 200,
       "response_bytes": 49286,
       "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
@@ -45,7 +45,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 20390901625,
+      "duration_ns": 20286024041,
       "status_code": 200,
       "response_bytes": 49286,
       "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
@@ -59,7 +59,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 14477179291,
+      "duration_ns": 15128142291,
       "status_code": 200,
       "response_bytes": 49286,
       "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
@@ -73,7 +73,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 14459050208,
+      "duration_ns": 14615221542,
       "status_code": 200,
       "response_bytes": 49286,
       "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
@@ -87,7 +87,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 14505717292,
+      "duration_ns": 14644914834,
       "status_code": 200,
       "response_bytes": 49286,
       "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
@@ -101,7 +101,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 8269916,
+      "duration_ns": 8023667,
       "status_code": 404,
       "response_bytes": 115,
       "response_sha256": "0ae5dc6d86c6c56f1c402ccdfb2d61d220077215ba8985e5913546a2d79350f8",
@@ -115,7 +115,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 574291,
+      "duration_ns": 562875,
       "status_code": 404,
       "response_bytes": 115,
       "response_sha256": "0ae5dc6d86c6c56f1c402ccdfb2d61d220077215ba8985e5913546a2d79350f8",
@@ -129,7 +129,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 514625,
+      "duration_ns": 505708,
       "status_code": 404,
       "response_bytes": 115,
       "response_sha256": "0ae5dc6d86c6c56f1c402ccdfb2d61d220077215ba8985e5913546a2d79350f8",
@@ -143,7 +143,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 29215985667,
+      "duration_ns": 29484770333,
       "status_code": 200,
       "response_bytes": 5615,
       "response_sha256": "c170aae91616cb23863c766e5f319074fa63418302f7d03c9be0c2e352b0cee3",
@@ -157,7 +157,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 29189162792,
+      "duration_ns": 29299675084,
       "status_code": 200,
       "response_bytes": 5615,
       "response_sha256": "c170aae91616cb23863c766e5f319074fa63418302f7d03c9be0c2e352b0cee3",
@@ -171,7 +171,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 29264273208,
+      "duration_ns": 29435645792,
       "status_code": 200,
       "response_bytes": 5615,
       "response_sha256": "c170aae91616cb23863c766e5f319074fa63418302f7d03c9be0c2e352b0cee3",
@@ -185,7 +185,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 8162458,
+      "duration_ns": 7919959,
       "status_code": 404,
       "response_bytes": 115,
       "response_sha256": "0ae5dc6d86c6c56f1c402ccdfb2d61d220077215ba8985e5913546a2d79350f8",
@@ -199,7 +199,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 535875,
+      "duration_ns": 550000,
       "status_code": 404,
       "response_bytes": 115,
       "response_sha256": "0ae5dc6d86c6c56f1c402ccdfb2d61d220077215ba8985e5913546a2d79350f8",
@@ -213,7 +213,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 494041,
+      "duration_ns": 503000,
       "status_code": 404,
       "response_bytes": 115,
       "response_sha256": "0ae5dc6d86c6c56f1c402ccdfb2d61d220077215ba8985e5913546a2d79350f8",
@@ -227,7 +227,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 5126934417,
+      "duration_ns": 5106643833,
       "status_code": 200,
       "response_bytes": 16006749,
       "response_sha256": "db2b4ce88b85e0896d486e5dab9a9806fa9aee50d2ad455967671536ff005dfc",
@@ -241,7 +241,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 5147142083,
+      "duration_ns": 5177383333,
       "status_code": 200,
       "response_bytes": 16006749,
       "response_sha256": "db2b4ce88b85e0896d486e5dab9a9806fa9aee50d2ad455967671536ff005dfc",
@@ -255,7 +255,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 5153484208,
+      "duration_ns": 5137698208,
       "status_code": 200,
       "response_bytes": 16006749,
       "response_sha256": "db2b4ce88b85e0896d486e5dab9a9806fa9aee50d2ad455967671536ff005dfc",
@@ -269,7 +269,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 3573073625,
+      "duration_ns": 3587463583,
       "status_code": 200,
       "response_bytes": 12136774,
       "response_sha256": "a7b287d4134957f0a216b318aeb5d7e8a76fbb8ef647d988bb3311182a39f540",
@@ -283,7 +283,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 3549843333,
+      "duration_ns": 3556834208,
       "status_code": 200,
       "response_bytes": 12136774,
       "response_sha256": "a7b287d4134957f0a216b318aeb5d7e8a76fbb8ef647d988bb3311182a39f540",
@@ -297,7 +297,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 3553693250,
+      "duration_ns": 3670379500,
       "status_code": 200,
       "response_bytes": 12136774,
       "response_sha256": "a7b287d4134957f0a216b318aeb5d7e8a76fbb8ef647d988bb3311182a39f540",
@@ -311,7 +311,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 4835535417,
+      "duration_ns": 4806857000,
       "status_code": 404,
       "response_bytes": 108,
       "response_sha256": "829ef2e33a40483a025f3733b55731d1966b966694f6f8afdb5b5ac73e12fd47",
@@ -325,7 +325,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 4885083916,
+      "duration_ns": 4929831125,
       "status_code": 404,
       "response_bytes": 108,
       "response_sha256": "829ef2e33a40483a025f3733b55731d1966b966694f6f8afdb5b5ac73e12fd47",
@@ -339,7 +339,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 4880732916,
+      "duration_ns": 4872300000,
       "status_code": 404,
       "response_bytes": 108,
       "response_sha256": "829ef2e33a40483a025f3733b55731d1966b966694f6f8afdb5b5ac73e12fd47",
@@ -353,7 +353,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 4890903250,
+      "duration_ns": 4872802917,
       "status_code": 200,
       "response_bytes": 2,
       "response_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
@@ -367,7 +367,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 4875967583,
+      "duration_ns": 4873438916,
       "status_code": 200,
       "response_bytes": 2,
       "response_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
@@ -381,7 +381,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 4879463792,
+      "duration_ns": 4867027708,
       "status_code": 200,
       "response_bytes": 2,
       "response_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
@@ -395,7 +395,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 4864422833,
+      "duration_ns": 4881471375,
       "status_code": 404,
       "response_bytes": 117,
       "response_sha256": "2a6be203e28db23a935282ca3290e1a211d22041b6fce21ba687440028cb32db",
@@ -409,7 +409,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 4875937125,
+      "duration_ns": 4862116750,
       "status_code": 404,
       "response_bytes": 117,
       "response_sha256": "2a6be203e28db23a935282ca3290e1a211d22041b6fce21ba687440028cb32db",
@@ -423,10 +423,52 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 4857825041,
+      "duration_ns": 4860260167,
       "status_code": 404,
       "response_bytes": 117,
       "response_sha256": "2a6be203e28db23a935282ca3290e1a211d22041b6fce21ba687440028cb32db",
+      "ok": true,
+      "error": null
+    },
+    {
+      "case": "calibration_draft_snapshot",
+      "profile": "hard",
+      "cache_state": "cold",
+      "batch": 0,
+      "iteration": 0,
+      "warmup": false,
+      "duration_ns": 2028614209,
+      "status_code": 200,
+      "response_bytes": 182185,
+      "response_sha256": "19a3e5cf71ba21e9000465384350bea8825be8b11ba55fc6d972578084aa0b1a",
+      "ok": true,
+      "error": null
+    },
+    {
+      "case": "calibration_draft_snapshot",
+      "profile": "hard",
+      "cache_state": "warm",
+      "batch": 0,
+      "iteration": 0,
+      "warmup": true,
+      "duration_ns": 1980773250,
+      "status_code": 200,
+      "response_bytes": 182185,
+      "response_sha256": "19a3e5cf71ba21e9000465384350bea8825be8b11ba55fc6d972578084aa0b1a",
+      "ok": true,
+      "error": null
+    },
+    {
+      "case": "calibration_draft_snapshot",
+      "profile": "hard",
+      "cache_state": "warm",
+      "batch": 0,
+      "iteration": 0,
+      "warmup": false,
+      "duration_ns": 1985213291,
+      "status_code": 200,
+      "response_bytes": 182185,
+      "response_sha256": "19a3e5cf71ba21e9000465384350bea8825be8b11ba55fc6d972578084aa0b1a",
       "ok": true,
       "error": null
     },
@@ -437,7 +479,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 1684262333,
+      "duration_ns": 1688116833,
       "status_code": 422,
       "response_bytes": 109,
       "response_sha256": "2d100595a5e1d34639333a606b93eb97ecc6b95537119e46a01a6adf3c36984f",
@@ -451,7 +493,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 1679382292,
+      "duration_ns": 1708123458,
       "status_code": 422,
       "response_bytes": 109,
       "response_sha256": "2d100595a5e1d34639333a606b93eb97ecc6b95537119e46a01a6adf3c36984f",
@@ -465,7 +507,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 1640750000,
+      "duration_ns": 1641415458,
       "status_code": 422,
       "response_bytes": 109,
       "response_sha256": "2d100595a5e1d34639333a606b93eb97ecc6b95537119e46a01a6adf3c36984f",
@@ -479,7 +521,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 19689291,
+      "duration_ns": 18612334,
       "status_code": 404,
       "response_bytes": 145,
       "response_sha256": "900873c555a09884e6b3e7312fb98cdd95a606aab351758b15efa15399bb143d",
@@ -493,7 +535,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 651667,
+      "duration_ns": 600458,
       "status_code": 404,
       "response_bytes": 145,
       "response_sha256": "900873c555a09884e6b3e7312fb98cdd95a606aab351758b15efa15399bb143d",
@@ -507,7 +549,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 560250,
+      "duration_ns": 541500,
       "status_code": 404,
       "response_bytes": 145,
       "response_sha256": "900873c555a09884e6b3e7312fb98cdd95a606aab351758b15efa15399bb143d",
@@ -521,7 +563,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 253532333,
+      "duration_ns": 254012125,
       "status_code": 200,
       "response_bytes": 866782,
       "response_sha256": "e2b9b9f432c6e483d96d51937587ed979823db243f921cd636ac4db994c06190",
@@ -535,7 +577,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 260149916,
+      "duration_ns": 271158709,
       "status_code": 200,
       "response_bytes": 866782,
       "response_sha256": "e2b9b9f432c6e483d96d51937587ed979823db243f921cd636ac4db994c06190",
@@ -549,7 +591,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 233464125,
+      "duration_ns": 233450000,
       "status_code": 200,
       "response_bytes": 866782,
       "response_sha256": "e2b9b9f432c6e483d96d51937587ed979823db243f921cd636ac4db994c06190",
@@ -563,7 +605,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 18794750,
+      "duration_ns": 18293625,
       "status_code": 404,
       "response_bytes": 133,
       "response_sha256": "a1e2aa1c59e93eaab2e0bdf12160144f552370c1713c85134a062b73e7e406d8",
@@ -577,7 +619,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": true,
-      "duration_ns": 551125,
+      "duration_ns": 542709,
       "status_code": 404,
       "response_bytes": 133,
       "response_sha256": "a1e2aa1c59e93eaab2e0bdf12160144f552370c1713c85134a062b73e7e406d8",
@@ -591,7 +633,7 @@
       "batch": 0,
       "iteration": 0,
       "warmup": false,
-      "duration_ns": 501041,
+      "duration_ns": 487625,
       "status_code": 404,
       "response_bytes": 133,
       "response_sha256": "a1e2aa1c59e93eaab2e0bdf12160144f552370c1713c85134a062b73e7e406d8",
@@ -603,170 +645,182 @@
     {
       "case": "hard:calibration_draft_invalid_lineage:cold",
       "samples": 1,
-      "median_ns": 1684262333,
-      "max_ns": 1684262333
+      "median_ns": 1688116833,
+      "max_ns": 1688116833
     },
     {
       "case": "hard:calibration_draft_invalid_lineage:warm",
       "samples": 1,
-      "median_ns": 1640750000,
-      "max_ns": 1640750000
+      "median_ns": 1641415458,
+      "max_ns": 1641415458
     },
     {
       "case": "hard:calibration_draft_missing:cold",
       "samples": 1,
-      "median_ns": 19689291,
-      "max_ns": 19689291
+      "median_ns": 18612334,
+      "max_ns": 18612334
     },
     {
       "case": "hard:calibration_draft_missing:warm",
       "samples": 1,
-      "median_ns": 560250,
-      "max_ns": 560250
+      "median_ns": 541500,
+      "max_ns": 541500
+    },
+    {
+      "case": "hard:calibration_draft_snapshot:cold",
+      "samples": 1,
+      "median_ns": 2028614209,
+      "max_ns": 2028614209
+    },
+    {
+      "case": "hard:calibration_draft_snapshot:warm",
+      "samples": 1,
+      "median_ns": 1985213291,
+      "max_ns": 1985213291
     },
     {
       "case": "hard:calibration_published_missing:cold",
       "samples": 1,
-      "median_ns": 18794750,
-      "max_ns": 18794750
+      "median_ns": 18293625,
+      "max_ns": 18293625
     },
     {
       "case": "hard:calibration_published_missing:warm",
       "samples": 1,
-      "median_ns": 501041,
-      "max_ns": 501041
+      "median_ns": 487625,
+      "max_ns": 487625
     },
     {
       "case": "hard:calibration_published_snapshot:cold",
       "samples": 1,
-      "median_ns": 253532333,
-      "max_ns": 253532333
+      "median_ns": 254012125,
+      "max_ns": 254012125
     },
     {
       "case": "hard:calibration_published_snapshot:warm",
       "samples": 1,
-      "median_ns": 233464125,
-      "max_ns": 233464125
+      "median_ns": 233450000,
+      "max_ns": 233450000
     },
     {
       "case": "hard:lineage_hard:cold",
       "samples": 1,
-      "median_ns": 29215985667,
-      "max_ns": 29215985667
+      "median_ns": 29484770333,
+      "max_ns": 29484770333
     },
     {
       "case": "hard:lineage_hard:warm",
       "samples": 1,
-      "median_ns": 29264273208,
-      "max_ns": 29264273208
+      "median_ns": 29435645792,
+      "max_ns": 29435645792
     },
     {
       "case": "hard:lineage_missing:cold",
       "samples": 1,
-      "median_ns": 8162458,
-      "max_ns": 8162458
+      "median_ns": 7919959,
+      "max_ns": 7919959
     },
     {
       "case": "hard:lineage_missing:warm",
       "samples": 1,
-      "median_ns": 494041,
-      "max_ns": 494041
+      "median_ns": 503000,
+      "max_ns": 503000
     },
     {
       "case": "hard:reviews_exact_revision:cold",
       "samples": 1,
-      "median_ns": 4890903250,
-      "max_ns": 4890903250
+      "median_ns": 4872802917,
+      "max_ns": 4872802917
     },
     {
       "case": "hard:reviews_exact_revision:warm",
       "samples": 1,
-      "median_ns": 4879463792,
-      "max_ns": 4879463792
+      "median_ns": 4867027708,
+      "max_ns": 4867027708
     },
     {
       "case": "hard:reviews_stale_revision:cold",
       "samples": 1,
-      "median_ns": 4864422833,
-      "max_ns": 4864422833
+      "median_ns": 4881471375,
+      "max_ns": 4881471375
     },
     {
       "case": "hard:reviews_stale_revision:warm",
       "samples": 1,
-      "median_ns": 4857825041,
-      "max_ns": 4857825041
+      "median_ns": 4860260167,
+      "max_ns": 4860260167
     },
     {
       "case": "hard:revision_max_identity_payload:cold",
       "samples": 1,
-      "median_ns": 5126934417,
-      "max_ns": 5126934417
+      "median_ns": 5106643833,
+      "max_ns": 5106643833
     },
     {
       "case": "hard:revision_max_identity_payload:warm",
       "samples": 1,
-      "median_ns": 5153484208,
-      "max_ns": 5153484208
+      "median_ns": 5137698208,
+      "max_ns": 5137698208
     },
     {
       "case": "hard:revision_max_polygon_payload:cold",
       "samples": 1,
-      "median_ns": 3573073625,
-      "max_ns": 3573073625
+      "median_ns": 3587463583,
+      "max_ns": 3587463583
     },
     {
       "case": "hard:revision_max_polygon_payload:warm",
       "samples": 1,
-      "median_ns": 3553693250,
-      "max_ns": 3553693250
+      "median_ns": 3670379500,
+      "max_ns": 3670379500
     },
     {
       "case": "hard:revision_missing_stale:cold",
       "samples": 1,
-      "median_ns": 4835535417,
-      "max_ns": 4835535417
+      "median_ns": 4806857000,
+      "max_ns": 4806857000
     },
     {
       "case": "hard:revision_missing_stale:warm",
       "samples": 1,
-      "median_ns": 4880732916,
-      "max_ns": 4880732916
+      "median_ns": 4872300000,
+      "max_ns": 4872300000
     },
     {
       "case": "hard:workspace_full_hard:cold",
       "samples": 1,
-      "median_ns": 20387053083,
-      "max_ns": 20387053083
+      "median_ns": 20301746500,
+      "max_ns": 20301746500
     },
     {
       "case": "hard:workspace_full_hard:warm",
       "samples": 1,
-      "median_ns": 20390901625,
-      "max_ns": 20390901625
+      "median_ns": 20286024041,
+      "max_ns": 20286024041
     },
     {
       "case": "hard:workspace_missing:cold",
       "samples": 1,
-      "median_ns": 8269916,
-      "max_ns": 8269916
+      "median_ns": 8023667,
+      "max_ns": 8023667
     },
     {
       "case": "hard:workspace_missing:warm",
       "samples": 1,
-      "median_ns": 514625,
-      "max_ns": 514625
+      "median_ns": 505708,
+      "max_ns": 505708
     },
     {
       "case": "hard:workspace_stage_visual_identities_hard:cold",
       "samples": 1,
-      "median_ns": 14477179291,
-      "max_ns": 14477179291
+      "median_ns": 15128142291,
+      "max_ns": 15128142291
     },
     {
       "case": "hard:workspace_stage_visual_identities_hard:warm",
       "samples": 1,
-      "median_ns": 14505717292,
-      "max_ns": 14505717292
+      "median_ns": 14644914834,
+      "max_ns": 14644914834
     }
   ]
 }

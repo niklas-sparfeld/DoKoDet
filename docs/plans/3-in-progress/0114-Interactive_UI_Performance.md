@@ -166,7 +166,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M1:** Complete — bounded hard-data examples and seeded fixtures pass production schema and lineage validation.
 - **M2:** Complete — controlled endpoint and startup timing harness.
 - **M3:** Complete — add named catalog and evidence JSON read cases with preliminary generated-empty and hard-snapshot samples.
-- **M4:** Not started — cover pipeline workspace, lineage, revision, review, and calibration reads.
+- **M4:** Complete — cover pipeline workspace, lineage, revision, review, and calibration reads.
 - **M5:** Not started — cover pipeline run, selection, result, and comparison reads.
 - **M6:** Not started — cover job history, polling, detail, and log reads.
 - **M7:** Not started — cover writes, media, and contention.
@@ -330,25 +330,27 @@ Deferring startup cost to the first UI request is not an improvement unless both
 ### Current state — M4 complete
 
 - M0–M3 are complete. Their reports and evidence remain listed above and in the M3 handoff history.
-- M4 adds `backend/scripts/run_interactive_ui_pipeline_read_performance.py` with 14 named speed
+- M4 adds `backend/scripts/run_interactive_ui_pipeline_read_performance.py` with 15 named speed
   and correctness cases across six UI GET routes. Cases cover full and stage-filtered workspace
   reads, exact lineage, maximum identity and polygon revisions, review reads, calibration-refinement
-  validation, published calibration snapshots, and missing or stale reads. Each case measures a
-  first cold app request and a warm request after one warmup. All cases use real storage, production
+  validation, published calibration snapshots, and missing or stale reads. A current-schema draft
+  fixture uses exact frozen detector/proposal content through production stores in disposable
+  storage; the original legacy draft remains an expected 422 case. Each case measures a first cold
+  app request and a warm request after one warmup. All cases use real storage, production
   validation, full response serialization, and exact fixture identity checks.
-- M4 adds 12 hashed hard-fixture dependency assets. The fixture manifest now names 54 assets. The
+- M4 adds 15 hashed hard-fixture dependency assets. The fixture manifest now names 57 assets. The
   new lineage parent records make both exact copied parent revisions available to the lineage read.
   The new published-calibration GET route is classified in the M0 inventory.
 - The hard calibration-refinement draft predates current node lineage metadata. Its GET returns the
-  expected 422 `invalid_calibration_refinement` response. M4 measures this validation path and the
-  successful exact published-calibration snapshot route. A successful current-draft read remains a
-  fixture follow-up.
-- The preliminary sample export contains 42 samples and is not a baseline. The full workspace and
+  expected 422 `invalid_calibration_refinement` response. A second scenario seeds current-schema
+  detector and proposal revisions through production stores in disposable storage; its exact draft
+  GET succeeds. The published calibration snapshot route also succeeds with exact identities.
+- The preliminary sample export contains 45 samples and is not a baseline. The full workspace and
   lineage reads are slow on the current fixture: about 20 seconds and 29 seconds per request.
   Initial 30-second experiments timed out on lineage. The retained run uses a finite 180-second
   timeout. No performance budget or baseline gate is active.
 - Checks: focused pytest, Ruff check and formatting, hard-fixture validation, inventory check, and
-  the 42-sample runner passed. Details and machine profile are in
+  the 45-sample runner passed. Details and machine profile are in
   `docs/reports/0114-M4_Pipeline_Workspace_and_Revision_Reads.md`.
 - Next milestone: M5, pipeline run and result reads.
 - Run authorization: 10 milestones requested, 1 completed, 9 remaining. M5–M13 are the nine

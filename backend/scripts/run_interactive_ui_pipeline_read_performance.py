@@ -28,6 +28,16 @@ POLYGON_NODE = "b5090a82-d8ba-5714-a66b-6ee4e4e707f1"
 POLYGON_REVISION = "dd8b1436-cf47-5104-87c6-6b2b0cc4c572"
 CALIBRATION_RECORDING = "cardeventnet-IMG_0655"
 CALIBRATION_REVISION = "calibration-cd1069b46e30480b057d90b0"
+CALIBRATION_SOURCE_NODE = "m4-calibration-visible-cards"
+CALIBRATION_SOURCE_REVISION = "visible-cards-visible_cards-run-6e44ce5b-753-attempt-1"
+CALIBRATION_PROPOSAL_NODE = "m4-calibration-card-scene-proposals"
+CALIBRATION_PROPOSAL_REVISION = (
+    "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1"
+)
+CALIBRATION_SOURCE_FIXTURE_NODE = "65289367-05b8-5844-8bdd-17c5eeab0c49"
+CALIBRATION_SOURCE_FIXTURE_REVISION = "a4d0fba9-ed38-5365-9df0-2596b6be5b3b"
+CALIBRATION_PROPOSAL_FIXTURE_NODE = "aa909e7f-041d-573f-8d7b-df634d9f2123"
+CALIBRATION_PROPOSAL_FIXTURE_REVISION = "7c1657af-01dc-589f-aec0-32b3e733b9f8"
 DRAFT_ID = (
     "calibration-draft-card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-"
     "retry-65bb8ec7-attempt-1"
@@ -115,6 +125,13 @@ def scenarios() -> list[Scenario]:
             f"/api/pipeline/nodes/{IDENTITY_NODE}/revisions/{UNKNOWN}/reviews",
             404,
             "review_missing",
+        ),
+        Scenario(
+            "calibration_draft_snapshot",
+            "/api/recordings/{recording_id}/pipeline/calibration-refinement",
+            f"/api/recordings/{CALIBRATION_RECORDING}/pipeline/calibration-refinement?proposal_revision_id={CALIBRATION_PROPOSAL_REVISION}&draft_id={DRAFT_ID}",
+            200,
+            "draft",
         ),
         Scenario(
             "calibration_draft_invalid_lineage",
@@ -269,11 +286,13 @@ def _check(case: Scenario, response: httpx.Response) -> str | None:
         if not isinstance(payload, list):
             return "reviews response is not a list"
     elif check == "draft":
-        if (
-            payload.get("draft_id") != DRAFT_ID
-            or payload.get("recording_id") != CALIBRATION_RECORDING
-        ):
-            return "calibration draft identity mismatch"
+        draft = payload.get("draft", {})
+        if draft.get("draft_id") != DRAFT_ID:
+            return f"calibration draft identity mismatch: {draft.get('draft_id')!r}"
+        if payload.get("recording_id") != CALIBRATION_RECORDING:
+            return "calibration draft recording identity mismatch"
+        if payload.get("proposal_revision_id") != CALIBRATION_PROPOSAL_REVISION:
+            return "calibration draft proposal identity mismatch"
     elif check == "calibration":
         if (
             payload.get("calibration_revision_id") != CALIBRATION_REVISION
@@ -343,6 +362,51 @@ async def _exercise(
             await sample(cache_state="warm", warmup=False, iteration=iteration)
 
 
+def _prepare_current_calibration_draft_fixture(root: Path) -> None:
+    """Create current-schema lineage records in disposable storage with production stores."""
+    from unittest.mock import patch
+
+    import dokodetector_backend.pipeline_node_store as node_store_module
+    from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+
+    store = PipelineNodeStore(root / "data/operations/pipeline-nodes")
+    source_revision = store.read_revision_record(
+        CALIBRATION_SOURCE_FIXTURE_NODE, CALIBRATION_SOURCE_FIXTURE_REVISION
+    )
+    source_node = store.get(CALIBRATION_SOURCE_FIXTURE_NODE)
+    with patch.object(
+        node_store_module, "_canonical_timestamp", return_value="2026-11-07T00:00:00Z"
+    ):
+        store.create(
+            CALIBRATION_SOURCE_NODE,
+            "M4 calibration detector input",
+            "visible_cards",
+            source_node.source,
+            source_revision.content,
+            source_revision.metadata,
+            revision_id=CALIBRATION_SOURCE_REVISION,
+        )
+
+    proposal_revision = store.read_revision_record(
+        CALIBRATION_PROPOSAL_FIXTURE_NODE, CALIBRATION_PROPOSAL_FIXTURE_REVISION
+    )
+    proposal_node = store.get(CALIBRATION_PROPOSAL_FIXTURE_NODE)
+    metadata = dict(proposal_revision.metadata)
+    metadata["input_revision_ids"] = [CALIBRATION_SOURCE_REVISION]
+    with patch.object(
+        node_store_module, "_canonical_timestamp", return_value="2026-11-07T00:00:00Z"
+    ):
+        store.create(
+            CALIBRATION_PROPOSAL_NODE,
+            "M4 calibration proposal input",
+            "card_scene_proposals",
+            proposal_node.source,
+            proposal_revision.content,
+            metadata,
+            revision_id=CALIBRATION_PROPOSAL_REVISION,
+        )
+
+
 def run(
     *,
     hard_cache: Path,
@@ -368,6 +432,7 @@ def run(
             root = parent / f"hard-{batch}"
             root.mkdir()
             _link_hard_snapshot(root, hard_cache)
+            _prepare_current_calibration_draft_fixture(root)
             for case in cases:
                 app = create_app(_settings(root))
                 asyncio.run(_exercise(app, case, warmups, repeats, timeout, samples, "hard", batch))

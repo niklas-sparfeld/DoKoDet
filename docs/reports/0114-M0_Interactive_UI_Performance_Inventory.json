@@ -247,7 +247,7 @@
       "route": "/api/recordings/{recording_id}/pipeline/calibration-refinement",
       "classification": "ui",
       "caller": "web/src/api/client.ts; web/src/pipeline and web/src/visibleCards",
-      "scenario": "M4 speed/correctness cases: exact hard-draft read validation (422 for legacy missing lineage) and missing draft.",
+      "scenario": "M4 speed/correctness cases: current-schema hard-draft snapshot, invalid legacy lineage (422), and missing draft.",
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",

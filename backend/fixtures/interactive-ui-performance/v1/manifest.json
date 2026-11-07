@@ -269,6 +269,21 @@
       "path": "data/operations/pipeline-nodes/aa909e7f-041d-573f-8d7b-df634d9f2123/revisions/7c1657af-01dc-589f-aec0-32b3e733b9f8/revision.json",
       "sha256": "3b67886520c93c1feaa65df8b8364acc4ea4ec1c019d106173ac9c81c5822ce3",
       "byte_length": 2822385
+    },
+    {
+      "path": "data/operations/pipeline-nodes/65289367-05b8-5844-8bdd-17c5eeab0c49/head.json",
+      "sha256": "9829a40f6c941ad1113d95eb438221144475968d6fadcbb7e5220831a8856315",
+      "byte_length": 54
+    },
+    {
+      "path": "data/operations/pipeline-nodes/65289367-05b8-5844-8bdd-17c5eeab0c49/manifest.json",
+      "sha256": "0aea05f465803fa367366f3ddcea1a54a90e2271108fe79cdfc6f5bc0bc241d1",
+      "byte_length": 511
+    },
+    {
+      "path": "data/operations/pipeline-nodes/65289367-05b8-5844-8bdd-17c5eeab0c49/revisions/a4d0fba9-ed38-5365-9df0-2596b6be5b3b/revision.json",
+      "sha256": "a9bf0da1910f88349e3fbff5c692ff77dcccd5b78b0fbaf1d2d12d9086c4ec47",
+      "byte_length": 893357
     }
   ],
   "examples": [
@@ -305,6 +320,12 @@
       "draft_id": "calibration-draft-card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1",
       "kind": "calibration-review-draft",
       "recording_id": "cardeventnet-IMG_0655"
+    },
+    {
+      "kind": "calibration-current-draft-source",
+      "node_id": "65289367-05b8-5844-8bdd-17c5eeab0c49",
+      "recording_id": "cardeventnet-IMG_0655",
+      "revision_id": "a4d0fba9-ed38-5365-9df0-2596b6be5b3b"
     }
   ],
   "inventory": {

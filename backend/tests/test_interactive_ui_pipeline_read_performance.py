@@ -26,6 +26,7 @@ def test_named_pipeline_cases_cover_inventory_and_hard_dimensions() -> None:
         "revision_missing_stale",
         "reviews_exact_revision",
         "reviews_stale_revision",
+        "calibration_draft_snapshot",
         "calibration_draft_invalid_lineage",
         "calibration_draft_missing",
         "calibration_published_snapshot",
@@ -91,3 +92,22 @@ def test_calibration_draft_case_reports_stored_legacy_lineage_validation():
         },
     )
     assert _check(draft, response) is None
+
+
+def test_calibration_draft_snapshot_checks_exact_fixture_identity():
+    draft = next(case for case in scenarios() if case.name == "calibration_draft_snapshot")
+    payload = {
+        "recording_id": "cardeventnet-IMG_0655",
+        "proposal_revision_id": (
+            "card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1"
+        ),
+        "draft": {
+            "draft_id": (
+                "calibration-draft-card-scene-proposals-card-scene-proposal-0086-91x59-"
+                "IMG_0655-retry-65bb8ec7-attempt-1"
+            )
+        },
+    }
+    assert _check(draft, httpx.Response(200, json=payload)) is None
+    payload["draft"]["draft_id"] = "wrong-draft"
+    assert _check(draft, httpx.Response(200, json=payload))
