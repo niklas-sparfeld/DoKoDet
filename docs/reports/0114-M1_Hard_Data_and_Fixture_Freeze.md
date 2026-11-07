@@ -16,8 +16,8 @@ table-observation, and 34 virtual-scene data sets.
 | Source video bytes | 1,061,930,405 bytes | `game-2026-08-20-01-005`; selected hard example |
 | Source video duration | 520,753,000 microseconds | `cardeventnet-IMG_0670`; separate duration stress candidate |
 | Node manifest count | 1,006 | Exact bounded manifest root inventory |
-| Selected hard revision | 2,641,025 bytes; 40 frames | `bcf3f325-e35e-5bc0-b276-fa4e33aa874d`, `card_scene_proposals` |
-| Selected data lineage | 1 exact node and revision | Node `f3391fc3-049b-5fc2-ab40-30ea381d946e`; its source video identity is checked against the recording bundle |
+| Selected hard media node | 8,282-byte event revision | Node `5606e120-028e-52d0-9e1a-b1fafdbc23ee`, exact head `dd991694-5b35-5bfd-924b-1d84bee6a16c`, with the maximum-size source video |
+| Selected data lineage | 4 nodes; 2 branches share one copied source and one branch has a later revision | `cardeventnet-IMG_0650`; every node, head, and revision is in the frozen asset set |
 | Job history | 0 JSON job records in `data/operations/jobs` | Current checkout has only its owner lock; use seeded growth for reproducible job sizes |
 
 The two largest source dimensions belong to different recordings. This preserves the distinction
@@ -33,24 +33,30 @@ type with the application parsers.
 | Proposed scene payload | 5,532,993 bytes; 50 frames and 289 poses | Node `fea60b6f-a408-5efe-800f-483067026612`, revision `88353478-23a2-5add-a837-9fd2dec54039`; `parse_proposed_card_scene_data_bytes` passed |
 | Calibration review draft | 180,869 bytes; 51 source frame digests | `cardeventnet-IMG_0655`, draft `calibration-draft-card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1`; `CalibrationDraft.from_mapping` passed |
 | Same-recording visible-card node count | 18 nodes | `cardeventnet-IMG_0650`; selected heads show two copies of one source node and one further copied revision |
-| Revisions per node | 3 | Maximum statted revision-directory count; generated fixtures do not yet reproduce this with application lineage |
+| Revisions per node | 3 | Maximum statted revision-directory count; generated `deep_lineage` profile validates 384 revisions on one node through `PipelineNodeStore` |
 
-The 18-node group gives a fan-out candidate, but it is not yet a frozen transitive fixture. The
-selected scene-proposal revision names a detector revision and calibration revision whose assets
-are absent from the hard snapshot. The selected calibration draft names a base calibration
-revision that is also absent. The 1.7 GB pipeline-node root and 6.5 GB derived-view root are local
-storage sizes, not copied fixture sizes.
+The selected scene-proposal maximum is an inventory candidate, but it is not part of the frozen
+snapshot. It names detector revision `visible-cards-89cd0940-fd94-4e44-b07f-a4fbf96efd87-attempt-1`
+and calibration revision `calibration-8732f5afcb52683bce7e50e7`, which do not have a verified
+transitive source in this checkout. The selected visible-card data freezes the largest polygon and
+identity payload with complete source media and revision history instead. The 1.7 GB pipeline-node
+root and 6.5 GB derived-view root are local storage sizes, not copied fixture sizes.
 
 ## Frozen local snapshot
 
-The hard snapshot freezes the exact repository bundle, source record, 1,061,930,405-byte MOV,
-pipeline node manifest, head, and exact revision listed in the fixture script. The manifest hashes
-bind each byte asset. The validator checks the repository-bundle and source-record schemas, node
-and revision schemas, node-to-recording identity, video SHA-256 and size, exact head revision, and
-revision content digest. It stores files under
+The source manifest freezes 42 exact assets across four recording bundles, seven pipeline nodes,
+their saved revisions, one calibration revision, and the largest calibration review draft. It
+includes the 1,061,930,405-byte source video, the 16,005,605-byte identity revision, the 12,136,454-
+byte visible-card polygon revision, the four-node shared-copy branch, and the 180,869-byte draft.
+All parent revisions for the two large data nodes are included. The validator loads bundles through
+`RecordingBundleStore`, nodes and content through `PipelineNodeStore`, copy applicability through
+`PipelineNodeReviews`, and calibration data through `CalibrationRevisionStore` and
+`CalibrationDraftStore`. It checks exact IDs, schema, hashes, media identity, revision closure, and
+copy lineage. It stores hashed bytes under
 `~/.cache/doko-detector/interactive-performance/sha256/<sha256>`. On the same volume, import uses
-hard links to avoid another 1 GB copy; it falls back to a byte copy on other volumes. The snapshot
-does not alter live review or operations data.
+hard links to avoid a second 1.9 GB copy; it falls back to byte copies on other volumes. Validation
+reconstructs a temporary read-only snapshot from those links. The import does not alter live review
+or operations data.
 
 Commands from the repository root:
 
@@ -64,13 +70,16 @@ an error. A full qualification command must pass `--require-hard`; it must not s
 
 ## Seeded generated tier
 
-The generator uses seed `11401`. Its frozen `small`, `representative`, `hard`, and `stress` profiles
-contain respectively 4/24/96/384 recordings, 8/96/480/1,920 nodes, 16/288/1,920/9,600 revisions,
-12/300/2,500/10,000 jobs, and a separate largest result of 20/120/600/1,200 items. Each recording
-has a 64 KiB deterministic media asset. The largest item count appears once per profile so result
-payload size does not multiply by every node and revision. Every file is SHA-256 listed in the
-fixture manifest. The generator validates hashes, lengths, recording dependencies, lineage node
-and revision closure, and media membership.
+The generator uses seed `11401`. The `small`, `representative`, `hard`, and `stress` profiles grow
+recordings, nodes, revisions, job records, and result items. It also has independent profiles:
+`many_recordings`, `many_nodes`, `deep_lineage`, `job_history`, and `large_result`. Each recording
+has a deterministic 64 KiB media asset. A result-size profile puts the largest item count in one
+revision. The generator uses `PipelineNodeStore.create` and `save` for production node envelopes,
+valid events, parent revisions, and shared-copy lineage. It writes jobs with the production `Job`
+model, validates every record with `Job.model_validate_json`, and checks first and last records
+through `JobManager.get`. Every file is SHA-256 listed. Validation checks file integrity, exact
+media dependencies, every node and revision through the store, transitive parent and copy
+references, and job model fields.
 
 Generated fixtures use disposable output only. The target must be empty. With no `--output`, the
 tool creates a new temporary directory. It does not read developer storage. Reproducibility check:
@@ -81,41 +90,26 @@ mise exec -- uv run --project backend python backend/scripts/materialize_interac
 mise exec -- uv run --project backend python backend/scripts/materialize_interactive_ui_performance_fixtures.py --validate /tmp/doko-perf-one
 ```
 
-Compare the generated files byte-for-byte. Deleting a required file makes validation fail with its
-path. These generated records are storage workload fixtures, not reviewed domain data or a
-performance baseline. A clean checkout can run this tier without the local hard asset cache.
-
-## Correction: M1 is incomplete
-
-The first M1 commit marked this milestone complete too early. The materializer writes its own
-pipeline-node and job-shaped JSON. It does not use application stores. Its node manifest has fields
-that strict `PipelineNodeStore` rejects, its head adds a rejected field, and its revision files omit
-the required `pipeline-node-revision/v1` envelope and revision digest. Its job records fail the
-strict `Job` model. The current tests validate only the materializer's private schema; they do not
-establish application-schema validity.
-
-The manifest pins one scene-proposal snapshot, but that revision references a detector revision
-(`visible-cards-89cd0940-fd94-4e44-b07f-a4fbf96efd87-attempt-1`) and calibration revision
-(`calibration-8732f5afcb52683bce7e50e7`) that are absent from the asset set. It does not pin the
-measured largest identity, visible-card polygon, or review-draft candidates. Those require exact
-asset hashes, media identity, and complete parent, copy, and input lineage before timing.
-
-M1 remains incomplete. The next change must build seeded data through application schemas or real
-stores, pin the exact selected examples and their dependency closure, then validate them with the
-production parsers and lineage readers. Do not start M2 against the current fixture corpus.
+Compare generated files byte-for-byte. Deleting a required file or breaking a parent, copy, or
+media reference makes validation fail. These generated records are workload fixtures, not reviewed
+domain data or a performance baseline. A clean checkout can run generated profiles without the
+local hard asset cache. A full qualification run must also pass `--require-hard`; it must fail when
+one of the pinned local assets is absent.
 
 ## Checks
 
 - `find data/operations/pipeline-nodes -name manifest.json -type f | wc -l` — 1,006.
 - Bounded Python metadata pass over those manifests — 1,006 parsed; ranks above reproduced.
-- Hard asset SHA-256 inventory — all six pinned hashes match the local source bytes.
+- Hard asset SHA-256 inventory — all 42 pinned hashes and byte lengths match local source bytes.
 - `mise exec -- uv run --project backend pytest backend/tests/test_interactive_ui_performance_fixtures.py`
   — PASS, 5 tests, including reproducibility, missing media, broken lineage, missing hard asset,
   and refusal to write generated fixtures inside the repository.
 - `mise exec -- uv run --project backend ruff check backend/scripts/materialize_interactive_ui_performance_fixtures.py backend/tests/test_interactive_ui_performance_fixtures.py`
   — PASS.
 - Two independently generated small profiles compared byte-for-byte with `diff -qr` — PASS.
-- Representative profile materialization and built-in validation — PASS, 805 assets.
-- `--import-hard` and `--require-hard` — PASS, all six local content-addressed assets.
-- No timings or fixes were selected in M1. The checks above pass for the fixture script's private
-  contract only; they do not close the application-schema and dependency-closure gaps above.
+- Representative profile materialization and production validation — PASS, 901 assets.
+- Independent `many_recordings`, `many_nodes`, `deep_lineage`, `job_history`, and `large_result`
+  profiles materialized and passed their production validations.
+- `--import-hard` and `--require-hard` — PASS, all 42 assets; production bundle, node, lineage, and
+  calibration readers accepted the reconstructed snapshot.
+- No timings or fixes were selected in M1.

@@ -163,7 +163,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 ## Milestone status
 
 - **M0:** Complete — inventory registered routes, browser callers, and startup phases.
-- **M1:** Incomplete — fixture JSON is not application-schema valid, and hard-case dependencies are not closed.
+- **M1:** Complete — bounded hard-data examples and seeded fixtures pass production schema and lineage validation.
 - **M2:** Not started — implement the timing and startup harness.
 - **M3:** Not started — cover UI JSON reads and job polling.
 - **M4:** Not started — cover writes, media, and contention.
@@ -302,27 +302,25 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - Run count: requested 11 milestones; completed 1; remaining 10. Continue only after explicit
   authorization under the persistent milestone command.
 
-### M1 — incomplete after correction
+### M1 — complete after two corrections
 
-- Changes: added the report, hashed asset manifest, seeded materializer, and tests in commit
-  `ddf106224`. A correction pass added bounded revision, identity, polygon, draft, and branch-size
-  discovery. See `docs/reports/0114-M1_Hard_Data_and_Fixture_Freeze.md`.
-- Checks: five fixture-script tests and scoped Ruff pass. The generated files reproduce and the
-  pinned video bytes hash correctly. The application parsers accepted the selected identity,
-  visible-card, proposed-scene, and calibration-draft candidates. These checks do not validate the
-  generated fixture through the application stores.
-- Exact acceptance gap: generated node manifests, heads, revisions, and jobs fail the production
-  `PipelineNodeStore` or `Job` schemas. The selected identity, visible-card, and draft examples are
-  not pinned. The scene proposal references an unpinned detector and calibration revision; the
-  draft references an unpinned base calibration revision. The selected branch and media dependency
-  closures are not materialized or checked through production lineage readers.
-- Decision: M1 is not complete. Do not start M2 until the materializer uses production schemas or
-  stores, the selected examples and their media and lineage dependencies are hashed, and validation
-  passes through the application parsers, stores, and lineage readers.
-- Next: finish the M1 fixture correction. The bounded size findings and exact candidates are in the
-  M1 report. No timing baseline or speed claim was made.
-- Run count: requested 11 milestones; M0 complete (1); M1 incomplete; 10 milestones remain.
+- Changes: the first M1 package is `ddf106224`. The two correction commits repaired production
+  schema generation, pinned 42 hard assets across four recordings, seven nodes, a calibration
+  revision, and a review draft, then validated the dependency closure. Detailed findings and exact
+  hashes are in `docs/reports/0114-M1_Hard_Data_and_Fixture_Freeze.md`.
+- Checks: five fixture tests pass; scoped Ruff passes. Small-profile materializations reproduce
+  byte-for-byte. Representative and five independent dimension profiles pass production validation.
+  `--import-hard` and `--require-hard` validate all 42 assets through recording bundle, node,
+  revision, copy-lineage, calibration, and draft readers. Generated job records pass `JobManager.get`.
+- Decisions and limits: the maximum scene-proposal candidate is inventoried but excluded because
+  its detector and calibration revisions do not have a closed source in this checkout. The frozen
+  visible-card revision supplies the maximum polygon payload with exact media and parent history.
+  Job history has zero local JSON records, so generated jobs use the production `Job` model. No
+  timings or speed claims were made.
+- Next: M2 endpoint and startup timing harness. A full qualification run must fail clearly when a
+  pinned local hard asset is absent. Generated profiles run without developer data.
+- Run count: requested 11 milestones; completed 2; remaining 9.
 
 The user requested interactive UI endpoint speed coverage and backend startup timings. This epic
 includes two bounded improvement cycles, not an open-ended optimization loop. No persistent run or
-This invocation authorizes M1 only. M1 remains incomplete; preserve unrelated worktree changes.
+This invocation authorizes M1 only. Preserve unrelated worktree changes.

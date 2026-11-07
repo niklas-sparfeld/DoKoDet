@@ -1,24 +1,340 @@
 {
-  "schema_version": "interactive-performance-source-manifest/v1",
-  "seed": 11401,
-  "profiles": {
-    "small": {"recordings": 4, "nodes": 8, "revisions": 16, "jobs": 12, "items": 20},
-    "representative": {"recordings": 24, "nodes": 96, "revisions": 288, "jobs": 300, "items": 120},
-    "hard": {"recordings": 96, "nodes": 480, "revisions": 1920, "jobs": 2500, "items": 600},
-    "stress": {"recordings": 384, "nodes": 1920, "revisions": 9600, "jobs": 10000, "items": 1200}
-  },
-  "hard_example": {
-    "recording_id": "game-2026-08-20-01-005",
-    "node_id": "f3391fc3-049b-5fc2-ab40-30ea381d946e",
-    "revision_id": "bcf3f325-e35e-5bc0-b276-fa4e33aa874d",
-    "evidence": {"source_video_bytes": 1061930405, "source_duration_us": 80032000, "revision_bytes": 2641025, "frame_count": 40}
-  },
   "assets": [
-    {"path": "data/intake/recordings/game-2026-08-20-01-005/manifest.json", "sha256": "7a8c27505b0ba0b0187fc072491e7d166e5dba930d8c88ff7295b08361475a8f"},
-    {"path": "data/intake/recordings/game-2026-08-20-01-005/source-record.json", "sha256": "f28b52b4b87d16535bed60f3a9868b58a1d64f77a91488abc9bb730ee36ca8d3"},
-    {"path": "data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov", "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73"},
-    {"path": "data/operations/pipeline-nodes/f3391fc3-049b-5fc2-ab40-30ea381d946e/manifest.json", "sha256": "4f07165b61f4bfd3f0b23cb043d3d03d8c684f7fd74f6c7329f14184d7fa3f62"},
-    {"path": "data/operations/pipeline-nodes/f3391fc3-049b-5fc2-ab40-30ea381d946e/head.json", "sha256": "532746042458c398016533ec7f9c0c17d07817130b70ab4746b1a3fac4825a23"},
-    {"path": "data/operations/pipeline-nodes/f3391fc3-049b-5fc2-ab40-30ea381d946e/revisions/bcf3f325-e35e-5bc0-b276-fa4e33aa874d/revision.json", "sha256": "f57d9a7230539f6023467979d055d6684d7aeb0ea3af23aa2ca42d6fec11f52b"}
-  ]
+    {
+      "byte_length": 725,
+      "path": "data/intake/recordings/cardeventnet-IMG_0650/initial-task-enrollment.json",
+      "sha256": "937005cc1d468145719cf0f686826f41b76ae73b116f20a0c48faac0542bbf44"
+    },
+    {
+      "byte_length": 1070,
+      "path": "data/intake/recordings/cardeventnet-IMG_0650/manifest.json",
+      "sha256": "89bda3fc901dd1ab5c1ff4200d3b795df3ae060aded6aad92513dbe14a5f21f5"
+    },
+    {
+      "byte_length": 1069,
+      "path": "data/intake/recordings/cardeventnet-IMG_0650/source-record.json",
+      "sha256": "6a27452008260e39d59c0a38a09ea37e1d883e1c38dafc9183382191b6bcae19"
+    },
+    {
+      "byte_length": 127322550,
+      "path": "data/intake/recordings/cardeventnet-IMG_0650/videos/video-cardeventnet-IMG_0650.mov",
+      "sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b"
+    },
+    {
+      "byte_length": 725,
+      "path": "data/intake/recordings/cardeventnet-IMG_0655/initial-task-enrollment.json",
+      "sha256": "92e4f0a6189d42fb841d34fa396569a234f22bd781ae609e0aba27a1ce096aae"
+    },
+    {
+      "byte_length": 1070,
+      "path": "data/intake/recordings/cardeventnet-IMG_0655/manifest.json",
+      "sha256": "86b10d2b991ab1e8f55ed8882228d044ec166cbeb78528b8b99f880a0cb6e695"
+    },
+    {
+      "byte_length": 1069,
+      "path": "data/intake/recordings/cardeventnet-IMG_0655/source-record.json",
+      "sha256": "297d8a66bfa1cb28c14e6f54e040b0e8b1a29a964431e8172d8cf0db73dc796e"
+    },
+    {
+      "byte_length": 147455393,
+      "path": "data/intake/recordings/cardeventnet-IMG_0655/videos/video-cardeventnet-IMG_0655.mov",
+      "sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d"
+    },
+    {
+      "byte_length": 742,
+      "path": "data/intake/recordings/game-2026-08-20-01-001/initial-task-enrollment.json",
+      "sha256": "fc4cfd5dbe545d1ebd8f113e77fa7a4d06d257d26df8c9842bf30d84db9d4e94"
+    },
+    {
+      "byte_length": 1075,
+      "path": "data/intake/recordings/game-2026-08-20-01-001/manifest.json",
+      "sha256": "4777a288933e1b5919d2e4d4bb0b86cfaed7f40e28517e9d47fc0735122561e8"
+    },
+    {
+      "byte_length": 824,
+      "path": "data/intake/recordings/game-2026-08-20-01-001/source-record.json",
+      "sha256": "c54067d6e9815408b8ffb16f62b2b2565fcb10fbf8c76214ff2310a08b7a0f2d"
+    },
+    {
+      "byte_length": 557067308,
+      "path": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+      "sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa"
+    },
+    {
+      "byte_length": 742,
+      "path": "data/intake/recordings/game-2026-08-20-01-005/initial-task-enrollment.json",
+      "sha256": "4b6e62f60e9fcc1f241cbce869794b4fa24ed7416b8c07473b61bf374d392798"
+    },
+    {
+      "byte_length": 1076,
+      "path": "data/intake/recordings/game-2026-08-20-01-005/manifest.json",
+      "sha256": "7a8c27505b0ba0b0187fc072491e7d166e5dba930d8c88ff7295b08361475a8f"
+    },
+    {
+      "byte_length": 825,
+      "path": "data/intake/recordings/game-2026-08-20-01-005/source-record.json",
+      "sha256": "f28b52b4b87d16535bed60f3a9868b58a1d64f77a91488abc9bb730ee36ca8d3"
+    },
+    {
+      "byte_length": 1061930405,
+      "path": "data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov",
+      "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73"
+    },
+    {
+      "byte_length": 180869,
+      "path": "data/operations/calibration-refinement-drafts/cardeventnet-IMG_0655/table-plane-calibration-drafts/calibration-draft-card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1/draft.json",
+      "sha256": "c3bd67df1530efda57fa77a86ae6e94bb756e7c221a9e33cc368a7522fc8923f"
+    },
+    {
+      "byte_length": 2091659,
+      "path": "data/operations/cardeventnet-IMG_0655/table-plane-calibrations/calibration-cd1069b46e30480b057d90b0/manifest.json",
+      "sha256": "96e616b30521c65ee5a2153f6417c4b139dcef16e09d10789e6959c1eb87f1ee"
+    },
+    {
+      "byte_length": 54,
+      "path": "data/operations/pipeline-nodes/429da1c9-7993-5795-ba80-1e90103093e0/head.json",
+      "sha256": "19eac43a2bd303daf8f3e69e054ed9fc59188c805711fdfb79cf5039314aa1ae"
+    },
+    {
+      "byte_length": 511,
+      "path": "data/operations/pipeline-nodes/429da1c9-7993-5795-ba80-1e90103093e0/manifest.json",
+      "sha256": "ed7372f0a03e03a1c2be0370b6cb6258d673be160f751eb4f3ba1aa7a921ac60"
+    },
+    {
+      "byte_length": 2388386,
+      "path": "data/operations/pipeline-nodes/429da1c9-7993-5795-ba80-1e90103093e0/revisions/d6d4cad9-a56d-518f-96da-b731242bce4c/revision.json",
+      "sha256": "d62267a72651c72e22af9c18ec72291a06431748e02a9facd8bf044c4f8148a3"
+    },
+    {
+      "byte_length": 54,
+      "path": "data/operations/pipeline-nodes/5606e120-028e-52d0-9e1a-b1fafdbc23ee/head.json",
+      "sha256": "f35d2c238d6447277d55f1879f71553003489b095d5baffdd26eff68bbe8a96d"
+    },
+    {
+      "byte_length": 501,
+      "path": "data/operations/pipeline-nodes/5606e120-028e-52d0-9e1a-b1fafdbc23ee/manifest.json",
+      "sha256": "c3661eb31fc524f79a834c10e201e334489c7f8652fe17c3b12a4f1113898648"
+    },
+    {
+      "byte_length": 8282,
+      "path": "data/operations/pipeline-nodes/5606e120-028e-52d0-9e1a-b1fafdbc23ee/revisions/dd991694-5b35-5bfd-924b-1d84bee6a16c/revision.json",
+      "sha256": "ccfe11ddb779b35cb44a867760597c5b5649b5bf54c6f03ff19c243d0525d745"
+    },
+    {
+      "byte_length": 54,
+      "path": "data/operations/pipeline-nodes/a5ee0598-143a-5aa3-bb40-080520c8dd8f/head.json",
+      "sha256": "952ca237ed75e7cde916fccd8938092954b2551a33d15004704ceb4ea23294a0"
+    },
+    {
+      "byte_length": 517,
+      "path": "data/operations/pipeline-nodes/a5ee0598-143a-5aa3-bb40-080520c8dd8f/manifest.json",
+      "sha256": "9a2621be3cda736180c686e2a919386e78d4af37e9b091c7b82f1f19e7a63f1e"
+    },
+    {
+      "byte_length": 3020987,
+      "path": "data/operations/pipeline-nodes/a5ee0598-143a-5aa3-bb40-080520c8dd8f/revisions/952f84b5-7c5a-52f7-9d7c-f8ee82757a33/revision.json",
+      "sha256": "0cafbc5d4732db637692df3892832032ecb6cd642a4d06d4d4db079328eecd61"
+    },
+    {
+      "byte_length": 631935,
+      "path": "data/operations/pipeline-nodes/a5ee0598-143a-5aa3-bb40-080520c8dd8f/revisions/bf8d7346-89f9-5709-bcd6-7a6debf67553/revision.json",
+      "sha256": "3a82a9dd446385e3abdf749204c92ec1f44e9a85039a8594b7864068953c9781"
+    },
+    {
+      "byte_length": 54,
+      "path": "data/operations/pipeline-nodes/a84eea81-e9b6-5ea7-9eb4-249e772d2f33/head.json",
+      "sha256": "2405c1e0dc1d9ca1ccb0e2b274b51e580b7ae115b79cc84f38d20f3a2ac1a47c"
+    },
+    {
+      "byte_length": 511,
+      "path": "data/operations/pipeline-nodes/a84eea81-e9b6-5ea7-9eb4-249e772d2f33/manifest.json",
+      "sha256": "44a7a2437a4e573ae06952aa4fdace3ec676e9df4a9b22dc6dba0f38c9c56642"
+    },
+    {
+      "byte_length": 2386897,
+      "path": "data/operations/pipeline-nodes/a84eea81-e9b6-5ea7-9eb4-249e772d2f33/revisions/5243b9a5-5dc8-546f-94a2-04071c75eb53/revision.json",
+      "sha256": "5a9d648a8e57eb5ee7e899698e6a157204917f1ca1b2706e824f6fd6c77eb66e"
+    },
+    {
+      "byte_length": 54,
+      "path": "data/operations/pipeline-nodes/b5090a82-d8ba-5714-a66b-6ee4e4e707f1/head.json",
+      "sha256": "9fb5e49bd452ae06c4e0d5a7a10d3888c6593a49eae1c352fa2a62ab9ceda171"
+    },
+    {
+      "byte_length": 520,
+      "path": "data/operations/pipeline-nodes/b5090a82-d8ba-5714-a66b-6ee4e4e707f1/manifest.json",
+      "sha256": "408b88615fb9518921c3d7a7813e80c1aacbb7a29dc599368ac4013ef6837112"
+    },
+    {
+      "byte_length": 4305581,
+      "path": "data/operations/pipeline-nodes/b5090a82-d8ba-5714-a66b-6ee4e4e707f1/revisions/9097a992-8291-5af1-840e-8994b7be9af0/revision.json",
+      "sha256": "b8f20e3605953c6a1cbd958a9aea7c617eeac9f995d398c410cc26596918a396"
+    },
+    {
+      "byte_length": 12136454,
+      "path": "data/operations/pipeline-nodes/b5090a82-d8ba-5714-a66b-6ee4e4e707f1/revisions/dd8b1436-cf47-5104-87c6-6b2b0cc4c572/revision.json",
+      "sha256": "114f530e751e91aa735abb4881cbe34173912130f86132eada49cd95c5747ebe"
+    },
+    {
+      "byte_length": 54,
+      "path": "data/operations/pipeline-nodes/cab1c661-362b-5651-9f2f-e44d8ac6645d/head.json",
+      "sha256": "8f829e2cec45b6169c5f753ba545465cb469ae054171437a00fa9a147e08296e"
+    },
+    {
+      "byte_length": 511,
+      "path": "data/operations/pipeline-nodes/cab1c661-362b-5651-9f2f-e44d8ac6645d/manifest.json",
+      "sha256": "8d2ab5b8fc892f634f14ded19fe9f6f91bc412b7cc3a8b9889597029e9a32705"
+    },
+    {
+      "byte_length": 1309195,
+      "path": "data/operations/pipeline-nodes/cab1c661-362b-5651-9f2f-e44d8ac6645d/revisions/2710e81e-18f3-577a-b9bd-2a74c99207d1/revision.json",
+      "sha256": "613c203130be67e2686ff216e9db17fdb336e4c4dcf84dc7a7be5d3d3c31b107"
+    },
+    {
+      "byte_length": 54,
+      "path": "data/operations/pipeline-nodes/e0d2e2fb-53ab-59c5-8991-3aba74f828ae/head.json",
+      "sha256": "7bf9b2d53b497c7704a72a1c71e5d8511a064ce4c951e2e1315d498cb63c1923"
+    },
+    {
+      "byte_length": 528,
+      "path": "data/operations/pipeline-nodes/e0d2e2fb-53ab-59c5-8991-3aba74f828ae/manifest.json",
+      "sha256": "0e0f280e22568752d711ab10ae836b422b20762bd96a1eaadb7bdd403bd4839b"
+    },
+    {
+      "byte_length": 8014017,
+      "path": "data/operations/pipeline-nodes/e0d2e2fb-53ab-59c5-8991-3aba74f828ae/revisions/6b8d5634-0ad8-502e-8e93-cbce1fae607e/revision.json",
+      "sha256": "da3687eea23bce9e3e15cc53a32e6af1006859932b95585a5d0dc088e7030371"
+    },
+    {
+      "byte_length": 16005605,
+      "path": "data/operations/pipeline-nodes/e0d2e2fb-53ab-59c5-8991-3aba74f828ae/revisions/f78c1e0a-2c0f-5312-98d6-b0b9b6650c0e/revision.json",
+      "sha256": "2371a1e08f4b61b7f067e3022c337ebe3b830ffc29c3a34fd94d1a1ed294a8f3"
+    }
+  ],
+  "examples": [
+    {
+      "kind": "largest-source-media",
+      "node_id": "5606e120-028e-52d0-9e1a-b1fafdbc23ee",
+      "recording_id": "game-2026-08-20-01-005",
+      "revision_id": "dd991694-5b35-5bfd-924b-1d84bee6a16c"
+    },
+    {
+      "kind": "visual-identities",
+      "node_id": "e0d2e2fb-53ab-59c5-8991-3aba74f828ae",
+      "recording_id": "game-2026-08-20-01-001",
+      "revision_id": "f78c1e0a-2c0f-5312-98d6-b0b9b6650c0e"
+    },
+    {
+      "kind": "visible-card-polygons",
+      "node_id": "b5090a82-d8ba-5714-a66b-6ee4e4e707f1",
+      "recording_id": "game-2026-08-20-01-001",
+      "revision_id": "dd8b1436-cf47-5104-87c6-6b2b0cc4c572"
+    },
+    {
+      "kind": "copy-lineage-fanout",
+      "node_ids": [
+        "cab1c661-362b-5651-9f2f-e44d8ac6645d",
+        "429da1c9-7993-5795-ba80-1e90103093e0",
+        "a84eea81-e9b6-5ea7-9eb4-249e772d2f33",
+        "a5ee0598-143a-5aa3-bb40-080520c8dd8f"
+      ],
+      "recording_id": "cardeventnet-IMG_0650"
+    },
+    {
+      "calibration_revision_id": "calibration-cd1069b46e30480b057d90b0",
+      "draft_id": "calibration-draft-card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1",
+      "kind": "calibration-review-draft",
+      "recording_id": "cardeventnet-IMG_0655"
+    }
+  ],
+  "inventory": {
+    "maximums": {
+      "calibration_draft_bytes": 180869,
+      "calibration_draft_source_frames": 51,
+      "job_records": 0,
+      "nodes_per_recording_content_type": 18,
+      "proposal_frames": 50,
+      "proposal_poses": 289,
+      "proposal_revision_bytes": 5532993,
+      "revisions_per_node": 3,
+      "source_video_bytes": 1061930405,
+      "source_video_duration_us": 520753000,
+      "visible_card_outcomes": 49,
+      "visible_card_polygons": 327,
+      "visible_card_revision_bytes": 12136454,
+      "visual_identity_candidates": 5160,
+      "visual_identity_outcomes": 226,
+      "visual_identity_revision_bytes": 16005605
+    },
+    "node_manifests": 1006,
+    "node_revisions": 1223,
+    "revision_bytes": 1361640622
+  },
+  "profiles": {
+    "deep_lineage": {
+      "items": 20,
+      "jobs": 12,
+      "nodes": 1,
+      "recordings": 1,
+      "revisions": 384
+    },
+    "hard": {
+      "items": 600,
+      "jobs": 2500,
+      "nodes": 480,
+      "recordings": 96,
+      "revisions": 1920
+    },
+    "job_history": {
+      "items": 20,
+      "jobs": 10000,
+      "nodes": 1,
+      "recordings": 1,
+      "revisions": 1
+    },
+    "large_result": {
+      "items": 1200,
+      "jobs": 12,
+      "nodes": 1,
+      "recordings": 1,
+      "revisions": 1
+    },
+    "many_nodes": {
+      "items": 20,
+      "jobs": 12,
+      "nodes": 384,
+      "recordings": 1,
+      "revisions": 384
+    },
+    "many_recordings": {
+      "items": 20,
+      "jobs": 12,
+      "nodes": 96,
+      "recordings": 96,
+      "revisions": 96
+    },
+    "representative": {
+      "items": 120,
+      "jobs": 300,
+      "nodes": 96,
+      "recordings": 24,
+      "revisions": 288
+    },
+    "small": {
+      "items": 20,
+      "jobs": 12,
+      "nodes": 8,
+      "recordings": 4,
+      "revisions": 16
+    },
+    "stress": {
+      "items": 1200,
+      "jobs": 10000,
+      "nodes": 1920,
+      "recordings": 384,
+      "revisions": 9600
+    }
+  },
+  "schema_version": "interactive-performance-source-manifest/v1",
+  "seed": 11401
 }

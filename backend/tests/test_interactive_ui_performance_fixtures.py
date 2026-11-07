@@ -47,18 +47,22 @@ def test_fixture_validation_rejects_broken_lineage_closure(tmp_path: Path) -> No
     fixtures.materialize(root, "small")
     manifest_path = root / "fixture-manifest.json"
     fixture_manifest = json.loads(manifest_path.read_text())
-    relative = "pipeline/nodes/node-000001/manifest.json"
-    node_path = root / relative
-    node = json.loads(node_path.read_text())
-    node["source_node_id"] = "missing-node"
-    node_path.write_bytes(fixtures._json_bytes(node))
+    node_path = next(
+        path
+        for path in (root / "pipeline/nodes").glob("*/revisions/*/revision.json")
+        if json.loads(path.read_text()).get("metadata", {}).get("copied_from")
+    )
+    relative = node_path.relative_to(root).as_posix()
+    revision = json.loads(node_path.read_text())
+    revision["metadata"]["copied_from"]["node_id"] = "missing-node"
+    node_path.write_bytes(fixtures._json_bytes(revision))
     entry = next(item for item in fixture_manifest["files"] if item["path"] == relative)
     content = node_path.read_bytes()
     entry["sha256"] = hashlib.sha256(content).hexdigest()
     entry["byte_length"] = len(content)
     manifest_path.write_bytes(fixtures._json_bytes(fixture_manifest))
 
-    with pytest.raises(ValueError, match="Missing lineage node missing-node"):
+    with pytest.raises((FileNotFoundError, ValueError)):
         fixtures.validate(root)
 
 

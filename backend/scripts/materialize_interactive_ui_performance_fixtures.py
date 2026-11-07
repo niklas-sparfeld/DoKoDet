@@ -7,10 +7,11 @@ import argparse
 import hashlib
 import json
 import os
-import random
 import shutil
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import NAMESPACE_URL, uuid5
 
 SOURCE_MANIFEST = Path(__file__).parents[1] / "fixtures/interactive-ui-performance/v1/manifest.json"
 SOURCE_DATA = json.loads(SOURCE_MANIFEST.read_text())
@@ -43,6 +44,139 @@ def _write(root: Path, relative: str, value: object | bytes) -> dict[str, object
     }
 
 
+def _inventory_files(root: Path) -> list[dict[str, object]]:
+    files = []
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        relative = path.relative_to(root).as_posix()
+        if relative == "fixture-manifest.json":
+            continue
+        files.append(
+            {
+                "path": relative,
+                "sha256": _file_sha256(path),
+                "byte_length": path.stat().st_size,
+            }
+        )
+    return files
+
+
+def _materialize_nodes(
+    root: Path,
+    sizes: dict[str, int],
+    recording_ids: list[str],
+    media: dict[str, dict[str, object]],
+) -> None:
+    from unittest.mock import patch
+
+    import dokodetector_backend.pipeline_node_store as node_store_module
+    from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+
+    store = PipelineNodeStore(root / "pipeline" / "nodes")
+    node_ids = [
+        str(uuid5(NAMESPACE_URL, f"doko-perf-{SEED}-node-{i}")) for i in range(sizes["nodes"])
+    ]
+    revisions_per_node = sizes["revisions"] // len(node_ids)
+    timestamp = datetime(2026, 11, 7, tzinfo=UTC).isoformat()
+    root_revision_ids: dict[str, str] = {}
+    with patch.object(node_store_module, "_canonical_timestamp", return_value=timestamp):
+        for index, node_id in enumerate(node_ids):
+            recording_id = recording_ids[index % len(recording_ids)]
+            source = {
+                "schema_version": "recording-video/v1",
+                "recording_id": recording_id,
+                "relative_path": f"media/{recording_id}.bin",
+                "video_sha256": media[recording_id]["sha256"],
+                "byte_length": media[recording_id]["byte_length"],
+                "duration_us": 600_000_000 + index,
+            }
+            root_revision_id = root_revision_ids.get(recording_id)
+            metadata = (
+                {
+                    "copied_from": {
+                        "node_id": node_ids[recording_ids.index(recording_id)],
+                        "revision_id": root_revision_id,
+                    }
+                }
+                if root_revision_id
+                else {}
+            )
+            latest_revision_id = None
+            for revision_index in range(revisions_per_node):
+                item_count = (
+                    sizes["items"] if index == 0 and revision_index == revisions_per_node - 1 else 2
+                )
+                content = {
+                    "schema_version": "event-data/v1",
+                    "events": [
+                        {
+                            "event_id": f"perf-{index:05d}-{revision_index:04d}-{item:04d}",
+                            "event_type": "card_state_changed",
+                            "start_us": item * 250_000,
+                            "end_us": item * 250_000,
+                        }
+                        for item in range(item_count)
+                    ],
+                }
+                revision_id = str(
+                    uuid5(NAMESPACE_URL, f"doko-perf-{SEED}-{index}-{revision_index}")
+                )
+                if revision_index == 0:
+                    revision = store.create(
+                        node_id,
+                        f"Performance node {index}",
+                        "events",
+                        source,
+                        content,
+                        metadata,
+                        revision_id=revision_id,
+                    )
+                else:
+                    assert latest_revision_id is not None
+                    revision = store.save(
+                        node_id,
+                        latest_revision_id,
+                        content,
+                        metadata,
+                        revision_id=revision_id,
+                    )
+                latest_revision_id = revision.revision_id
+            if recording_id not in root_revision_ids:
+                assert latest_revision_id is not None
+                root_revision_ids[recording_id] = latest_revision_id
+
+
+def _materialize_jobs(root: Path, sizes: dict[str, int], recording_ids: list[str]) -> None:
+    from dokodetector_backend.job_store import Job, JobRequest, _digest
+
+    timestamp = datetime(2026, 11, 7, tzinfo=UTC).isoformat()
+    for index in range(sizes["jobs"]):
+        recording_id = recording_ids[index % len(recording_ids)]
+        request = JobRequest(
+            type="fake",
+            context={"recording_id": recording_id},
+            request={"input": f"perf-input-{index:07d}"},
+        )
+        job_id = str(uuid5(NAMESPACE_URL, f"doko-perf-{SEED}-job-{index}"))
+        idempotency_key = str(uuid5(NAMESPACE_URL, f"doko-perf-{SEED}-job-key-{index}"))
+        state = ("succeeded", "queued", "failed")[index % 3]
+        job = Job(
+            id=job_id,
+            type=request.type,
+            label="Performance fixture job",
+            context=request.context,
+            request=request.request,
+            idempotency_key=idempotency_key,
+            request_hash=_digest(request),
+            state=state,
+            created_at=timestamp,
+            updated_at=timestamp,
+            started_at=timestamp if state != "queued" else None,
+            finished_at=timestamp if state in {"succeeded", "failed"} else None,
+            correlation_id=f"perf-correlation-{index:07d}",
+        )
+        _write(root, f"operations/jobs/{job_id}/job.json", job.model_dump(mode="json"))
+
+
 def materialize(output: Path, profile: str) -> dict[str, object]:
     if profile not in PROFILES:
         raise ValueError(f"Unknown profile {profile!r}; choose one of {', '.join(PROFILES)}")
@@ -53,95 +187,22 @@ def materialize(output: Path, profile: str) -> dict[str, object]:
         raise ValueError(f"Disposable output must be empty: {output}")
     output.mkdir(parents=True, exist_ok=True)
     sizes = PROFILES[profile]
-    rng = random.Random(SEED)
-    files: list[dict[str, object]] = []
     recording_ids = [f"perf-{i:05d}" for i in range(sizes["recordings"])]
-    files.append(
-        _write(
-            output,
-            "catalog/recordings.json",
-            {
-                "schema_version": "performance-recordings/v1",
-                "recordings": [
-                    {
-                        "recording_id": rid,
-                        "duration_us": 600_000_000 + i,
-                        "video": f"media/{rid}.bin",
-                    }
-                    for i, rid in enumerate(recording_ids)
-                ],
-            },
-        )
-    )
-    node_ids = [f"node-{i:06d}" for i in range(sizes["nodes"])]
-    revisions_per_node = max(1, sizes["revisions"] // len(node_ids))
-    for index, node_id in enumerate(node_ids):
-        recording_id = recording_ids[index % len(recording_ids)]
-        predecessor = node_ids[index - 1] if index else None
-        manifest = {
-            "schema_version": "pipeline-node/v1",
-            "node_id": node_id,
-            "name": f"Performance node {index}",
-            "content_type": "events",
-            "recording_id": recording_id,
-            "source_node_id": predecessor,
-            "source_revision_id": f"{predecessor}-r{revisions_per_node:04d}"
-            if predecessor
-            else None,
-        }
-        files.append(_write(output, f"pipeline/nodes/{node_id}/manifest.json", manifest))
-        files.append(
-            _write(
-                output,
-                f"pipeline/nodes/{node_id}/head.json",
-                {
-                    "schema_version": "pipeline-node-head/v1",
-                    "revision_id": f"{node_id}-r{revisions_per_node:04d}",
-                },
-            )
-        )
-        for revision_index in range(revisions_per_node):
-            revision_id = f"{node_id}-r{revision_index + 1:04d}"
-            item_count = (
-                sizes["items"] if index == 0 and revision_index == revisions_per_node - 1 else 2
-            )
-            items = [
-                {
-                    "event_id": f"{revision_id}-e{item:04d}",
-                    "timestamp_us": item * 250_000,
-                    "kind": "card_play",
-                }
-                for item in range(item_count)
-            ]
-            payload = {"schema_version": "events/v1", "recording_id": recording_id, "events": items}
-            files.append(_write(output, f"pipeline/revisions/{revision_id}.json", payload))
-    for index in range(sizes["jobs"]):
-        job_id = f"job-{index:07d}"
-        files.append(
-            _write(
-                output,
-                f"operations/jobs/{job_id}.json",
-                {
-                    "schema_version": "backend-job/v1",
-                    "job_id": job_id,
-                    "recording_id": recording_ids[index % len(recording_ids)],
-                    "status": ("completed", "queued", "failed")[index % 3],
-                    "created_order": index,
-                    "payload_token": rng.getrandbits(64),
-                },
-            )
-        )
     media_size = 64 * 1024
+    media: dict[str, dict[str, object]] = {}
     for index, recording_id in enumerate(recording_ids):
-        media = bytes([index % 251]) * media_size
-        files.append(_write(output, f"media/{recording_id}.bin", media))
+        content = bytes([index % 251]) * media_size
+        entry = _write(output, f"media/{recording_id}.bin", content)
+        media[recording_id] = {"sha256": entry["sha256"], "byte_length": media_size}
+    _materialize_nodes(output, sizes, recording_ids, media)
+    _materialize_jobs(output, sizes, recording_ids)
     manifest = {
         "schema_version": "interactive-performance-fixtures/v1",
         "profile": profile,
         "seed": SEED,
         "sizes": sizes,
-        "files": sorted(files, key=lambda item: str(item["path"])),
-        "source_snapshots": [],
+        "files": _inventory_files(output),
+        "source_manifest_sha256": _file_sha256(SOURCE_MANIFEST),
     }
     _write(output, "fixture-manifest.json", manifest)
     validate(output)
@@ -174,6 +235,16 @@ def import_hard_snapshot(repository: Path, cache: Path) -> list[dict[str, object
 
 
 def validate_hard_snapshot(cache: Path) -> list[dict[str, object]]:
+    import tempfile
+
+    from doko_operations.card_plane_calibration import CalibrationRevisionStore
+    from doko_operations.card_plane_calibration_refinement import CalibrationDraftStore
+
+    from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
+    from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+    from dokodetector_backend.recording_bundle_store import RecordingBundleStore
+    from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
+
     verified = []
     for relative, expected_hash in HARD_ASSETS:
         path = cache / "sha256" / expected_hash
@@ -186,57 +257,77 @@ def validate_hard_snapshot(cache: Path) -> list[dict[str, object]]:
         if digest != expected_hash:
             raise ValueError(f"Hard snapshot hash mismatch for {relative}: {digest}")
         verified.append({"source": relative, "sha256": digest, "byte_length": path.stat().st_size})
-    assets = {relative: cache / "sha256" / digest for relative, digest in HARD_ASSETS}
-    intake_manifest = json.loads(assets[HARD_ASSETS[0][0]].read_text())
-    source_record = json.loads(assets[HARD_ASSETS[1][0]].read_text())
-    node_manifest = json.loads(assets[HARD_ASSETS[3][0]].read_text())
-    node_head = json.loads(assets[HARD_ASSETS[4][0]].read_text())
-    revision = json.loads(assets[HARD_ASSETS[5][0]].read_text())
-    video_relative, video_hash = HARD_ASSETS[2]
-    video = assets[video_relative]
-    if intake_manifest.get("schema_version") != "repository-bundle/v1":
-        raise ValueError("Unsupported frozen recording manifest schema")
-    if source_record.get("schema_version") != "source-record/v1":
-        raise ValueError("Unsupported frozen recording source schema")
-    if node_manifest.get("schema_version") != "pipeline-node/v1":
-        raise ValueError("Unsupported frozen pipeline node schema")
-    if node_head.get("revision_id") != revision.get("revision_id"):
-        raise ValueError("Frozen node head does not reference the frozen exact revision")
-    if revision.get("schema_version") != "pipeline-node-revision/v1":
-        raise ValueError("Unsupported frozen pipeline revision schema")
-    if revision.get("node_id") != node_manifest.get("node_id"):
-        raise ValueError("Frozen revision belongs to a different pipeline node")
-    hard_case = SOURCE_DATA["hard_example"]
-    if intake_manifest.get("recording_id") != hard_case["recording_id"]:
-        raise ValueError("Frozen repository bundle does not match the selected recording")
-    if node_manifest.get("node_id") != hard_case["node_id"]:
-        raise ValueError("Frozen pipeline node does not match the selected hard example")
-    if revision.get("revision_id") != hard_case["revision_id"]:
-        raise ValueError("Frozen revision does not match the selected exact revision")
-    video_source = node_manifest.get("source", {})
-    if video_source.get("recording_id") != intake_manifest.get("recording_id"):
-        raise ValueError("Frozen node recording does not match the media dependency")
-    if video_source.get("video_sha256") != video_hash or _file_sha256(video) != video_hash:
-        raise ValueError("Frozen media identity does not match the pipeline node")
-    if video_source.get("byte_length") != video.stat().st_size:
-        raise ValueError("Frozen media byte length does not match the pipeline node")
-    if (
-        intake_manifest.get("files", {}).get("video", {}).get("sha256") != video_hash
-        or source_record.get("sha256") != video_hash
-        or source_record.get("recording_id") != intake_manifest.get("recording_id")
-    ):
-        raise ValueError(
-            "Frozen media identity does not match the repository bundle and source record"
+    with tempfile.TemporaryDirectory(prefix="verify-", dir=cache) as temporary:
+        snapshot_root = Path(temporary)
+        for relative, digest in HARD_ASSETS:
+            source = cache / "sha256" / digest
+            target = snapshot_root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            os.link(source, target)
+
+        bundle_store = RecordingBundleStore(
+            RepositoryBundleStorage(snapshot_root / "data/intake/recordings")
         )
-    canonical_content = _json_bytes(revision.get("content"))[:-1]
-    if hashlib.sha256(canonical_content).hexdigest() != revision.get("content_sha256"):
-        raise ValueError("Frozen revision content digest is invalid")
-    if len(revision.get("content", {}).get("frames", [])) != hard_case["evidence"]["frame_count"]:
-        raise ValueError("Frozen revision frame count changed from the selected inventory evidence")
+        for example in SOURCE_DATA["examples"]:
+            recording_id = example["recording_id"]
+            if bundle_store.get_metadata(recording_id) is None:
+                raise ValueError(f"Frozen recording bundle is invalid: {recording_id}")
+
+        node_store = PipelineNodeStore(snapshot_root / "data/operations/pipeline-nodes")
+        for example in SOURCE_DATA["examples"]:
+            node_id = example.get("node_id")
+            if node_id is None:
+                continue
+            node = node_store.get(node_id)
+            source_video = snapshot_root / node.source["relative_path"]
+            if (
+                not source_video.is_file()
+                or _file_sha256(source_video) != node.source["video_sha256"]
+            ):
+                raise ValueError(f"Frozen node media dependency is invalid: {node_id}")
+            if node.source["byte_length"] != source_video.stat().st_size:
+                raise ValueError(f"Frozen node media size is invalid: {node_id}")
+            revision_root = node_store.root / node_id / "revisions"
+            revision_ids = {path.name for path in revision_root.iterdir() if path.is_dir()}
+            if not revision_ids:
+                raise ValueError(f"Frozen node has no revisions: {node_id}")
+            for revision_id in revision_ids:
+                node_store.read_revision(node_id, revision_id)
+            exact_revision = example.get("revision_id")
+            if exact_revision and exact_revision not in revision_ids:
+                raise ValueError(f"Frozen exact revision is absent: {node_id}/{exact_revision}")
+
+        fanout = next(
+            example
+            for example in SOURCE_DATA["examples"]
+            if example["kind"] == "copy-lineage-fanout"
+        )
+        reviews = PipelineNodeReviews(node_store)
+        for node_id in fanout["node_ids"]:
+            node = node_store.get(node_id)
+            reviews.applicable_for_revision(node_id, node.head_revision_id)
+
+        draft_case = next(
+            example
+            for example in SOURCE_DATA["examples"]
+            if example["kind"] == "calibration-review-draft"
+        )
+        CalibrationDraftStore(snapshot_root / "data/operations/calibration-refinement-drafts").load(
+            draft_case["recording_id"], draft_case["draft_id"]
+        )
+        run = CalibrationRevisionStore(snapshot_root / "data/operations").load(
+            draft_case["recording_id"], draft_case["calibration_revision_id"]
+        )
+        if run.calibration is None:
+            raise ValueError("Frozen base calibration revision has no calibration data")
     return verified
 
 
 def validate(root: Path) -> dict[str, object]:
+    from dokodetector_backend.job_store import Job, JobManager
+    from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
+    from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+
     manifest_path = root / "fixture-manifest.json"
     if not manifest_path.is_file():
         raise ValueError(f"Missing fixture manifest: {manifest_path}")
@@ -246,44 +337,79 @@ def validate(root: Path) -> dict[str, object]:
     files = manifest.get("files")
     if not isinstance(files, list):
         raise ValueError("Fixture manifest files must be a list")
-    expected = {item["path"] for item in files}
     for entry in files:
         path = root / entry["path"]
         if not path.is_file():
             raise ValueError(f"Missing required fixture asset: {entry['path']}")
-        content = path.read_bytes()
-        if hashlib.sha256(content).hexdigest() != entry["sha256"]:
+        if _file_sha256(path) != entry["sha256"]:
             raise ValueError(f"Fixture hash mismatch: {entry['path']}")
-        if len(content) != entry["byte_length"]:
+        if path.stat().st_size != entry["byte_length"]:
             raise ValueError(f"Fixture byte length mismatch: {entry['path']}")
-    for relative in ("catalog/recordings.json",):
-        if relative not in expected:
-            raise ValueError(f"Fixture dependency closure is missing {relative}")
-    catalog = json.loads((root / "catalog/recordings.json").read_text())
-    recording_ids = {item["recording_id"] for item in catalog["recordings"]}
-    node_manifests = [root / p for p in expected if p.endswith("/manifest.json") and "/nodes/" in p]
-    node_ids = set()
-    for path in node_manifests:
-        node = json.loads(path.read_text())
-        if node.get("schema_version") != "pipeline-node/v1":
-            raise ValueError(f"Unsupported node schema in {path.relative_to(root)}")
-        if node["recording_id"] not in recording_ids:
-            raise ValueError(f"Unknown recording dependency in {path.relative_to(root)}")
-        node_ids.add(node["node_id"])
-    for path in node_manifests:
-        node = json.loads(path.read_text())
-        source_node = node.get("source_node_id")
-        source_revision = node.get("source_revision_id")
-        if bool(source_node) != bool(source_revision):
-            raise ValueError(f"Incomplete lineage in {path.relative_to(root)}")
-        if source_node and source_node not in node_ids:
-            raise ValueError(f"Missing lineage node {source_node}")
-        if source_revision and f"pipeline/revisions/{source_revision}.json" not in expected:
-            raise ValueError(f"Missing lineage revision {source_revision}")
-    for recording in catalog["recordings"]:
-        media = recording["video"]
-        if media not in expected:
-            raise ValueError(f"Missing media dependency {media}")
+    media_entries = {
+        Path(str(entry["path"])).stem: entry
+        for entry in files
+        if str(entry["path"]).startswith("media/")
+    }
+    if len(media_entries) != manifest["sizes"]["recordings"]:
+        raise ValueError("Fixture recording count does not match its materialized media assets")
+    node_store = PipelineNodeStore(root / "pipeline" / "nodes")
+    nodes = node_store.list_nodes()
+    if len(nodes) != manifest["sizes"]["nodes"]:
+        raise ValueError("Production node store returned an unexpected node count")
+    revisions_seen = 0
+    copied_nodes = []
+    lineage_targets = []
+    for node in nodes:
+        source_media = root / node.source["relative_path"]
+        media_entry = media_entries.get(node.source["recording_id"])
+        if media_entry is None or not source_media.is_file():
+            raise ValueError(f"Missing source media for node {node.node_id}")
+        if node.source["video_sha256"] != media_entry["sha256"]:
+            raise ValueError(f"Node media identity mismatch for {node.node_id}")
+        if node.source["byte_length"] != media_entry["byte_length"]:
+            raise ValueError(f"Node media size mismatch for {node.node_id}")
+        revision_root = root / "pipeline" / "nodes" / node.node_id / "revisions"
+        node_revision_paths = sorted(revision_root.iterdir())
+        if len(node_revision_paths) > 1:
+            lineage_targets.append((len(node_revision_paths), node.node_id, node.head_revision_id))
+        for revision_path in node_revision_paths:
+            revision = node_store.read_revision(node.node_id, revision_path.name)
+            revisions_seen += 1
+            if revision.parent_revision_id:
+                node_store.read_revision(node.node_id, revision.parent_revision_id)
+            copied_from = revision.metadata.get("copied_from")
+            if copied_from:
+                source_revision = node_store.read_revision(
+                    copied_from["node_id"], copied_from["revision_id"]
+                )
+                copied_nodes.append((node.node_id, revision.revision_id))
+                if not source_revision.content_sha256:
+                    raise ValueError(
+                        f"Copied source revision has no content digest: {node.node_id}"
+                    )
+    if revisions_seen != manifest["sizes"]["revisions"]:
+        raise ValueError("Production node store returned an unexpected revision count")
+    lineage_reader = PipelineNodeReviews(node_store)
+    if copied_nodes:
+        lineage_reader.applicable_for_revision(*copied_nodes[0])
+    if lineage_targets:
+        _, node_id, revision_id = max(lineage_targets)
+        lineage_reader.applicable_for_revision(node_id, revision_id)
+    job_paths = sorted((root / "operations" / "jobs").glob("*/job.json"))
+    if len(job_paths) != manifest["sizes"]["jobs"]:
+        raise ValueError("Fixture job count does not match its manifest")
+    for job_path in job_paths:
+        job = Job.model_validate_json(job_path.read_bytes())
+        if job_path.parent.name != job.id:
+            raise ValueError(f"Job ID does not match its storage path: {job_path}")
+    if job_paths:
+        with JobManager(root / "operations", participant=object()) as manager:
+            # A generated profile has no acceptance intents. Ignore recovery diagnostics for
+            # those deliberately standalone records, then exercise the production read path.
+            manager.diagnostics.clear()
+            for job_path in (job_paths[0], job_paths[-1]):
+                if manager.get(job_path.parent.name).id != job_path.parent.name:
+                    raise ValueError(f"Production job reader returned the wrong record: {job_path}")
     return manifest
 
 
