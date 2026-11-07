@@ -8,11 +8,12 @@
 - **Depends on:** [0108 M11](../5-closed/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
   must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
-- **Outcome:** M0–M5 are complete. M1 moved visual identity crop-input freezing and source
+- **Outcome:** M0–M6 are complete. M1 moved visual identity crop-input freezing and source
   validation into focused modules. M2 moved crop provenance checks and exact-geometry resolution
   into focused modules. M3 moved identity classification, execution, request construction, crop
   queries, recording-source access, and approval planning into focused modules. M5 moved shared API
-  transport and feature contract types into focused modules. M6–M10 remain.
+  transport and feature contract types into focused modules. M6 split API methods and URL builders
+  by feature. M7–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
   complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
   candidate files remain. M0 must remap their current responsibilities before extraction.
