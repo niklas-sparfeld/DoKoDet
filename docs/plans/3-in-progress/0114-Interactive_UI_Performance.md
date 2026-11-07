@@ -168,7 +168,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M3:** Complete — add named catalog and evidence JSON read cases with preliminary generated-empty and hard-snapshot samples.
 - **M4:** Complete — cover pipeline workspace, lineage, revision, review, and calibration reads.
 - **M5:** Complete — cover pipeline run, selection, result, and comparison reads.
-- **M6:** Not started — cover job history, polling, detail, and log reads.
+- **M6:** Complete — cover job history, polling, detail/status, logs, and calibration-preview reads.
 - **M7:** Not started — cover writes, media, and contention.
 - **M8:** Not started — measure real browser workflows.
 - **M9:** Not started — establish the baseline and regression gates.
@@ -327,33 +327,31 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-### Current state — M5 complete
+### Current state — M6 complete
 
-- M0–M4 are complete. Their reports and evidence remain listed above and in the M4 report.
-- M5 adds run-list, exact selection, run-detail, stage-result, and comparison cases to
-  `backend/scripts/run_interactive_ui_pipeline_read_performance.py`. The runner checks all 17 M5
-  inventory operations, including all stage result routes and the comparison POST route. It uses
-  real HTTP handlers, production storage, validation, response serialization, and exact identity
-  checks. Run and reference records are seeded in disposable storage. No review records or derived
-  media are written or read.
-- M5 covers valid empty lists and selections, exact event run and revision identities, an exact
-  selected run, exact automated run detail, a successful event comparison, missing run detail,
-  missing comparison inputs, and missing results for all five stages. The frozen hard fixture has no
-  stage run records, so the generated event case supplies a successful result; other result routes
-  use their relevant missing-run cases. The proposed-crop inputs route returns a valid empty list.
-- The retained sample file has 20 process-cold requests: 20 passed correctness checks. These are
-  preliminary single samples, not a baseline. The comparison response is the slowest named case at
-  about 20.4 seconds; the proposed-crop input read took about 0.55 seconds. No performance budget
-  or baseline gate is active.
-- Checks: focused pytest, Ruff check and formatting, inventory coverage check, hard-fixture
-  validation, and the 20-sample M5 runner passed. Details and retained samples are in
-  `docs/reports/0114-M5_Pipeline_Run_Reads.md` and
-  `docs/reports/0114-M5_Pipeline_Run_Read_Samples.json`.
-- Decision: keep the M5 event result generated and small because the frozen hard snapshot contains
-  no result records. Use successful large stage results when they become available in later frozen
-  fixture work.
-- Known limit: M5 samples cover one cold request per scenario. M9 will run the full timing protocol
-  and set budgets. No successful hard stage-result payload was available for M5.
-- Next milestone: M6, job history and polling reads.
-- Run authorization: 9 milestones requested, 1 completed, 8 remaining. M6–M13 are the eight
+- M0–M5 are complete. Their reports and evidence remain linked in the board and prior milestone
+  reports.
+- M6 adds focused read samples in
+  `backend/scripts/run_interactive_ui_job_read_performance.py` and coverage checks in
+  `backend/tests/test_interactive_ui_read_performance.py`. It covers job history, job detail/status,
+  log pages, missing detail/log records, and calibration-preview reads for a valid preview job and
+  a wrong job type. Reads use real HTTP handlers and valid production `Job` and `Intent` models in
+  disposable storage. Fixture setup creates the successful preview before timing; timed reads do
+  not write job state or simulate contention.
+- History pagination is checked at 12 and 300 total jobs, with the same six target-recording jobs.
+  Both sizes return the exact newest-first ID sequence across two pages, without overlap, and the
+  final page has no next cursor. The timing runner retains 15 full-response samples; all status,
+  JSON, and page checks pass. M6 samples are preliminary and are not a baseline.
+- Checks: focused pytest (4 tests), Ruff check and formatting, inventory coverage check (76
+  registered operations classified; one documented UI URL gap), and the 15-sample M6 runner passed.
+  See `docs/reports/0114-M6_Job_History_and_Polling_Reads.md` and
+  `docs/reports/0114-M6_Job_Read_Samples.json`.
+- Decision: compare the same filtered target jobs against 12 and 300 unrelated-history sizes.
+  This verifies page and cursor correctness as unrelated records grow; no latency claim beyond
+  these preliminary samples is made.
+- Known limit: one request per named read and per size is only a preliminary sample. M9 will
+  establish repeated measurements and budgets. The successful preview uses a small deterministic
+  fixture and does not represent a hard calibration payload.
+- Next milestone: M7, interactive writes, media, and contention.
+- Run authorization: 9 milestones requested, 2 completed, 7 remaining. M7–M13 are the seven
   planned incomplete milestones. This fixed run limit does not authorize adding milestones.

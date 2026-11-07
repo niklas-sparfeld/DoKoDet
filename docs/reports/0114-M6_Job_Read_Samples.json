@@ -1,0 +1,217 @@
+{
+  "all_pass": true,
+  "measurement": "one synchronous ASGI HTTP response per named read; preliminary only",
+  "pagination_checks": [
+    {
+      "cursor_terminated": true,
+      "expected_ids": [
+        "80d6fd4b-dc92-515a-a907-d03b06fc92a3",
+        "dcaf3293-b5d9-52f9-b80e-80176c26afb9",
+        "bcc167d7-e0fd-565d-ac52-2728064a5099",
+        "6cf31750-56b4-5962-8844-2764611e8748",
+        "fb76e375-dab2-5958-abff-f9c6e0092c15",
+        "01d6c73a-7aa3-59cb-a02c-43ff69f36581"
+      ],
+      "history_size": 12,
+      "page_ids": [
+        "80d6fd4b-dc92-515a-a907-d03b06fc92a3",
+        "dcaf3293-b5d9-52f9-b80e-80176c26afb9",
+        "bcc167d7-e0fd-565d-ac52-2728064a5099",
+        "6cf31750-56b4-5962-8844-2764611e8748",
+        "fb76e375-dab2-5958-abff-f9c6e0092c15",
+        "01d6c73a-7aa3-59cb-a02c-43ff69f36581"
+      ],
+      "pass": true,
+      "target_job_id": "01d6c73a-7aa3-59cb-a02c-43ff69f36581"
+    },
+    {
+      "cursor_terminated": true,
+      "expected_ids": [
+        "80d6fd4b-dc92-515a-a907-d03b06fc92a3",
+        "dcaf3293-b5d9-52f9-b80e-80176c26afb9",
+        "bcc167d7-e0fd-565d-ac52-2728064a5099",
+        "6cf31750-56b4-5962-8844-2764611e8748",
+        "fb76e375-dab2-5958-abff-f9c6e0092c15",
+        "01d6c73a-7aa3-59cb-a02c-43ff69f36581"
+      ],
+      "history_size": 300,
+      "page_ids": [
+        "80d6fd4b-dc92-515a-a907-d03b06fc92a3",
+        "dcaf3293-b5d9-52f9-b80e-80176c26afb9",
+        "bcc167d7-e0fd-565d-ac52-2728064a5099",
+        "6cf31750-56b4-5962-8844-2764611e8748",
+        "fb76e375-dab2-5958-abff-f9c6e0092c15",
+        "01d6c73a-7aa3-59cb-a02c-43ff69f36581"
+      ],
+      "pass": true,
+      "target_job_id": "01d6c73a-7aa3-59cb-a02c-43ff69f36581"
+    }
+  ],
+  "samples": [
+    {
+      "case": "history_page_12",
+      "duration_ns": 7406708,
+      "error": null,
+      "ok": true,
+      "path": "/api/jobs?scope=history&recording_id=cardeventnet-IMG_0650&limit=3",
+      "response_bytes": 3496,
+      "response_sha256": "b78b420731fa4de5f2d4a5f2cedbbbe691a7d3b965f27450545897b4fe09d956",
+      "status_code": 200
+    },
+    {
+      "case": "history_cursor_page_12",
+      "duration_ns": 1957291,
+      "error": null,
+      "ok": true,
+      "path": "/api/jobs?scope=history&recording_id=cardeventnet-IMG_0650&limit=3&cursor=eyJmaWx0ZXJzIjoiYjg1ZGE1NzRmMGI1NTk5MmM3MTVmNjc1NGZhODIzZGZmZTFmYzVhYjgxMzdkMWYxNGVjYjI3MWZhOTZiYzlmYSIsImNyZWF0ZWRfYXQiOiIyMDI2LTExLTA3VDAwOjAwOjAwLjAwMDAwMyswMDowMCIsImlkIjoiYmNjMTY3ZDctZTBmZC01NjVkLWFjNTItMjcyODA2NGE1MDk5In0",
+      "response_bytes": 3201,
+      "response_sha256": "00955dca76b03dbb2f230563e9331164c1503d07bb767012e1b2a4a692284719",
+      "status_code": 200
+    },
+    {
+      "case": "job_detail",
+      "duration_ns": 1055875,
+      "error": null,
+      "history_size": 12,
+      "ok": true,
+      "path": "/api/jobs/01d6c73a-7aa3-59cb-a02c-43ff69f36581",
+      "response_bytes": 1013,
+      "response_sha256": "afc94b2c17c462ef6bca2c9f9a462cd2f46e6b9857362d8b659c49943233eb65",
+      "status_code": 200
+    },
+    {
+      "case": "job_detail_missing",
+      "duration_ns": 898833,
+      "error": null,
+      "history_size": 12,
+      "ok": true,
+      "path": "/api/jobs/22222222-2222-5222-8222-222222222222",
+      "response_bytes": 114,
+      "response_sha256": "0fda9d51ab4f7cf1ebb7b71259170145ea478f581a7c6373090950df775a808b",
+      "status_code": 404
+    },
+    {
+      "case": "calibration_preview_wrong_type",
+      "duration_ns": 927792,
+      "error": null,
+      "history_size": 12,
+      "ok": true,
+      "path": "/api/jobs/01d6c73a-7aa3-59cb-a02c-43ff69f36581/calibration-preview",
+      "response_bytes": 110,
+      "response_sha256": "ea839c1490d76949e613c55e345e03becd77d233566413efcf9aa293fd62c88a",
+      "status_code": 409
+    },
+    {
+      "case": "job_logs_first_page",
+      "duration_ns": 950375,
+      "error": null,
+      "history_size": 12,
+      "ok": true,
+      "path": "/api/jobs/01d6c73a-7aa3-59cb-a02c-43ff69f36581/logs?after=0&limit=10",
+      "response_bytes": 50,
+      "response_sha256": "c6f47a498ee5a6892a6fa182561635e07578864505412b87003ec39a3b9a9dc0",
+      "status_code": 200
+    },
+    {
+      "case": "job_logs_missing",
+      "duration_ns": 968791,
+      "error": null,
+      "history_size": 12,
+      "ok": true,
+      "path": "/api/jobs/22222222-2222-5222-8222-222222222222/logs",
+      "response_bytes": 114,
+      "response_sha256": "0fda9d51ab4f7cf1ebb7b71259170145ea478f581a7c6373090950df775a808b",
+      "status_code": 404
+    },
+    {
+      "case": "history_page_300",
+      "duration_ns": 37256459,
+      "error": null,
+      "ok": true,
+      "path": "/api/jobs?scope=history&recording_id=cardeventnet-IMG_0650&limit=3",
+      "response_bytes": 3496,
+      "response_sha256": "b78b420731fa4de5f2d4a5f2cedbbbe691a7d3b965f27450545897b4fe09d956",
+      "status_code": 200
+    },
+    {
+      "case": "history_cursor_page_300",
+      "duration_ns": 20707625,
+      "error": null,
+      "ok": true,
+      "path": "/api/jobs?scope=history&recording_id=cardeventnet-IMG_0650&limit=3&cursor=eyJmaWx0ZXJzIjoiYjg1ZGE1NzRmMGI1NTk5MmM3MTVmNjc1NGZhODIzZGZmZTFmYzVhYjgxMzdkMWYxNGVjYjI3MWZhOTZiYzlmYSIsImNyZWF0ZWRfYXQiOiIyMDI2LTExLTA3VDAwOjAwOjAwLjAwMDAwMyswMDowMCIsImlkIjoiYmNjMTY3ZDctZTBmZC01NjVkLWFjNTItMjcyODA2NGE1MDk5In0",
+      "response_bytes": 3201,
+      "response_sha256": "00955dca76b03dbb2f230563e9331164c1503d07bb767012e1b2a4a692284719",
+      "status_code": 200
+    },
+    {
+      "case": "job_detail",
+      "duration_ns": 896708,
+      "error": null,
+      "history_size": 300,
+      "ok": true,
+      "path": "/api/jobs/01d6c73a-7aa3-59cb-a02c-43ff69f36581",
+      "response_bytes": 1013,
+      "response_sha256": "afc94b2c17c462ef6bca2c9f9a462cd2f46e6b9857362d8b659c49943233eb65",
+      "status_code": 200
+    },
+    {
+      "case": "job_detail_missing",
+      "duration_ns": 829917,
+      "error": null,
+      "history_size": 300,
+      "ok": true,
+      "path": "/api/jobs/22222222-2222-5222-8222-222222222222",
+      "response_bytes": 114,
+      "response_sha256": "0fda9d51ab4f7cf1ebb7b71259170145ea478f581a7c6373090950df775a808b",
+      "status_code": 404
+    },
+    {
+      "case": "calibration_preview_wrong_type",
+      "duration_ns": 808750,
+      "error": null,
+      "history_size": 300,
+      "ok": true,
+      "path": "/api/jobs/01d6c73a-7aa3-59cb-a02c-43ff69f36581/calibration-preview",
+      "response_bytes": 110,
+      "response_sha256": "ea839c1490d76949e613c55e345e03becd77d233566413efcf9aa293fd62c88a",
+      "status_code": 409
+    },
+    {
+      "case": "job_logs_first_page",
+      "duration_ns": 858667,
+      "error": null,
+      "history_size": 300,
+      "ok": true,
+      "path": "/api/jobs/01d6c73a-7aa3-59cb-a02c-43ff69f36581/logs?after=0&limit=10",
+      "response_bytes": 50,
+      "response_sha256": "c6f47a498ee5a6892a6fa182561635e07578864505412b87003ec39a3b9a9dc0",
+      "status_code": 200
+    },
+    {
+      "case": "job_logs_missing",
+      "duration_ns": 783416,
+      "error": null,
+      "history_size": 300,
+      "ok": true,
+      "path": "/api/jobs/22222222-2222-5222-8222-222222222222/logs",
+      "response_bytes": 114,
+      "response_sha256": "0fda9d51ab4f7cf1ebb7b71259170145ea478f581a7c6373090950df775a808b",
+      "status_code": 404
+    },
+    {
+      "case": "calibration_preview_success",
+      "duration_ns": 6627792,
+      "error": null,
+      "ok": true,
+      "path": "/api/jobs/6e412bb1-2e3e-4b06-b891-6303a726feb5/calibration-preview",
+      "response_bytes": 1679,
+      "response_sha256": "18f256bbdaa0f7002fd52b933155dcab0371acbee462d70ab70eeb81a84cdabc",
+      "status_code": 200
+    }
+  ],
+  "schema_version": "0114-m6-job-read-samples/v1",
+  "unrelated_history_sizes": [
+    12,
+    300
+  ]
+}

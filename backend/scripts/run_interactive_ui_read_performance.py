@@ -103,6 +103,13 @@ def read_scenarios() -> list[dict[str, Any]]:
             keys=("id", "state", "results", "capabilities"),
         ),
         _scenario(
+            "job_detail_missing",
+            "/api/jobs/{job_id}",
+            f"/api/jobs/{UNKNOWN_ID}",
+            404,
+            error_code="job_not_found",
+        ),
+        _scenario(
             "job_calibration_preview_wrong_type",
             "/api/jobs/{job_id}/calibration-preview",
             f"/api/jobs/{JOB_ID}/calibration-preview",
@@ -116,6 +123,13 @@ def read_scenarios() -> list[dict[str, Any]]:
             200,
             query={"after": "0", "limit": "10"},
             keys=("entries", "next_after", "truncated_before"),
+        ),
+        _scenario(
+            "job_logs_missing",
+            "/api/jobs/{job_id}/logs",
+            f"/api/jobs/{UNKNOWN_ID}/logs",
+            404,
+            error_code="job_not_found",
         ),
         _scenario(
             "node_revision_event",
@@ -170,6 +184,13 @@ def read_scenarios() -> list[dict[str, Any]]:
                 )
             },
             error_code="calibration_refinement_not_found",
+        ),
+        _scenario(
+            "pipeline_calibration_revision_missing",
+            "/api/recordings/{recording_id}/pipeline/calibrations/{calibration_revision_id}",
+            f"/api/recordings/{recording}/pipeline/calibrations/{UNKNOWN_ID}",
+            404,
+            error_code="calibration_not_found",
         ),
         _scenario(
             "pipeline_events_runs",
