@@ -97,7 +97,7 @@ explicit plan change before the affected milestone is marked complete.
 | M3 | Separate identity execution and per-card classification | Complete |
 | M4 | Split surviving pipeline persistence owners | Complete |
 | M5 | Extract API transport and feature contract types | Complete |
-| M6 | Split API methods and paths by feature | Not started |
+| M6 | Split API methods and paths by feature | Complete |
 | M7 | Extract workspace loading and selection state | Not started |
 | M8 | Split processor launch controls from request construction | Not started |
 | M9 | Split job models and recovery from lifecycle management | Not started |
@@ -271,6 +271,14 @@ Acceptance: each feature can import its client without reading unrelated feature
 URLs, query encoding, headers, request bodies, and result types pass focused client tests.
 No feature module imports the aggregate composition root. Test files follow feature ownership.
 
+**Result:** Complete. The aggregate `client.ts` now only composes feature clients. Recordings,
+pipeline processing, calibration, analysis, jobs, and frame review each have a typed client module.
+Shared client method types live in `clientTypes.ts`; transport remains in `transport.ts`. Production
+consumers import their feature factories, contracts, and URL helpers directly. No feature consumer or
+client module imports the aggregate root. Each API feature has a focused client test; aggregate
+request coverage remains in `client.test.ts`. Details and checks are in
+[`0112 M6 API feature clients`](../../reports/0112-M6_API_Feature_Clients.md).
+
 ## M7 — Extract workspace loading and selection state
 
 Extract workspace/graph loading, refresh, abort, stale-response checks, and response validation into
@@ -330,7 +338,7 @@ move it to `5-closed`, repair links, and update the board in the final milestone
 
 ## Execution handoff
 
-- Completed: M0, M1, M2, M3, M4, M5. M1 moved crop-input freezing and source validation. The focused
+- Completed: M0, M1, M2, M3, M4, M5, M6. M1 moved crop-input freezing and source validation. The focused
   source test is in `backend/tests/test_visual_identity_crop_sources.py`; details are in
   [`docs/reports/0112-M1_Crop_Input_Extraction.md`](../../reports/0112-M1_Crop_Input_Extraction.md).
   M2 moved provenance and crop resolution. Its details are in
@@ -355,5 +363,12 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   classification operation. Keep the retired `test_pipeline_reference.py` absent. M3/M7/M9 must add
   or locate coverage for stale workspace responses. No active client configures a timeout; do not
   invent a timeout-configured caller without an API contract decision.
-- Next: M6, split API methods and paths by feature. Requested 10 milestones, completed 5,
-  remaining 5. Coordinate M8 with 0113 before either launch-boundary implementation.
+- M6 split the API client by recordings, pipeline processing, calibration, analysis, jobs, and frame
+  review. `client.ts` only composes these clients. `clientTypes.ts` contains shared typed method
+  contracts. Consumers now import feature factories, contracts, and URL helpers directly. Focused
+  client tests cover each API owner; the aggregate test covers composition. See the
+  [`M6 report`](../../reports/0112-M6_API_Feature_Clients.md).
+- Decisions and limits: the existing tree had no standalone jobs client, so M6 added one and kept
+  frame-review routes in their own focused client. No API contract or response behavior changed.
+- Next: M7, extract workspace loading and selection state. Requested 10 milestones, completed 6,
+  remaining 4. Coordinate M8 with 0113 before either launch-boundary implementation.

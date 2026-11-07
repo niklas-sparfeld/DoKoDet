@@ -1,4 +1,4 @@
-import type { PipelineStageKey } from "../api/client";
+import type { PipelineStageKey } from "../api/pipelineContracts";
 
 export const PIPELINE_STAGE_KEYS: readonly PipelineStageKey[] = [
   "events",

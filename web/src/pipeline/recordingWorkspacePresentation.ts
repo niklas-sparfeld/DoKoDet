@@ -2,7 +2,7 @@ import type {
   PipelineStageKey,
   PipelineWorkspace,
   PipelineWorkspaceStage,
-} from "../api/client";
+} from "../api/pipelineContracts";
 import { CARD_STATE_CHANGED_EVENT_TYPE } from "../cardEvents/PipelineEventData";
 import type { PipelineUrlState } from "./recordingPipelineUrl";
 import {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { JobDetail } from "../api/client";
+import type { JobDetail } from "../api/jobsContracts";
 import { useJobState, isActiveJob } from "./JobState";
 import { JobActions, JobStatus } from "./JobComponents";
 

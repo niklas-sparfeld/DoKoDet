@@ -1,4 +1,4 @@
-import type { JobDetail } from "../api/client";
+import type { JobDetail } from "../api/jobsContracts";
 import { useJobState } from "./JobState";
 
 export function JobStatus({ job }: { job: JobDetail }) {

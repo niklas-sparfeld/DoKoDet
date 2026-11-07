@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { AutomatedPipelineRun, PipelineWorkspace } from "../api/client";
+import type {
+  AutomatedPipelineRun,
+  PipelineWorkspace,
+} from "../api/pipelineContracts";
 import { AutomatedPipelineControls } from "./AutomatedPipelineControls";
 
 const workspace = {

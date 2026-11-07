@@ -1,4 +1,4 @@
-import type { PipelineRun } from "../api/client";
+import type { PipelineRun } from "../api/pipelineContracts";
 import styles from "../App.module.css";
 import {
   formatValue,

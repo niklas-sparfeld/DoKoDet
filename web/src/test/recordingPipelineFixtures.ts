@@ -2,7 +2,7 @@ import type {
   PipelineStageKey,
   PipelineWorkspace,
   PipelineWorkspaceStage,
-} from "../api/client";
+} from "../api/pipelineContracts";
 import { PIPELINE_STAGE_KEYS } from "../pipeline/recordingWorkspacePresentation";
 
 export const RECORDING_PIPELINE_FIXTURE_ID = "recording-presentation-fixture";

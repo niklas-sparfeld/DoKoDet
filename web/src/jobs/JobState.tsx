@@ -7,11 +7,8 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  createDokoDetectorClient,
-  type JobDetail,
-  type JobListResponse,
-} from "../api/client";
+import { createJobsClient } from "../api/jobsClient";
+import { type JobDetail, type JobListResponse } from "../api/jobsContracts";
 
 type JobStateValue = {
   jobs: JobDetail[];
@@ -21,12 +18,12 @@ type JobStateValue = {
   refresh: (signal?: AbortSignal) => Promise<void>;
   loadMore: (signal?: AbortSignal) => Promise<void>;
   getJob: (id: string, signal?: AbortSignal) => Promise<JobDetail>;
-  client: ReturnType<typeof createDokoDetectorClient>;
+  client: ReturnType<typeof createJobsClient>;
 };
 const JobState = createContext<JobStateValue | null>(null);
 
 export function JobStateProvider({ children }: { children: React.ReactNode }) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(() => createJobsClient(), []);
   const [page, setPage] = useState<JobListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

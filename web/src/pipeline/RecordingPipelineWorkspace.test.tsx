@@ -14,7 +14,10 @@ import {
 } from "./recordingPipelineUrl";
 import { RecordingPipelineWorkspace } from "./RecordingPipelineWorkspace";
 import { App } from "../App";
-import type { PipelineWorkspace, PipelineWorkspaceStage } from "../api/client";
+import type {
+  PipelineWorkspace,
+  PipelineWorkspaceStage,
+} from "../api/pipelineContracts";
 import { normalizeWorkspaceSelectionFixture } from "../test/normalizeWorkspaceSelectionFixture";
 import { resolvedStatus, resolvedTimeline } from "../test/roundAnalysisFixture";
 

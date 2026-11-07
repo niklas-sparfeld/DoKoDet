@@ -4,7 +4,7 @@ import type {
   PipelineComparisonResponse,
   PipelineWorkspace,
   PipelineWorkspaceStage,
-} from "../api/client";
+} from "../api/pipelineContracts";
 import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventRailItem";
 import { PipelineNodeEventEditor } from "../cardEvents/PipelineNodeEventEditor";
 import { PipelineNodeVisibleCardEditor } from "../visibleCards/PipelineNodeVisibleCardEditor";

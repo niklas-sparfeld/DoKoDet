@@ -1,9 +1,9 @@
+import type { RecordingDetail } from "../api/recordingContracts";
 import type {
-  RecordingDetail,
   RoundAnalysisStatus,
   RoundAnalysisTimeline,
   RoundCounterfactualResponse,
-} from "../api/client";
+} from "../api/analysisContracts";
 
 export const ANALYSIS_ID = "550e8400-e29b-41d4-a716-446655440033";
 export const RECORDING_ID = "recording-0033";

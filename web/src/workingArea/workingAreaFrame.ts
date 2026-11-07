@@ -3,7 +3,7 @@ import {
   pipelineDerivedFramePath,
   pipelineReviewFramePath,
   snapSampledFrameTimeUs,
-} from "../api/client";
+} from "../api/pipelineProcessingClient";
 import type { GeometryFrameIdentity } from "./GeometrySurface";
 
 export type WorkingAreaFrameMode = "exact" | "sampled";

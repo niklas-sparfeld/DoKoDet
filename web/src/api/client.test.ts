@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { createDokoDetectorClient } from "./client";
 import {
-  createDokoDetectorClient,
   pipelineComparisonPath,
   pipelineDerivedFramePath,
   pipelineIdentityCropPath,
@@ -11,17 +11,21 @@ import {
   pipelineProposedCardSceneRunsPath,
   pipelineVisibleCardResultPath,
   pipelineVisualIdentityResultPath,
-  recordingAnalysisPath,
-  recordingDetailPath,
   recordingPipelineSelectionPath,
   recordingPipelineWorkspacePath,
+} from "./pipelineProcessingClient";
+import {
+  recordingDetailPath,
   repositoryBundleThumbnailPath,
   repositoryBundleVideoPath,
+} from "./recordingsClient";
+import {
+  recordingAnalysisPath,
   roundAnalysisFramePath,
   roundCounterfactualReadPath,
-  type PipelineComparisonRequest,
-  type RoundAnalysisCreateRequest,
-} from "./client";
+} from "./analysisClient";
+import { type PipelineComparisonRequest } from "./pipelineContracts";
+import { type RoundAnalysisCreateRequest } from "./analysisContracts";
 
 function jsonResponse(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), {

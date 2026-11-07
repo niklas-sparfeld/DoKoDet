@@ -1,11 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 
-import {
-  createDokoDetectorClient,
-  type EnqueueJobBody,
-  type PipelineWorkspaceStage,
-  type RoundAnalysisCreateRequest,
-} from "../api/client";
+import { createJobsClient } from "../api/jobsClient";
+import type { EnqueueJobBody } from "../api/jobsContracts";
+import type { RoundAnalysisCreateRequest } from "../api/analysisContracts";
+import type { PipelineWorkspaceStage } from "../api/pipelineContracts";
 import styles from "../App.module.css";
 import { JobStartActions } from "../jobs/JobStartActions";
 import { AcceptedJobReceipt, useJobSubmission } from "../jobs/useJobSubmission";
@@ -28,7 +26,7 @@ export function RoundAnalysisControls({
   onRefresh,
   onSelectAnalysis,
 }: RoundAnalysisControlsProps) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(() => createJobsClient(), []);
   const initialObservation =
     stage.selected_generated?.revision_id ??
     stage.input_options[0]?.node_revision_id ??

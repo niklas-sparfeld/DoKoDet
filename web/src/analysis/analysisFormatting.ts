@@ -1,4 +1,5 @@
-import { ApiError, type RoundAnalysisTimeline } from "../api/client";
+import { ApiError } from "../api/transport";
+import { type RoundAnalysisTimeline } from "../api/analysisContracts";
 
 export type TimelineAction =
   RoundAnalysisTimeline["hypotheses"][number]["actions"][number];

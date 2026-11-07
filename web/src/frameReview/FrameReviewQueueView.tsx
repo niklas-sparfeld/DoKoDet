@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  createDokoDetectorClient,
-  repositoryBundleThumbnailPath,
-  type FrameReviewPageResponse,
-} from "../api/client";
+import { createFrameReviewClient } from "../api/frameReviewClient";
+import { repositoryBundleThumbnailPath } from "../api/recordingsClient";
+import { type FrameReviewPageResponse } from "../api/pipelineContracts";
 import { ProfileControl } from "../profile/ProfileControl";
 import styles from "./FrameReviewQueueView.module.css";
 
@@ -20,7 +18,7 @@ const FILTERS: Array<{ value: QueueState; label: string }> = [
 ];
 
 export function FrameReviewQueueView() {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(() => createFrameReviewClient(), []);
   const [items, setItems] = useState<QueueItem[]>([]);
   const [counts, setCounts] = useState<
     FrameReviewPageResponse["counts"] | null
@@ -265,7 +263,7 @@ export function FrameReviewEditorNavigation({
   recordingId: string;
   itemId: string | null;
 }) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(() => createFrameReviewClient(), []);
   const [items, setItems] = useState<QueueItem[]>([]);
   const [queueDigest, setQueueDigest] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

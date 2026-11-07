@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 
-import { pipelineIdentityCropPath } from "../api/client";
+import { pipelineIdentityCropPath } from "../api/pipelineProcessingClient";
 import {
   GeometrySurface,
   type GeometryOverlay,

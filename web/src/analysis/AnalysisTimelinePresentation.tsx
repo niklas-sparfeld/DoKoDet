@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 
+import { createAnalysisClient } from "../api/analysisClient";
+import { repositoryBundleVideoPath } from "../api/recordingsClient";
 import {
-  createDokoDetectorClient,
-  repositoryBundleVideoPath,
   type RoundAnalysisStatus,
   type RoundAnalysisTimeline,
-} from "../api/client";
+} from "../api/analysisContracts";
 import styles from "../App.module.css";
 import {
   CARD_IDENTITIES,
@@ -62,7 +62,7 @@ export function RecordingAnalysisView({
   analysisId: string;
   recordingId: string;
 }) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(() => createAnalysisClient(), []);
   const [status, setStatus] = useState<RoundAnalysisStatus | null>(null);
   const [timeline, setTimeline] = useState<RoundAnalysisTimeline | null>(null);
   const [error, setError] = useState<string | null>(null);

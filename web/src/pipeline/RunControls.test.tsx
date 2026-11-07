@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor, within } from "@testing-library/react";
 
-import type { PipelineWorkspaceStage } from "../api/client";
+import type { PipelineWorkspaceStage } from "../api/pipelineContracts";
 import { normalizeWorkspaceSelectionFixture } from "../test/normalizeWorkspaceSelectionFixture";
 import { RunControls } from "./RunControls";
 

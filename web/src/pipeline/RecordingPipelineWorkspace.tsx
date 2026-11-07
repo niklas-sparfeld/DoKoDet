@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { ApiError } from "../api/transport";
+import { createFrameReviewClient } from "../api/frameReviewClient";
+import { createPipelineProcessingClient } from "../api/pipelineProcessingClient";
 import {
-  ApiError,
-  createDokoDetectorClient,
   type PipelineSelectionUpdateRequest,
   type PipelineSelectableContentType,
   type PipelineStageKey,
   type PipelineWorkspace,
   type PipelineWorkspaceStage,
-} from "../api/client";
+} from "../api/pipelineContracts";
 import styles from "../App.module.css";
 import { RecordingWorkspaceInspector } from "./RecordingWorkspaceInspector";
 import {
@@ -44,7 +45,7 @@ import {
   FrameReviewPinnedRevisionNotice,
 } from "../frameReview/FrameReviewQueueView";
 
-export type { PipelineStageKey } from "../api/client";
+export type { PipelineStageKey } from "../api/pipelineContracts";
 export {
   PIPELINE_STAGE_KEYS,
   STAGE_LABELS,
@@ -76,7 +77,13 @@ export function RecordingPipelineWorkspace({
   stageKey: PipelineNavigationStepKey | null;
   compare: boolean;
 }) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(
+    () => ({
+      ...createFrameReviewClient(),
+      ...createPipelineProcessingClient(),
+    }),
+    [],
+  );
   const [workspace, setWorkspace] = useState<PipelineWorkspace | null>(null);
   const [loadedStageKey, setLoadedStageKey] =
     useState<PipelineNavigationStepKey | null>(null);

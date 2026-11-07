@@ -12,8 +12,8 @@ import {
 import {
   pipelineReviewFramePath,
   snapSampledFrameTimeUs,
-  repositoryBundleVideoPath,
-} from "../api/client";
+} from "../api/pipelineProcessingClient";
+import { repositoryBundleVideoPath } from "../api/recordingsClient";
 import styles from "../App.module.css";
 import type {
   RecordingTimelineRailItem,

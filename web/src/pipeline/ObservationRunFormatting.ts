@@ -1,10 +1,10 @@
+import { ApiError } from "../api/transport";
 import {
-  ApiError,
   type PipelineRun,
   type PipelineRunResponse,
   type PipelineRunStartRequest,
   type PipelineWorkspaceProcessorInputReference,
-} from "../api/client";
+} from "../api/pipelineContracts";
 
 export const TERMINAL_RUN_STATES = new Set(["complete", "partial", "failed"]);
 

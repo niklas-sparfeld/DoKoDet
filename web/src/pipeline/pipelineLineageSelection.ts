@@ -1,4 +1,4 @@
-import type { PipelineStageKey } from "../api/client";
+import type { PipelineStageKey } from "../api/pipelineContracts";
 
 export type LineageStageKey =
   Exclude<PipelineStageKey, "round_analyses"> | "virtual_scenes";

@@ -2,7 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { PipelineWorkspaceStage } from "../api/client";
+import type { PipelineWorkspaceStage } from "../api/pipelineContracts";
 import { normalizeWorkspaceSelectionFixture } from "../test/normalizeWorkspaceSelectionFixture";
 import { parseSearchLimits } from "./RoundAnalysisFormatting";
 import {

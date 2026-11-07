@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { createPipelineProcessingClient } from "../api/pipelineProcessingClient";
+import { createRecordingsClient } from "../api/recordingsClient";
 import {
-  createDokoDetectorClient,
   type AutomatedPipelineRun,
   type AutomatedPipelineStartRequest,
-  type RecordingDetail,
   type PipelineWorkspace,
   type PipelineWorkspaceStage,
-} from "../api/client";
+} from "../api/pipelineContracts";
+import { type RecordingDetail } from "../api/recordingContracts";
 import styles from "../App.module.css";
 import { recordingPipelinePath } from "./recordingPipelineUrl";
 
@@ -39,7 +40,13 @@ export function AutomatedPipelineControls({
   workspace: PipelineWorkspace;
   onRefresh: () => Promise<void>;
 }) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(
+    () => ({
+      ...createRecordingsClient(),
+      ...createPipelineProcessingClient(),
+    }),
+    [],
+  );
   const storageKey = `${STORAGE_PREFIX}${recordingId}`;
   const [run, setRun] = useState<AutomatedPipelineRun | null>(null);
   const [recording, setRecording] = useState<RecordingDetail | null>(null);

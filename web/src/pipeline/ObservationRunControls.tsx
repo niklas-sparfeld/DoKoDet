@@ -1,10 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 
-import {
-  createDokoDetectorClient,
-  type EnqueueJobBody,
-  type PipelineWorkspaceStage,
-} from "../api/client";
+import { createJobsClient } from "../api/jobsClient";
+import type { EnqueueJobBody } from "../api/jobsContracts";
+import type { PipelineWorkspaceStage } from "../api/pipelineContracts";
 import styles from "../App.module.css";
 import { JobStartActions } from "../jobs/JobStartActions";
 import { AcceptedJobReceipt, useJobSubmission } from "../jobs/useJobSubmission";
@@ -29,7 +27,7 @@ export function ObservationRunControls({
   stages,
   onRefresh,
 }: ObservationRunControlsProps) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(() => createJobsClient(), []);
   const compatibleSets = stage.compatible_input_sets ?? [];
   const selectedDefaults = INPUT_ROLES.map((key) => {
     const upstream = stages.find((candidate) => candidate.key === key);

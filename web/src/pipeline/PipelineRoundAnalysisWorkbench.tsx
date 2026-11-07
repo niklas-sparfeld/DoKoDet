@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { useSyncExternalStore } from "react";
 
-import type { PipelineWorkspaceStage } from "../api/client";
+import type { PipelineWorkspaceStage } from "../api/pipelineContracts";
 import styles from "../App.module.css";
 import { RecordingAnalysisView } from "../analysis/AnalysisView";
 import { GeometrySurface } from "../workingArea/GeometrySurface";

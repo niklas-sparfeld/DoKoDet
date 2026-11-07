@@ -1,12 +1,12 @@
 import { useMemo, useState, type ReactNode } from "react";
 
+import { ApiError } from "../api/transport";
+import { createJobsClient } from "../api/jobsClient";
+import { type RoundCounterfactualCreateRequest } from "../api/analysisContracts";
 import {
-  ApiError,
-  createDokoDetectorClient,
-  type RoundCounterfactualCreateRequest,
   type RoundCounterfactualResponse,
   type RoundAnalysisTimeline,
-} from "../api/client";
+} from "../api/analysisContracts";
 import styles from "../App.module.css";
 import {
   actionNumber,
@@ -369,7 +369,7 @@ export function CounterfactualWorkbench({
   timeline: RoundAnalysisTimeline;
   children: (counterfactual: CounterfactualController) => ReactNode;
 }) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(() => createJobsClient(), []);
   const [draft, setDraft] = useState<CounterfactualDraft>(
     EMPTY_COUNTERFACTUAL_DRAFT,
   );

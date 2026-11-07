@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { validatedJobResultHref } from "./JobComponents";
-import type { JobDetail } from "../api/client";
+import type { JobDetail } from "../api/jobsContracts";
 
 const job = { id: "job-1", context: {} } as JobDetail;
 

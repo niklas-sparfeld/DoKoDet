@@ -9,7 +9,7 @@ import {
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PipelineObservationWorkbench } from "./PipelineObservationWorkbench";
-import type { PipelineWorkspaceStage } from "../api/client";
+import type { PipelineWorkspaceStage } from "../api/pipelineContracts";
 import { resetWorkingAreaFrameCacheForTests } from "../workingArea/workingAreaFrame";
 
 const stage = {

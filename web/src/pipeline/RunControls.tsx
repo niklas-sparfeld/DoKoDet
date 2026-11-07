@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ApiError } from "../api/transport";
+import { createJobsClient } from "../api/jobsClient";
+import { createPipelineProcessingClient } from "../api/pipelineProcessingClient";
 import {
-  ApiError,
-  createDokoDetectorClient,
   type PipelineRun,
   type PipelineRunResponse,
   type PipelineRunStartRequest,
   type PipelineStageKey,
   type PipelineWorkspaceStage,
-  type EnqueueJobBody,
-} from "../api/client";
+} from "../api/pipelineContracts";
+import { type EnqueueJobBody } from "../api/jobsContracts";
 import styles from "../App.module.css";
 import { JobStartActions } from "../jobs/JobStartActions";
 import { useJobSubmission } from "../jobs/useJobSubmission";
@@ -109,7 +110,10 @@ export function RunControls({
   onRefresh,
   compact = false,
 }: RunControlsProps) {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(
+    () => ({ ...createJobsClient(), ...createPipelineProcessingClient() }),
+    [],
+  );
   const isRunStage = RUN_STAGE_KEYS.includes(stage.key as RunStageKey);
   const runStage = isRunStage ? (stage.key as RunStageKey) : null;
   const upstreamStage =
@@ -1046,7 +1050,7 @@ function RunStatus({
 }
 
 function pipelineRunFromJob(
-  job: import("../api/client").JobDetail,
+  job: import("../api/jobsContracts").JobDetail,
   recordingId: string,
   processorType: string,
 ): PipelineRunResponse {

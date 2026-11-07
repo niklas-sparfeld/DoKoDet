@@ -1,16 +1,16 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
+import { ApiError } from "../api/transport";
+import { createPipelineProcessingClient } from "../api/pipelineProcessingClient";
+import { pipelineIdentityCropPath } from "../api/pipelineProcessingClient";
 import {
-  ApiError,
-  createDokoDetectorClient,
-  pipelineIdentityCropPath,
   type PipelineComparisonRequest,
   type PipelineComparisonResponse,
   type PipelineRun,
   type PipelineStageKey,
   type PipelineWorkspaceStage,
-} from "../api/client";
+} from "../api/pipelineContracts";
 import styles from "../App.module.css";
 import type { PipelineUrlState } from "./recordingPipelineUrl";
 import type { RecordingTimelineRailItem } from "./recordingWorkspacePresentation";
@@ -72,7 +72,7 @@ export function ComparisonView({
   onComparisonChange?: (comparison: PipelineComparisonResponse) => void;
 }) {
   const contentType = comparisonContentType(stage.key);
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(() => createPipelineProcessingClient(), []);
   const [comparison, setComparison] =
     useState<PipelineComparisonResponse | null>(null);
   const [error, setError] = useState<string | null>(null);

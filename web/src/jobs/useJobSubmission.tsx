@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { EnqueueJobBody, JobDetail } from "../api/client";
+import type { EnqueueJobBody, JobDetail } from "../api/jobsContracts";
 import { useJobState } from "./JobState";
 
 export type JobEnqueue = (

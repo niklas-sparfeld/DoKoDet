@@ -4,7 +4,7 @@ import type {
   PipelineComparisonResponse,
   PipelineStageKey,
   PipelineWorkspaceStage,
-} from "../api/client";
+} from "../api/pipelineContracts";
 import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventRailItem";
 import styles from "../App.module.css";
 import { RecordingTimelineRail } from "./RecordingTimelineRail";

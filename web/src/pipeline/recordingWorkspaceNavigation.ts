@@ -1,6 +1,9 @@
 import type { MouseEvent } from "react";
 
-import type { PipelineStageKey, PipelineWorkspaceStage } from "../api/client";
+import type {
+  PipelineStageKey,
+  PipelineWorkspaceStage,
+} from "../api/pipelineContracts";
 import {
   recordingPipelineComparePath,
   recordingPipelinePath,

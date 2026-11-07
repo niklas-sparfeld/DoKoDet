@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import type { PipelineWorkspaceStage } from "../api/client";
+import type { PipelineWorkspaceStage } from "../api/pipelineContracts";
 import {
   GeometrySurface,
   type GeometryFrameIdentity,

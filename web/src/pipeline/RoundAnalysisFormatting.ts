@@ -1,4 +1,4 @@
-import type { RoundAnalysisCreateRequest } from "../api/client";
+import type { RoundAnalysisCreateRequest } from "../api/analysisContracts";
 
 export const TERMINAL_ANALYSIS_STATES = new Set(["complete", "failed"]);
 

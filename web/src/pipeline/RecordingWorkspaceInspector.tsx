@@ -3,7 +3,7 @@ import type {
   PipelineStageKey,
   PipelineWorkspace,
   PipelineWorkspaceStage,
-} from "../api/client";
+} from "../api/pipelineContracts";
 import styles from "../App.module.css";
 import {
   ObservationRunControls,

@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  ApiError,
-  createDokoDetectorClient,
-  repositoryBundleThumbnailPath,
-  type RecordingSummary,
-} from "./api/client";
+import { ApiError } from "./api/transport";
+import { createRecordingsClient } from "./api/recordingsClient";
+import { type RecordingSummary } from "./api/recordingContracts";
+import { repositoryBundleThumbnailPath } from "./api/recordingsClient";
 import {
   RecordingPipelineWorkspace,
   type PipelineStageKey,
@@ -16,7 +14,7 @@ import { formatPipelineStageState } from "./pipeline/recordingWorkspaceFormattin
 import styles from "./App.module.css";
 
 export function RecordingListView() {
-  const client = useMemo(() => createDokoDetectorClient(), []);
+  const client = useMemo(() => createRecordingsClient(), []);
   const [recordings, setRecordings] = useState<RecordingSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { JobDetail as Job } from "../api/client";
+import type { JobDetail as Job } from "../api/jobsContracts";
 import { useJobState } from "./JobState";
 import { JobActions, JobStatus, validatedJobResultHref } from "./JobComponents";
 import { usePageVisibility } from "../pipeline/usePageVisibility";

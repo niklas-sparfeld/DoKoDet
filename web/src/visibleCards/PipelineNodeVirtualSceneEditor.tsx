@@ -1,9 +1,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
-import {
-  createDokoDetectorClient,
-  type PipelineCalibration,
-} from "../api/client";
+import { createCalibrationClient } from "../api/calibrationClient";
+import { type PipelineCalibration } from "../api/calibrationContracts";
 import { useProfileName } from "../profile/profile";
 import {
   editPipelineNode,
@@ -301,10 +299,10 @@ export function PipelineNodeVirtualSceneEditor({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [viewpoint, setViewpoint] = useState<"source" | "rectified">("source");
   const [selectedPoseId, setSelectedPoseId] = useState<string | null>(null);
+  const client = useMemo(() => createCalibrationClient(), []);
   const [calibrationResponse, setCalibrationResponse] =
     useState<PipelineCalibration | null>(null);
   const [calibrationError, setCalibrationError] = useState<string | null>(null);
-  const client = useMemo(() => createDokoDetectorClient(), []);
   const frames = useMemo(() => content?.frames ?? [], [content]);
   const selected =
     selectedId === null

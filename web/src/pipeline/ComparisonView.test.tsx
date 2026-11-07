@@ -6,7 +6,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import type {
   PipelineComparisonResponse,
   PipelineWorkspaceStage,
-} from "../api/client";
+} from "../api/pipelineContracts";
 import {
   readPipelineUrlState,
   type PipelineUrlState,

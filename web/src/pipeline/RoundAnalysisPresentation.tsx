@@ -1,4 +1,4 @@
-import type { RoundAnalysisStatus } from "../api/client";
+import type { RoundAnalysisStatus } from "../api/analysisContracts";
 import styles from "../App.module.css";
 import { analysisStatusMessage } from "./RoundAnalysisFormatting";
 import { analysisPath } from "./roundAnalysisUrl";
