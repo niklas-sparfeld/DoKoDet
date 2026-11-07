@@ -26,6 +26,14 @@ also checks every extracted module and focused test in its explicit list.
 The old `pipeline_store.py` no longer exists. Its retained storage responsibilities have focused
 owners; the M4 report records the complete owner sizes and the migration-only legacy reader.
 
+## Open verification gap
+
+A final read-only review found that the TypeScript import guard does not reject test-fixture
+imports with explicit `.ts` or `.tsx` extensions or imports from `__tests__` directories. The
+source/test import boundary is not fully enforced. Add regression cases and fix the guard before
+claiming that this acceptance check is complete. The Luna loop stopped after its two correction
+turns; the closed epic remains an immutable record.
+
 ## Owner and import map
 
 - **Visual identity:** `visual_identity_pipeline_service.py` composes typed crop-input, crop-source,
@@ -48,7 +56,8 @@ owners; the M4 report records the complete owner sizes and the migration-only le
 - **Size and import guard:** run `python scripts/check_0112_boundaries.py`. The explicit paths and
   budgets live in that script. It checks selected roots at 500 lines, extracted production owners at
   700 lines, focused tests at 800 lines, feature-client imports, visual-identity cycles, and
-  production imports of test support. Generated `openapi.ts` is excluded.
+  production imports of test support, subject to the open verification gap above. Generated
+  `openapi.ts` is excluded.
 
 Three examples show the files needed for a change:
 
