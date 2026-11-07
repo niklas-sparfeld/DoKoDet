@@ -135,7 +135,7 @@ not dropped timing samples. Verify cache invalidation after revision changes, sa
 
 ### Regression policy and candidate selection
 
-Keep a versioned baseline with raw results and per-scenario budgets. M6 derives absolute ceilings
+Keep a versioned baseline with raw results and per-scenario budgets. M9 derives absolute ceilings
 and relative regression tolerances from repeated measurements and user-visible delay. Use both
 relative change and an absolute noise allowance, so a tiny endpoint does not fail for negligible
 jitter. Set separate budgets for JSON/control paths, cold derived media, transfers, browser actions,
@@ -164,15 +164,18 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 - **M0:** Complete — inventory registered routes, browser callers, and startup phases.
 - **M1:** Complete — bounded hard-data examples and seeded fixtures pass production schema and lineage validation.
-- **M2:** Not started — implement the timing and startup harness.
-- **M3:** Not started — cover UI JSON reads and job polling.
-- **M4:** Not started — cover writes, media, and contention.
-- **M5:** Not started — measure real browser workflows.
-- **M6:** Not started — establish the baseline and regression gates.
-- **M7:** Not started — profile and rank improvement candidates.
-- **M8:** Not started — implement and verify candidate cycle one.
-- **M9:** Not started — implement and verify candidate cycle two.
-- **M10:** Not started — qualify the full suite and close the epic.
+- **M2:** Complete — controlled endpoint and startup timing harness.
+- **M3:** Not started — cover catalog, recording, analysis, and evidence JSON reads.
+- **M4:** Not started — cover pipeline workspace, lineage, revision, review, and calibration reads.
+- **M5:** Not started — cover pipeline run, selection, result, and comparison reads.
+- **M6:** Not started — cover job history, polling, detail, and log reads.
+- **M7:** Not started — cover writes, media, and contention.
+- **M8:** Not started — measure real browser workflows.
+- **M9:** Not started — establish the baseline and regression gates.
+- **M10:** Not started — profile and rank improvement candidates.
+- **M11:** Not started — implement and verify candidate cycle one.
+- **M12:** Not started — implement and verify candidate cycle two.
+- **M13:** Not started — qualify the full suite and close the epic.
 
 ## M0 — Inventory routes and startup phases
 
@@ -206,16 +209,50 @@ Deferring startup cost to the first UI request is not an improvement unless both
   Comparator tests detect injected slowdown, incompatible fixture/machine profiles, and invalid
   responses. No baseline gate is enabled yet.
 
-## M3 — Cover UI reads and polling
+## M3 — Cover catalog and evidence reads
 
-- Implement inventory scenarios for all JSON reads: recordings, workspace/lineage, revisions,
-  results, review state, comparisons, analysis views, job status/history/logs, and other M0 reads.
-- Exercise hard sizes, query variants, cold/warm state, and relevant errors. Use real storage and
-  serialization. Include growth in unrelated resources and page-boundary correctness.
-- Acceptance: every inventoried JSON read has executable speed and correctness coverage. Record
-  preliminary measurements without claiming a complete baseline. Relevant pytest and Ruff pass.
+- Implement executable scenarios for the UI JSON reads in the `/v1` catalog, recording,
+  repository-bundle, round-analysis, counterfactual, timeline, table-observation, and evidence
+  package families. Include relevant success, empty, and not-found cases from the inventory.
+- Use generated data and the frozen hard snapshot where it applies. Check response identity and
+  correctness as well as full response timing. Do not measure media routes here.
+- Acceptance: every in-scope inventory row has a named speed and correctness case; the coverage
+  check reports no missing case for these families. Focused pytest and Ruff pass. Retain preliminary
+  samples only; do not call them a baseline.
 
-## M4 — Cover interactive writes, media, and contention
+## M4 — Cover pipeline workspace and revision reads
+
+- Implement scenarios for workspace and lineage reads, node revision content and review reads, and
+  calibration-refinement snapshots. Include full and stage-filtered workspace queries, maximum
+  identity and polygon payloads, and relevant missing/stale cases from the inventory.
+- Use real storage, lineage validation, and response serialization. Exercise declared cold and warm
+  server-cache states. Do not write reviews or measure derived media here.
+- Acceptance: every in-scope inventory row has a named speed and correctness case; returned node,
+  revision, and parent identities match the frozen fixture. Focused pytest and Ruff pass. Retain
+  preliminary samples only.
+
+## M5 — Cover pipeline run and result reads
+
+- Implement scenarios for pipeline run lists, selected runs, run details and results, comparison
+  reads, and other inventoried stage result JSON. Include valid sparse/empty responses and relevant
+  missing or stale-revision cases. Use hard result and lineage sizes where available.
+- Check exact selected run and result identities. Include query variants and response correctness;
+  do not cover review writes or derived media.
+- Acceptance: every in-scope inventory row has executable speed and correctness coverage and passes
+  the inventory coverage check. Focused pytest and Ruff pass. Retain preliminary samples only.
+
+## M6 — Cover job history and polling reads
+
+- Implement scenarios for job history, detail/status, logs, and calibration preview reads used by
+  the UI. Seed valid jobs with the production model. Increase unrelated history, check page
+  boundaries and cursor correctness, and include relevant missing or wrong-type cases.
+- Measure synchronous response work only. Job completion time is outside this milestone. Do not
+  add job writes or simulated background contention here.
+- Acceptance: every in-scope inventory row has executable speed and correctness coverage; history
+  page content and cursors remain correct as unrelated records grow. Focused pytest and Ruff pass.
+  Retain preliminary samples only.
+
+## M7 — Cover interactive writes, media, and contention
 
 - Add review edits/saves, selection changes, submission, cancellation/retry/queue controls, and
   UI upload/import paths. Validate durable effects and isolation in resettable fixture storage.
@@ -225,7 +262,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
   effects, and media identity as well as speed. Focused tests, lint, format, and applicable type
   checks pass; verify the generated API if API contracts change.
 
-## M5 — Add real browser workflow measurements
+## M8 — Add real browser workflow measurements
 
 - Add a dedicated Playwright configuration with isolated backend and web processes. Cover
   recordings-to-workspace, displayed revision switching, frame/crop navigation, review save,
@@ -235,7 +272,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - Acceptance: hard fixtures work without mocked API routes. The report separates backend wait,
   frontend work, duplicate requests, cache behavior, and process startup. Relevant web checks pass.
 
-## M6 — Freeze the baseline and enable regression gates
+## M9 — Freeze the baseline and enable regression gates
 
 - Run the complete corpus and all startup profiles in three independent sessions on the declared
   local machine profile. Keep uncontended and controlled-load results separate.
@@ -246,19 +283,19 @@ Deferring startup cost to the first UI request is not an improvement unless both
   Missing cases/assets, invalid responses, timeouts, and incompatible profiles cannot return a
   passing qualification result. Separate environment failures from measured regressions.
 
-## M7 — Profile and select bounded candidates
+## M10 — Profile and select bounded candidates
 
 - Profile the highest-cost measured cases, including startup. Attribute time to specific work;
   retain bounded traces and operation counts. Create a ranked candidate table with baseline,
   affected routes, expected gain, risk, verification command, and stop condition.
-- Select at most two small changes for M8/M9. Select a startup change if startup is a leading
+- Select at most two small changes for M11/M12. Select a startup change if startup is a leading
   measured source of delay; do not force a startup rewrite without evidence. Freeze a numeric
   improvement target per cycle before implementation. Reserve one untouched hard case per
   affected family to check that improvements generalize beyond the profiled input.
 - Acceptance: candidates have concrete code scope and correctness oracles. A candidate too large
   for one milestone becomes later work; it does not expand this epic into an architecture rewrite.
 
-## M8 — Candidate cycle one
+## M11 — Candidate cycle one
 
 - Add the targeted regression case, implement one selected change, then rerun the same cold/warm,
   startup, and affected browser scenarios on the frozen corpus and machine profile.
@@ -266,17 +303,17 @@ Deferring startup cost to the first UI request is not an improvement unless both
   cases. Verify restart and invalidation behavior for any caching change. Revert unsuccessful
   changes and record evidence; do not retain complexity without measured benefit. Run applicable
   tests, lint, format, types, generated API, and browser checks for changed paths. Update the
-  ranking from measurements and select or confirm the next candidate before M9.
+  ranking from measurements and select or confirm the next candidate before M12.
 
-## M9 — Candidate cycle two
+## M12 — Candidate cycle two
 
-- Repeat the M8 procedure for the next highest-value bounded candidate using the current ranking.
+- Repeat the M11 procedure for the next highest-value bounded candidate using the current ranking.
   Compare with both the original baseline and the result after cycle one.
 - Acceptance: retain only a verified gain with unchanged correctness. If no safe candidate remains,
   publish measurements and the exact stop reason instead of implementing an unmeasured change.
   An unsuccessful cycle may complete as a documented experiment; it cannot be called a speedup.
 
-## M10 — Full qualification and closure
+## M13 — Full qualification and closure
 
 - Run the complete endpoint, startup, contention, and browser suite from the documented setup.
   Reconcile route coverage after concurrent UI work. Run applicable backend/web checks and local
@@ -290,63 +327,28 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-### M0 — complete
+### Current state — M3 replanned before implementation
 
-- Changes: added the checked route inventory at `docs/reports/0114-M0_Interactive_UI_Performance_Inventory.json`
-  and the startup/browser report at `docs/reports/0114-M0_Interactive_UI_Performance_Inventory.md`.
-  The inventory covers registered OpenAPI operations and records the unregistered UI video URL as
-  a route discrepancy.
-- Checks: inventory checker passed for registered operations and one unregistered UI URL;
-  `npx playwright test jobs.spec.ts --trace on` passed 4 tests. Those browser responses are
-  intercepted and are call-path evidence only.
-- Decisions and limits: `/api/recordings/{recording_id}/video` is emitted by a UI video element
-  but is not registered by the backend. Resolve that contract before measuring it. No backend
-  latency baseline or performance fix was selected. No full baseline suite was run.
-- Next: M1 hard-data discovery and frozen fixture setup.
-- Run count: requested 11 milestones; completed 1; remaining 10. Continue only after explicit
-  authorization under the persistent milestone command.
-
-### M1 — complete after two corrections
-
-- Changes: the first M1 package is `ddf106224`. The two correction commits repaired production
-  schema generation, pinned 42 hard assets across four recordings, seven nodes, a calibration
-  revision, and a review draft, then validated the dependency closure. Detailed findings and exact
-  hashes are in `docs/reports/0114-M1_Hard_Data_and_Fixture_Freeze.md`.
-- Checks: five fixture tests pass; scoped Ruff passes. Small-profile materializations reproduce
-  byte-for-byte. Representative and five independent dimension profiles pass production validation.
-  `--import-hard` and `--require-hard` validate all 42 assets through recording bundle, node,
-  revision, copy-lineage, calibration, and draft readers. Generated job records pass `JobManager.get`.
-- Decisions and limits: the maximum scene-proposal candidate is inventoried but excluded because
-  its detector and calibration revisions do not have a closed source in this checkout. The frozen
-  visible-card revision supplies the maximum polygon payload with exact media and parent history.
-  Job history has zero local JSON records, so generated jobs use the production `Job` model. No
-  timings or speed claims were made.
-- Next: M2 endpoint and startup timing harness. A full qualification run must fail clearly when a
-  pinned local hard asset is absent. Generated profiles run without developer data.
-- Run count: requested 11 milestones; completed 2; remaining 9.
-
-### M2 — complete
-
-- Changes: added `backend/scripts/run_interactive_ui_performance.py` with controlled ASGI HTTP,
-  isolated loopback process profiles (`empty`, `hard_populated`, and `interrupted_recovery`), raw
-  samples, per-batch distributions, machine and fixture metadata, bounded video ranges, and an
-  advisory result comparator. The hard process profile reaches recordings and workspace responses,
-  then measures full JSON and media-range responses with first-byte and completion timings. The
-  recovery profile creates a valid running job and checks that startup marks it interrupted.
-  Detailed protocol and measured examples are in
-  `docs/reports/0114-M2_Endpoint_and_Startup_Timing_Harness.md`; raw exports are beside it.
-- Checks: eight focused pytest cases pass; scoped Ruff and formatting pass. The controlled suite
-  passes five warmups and 30 measured requests per case in each of three batches. Ten fresh startup
-  processes pass for each profile. Ten hard loopback media responses each return 65,536 bytes and
-  record first-byte and completion times. Timeout cleanup is covered by a process test. Comparator
-  tests catch slowdown, incompatible profiles, and invalid responses.
-- Decisions and limits: the controlled runner uses an in-process ASGI transport so it can isolate
-  app storage and cache policy. The startup runner uses real loopback HTTP. The comparator remains
-  advisory; no baseline or regression gate is enabled. These results describe one local machine,
-  not a multi-machine baseline.
-- Next: M3 executable coverage for inventoried UI JSON reads and polling.
-- Run count: requested 11 milestones; completed 3; remaining 8.
-
-The user requested interactive UI endpoint speed coverage and backend startup timings. This epic
-includes two bounded improvement cycles, not an open-ended optimization loop. No persistent run or
-This invocation authorizes M2 only. Preserve unrelated worktree changes.
+- M0, M1, and M2 are complete. Their reports are `docs/reports/0114-M0_Interactive_UI_Performance_Inventory.md`,
+  `docs/reports/0114-M1_Hard_Data_and_Fixture_Freeze.md`, and
+  `docs/reports/0114-M2_Endpoint_and_Startup_Timing_Harness.md`. M2's controlled timing and three
+  startup profiles passed its recorded protocol. Its comparator is advisory; no baseline gate is
+  active.
+- The previous M3 attempt was stopped before a reviewable completion. Its four untracked artifacts
+  remain in the main worktree at `/Users/niklas.sparfeld/Developer/doko_detector`; they are not
+  present in this worktree and are not included in this planning change. Inspect and reuse valid
+  work only within its matching new milestone. Do not stage, move, or delete those files during
+  planning.
+- Decision: the preserved draft runner defines 38 UI JSON read scenarios across catalog, pipeline,
+  result, and job families, plus generated/hard data, query variants, error paths, history scaling,
+  and correctness checks. That scope is too large for one Luna phase. It is now M3–M6, each with an
+  isolated route-family result and commit boundary. Later milestones retain their full original
+  scope and are renumbered; no write, media, browser, baseline, or profiling work moved into M3–M6.
+- Checks for this planning change: `git diff --check` and the targeted Markdown local-link check
+  passed. No benchmark feature or measurement was run.
+- Next assignment: M3 only. Implement catalog and evidence reads as specified above, first inspecting
+  the four preserved artifacts in the main worktree and reusing only matching work. Do not implement
+  M4 or later in the same commit.
+- Run authorization: 8 milestones requested, 0 completed in this invocation, 8 remaining in its
+  fixed limit. The revised plan has 11 incomplete milestones (M3–M13); the limit does not increase
+  to match the expanded plan. A new authorization is required after this invocation reaches eight.
