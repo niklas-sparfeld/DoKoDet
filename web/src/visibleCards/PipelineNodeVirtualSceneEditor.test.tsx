@@ -62,6 +62,7 @@ describe("PipelineNodeVirtualSceneEditor", () => {
     render(
       <PipelineNodeVirtualSceneEditor
         recordingId="recording-1"
+        sourceSha256={"a".repeat(64)}
         nodeId="scene-node"
         revisionId="revision-1"
         selectionItemId="frame-1"
@@ -122,6 +123,7 @@ describe("PipelineNodeVirtualSceneEditor", () => {
     render(
       <PipelineNodeVirtualSceneEditor
         recordingId="recording-1"
+        sourceSha256={"a".repeat(64)}
         nodeId="scene-node"
         revisionId="revision-1"
         selectionItemId="frame-1"
@@ -218,6 +220,7 @@ describe("PipelineNodeVirtualSceneEditor", () => {
     render(
       <PipelineNodeVirtualSceneEditor
         recordingId="recording-1"
+        sourceSha256={"a".repeat(64)}
         nodeId="scene-node"
         revisionId="revision-1"
         selectionItemId="frame-1"

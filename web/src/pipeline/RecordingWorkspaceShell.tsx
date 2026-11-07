@@ -8,6 +8,7 @@ import type {
 import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventRailItem";
 import { PipelineNodeEventEditor } from "../cardEvents/PipelineNodeEventEditor";
 import { PipelineNodeVisibleCardEditor } from "../visibleCards/PipelineNodeVisibleCardEditor";
+import { PipelineNodeVirtualSceneEditor } from "../visibleCards/PipelineNodeVirtualSceneEditor";
 import { PipelineNodeVisualIdentityEditor } from "../visualIdentities/PipelineNodeVisualIdentityEditor";
 import styles from "../App.module.css";
 import { Toast } from "../Toast";
@@ -52,6 +53,7 @@ export type RecordingWorkspaceShellProps = {
 
 export type RecordingWorkspaceTaskSurfaceProps = {
   recordingId: string;
+  navigationStep: PipelineNavigationStepKey;
   workspace: PipelineWorkspace;
   stage: PipelineWorkspaceStage;
   compare: boolean;
@@ -280,6 +282,7 @@ export function RecordingWorkspaceShell({
 
 export function RecordingWorkspaceTaskSurface({
   recordingId,
+  navigationStep,
   workspace,
   stage,
   compare,
@@ -302,6 +305,23 @@ export function RecordingWorkspaceTaskSurface({
     urlState.lineage === null
       ? undefined
       : decodeLineageSelection(urlState.lineage)?.selected.visible_cards;
+  const selectedVirtualScene = (() => {
+    const reference =
+      urlState.lineage === null
+        ? undefined
+        : decodeLineageSelection(urlState.lineage)?.selected.virtual_scenes;
+    if (reference === undefined) return undefined;
+    const node = lineageGraph?.nodes.find(
+      (candidate) =>
+        candidate.node_id === reference.node_id &&
+        ["card_scene_proposals", "virtual_scenes"].includes(
+          candidate.content_type,
+        ),
+    );
+    return node === undefined
+      ? undefined
+      : { ...reference, contentType: node.content_type };
+  })();
   const selectedVisualIdentity =
     urlState.lineage === null
       ? undefined
@@ -429,12 +449,14 @@ export function RecordingWorkspaceTaskSurface({
         selectedEventNode === undefined ? (
           <div aria-hidden="true" />
         ) : null}
-        {stage.key === "visible_cards" &&
+        {navigationStep === "visible_cards" &&
+        stage.key === "visible_cards" &&
         !compare &&
         selectedVisibleCardNode !== undefined ? (
           <PipelineNodeVisibleCardEditor
             key={`${selectedVisibleCardNode.node_id}:${selectedVisibleCardNode.revision_id}`}
             recordingId={recordingId}
+            sourceSha256={workspace.video.video_sha256}
             nodeId={selectedVisibleCardNode.node_id}
             revisionId={selectedVisibleCardNode.revision_id}
             selectionItemId={presentation.surface.selectedItemId ?? null}
@@ -485,6 +507,63 @@ export function RecordingWorkspaceTaskSurface({
                     },
                   }),
                   item: itemId,
+                  ...(timeUs === null ? {} : { t_us: timeUs }),
+                }),
+              );
+            }}
+          />
+        ) : null}
+        {navigationStep === "virtual_scenes" &&
+        !compare &&
+        selectedVirtualScene?.contentType === "virtual_scenes" ? (
+          <PipelineNodeVirtualSceneEditor
+            key={`${selectedVirtualScene.node_id}:${selectedVirtualScene.revision_id}`}
+            recordingId={recordingId}
+            sourceSha256={workspace.video.video_sha256}
+            nodeId={selectedVirtualScene.node_id}
+            revisionId={selectedVirtualScene.revision_id}
+            selectionItemId={presentation.surface.selectedItemId ?? null}
+            onPositionChange={(itemId, timeUs) =>
+              onNavigate(
+                recordingPipelineNavigationPath(recordingId, navigationStep, {
+                  ...urlState,
+                  item: itemId,
+                  ...(timeUs === null ? {} : { t_us: timeUs }),
+                }),
+              )
+            }
+            onRevisionChange={(
+              sourceNodeId,
+              sourceRevisionId,
+              nodeId,
+              revisionId,
+              frameId,
+              timeUs,
+            ) => {
+              const lineage = decodeLineageSelection(
+                readPipelineUrlState(window.location.search).lineage ?? "",
+              );
+              const selected = lineage?.selected.virtual_scenes;
+              if (
+                lineage === null ||
+                selected?.node_id !== sourceNodeId ||
+                selected.revision_id !== sourceRevisionId
+              )
+                return;
+              onNavigate(
+                recordingPipelineNavigationPath(recordingId, navigationStep, {
+                  ...urlState,
+                  lineage: JSON.stringify({
+                    ...lineage,
+                    selected: {
+                      ...lineage.selected,
+                      virtual_scenes: {
+                        node_id: nodeId,
+                        revision_id: revisionId,
+                      },
+                    },
+                  }),
+                  item: frameId,
                   ...(timeUs === null ? {} : { t_us: timeUs }),
                 }),
               );

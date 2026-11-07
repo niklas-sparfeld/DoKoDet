@@ -63,6 +63,7 @@ describe("PipelineNodeVisibleCardEditor", () => {
     render(
       <PipelineNodeVisibleCardEditor
         recordingId="recording-1"
+        sourceSha256={"a".repeat(64)}
         nodeId="visible-cards"
         revisionId="r1"
         selectionItemId={null}
@@ -93,6 +94,7 @@ describe("PipelineNodeVisibleCardEditor", () => {
     render(
       <PipelineNodeVisibleCardEditor
         recordingId="recording-1"
+        sourceSha256={"a".repeat(64)}
         nodeId="visible-cards"
         revisionId="r1"
         selectionItemId="event-1"
@@ -140,6 +142,7 @@ describe("PipelineNodeVisibleCardEditor", () => {
     render(
       <PipelineNodeVisibleCardEditor
         recordingId="recording-1"
+        sourceSha256={"a".repeat(64)}
         nodeId="visible-cards"
         revisionId="r1"
         selectionItemId="event-1"
@@ -166,6 +169,7 @@ describe("PipelineNodeVisibleCardEditor", () => {
     render(
       <PipelineNodeVisibleCardEditor
         recordingId="recording-1"
+        sourceSha256={"a".repeat(64)}
         nodeId="visible-cards"
         revisionId="r1"
         selectionItemId="deleted-outcome"
@@ -197,6 +201,7 @@ describe("PipelineNodeVisibleCardEditor", () => {
     render(
       <PipelineNodeVisibleCardEditor
         recordingId="recording-1"
+        sourceSha256={"a".repeat(64)}
         nodeId="visible-cards"
         revisionId="r1"
         selectionItemId="event-1"
@@ -238,6 +243,7 @@ describe("PipelineNodeVisibleCardEditor", () => {
     render(
       <PipelineNodeVisibleCardEditor
         recordingId="recording-1"
+        sourceSha256={"a".repeat(64)}
         nodeId="visible-cards"
         revisionId="r1"
         selectionItemId="event-1"

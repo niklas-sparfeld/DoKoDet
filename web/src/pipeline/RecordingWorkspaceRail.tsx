@@ -149,6 +149,7 @@ export function useRecordingWorkspaceRail({
 
 export function RecordingWorkspaceTimelineRail({
   recordingId,
+  navigationStep,
   stage,
   compare,
   rail,
@@ -156,6 +157,7 @@ export function RecordingWorkspaceTimelineRail({
   onItemSelect,
 }: {
   recordingId: string;
+  navigationStep: import("./recordingPipelineUrl").PipelineNavigationStepKey;
   stage: PipelineWorkspaceStage;
   compare: boolean;
   rail: RecordingWorkspacePresentation["rail"];
@@ -168,6 +170,14 @@ export function RecordingWorkspaceTimelineRail({
       aria-label="Timeline Rail"
       data-slot="bottom"
     >
+      {(navigationStep === "visible_cards" ||
+        navigationStep === "virtual_scenes") &&
+      !compare ? (
+        <div
+          data-visible-card-navigation-slot
+          aria-label="Visible-card frame navigation"
+        />
+      ) : null}
       {rail !== null ? (
         <RecordingTimelineRail
           key={`${stage.key}:${compare ? "compare" : "task"}`}

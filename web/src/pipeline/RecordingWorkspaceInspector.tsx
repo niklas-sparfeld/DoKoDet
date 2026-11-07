@@ -11,7 +11,10 @@ import {
 } from "./ObservationAndAnalysisControls";
 import { ComparisonInspectorControls } from "./ComparisonView";
 import { RunControls } from "./RunControls";
-import type { PipelineUrlState } from "./recordingPipelineUrl";
+import type {
+  PipelineUrlState,
+  PipelineNavigationStepKey,
+} from "./recordingPipelineUrl";
 import { actionHref, isModifiedClick } from "./recordingWorkspaceNavigation";
 import {
   formatByteLength,
@@ -30,6 +33,7 @@ import {
 
 export type RecordingWorkspaceInspectorProps = {
   recordingId: string;
+  navigationStep: PipelineNavigationStepKey;
   workspace: PipelineWorkspace;
   stage: PipelineWorkspaceStage;
   compare: boolean;
@@ -49,6 +53,7 @@ export type RecordingWorkspaceInspectorProps = {
 
 export function RecordingWorkspaceInspector({
   recordingId,
+  navigationStep,
   workspace,
   stage,
   compare,
@@ -110,10 +115,11 @@ export function RecordingWorkspaceInspector({
     action.kind === "run" || action.kind === "run_again";
   const usesEditorInspector =
     !compare &&
-    action.kind !== "blocked" &&
-    (stage.key === "events" ||
-      stage.key === "visible_cards" ||
-      stage.key === "visual_identities");
+    (navigationStep === "virtual_scenes" ||
+      (action.kind !== "blocked" &&
+        (stage.key === "events" ||
+          stage.key === "visible_cards" ||
+          stage.key === "visual_identities")));
 
   return (
     <aside
@@ -176,7 +182,16 @@ export function RecordingWorkspaceInspector({
           <div
             data-visible-card-inspector-slot="action"
             data-identity-inspector-slot="action"
-          />
+          >
+            {navigationStep === "virtual_scenes" &&
+            decodeLineageSelection(urlState.lineage ?? "")?.selected
+              .virtual_scenes === undefined ? (
+              <>
+                <h2>Virtual scenes</h2>
+                <p>No virtual scene is selected for this lineage.</p>
+              </>
+            ) : null}
+          </div>
         ) : (
           <>
             <p className={styles.statusLabel}>Primary action</p>
@@ -245,7 +260,7 @@ export function RecordingWorkspaceInspector({
               data-visible-card-inspector-slot="save"
               data-identity-inspector-slot="save"
             />
-            {executionControls}
+            {navigationStep === "virtual_scenes" ? null : executionControls}
           </>
         ) : (
           <>

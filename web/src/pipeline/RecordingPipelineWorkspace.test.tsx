@@ -305,7 +305,7 @@ describe("recording pipeline workspace", () => {
     });
   });
 
-  it("opens Virtual scenes as a separate empty step without run controls", async () => {
+  it("opens Virtual scenes as an inspector-backed separate step", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(() =>
@@ -337,8 +337,8 @@ describe("recording pipeline workspace", () => {
     ).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("button", { name: "Run processor" })).toBeNull();
     expect(
-      screen.queryByRole("complementary", { name: "Workspace inspector" }),
-    ).toBeNull();
+      screen.getByRole("complementary", { name: "Workspace inspector" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps a stale explicit lineage link and does not select a substitute", async () => {

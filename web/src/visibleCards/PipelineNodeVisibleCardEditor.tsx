@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { repositoryBundleVideoPath } from "../api/client";
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState } from "react";
 import { useProfileName } from "../profile/profile";
+import {
+  GeometrySurface,
+  type GeometryOverlay,
+} from "../workingArea/GeometrySurface";
+import { useWorkingAreaFrame } from "../workingArea/workingAreaFrame";
 import styles from "./PipelineNodeVisibleCardEditor.module.css";
 import {
   editPipelineNode,
@@ -26,6 +31,7 @@ type VisibleCardContent = Record<string, unknown> & {
 
 type Props = {
   recordingId: string;
+  sourceSha256: string;
   nodeId: string;
   revisionId: string;
   selectionItemId: string | null;
@@ -61,6 +67,7 @@ function frameTimeUs(outcome: Outcome): number | null {
 
 export function PipelineNodeVisibleCardEditor({
   recordingId,
+  sourceSha256,
   nodeId,
   revisionId,
   selectionItemId,
@@ -68,7 +75,6 @@ export function PipelineNodeVisibleCardEditor({
   onPositionChange,
   onRevisionChange,
 }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const profileName = useProfileName();
   const [revision, setRevision] = useState<PipelineNodeRevision | null>(null);
   const [content, setContent] = useState<VisibleCardContent | null>(null);
@@ -76,6 +82,11 @@ export function PipelineNodeVisibleCardEditor({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [reviews, setReviews] = useState<Array<Record<string, unknown>>>([]);
   const [inspected, setInspected] = useState<Set<string>>(() => new Set());
+  const [portalTargets, setPortalTargets] = useState<{
+    inspector: Element | null;
+    center: Element | null;
+    rail: Element | null;
+  }>({ inspector: null, center: null, rail: null });
   const [message, setMessage] = useState(
     "Loading selected visible-card revision…",
   );
@@ -141,12 +152,47 @@ export function PipelineNodeVisibleCardEditor({
   }, [nodeId, revisionId, selectionItemId]);
 
   useEffect(() => {
-    if (selected === undefined) return;
-    const timeUs = frameTimeUs(selected);
-    const video = videoRef.current;
-    if (video !== null && timeUs !== null && video.readyState >= 1)
-      video.currentTime = timeUs / 1_000_000;
-  }, [selected]);
+    const timer = window.setTimeout(() => {
+      setPortalTargets({
+        inspector: document.querySelector(
+          '[data-visible-card-inspector-slot="action"]',
+        ),
+        center: document.querySelector('[data-slot="center"]'),
+        rail: document.querySelector("[data-visible-card-navigation-slot]"),
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const timeUs = selected === undefined ? null : frameTimeUs(selected);
+  const frameState = useWorkingAreaFrame({
+    recordingId,
+    sourceId: recordingId,
+    sourceSha256: portalTargets.center === null ? "" : sourceSha256,
+    requestedTimeUs: timeUs ?? 0,
+    mode: "exact",
+  });
+  const frameMatches =
+    portalTargets.center === null ||
+    (selected?.frame_identity !== null &&
+      selected?.frame_identity.source_video_sha256 === sourceSha256 &&
+      typeof selected?.frame_identity.requested_time_us === "number" &&
+      frameState.state === "ready" &&
+      frameState.frame.requestedTimeUs ===
+        selected.frame_identity.requested_time_us);
+  const overlays = useMemo(
+    () =>
+      selected === undefined
+        ? []
+        : visibleCardOverlays(
+            selected,
+            frameState.state === "ready" ? frameState.frame.identity : null,
+          ),
+    [selected, frameState],
+  );
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [viewpoint, setViewpoint] = useState<"source" | "rectified">("source");
 
   const choose = (outcome: Outcome) => {
     setSelectedId(outcome.event_id);
@@ -325,7 +371,7 @@ export function PipelineNodeVisibleCardEditor({
     }
   };
 
-  return (
+  const editor = (
     <section aria-label="Visible-card lineage editor" className={styles.editor}>
       <header className={styles.header}>
         <h2>{revision?.name ?? "Visible cards"}</h2>
@@ -349,149 +395,233 @@ export function PipelineNodeVisibleCardEditor({
           The selected outcome is unavailable in this revision.
         </p>
       ) : (
-        <div className={styles.layout}>
-          <nav aria-label="Visible-card frames" className={styles.navigation}>
-            <ol>
-              {outcomes.map((outcome) => (
-                <li key={outcome.event_id}>
-                  <button
-                    type="button"
-                    aria-current={
-                      selected?.event_id === outcome.event_id
-                        ? "true"
-                        : undefined
-                    }
-                    onClick={() => choose(outcome)}
-                  >
-                    {outcome.event_id} · {String(outcome.status)}
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </nav>
-          {selected ? (
-            <article className={styles.content}>
-              <h3>Frame {selected.event_id}</h3>
-              <p>
-                Item decision:{" "}
-                {reviews
-                  .filter(
-                    (review) =>
-                      review.kind === "item" &&
-                      review.item_id === selected.event_id,
-                  )
-                  .map((review) => String(review.decision))
-                  .join(", ") || "No decision"}
+        <>
+          {frameMatches && frameState.state === "ready"
+            ? portalTargets.center === null
+              ? null
+              : createPortal(
+                  <GeometrySurface
+                    frame={frameState.frame.identity}
+                    imageUrl={frameState.frame.imageUrl}
+                    overlays={overlays}
+                    viewport={{ zoom, ...pan }}
+                    viewpoint={viewpoint}
+                  />,
+                  portalTargets.center,
+                )
+            : null}
+          <article className={styles.content}>
+            <h3>Frame {selected.event_id}</h3>
+            {!frameMatches ? (
+              <p role="status">
+                {timeUs === null
+                  ? "This outcome has no exact frame time. Geometry editing is unavailable."
+                  : frameState.state === "loading"
+                    ? "Loading the exact source frame…"
+                    : frameState.state === "failed"
+                      ? frameState.reason
+                      : "The source or frame identity does not match this outcome. Geometry editing is blocked."}
               </p>
-              <pre>{JSON.stringify(selected.frame_identity, null, 2)}</pre>
-              <p>
-                Frame identity stays fixed. Inspect the source frame, then edit
-                the visible regions, pile regions, and ignore regions below.
-              </p>
-              <video
-                ref={videoRef}
-                aria-label="Selected source video frame"
-                controls
-                onLoadedMetadata={(event) => {
-                  const timeUs = frameTimeUs(selected);
-                  if (timeUs !== null)
-                    event.currentTarget.currentTime = timeUs / 1_000_000;
+            ) : null}
+            <fieldset>
+              <legend>View controls</legend>
+              <label>
+                Viewpoint
+                <select
+                  value={viewpoint}
+                  onChange={(event) =>
+                    setViewpoint(event.target.value as "source" | "rectified")
+                  }
+                >
+                  <option value="source">Source</option>
+                  <option value="rectified" disabled>
+                    Rectified (calibration unavailable)
+                  </option>
+                </select>
+              </label>
+              <label>
+                Zoom
+                <input
+                  aria-label="View zoom"
+                  type="range"
+                  min="1"
+                  max="4"
+                  step="0.25"
+                  value={zoom}
+                  onChange={(event) => setZoom(Number(event.target.value))}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setPan((value) => ({ ...value, x: value.x - 24 }))
+                }
+              >
+                Pan left
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setPan((value) => ({ ...value, x: value.x + 24 }))
+                }
+              >
+                Pan right
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setPan((value) => ({ ...value, y: value.y - 24 }))
+                }
+              >
+                Pan up
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setPan((value) => ({ ...value, y: value.y + 24 }))
+                }
+              >
+                Pan down
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPan({ x: 0, y: 0 });
+                  setZoom(1);
                 }}
-                src={repositoryBundleVideoPath(recordingId)}
-              />
+              >
+                Reset view
+              </button>
+            </fieldset>
+            <p>
+              Calibration diagnostics: visible-card regions use exact
+              source-frame coordinates. No table-plane calibration is required.
+            </p>
+            <p>
+              Item decision:{" "}
+              {reviews
+                .filter(
+                  (review) =>
+                    review.kind === "item" &&
+                    review.item_id === selected.event_id,
+                )
+                .map((review) => String(review.decision))
+                .join(", ") || "No decision"}
+            </p>
+            <pre>{JSON.stringify(selected.frame_identity, null, 2)}</pre>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                setInspected((current) =>
+                  new Set(current).add(selected.event_id),
+                )
+              }
+            >
+              {inspected.has(selected.event_id)
+                ? "Frame inspected"
+                : "Mark frame inspected"}
+            </button>
+            {(["candidates", "pile_regions", "ignored_regions"] as const).map(
+              (field) => (
+                <label key={field}>
+                  {field === "candidates"
+                    ? "Visible regions"
+                    : field === "pile_regions"
+                      ? "Pile regions"
+                      : "Ignore regions"}
+                  <textarea
+                    aria-label={`${field} JSON`}
+                    spellCheck={false}
+                    readOnly={readOnly}
+                    rows={Math.min(
+                      14,
+                      Math.max(
+                        4,
+                        JSON.stringify(selected[field] ?? [], null, 2).split(
+                          "\n",
+                        ).length,
+                      ),
+                    )}
+                    value={
+                      drafts[`${selected.event_id}:${field}`] ??
+                      jsonArray((selected[field] ?? []) as unknown[])
+                    }
+                    onChange={(event) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [`${selected.event_id}:${field}`]: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              ),
+            )}
+            {!readOnly && frameMatches ? (
+              <button
+                type="button"
+                disabled={busy || Object.keys(drafts).length === 0}
+                onClick={() => void saveOutcome()}
+              >
+                Save visible-card changes
+              </button>
+            ) : null}
+            <div
+              aria-label="Visible-card review decisions"
+              className={styles.actions}
+            >
               <button
                 type="button"
                 disabled={busy}
-                onClick={() =>
-                  setInspected((current) =>
-                    new Set(current).add(selected.event_id),
-                  )
-                }
+                onClick={() => void submitReview("accept")}
               >
-                {inspected.has(selected.event_id)
-                  ? "Frame inspected"
-                  : "Mark frame inspected"}
+                Accept outcome
               </button>
-              {(["candidates", "pile_regions", "ignored_regions"] as const).map(
-                (field) => (
-                  <label key={field}>
-                    {field === "candidates"
-                      ? "Visible regions"
-                      : field === "pile_regions"
-                        ? "Pile regions"
-                        : "Ignore regions"}
-                    <textarea
-                      aria-label={`${field} JSON`}
-                      spellCheck={false}
-                      readOnly={readOnly}
-                      rows={Math.min(
-                        14,
-                        Math.max(
-                          4,
-                          JSON.stringify(selected[field] ?? [], null, 2).split(
-                            "\n",
-                          ).length,
-                        ),
-                      )}
-                      value={
-                        drafts[`${selected.event_id}:${field}`] ??
-                        jsonArray((selected[field] ?? []) as unknown[])
-                      }
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [`${selected.event_id}:${field}`]: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                ),
-              )}
-              {!readOnly ? (
-                <button
-                  type="button"
-                  disabled={busy || Object.keys(drafts).length === 0}
-                  onClick={() => void saveOutcome()}
-                >
-                  Save visible-card changes
-                </button>
-              ) : null}
-              <div
-                aria-label="Visible-card review decisions"
-                className={styles.actions}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void submitReview("reject")}
               >
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void submitReview("accept")}
-                >
-                  Accept outcome
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void submitReview("reject")}
-                >
-                  Reject outcome
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || inspected.size < outcomes.length}
-                  onClick={() => void submitReview("coverage")}
-                >
-                  Accept full-recording coverage
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void submitReview("overall")}
-                >
-                  Accept visible-card content
-                </button>
-              </div>
-            </article>
-          ) : null}
-        </div>
+                Reject outcome
+              </button>
+              <button
+                type="button"
+                disabled={busy || inspected.size < outcomes.length}
+                onClick={() => void submitReview("coverage")}
+              >
+                Accept full-recording coverage
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void submitReview("overall")}
+              >
+                Accept visible-card content
+              </button>
+            </div>
+          </article>
+          {portalTargets.rail === null ? (
+            <div
+              className={styles.navigation}
+              data-visible-card-frame-navigation
+            >
+              <OutcomeNavigation
+                outcomes={outcomes}
+                selectedId={selected.event_id}
+                onSelect={choose}
+              />
+            </div>
+          ) : (
+            createPortal(
+              <OutcomeNavigation
+                outcomes={outcomes}
+                selectedId={selected.event_id}
+                onSelect={choose}
+              />,
+              portalTargets.rail,
+            )
+          )}
+        </>
       )}
       <section aria-label="Revision-bound visible-card reviews">
         <h3>Reviews for this revision</h3>
@@ -511,4 +641,77 @@ export function PipelineNodeVisibleCardEditor({
       {selectionTimeUs !== null ? <span hidden>{selectionTimeUs}</span> : null}
     </section>
   );
+  return portalTargets.inspector === null
+    ? editor
+    : createPortal(editor, portalTargets.inspector);
+}
+
+function OutcomeNavigation({
+  outcomes,
+  selectedId,
+  onSelect,
+}: {
+  outcomes: Outcome[];
+  selectedId: string;
+  onSelect: (outcome: Outcome) => void;
+}) {
+  return (
+    <nav aria-label="Visible-card frames" className={styles.navigation}>
+      <ol>
+        {outcomes.map((outcome) => (
+          <li key={outcome.event_id}>
+            <button
+              type="button"
+              aria-current={
+                selectedId === outcome.event_id ? "true" : undefined
+              }
+              onClick={() => onSelect(outcome)}
+            >
+              {outcome.event_id} · {String(outcome.status)}
+            </button>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+function visibleCardOverlays(
+  outcome: Outcome,
+  frame: import("../workingArea/GeometrySurface").GeometryFrameIdentity | null,
+): GeometryOverlay[] {
+  if (frame === null) return [];
+  const values: GeometryOverlay[] = [];
+  const add = (items: unknown, kind: string, colorLabel: string) => {
+    if (!Array.isArray(items)) return;
+    for (const [index, raw] of items.entries()) {
+      if (typeof raw !== "object" || raw === null) continue;
+      const item = raw as Record<string, unknown>;
+      const geometry = item.geometry as Record<string, unknown> | undefined;
+      const polygons = geometry?.polygons;
+      if (!Array.isArray(polygons)) continue;
+      const points = polygons[0];
+      if (!Array.isArray(points) || points.length < 3) continue;
+      const converted = points.flatMap((point) => {
+        if (typeof point !== "object" || point === null) return [];
+        const coordinates = point as Record<string, unknown>;
+        const x = coordinates.x;
+        const y = coordinates.y;
+        if (typeof x !== "number" || typeof y !== "number") return [];
+        return [[(x / 1000) * frame.width, (y / 1000) * frame.height] as const];
+      });
+      if (converted.length < 3) continue;
+      values.push({
+        id: `${kind}-${index}`,
+        label: `${colorLabel} ${index + 1}`,
+        frame,
+        calibration: null,
+        geometry: { kind: "polygon", points: converted },
+      });
+    }
+  };
+  add(outcome.candidates, "region", "Visible region");
+  add(outcome.pile_regions, "pile", "Pile region");
+  add(outcome.ignored_regions, "ignore", "Ignore region");
+  return values;
 }

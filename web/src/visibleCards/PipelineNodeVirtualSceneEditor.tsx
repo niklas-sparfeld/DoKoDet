@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { repositoryBundleVideoPath } from "../api/client";
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState } from "react";
 import { useProfileName } from "../profile/profile";
 import {
   editPipelineNode,
@@ -11,11 +11,13 @@ import {
   type PipelineNodeRevision,
 } from "../pipeline/pipelineNodeClient";
 import styles from "./PipelineNodeVisibleCardEditor.module.css";
+import { GeometrySurface } from "../workingArea/GeometrySurface";
+import { useWorkingAreaFrame } from "../workingArea/workingAreaFrame";
 
 type SceneFrame = Record<string, unknown> & {
   frame_id: string;
   frame_identity: Record<string, unknown>;
-  calibration: { revision_id: string; digest: string };
+  calibration: { revision_id: string; digest: string } | null;
   scene: Record<string, unknown> | null;
 };
 type SceneContent = Record<string, unknown> & {
@@ -25,6 +27,7 @@ type SceneContent = Record<string, unknown> & {
 
 type Props = {
   recordingId: string;
+  sourceSha256: string;
   nodeId: string;
   revisionId: string;
   selectionItemId: string | null;
@@ -59,13 +62,13 @@ function json(value: unknown): string {
 
 export function PipelineNodeVirtualSceneEditor({
   recordingId,
+  sourceSha256,
   nodeId,
   revisionId,
   selectionItemId,
   onPositionChange,
   onRevisionChange,
 }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const profileName = useProfileName();
   const reviewer =
     profileName
@@ -78,11 +81,19 @@ export function PipelineNodeVirtualSceneEditor({
   const [draft, setDraft] = useState("");
   const [reviews, setReviews] = useState<Array<Record<string, unknown>>>([]);
   const [inspected, setInspected] = useState<Set<string>>(() => new Set());
+  const [portalTargets, setPortalTargets] = useState<{
+    inspector: Element | null;
+    center: Element | null;
+    rail: Element | null;
+  }>({ inspector: null, center: null, rail: null });
   const [message, setMessage] = useState(
     "Loading selected virtual-scene revision…",
   );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [viewpoint, setViewpoint] = useState<"source" | "rectified">("source");
   const frames = useMemo(() => content?.frames ?? [], [content]);
   const selected =
     selectedId === null
@@ -153,11 +164,43 @@ export function PipelineNodeVirtualSceneEditor({
   }, [nodeId, revisionId, selectionItemId]);
 
   useEffect(() => {
-    const timeUs = selected === undefined ? null : frameTime(selected);
-    const video = videoRef.current;
-    if (video !== null && timeUs !== null && video.readyState >= 1)
-      video.currentTime = timeUs / 1_000_000;
-  }, [selected]);
+    const timer = window.setTimeout(() => {
+      setPortalTargets({
+        inspector: document.querySelector(
+          '[data-visible-card-inspector-slot="action"]',
+        ),
+        center: document.querySelector('[data-slot="center"]'),
+        rail: document.querySelector("[data-visible-card-navigation-slot]"),
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const timeUs = selected === undefined ? null : frameTime(selected);
+  const frameState = useWorkingAreaFrame({
+    recordingId,
+    sourceId: recordingId,
+    sourceSha256: portalTargets.center === null ? "" : sourceSha256,
+    requestedTimeUs: timeUs ?? 0,
+    mode: "exact",
+  });
+  const frameMatches =
+    portalTargets.center === null ||
+    (selected?.frame_identity.source_video_sha256 === sourceSha256 &&
+      typeof selected.frame_identity.requested_time_us === "number" &&
+      frameState.state === "ready" &&
+      frameState.frame.requestedTimeUs ===
+        selected.frame_identity.requested_time_us);
+  const calibrationMatches =
+    frameMatches &&
+    selected?.calibration !== null &&
+    selected?.calibration !== undefined &&
+    selected.calibration.revision_id.length > 0 &&
+    /^[a-f\d]{64}$/i.test(selected.calibration.digest) &&
+    (selected.scene === null ||
+      (selected.scene.calibration_revision_id ===
+        selected.calibration.revision_id &&
+        selected.scene.calibration_digest === selected.calibration.digest));
 
   const choose = (frame: SceneFrame) => {
     setSelectedId(frame.frame_id);
@@ -170,7 +213,8 @@ export function PipelineNodeVirtualSceneEditor({
       content === null ||
       revision === null ||
       selected === undefined ||
-      readOnly
+      readOnly ||
+      !calibrationMatches
     )
       return;
     let scene: unknown;
@@ -253,7 +297,12 @@ export function PipelineNodeVirtualSceneEditor({
   const review = async (
     decision: "accept" | "reject" | "overall-accept" | "overall-reject",
   ) => {
-    if (revision === null || selected === undefined) return;
+    if (
+      revision === null ||
+      selected === undefined ||
+      selected.calibration === null
+    )
+      return;
     setBusy(true);
     setError(null);
     try {
@@ -333,7 +382,7 @@ export function PipelineNodeVirtualSceneEditor({
         <p role="alert">{error}</p>
       </section>
     );
-  return (
+  const editor = (
     <section className={styles.editor} aria-label="Virtual-scene editor">
       <header className={styles.header}>
         <h2>Virtual scenes</h2>
@@ -344,26 +393,22 @@ export function PipelineNodeVirtualSceneEditor({
         {error !== null ? <p role="alert">{error}</p> : null}
       </header>
       <div className={styles.layout}>
-        <nav className={styles.navigation} aria-label="Scene frames">
-          <ol>
-            {frames.map((frame) => (
-              <li key={frame.frame_id}>
-                <button
-                  type="button"
-                  aria-current={
-                    selectedId === frame.frame_id ? "true" : undefined
-                  }
-                  onClick={() => choose(frame)}
-                >
-                  {frame.frame_id} ·{" "}
-                  {frame.scene === null
-                    ? "no scene"
-                    : `${Array.isArray(frame.scene.poses) ? frame.scene.poses.length : 0} poses`}
-                </button>
-              </li>
-            ))}
-          </ol>
-        </nav>
+        {portalTargets.rail === null ? (
+          <SceneFrameNavigation
+            frames={frames}
+            selectedId={selectedId}
+            onSelect={choose}
+          />
+        ) : (
+          createPortal(
+            <SceneFrameNavigation
+              frames={frames}
+              selectedId={selectedId}
+              onSelect={choose}
+            />,
+            portalTargets.rail,
+          )
+        )}
         <div className={styles.content}>
           {selected === undefined ? (
             <p>
@@ -373,13 +418,37 @@ export function PipelineNodeVirtualSceneEditor({
             </p>
           ) : (
             <>
-              <video
-                ref={videoRef}
-                src={repositoryBundleVideoPath(recordingId)}
-                controls
-                preload="metadata"
-                aria-label="Recording video at selected scene frame"
-              />
+              {frameMatches &&
+              frameState.state === "ready" &&
+              portalTargets.center !== null
+                ? createPortal(
+                    <GeometrySurface
+                      frame={frameState.frame.identity}
+                      imageUrl={frameState.frame.imageUrl}
+                      overlays={[]}
+                      viewport={{ zoom, ...pan }}
+                      viewpoint={viewpoint}
+                      calibration={
+                        calibrationMatches
+                          ? {
+                              revisionId: selected.calibration!.revision_id,
+                              digest: selected.calibration!.digest,
+                            }
+                          : null
+                      }
+                    />,
+                    portalTargets.center,
+                  )
+                : null}
+              {!frameMatches ? (
+                <p role="status">
+                  {frameState.state === "loading"
+                    ? "Loading the exact source frame…"
+                    : frameState.state === "failed"
+                      ? frameState.reason
+                      : "The source or frame identity does not match this scene. Geometry editing is blocked."}
+                </p>
+              ) : null}
               <p>
                 Frame {selected.frame_id} ·{" "}
                 {frameTime(selected) === null
@@ -387,9 +456,85 @@ export function PipelineNodeVirtualSceneEditor({
                   : `${frameTime(selected)} µs`}
               </p>
               <p>
-                Calibration revision {selected.calibration.revision_id} · digest{" "}
-                {selected.calibration.digest}
+                Calibration revision{" "}
+                {selected.calibration?.revision_id ?? "missing"} · digest{" "}
+                {selected.calibration?.digest ?? "missing"}
               </p>
+              <p role="status">
+                {calibrationMatches
+                  ? "Calibration identity matches this scene. Pose transformation diagnostics are available in the scene data."
+                  : "Calibration identity is missing or does not match this scene. Pose edits are blocked."}
+              </p>
+              <fieldset>
+                <legend>View controls</legend>
+                <label>
+                  Viewpoint
+                  <select
+                    value={viewpoint}
+                    onChange={(event) =>
+                      setViewpoint(event.target.value as "source" | "rectified")
+                    }
+                  >
+                    <option value="source">Source</option>
+                    <option value="rectified" disabled>
+                      Rectified (homography unavailable)
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  Zoom
+                  <input
+                    aria-label="Scene view zoom"
+                    type="range"
+                    min="1"
+                    max="4"
+                    step="0.25"
+                    value={zoom}
+                    onChange={(event) => setZoom(Number(event.target.value))}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPan((value) => ({ ...value, x: value.x - 24 }))
+                  }
+                >
+                  Pan left
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPan((value) => ({ ...value, x: value.x + 24 }))
+                  }
+                >
+                  Pan right
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPan((value) => ({ ...value, y: value.y - 24 }))
+                  }
+                >
+                  Pan up
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPan((value) => ({ ...value, y: value.y + 24 }))
+                  }
+                >
+                  Pan down
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPan({ x: 0, y: 0 });
+                    setZoom(1);
+                  }}
+                >
+                  Reset view
+                </button>
+              </fieldset>
               {geometryUnavailable && selected?.scene === null ? (
                 <p role="status">
                   Geometry was not available in the retained draft. The recorded
@@ -417,7 +562,7 @@ export function PipelineNodeVirtualSceneEditor({
                     draft ||
                     (selected.scene === null ? "null" : json(selected.scene))
                   }
-                  readOnly={readOnly}
+                  readOnly={readOnly || !frameMatches || !calibrationMatches}
                   onChange={(event) => setDraft(event.target.value)}
                 />
               </label>
@@ -437,21 +582,31 @@ export function PipelineNodeVirtualSceneEditor({
                 </button>
                 <button
                   type="button"
-                  disabled={busy || readOnly}
+                  disabled={
+                    busy || readOnly || !frameMatches || !calibrationMatches
+                  }
                   onClick={() => void save()}
                 >
                   Save scene
                 </button>
                 <button
                   type="button"
-                  disabled={busy || selected.scene === null}
+                  disabled={
+                    busy ||
+                    selected.scene === null ||
+                    selected.calibration === null
+                  }
                   onClick={() => void review("accept")}
                 >
                   Accept frame
                 </button>
                 <button
                   type="button"
-                  disabled={busy || selected.scene === null}
+                  disabled={
+                    busy ||
+                    selected.scene === null ||
+                    selected.calibration === null
+                  }
                   onClick={() => void review("reject")}
                 >
                   Reject frame
@@ -490,5 +645,39 @@ export function PipelineNodeVirtualSceneEditor({
         </div>
       </div>
     </section>
+  );
+  return portalTargets.inspector === null
+    ? editor
+    : createPortal(editor, portalTargets.inspector);
+}
+
+function SceneFrameNavigation({
+  frames,
+  selectedId,
+  onSelect,
+}: {
+  frames: SceneFrame[];
+  selectedId: string | null;
+  onSelect: (frame: SceneFrame) => void;
+}) {
+  return (
+    <nav className={styles.navigation} aria-label="Scene frames">
+      <ol>
+        {frames.map((frame) => (
+          <li key={frame.frame_id}>
+            <button
+              type="button"
+              aria-current={selectedId === frame.frame_id ? "true" : undefined}
+              onClick={() => onSelect(frame)}
+            >
+              {frame.frame_id} ·{" "}
+              {frame.scene === null
+                ? "no scene"
+                : `${Array.isArray(frame.scene.poses) ? frame.scene.poses.length : 0} poses`}
+            </button>
+          </li>
+        ))}
+      </ol>
+    </nav>
   );
 }

@@ -255,7 +255,7 @@ The rail owns event jumps, the time cursor, and previous/next frame controls. Fr
 the requested frame index through the local frame service. Events has no video element, playback
 toggle, or media clock.
 
-### M4 — Connect Visible cards and Virtual scenes — Not started
+### M4 — Connect Visible cards and Virtual scenes — Blocked
 
 Connect the separate node-backed steps to the common still-frame surface. Move editing and review
 controls into the inspector and navigation into the rail. Preserve region, pile, ignore, pose,
@@ -263,6 +263,12 @@ stacking, and calibration operations. Offer other exact-source geometry as read-
 
 Acceptance: each step edits only its own content; source/calibration mismatch blocks edits. Pan,
 zoom, viewpoint, review, copy-on-change, and calibration diagnostics remain available.
+
+Result: exact still frames, visible-card source overlays, inspector controls, rail frame selection,
+review, and copy-on-change save paths are connected. M4 remains blocked. The virtual-scene node
+contract contains only calibration identity, not the homography or card dimensions needed to draw
+or edit table-plane poses and provide a rectified viewpoint. See the
+[M4 integration report](../../reports/0109-M4_Node_Steps_Surface_Integration.md).
 
 ### M5 — Integrate selected crops and Visual identities — Not started
 
@@ -321,24 +327,23 @@ video elements, central text, and central command controls. No hardware or model
 
 - Completed: M0 — freeze layout and capability fixtures; M1 — add the common exact-frame geometry
   surface foundation; M2 — add shared still-frame loading and source/frame identity state; M3 —
-  connect Events to the exact still-frame surface.
-- Changes: `GeometrySurface` draws supplied exact-frame polygons over a still image, suppresses
-  mismatched frame or calibration geometry, and supports accessible selection. `workingAreaFrame.ts`
-  loads exact or sampled images, validates response identity and timing, keeps at most 32 object URLs,
-  ignores stale requests, and allows mutations only for exact frames. The Events editor now uses that
-  loader and portals controls to the inspector. It reports requested and resolved time in the rail,
-  supports event selection and exact-frame stepping, and retains boundary edits, deletion, and review.
-  The Events rail has no media element or playback control.
+  connect Events to the exact still-frame surface. M4 is partially implemented and blocked.
+- Changes: Visible cards and Virtual scenes use the shared exact still-frame loader. Visible-card
+  polygons render over the source frame. Both editors place controls in the inspector and frame
+  navigation in the rail. Region, pile, ignore, pose, stacking, review, and copy-on-change paths
+  remain in the step editors. Pan and zoom are available. The rectified viewpoint and calibrated
+  pose outlines are not available because the current node contract has no homography or card
+  dimensions. Details are in the [M4 integration report](../../reports/0109-M4_Node_Steps_Surface_Integration.md).
 - Checks: `npm run check` passed (typecheck, lint, Prettier, generated API comparison, and 189
-  frontend tests); `npm run build` passed; focused node editor, workspace, and rail tests passed (39
-  tests); exact and sampled backend route tests passed (2 tests); `pipeline-lineage-workspace.spec.ts`
-  passed at 1440 × 900 and 390 × 844 with no center text, controls, inputs, or video. Local links
-  passed for this epic and the M0 report. M0 evidence remains in
-  [0109-M0_Working_Area_Inventory.md](../../reports/0109-M0_Working_Area_Inventory.md).
-- Decisions: newer node-backed code is authoritative. Exact loads use the accepted source SHA and
-  response identity. Sampled loads remain read-only. Event frame stepping requests the adjacent
-  frame index and updates the shared cursor to that frame's presentation timestamp.
-- Limits: event frame verification uses local browser fixtures; no live recording was inspected.
-  The other five steps remain on their current surfaces.
-- Next: M4 — connect Visible cards and Virtual scenes.
+  frontend tests). `npx playwright test tests/e2e/pipeline-lineage-workspace.spec.ts --reporter=line`
+  passed at 1440 × 900 and 390 × 844 for Events. It does not verify M4 browser behavior. API
+  generation passed; no API changes were made. Local Markdown link check remains to be run after
+  this update.
+- Decisions: newer node-backed revisions remain authoritative. Exact frame loads use accepted
+  source SHA and requested time. Mismatched source or calibration identity blocks editing. Do not
+  infer a calibration transform from its revision ID or digest.
+- Limits: M4 acceptance is incomplete. The workspace needs a read contract for an exact published
+  calibration transform and card dimensions before it can draw or edit calibrated poses or show a
+  rectified viewpoint. Add browser tests for both steps after that contract is available.
+- Next: complete the calibration-read contract and the remaining M4 acceptance items.
 - Run: requested 11 milestones, completed 4, remaining 7.

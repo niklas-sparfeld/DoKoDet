@@ -34,6 +34,8 @@ type Props = {
   calibration?: GeometryCalibrationIdentity | null;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
+  viewport?: { zoom: number; x: number; y: number };
+  viewpoint?: "source" | "rectified";
 };
 
 function sameFrame(
@@ -83,6 +85,8 @@ export function GeometrySurface({
   calibration = null,
   selectedId = null,
   onSelect,
+  viewport = { zoom: 1, x: 0, y: 0 },
+  viewpoint = "source",
 }: Props) {
   const visibleOverlays = overlays.filter((overlay) =>
     canDraw(overlay, frame, calibration),
@@ -90,7 +94,14 @@ export function GeometrySurface({
 
   return (
     <section className={styles.surface} aria-label="Spatial evidence surface">
-      <div className={styles.viewport}>
+      <div
+        className={styles.viewport}
+        data-viewpoint={viewpoint}
+        style={{
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+          transformOrigin: "center",
+        }}
+      >
         <img
           className={styles.frame}
           src={imageUrl}
