@@ -1,7 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 
+import { ApiError } from "../api/transport";
 import type { PipelineWorkspace } from "../api/pipelineContracts";
 import { useRecordingPipelineData } from "./useRecordingPipelineData";
+import { useRecordingPipelineSelection } from "./useRecordingPipelineSelection";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -67,6 +69,96 @@ describe("recording pipeline workspace data", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
+
+  it.each(["success", "failure"] as const)(
+    "ignores a deferred A conflict-reload %s after B renders before its load timer",
+    async (outcome) => {
+      vi.useFakeTimers();
+      graphFetch();
+      const conflictReload = deferred<PipelineWorkspace>();
+      const getRecordingPipeline = vi
+        .fn()
+        .mockResolvedValueOnce(workspace("A", "initial-A"))
+        .mockReturnValueOnce(conflictReload.promise)
+        .mockResolvedValueOnce(workspace("B", "new-B"));
+      const updatePipelineSelection = vi.fn(() =>
+        Promise.reject(new ApiError(409, {})),
+      );
+      const client = { getRecordingPipeline, updatePipelineSelection } as never;
+      const setNotice = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ recordingId }: { recordingId: string }) => {
+          const data = useRecordingPipelineData(
+            recordingId,
+            "events",
+            null,
+            client,
+          );
+          const selection = useRecordingPipelineSelection({
+            recordingId,
+            stageKey: "events",
+            compare: false,
+            backendStageKey: "events",
+            stage: data.workspace?.stages[0],
+            setWorkspace: data.setWorkspace,
+            loadWorkspace: data.loadWorkspace,
+            client,
+            setNotice,
+            urlState: {} as never,
+            setUrlState: vi.fn(),
+          });
+          return { data, selection };
+        },
+        { initialProps: { recordingId: "A" } },
+      );
+
+      await act(async () => {
+        vi.runOnlyPendingTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(result.current.data.workspace?.diagnostics[0].code).toBe(
+        "initial-A",
+      );
+
+      let conflictAttempt!: Promise<void>;
+      act(() => {
+        conflictAttempt =
+          result.current.selection.selectGeneratedRevision(null);
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(getRecordingPipeline).toHaveBeenCalledTimes(2);
+      setNotice.mockClear();
+
+      rerender({ recordingId: "B" });
+      if (outcome === "success") {
+        await act(async () =>
+          conflictReload.resolve(workspace("A", "stale-conflict-reload")),
+        );
+      } else {
+        await act(async () => conflictReload.reject(new Error("offline")));
+      }
+      await act(async () => conflictAttempt);
+
+      expect(result.current.data.workspace?.diagnostics[0].code).toBe(
+        "initial-A",
+      );
+      expect(result.current.data.error).toBeNull();
+      expect(setNotice).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.runOnlyPendingTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(getRecordingPipeline).toHaveBeenCalledTimes(3);
+      expect(result.current.data.workspace?.recording_id).toBe("B");
+      expect(result.current.data.workspace?.diagnostics[0].code).toBe("new-B");
+    },
+  );
 
   it("starts a fresh A load after a scheduled B switch is canceled", async () => {
     vi.useFakeTimers();

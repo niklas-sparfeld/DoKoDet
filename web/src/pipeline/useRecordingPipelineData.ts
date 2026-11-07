@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { ApiError } from "../api/transport";
 import type { DokoDetectorClient } from "../api/clientTypes";
@@ -42,10 +49,24 @@ export function useRecordingPipelineData(
   } | null>(null);
   const [lineageRefresh, setLineageRefresh] = useState(0);
   const workspaceRequestRef = useRef(0);
+  const workspaceOwner = useMemo(
+    () => ({ recordingId, stageKey: stageKey ?? "events" }),
+    [recordingId, stageKey],
+  );
+  const workspaceOwnerRef = useRef(workspaceOwner);
+  useLayoutEffect(() => {
+    workspaceOwnerRef.current = workspaceOwner;
+    workspaceRequestRef.current += 1;
+  }, [workspaceOwner]);
 
   const loadWorkspace = useCallback(
     async (signal?: AbortSignal) => {
+      if (workspaceOwnerRef.current !== workspaceOwner) return;
       const requestId = ++workspaceRequestRef.current;
+      const ownsRequest = () =>
+        !signal?.aborted &&
+        workspaceOwnerRef.current === workspaceOwner &&
+        requestId === workspaceRequestRef.current;
       try {
         const backendStageKey = stageKey === "virtual_scenes" ? null : stageKey;
         const response = await client.getRecordingPipeline(
@@ -53,8 +74,7 @@ export function useRecordingPipelineData(
           { signal },
           backendStageKey ?? "events",
         );
-        if (signal?.aborted || requestId !== workspaceRequestRef.current)
-          return;
+        if (!ownsRequest()) return;
         if (isPipelineWorkspace(response, recordingId)) {
           setWorkspace(response);
           setLoadedStageKey(stageKey ?? "events");
@@ -68,16 +88,16 @@ export function useRecordingPipelineData(
           }
         }
       } catch (reason: unknown) {
-        if (!signal?.aborted && requestId === workspaceRequestRef.current) {
+        if (ownsRequest()) {
           setError(describePipelineError(reason));
         }
       } finally {
-        if (!signal?.aborted && requestId === workspaceRequestRef.current) {
+        if (ownsRequest()) {
           setLoading(false);
         }
       }
     },
-    [client, recordingId, stageKey],
+    [client, recordingId, stageKey, workspaceOwner],
   );
 
   useEffect(() => {
