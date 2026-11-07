@@ -209,6 +209,66 @@
       "byte_length": 16005605,
       "path": "data/operations/pipeline-nodes/e0d2e2fb-53ab-59c5-8991-3aba74f828ae/revisions/f78c1e0a-2c0f-5312-98d6-b0b9b6650c0e/revision.json",
       "sha256": "2371a1e08f4b61b7f067e3022c337ebe3b830ffc29c3a34fd94d1a1ed294a8f3"
+    },
+    {
+      "path": "data/operations/pipeline-nodes/29ff4e43-4ade-568a-9e2f-36b95d075067/head.json",
+      "sha256": "3f2f9fffd91999f67dc13e45a2fc968f8733ca72eab5291548563791bb776c73",
+      "byte_length": 54
+    },
+    {
+      "path": "data/operations/pipeline-nodes/29ff4e43-4ade-568a-9e2f-36b95d075067/manifest.json",
+      "sha256": "eb04011b826ec44d742a49b0be8cea54449e4f40e9a333a3a0ff0df0b1679621",
+      "byte_length": 514
+    },
+    {
+      "path": "data/operations/pipeline-nodes/29ff4e43-4ade-568a-9e2f-36b95d075067/revisions/391c5a12-d875-5f8e-b5ee-dd6a75f89695/revision.json",
+      "sha256": "b153b82c0a7b10b0bee4791cb63727eceb06a01861b127e7ede7dd1486b36193",
+      "byte_length": 7830686
+    },
+    {
+      "path": "data/operations/pipeline-nodes/d45e8e6d-1f45-56e3-a238-3aee93073475/head.json",
+      "sha256": "4b09982dcb47f3458bec0ddaa8e4d215579a915d03091da495147880147040e0",
+      "byte_length": 54
+    },
+    {
+      "path": "data/operations/pipeline-nodes/d45e8e6d-1f45-56e3-a238-3aee93073475/manifest.json",
+      "sha256": "ccc51c953267ce678aa9c3d817680201a44af328f2a38dc4ca7b7a69a4e9e9e6",
+      "byte_length": 514
+    },
+    {
+      "path": "data/operations/pipeline-nodes/d45e8e6d-1f45-56e3-a238-3aee93073475/revisions/297304a5-e950-5001-a840-9a22021a88d7/revision.json",
+      "sha256": "12363002a8ce8e4c706f1d33fa699c3fdb9c2a9902032377f479d6851ffee0a5",
+      "byte_length": 3151282
+    },
+    {
+      "path": "data/operations/pipeline-nodes/b63729af-60c9-54dd-be3f-f6220db3d19c/head.json",
+      "sha256": "b327f8b5efb94365a962fdcd7870430a1bd92ca88bd2ef03b20988398b7bf17f",
+      "byte_length": 54
+    },
+    {
+      "path": "data/operations/pipeline-nodes/b63729af-60c9-54dd-be3f-f6220db3d19c/manifest.json",
+      "sha256": "b3093fa90e8e784f2970b6d339319a91c920fe9a54bce005b6541d144de1bf16",
+      "byte_length": 522
+    },
+    {
+      "path": "data/operations/pipeline-nodes/b63729af-60c9-54dd-be3f-f6220db3d19c/revisions/c7f4da13-b918-5009-8ff8-5aec7e099cfe/revision.json",
+      "sha256": "49c3cf76aca76091f6b2c17d48ab15c63ef29faad26683d0040cc4e4b00c6c93",
+      "byte_length": 8035224
+    },
+    {
+      "path": "data/operations/pipeline-nodes/aa909e7f-041d-573f-8d7b-df634d9f2123/head.json",
+      "sha256": "a19190773f79c9448a2edbf5ac9b5b01cefa9aee3e391155d53197940f77df5c",
+      "byte_length": 54
+    },
+    {
+      "path": "data/operations/pipeline-nodes/aa909e7f-041d-573f-8d7b-df634d9f2123/manifest.json",
+      "sha256": "ab64bcf7927aa7a28c9cdefe77426c253226b976b19ea627f1fa13a67e6aefd8",
+      "byte_length": 525
+    },
+    {
+      "path": "data/operations/pipeline-nodes/aa909e7f-041d-573f-8d7b-df634d9f2123/revisions/7c1657af-01dc-589f-aec0-32b3e733b9f8/revision.json",
+      "sha256": "3b67886520c93c1feaa65df8b8364acc4ea4ec1c019d106173ac9c81c5822ce3",
+      "byte_length": 2822385
     }
   ],
   "examples": [

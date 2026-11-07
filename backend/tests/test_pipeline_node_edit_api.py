@@ -179,3 +179,26 @@ def test_node_revision_and_review_api(tmp_path):
     reviews = client.get(f"/api/pipeline/nodes/events/revisions/{revision.revision_id}/reviews")
     assert reviews.status_code == 200
     assert {review["kind"] for review in reviews.json()} == {"item", "coverage", "overall"}
+
+
+def test_node_revision_and_review_reads_return_not_found_for_stale_revision(tmp_path):
+    store = PipelineNodeStore(tmp_path)
+    revision = store.create("events", "Event timing", "events", SOURCE, CONTENT, {})
+    app = FastAPI()
+    app.state.pipeline_node_edits = PipelineNodeEdits(store)
+    app.state.pipeline_node_reviews = PipelineNodeReviews(store)
+    app.include_router(router)
+    register_error_handlers(app)
+    client = TestClient(app)
+
+    revision_response = client.get(
+        f"/api/pipeline/nodes/events/revisions/{revision.revision_id}-stale"
+    )
+    reviews_response = client.get(
+        f"/api/pipeline/nodes/events/revisions/{revision.revision_id}-stale/reviews"
+    )
+
+    assert revision_response.status_code == 404
+    assert revision_response.json()["error"]["code"] == "pipeline_node_not_found"
+    assert reviews_response.status_code == 404
+    assert reviews_response.json()["error"]["code"] == "pipeline_node_review_unavailable"

@@ -327,38 +327,29 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-### Current state — M3 complete
+### Current state — M4 complete
 
-- M0, M1, and M2 are complete. Their reports are `docs/reports/0114-M0_Interactive_UI_Performance_Inventory.md`,
-  `docs/reports/0114-M1_Hard_Data_and_Fixture_Freeze.md`, and
-  `docs/reports/0114-M2_Endpoint_and_Startup_Timing_Harness.md`. M2's controlled timing and three
-  startup profiles passed its recorded protocol. Its comparator is advisory; no baseline gate is
-  active.
-- The previous M3 attempt's four untracked artifacts remain in the main worktree at
-  `/Users/niklas.sparfeld/Developer/doko_detector`. They were inspected read-only. The route-case
-  structure and deterministic job seed informed M3; pipeline revision, workspace, comparison, and
-  job-history cases remain for M4–M6. The artifacts were not changed, moved, or staged.
-- Decision: the preserved draft runner defines 38 UI JSON read scenarios across catalog, pipeline,
-  result, and job families, plus generated/hard data, query variants, error paths, history scaling,
-  and correctness checks. That scope is too large for one Luna phase. It is now M3–M6, each with an
-  isolated route-family result and commit boundary. Later milestones retain their full original
-  scope and are renumbered; no write, media, browser, baseline, or profiling work moved into M3–M6.
-- Replanning outcome: the broad preserved draft was split into four route-family packages. M3 now
-  contains only catalog and evidence JSON reads; its completed implementation and evidence follow.
-- M3 result: `backend/scripts/run_interactive_ui_catalog_read_performance.py` defines 11 named cases
-  for all 9 in-scope inventory routes. `--profile generated_empty` runs without local hard assets;
-  `--profile hard` validates and uses the frozen M1 snapshot. The report and raw sample export are
-  `docs/reports/0114-M3_Catalog_and_Evidence_Reads.md` and
-  `docs/reports/0114-M3_Catalog_Evidence_Read_Samples.json`. The generated-empty catalog, hard
-  catalog, recording details, repository bundle, and relevant missing-resource responses passed
-  their correctness oracles. The hard snapshot contains no analysis/evidence records, so those
-  routes have not-found cases only. No media routes were measured.
-- Checks: the focused pytest (2 tests), Ruff check, Ruff format check, and one-warmup/one-sample
-  preliminary run passed. The run has 36 valid samples. It is not a baseline. See the report for
-  the hard catalog's 11.066-second single sample and its limit. The generated-only run also passed
-  16/16 requests without the local hard cache. The full inventory checker has a new unlisted GET
-  calibration snapshot route in M4's scope; M4 must classify and cover it.
-- Next assignment: M4, pipeline workspace, lineage, revision, review, and calibration reads only.
-- Run authorization: 8 milestones requested, 1 completed, 7 remaining. The revised plan has
-  10 incomplete milestones (M4–M13); the fixed limit remains 8. A new authorization is required
-  after this invocation reaches eight.
+- M0–M3 are complete. Their reports and evidence remain listed above and in the M3 handoff history.
+- M4 adds `backend/scripts/run_interactive_ui_pipeline_read_performance.py` with 14 named speed
+  and correctness cases across six UI GET routes. Cases cover full and stage-filtered workspace
+  reads, exact lineage, maximum identity and polygon revisions, review reads, calibration-refinement
+  validation, published calibration snapshots, and missing or stale reads. Each case measures a
+  first cold app request and a warm request after one warmup. All cases use real storage, production
+  validation, full response serialization, and exact fixture identity checks.
+- M4 adds 12 hashed hard-fixture dependency assets. The fixture manifest now names 54 assets. The
+  new lineage parent records make both exact copied parent revisions available to the lineage read.
+  The new published-calibration GET route is classified in the M0 inventory.
+- The hard calibration-refinement draft predates current node lineage metadata. Its GET returns the
+  expected 422 `invalid_calibration_refinement` response. M4 measures this validation path and the
+  successful exact published-calibration snapshot route. A successful current-draft read remains a
+  fixture follow-up.
+- The preliminary sample export contains 42 samples and is not a baseline. The full workspace and
+  lineage reads are slow on the current fixture: about 20 seconds and 29 seconds per request.
+  Initial 30-second experiments timed out on lineage. The retained run uses a finite 180-second
+  timeout. No performance budget or baseline gate is active.
+- Checks: focused pytest, Ruff check and formatting, hard-fixture validation, inventory check, and
+  the 42-sample runner passed. Details and machine profile are in
+  `docs/reports/0114-M4_Pipeline_Workspace_and_Revision_Reads.md`.
+- Next milestone: M5, pipeline run and result reads.
+- Run authorization: 10 milestones requested, 1 completed, 9 remaining. M5–M13 are the nine
+  planned incomplete milestones. This fixed run limit does not authorize adding milestones.

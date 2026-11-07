@@ -119,7 +119,7 @@ def get_pipeline_node_revision(node_id: str, revision_id: str, request: Request)
             "metadata": revision.metadata,
             "created_at": revision.created_at,
         }
-    except (ValueError, OSError) as error:
+    except (KeyError, ValueError, OSError) as error:
         raise ContractError("pipeline_node_not_found", str(error), status_code=404) from error
 
 
@@ -181,7 +181,7 @@ def list_pipeline_node_reviews(
 ) -> list[dict[str, Any]]:
     try:
         return list(request.app.state.pipeline_node_reviews.list_for_revision(node_id, revision_id))
-    except (ValueError, OSError) as error:
+    except (KeyError, ValueError, OSError) as error:
         raise ContractError(
             "pipeline_node_review_unavailable", str(error), status_code=404
         ) from error

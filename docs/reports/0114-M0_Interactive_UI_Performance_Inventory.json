@@ -199,7 +199,7 @@
       "route": "/api/pipeline/nodes/{node_id}/revisions/{revision_id}",
       "classification": "ui",
       "caller": "web/src/pipeline/pipelineNodeClient.ts; web/src/cardEvents/PipelineNodeEventEditor.tsx",
-      "scenario": "Node revision/review reads and edit, copy, restore, review writes",
+      "scenario": "M4 named speed/correctness cases: maximum identity and polygon payloads with exact node/revision identity, plus stale revision.",
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
@@ -211,7 +211,7 @@
       "route": "/api/pipeline/nodes/{node_id}/revisions/{revision_id}/reviews",
       "classification": "ui",
       "caller": "web/src/pipeline/pipelineNodeClient.ts; web/src/cardEvents/PipelineNodeEventEditor.tsx",
-      "scenario": "Node revision/review reads and edit, copy, restore, review writes",
+      "scenario": "M4 named speed/correctness cases: reviews for exact revision and stale revision; read-only.",
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
@@ -235,7 +235,7 @@
       "route": "/api/recordings/{recording_id}/pipeline",
       "classification": "ui",
       "caller": "web/src/api/client.ts; web/src/pipeline and web/src/visibleCards",
-      "scenario": "Workspace, lineage, stage/result, selection, derived image, compare, calibration, and run actions",
+      "scenario": "M4 named speed/correctness cases: full and visual-identities stage-filtered workspace, plus missing recording.",
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
@@ -247,7 +247,7 @@
       "route": "/api/recordings/{recording_id}/pipeline/calibration-refinement",
       "classification": "ui",
       "caller": "web/src/api/client.ts; web/src/pipeline and web/src/visibleCards",
-      "scenario": "Workspace, lineage, stage/result, selection, derived image, compare, calibration, and run actions",
+      "scenario": "M4 speed/correctness cases: exact hard-draft read validation (422 for legacy missing lineage) and missing draft.",
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
@@ -391,7 +391,7 @@
       "route": "/api/recordings/{recording_id}/pipeline/lineage",
       "classification": "ui",
       "caller": "web/src/api/client.ts; web/src/pipeline and web/src/visibleCards",
-      "scenario": "Workspace, lineage, stage/result, selection, derived image, compare, calibration, and run actions",
+      "scenario": "M4 named speed/correctness cases: populated exact lineage graph and missing recording.",
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
@@ -913,6 +913,18 @@
       "measurement_tier": "real loopback media request + browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
       "budget_key": "blocked pending route registration reconciliation"
+    },
+    {
+      "method": "GET",
+      "route": "/api/recordings/{recording_id}/pipeline/calibrations/{calibration_revision_id}",
+      "classification": "ui",
+      "caller": "web/src/api/client.ts; web/src/pipeline and web/src/visibleCards",
+      "scenario": "M4 published calibration snapshot: exact revision, missing revision, storage validation, and response serialization.",
+      "fixture": "M1 hard-data/generated tier",
+      "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
+      "cache_mode": "cold first request and warm repeated requests in isolated app",
+      "budget_key": "pipeline_calibration_snapshot_json",
+      "registration": "openapi_registered"
     }
   ]
 }
