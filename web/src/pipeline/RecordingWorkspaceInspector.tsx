@@ -116,6 +116,7 @@ export function RecordingWorkspaceInspector({
   const usesEditorInspector =
     !compare &&
     (navigationStep === "virtual_scenes" ||
+      stage.key === "table_observations" ||
       (action.kind !== "blocked" &&
         (stage.key === "events" ||
           stage.key === "visible_cards" ||
@@ -182,6 +183,7 @@ export function RecordingWorkspaceInspector({
           <div
             data-visible-card-inspector-slot="action"
             data-identity-inspector-slot="action"
+            data-observation-inspector-slot
           >
             {navigationStep === "virtual_scenes" &&
             decodeLineageSelection(urlState.lineage ?? "")?.selected
@@ -356,6 +358,7 @@ export function RecordingWorkspaceInspector({
             data-event-inspector-slot="selection"
             data-visible-card-inspector-slot="selection"
             data-identity-inspector-slot="selection"
+            data-observation-inspector-slot
           />
         ) : null}
       </section>

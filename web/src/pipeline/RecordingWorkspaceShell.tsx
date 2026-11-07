@@ -643,8 +643,10 @@ export function RecordingWorkspaceTaskSurface({
         {stage.key === "table_observations" && !compare ? (
           <PipelineObservationWorkbench
             recordingId={recordingId}
+            sourceSha256={workspace.video.video_sha256}
             stage={stage}
             selectedItemId={presentation.surface.selectedItemId}
+            selectedTimeUs={presentation.inspector.selection?.timeUs ?? null}
             selectedNode={
               selectedObservationDataNode === undefined ||
               selectedObservationNode === undefined

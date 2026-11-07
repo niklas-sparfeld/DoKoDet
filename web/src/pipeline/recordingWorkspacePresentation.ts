@@ -389,9 +389,11 @@ function normalizeSelection(
     stage.key === "round_analyses"
       ? null
       : stage.key === "table_observations"
-        ? urlState.item !== null && railItemIds.includes(urlState.item)
+        ? revisionId !== null
           ? urlState.item
-          : null
+          : urlState.item !== null && railItemIds.includes(urlState.item)
+            ? urlState.item
+            : null
         : urlState.item === null || railItemIds.length === 0
           ? urlState.item
           : railItemIds.includes(urlState.item)

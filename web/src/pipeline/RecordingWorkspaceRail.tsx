@@ -194,6 +194,12 @@ export function RecordingWorkspaceTimelineRail({
       ) : (
         <p className={railStyles.hint}>Timeline unavailable.</p>
       )}
+      {navigationStep === "table_observations" && !compare ? (
+        <div
+          data-observation-rail-slot
+          aria-label="Observation interval selection"
+        />
+      ) : null}
     </section>
   );
 }

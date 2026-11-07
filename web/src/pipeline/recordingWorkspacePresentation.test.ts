@@ -229,6 +229,39 @@ describe("recording workspace presentation model", () => {
     ]);
   });
 
+  it("retains observation selection within an exact node revision", () => {
+    const presentation = buildRecordingWorkspacePresentation({
+      workspace: pipelineWorkspace({
+        stageOverrides: {
+          table_observations: { runs: [] },
+        },
+      }),
+      stageKey: "table_observations",
+      urlState: {
+        lineage: JSON.stringify({
+          schema_version: "pipeline-lineage-selection/v1",
+          selected: {
+            table_observations: {
+              node_id: "observation-node",
+              revision_id: "observation-revision",
+            },
+          },
+        }),
+        item: "observation-from-revision",
+        tUs: 12_000,
+      },
+    });
+
+    expect(presentation.inspector.selection).toMatchObject({
+      revisionId: "observation-revision",
+      itemId: "observation-from-revision",
+      timeUs: 12_000,
+    });
+    expect(presentation.surface.selectedItemId).toBe(
+      "observation-from-revision",
+    );
+  });
+
   it("uses analysis progress and analysis items for the final stage", () => {
     const presentation = buildRecordingWorkspacePresentation({
       workspace: roundAnalysisPresentationFixture(),

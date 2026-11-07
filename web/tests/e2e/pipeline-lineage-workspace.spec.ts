@@ -101,7 +101,7 @@ function graph(copyCreated: boolean) {
       node_id: OBSERVATION_NODE,
       name: "Assembly",
       content_type: "table_observations",
-      source: { recording_id: RECORDING_ID },
+      source: { recording_id: RECORDING_ID, video_sha256: "a".repeat(64) },
       head_revision_id: "observations-r1",
     },
     {
@@ -135,6 +135,23 @@ function graph(copyCreated: boolean) {
     revision(SCENE_NODE, "scene-r1", "2026-11-03T12:00:00Z"),
   ];
   const edges = [
+    {
+      kind: "produced",
+      from: ["run", "observations-run"],
+      to: ["revision", OBSERVATION_NODE, "observations-r1"],
+    },
+    {
+      kind: "used",
+      role: "events",
+      from: ["revision", EVENT_NODE, "events-r2"],
+      to: ["run", "observations-run"],
+    },
+    {
+      kind: "used",
+      role: "visible_cards",
+      from: ["revision", VISIBLE_NODE, "visible-r1"],
+      to: ["run", "observations-run"],
+    },
     {
       kind: "revised",
       from: ["revision", EVENT_NODE, "events-r1"],
@@ -201,10 +218,16 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
   let copied = false;
   let calibrationMismatch = false;
   let sourceMismatch = false;
+  let observationMutations = 0;
   let copiedSceneContent: Record<string, unknown> | null = null;
   await page.route("**/api/**", async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
+    if (
+      path.includes(`/pipeline/nodes/${OBSERVATION_NODE}/`) &&
+      route.request().method() !== "GET"
+    )
+      observationMutations += 1;
     const json = (value: unknown, status = 200) =>
       route.fulfill({
         status,
@@ -321,6 +344,29 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
             schema_version: "visible-card-data/v2",
             outcomes: [
               {
+                event_id: "event-1",
+                frame_identity: exactFrameIdentity(),
+                status: "detected",
+                candidates: [
+                  {
+                    card_id: "visible-region-1",
+                    geometry: {
+                      polygons: [
+                        [
+                          { x: 100, y: 100 },
+                          { x: 300, y: 100 },
+                          { x: 300, y: 400 },
+                        ],
+                      ],
+                    },
+                  },
+                ],
+                pile_regions: [],
+                ignored_regions: [],
+                pile_detection_status: "supported",
+                error: null,
+              },
+              {
                 event_id: "visible-frame-1",
                 frame_identity: exactFrameIdentity(),
                 status: "detected",
@@ -343,6 +389,38 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
                 ignored_regions: [],
                 pile_detection_status: "supported",
                 error: null,
+              },
+            ],
+          },
+        });
+        return;
+      }
+      if (nodeId === OBSERVATION_NODE) {
+        await json({
+          node_id: nodeId,
+          name: "Assembly",
+          content_type: "table_observations",
+          source: { video_sha256: "a".repeat(64) },
+          head_revision_id: "observations-r1",
+          revision_id: revisionId,
+          metadata: {},
+          content: {
+            schema_version: "table-observation-data/v1",
+            observations: [
+              {
+                observation_id: "observation-1",
+                observed_at_ms: 250,
+                status: "observed",
+                capabilities: ["identity_candidates"],
+                cards: [
+                  {
+                    observed_card_id: "visible-region-1",
+                    side: "face_up",
+                    identity_status: "unknown",
+                    identity_candidates: [],
+                  },
+                ],
+                diagnostics: { assembly: { event_id: "event-1" } },
               },
             ],
           },
@@ -880,4 +958,56 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
   await page.getByRole("button", { name: "Save scene" }).click();
   await expect(page).toHaveURL(/virtual-scene-copy/);
   await expect(page.getByLabel("Table center X")).toHaveValue("330");
+
+  const observationSelection = JSON.stringify({
+    schema_version: "pipeline-lineage-selection/v1",
+    selected: {
+      events: { node_id: EVENT_NODE, revision_id: "events-r2" },
+      visible_cards: { node_id: VISIBLE_NODE, revision_id: "visible-r1" },
+      table_observations: {
+        node_id: OBSERVATION_NODE,
+        revision_id: "observations-r1",
+      },
+    },
+  });
+  await page.goto(
+    `/recordings/${RECORDING_ID}/pipeline/table_observations?lineage=${encodeURIComponent(observationSelection)}&item=observation-1&t_us=250000`,
+  );
+  await page
+    .getByRole("button", { name: /observation-1.*observed.*1 cards/ })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Selected table observation" }),
+  ).toContainText("observation-1");
+  await expect(
+    page.getByRole("button", { name: /observation-1.*observed.*1 cards/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("region", { name: "Spatial evidence surface" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Spatial evidence surface" })
+      .locator("polygon"),
+  ).toHaveCount(1);
+  await expect(page.getByLabel("Source frame")).toBeVisible();
+  const observationCenter = await page
+    .locator('[data-slot="center"]')
+    .evaluate((element) => ({
+      video: element.querySelector("video") !== null,
+      text: element.textContent?.trim() ?? "",
+      controls: element.querySelectorAll("button, input, textarea, select")
+        .length,
+      polygons: element.querySelectorAll("svg polygon").length,
+    }));
+  expect(observationCenter).toEqual({
+    video: false,
+    text: "",
+    controls: 0,
+    polygons: 1,
+  });
+  await expect(page.getByLabel("Selected table observation")).toContainText(
+    "Exact spatial source links",
+  );
+  expect(observationMutations).toBe(0);
 });

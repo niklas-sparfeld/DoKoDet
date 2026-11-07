@@ -8,12 +8,14 @@
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0–M5 are complete. M1 adds a tested, selectable polygon surface for exact-frame
+- **Outcome:** M0–M6 are complete. M1 adds a tested, selectable polygon surface for exact-frame
   geometry. M2 adds shared still-frame loading and identity checks. Neither milestone restores or
   claims the historical editing interactions. M3 connects Events to the still-frame surface. M4
   connects Visible cards and Virtual scenes. M5 connects Visual identities and the frozen crop
-  preview. M6–M10 are not started. See the
-  [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md) and the execution
+  preview. M6 connects Table observations to the exact still-frame surface, observation interval
+  selection, and read-only source-linked geometry. M7–M10 are not started. See the
+  [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md), the
+  [M6 integration report](../../reports/0109-M6_Table_Observation_Integration.md), and the execution
   handoff below.
 
 ## Problem and inspection
@@ -289,13 +291,20 @@ response loads. Missing, unusable, failed, face-down, and stale crop states have
 messages. Numeric shortcuts select candidates while focus is in the inspector choice section.
 See the [M5 integration report](../../reports/0109-M5_Identity_Crop_Integration.md).
 
-### M6 — Connect Table observations — Not started
+### M6 — Connect Table observations — Complete
 
 Replace video and summary with the common surface. Add interval selection, observed-card inspector,
 capability/status details, exact spatial source links, and explicit no-geometry behavior.
 
 Acceptance: zero-card, missing, failed, multiple-source, and interval-only fixtures stay distinct.
 Only matching evidence produces overlays. Selection does not mutate inputs or source evidence.
+
+Result: Table observations use the shared still-frame surface, rail interval selection, and an
+inspector for observation status, cards, capabilities, and exact source links. The inspector keeps
+zero-card, failed, missing, multiple-source, and interval-only states distinct. The surface draws
+only geometry from an exact linked visible-card revision with a matching source frame. Selecting
+an interval without an exact source frame preserves the workspace cursor. See the
+[M6 integration report](../../reports/0109-M6_Table_Observation_Integration.md).
 
 ### M7 — Integrate analysis evidence and hypotheses — Not started
 
@@ -336,30 +345,28 @@ video elements, central text, and central command controls. No hardware or model
 
 ## Execution handoff
 
-- Completed: M0 — freeze layout and capability fixtures; M1 — add the common exact-frame geometry
-  surface foundation; M2 — add shared still-frame loading and source/frame identity state; M3 —
-  connect Events to the exact still-frame surface; M4 — connect Visible cards and Virtual scenes;
-  M5 — connect Visual identities and frozen input crops.
-- Changes: Visible-card polygons render over exact source frames. Both editors place controls in the
-  inspector and frame navigation in the rail. Virtual scenes reads the requested published
-  calibration revision and checks its digest and frame dimensions before drawing or editing poses.
-  The rectified view uses that homography to warp source pixels. Pose, stacking, review, and
-  copy-on-change controls remain in the inspector. Details are in the
-  [M4 integration report](../../reports/0109-M4_Node_Steps_Surface_Integration.md).
-- Checks: `cd web && npm run check` passed (typecheck, lint, Prettier, generated API comparison,
-  and 191 frontend tests). `cd web && npm run build` passed. The browser regression passed at
-  desktop and narrow sizes. M4 coverage includes exact frame selection, visible and scene surfaces,
-  calibration mismatch blocking, rectified view, review, and copy-on-change. M5 coverage checks the
-  frozen crop, exact provenance and policy, geometry surface, keyboard classification, and removal
-  of the separate identity proposal column. The focused published-calibration API test, Ruff lint,
-  Ruff format, and local Markdown link check passed during M4. Evidence is in the M4 and M5 reports.
-- Decisions: node-backed revisions remain authoritative. The calibration endpoint reads one exact
-  published revision from the existing immutable calibration store. It does not select or modify
-  calibration. The identity editor requests the crop from the exact output revision and item; the
-  backend verifies its frozen input manifest before serving it. The editor checks source SHA,
-  requested time, frame index, presentation time, dimensions, image digest, calibration revision
-  ID, and calibration digest.
-- Limits: pose edits use center dragging plus inspector fields and stacking controls. Rotation
-  has no center handle; use its typed inspector field.
-- Next: M6 — Connect Table observations.
-- Run: requested 11 milestones, completed 6, remaining 5.
+- Completed: M0 — freeze the layout and capability fixtures; M1 — add the shared geometry surface;
+  M2 — add still-frame loading and identity state; M3 — connect Events; M4 — connect Visible cards
+  and Virtual scenes; M5 — connect Visual identities; M6 — connect Table observations.
+- Changes: M6 replaces the observation video and central summary with the shared still-frame surface.
+  The rail selects observation intervals. The inspector shows cards, candidates, capabilities,
+  status, and exact source links. It loads visible-card revisions on exact lineage edges and draws
+  geometry only when event, card, source digest, requested and resolved times, frame index,
+  dimensions, and image digest match. Selection changes view state only. The URL retains an item
+  within its exact node revision so the inspector can report a missing item without substituting
+  data from another revision.
+- Checks: `cd web && npm run check` passed: typecheck, ESLint, Prettier, generated API comparison,
+  and 195 frontend tests. `cd web && npm run build` passed with the existing bundle-size warning.
+  `cd web && npx playwright test tests/e2e/pipeline-lineage-workspace.spec.ts --reporter=line`
+  passed. The browser regression checked the shared workspace layout at desktop and narrow widths.
+  At desktop size it also checked the observation inspector, interval selection, exact linked
+  geometry, and a center with no video, text, or controls.
+  Local links in the changed plan, board, and report passed.
+- Decisions: Node-backed revisions remain authoritative. Exact lineage inputs define spatial
+  sources. Multiple visible-card sources are selectable. Observed zero-card, failed, missing,
+  insufficient-evidence, and interval-only results remain distinct. Interval-only selection keeps
+  the workspace cursor. No geometry is fabricated when correspondence is absent or mismatched.
+- Limits: No observation source can be edited. This milestone changes browser view selection only;
+  it adds no persisted write or backend contract, so no disposable persistence workflow applies.
+- Next: M7 — integrate analysis evidence and hypotheses.
+- Run: requested 5 milestones, completed 1, remaining 4.

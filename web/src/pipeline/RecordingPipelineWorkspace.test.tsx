@@ -1190,17 +1190,27 @@ describe("recording pipeline workspace", () => {
     );
 
     expect(
-      await screen.findByLabelText(
-        `Table-observation source video ${RECORDING_ID}`,
-      ),
+      await screen.findByLabelText("Table observation source frame"),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(`Table-observation source video ${RECORDING_ID}`),
+    ).not.toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("button", { name: /^observation-1,.*0:12/i }),
     );
     expect(window.location.search).toContain("item=observation-1");
     expect(window.location.search).toContain("t_us=12000000");
-    expect(screen.getByText("Observation observation-1")).toBeInTheDocument();
-    expect(screen.getByText("1 visible card")).toBeInTheDocument();
+    const observationInspector = screen.getByLabelText(
+      "Selected table observation",
+    );
+    expect(
+      within(observationInspector).getByText("observed"),
+    ).toBeInTheDocument();
+    expect(
+      within(observationInspector).getByText(
+        "No exact visible-card source revision is linked. Geometry is unavailable.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("uses the shared source surface, inspector, and rail for comparisons", async () => {
