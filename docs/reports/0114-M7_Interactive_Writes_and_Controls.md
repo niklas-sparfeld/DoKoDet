@@ -20,13 +20,13 @@ inventory boundary case and does not define an API contract.
 
 ## Residual UI route coverage
 
-The M0 inventory has write routes that M7 does not claim. M8 must add named real-backend API
-timing and durable-effect scenarios for event, visible-card, proposed-card-scene, visual-identity,
-and observation stage submissions; both round-analysis intake routes; and calibration apply. M8
-also owns frame/crop/thumbnail/video-range timing, media identity, cache invalidation, bounded
-polling/background work, and browser workflows. The combined M7 and M8 checks must cover every
-inventoried UI write and media route. A route is covered only when a named executable scenario
-measures it and checks correctness.
+The M0 inventory has write routes that M7 does not claim. M8 adds named real-backend API timing
+and durable-effect scenarios for event, visible-card, proposed-card-scene, visual-identity, and
+observation stage submissions; both round-analysis intake routes; and calibration apply. M9 owns
+frame/crop/thumbnail/video-range timing, media identity, cache invalidation, bounded
+polling/background work, and browser workflows. The combined M7 and M8 checks cover every
+inventoried UI write route. A route is covered only when a named executable scenario measures it
+and checks correctness. See the [M8 result](0114-M8_Residual_Writes.md).
 
 ## Implementation note
 

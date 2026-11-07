@@ -170,7 +170,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M5:** Complete — cover pipeline run, selection, result, and comparison reads.
 - **M6:** Complete — cover job history, polling, detail/status, logs, and calibration-preview reads.
 - **M7:** Complete — add durable timing and correctness cases for interactive writes and controls.
-- **M8:** Not started — measure remaining stage and analysis writes, media/cache/load, and browser workflows.
+- **M8:** Complete — measure eight residual real-backend write routes and durable effects.
 - **M9:** Not started — establish the baseline and regression gates.
 - **M10:** Not started — profile and rank improvement candidates.
 - **M11:** Not started — implement and verify candidate cycle one.
@@ -266,31 +266,34 @@ Deferring startup cost to the first UI request is not an improvement unless both
   constructor. Measure its observable not-found response as an inventory boundary; do not create a
   backend contract for it.
 - Acceptance: every M7 case has an executable named timing and durable correctness check. The
-  combined M7 and M8 gates cover all inventoried UI write and media routes. Focused tests, lint,
+  combined M7 and M8 gates cover all inventoried UI write routes. Focused tests, lint,
   format, and applicable type checks pass; verify generated API output if contracts change. Retain
   preliminary samples only.
 
-## M8 — Add real browser workflow measurements
+## M8 — Cover residual write APIs
 
-- Add a dedicated Playwright configuration with isolated backend and web processes. Cover
-  recordings-to-workspace, displayed revision switching, frame/crop navigation, review save,
-  Jobs drawer/history, and job submission-to-visible-status. Include browser video-range traffic.
 - Add named real-backend API timing and durable readback cases for M7's remaining UI writes:
   event, visible-card, proposed-card-scene, visual-identity, and observation stage submissions;
   both round-analysis intake routes; and calibration apply. Build each request from exact upstream
   revisions in resettable storage and verify its persisted run, analysis, calibration, and lineage.
-- Add frame/crop/thumbnail and bounded video-range timing cases; verify media identity, cache
-  invalidation after edits/revision changes/restart, and cold/warm derived-view behavior. Add
-  bounded polling and simulated background work while reads, writes, and media loads run. Keep
-  backend control and browser cache modes distinct.
-- Define useful completion with visible data identity and usable controls; do not time only a
-  loading indicator or successful navigation. Collect actual UI requests and reconcile inventory.
-- Acceptance: hard fixtures work without mocked API routes. Every inventoried UI write and media
-  route has a named speed and correctness case across M7 and M8. The report separates backend wait,
-  frontend work, duplicate requests, cache behavior, and process startup. Relevant web checks pass.
+- Acceptance: hard fixtures work through real HTTP handlers. Every residual stage submission,
+  round-analysis intake route, and calibration apply has a named speed and durable readback case.
+  Focused checks pass. Retain preliminary samples only; do not call them a baseline.
 
 ## M9 — Freeze the baseline and enable regression gates
 
+- Add the dedicated real-process Playwright configuration and workflows for recordings-to-workspace,
+  displayed revision switching, frame/crop navigation, review save, Jobs drawer/history, and job
+  submission-to-visible-status. Include real video-range traffic. Validate visible data identity,
+  usable controls, actual request counts, waterfalls, startup, and browser/server cache behavior.
+- Add named real-backend timing and correctness cases for all inventoried media routes: frame, crop,
+  thumbnail, video snippet, bounded video range, and related media identity reads. Verify cold/warm
+  derived-view behavior and cache invalidation after edits, revision changes, and restart. Keep
+  backend cache modes distinct from browser cache modes.
+- Add bounded polling and simulated background work while reads, writes, and media loads run. Keep
+  uncontended and controlled-load measurements separate. M9 cannot freeze the baseline until every
+  named media route, cold/warm and invalidation check, browser workflow, and controlled-load case
+  passes.
 - Run the complete corpus and all startup profiles in three independent sessions on the declared
   local machine profile. Keep uncontended and controlled-load results separate.
 - Publish raw samples, a readable baseline table, measured noise, absolute ceilings, relative
@@ -344,7 +347,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 ## Execution handoff
 
-### Current state — M7 complete; M8 residual scope revised
+### Current state — M8 complete; M9 scope revised
 
 - M0–M5 are complete. Their reports and evidence remain linked in the board and prior milestone
   reports.
@@ -369,10 +372,12 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - Known limit: one request per named read and per size is only a preliminary sample. M9 will
   establish repeated measurements and budgets. The successful preview uses a small deterministic
   fixture and does not represent a hard calibration payload.
-- Decision: M7 covers only measured durable write/control families and the unregistered video URL
-  not-found boundary. M8 owns named real-backend scenarios for remaining stage submissions,
-  round-analysis intake, calibration apply, media, cache, contention, and browser workflows. A route
-  is not covered until an executable scenario measures it and verifies its durable effect.
+- Decision: M7 covers measured durable write/control families and the unregistered video URL
+  not-found boundary. M8 completes named real-backend scenarios for the five residual stage
+  submissions, both round-analysis intake routes, and calibration apply. M9 owns media API timing
+  and cache invalidation, real-process Playwright workflows, and controlled-load qualification.
+  M9 must complete every named media route, cold/warm and save/revision/restart invalidation check,
+  browser workflow, and controlled-load case before it can freeze the baseline.
 - M7 retains 36 passing response samples and 14 matching durable-effect comparisons for pipeline
   node edit/copy/restore/reviews, four selection families, pipeline-run submission, job controls,
   frame-review save, and calibration draft start/update/discard. The unregistered video URL returns
@@ -381,8 +386,16 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - M7 checks: focused pytest, Ruff check and format, the 36-sample runner, inventory coverage check,
   API generation, and API verification passed. The restore request model now declares optional
   `base_pointers`, which its production handler already reads.
-- Next milestone: M8. Add named real-backend scenarios for remaining stage submissions, both
-  round-analysis intake routes, calibration apply, and all deferred media/cache/contention cases.
-  Then complete the browser workflows and verify every inventoried UI write and media route.
-- Run authorization: 9 milestones requested, 3 completed, 6 remaining. M8–M13 are the six
-  planned incomplete milestones. This fixed run limit does not authorize adding milestones.
+- M8 checks: the combined residual-write pytest passed (2 tests, 8 named responses), Ruff and
+  format checks passed, and inventory coverage reports no missing write scenario. Calibration
+  apply persisted its exact published calibration revision, reflow proposal, and visible-card node
+  revision. The real endpoint test also exposed and fixed calibration snapshot revision lookup and
+  published-run schema errors.
+- See `docs/reports/0114-M8_Residual_Writes.md` and
+  `docs/reports/0114-M8_Residual_Write_Samples.json`. M8 samples are preliminary, one response per
+  case, and are not a baseline.
+- Next milestone: M9. Complete all inventoried media route timing and identity cases, cold/warm and
+  save/revision/restart cache invalidation, real-process browser workflows, and controlled load.
+  These are explicit prerequisites for baseline freeze.
+- Run authorization: 9 milestones requested, 4 completed, 5 remaining (M9–M13). This fixed run
+  limit does not authorize adding milestones.

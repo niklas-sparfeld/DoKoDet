@@ -1,0 +1,79 @@
+{
+  "scope": "Epic 0114 M8 residual write API responses",
+  "measurement": "one in-process TestClient response per named case",
+  "qualification": "preliminary samples; not a baseline",
+  "samples": [
+    {
+      "case": "event_stage_submission",
+      "method": "POST",
+      "path": "/api/jobs",
+      "duration_ns": 111236834,
+      "status_code": 202,
+      "response_bytes": 1800,
+      "ok": true
+    },
+    {
+      "case": "visible_card_stage_submission",
+      "method": "POST",
+      "path": "/api/recordings/recording-both/pipeline/visible-cards",
+      "duration_ns": 74482042,
+      "status_code": 202,
+      "response_bytes": 1679,
+      "ok": true
+    },
+    {
+      "case": "proposed_card_scene_stage_submission",
+      "method": "POST",
+      "path": "/api/recordings/recording-both/pipeline/proposed-card-scenes",
+      "duration_ns": 16305417,
+      "status_code": 202,
+      "response_bytes": 1437,
+      "ok": true
+    },
+    {
+      "case": "visual_identity_stage_submission",
+      "method": "POST",
+      "path": "/api/recordings/recording-both/pipeline/visual-identities",
+      "duration_ns": 272582083,
+      "status_code": 202,
+      "response_bytes": 3308,
+      "ok": true
+    },
+    {
+      "case": "observation_stage_submission",
+      "method": "POST",
+      "path": "/api/recordings/recording-both/pipeline/observations",
+      "duration_ns": 32913916,
+      "status_code": 202,
+      "response_bytes": 1884,
+      "ok": true
+    },
+    {
+      "case": "round_analysis_explicit_intake",
+      "method": "POST",
+      "path": "/v1/round-analyses",
+      "duration_ns": 68026542,
+      "status_code": 202,
+      "response_bytes": 2120,
+      "ok": true
+    },
+    {
+      "case": "round_analysis_recording_intake",
+      "method": "POST",
+      "path": "/v1/recordings/recording-both/round-analyses",
+      "duration_ns": 101948125,
+      "status_code": 202,
+      "response_bytes": 2124,
+      "ok": true
+    },
+    {
+      "case": "calibration_apply",
+      "method": "POST",
+      "path": "/api/recordings/cardeventnet-IMG_0655/pipeline/calibration-refinement/apply?proposal_revision_id=card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1",
+      "duration_ns": 24692157958,
+      "status_code": 200,
+      "response_bytes": 2288,
+      "ok": true
+    }
+  ]
+}

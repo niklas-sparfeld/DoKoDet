@@ -140,17 +140,21 @@ def test_snapshot_reads_proposal_calibration_mapping(tmp_path: Path) -> None:
 
     draft = SimpleNamespace(to_mapping=lambda: {"draft_id": "draft-1"})
     calibration = {"calibration_digest": "a" * 64}
+    proposal_node = object()
+    proposal_revision = SimpleNamespace(content_sha256="b" * 64)
+    data = SimpleNamespace(calibration=calibration)
+    frame_scenes = Mock(return_value=())
     service = SimpleNamespace(
         store=SimpleNamespace(load=Mock(return_value=draft)),
         _proposal=Mock(
             return_value=(
-                SimpleNamespace(manifest=SimpleNamespace(content_sha256="b" * 64)),
+                (proposal_node, proposal_revision),
                 object(),
-                SimpleNamespace(calibration=calibration),
+                data,
             )
         ),
         _require_current_source=Mock(),
-        _frame_scenes=Mock(return_value=()),
+        _frame_scenes=frame_scenes,
     )
     participant = CalculationJobs(tmp_path, service, None)
     snapshot = participant._snapshot(
@@ -158,3 +162,4 @@ def test_snapshot_reads_proposal_calibration_mapping(tmp_path: Path) -> None:
     )
     assert snapshot["calibration"] == calibration
     assert snapshot["proposal_digest"] == "b" * 64
+    frame_scenes.assert_called_once_with("recording-1", "proposal-1", data)

@@ -786,6 +786,7 @@ def build_published_calibration_run(
         "candidate_receipts": [],
         "diagnostics": json.loads(canonical_json_bytes(diagnostics).decode("utf-8")),
         "calibration": calibration.to_mapping(),
+        "calibration_fit_candidate": None,
         "failure": None,
     }
     return CalibrationRun(
@@ -795,6 +796,7 @@ def build_published_calibration_run(
         candidate_receipts=(),
         diagnostics=core["diagnostics"],
         calibration=calibration,
+        calibration_fit_candidate=None,
         failure=None,
         run_digest=_digest(core),
     )

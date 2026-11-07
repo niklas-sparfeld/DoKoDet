@@ -42,12 +42,14 @@ class CalculationJobs:
     def _snapshot(self, recording_id: str, body: dict[str, Any]) -> dict[str, Any]:
         proposal_id = body["proposal_revision_id"]
         draft = self.calibration.store.load(recording_id, body["draft_id"])
-        proposal, source, data = self.calibration._proposal(recording_id, proposal_id)
+        (_proposal_node, proposal_revision), source, data = self.calibration._proposal(
+            recording_id, proposal_id
+        )
         self.calibration._require_current_source(draft, source)
-        scenes = self.calibration._frame_scenes(recording_id, data)
+        scenes = self.calibration._frame_scenes(recording_id, proposal_id, data)
         return {
             "proposal_revision_id": proposal_id,
-            "proposal_digest": proposal.manifest.content_sha256,
+            "proposal_digest": proposal_revision.content_sha256,
             "draft": draft.to_mapping(),
             "calibration": data.calibration,
             "frame_scenes": list(scenes),
